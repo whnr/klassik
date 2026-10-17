@@ -11,6 +11,7 @@ final class AppModel {
     private(set) var isChecking = false
 
     let library: Library
+    let player = Player()
     private let store: CredentialStore
 
     var client: SubsonicClient? { credentials.map { SubsonicClient(credentials: $0) } }
@@ -62,6 +63,7 @@ final class AppModel {
     }
 
     func signOut() {
+        player.stop()
         store.clear()
         library.clear()
         credentials = nil

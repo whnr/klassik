@@ -5,7 +5,10 @@ import Observation
 @MainActor @Observable
 final class Library {
     private(set) var songs: [Song] = []
-    private(set) var classical: [Song] = []
+    private(set) var classical: [Song] = [] {
+        didSet { index = WorkIndex(songs: classical) }
+    }
+    private(set) var index = WorkIndex()
     private(set) var syncedAt: Date?
     private(set) var isSyncing = false
     /// Tracks received so far in the running sync.

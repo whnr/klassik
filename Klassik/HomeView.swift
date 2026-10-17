@@ -5,8 +5,42 @@ struct HomeView: View {
 
     var body: some View {
         let library = model.library
+        let player = model.player
         NavigationStack {
             List {
+                if let work = player.work, let recording = player.recording {
+                    Section("Now Playing") {
+                        NavigationLink {
+                            RecordingView(work: work, recording: recording)
+                        } label: {
+                            Label {
+                                VStack(alignment: .leading) {
+                                    Text(work.title)
+                                    Text(player.current.map { recording.songs[$0].movementTitle } ?? recording.performers)
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                }
+                            } icon: {
+                                Image(systemName: player.isPaused ? "pause.fill" : "speaker.wave.2.fill")
+                            }
+                        }
+                        .accessibilityIdentifier("now-playing")
+                    }
+                }
+
+                if !library.index.composers.isEmpty {
+                    Section("Composers") {
+                        ForEach(library.index.composers) { composer in
+                            NavigationLink {
+                                ComposerView(composer: composer)
+                            } label: {
+                                LabeledContent(composer.name, value: composer.works.count.formatted())
+                            }
+                            .accessibilityIdentifier("composer")
+                        }
+                    }
+                }
+
                 Section {
                     if library.syncedAt == nil {
                         if library.isSyncing {

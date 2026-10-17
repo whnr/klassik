@@ -20,7 +20,7 @@ struct RootView: View {
             ConnectView()
         } else {
             HomeView()
-                .task { await model.check() }
+                .task { await model.start() }
         }
     }
 }

@@ -26,8 +26,19 @@ struct DiagnosticsView: View {
             }
 
             Section("Library") {
-                LabeledContent("Tracks", value: "Not synced")
-                LabeledContent("Albums", value: "Not synced")
+                let library = model.library
+                if let syncedAt = library.syncedAt {
+                    LabeledContent("Tracks", value: library.songs.count.formatted())
+                    LabeledContent("Albums", value: library.albumCount.formatted())
+                    LabeledContent("Classical tracks", value: library.classical.count.formatted())
+                    LabeledContent("Classical albums", value: library.classicalAlbumCount.formatted())
+                    LabeledContent("Last sync", value: syncedAt.formatted(date: .abbreviated, time: .standard))
+                } else {
+                    LabeledContent("Tracks", value: library.isSyncing ? "Syncing…" : "Not synced")
+                }
+                if let error = library.syncError {
+                    LabeledContent("Sync error", value: error)
+                }
             }
 
             Section("Last Error") {

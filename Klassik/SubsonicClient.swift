@@ -55,13 +55,50 @@ struct Album: Decodable, Sendable, Identifiable, Hashable {
     }
 }
 
-struct Song: Decodable, Sendable, Identifiable, Hashable {
+/// A track with the OpenSubsonic fields Klassik reads. The library cache stores it as it is.
+struct Song: Codable, Sendable, Identifiable, Hashable {
+    struct Genre: Codable, Sendable, Hashable {
+        var name: String
+    }
+
+    struct Artist: Codable, Sendable, Hashable {
+        var id: String
+        var name: String
+    }
+
+    struct Contributor: Codable, Sendable, Hashable {
+        var role: String
+        var subRole: String?
+        var artist: Artist
+    }
+
+    struct Work: Codable, Sendable, Hashable {
+        var name: String
+        var musicBrainzId: String?
+    }
+
+    struct Movement: Codable, Sendable, Hashable {
+        var name: String
+        var number: Int?
+        var count: Int?
+    }
+
     var id: String
     var title: String
+    var album: String?
+    var albumId: String?
+    var artist: String?
     var track: Int?
     var discNumber: Int?
+    var year: Int?
     var duration: Int?
     var suffix: String?
+    var genre: String?
+    var genres: [Genre]?
+    var displayComposer: String?
+    var contributors: [Contributor]?
+    var works: [Work]?
+    var movements: [Movement]?
 }
 
 /// The `subsonic-response` object. Fields of all endpoints in use are optional members.
@@ -88,6 +125,7 @@ struct SubsonicResponse: Decodable, Sendable {
 
     struct SearchResult: Decodable, Sendable {
         var album: [Album]?
+        var song: [Song]?
     }
 }
 
@@ -117,6 +155,17 @@ struct SubsonicClient: Sendable {
             URLQueryItem(name: "albumCount", value: "50"),
             URLQueryItem(name: "songCount", value: "0"),
         ]).searchResult3?.album ?? []
+    }
+
+    /// One page of all tracks. OpenSubsonic servers return the whole library for an empty query.
+    func songs(offset: Int, count: Int) async throws -> [Song] {
+        try await get("search3", [
+            URLQueryItem(name: "query", value: ""),
+            URLQueryItem(name: "artistCount", value: "0"),
+            URLQueryItem(name: "albumCount", value: "0"),
+            URLQueryItem(name: "songCount", value: String(count)),
+            URLQueryItem(name: "songOffset", value: String(offset)),
+        ]).searchResult3?.song ?? []
     }
 
     func album(id: String) async throws -> Album {

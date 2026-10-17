@@ -12,6 +12,7 @@ concurrency:
 
 jobs:
   # ffmpeg is quick to install on Linux; the macOS job only needs the finished files.
+  # The tarball keeps the colons in the file names, which artifact paths reject.
   fixtures:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -19,11 +20,11 @@ jobs:
       - uses: actions/checkout@v4
       - run: command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)
       - run: pip install mutagen
-      - run: python3 scripts/fixtures.py fixture/music
+      - run: python3 scripts/fixtures.py fixture/music && tar czf fixture-music.tgz -C fixture music
       - uses: actions/upload-artifact@v4
         with:
           name: fixture-music
-          path: fixture/music
+          path: fixture-music.tgz
           retention-days: 1
 
   screens:
@@ -35,7 +36,8 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: fixture-music
-          path: ${{ runner.temp }}/fixture/music
+          path: ${{ runner.temp }}
+      - run: mkdir -p "$RUNNER_TEMP/fixture" && tar xzf "$RUNNER_TEMP/fixture-music.tgz" -C "$RUNNER_TEMP/fixture"
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Start Navidrome on the fixture library

@@ -10,12 +10,12 @@ struct ServerCredentials: Equatable, Sendable {
     /// Accepts what people type: a bare host gets https, a trailing slash is dropped.
     static func normalizedURL(from text: String) -> URL? {
         var text = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        while text.hasSuffix("/") { text.removeLast() }
         guard !text.isEmpty else { return nil }
         if !text.contains("://") { text = "https://" + text }
-        guard let url = URL(string: text), let scheme = url.scheme?.lowercased(),
-              ["http", "https"].contains(scheme), url.host() != nil else { return nil }
-        return url
+        guard let parsed = URL(string: text), let scheme = parsed.scheme?.lowercased(),
+              ["http", "https"].contains(scheme), parsed.host()?.isEmpty == false else { return nil }
+        while text.hasSuffix("/") { text.removeLast() }
+        return URL(string: text)
     }
 }
 

@@ -17,15 +17,26 @@ for name, ok in checks.items():
 if key_id != key_id.strip() or issuer != issuer.strip():
     print("FAIL ASC_KEY_ID or ASC_ISSUER_ID has spaces or line breaks around it")
 
-now = int(time.time())
-token = jwt.encode({"iss": issuer.strip(), "iat": now, "exp": now + 600, "aud": "appstoreconnect-v1"},
-                   p8, algorithm="ES256", headers={"kid": key_id.strip()})
-request = urllib.request.Request("https://api.appstoreconnect.apple.com/v1/apps?filter[bundleId]=de.whnr.klassik",
-                                 headers={"Authorization": f"Bearer {token}"})
-try:
+
+def apps(claims):
+    now = int(time.time())
+    token = jwt.encode({**claims, "iat": now, "exp": now + 600, "aud": "appstoreconnect-v1"},
+                       p8, algorithm="ES256", headers={"kid": key_id.strip()})
+    request = urllib.request.Request(
+        "https://api.appstoreconnect.apple.com/v1/apps?filter[bundleId]=de.whnr.klassik",
+        headers={"Authorization": f"Bearer {token}"})
     with urllib.request.urlopen(request) as response:
-        apps = json.load(response)["data"]
-    print(f"ok   API key authenticates; apps with bundle ID de.whnr.klassik: {len(apps)}")
+        return json.load(response)["data"]
+
+
+try:
+    print(f"ok   team key authenticates; apps with bundle ID de.whnr.klassik: {len(apps({'iss': issuer.strip()}))}")
 except urllib.error.HTTPError as error:
-    print(f"FAIL App Store Connect answered HTTP {error.code}: {error.read().decode()[:500]}")
+    print(f"FAIL App Store Connect answered HTTP {error.code} for a team key token: {error.read().decode()[:300]}")
+    # An individual key signs without an issuer; Xcode export needs a team key.
+    try:
+        apps({"sub": "user"})
+        print("FAIL the key is an individual key; create a team key (Admin) instead")
+    except urllib.error.HTTPError:
+        print("FAIL no token shape works: ASC_KEY_P8 does not belong to ASC_KEY_ID, the issuer ID is wrong, or the key is revoked")
     sys.exit(1)

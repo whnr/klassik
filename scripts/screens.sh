@@ -25,7 +25,7 @@ xcodebuild test \
   -destination "id=$udid" \
   -only-testing:KlassikUITests \
   -resultBundlePath "$result" \
-  CODE_SIGNING_ALLOWED=NO \
+  CODE_SIGN_IDENTITY=- \
   | $formatter || status=$?
 
 xcrun xcresulttool export attachments --path "$result" --output-path "$out/raw"

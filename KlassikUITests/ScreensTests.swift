@@ -26,7 +26,7 @@ final class ScreensTests: XCTestCase {
         snap(app, "02-home")
 
         app.buttons["classical-filter"].tap()
-        XCTAssertTrue(app.textFields["filter-genre"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.textFields.matching(identifier: "condition-text").firstMatch.waitForExistence(timeout: 10))
         snap(app, "03-filter")
         app.navigationBars.buttons.element(boundBy: 0).tap()
 

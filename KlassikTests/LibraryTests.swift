@@ -4,12 +4,17 @@ import Testing
 
 struct LibraryTests {
     static func song(
-        _ id: String, album: String = "a1", genre: String? = nil, work: String? = nil, composer: String? = nil
+        _ id: String, album: String = "a1", genre: String? = nil, work: String? = nil, movement: String? = nil,
+        composer: String? = nil
     ) -> Song {
         Song(
             id: id, title: id, albumId: album, genre: genre, genres: genre.map { [Song.Genre(name: $0)] },
             contributors: composer.map { [Song.Contributor(role: "composer", artist: Song.Artist(id: "c", name: $0))] },
-            works: work.map { [Song.Work(name: $0)] })
+            works: work.map { [Song.Work(name: $0)] }, movements: movement.map { [Song.Movement(name: $0)] })
+    }
+
+    static func rule(_ conditions: ClassicalFilter.Condition...) -> ClassicalFilter.Rule {
+        ClassicalFilter.Rule(conditions: conditions)
     }
 
     @Test(arguments: ["Classical > Orchestral", "classical", "Neoclassical"])
@@ -17,15 +22,28 @@ struct LibraryTests {
         #expect(ClassicalFilter().matches(Self.song("t", genre: genre)))
     }
 
-    @Test func workOrComposerMatches() {
-        #expect(ClassicalFilter().matches(Self.song("t", work: "Symphony No. 5")))
-        #expect(ClassicalFilter().matches(Self.song("t", composer: "Beethoven")))
-        #expect(!ClassicalFilter().matches(Self.song("t", genre: "Jazz")))
+    /// Work and composer tags also occur on pop albums.
+    @Test func defaultNeedsWorkAndMovementTogether() {
+        let filter = ClassicalFilter()
+        #expect(filter.matches(Self.song("t", genre: "Pop", work: "Symphony No. 5", movement: "Allegro con brio")))
+        #expect(!filter.matches(Self.song("t", genre: "Proll", work: "Helga", composer: "Helga")))
+        #expect(!filter.matches(Self.song("t", genre: "Jazz", composer: "Mozart")))
     }
 
-    @Test func disabledRulesDoNotMatch() {
-        let filter = ClassicalFilter(genre: " ", work: false, composer: false)
-        #expect(!filter.matches(Self.song("t", genre: "Classical", work: "W", composer: "C")))
+    @Test func allConditionsOfARuleMustMatch() {
+        let filter = ClassicalFilter(rules: [Self.rule(.init(kind: .hasComposer), .init(kind: .genreDoesNotContain, text: "Pop"))])
+        #expect(filter.matches(Self.song("t", genre: "Jazz", composer: "Mozart")))
+        #expect(!filter.matches(Self.song("t", genre: "Pop", composer: "Mozart")))
+        #expect(!filter.matches(Self.song("t", genre: "Jazz")))
+    }
+
+    /// A condition the listener is still typing must not let the whole library in.
+    @Test func emptyRulesAndEmptyTextMatchNothing() {
+        let song = Self.song("t", genre: "Classical", work: "W", movement: "M", composer: "C")
+        #expect(!ClassicalFilter(rules: []).matches(song))
+        #expect(!ClassicalFilter(rules: [Self.rule()]).matches(song))
+        #expect(!ClassicalFilter(rules: [Self.rule(.init(kind: .genreContains, text: " "))]).matches(song))
+        #expect(!ClassicalFilter(rules: [Self.rule(.init(kind: .genreDoesNotContain))]).matches(song))
     }
 
     @Test func albumCountsWhenMostTracksMatch() {
@@ -82,7 +100,8 @@ struct LibraryTests {
     @MainActor @Test func filterIsKeptOnDevice() throws {
         let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
         let url = FileManager.default.temporaryDirectory.appending(path: "\(UUID().uuidString).json")
-        Library(cacheURL: url, defaults: defaults).filter.genre = "Klassik"
-        #expect(Library(cacheURL: url, defaults: defaults).filter.genre == "Klassik")
+        let filter = ClassicalFilter(rules: [Self.rule(.init(kind: .genreContains, text: "Oper"))])
+        Library(cacheURL: url, defaults: defaults).filter = filter
+        #expect(Library(cacheURL: url, defaults: defaults).filter == filter)
     }
 }

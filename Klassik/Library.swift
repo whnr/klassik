@@ -25,7 +25,7 @@ final class Library {
 
     private let cacheURL: URL
     private let defaults: UserDefaults
-    private static let filterKey = "library.filter"
+    private static let filterKey = "library.filter.rules"
     static let pageSize = 500
 
     init(cacheURL: URL = .applicationSupportDirectory.appending(path: "library.json"), defaults: UserDefaults = .standard) {

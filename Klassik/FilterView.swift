@@ -1,26 +1,39 @@
 import SwiftUI
 
-/// Edits the rule that decides which albums are classical.
+/// Edits the rules that decide which albums are classical.
 struct FilterView: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
         @Bindable var library = model.library
         Form {
-            Section {
-                LabeledContent("Genre Contains") {
-                    TextField("Genre", text: $library.filter.genre, prompt: Text("Off"))
-                        .multilineTextAlignment(.trailing)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .accessibilityIdentifier("filter-genre")
+            ForEach($library.filter.rules) { $rule in
+                let number = (library.filter.rules.firstIndex { $0.id == rule.id } ?? 0) + 1
+                Section {
+                    ForEach($rule.conditions) { $condition in
+                        ConditionRow(condition: $condition)
+                    }
+                    .onDelete { rule.conditions.remove(atOffsets: $0) }
+                    Menu("Add Condition") {
+                        ForEach(ClassicalFilter.Condition.Kind.allCases, id: \.self) { kind in
+                            Button(kind.title) { rule.conditions.append(.init(kind: kind)) }
+                        }
+                    }
+                    Button("Delete Rule", role: .destructive) {
+                        library.filter.rules.removeAll { $0.id == rule.id }
+                    }
+                } header: {
+                    Text(number == 1 ? "Rule \(number)" : "Or Rule \(number)")
                 }
-                Toggle("Has a Work", isOn: $library.filter.work)
-                Toggle("Has a Composer", isOn: $library.filter.composer)
-            } header: {
-                Text("A Track Matches If")
+            }
+
+            Section {
+                Button("Add Rule") {
+                    library.filter.rules.append(.init(conditions: [.init(kind: .genreContains)]))
+                }
+                .accessibilityIdentifier("add-rule")
             } footer: {
-                Text("A track matches if any rule matches. An album is classical if most of its tracks match; then all of its tracks count. Klassik keeps this rule on this iPhone.")
+                Text("A track is classical if one of the rules matches. A rule matches if all of its conditions match. An album is classical if most of its tracks are; then all of its tracks count. Klassik keeps the rules on this iPhone.")
             }
 
             Section("Result") {
@@ -29,10 +42,31 @@ struct FilterView: View {
             }
 
             Section {
-                Button("Restore Default") { library.filter = ClassicalFilter() }
+                Button("Restore Default Rules") { library.filter = ClassicalFilter() }
                     .disabled(library.filter == ClassicalFilter())
             }
         }
         .navigationTitle("Classical Filter")
+    }
+}
+
+private struct ConditionRow: View {
+    @Binding var condition: ClassicalFilter.Condition
+
+    var body: some View {
+        HStack {
+            Picker("Condition", selection: $condition.kind) {
+                ForEach(ClassicalFilter.Condition.Kind.allCases, id: \.self) { Text($0.title).tag($0) }
+            }
+            .labelsHidden()
+            .fixedSize()
+            if condition.kind.takesText {
+                TextField("Genre", text: $condition.text)
+                    .multilineTextAlignment(.trailing)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .accessibilityIdentifier("condition-text")
+            }
+        }
     }
 }

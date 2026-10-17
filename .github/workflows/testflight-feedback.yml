@@ -1,6 +1,6 @@
 name: TestFlight feedback
 
-# Prints TestFlight screenshot and crash feedback to the log; screenshots as an artifact.
+# Checks the App Store Connect key, then prints TestFlight screenshot and crash feedback to the log; screenshots as an artifact.
 on:
   workflow_dispatch:
 
@@ -15,6 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: pip install 'pyjwt[crypto]'
+      - run: python3 scripts/asc_check.py
       - run: python3 scripts/testflight_feedback.py
       - uses: actions/upload-artifact@v4
         if: always()

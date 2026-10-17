@@ -27,7 +27,7 @@ Rules for coding agents in this repository.
 - `.github/workflows/ci.yml` runs `scripts/test.sh` on `macos-26` for pushes to `main` and for pull requests. Documentation changes do not start it.
 - `.github/workflows/screens.yml` runs on a push to branch `screens` or by hand. It starts Navidrome on the fixture library, runs the UI tests, and uploads the screenshots as artifact `screens`. Before you report a UI change as done, fast-forward `screens`, download the artifact through the GitHub REST API, and look at every PNG.
 - `.github/workflows/testflight.yml` runs by hand. It archives without signing, signs at export with the App Store Connect API key, and uploads with `altool`. A daily run uploads again when the newest build is 85 days old, because TestFlight builds expire after 90 days.
-- `.github/workflows/testflight-feedback.yml` runs by hand. It prints TestFlight feedback and crash logs and uploads the feedback screenshots.
+- `.github/workflows/testflight-feedback.yml` runs by hand. It checks the API key secrets (`scripts/asc_check.py`), then prints TestFlight feedback and crash logs and uploads the feedback screenshots.
 - Versions follow semantic versioning: `MARKETING_VERSION` in `project.yml` is MAJOR.MINOR.PATCH. Increase MINOR for a batch with features and PATCH for a batch with only fixes. 1.0.0 is the first App Store release. The build number is the TestFlight run number. The TestFlight workflow tags each uploaded version as `vX.Y.Z`.
 - Repository secrets: `APPLE_TEAM_ID`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` (the text of the `.p8` key). Bundle ID: `de.whnr.klassik`.
 - macOS runner time is expensive. Push batches, not single commits. Read CI results through the GitHub REST API. Do not poll in a tight loop.

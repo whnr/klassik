@@ -21,9 +21,10 @@ struct MP3GaplessInfo: Equatable, Sendable {
         return start..<min(start + valid, decodedLength)
     }
 
-    /// Reads the header from the start of an MP3 file. The first 64 KiB are enough.
+    /// Reads the header from the start of an MP3 file. Embedded cover art makes the ID3v2 tag before the
+    /// header large, so `data` must reach 8 KiB past the end of that tag.
     static func parse(_ data: Data) -> MP3GaplessInfo? {
-        let bytes = [UInt8](data.prefix(65536))
+        let bytes = [UInt8](data.prefix(id3Size([UInt8](data.prefix(10))) + 8192))
         guard var start = firstFrame(bytes), start + 4 <= bytes.count else { return nil }
         let isMPEG1 = (bytes[start + 1] >> 3) & 3 == 3
         let isMono = bytes[start + 3] >> 6 == 3
@@ -50,11 +51,7 @@ struct MP3GaplessInfo: Equatable, Sendable {
 
     /// The offset of the first MPEG audio layer III frame header, after an ID3v2 tag.
     private static func firstFrame(_ bytes: [UInt8]) -> Int? {
-        var offset = 0
-        if bytes.count >= 10, bytes[0..<3] == [0x49, 0x44, 0x33] {
-            let size = bytes[6..<10].reduce(0) { $0 << 7 | Int($1 & 0x7F) }
-            offset = 10 + size + (bytes[5] & 0x10 != 0 ? 10 : 0)
-        }
+        var offset = id3Size(bytes)
         while offset + 4 <= bytes.count {
             let b1 = bytes[offset + 1]
             if bytes[offset] == 0xFF, b1 & 0xE0 == 0xE0, (b1 >> 3) & 3 != 1, (b1 >> 1) & 3 == 1 {
@@ -63,6 +60,12 @@ struct MP3GaplessInfo: Equatable, Sendable {
             offset += 1
         }
         return nil
+    }
+
+    /// The length of the ID3v2 tag at the start of the file, or 0.
+    private static func id3Size(_ bytes: [UInt8]) -> Int {
+        guard bytes.count >= 10, bytes[0..<3] == [0x49, 0x44, 0x33] else { return 0 }
+        return 10 + bytes[6..<10].reduce(0) { $0 << 7 | Int($1 & 0x7F) } + (bytes[5] & 0x10 != 0 ? 10 : 0)
     }
 
     private static func uint32(_ bytes: [UInt8], _ offset: Int) -> UInt32 {

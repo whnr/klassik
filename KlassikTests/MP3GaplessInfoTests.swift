@@ -5,7 +5,8 @@ import Testing
 struct MP3GaplessInfoTests {
     /// The start of a mono 64 kbit/s file as ffmpeg writes it: ID3v2 tag, then the Info frame.
     static func header(frames: UInt32, delay: Int, padding: Int, id3Size: Int = 20) -> Data {
-        var bytes: [UInt8] = [0x49, 0x44, 0x33, 4, 0, 0, 0, 0, 0, UInt8(id3Size)] + Array(repeating: 0, count: id3Size)
+        let syncsafe = [21, 14, 7, 0].map { UInt8(id3Size >> $0 & 0x7F) }
+        var bytes: [UInt8] = [0x49, 0x44, 0x33, 4, 0, 0] + syncsafe + Array(repeating: 0, count: id3Size)
         bytes += [0xFF, 0xFB, 0x50, 0xC0] + Array(repeating: 0, count: 17)
         bytes += Array("Info".utf8) + [0, 0, 0, 0x0F]
         bytes += withUnsafeBytes(of: frames.bigEndian, Array.init)
@@ -19,6 +20,13 @@ struct MP3GaplessInfoTests {
         let info = MP3GaplessInfo.parse(Self.header(frames: 116, delay: 576, padding: 755))
         #expect(info == MP3GaplessInfo(frameCount: 116, samplesPerFrame: 1152, encoderDelay: 576, padding: 755))
         #expect(info?.validSamples == 132_301)
+    }
+
+    /// Cover art in the ID3v2 tag pushes the first frame far into the file.
+    @Test func readsHeaderAfterLargeID3Tag() {
+        let info = MP3GaplessInfo.parse(Self.header(frames: 116, delay: 576, padding: 755, id3Size: 300_000))
+        #expect(info?.encoderDelay == 576)
+        #expect(info?.padding == 755)
     }
 
     @Test func ignoresFileWithoutInfoFrame() {

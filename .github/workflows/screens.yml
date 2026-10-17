@@ -48,7 +48,9 @@ jobs:
         if: always()
         with:
           name: screens
-          path: ${{ runner.temp }}/screens/*.png
+          path: |
+            ${{ runner.temp }}/screens/*.png
+            ${{ runner.temp }}/screens/*.txt
           if-no-files-found: warn
       - name: Navidrome log
         if: failure()

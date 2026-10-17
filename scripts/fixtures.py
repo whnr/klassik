@@ -12,7 +12,7 @@ import sys
 from mutagen.id3 import ID3, TALB, TCOM, TCON, TDRC, TDRL, TIT2, TMCL, TPE1, TPE2, TPE3, TPOS, TRCK, TXXX, MVNM
 
 # (album, album artist, genre, recording date, release date, tracks)
-# track: (composer, work, movement name, movement number, movement total, performers, conductor, seconds)
+# track: (composer, work, movement name, movement number, movement total, performers, conductor, seconds or None for the glide)
 BEETHOVEN = "Ludwig van Beethoven"
 BACH = "Johann Sebastian Bach"
 MOZART = "Wolfgang Amadeus Mozart"
@@ -29,6 +29,16 @@ K467 = "Piano Concerto No. 21 in C major, K. 467"
 K467_MOVEMENTS = ["Allegro maestoso", "Andante", "Allegro vivace assai"]
 B4 = "Symphony No. 4 in E minor, Op. 98"
 B4_MOVEMENTS = ["Allegro non troppo", "Andante moderato", "Allegro giocoso", "Allegro energico e passionato"]
+MENDELSSOHN = "Felix Mendelssohn"
+OP64 = "Violin Concerto in E minor, Op. 64"
+OP64_MOVEMENTS = ["Allegro molto appassionato", "Andante", "Allegretto non troppo – Allegro molto vivace"]
+
+# The movements of Op. 64 run into each other. Their audio is one continuous glide, cut at sample
+# positions that are not MP3 frame boundaries, so a gap or an overlap in playback is audible and
+# measurable. KlassikTests/GaplessTests.swift holds the same formula and lengths. ffmpeg writes too
+# small a padding value for some lengths (up to 35 samples); these lengths get the exact value.
+GLIDE_RATE = 44100
+GLIDE_SAMPLES = [132301, 110017, 154441]
 
 
 def work(composer, title, movements, performers, conductor, seconds=4, only=None):
@@ -49,6 +59,8 @@ ALBUMS = [
     ("Romantic Encores", "Sine Wave Chamber Orchestra; Carl Fixture", "Classical", "2021", "2022-02-02",
      work(BRAHMS, B4, B4_MOVEMENTS, ORCH_B, "Carl Fixture", only=[3])
      + work(MOZART, K467, K467_MOVEMENTS, [("piano", "Daniel Keys")] + ORCH_B, "Carl Fixture", only=[2])),
+    ("Mendelssohn: Violin Concerto", "Eva Bogen; Testing Philharmonic; Anna Probe", "Classical > Concerto", "2008", "2009-04-01",
+     work(MENDELSSOHN, OP64, OP64_MOVEMENTS, [("violin", "Eva Bogen")] + ORCH_A, "Anna Probe", seconds=None)),
 ]
 
 # Not classical: the default filter must leave this out.
@@ -56,11 +68,20 @@ JAZZ = ("Sine Standards", "Fixture Jazz Trio", "Jazz", "2010", "2010-06-01",
         [("Fixture Jazz Trio", None, "Blue Sine", 1, 0, [], None, 3), ("Fixture Jazz Trio", None, "Square Dance", 2, 0, [], None, 3)])
 
 
-def encode(path, seconds, frequency):
+def encode(path, source):
     subprocess.run(
-        ["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", f"sine=frequency={frequency}:duration={seconds}",
+        ["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", source,
          "-ac", "1", "-ar", "44100", "-codec:a", "libmp3lame", "-b:a", "64k", str(path)],
         check=True)
+
+
+def glide(movement):
+    """Samples of the glide for one movement: 0.5 sin(2π(300 t + 25 t²)), t counted from the work's start."""
+    start = sum(GLIDE_SAMPLES[:movement - 1])
+    count = GLIDE_SAMPLES[movement - 1]
+    t = f"(t+{start}/{GLIDE_RATE})"
+    return (f"aevalsrc=0.5*sin(2*PI*(300*{t}+25*{t}*{t})):s={GLIDE_RATE}:d={count / GLIDE_RATE + 1},"
+            f"atrim=end_sample={count}")
 
 
 def tag(path, album, album_artist, genre, recorded, released, number, total, track):
@@ -104,7 +125,8 @@ def main(out):
         folder.mkdir(parents=True, exist_ok=True)
         for number, track in enumerate(tracks, 1):
             path = folder / f"{number:02d} {track[2]}.mp3".replace("/", "-")
-            encode(path, track[7], frequency)
+            seconds = track[7]
+            encode(path, f"sine=frequency={frequency}:duration={seconds}" if seconds else glide(track[3]))
             tag(path, album, album_artist, genre, recorded, released, number, len(tracks), track)
             frequency += 20
     print(f"wrote {sum(len(a[5]) for a in ALBUMS) + len(JAZZ[5])} tracks to {out}")

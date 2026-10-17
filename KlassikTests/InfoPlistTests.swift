@@ -12,6 +12,11 @@ struct InfoPlistTests {
         #expect((info["NSLocalNetworkUsageDescription"] as? String)?.isEmpty == false)
     }
 
+    /// Playback continues while the phone is locked.
+    @Test func playsAudioInBackground() {
+        #expect((info["UIBackgroundModes"] as? [String])?.contains("audio") == true)
+    }
+
     @Test func versionIsSemantic() {
         let version = info["CFBundleShortVersionString"] as? String ?? ""
         #expect(version.wholeMatch(of: /\d+\.\d+\.\d+/) != nil)

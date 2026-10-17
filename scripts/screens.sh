@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Runs the UI tests against a running fixture server and exports their screenshots.
+# Runs the UI tests and the gapless measurement against a running fixture server.
+# Exports the screenshots and the gapless report.
 # Usage: scripts/screens.sh <output-dir>   (start scripts/fixture-server.sh first)
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -24,6 +25,7 @@ xcodebuild test \
   -scheme Klassik \
   -destination "id=$udid" \
   -only-testing:KlassikUITests \
+  -only-testing:KlassikTests/GaplessTests \
   -resultBundlePath "$result" \
   CODE_SIGN_IDENTITY=- \
   | $formatter || status=$?

@@ -43,6 +43,11 @@ struct DiagnosticsView: View {
                 }
             }
 
+            Section("Playback") {
+                NavigationLink("Gapless Test") { GaplessTestView() }
+                    .accessibilityIdentifier("gapless-test")
+            }
+
             Section("App") {
                 LabeledContent("Version", value: Self.appVersion)
             }

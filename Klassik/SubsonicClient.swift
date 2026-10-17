@@ -42,6 +42,28 @@ enum SubsonicError: LocalizedError, Equatable {
     }
 }
 
+struct Album: Decodable, Sendable, Identifiable, Hashable {
+    var id: String
+    var name: String
+    var artist: String?
+    var year: Int?
+    var song: [Song]?
+
+    /// Tracks in disc and track order.
+    var songs: [Song] {
+        (song ?? []).sorted { ($0.discNumber ?? 0, $0.track ?? 0) < ($1.discNumber ?? 0, $1.track ?? 0) }
+    }
+}
+
+struct Song: Decodable, Sendable, Identifiable, Hashable {
+    var id: String
+    var title: String
+    var track: Int?
+    var discNumber: Int?
+    var duration: Int?
+    var suffix: String?
+}
+
 /// The `subsonic-response` object. Fields of all endpoints in use are optional members.
 struct SubsonicResponse: Decodable, Sendable {
     struct Failure: Decodable, Sendable {
@@ -61,6 +83,12 @@ struct SubsonicResponse: Decodable, Sendable {
     var openSubsonic: Bool?
     var error: Failure?
     var openSubsonicExtensions: [Extension]?
+    var searchResult3: SearchResult?
+    var album: Album?
+
+    struct SearchResult: Decodable, Sendable {
+        var album: [Album]?
+    }
 }
 
 struct SubsonicClient: Sendable {
@@ -80,6 +108,27 @@ struct SubsonicClient: Sendable {
             info.extensions = try await get("getOpenSubsonicExtensions").openSubsonicExtensions?.map(\.name) ?? []
         }
         return info
+    }
+
+    func searchAlbums(_ query: String) async throws -> [Album] {
+        try await get("search3", [
+            URLQueryItem(name: "query", value: query),
+            URLQueryItem(name: "artistCount", value: "0"),
+            URLQueryItem(name: "albumCount", value: "50"),
+            URLQueryItem(name: "songCount", value: "0"),
+        ]).searchResult3?.album ?? []
+    }
+
+    func album(id: String) async throws -> Album {
+        guard let album = try await get("getAlbum", [URLQueryItem(name: "id", value: id)]).album else {
+            throw SubsonicError.notSubsonic
+        }
+        return album
+    }
+
+    /// `format=raw` asks for the original file: a transcoded stream loses the MP3 gapless header.
+    func streamURL(songID: String) -> URL {
+        url("stream", [URLQueryItem(name: "id", value: songID), URLQueryItem(name: "format", value: "raw")])
     }
 
     func get(_ endpoint: String, _ query: [URLQueryItem] = []) async throws -> SubsonicResponse {

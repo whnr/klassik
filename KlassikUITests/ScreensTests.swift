@@ -32,6 +32,23 @@ final class ScreensTests: XCTestCase {
         snap(app, "03-diagnostics")
         app.swipeUp()
         snap(app, "04-diagnostics-bottom")
+
+        app.buttons["gapless-test"].tap()
+        let search = app.searchFields.firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 10))
+        search.tap()
+        search.typeText("Mendelssohn\n")
+        let album = app.buttons.matching(identifier: "gapless-album").firstMatch
+        XCTAssertTrue(album.waitForExistence(timeout: 15))
+        snap(app, "05-gapless-search")
+
+        album.tap()
+        let track = app.buttons.matching(identifier: "gapless-track").firstMatch
+        XCTAssertTrue(track.waitForExistence(timeout: 15))
+        track.tap()
+        let analysis = app.buttons.matching(NSPredicate(format: "label CONTAINS 'iOS decodes'")).firstMatch
+        XCTAssertTrue(analysis.waitForExistence(timeout: 30))
+        snap(app, "06-gapless-album")
     }
 
     @MainActor

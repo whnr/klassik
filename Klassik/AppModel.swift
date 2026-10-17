@@ -12,6 +12,8 @@ final class AppModel {
 
     private let store: CredentialStore
 
+    var client: SubsonicClient? { credentials.map { SubsonicClient(credentials: $0) } }
+
     init(store: CredentialStore = CredentialStore()) {
         self.store = store
         // UI tests start from the connect screen.

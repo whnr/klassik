@@ -1,0 +1,58 @@
+name: Screens
+
+# Screenshots of the main screens against a fixture Navidrome, for review before a UI change ships.
+on:
+  push:
+    branches: [screens]
+  workflow_dispatch:
+
+concurrency:
+  group: screens
+  cancel-in-progress: true
+
+jobs:
+  # ffmpeg is quick to install on Linux; the macOS job only needs the finished files.
+  fixtures:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)
+      - run: pip install mutagen
+      - run: python3 scripts/fixtures.py fixture/music
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fixture-music
+          path: fixture/music
+          retention-days: 1
+
+  screens:
+    needs: fixtures
+    runs-on: macos-26
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: fixture-music
+          path: ${{ runner.temp }}/fixture/music
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Start Navidrome on the fixture library
+        run: scripts/fixture-server.sh "$RUNNER_TEMP/fixture"
+      - name: Walk the screens
+        run: scripts/screens.sh "$RUNNER_TEMP/screens"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screens
+          path: ${{ runner.temp }}/screens/*.png
+          if-no-files-found: warn
+      - name: Navidrome log
+        if: failure()
+        run: tail -50 "$RUNNER_TEMP/fixture/navidrome.log"
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: screens-xcresult
+          path: ${{ runner.temp }}/screens/screens.xcresult

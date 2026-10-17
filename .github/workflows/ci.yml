@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["**.md", "LICENSE", "docs/**"]
+  pull_request:
+    paths-ignore: ["**.md", "LICENSE", "docs/**"]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Xcode version
+        run: xcodebuild -version
+      - name: Build and test
+        run: scripts/test.sh

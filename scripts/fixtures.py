@@ -1,0 +1,114 @@
+"""Generates a small classical fixture library: sine-tone MP3s with classical tags.
+
+Usage: python3 scripts/fixtures.py <output-dir>
+Needs ffmpeg on PATH and mutagen. The audio is generated, so the repo carries no copyrighted
+material. Tags follow the convention in the library epic: Navidrome 0.64 drops the ID3 MVIN
+frame, so movement number and total go into TXXX:MOVEMENT and TXXX:MOVEMENTTOTAL.
+"""
+import pathlib
+import subprocess
+import sys
+
+from mutagen.id3 import ID3, TALB, TCOM, TCON, TDRC, TDRL, TIT2, TMCL, TPE1, TPE2, TPE3, TPOS, TRCK, TXXX, MVNM
+
+# (album, album artist, genre, recording date, release date, tracks)
+# track: (composer, work, movement name, movement number, movement total, performers, conductor, seconds)
+BEETHOVEN = "Ludwig van Beethoven"
+BACH = "Johann Sebastian Bach"
+MOZART = "Wolfgang Amadeus Mozart"
+BRAHMS = "Johannes Brahms"
+
+ORCH_A = [("orchestra", "Testing Philharmonic")]
+ORCH_B = [("orchestra", "Sine Wave Chamber Orchestra")]
+
+B5 = "Symphony No. 5 in C minor, Op. 67"
+B5_MOVEMENTS = ["Allegro con brio", "Andante con moto", "Scherzo. Allegro", "Allegro"]
+SUITE = "Cello Suite No. 1 in G major, BWV 1007"
+SUITE_MOVEMENTS = ["Prélude", "Allemande", "Courante", "Sarabande", "Menuets I & II", "Gigue"]
+K467 = "Piano Concerto No. 21 in C major, K. 467"
+K467_MOVEMENTS = ["Allegro maestoso", "Andante", "Allegro vivace assai"]
+B4 = "Symphony No. 4 in E minor, Op. 98"
+B4_MOVEMENTS = ["Allegro non troppo", "Andante moderato", "Allegro giocoso", "Allegro energico e passionato"]
+
+
+def work(composer, title, movements, performers, conductor, seconds=4, only=None):
+    picked = only or range(1, len(movements) + 1)
+    return [(composer, title, movements[n - 1], n, len(movements), performers, conductor, seconds) for n in picked]
+
+
+ALBUMS = [
+    ("Beethoven: Symphony No. 5", "Testing Philharmonic; Anna Probe", "Classical > Orchestral", "1990", "1991-03-01",
+     work(BEETHOVEN, B5, B5_MOVEMENTS, ORCH_A, "Anna Probe")),
+    ("Beethoven: Symphonies 4 & 5", "Sine Wave Chamber Orchestra; Carl Fixture", "Classical", "2015", "2016-05-20",
+     work(BEETHOVEN, B5, B5_MOVEMENTS, ORCH_B, "Carl Fixture")),
+    ("Bach: Cello Suites", "Clara Cellotest", "Classical > Chamber", "2004", "2005-01-10",
+     work(BACH, SUITE, SUITE_MOVEMENTS, [("cello", "Clara Cellotest")], None, seconds=3)),
+    ("Mozart: Piano Concertos 21 & 23", "Daniel Keys; Testing Philharmonic; Anna Probe", "Classical > Concerto", "1999", "2000-09-15",
+     work(MOZART, K467, K467_MOVEMENTS, [("piano", "Daniel Keys")] + ORCH_A, "Anna Probe")),
+    # A recital disc with only part of a work, for the completeness badge.
+    ("Romantic Encores", "Sine Wave Chamber Orchestra; Carl Fixture", "Classical", "2021", "2022-02-02",
+     work(BRAHMS, B4, B4_MOVEMENTS, ORCH_B, "Carl Fixture", only=[3])
+     + work(MOZART, K467, K467_MOVEMENTS, [("piano", "Daniel Keys")] + ORCH_B, "Carl Fixture", only=[2])),
+]
+
+# Not classical: the default filter must leave this out.
+JAZZ = ("Sine Standards", "Fixture Jazz Trio", "Jazz", "2010", "2010-06-01",
+        [("Fixture Jazz Trio", None, "Blue Sine", 1, 0, [], None, 3), ("Fixture Jazz Trio", None, "Square Dance", 2, 0, [], None, 3)])
+
+
+def encode(path, seconds, frequency):
+    subprocess.run(
+        ["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", f"sine=frequency={frequency}:duration={seconds}",
+         "-ac", "1", "-ar", "44100", "-codec:a", "libmp3lame", "-b:a", "64k", str(path)],
+        check=True)
+
+
+def tag(path, album, album_artist, genre, recorded, released, number, total, track):
+    composer, work_title, movement, movement_no, movement_total, performers, conductor, _ = track
+    tags = ID3()
+    tags.add(TALB(encoding=3, text=album))
+    tags.add(TPE2(encoding=3, text=album_artist.split("; ")))
+    tags.add(TCON(encoding=3, text=genre))
+    tags.add(TDRC(encoding=3, text=recorded))
+    tags.add(TDRL(encoding=3, text=released))
+    tags.add(TRCK(encoding=3, text=f"{number}/{total}"))
+    tags.add(TPOS(encoding=3, text="1/1"))
+    if work_title:
+        tags.add(TIT2(encoding=3, text=f"{work_title}: {roman(movement_no)}. {movement}" if movement_total > 1 else work_title))
+        tags.add(TCOM(encoding=3, text=composer))
+        tags.add(TXXX(encoding=3, desc="WORK", text=work_title))
+        tags.add(MVNM(encoding=3, text=movement))
+        tags.add(TXXX(encoding=3, desc="MOVEMENT", text=str(movement_no)))
+        tags.add(TXXX(encoding=3, desc="MOVEMENTTOTAL", text=str(movement_total)))
+        artists = [name for _, name in performers] + ([conductor] if conductor else [])
+        tags.add(TPE1(encoding=3, text=artists))
+    else:
+        tags.add(TIT2(encoding=3, text=movement))
+        tags.add(TPE1(encoding=3, text=composer))
+    if conductor:
+        tags.add(TPE3(encoding=3, text=conductor))
+    if performers:
+        tags.add(TMCL(encoding=3, people=[list(p) for p in performers]))
+    tags.save(path, v2_version=4)
+
+
+def roman(n):
+    return ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"][n - 1]
+
+
+def main(out):
+    out = pathlib.Path(out)
+    frequency = 220
+    for album, album_artist, genre, recorded, released, tracks in ALBUMS + [JAZZ]:
+        folder = out / album_artist.split("; ")[0] / album
+        folder.mkdir(parents=True, exist_ok=True)
+        for number, track in enumerate(tracks, 1):
+            path = folder / f"{number:02d} {track[2]}.mp3".replace("/", "-")
+            encode(path, track[7], frequency)
+            tag(path, album, album_artist, genre, recorded, released, number, len(tracks), track)
+            frequency += 20
+    print(f"wrote {sum(len(a[5]) for a in ALBUMS) + len(JAZZ[5])} tracks to {out}")
+
+
+if __name__ == "__main__":
+    main(sys.argv[1])

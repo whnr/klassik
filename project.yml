@@ -1,0 +1,57 @@
+name: Klassik
+options:
+  bundleIdPrefix: de.whnr
+  deploymentTarget:
+    iOS: "26.0"
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  Klassik:
+    type: application
+    platform: iOS
+    sources: [Klassik]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: de.whnr.klassik
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    info:
+      path: Klassik/Info.plist
+      properties:
+        CFBundleDisplayName: Klassik
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        NSLocalNetworkUsageDescription: Klassik connects to your music server on the local network.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        ITSAppUsesNonExemptEncryption: false
+  KlassikTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [KlassikTests]
+    dependencies:
+      - target: Klassik
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+  KlassikUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [KlassikUITests]
+    dependencies:
+      - target: Klassik
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  Klassik:
+    build:
+      targets:
+        Klassik: all
+    test:
+      targets: [KlassikTests, KlassikUITests]

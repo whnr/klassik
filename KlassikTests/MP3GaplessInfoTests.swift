@@ -35,7 +35,7 @@ struct MP3GaplessInfoTests {
 
     @Test func cutsDelayAndPaddingWhenDecoderDoesNot() {
         let info = MP3GaplessInfo(frameCount: 116, samplesPerFrame: 1152, encoderDelay: 576, padding: 755)
-        #expect(info.playableRange(decodedLength: 116 * 1152) == 1105..<(1105 + 132_301))
+        #expect(info.playableRange(decodedLength: 116 * 1152) == 576..<(576 + 132_301))
     }
 
     @Test func decodesAlbumWithSongsInOrder() throws {

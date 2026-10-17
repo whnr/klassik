@@ -17,11 +17,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)
       - run: pip install mutagen
       - run: python3 scripts/fixtures.py fixture/music && tar czf fixture-music.tgz -C fixture music
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: fixture-music
           path: fixture-music.tgz
@@ -32,8 +32,8 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           name: fixture-music
           path: ${{ runner.temp }}
@@ -44,7 +44,7 @@ jobs:
         run: scripts/fixture-server.sh "$RUNNER_TEMP/fixture"
       - name: Walk the screens
         run: scripts/screens.sh "$RUNNER_TEMP/screens"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: screens
@@ -55,7 +55,7 @@ jobs:
       - name: Navidrome log
         if: failure()
         run: tail -50 "$RUNNER_TEMP/fixture/navidrome.log"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: screens-xcresult

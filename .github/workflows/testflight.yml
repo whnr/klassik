@@ -23,7 +23,7 @@ jobs:
     outputs:
       upload: ${{ steps.age.outputs.upload }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - id: age
         env:
           CHECK: ${{ github.event_name == 'schedule' || inputs.only_if_due }}
@@ -49,7 +49,7 @@ jobs:
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check secrets
         run: |
           for s in ASC_KEY_ID ASC_ISSUER_ID APPLE_TEAM_ID; do

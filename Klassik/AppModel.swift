@@ -11,7 +11,8 @@ final class AppModel {
     private(set) var isChecking = false
 
     let library: Library
-    let player = Player()
+    let tracks: TrackStore
+    let player: Player
     private let store: CredentialStore
 
     var client: SubsonicClient? { credentials.map { SubsonicClient(credentials: $0) } }
@@ -19,10 +20,13 @@ final class AppModel {
     init(store: CredentialStore = CredentialStore(), library: Library = Library()) {
         self.store = store
         self.library = library
+        tracks = TrackStore()
+        player = Player(store: tracks)
         // UI tests start from the connect screen.
         if ProcessInfo.processInfo.arguments.contains("-resetServer") {
             store.clear()
             library.clear()
+            tracks.clearAll()
         }
         credentials = store.load()
     }
@@ -62,8 +66,33 @@ final class AppModel {
         }
     }
 
+    /// Makes a recording the reference of its work: the server stars its tracks and unstars the other recordings.
+    /// Returns the error text if the server fails.
+    func setReference(_ recording: WorkIndex.Recording, of work: WorkIndex.Work, to reference: Bool) async -> String? {
+        guard let client else { return "Not connected." }
+        let own = recording.songs.map(\.id)
+        let others = work.recordings.filter { $0.id != recording.id }.flatMap(\.songs).filter { $0.starred != nil }
+            .map(\.id)
+        do {
+            if reference {
+                try await client.star(own)
+                if !others.isEmpty { try await client.unstar(others) }
+                library.setStarred(Set(own), true)
+                library.setStarred(Set(others), false)
+            } else {
+                try await client.unstar(own)
+                library.setStarred(Set(own), false)
+            }
+            return nil
+        } catch {
+            record(error)
+            return error.localizedDescription
+        }
+    }
+
     func signOut() {
         player.stop()
+        tracks.clearAll()
         store.clear()
         library.clear()
         credentials = nil

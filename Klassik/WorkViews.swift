@@ -38,7 +38,7 @@ struct ShuffleButton: View {
         Button("Shuffle Works", systemImage: "shuffle") {
             guard let client = model.client else { return }
             let items = works.shuffled().compactMap { work in
-                work.recordings.first.map { Player.Item(work: work, recording: $0) }
+                work.defaultRecording.map { Player.Item(work: work, recording: $0) }
             }
             model.player.play(items, client: client)
         }
@@ -47,20 +47,26 @@ struct ShuffleButton: View {
     }
 }
 
-/// Play Next and Add to Queue as swipe actions and in the context menu, as in Apple Music.
-private struct QueueActions: ViewModifier {
+/// The actions of a row that stands for one recording or one album. Trailing swipe: the queue. Leading swipe:
+/// download and reference recording. The context menu holds all of them, as in Apple Music.
+private struct ItemActions: ViewModifier {
     @Environment(AppModel.self) private var model
     let item: Player.Item
+    /// Only recordings and albums download, never a whole work.
+    let downloads: Bool
+    let reference: Bool
 
     func body(content: Content) -> some View {
         content
-            .swipeActions(edge: .leading) {
-                Button("Play Next", systemImage: "text.line.first.and.arrowtriangle.forward") { playNext() }
-                    .tint(.indigo)
-            }
             .swipeActions(edge: .trailing) {
                 Button("Add to Queue", systemImage: "text.line.last.and.arrowtriangle.forward") { addToQueue() }
                     .tint(.orange)
+                Button("Play Next", systemImage: "text.line.first.and.arrowtriangle.forward") { playNext() }
+                    .tint(.indigo)
+            }
+            .swipeActions(edge: .leading) {
+                if downloads { downloadButton.tint(.blue) }
+                if reference { referenceButton.tint(.yellow) }
             }
             .contextMenu {
                 Button("Play", systemImage: "play") {
@@ -68,7 +74,33 @@ private struct QueueActions: ViewModifier {
                 }
                 Button("Play Next", systemImage: "text.line.first.and.arrowtriangle.forward") { playNext() }
                 Button("Add to Queue", systemImage: "text.line.last.and.arrowtriangle.forward") { addToQueue() }
+                if downloads { downloadButton }
+                if reference { referenceButton }
             }
+    }
+
+    @ViewBuilder private var downloadButton: some View {
+        let tracks = model.tracks
+        if let download = tracks.downloads.first(where: { $0.id == item.recording.id }) {
+            Button("Remove Download", systemImage: "trash") { tracks.remove(download) }
+        } else if tracks.progress[item.recording.id] != nil {
+            Button("Cancel Download", systemImage: "xmark.circle") { tracks.cancelDownload(item.recording.id) }
+        } else {
+            Button("Download", systemImage: "arrow.down.circle") {
+                if let client = model.client {
+                    tracks.download(item.recording, title: item.work.title, client: client)
+                }
+            }
+        }
+    }
+
+    private var referenceButton: some View {
+        let isReference = item.recording.isReference
+        return Button(
+            isReference ? "Remove Reference" : "Reference", systemImage: isReference ? "star.slash" : "star"
+        ) {
+            Task { _ = await model.setReference(item.recording, of: item.work, to: !isReference) }
+        }
     }
 
     private func playNext() {
@@ -81,12 +113,27 @@ private struct QueueActions: ViewModifier {
 }
 
 extension View {
-    @ViewBuilder func queueActions(_ item: Player.Item?) -> some View {
-        if let item { modifier(QueueActions(item: item)) } else { self }
+    @ViewBuilder func itemActions(_ item: Player.Item?, downloads: Bool = false, reference: Bool = false) -> some View {
+        if let item { modifier(ItemActions(item: item, downloads: downloads, reference: reference)) } else { self }
+    }
+}
+
+/// A small mark on rows that play without the server.
+struct OfflineHint: View {
+    let isOffline: Bool
+
+    var body: some View {
+        if isOffline {
+            Image(systemName: "arrow.down.circle.fill")
+                .font(.caption)
+                .foregroundStyle(Color.secondary)
+                .accessibilityLabel("Available offline")
+        }
     }
 }
 
 private struct WorkRow: View {
+    @Environment(AppModel.self) private var model
     let work: WorkIndex.Work
 
     var body: some View {
@@ -94,7 +141,10 @@ private struct WorkRow: View {
             WorkView(work: work)
         } label: {
             VStack(alignment: .leading) {
-                Text(work.title)
+                HStack {
+                    Text(work.title)
+                    OfflineHint(isOffline: work.recordings.contains { model.tracks.isOffline($0) })
+                }
                 Text(
                     [work.context, work.recordings.count == 1 ? "1 recording" : "\(work.recordings.count) recordings"]
                         .filter { !$0.isEmpty }.joined(separator: " · ")
@@ -103,13 +153,14 @@ private struct WorkRow: View {
                 .foregroundStyle(.secondary)
             }
         }
-        .queueActions(work.recordings.first.map { Player.Item(work: work, recording: $0) })
+        .itemActions(work.defaultRecording.map { Player.Item(work: work, recording: $0) })
         .accessibilityIdentifier("work")
     }
 }
 
 /// A work's recordings, oldest first, with the performers up front.
 struct WorkView: View {
+    @Environment(AppModel.self) private var model
     let work: WorkIndex.Work
 
     var body: some View {
@@ -119,6 +170,12 @@ struct WorkView: View {
                 if !work.context.isEmpty {
                     Text(work.context)
                         .foregroundStyle(.secondary)
+                }
+                if let recording = work.defaultRecording {
+                    Button(recording.isReference ? "Play Reference Recording" : "Play", systemImage: "play.fill") {
+                        if let client = model.client { model.player.play(recording, of: work, client: client) }
+                    }
+                    .accessibilityIdentifier("play-work")
                 }
             }
 
@@ -130,7 +187,16 @@ struct WorkView: View {
                             .miniPlayerInset()
                     } label: {
                         VStack(alignment: .leading) {
-                            Text(recording.performers.isEmpty ? recording.album : recording.performers)
+                            HStack {
+                                Text(recording.performers.isEmpty ? recording.album : recording.performers)
+                                if recording.isReference {
+                                    Image(systemName: "star.fill")
+                                        .font(.caption)
+                                        .foregroundStyle(.yellow)
+                                        .accessibilityLabel("Reference recording")
+                                }
+                                OfflineHint(isOffline: model.tracks.isOffline(recording))
+                            }
                             Text(
                                 [
                                     recording.year.map(String.init), recording.album,
@@ -142,7 +208,7 @@ struct WorkView: View {
                             .foregroundStyle(.secondary)
                         }
                     }
-                    .queueActions(Player.Item(work: work, recording: recording))
+                    .itemActions(Player.Item(work: work, recording: recording), downloads: true, reference: true)
                     .accessibilityIdentifier("recording")
                 }
             } header: {
@@ -224,6 +290,10 @@ struct RecordingView: View {
                 }
             }
 
+            Section("Offline") {
+                OfflineControls(recording: recording, title: work.title)
+            }
+
             Section("Movements") {
                 ForEach(Array(recording.songs.enumerated()), id: \.element.id) { index, song in
                     Button {
@@ -241,10 +311,13 @@ struct RecordingView: View {
                                         .foregroundStyle(.tint)
                                         .accessibilityLabel("Now playing")
                                 }
-                            } else if let duration = song.duration {
-                                Text(Duration.seconds(duration).formatted(.time(pattern: .minuteSecond)))
-                                    .foregroundStyle(Color.secondary)
-                                    .monospacedDigit()
+                            } else {
+                                OfflineHint(isOffline: model.tracks.isOffline(song))
+                                if let duration = song.duration {
+                                    Text(Duration.seconds(duration).formatted(.time(pattern: .minuteSecond)))
+                                        .foregroundStyle(Color.secondary)
+                                        .monospacedDigit()
+                                }
                             }
                         }
                     }
@@ -278,6 +351,17 @@ struct RecordingView: View {
         }
         .navigationTitle(work.title)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if !recording.isAlbum {
+                Button(
+                    recording.isReference ? "Remove Reference" : "Reference",
+                    systemImage: recording.isReference ? "star.fill" : "star"
+                ) {
+                    Task { _ = await model.setReference(recording, of: work, to: !recording.isReference) }
+                }
+                .accessibilityIdentifier("reference")
+            }
+        }
     }
 
     private func play(from index: Int) {
@@ -363,5 +447,37 @@ private struct SegmentedBar: View {
         .accessibilityLabel("Progress")
         .accessibilityValue(
             Text(elapsed / max(durations.reduce(0, +), 1), format: .percent.precision(.fractionLength(0))))
+    }
+}
+
+/// Download a recording, follow the download, or remove it.
+private struct OfflineControls: View {
+    @Environment(AppModel.self) private var model
+    let recording: WorkIndex.Recording
+    let title: String
+
+    var body: some View {
+        let tracks = model.tracks
+        if let download = tracks.downloads.first(where: { $0.id == recording.id }) {
+            LabeledContent("Downloaded", value: Self.size(download.bytes))
+            Button("Remove Download", systemImage: "trash", role: .destructive) { tracks.remove(download) }
+                .accessibilityIdentifier("remove-download")
+        } else if let share = tracks.progress[recording.id] {
+            ProgressView(value: share) { Text("Downloading") }
+            Button("Cancel Download", systemImage: "xmark.circle") { tracks.cancelDownload(recording.id) }
+        } else {
+            Button("Download", systemImage: "arrow.down.circle") {
+                if let client = model.client { tracks.download(recording, title: title, client: client) }
+            }
+            .accessibilityIdentifier("download")
+            if let failure = tracks.failures[recording.id] {
+                Label(failure, systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.red)
+            }
+        }
+    }
+
+    static func size(_ bytes: Int64) -> String {
+        bytes.formatted(.byteCount(style: .file))
     }
 }

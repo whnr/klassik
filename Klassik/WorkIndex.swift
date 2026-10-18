@@ -16,6 +16,9 @@ struct WorkIndex: Sendable {
         var isTagged: Bool
         var recordings: [Recording]
 
+        /// The reference recording, else the oldest.
+        var defaultRecording: Recording? { recordings.first { $0.isReference } ?? recordings.first }
+
         /// What the track titles and albums say about the work. A WORK tag can be as short as "Op. 67".
         var context: String {
             let first = recordings.first?.songs ?? []
@@ -37,6 +40,9 @@ struct WorkIndex: Sendable {
         var songs: [Song]
         /// True if this is a whole album, which can hold several works.
         var isAlbum = false
+
+        /// The listener's reference recording of a work is the one with all tracks starred in the server.
+        var isReference: Bool { !songs.isEmpty && songs.allSatisfy { $0.starred != nil } }
 
         /// How many movements the tags name for the work, if the tags say.
         var movementTotal: Int? {

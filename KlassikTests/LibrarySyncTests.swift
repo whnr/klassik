@@ -44,6 +44,17 @@ final class LibrarySyncTests: XCTestCase {
         XCTAssertEqual(gain, Song.ReplayGain(trackGain: 5, albumGain: 6, trackPeak: 0.7, albumPeak: 0.8))
         XCTAssertEqual(fifth.recordings.last?.songs.first?.replayGain, Song.ReplayGain())
 
+        // Navidrome keeps a star on the track. The reference recording follows from it, and the server returns it.
+        let reference = try XCTUnwrap(fifth.recordings.last)
+        let ids = reference.songs.map(\.id)
+        try await client.star(ids)
+        await library.sync(with: client)
+        let starred = try XCTUnwrap(library.index.composers.first { $0.name == "Ludwig van Beethoven" }?.works.first)
+        XCTAssertEqual(starred.defaultRecording?.album, reference.album)
+        XCTAssertTrue(starred.defaultRecording?.isReference == true)
+        XCTAssertEqual(starred.recordings.filter(\.isReference).count, 1)
+        try await client.unstar(ids)
+
         let reloaded = Library(cacheURL: cache, defaults: defaults)
         await reloaded.load(for: client.credentials)
         XCTAssertEqual(reloaded.songs.count, 24)

@@ -45,7 +45,17 @@ final class ScreensTests: XCTestCase {
         // The fixture movements last seconds; paused, the player stays for the next screens.
         app.buttons["Pause"].firstMatch.tap()
 
-        for _ in 0..<3 { back(app) }
+        reveal(app.buttons["download"], in: app).tap()
+        XCTAssertTrue(app.buttons["remove-download"].waitForExistence(timeout: 30))
+        snap(app, "05a-downloaded")
+        app.buttons["reference"].tap()
+        back(app)
+        let reference = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Play Reference Recording'"))
+            .firstMatch
+        XCTAssertTrue(reference.waitForExistence(timeout: 10))
+        snap(app, "05b-work-reference")
+        for _ in 0..<2 { back(app) }
+
         let miniPlayer = app.descendants(matching: .any)["mini-player"]
         XCTAssertTrue(miniPlayer.waitForExistence(timeout: 10))
         snap(app, "06-home-playing")
@@ -66,6 +76,11 @@ final class ScreensTests: XCTestCase {
         XCTAssertTrue(queued.label.contains("Symphony No. 5"))
         snap(app, "08-up-next")
         app.buttons["Done"].tap()
+
+        reveal(app.buttons["local-storage"], in: app).tap()
+        XCTAssertTrue(app.descendants(matching: .any)["download"].firstMatch.waitForExistence(timeout: 10))
+        snap(app, "08a-local-storage")
+        back(app)
 
         reveal(app.buttons["classical-filter"], in: app).tap()
         XCTAssertTrue(app.textFields.matching(identifier: "condition-text").firstMatch.waitForExistence(timeout: 10))

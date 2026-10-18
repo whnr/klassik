@@ -73,6 +73,12 @@ struct HomeView: View {
 
                 Section {
                     NavigationLink {
+                        LocalStorageView()
+                    } label: {
+                        Label("Local Storage", systemImage: "internaldrive")
+                    }
+                    .accessibilityIdentifier("local-storage")
+                    NavigationLink {
                         FilterView()
                     } label: {
                         Label("Classical Filter", systemImage: "line.3.horizontal.decrease.circle")
@@ -135,8 +141,11 @@ struct AlbumsView: View {
                 if let client = model.client { model.player.play([row.item], client: client) }
             } label: {
                 VStack(alignment: .leading) {
-                    Text(row.name)
-                        .foregroundStyle(Color.primary)
+                    HStack {
+                        Text(row.name)
+                            .foregroundStyle(Color.primary)
+                        OfflineHint(isOffline: model.tracks.isOffline(row.item.recording))
+                    }
                     Text(
                         [row.artist, "\(row.item.recording.songs.count) tracks"].compactMap(\.self).joined(
                             separator: " · ")
@@ -145,7 +154,7 @@ struct AlbumsView: View {
                     .foregroundStyle(Color.secondary)
                 }
             }
-            .queueActions(row.item)
+            .itemActions(row.item, downloads: true)
             .accessibilityIdentifier("album")
         }
         .overlay {

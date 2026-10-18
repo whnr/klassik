@@ -3,7 +3,7 @@ import MediaPlayer
 import Observation
 
 /// Plays one recording: all of its movements back to back, without gaps.
-/// Each track is downloaded first, because only a whole MP3 file lets the engine cut encoder delay and padding.
+/// Each track is on the device first, because only a whole MP3 file lets the engine cut encoder delay and padding.
 @MainActor @Observable
 final class Player {
     struct Progress {
@@ -59,9 +59,11 @@ final class Player {
     /// A paused node reports no player time, so the position is kept here.
     private var pausedAt: Int64?
     private let defaults: UserDefaults
+    private let store: TrackStore
     private static let levelingKey = "player.volumeLeveling"
 
-    init(defaults: UserDefaults = .standard) {
+    init(store: TrackStore, defaults: UserDefaults = .standard) {
+        self.store = store
         self.defaults = defaults
         leveling = defaults.string(forKey: Self.levelingKey).flatMap(VolumeLeveling.init) ?? .album
         let center = MPRemoteCommandCenter.shared()
@@ -257,7 +259,7 @@ final class Player {
         do {
             for position in index..<songs.count {
                 isLoading = true
-                let url = try await Self.download(songs[position], client: client)
+                let url = try await store.file(for: songs[position], client: client)
                 let file = try AVAudioFile(forReading: url)
                 isLoading = false
                 try Task.checkCancellation()
@@ -320,21 +322,6 @@ final class Player {
             MPNowPlayingInfoPropertyElapsedPlaybackTime: progress.elapsed,
             MPNowPlayingInfoPropertyPlaybackRate: isPaused ? 0.0 : 1.0,
         ]
-    }
-
-    /// Keeps each track in the caches folder, so playing it again needs no download.
-    private static func download(_ song: Song, client: SubsonicClient) async throws -> URL {
-        let folder = URL.cachesDirectory.appending(path: "tracks")
-        let local = folder.appending(path: "\(song.id).\(song.suffix ?? "mp3")")
-        if FileManager.default.fileExists(atPath: local.path()) { return local }
-        let (temporary, response) = try await URLSession.shared.download(from: client.streamURL(songID: song.id))
-        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
-            throw SubsonicError.http(status: http.statusCode)
-        }
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        try? FileManager.default.removeItem(at: local)
-        try FileManager.default.moveItem(at: temporary, to: local)
-        return local
     }
 
     private static func playableRange(of file: AVAudioFile) -> Range<Int64> {

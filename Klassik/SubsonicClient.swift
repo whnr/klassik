@@ -110,6 +110,8 @@ struct Song: Codable, Sendable, Identifiable, Hashable {
     var works: [Work]?
     var movements: [Movement]?
     var replayGain: ReplayGain?
+    /// The date when the user starred the track. The server omits it for other tracks.
+    var starred: String?
 }
 
 /// The `subsonic-response` object. Fields of all endpoints in use are optional members.
@@ -190,6 +192,14 @@ struct SubsonicClient: Sendable {
             throw SubsonicError.notSubsonic
         }
         return album
+    }
+
+    func star(_ ids: [String]) async throws {
+        _ = try await get("star", ids.map { URLQueryItem(name: "id", value: $0) })
+    }
+
+    func unstar(_ ids: [String]) async throws {
+        _ = try await get("unstar", ids.map { URLQueryItem(name: "id", value: $0) })
     }
 
     /// `format=raw` asks for the original file: a transcoded stream loses the MP3 gapless header.

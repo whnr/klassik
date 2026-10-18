@@ -26,6 +26,7 @@ final class Library {
     var albumCount: Int { Set(songs.map(\.albumKey)).count }
     var classicalAlbumCount: Int { Set(classical.map(\.albumKey)).count }
 
+    private var owner: (server: URL, username: String)?
     private let cacheURL: URL
     private let defaults: UserDefaults
     private static let filterKey = "library.filter.rules"
@@ -48,6 +49,7 @@ final class Library {
         guard let cache, cache.server == credentials.url, cache.username == credentials.username, songs.isEmpty else {
             return
         }
+        owner = (cache.server, cache.username)
         show(cache.songs, syncedAt: cache.syncedAt)
     }
 
@@ -64,6 +66,7 @@ final class Library {
             }
             let cache = LibraryCache(
                 server: client.credentials.url, username: client.credentials.username, syncedAt: .now, songs: songs)
+            owner = (client.credentials.url, client.credentials.username)
             show(songs, syncedAt: cache.syncedAt)
             syncError = nil
             let url = cacheURL
@@ -71,6 +74,19 @@ final class Library {
         } catch {
             syncError = error.localizedDescription
         }
+    }
+
+    /// Follows a star or unstar of the server, so the index changes without a new sync.
+    func setStarred(_ ids: Set<String>, _ starred: Bool) {
+        guard !ids.isEmpty, let owner, let syncedAt else { return }
+        var changed = songs
+        for index in changed.indices where ids.contains(changed[index].id) {
+            changed[index].starred = starred ? ISO8601DateFormatter().string(from: .now) : nil
+        }
+        show(changed, syncedAt: syncedAt)
+        let cache = LibraryCache(server: owner.server, username: owner.username, syncedAt: syncedAt, songs: changed)
+        let url = cacheURL
+        Task.detached { try? cache.write(to: url) }
     }
 
     func clear() {

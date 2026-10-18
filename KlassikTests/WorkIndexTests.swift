@@ -46,6 +46,22 @@ struct WorkIndexTests {
         #expect(WorkIndex.album([]) == nil)
     }
 
+    /// Only a recording with every track starred is the reference. The reference plays when the work plays.
+    @Test func starredRecordingIsTheReference() throws {
+        var first = Self.song("k1", album: "Kleiber", track: 1, work: "Op. 67", year: 1975)
+        var second = Self.song("k2", album: "Kleiber", track: 2, work: "Op. 67", year: 1975)
+        let early = Self.song("b1", album: "Karajan", track: 1, work: "Op. 67", year: 1963)
+        let partly = try #require(WorkIndex(songs: [first, second, early]).composers.first?.works.first)
+        #expect(partly.defaultRecording?.album == "Karajan")
+        first.starred = "2026-10-18T00:00:00Z"
+        let half = try #require(WorkIndex(songs: [first, second, early]).composers.first?.works.first)
+        #expect(half.recordings.allSatisfy { !$0.isReference })
+        second.starred = "2026-10-18T00:00:00Z"
+        let whole = try #require(WorkIndex(songs: [first, second, early]).composers.first?.works.first)
+        #expect(whole.defaultRecording?.album == "Kleiber")
+        #expect(whole.defaultRecording?.isReference == true)
+    }
+
     @Test func albumIsTheWorkWithoutWorkTag() throws {
         let index = WorkIndex(songs: [
             Self.song("s1", album: "Symphonie Nr.5", track: 1), Self.song("s2", album: "Symphonie Nr.5", track: 2),

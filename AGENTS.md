@@ -37,5 +37,6 @@ Rules for coding agents in this repository.
 - Comments state WHY, or a CONSTRAINT that the code cannot show. Never history: no "previously", "changed from", "now uses", "fixed bug where", no dates, no ticket stories. Git keeps the history.
 - Commit subject: what the commit does, imperative, 50 characters or fewer. Body: why, and what it affects. No file lists, no test lists, no story of the diff. The agent that wrote the code writes the message, in the same session.
 - If you do not know why, ask one question. Do not guess.
+- A decision that a comment or a commit body cannot hold goes into an architecture decision record in [`docs/adr/`](docs/adr/). Write it when Flo makes the decision, and link it from the commit body. A changed decision gets a new record.
 - Prose (documentation, comments, commit bodies, bead text) follows ASD-STE100 Simplified Technical English: sentences of 20 words or fewer (25 for descriptions), active voice, one meaning for each word, no hedging.
 - Generated text is never longer than the thing it explains.

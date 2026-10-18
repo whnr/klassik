@@ -81,11 +81,11 @@ struct GaplessAlbumView: View {
                     } label: {
                         VStack(alignment: .leading) {
                             Text(song.title)
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(Color.primary)
                             if let analysis = player.analysis[song.id] {
                                 Text(analysis.summary)
                                     .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(Color.secondary)
                             }
                         }
                     }

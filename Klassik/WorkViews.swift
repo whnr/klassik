@@ -228,7 +228,7 @@ struct RecordingView: View {
                     } label: {
                         HStack {
                             Text(recording.title(of: song))
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(Color.primary)
                             Spacer()
                             if isPlayingThis, player.current == index {
                                 if player.isLoading {
@@ -240,7 +240,7 @@ struct RecordingView: View {
                                 }
                             } else if let duration = song.duration {
                                 Text(Duration.seconds(duration).formatted(.time(pattern: .minuteSecond)))
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(Color.secondary)
                                     .monospacedDigit()
                             }
                         }
@@ -257,10 +257,13 @@ struct RecordingView: View {
                         } label: {
                             VStack(alignment: .leading) {
                                 Text(item.work.title)
-                                    .foregroundStyle(.primary)
-                                Text(item.recording.performers)
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(Color.primary)
+                                Text(
+                                    [item.work.composer, item.recording.performers]
+                                        .filter { !$0.isEmpty }.joined(separator: " · ")
+                                )
+                                .font(.subheadline)
+                                .foregroundStyle(Color.secondary)
                             }
                         }
                         .accessibilityIdentifier("up-next")
@@ -291,7 +294,9 @@ struct PlaybackProgress: View {
                     bar(
                         recording.title(of: recording.songs[progress.movement]), progress.elapsed, of: progress.duration
                     )
-                    bar("Whole Work", progress.workElapsed, of: progress.workDuration)
+                    bar(
+                        recording.isAlbum ? "Whole Album" : "Whole Work", progress.workElapsed,
+                        of: progress.workDuration)
                 }
                 .padding(.vertical, 4)
             }

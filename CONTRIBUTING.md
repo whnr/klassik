@@ -6,5 +6,5 @@ Klassik has strong opinions. Read the README first.
 - Small fixes are welcome without an issue.
 - Use only OpenSubsonic standard fields. No server-specific features.
 - Bring your own tools. Coding agents are welcome; [AGENTS.md](AGENTS.md) is written for them.
-- A change is accepted on what it does: CI passes, the screens workflow shows the screens you changed, and the app keeps its opinions.
+- A change is accepted on what it does: CI passes, the test workflow shows the screens you changed, and the app keeps its opinions.
 - In the pull request, say why the change is needed, then what it changes for the listener.

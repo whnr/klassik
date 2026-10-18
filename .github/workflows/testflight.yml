@@ -20,6 +20,9 @@ jobs:
   # Cheap Linux job that decides whether the macOS upload runs.
   due:
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
     outputs:
       upload: ${{ steps.age.outputs.upload }}
     steps:
@@ -36,6 +39,14 @@ jobs:
           days=$(python3 scripts/testflight_build_age.py)
           echo "newest TestFlight build is $days days old"
           [ "$days" -ge 85 ] && echo "upload=true" >> "$GITHUB_OUTPUT" || echo "upload=false" >> "$GITHUB_OUTPUT"
+      # Every release runs the UI tests, so the commit needs a green run of the full suite.
+      - name: Require a green test run
+        if: steps.age.outputs.upload == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          passed=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/test.yml/runs?head_sha=$GITHUB_SHA&status=success" --jq .total_count)
+          [ "$passed" -gt 0 ] || { echo "::error::no green Test run for $GITHUB_SHA; push it to the screens branch first"; exit 1; }
 
   upload:
     needs: due

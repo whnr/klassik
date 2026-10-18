@@ -136,13 +136,13 @@ struct AlbumsView: View {
             } label: {
                 VStack(alignment: .leading) {
                     Text(row.name)
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(Color.primary)
                     Text(
                         [row.artist, "\(row.item.recording.songs.count) tracks"].compactMap(\.self).joined(
                             separator: " · ")
                     )
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.secondary)
                 }
             }
             .queueActions(row.item)

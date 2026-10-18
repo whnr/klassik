@@ -1,13 +1,16 @@
-name: Screens
+name: Test
 
-# Screenshots of the main screens against a fixture Navidrome, for review before a UI change ships.
+# The full suite against a fixture Navidrome: unit, library sync, gapless and UI tests, plus screenshots.
+# A push to main starts no macOS run. testflight.yml refuses a commit that has no green run of this workflow.
 on:
   push:
     branches: [screens]
+  pull_request:
+    paths-ignore: ["**.md", "LICENSE", "docs/**"]
   workflow_dispatch:
 
 concurrency:
-  group: screens
+  group: test-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -36,7 +39,7 @@ jobs:
           path: fixture-music.tgz
           retention-days: 1
 
-  screens:
+  test:
     needs: [lint, fixtures]
     runs-on: macos-26
     timeout-minutes: 40
@@ -51,7 +54,7 @@ jobs:
         run: brew install xcodegen
       - name: Start Navidrome on the fixture library
         run: scripts/fixture-server.sh "$RUNNER_TEMP/fixture"
-      - name: Walk the screens
+      - name: Run all tests and walk the screens
         run: scripts/screens.sh "$RUNNER_TEMP/screens"
       - uses: actions/upload-artifact@v7
         if: always()

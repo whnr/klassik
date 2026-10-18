@@ -38,6 +38,10 @@ final class ScreensTests: XCTestCase {
         snap(app, "04-work")
 
         recording.tap()
+        app.buttons["download-menu"].tap()
+        app.buttons["Download"].tap()
+        let downloaded = app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Downloaded'")).firstMatch
+        XCTAssertTrue(downloaded.waitForExistence(timeout: 60))
         app.buttons["play-recording"].tap()
         let playing = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Now playing'")).firstMatch
         XCTAssertTrue(playing.waitForExistence(timeout: 30))

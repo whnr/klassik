@@ -110,6 +110,7 @@ private struct WorkRow: View {
 
 /// A work's recordings, oldest first, with the performers up front.
 struct WorkView: View {
+    @Environment(AppModel.self) private var model
     let work: WorkIndex.Work
 
     var body: some View {
@@ -130,7 +131,14 @@ struct WorkView: View {
                             .miniPlayerInset()
                     } label: {
                         VStack(alignment: .leading) {
-                            Text(recording.performers.isEmpty ? recording.album : recording.performers)
+                            HStack {
+                                Text(recording.performers.isEmpty ? recording.album : recording.performers)
+                                if model.downloads.state(of: recording.songs) == .complete {
+                                    Image(systemName: "arrow.down.circle.fill")
+                                        .foregroundStyle(.secondary)
+                                        .accessibilityLabel("Downloaded")
+                                }
+                            }
                             Text(
                                 [recording.year.map(String.init), recording.album, "\(recording.songs.count) tracks"]
                                     .compactMap(\.self).joined(separator: " · ")
@@ -148,6 +156,34 @@ struct WorkView: View {
         }
         .navigationTitle(work.title)
         .miniPlayerInset()
+        .toolbar { DownloadMenu(songs: work.recordings.flatMap(\.songs)) }
+    }
+}
+
+/// Download, cancel and remove for a set of tracks.
+struct DownloadMenu: View {
+    @Environment(AppModel.self) private var model
+    let songs: [Song]
+
+    var body: some View {
+        let downloads = model.downloads
+        let state = downloads.state(of: songs)
+        Menu {
+            if state.isDownloading {
+                Button("Cancel Download", systemImage: "xmark.circle") { downloads.cancel(songs) }
+            } else if state != .complete {
+                Button("Download", systemImage: "arrow.down.circle") {
+                    if let client = model.client { downloads.download(songs, client: client) }
+                }
+            }
+            if state != .none {
+                Button("Remove Download", systemImage: "trash", role: .destructive) { downloads.remove(songs) }
+            }
+        } label: {
+            Label("Downloads", systemImage: state == .complete ? "arrow.down.circle.fill" : "arrow.down.circle")
+        }
+        .disabled(songs.isEmpty)
+        .accessibilityIdentifier("download-menu")
     }
 }
 
@@ -179,6 +215,12 @@ struct RecordingView: View {
                 LabeledContent("Album", value: recording.album)
                 if let year = recording.year {
                     LabeledContent("Year", value: String(year))
+                }
+                LabeledContent("Download", value: model.downloads.state(of: recording.songs).label)
+                    .accessibilityIdentifier("download-state")
+                if let error = model.downloads.error {
+                    Label(error, systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.red)
                 }
             }
 
@@ -275,6 +317,7 @@ struct RecordingView: View {
         }
         .navigationTitle(work.title)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar { DownloadMenu(songs: recording.songs) }
     }
 
     private func play(from index: Int) {

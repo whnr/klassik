@@ -11,7 +11,8 @@ final class AppModel {
     private(set) var isChecking = false
 
     let library: Library
-    let player = Player()
+    let downloads: DownloadStore
+    let player: Player
     private let store: CredentialStore
 
     var client: SubsonicClient? { credentials.map { SubsonicClient(credentials: $0) } }
@@ -19,10 +20,14 @@ final class AppModel {
     init(store: CredentialStore = CredentialStore(), library: Library = Library()) {
         self.store = store
         self.library = library
+        let downloads = DownloadStore()
+        self.downloads = downloads
+        player = Player(downloads: downloads)
         // UI tests start from the connect screen.
         if ProcessInfo.processInfo.arguments.contains("-resetServer") {
             store.clear()
             library.clear()
+            downloads.removeAll()
         }
         credentials = store.load()
     }
@@ -64,6 +69,7 @@ final class AppModel {
 
     func signOut() {
         player.stop()
+        downloads.removeAll()
         store.clear()
         library.clear()
         credentials = nil

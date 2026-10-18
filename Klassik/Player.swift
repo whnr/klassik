@@ -57,9 +57,11 @@ final class Player {
     /// A paused node reports no player time, so the position is kept here.
     private var pausedAt: Int64?
     private let defaults: UserDefaults
+    private let downloads: DownloadStore
     private static let levelingKey = "player.volumeLeveling"
 
-    init(defaults: UserDefaults = .standard) {
+    init(downloads: DownloadStore, defaults: UserDefaults = .standard) {
+        self.downloads = downloads
         self.defaults = defaults
         leveling = defaults.string(forKey: Self.levelingKey).flatMap(VolumeLeveling.init) ?? .album
         let center = MPRemoteCommandCenter.shared()
@@ -254,7 +256,7 @@ final class Player {
         do {
             for position in index..<songs.count {
                 isLoading = true
-                let url = try await Self.download(songs[position], client: client)
+                let url = try await file(for: songs[position], client: client)
                 let file = try AVAudioFile(forReading: url)
                 isLoading = false
                 try Task.checkCancellation()
@@ -317,6 +319,12 @@ final class Player {
             MPNowPlayingInfoPropertyElapsedPlaybackTime: progress.elapsed,
             MPNowPlayingInfoPropertyPlaybackRate: isPaused ? 0.0 : 1.0,
         ]
+    }
+
+    /// A downloaded track plays without the server. Any other track loads first.
+    private func file(for song: Song, client: SubsonicClient) async throws -> URL {
+        if let local = downloads.localURL(for: song) { return local }
+        return try await Self.download(song, client: client)
     }
 
     /// Keeps each track in the caches folder, so playing it again needs no download.

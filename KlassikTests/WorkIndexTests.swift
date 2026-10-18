@@ -111,7 +111,8 @@ struct WorkIndexTests {
 
     @Test func completenessNamesMissingMovements() {
         let part = WorkIndex.Recording(
-            id: "r", album: "A", performers: "", songs: [
+            id: "r", album: "A", performers: "",
+            songs: [
                 Self.song("a", album: "A", track: 1, movement: (1, 5)),
                 Self.song("b", album: "A", track: 2, movement: (3, 5)),
                 Self.song("c", album: "A", track: 3, movement: (4, 5)),

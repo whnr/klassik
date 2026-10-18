@@ -136,7 +136,7 @@ struct WorkView: View {
                                     recording.year.map(String.init), recording.album,
                                     recording.completeness ?? "\(recording.songs.count) tracks",
                                 ]
-                                    .compactMap(\.self).joined(separator: " · ")
+                                .compactMap(\.self).joined(separator: " · ")
                             )
                             .font(.subheadline)
                             .foregroundStyle(.secondary)

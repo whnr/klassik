@@ -32,6 +32,9 @@ final class LibrarySyncTests: XCTestCase {
         XCTAssertEqual(fifth.title, "Symphony No. 5 in C minor, Op. 67")
         XCTAssertEqual(fifth.recordings.map(\.year), [1990, 2015])
         XCTAssertEqual(fifth.recordings.first?.performers, "Testing Philharmonic, Anna Probe")
+        let gain = try XCTUnwrap(fifth.recordings.first?.songs.first?.replayGain)
+        XCTAssertEqual(gain, Song.ReplayGain(trackGain: 5, albumGain: 6, trackPeak: 0.7, albumPeak: 0.8))
+        XCTAssertEqual(fifth.recordings.last?.songs.first?.replayGain, Song.ReplayGain())
 
         let reloaded = Library(cacheURL: cache, defaults: defaults)
         await reloaded.load(for: client.credentials)

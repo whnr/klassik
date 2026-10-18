@@ -50,27 +50,41 @@ final class ScreensTests: XCTestCase {
         XCTAssertTrue(miniPlayer.waitForExistence(timeout: 10))
         snap(app, "06-home-playing")
 
+        app.buttons.matching(identifier: "composer")
+            .matching(NSPredicate(format: "label BEGINSWITH 'Ludwig'")).firstMatch.tap()
+        let fifth = app.buttons.matching(identifier: "work").firstMatch
+        XCTAssertTrue(fifth.waitForExistence(timeout: 10))
+        fifth.swipeLeft()
+        app.buttons["Add to Queue"].tap()
+        back(app)
+
         miniPlayer.tap()
         XCTAssertTrue(app.descendants(matching: .any)["playback-progress"].waitForExistence(timeout: 10))
         snap(app, "07-now-playing")
+        let queued = app.buttons.matching(identifier: "up-next").firstMatch
+        for _ in 0..<3 where !(queued.exists && queued.isHittable) { app.swipeUp() }
+        XCTAssertTrue(queued.label.contains("Symphony No. 5"))
+        snap(app, "08-up-next")
         app.buttons["Done"].tap()
 
         reveal(app.buttons["classical-filter"], in: app).tap()
         XCTAssertTrue(app.textFields.matching(identifier: "condition-text").firstMatch.waitForExistence(timeout: 10))
-        snap(app, "08-filter")
+        snap(app, "09-filter")
         back(app)
 
         reveal(app.buttons["classical-albums"], in: app).tap()
-        XCTAssertTrue(app.staticTexts["Mendelssohn: Violin Concerto"].waitForExistence(timeout: 10))
-        snap(app, "09-classical-albums")
+        let concerto = app.buttons.matching(identifier: "album")
+            .matching(NSPredicate(format: "label CONTAINS 'Mendelssohn: Violin Concerto'")).firstMatch
+        XCTAssertTrue(concerto.waitForExistence(timeout: 10))
+        snap(app, "10-classical-albums")
         back(app)
 
         reveal(app.buttons["diagnostics"], in: app).tap()
         XCTAssertTrue(app.staticTexts["Diagnostics"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.descendants(matching: .any)["opensubsonic"].waitForExistence(timeout: 10))
-        snap(app, "10-diagnostics")
+        snap(app, "11-diagnostics")
         app.swipeUp()
-        snap(app, "11-diagnostics-bottom")
+        snap(app, "12-diagnostics-bottom")
 
         reveal(app.buttons["gapless-test"], in: app).tap()
         let search = app.searchFields.firstMatch
@@ -79,7 +93,7 @@ final class ScreensTests: XCTestCase {
         search.typeText("Mendelssohn\n")
         let album = app.buttons.matching(identifier: "gapless-album").firstMatch
         XCTAssertTrue(album.waitForExistence(timeout: 15))
-        snap(app, "12-gapless-search")
+        snap(app, "13-gapless-search")
 
         album.tap()
         let track = app.buttons.matching(identifier: "gapless-track").firstMatch
@@ -87,7 +101,7 @@ final class ScreensTests: XCTestCase {
         track.tap()
         let analysis = app.buttons.matching(NSPredicate(format: "label CONTAINS 'iOS decodes'")).firstMatch
         XCTAssertTrue(analysis.waitForExistence(timeout: 30))
-        snap(app, "13-gapless-album")
+        snap(app, "14-gapless-album")
     }
 
     @MainActor

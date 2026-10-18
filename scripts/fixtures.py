@@ -40,6 +40,10 @@ OP64_MOVEMENTS = ["Allegro molto appassionato", "Andante", "Allegretto non tropp
 GLIDE_RATE = 44100
 GLIDE_SAMPLES = [132301, 110017, 154441]
 
+# ReplayGain tags of the 1990 recording of the Fifth. The peak allows less boost than the gain asks for.
+REPLAYGAIN = {"Beethoven: Symphony No. 5": {"album_gain": "+6.00 dB", "album_peak": "0.800000",
+                                            "track_gain": "+5.00 dB", "track_peak": "0.700000"}}
+
 
 def work(composer, title, movements, performers, conductor, seconds=4, only=None):
     picked = only or range(1, len(movements) + 1)
@@ -110,6 +114,8 @@ def tag(path, album, album_artist, genre, recorded, released, number, total, tra
         tags.add(TPE3(encoding=3, text=conductor))
     if performers:
         tags.add(TMCL(encoding=3, people=[list(p) for p in performers]))
+    for name, value in REPLAYGAIN.get(album, {}).items():
+        tags.add(TXXX(encoding=3, desc=f"REPLAYGAIN_{name.upper()}", text=value))
     tags.save(path, v2_version=4)
 
 

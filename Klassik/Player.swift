@@ -14,18 +14,39 @@ final class Player {
         var workDuration: Double
     }
 
-    private(set) var work: WorkIndex.Work?
-    private(set) var recording: WorkIndex.Recording?
+    /// One recording in the queue.
+    struct Item: Identifiable, Sendable {
+        let id = UUID()
+        var work: WorkIndex.Work
+        var recording: WorkIndex.Recording
+    }
+
+    private(set) var item: Item?
+    /// The recordings that play after the current one, in order.
+    private(set) var upNext: [Item] = []
+    var work: WorkIndex.Work? { item?.work }
+    var recording: WorkIndex.Recording? { item?.recording }
     /// The movement that is audible now, as an index into `recording.songs`.
     private(set) var current: Int? {
-        didSet { updateNowPlaying() }
+        didSet {
+            applyGain()
+            updateNowPlaying()
+        }
     }
     private(set) var isPaused = false
     private(set) var error: String?
     private(set) var isLoading = false
+    var leveling: VolumeLeveling {
+        didSet {
+            defaults.set(leveling.rawValue, forKey: Self.levelingKey)
+            applyGain()
+        }
+    }
 
     private var engine: AVAudioEngine?
     private var node: AVAudioPlayerNode?
+    /// Applies the ReplayGain. The node volume cannot go above 1, so it cannot boost.
+    private var gain: AVAudioUnitEQ?
     private var task: Task<Void, Never>?
     private var client: SubsonicClient?
     /// Completion handlers of an earlier playback must not move the current movement.
@@ -35,8 +56,12 @@ final class Player {
     private var sampleRate = 44_100.0
     /// A paused node reports no player time, so the position is kept here.
     private var pausedAt: Int64?
+    private let defaults: UserDefaults
+    private static let levelingKey = "player.volumeLeveling"
 
-    init() {
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        leveling = defaults.string(forKey: Self.levelingKey).flatMap(VolumeLeveling.init) ?? .album
         let center = MPRemoteCommandCenter.shared()
         // The system calls these on the main thread.
         center.playCommand.addTarget { [weak self] _ in
@@ -61,8 +86,54 @@ final class Player {
         }
     }
 
+    /// Plays one recording and empties the queue.
     func play(_ recording: WorkIndex.Recording, of work: WorkIndex.Work, from index: Int = 0, client: SubsonicClient) {
-        stop()
+        play([Item(work: work, recording: recording)], client: client, from: index)
+    }
+
+    /// Plays the first item and queues the others.
+    func play(_ items: [Item], client: SubsonicClient, from index: Int = 0) {
+        guard let first = items.first else { return }
+        upNext = Array(items.dropFirst())
+        start(first, from: index, client: client)
+    }
+
+    /// Puts an item at the top of the queue. With nothing playing, it plays at once.
+    func playNext(_ item: Item, client: SubsonicClient) {
+        guard self.item != nil else { return play([item], client: client) }
+        upNext.insert(item, at: 0)
+    }
+
+    /// Puts an item at the end of the queue. With nothing playing, it plays at once.
+    func addToQueue(_ item: Item, client: SubsonicClient) {
+        guard self.item != nil else { return play([item], client: client) }
+        upNext.append(item)
+    }
+
+    /// Skips to the next recording in the queue.
+    func nextWork() {
+        guard let client, !upNext.isEmpty else { return }
+        start(upNext.removeFirst(), from: 0, client: client)
+    }
+
+    /// Plays a queued item and drops the items before it.
+    func playQueued(_ id: Item.ID) {
+        guard let client, let index = upNext.firstIndex(where: { $0.id == id }) else { return }
+        let item = upNext[index]
+        upNext.removeFirst(index + 1)
+        start(item, from: 0, client: client)
+    }
+
+    func removeFromQueue(at offsets: IndexSet) {
+        upNext.remove(atOffsets: offsets)
+    }
+
+    func moveInQueue(from source: IndexSet, to destination: Int) {
+        upNext.move(fromOffsets: source, toOffset: destination)
+    }
+
+    private func start(_ item: Item, from index: Int, client: SubsonicClient) {
+        reset()
         do {
             try AVAudioSession.sharedInstance().setCategory(.playback)
             try AVAudioSession.sharedInstance().setActive(true)
@@ -70,13 +141,12 @@ final class Player {
             self.error = error.localizedDescription
             return
         }
-        self.work = work
-        self.recording = recording
+        self.item = item
         self.client = client
         current = index
         generation += 1
         let generation = generation
-        task = Task { await schedule(recording.songs, from: index, client: client, generation: generation) }
+        task = Task { await schedule(item.recording.songs, from: index, client: client, generation: generation) }
     }
 
     func togglePause() {
@@ -99,34 +169,45 @@ final class Player {
         updateNowPlaying()
     }
 
+    /// Goes to the next movement, or to the next recording in the queue after the last movement.
     func next() {
-        guard let recording, let work, let client, let current, current + 1 < recording.songs.count else { return }
-        play(recording, of: work, from: current + 1, client: client)
+        guard let item, let client, let current else { return }
+        if current + 1 < item.recording.songs.count {
+            start(item, from: current + 1, client: client)
+        } else {
+            nextWork()
+        }
     }
 
     /// Goes back to the start of the movement, or to the movement before if it has only just begun.
     func previous() {
-        guard let recording, let work, let client, let current else { return }
+        guard let item, let client, let current else { return }
         let restart = (progress()?.elapsed ?? 0) > 3 || current == 0
-        play(recording, of: work, from: restart ? current : current - 1, client: client)
+        start(item, from: restart ? current : current - 1, client: client)
     }
 
+    /// Stops playback and empties the queue.
     func stop() {
+        reset()
+        upNext = []
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+    }
+
+    private func reset() {
         generation += 1
         task?.cancel()
         task = nil
         engine?.stop()
         engine = nil
         node = nil
-        work = nil
-        recording = nil
+        gain = nil
+        item = nil
         current = nil
         isPaused = false
         pausedAt = nil
         isLoading = false
         error = nil
         segments = [:]
-        MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
     }
 
     /// The position in the current movement and in the whole work.
@@ -161,9 +242,13 @@ final class Player {
     private func schedule(_ songs: [Song], from index: Int, client: SubsonicClient, generation: Int) async {
         let engine = AVAudioEngine()
         let node = AVAudioPlayerNode()
+        let gain = AVAudioUnitEQ(numberOfBands: 0)
         engine.attach(node)
+        engine.attach(gain)
         self.engine = engine
         self.node = node
+        self.gain = gain
+        applyGain()
         var format: AVAudioFormat?
         var scheduledEnd: Int64 = 0
         do {
@@ -177,7 +262,8 @@ final class Player {
                 if format == nil {
                     format = file.processingFormat
                     sampleRate = file.processingFormat.sampleRate
-                    engine.connect(node, to: engine.mainMixerNode, format: file.processingFormat)
+                    engine.connect(node, to: gain, format: file.processingFormat)
+                    engine.connect(gain, to: engine.mainMixerNode, format: file.processingFormat)
                     try engine.start()
                     node.play()
                 } else if file.processingFormat != format {
@@ -207,16 +293,24 @@ final class Player {
         guard generation == self.generation, let recording else { return }
         if position + 1 < recording.songs.count {
             current = position + 1
+        } else if !upNext.isEmpty {
+            nextWork()
         } else {
             stop()
         }
+    }
+
+    /// Album gains are the same for each movement, so a change at the movement boundary is not audible.
+    private func applyGain() {
+        guard let gain else { return }
+        gain.globalGain = current.flatMap { index in recording.map { leveling.gain(for: $0.songs[index]) } } ?? 0
     }
 
     /// Fills the lock screen and Control Center.
     private func updateNowPlaying() {
         guard let work, let recording, let current, let progress = progress() else { return }
         MPNowPlayingInfoCenter.default().nowPlayingInfo = [
-            MPMediaItemPropertyTitle: recording.songs[current].movementTitle,
+            MPMediaItemPropertyTitle: recording.title(of: recording.songs[current]),
             MPMediaItemPropertyArtist: recording.performers,
             MPMediaItemPropertyAlbumTitle: work.title,
             MPMediaItemPropertyPlaybackDuration: progress.duration,

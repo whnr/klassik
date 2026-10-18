@@ -12,7 +12,7 @@ struct MiniPlayer: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(work.title)
                         .lineLimit(1)
-                    Text(player.current.map { recording.songs[$0].movementTitle } ?? recording.performers)
+                    Text(player.current.map { recording.title(of: recording.songs[$0]) } ?? recording.performers)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -36,12 +36,26 @@ struct MiniPlayer: View {
             .accessibilityIdentifier("mini-player")
             .sheet(isPresented: $showsRecording) {
                 NavigationStack {
-                    RecordingView(work: work, recording: recording)
+                    NowPlayingView()
                         .toolbar {
                             Button("Done", systemImage: "chevron.down") { showsRecording = false }
                         }
                 }
             }
+        }
+    }
+}
+
+/// The recording that plays now. It follows the player when the queue moves on.
+private struct NowPlayingView: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        if let work = model.player.work, let recording = model.player.recording {
+            RecordingView(work: work, recording: recording)
+                .id(recording.id)
+        } else {
+            ContentUnavailableView("Nothing Playing", systemImage: "music.note")
         }
     }
 }

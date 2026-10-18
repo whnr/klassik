@@ -5,6 +5,7 @@ struct HomeView: View {
 
     var body: some View {
         let library = model.library
+        @Bindable var player = model.player
         NavigationStack {
             List {
                 if !library.index.composers.isEmpty {
@@ -57,6 +58,15 @@ struct HomeView: View {
                 }
 
                 Section {
+                    Picker("ReplayGain", selection: $player.leveling) {
+                        ForEach(VolumeLeveling.allCases) { Text($0.title).tag($0) }
+                    }
+                    .accessibilityIdentifier("replaygain")
+                } footer: {
+                    Text("Album keeps the loudness steps between the movements of a work.")
+                }
+
+                Section {
                     NavigationLink {
                         FilterView()
                     } label: {
@@ -72,6 +82,9 @@ struct HomeView: View {
                 }
             }
             .navigationTitle("Klassik")
+            .toolbar {
+                ShuffleButton(works: library.index.composers.flatMap(\.works))
+            }
             .refreshable {
                 if let client = model.client { await library.sync(with: client) }
             }
@@ -90,27 +103,41 @@ struct AlbumsView: View {
     let title: String
     let songs: [Song]
 
+    @Environment(AppModel.self) private var model
+
     private struct Row: Identifiable {
         var id: String
         var name: String
         var artist: String?
-        var tracks: Int
+        var item: Player.Item
     }
 
     private var rows: [Row] {
         Dictionary(grouping: songs, by: \.albumKey)
-            .map { key, tracks in Row(id: key, name: tracks[0].album ?? tracks[0].title, artist: tracks[0].artist, tracks: tracks.count) }
+            .compactMap { key, tracks in
+                WorkIndex.album(tracks).map { album in
+                    Row(id: key, name: album.work.title, artist: tracks[0].artist,
+                        item: Player.Item(work: album.work, recording: album.recording))
+                }
+            }
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 
     var body: some View {
         List(rows) { row in
-            VStack(alignment: .leading) {
-                Text(row.name)
-                Text([row.artist, "\(row.tracks) tracks"].compactMap(\.self).joined(separator: " · "))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+            Button {
+                if let client = model.client { model.player.play([row.item], client: client) }
+            } label: {
+                VStack(alignment: .leading) {
+                    Text(row.name)
+                        .foregroundStyle(.primary)
+                    Text([row.artist, "\(row.item.recording.songs.count) tracks"].compactMap(\.self).joined(separator: " · "))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
             }
+            .queueActions(row.item)
+            .accessibilityIdentifier("album")
         }
         .overlay {
             if songs.isEmpty { ContentUnavailableView("No Albums", systemImage: "square.stack") }

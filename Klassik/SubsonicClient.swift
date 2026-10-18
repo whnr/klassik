@@ -83,6 +83,15 @@ struct Song: Codable, Sendable, Identifiable, Hashable {
         var count: Int?
     }
 
+    /// Gains in decibels. A peak is the highest sample, where 1 is full scale.
+    struct ReplayGain: Codable, Sendable, Hashable {
+        var trackGain: Double?
+        var albumGain: Double?
+        var trackPeak: Double?
+        var albumPeak: Double?
+        var fallbackGain: Double?
+    }
+
     var id: String
     var title: String
     var album: String?
@@ -99,6 +108,7 @@ struct Song: Codable, Sendable, Identifiable, Hashable {
     var contributors: [Contributor]?
     var works: [Work]?
     var movements: [Movement]?
+    var replayGain: ReplayGain?
 }
 
 /// The `subsonic-response` object. Fields of all endpoints in use are optional members.

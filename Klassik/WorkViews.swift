@@ -24,6 +24,64 @@ struct ComposerView: View {
             }
         }
         .navigationTitle(composer.name)
+        .toolbar { ShuffleButton(works: composer.works) }
+    }
+}
+
+/// Plays works in random order. The movements of each work stay in order.
+struct ShuffleButton: View {
+    @Environment(AppModel.self) private var model
+    let works: [WorkIndex.Work]
+
+    var body: some View {
+        Button("Shuffle Works", systemImage: "shuffle") {
+            guard let client = model.client else { return }
+            let items = works.shuffled().compactMap { work in
+                work.recordings.first.map { Player.Item(work: work, recording: $0) }
+            }
+            model.player.play(items, client: client)
+        }
+        .disabled(works.isEmpty)
+        .accessibilityIdentifier("shuffle")
+    }
+}
+
+/// Play Next and Add to Queue as swipe actions and in the context menu, as in Apple Music.
+private struct QueueActions: ViewModifier {
+    @Environment(AppModel.self) private var model
+    let item: Player.Item
+
+    func body(content: Content) -> some View {
+        content
+            .swipeActions(edge: .leading) {
+                Button("Play Next", systemImage: "text.line.first.and.arrowtriangle.forward") { playNext() }
+                    .tint(.indigo)
+            }
+            .swipeActions(edge: .trailing) {
+                Button("Add to Queue", systemImage: "text.line.last.and.arrowtriangle.forward") { addToQueue() }
+                    .tint(.orange)
+            }
+            .contextMenu {
+                Button("Play", systemImage: "play") {
+                    if let client = model.client { model.player.play([item], client: client) }
+                }
+                Button("Play Next", systemImage: "text.line.first.and.arrowtriangle.forward") { playNext() }
+                Button("Add to Queue", systemImage: "text.line.last.and.arrowtriangle.forward") { addToQueue() }
+            }
+    }
+
+    private func playNext() {
+        if let client = model.client { model.player.playNext(item, client: client) }
+    }
+
+    private func addToQueue() {
+        if let client = model.client { model.player.addToQueue(item, client: client) }
+    }
+}
+
+extension View {
+    @ViewBuilder func queueActions(_ item: Player.Item?) -> some View {
+        if let item { modifier(QueueActions(item: item)) } else { self }
     }
 }
 
@@ -42,6 +100,7 @@ private struct WorkRow: View {
                     .foregroundStyle(.secondary)
             }
         }
+        .queueActions(work.recordings.first.map { Player.Item(work: work, recording: $0) })
         .accessibilityIdentifier("work")
     }
 }
@@ -73,6 +132,7 @@ struct WorkView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
+                    .queueActions(Player.Item(work: work, recording: recording))
                     .accessibilityIdentifier("recording")
                 }
             } header: {
@@ -90,6 +150,14 @@ struct RecordingView: View {
     let recording: WorkIndex.Recording
 
     private var isPlayingThis: Bool { model.player.recording?.id == recording.id }
+
+    /// The whole album, if it holds more than this recording.
+    private var album: Player.Item? {
+        guard !recording.isAlbum, let key = recording.songs.first?.albumKey,
+              let album = WorkIndex.album(model.library.songs.filter { $0.albumKey == key }),
+              album.recording.songs.count > recording.songs.count else { return nil }
+        return Player.Item(work: album.work, recording: album.recording)
+    }
 
     var body: some View {
         let player = model.player
@@ -117,6 +185,9 @@ struct RecordingView: View {
                         Spacer()
                         Button("Next", systemImage: "forward.fill") { player.next() }
                         Spacer()
+                        Button("Next Work", systemImage: "forward.end.fill") { player.nextWork() }
+                            .disabled(player.upNext.isEmpty)
+                        Spacer()
                         Button("Stop", systemImage: "stop.fill") { player.stop() }
                     }
                     .labelStyle(.iconOnly)
@@ -126,6 +197,11 @@ struct RecordingView: View {
                 } else {
                     Button("Play", systemImage: "play.fill") { play(from: 0) }
                         .accessibilityIdentifier("play-recording")
+                    if let album {
+                        Button("Play Whole Album", systemImage: "square.stack") {
+                            if let client = model.client { player.play([album], client: client) }
+                        }
+                    }
                 }
                 if isPlayingThis, let error = player.error {
                     Label(error, systemImage: "exclamationmark.triangle")
@@ -139,7 +215,7 @@ struct RecordingView: View {
                         play(from: index)
                     } label: {
                         HStack {
-                            Text(song.movementTitle)
+                            Text(recording.title(of: song))
                                 .foregroundStyle(.primary)
                             Spacer()
                             if isPlayingThis, player.current == index {
@@ -158,6 +234,27 @@ struct RecordingView: View {
                         }
                     }
                     .accessibilityIdentifier("movement")
+                }
+            }
+
+            if isPlayingThis, !player.upNext.isEmpty {
+                Section("Up Next") {
+                    ForEach(player.upNext) { item in
+                        Button {
+                            player.playQueued(item.id)
+                        } label: {
+                            VStack(alignment: .leading) {
+                                Text(item.work.title)
+                                    .foregroundStyle(.primary)
+                                Text(item.recording.performers)
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .accessibilityIdentifier("up-next")
+                    }
+                    .onDelete { player.removeFromQueue(at: $0) }
+                    .onMove { player.moveInQueue(from: $0, to: $1) }
                 }
             }
         }
@@ -179,7 +276,7 @@ struct PlaybackProgress: View {
         TimelineView(.periodic(from: .now, by: 0.5)) { _ in
             if let progress = player.progress(), let recording = player.recording {
                 VStack(alignment: .leading, spacing: 12) {
-                    bar(recording.songs[progress.movement].movementTitle, progress.elapsed, of: progress.duration)
+                    bar(recording.title(of: recording.songs[progress.movement]), progress.elapsed, of: progress.duration)
                     bar("Whole Work", progress.workElapsed, of: progress.workDuration)
                 }
                 .padding(.vertical, 4)

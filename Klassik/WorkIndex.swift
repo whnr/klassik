@@ -34,6 +34,13 @@ struct WorkIndex: Sendable {
         var performers: String
         /// The movements in disc and track order.
         var songs: [Song]
+        /// True if this is a whole album, which can hold several works.
+        var isAlbum = false
+
+        /// A movement name alone does not say which work of an album it belongs to.
+        func title(of song: Song) -> String {
+            isAlbum ? song.title : song.movementTitle
+        }
     }
 
     var composers: [Composer] = []
@@ -78,6 +85,18 @@ struct WorkIndex: Sendable {
         return Recording(
             id: id, album: first.album ?? "", year: songs.compactMap(\.year).min(), performers: first.performers,
             songs: songs)
+    }
+
+    /// A whole album as one work with one recording, to play it from start to end.
+    static func album(_ tracks: [Song]) -> (work: Work, recording: Recording)? {
+        guard let first = tracks.first else { return nil }
+        var whole = Self.recording(id: "album|\(first.albumKey)", tracks)
+        whole.isAlbum = true
+        whole.performers = first.artist ?? whole.performers
+        let work = Work(
+            id: whole.id, title: whole.album.isEmpty ? first.title : whole.album,
+            composer: first.composerName, isTagged: false, recordings: [whole])
+        return (work, whole)
     }
 
     /// The part that all movement titles share, such as "Symphonie Nr.5 c-moll" in "Symphonie Nr.5 c-moll (1)".

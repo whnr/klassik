@@ -28,6 +28,20 @@ struct WorkIndexTests {
         #expect(fifth.recordings.first?.songs.map(\.id) == ["b1", "b2"])
     }
 
+    /// A whole album plays in disc and track order and names each track in full, because it can hold several works.
+    @Test func albumPlaysAllTracksOnce() throws {
+        var movement = Self.song("m2", album: "Encores", track: 2, work: "Op. 98")
+        movement.movements = [Song.Movement(name: "Allegro giocoso")]
+        let duplicate = Self.song("x1", album: "Encores", track: 1)
+        let album = try #require(WorkIndex.album([movement, Self.song("m1", album: "Encores", track: 1), duplicate]))
+        #expect(album.recording.isAlbum)
+        #expect(album.recording.songs.map(\.id) == ["m1", "m2"])
+        #expect(album.recording.title(of: movement) == "Track 2")
+        #expect(album.recording.performers == "Album Artist")
+        #expect(album.work.title == "Encores")
+        #expect(WorkIndex.album([]) == nil)
+    }
+
     @Test func albumIsTheWorkWithoutWorkTag() throws {
         let index = WorkIndex(songs: [
             Self.song("s1", album: "Symphonie Nr.5", track: 1), Self.song("s2", album: "Symphonie Nr.5", track: 2),

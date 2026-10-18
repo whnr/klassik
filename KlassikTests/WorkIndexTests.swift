@@ -51,4 +51,25 @@ struct WorkIndexTests {
         #expect(tagged.performers == "Eva Bogen, Anna Probe")
         #expect(Self.song("u", album: "A", track: 1).performers == "Album Artist")
     }
+
+    @Test(arguments: [
+        (["Symphonie Nr.5 c-moll (1)", "Symphonie Nr.5 c-moll (2)"], "Symphonie Nr.5 c-moll"),
+        (["Violin Concerto in E minor, Op. 64: I. Allegro", "Violin Concerto in E minor, Op. 64: II. Andante"],
+         "Violin Concerto in E minor, Op. 64"),
+        (["Symphony No. 9: IV. Presto"], "Symphony No. 9: IV. Presto"),
+        (["Blue Sine", "Square Dance"], nil),
+    ] as [([String], String?)])
+    func sharedTitleNamesTheWork(titles: [String], expected: String?) {
+        #expect(WorkIndex.commonTitle(titles) == expected)
+    }
+
+    /// A WORK tag such as "Op. 67" alone does not say which symphony it is.
+    @Test func contextNamesTheWorkFromTitlesAndAlbum() throws {
+        var first = Self.song("s1", album: "Symphonie Nr.5", track: 1, work: "Op. 67")
+        var second = Self.song("s2", album: "Symphonie Nr.5", track: 2, work: "Op. 67")
+        first.title = "Symphonie Nr.5 c-moll (1)"
+        second.title = "Symphonie Nr.5 c-moll (2)"
+        let work = try #require(WorkIndex(songs: [first, second]).composers.first?.works.first)
+        #expect(work.context == "Symphonie Nr.5 c-moll · Symphonie Nr.5")
+    }
 }

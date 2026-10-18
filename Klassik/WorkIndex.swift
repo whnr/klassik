@@ -15,6 +15,16 @@ struct WorkIndex: Sendable {
         /// False if the tracks carry no WORK tag. Klassik then uses the album as the work.
         var isTagged: Bool
         var recordings: [Recording]
+
+        /// What the track titles and albums say about the work. A WORK tag can be as short as "Op. 67".
+        var context: String {
+            let first = recordings.first?.songs ?? []
+            let albums = Array(Set(recordings.map(\.album))).sorted()
+            let parts: [String?] = [WorkIndex.commonTitle(first.map(\.title))] + albums.prefix(2).map(Optional.some)
+                + [albums.count > 2 ? "+\(albums.count - 2) more" : nil]
+            var seen: Set<String> = [title]
+            return parts.compactMap(\.self).filter { !$0.isEmpty && seen.insert($0).inserted }.joined(separator: " · ")
+        }
     }
 
     struct Recording: Identifiable, Sendable {
@@ -68,6 +78,17 @@ struct WorkIndex: Sendable {
         return Recording(
             id: id, album: first.album ?? "", year: songs.compactMap(\.year).min(), performers: first.performers,
             songs: songs)
+    }
+
+    /// The part that all movement titles share, such as "Symphonie Nr.5 c-moll" in "Symphonie Nr.5 c-moll (1)".
+    static func commonTitle(_ titles: [String]) -> String? {
+        guard var prefix = titles.first else { return nil }
+        guard titles.count > 1 else { return prefix }
+        for title in titles.dropFirst() { prefix = prefix.commonPrefix(with: title) }
+        // Drops a partly shared word, such as the "I" that "I. Allegro" and "II. Andante" share.
+        guard let cut = prefix.lastIndex(where: { " :(-–,[".contains($0) }) else { return nil }
+        let common = prefix[..<cut].trimmingCharacters(in: CharacterSet(charactersIn: " :(-–,.["))
+        return common.count >= 3 ? common : nil
     }
 
     /// Sorts "Ludwig van Beethoven" under B.

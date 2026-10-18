@@ -34,7 +34,13 @@ private struct WorkRow: View {
         NavigationLink {
             WorkView(work: work)
         } label: {
-            LabeledContent(work.title, value: work.recordings.count == 1 ? "1 recording" : "\(work.recordings.count) recordings")
+            VStack(alignment: .leading) {
+                Text(work.title)
+                Text([work.context, work.recordings.count == 1 ? "1 recording" : "\(work.recordings.count) recordings"]
+                    .filter { !$0.isEmpty }.joined(separator: " · "))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
         }
         .accessibilityIdentifier("work")
     }
@@ -46,6 +52,14 @@ struct WorkView: View {
 
     var body: some View {
         List {
+            Section {
+                LabeledContent("Composer", value: work.composer)
+                if !work.context.isEmpty {
+                    Text(work.context)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             Section {
                 ForEach(work.recordings) { recording in
                     NavigationLink {
@@ -93,10 +107,22 @@ struct RecordingView: View {
 
             Section {
                 if isPlayingThis {
-                    Button(player.isPaused ? "Resume" : "Pause", systemImage: player.isPaused ? "play.fill" : "pause.fill") {
-                        player.togglePause()
+                    PlaybackProgress(player: player)
+                    HStack {
+                        Button("Previous", systemImage: "backward.fill") { player.previous() }
+                        Spacer()
+                        Button(player.isPaused ? "Resume" : "Pause", systemImage: player.isPaused ? "play.fill" : "pause.fill") {
+                            player.togglePause()
+                        }
+                        Spacer()
+                        Button("Next", systemImage: "forward.fill") { player.next() }
+                        Spacer()
+                        Button("Stop", systemImage: "stop.fill") { player.stop() }
                     }
-                    Button("Stop", systemImage: "stop.fill") { player.stop() }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.borderless)
+                    .font(.title2)
+                    .padding(.horizontal)
                 } else {
                     Button("Play", systemImage: "play.fill") { play(from: 0) }
                         .accessibilityIdentifier("play-recording")
@@ -142,5 +168,43 @@ struct RecordingView: View {
     private func play(from index: Int) {
         guard let client = model.client else { return }
         model.player.play(recording, of: work, from: index, client: client)
+    }
+}
+
+/// How far the current movement and the whole work have played.
+struct PlaybackProgress: View {
+    let player: Player
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 0.5)) { _ in
+            if let progress = player.progress(), let recording = player.recording {
+                VStack(alignment: .leading, spacing: 12) {
+                    bar(recording.songs[progress.movement].movementTitle, progress.elapsed, of: progress.duration)
+                    bar("Whole Work", progress.workElapsed, of: progress.workDuration)
+                }
+                .padding(.vertical, 4)
+            }
+        }
+        .accessibilityIdentifier("playback-progress")
+    }
+
+    private func bar(_ title: String, _ elapsed: Double, of duration: Double) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.subheadline)
+            ProgressView(value: min(elapsed, duration), total: max(duration, 1))
+            HStack {
+                Text(Self.time(elapsed))
+                Spacer()
+                Text("−" + Self.time(max(duration - elapsed, 0)))
+            }
+            .font(.caption)
+            .monospacedDigit()
+            .foregroundStyle(.secondary)
+        }
+    }
+
+    static func time(_ seconds: Double) -> String {
+        Duration.seconds(seconds.rounded()).formatted(.time(pattern: seconds >= 3600 ? .hourMinuteSecond : .minuteSecond))
     }
 }

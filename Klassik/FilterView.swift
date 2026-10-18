@@ -60,6 +60,7 @@ private struct ConditionRow: View {
             }
             .labelsHidden()
             .fixedSize()
+            .tint(.primary)
             if condition.kind.takesText {
                 TextField("Genre", text: $condition.text)
                     .multilineTextAlignment(.trailing)

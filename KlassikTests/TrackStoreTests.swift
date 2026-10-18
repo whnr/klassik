@@ -16,8 +16,9 @@ struct TrackStoreTests {
         var failing: Set<String> = []
     }
 
-    func makeStore(_ requests: Requests = Requests()) throws -> TrackStore {
+    func makeStore(_ requests: Requests = Requests(), limit: Int64? = nil) throws -> TrackStore {
         let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
+        if let limit { defaults.set(limit, forKey: "store.cacheLimit") }
         return TrackStore(
             cacheFolder: root.appending(path: "cache"), downloadFolder: root.appending(path: "support/downloads"),
             defaults: defaults,
@@ -80,8 +81,8 @@ struct TrackStoreTests {
     @Test func trackThatPlaysNowStaysEvenIfOldest() throws {
         try write("playing", in: "cache", bytes: 600_000_000, age: 300)
         try write("other", in: "cache", bytes: 600_000_000, age: 100)
-        let store = try makeStore()
-        store.cacheLimit = 700_000_000
+        // Setting the limit would drop the oldest file at once, so the store starts with it.
+        let store = try makeStore(limit: 700_000_000)
         store.evict(keeping: root.appending(path: "cache/playing.mp3"))
         #expect(exists("playing", in: "cache"))
         #expect(!exists("other", in: "cache"))

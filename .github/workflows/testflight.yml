@@ -39,6 +39,9 @@ jobs:
           days=$(python3 scripts/testflight_build_age.py)
           echo "newest TestFlight build is $days days old"
           [ "$days" -ge 85 ] && echo "upload=true" >> "$GITHUB_OUTPUT" || echo "upload=false" >> "$GITHUB_OUTPUT"
+      - name: Require What to Test notes for this version
+        if: steps.age.outputs.upload == 'true'
+        run: python3 scripts/testflight_notes.py --check
       # Every release runs the UI tests, so the commit needs a green run of the full suite.
       - name: Require a green test run
         if: steps.age.outputs.upload == 'true'
@@ -120,3 +123,18 @@ jobs:
           git rev-parse -q --verify "refs/tags/v$version" >/dev/null && exit 0
           git ls-remote --exit-code --tags origin "v$version" >/dev/null && exit 0
           git tag "v$version" && git push origin "v$version"
+
+  # Linux job: it only waits for App Store Connect to finish processing the build.
+  notes:
+    needs: upload
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+    steps:
+      - uses: actions/checkout@v7
+      - run: pip install --quiet 'pyjwt[crypto]'
+      - name: Set What to Test
+        run: python3 scripts/testflight_notes.py "${{ github.run_number }}"

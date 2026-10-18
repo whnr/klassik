@@ -13,7 +13,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Runs on Linux, because macOS runner time is expensive. The macOS job starts only on clean code.
+  lint:
+    runs-on: ubuntu-latest
+    container: swift:6.2
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - run: scripts/lint.sh
+
   test:
+    needs: lint
     runs-on: macos-26
     timeout-minutes: 30
     steps:

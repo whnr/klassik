@@ -24,7 +24,8 @@ Rules for coding agents in this repository.
 
 - `project.yml` defines the project. XcodeGen generates `Klassik.xcodeproj`; do not commit it.
 - `scripts/test.sh` generates the project and runs the unit tests on an iPhone simulator.
-- `.github/workflows/ci.yml` runs `scripts/test.sh` on `macos-26` for pushes to `main` and for pull requests. Documentation changes do not start it.
+- `scripts/lint.sh` checks the Swift layout against `.swift-format` (Swift 6.2 `swift format`). Run it before you push. `swift format --in-place --recursive Klassik KlassikTests KlassikUITests` fixes most findings.
+- `.github/workflows/ci.yml` runs `scripts/lint.sh` on Linux, then `scripts/test.sh` on `macos-26` for pushes to `main` and for pull requests. Documentation changes do not start it.
 - `.github/workflows/screens.yml` runs on a push to branch `screens` or by hand. It starts Navidrome on the fixture library, runs the UI tests, and uploads the screenshots as artifact `screens`. Before you report a UI change as done, fast-forward `screens`, download the artifact through the GitHub REST API, and look at every PNG.
 - `.github/workflows/testflight.yml` runs by hand. It archives without signing, signs at export with the App Store Connect API key, and uploads with `altool`. A daily run uploads again when the newest build is 85 days old, because TestFlight builds expire after 90 days.
 - `.github/workflows/testflight-feedback.yml` runs by hand. It checks the API key secrets (`scripts/asc_check.py`), then prints TestFlight feedback and crash logs and uploads the feedback screenshots.

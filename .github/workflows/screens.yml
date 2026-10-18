@@ -11,6 +11,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Runs on Linux, because macOS runner time is expensive. The macOS job starts only on clean code.
+  lint:
+    runs-on: ubuntu-latest
+    container: swift:6.2
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - run: scripts/lint.sh
+
   # ffmpeg is quick to install on Linux; the macOS job only needs the finished files.
   # The tarball keeps the colons in the file names, which artifact paths reject.
   fixtures:
@@ -28,7 +37,7 @@ jobs:
           retention-days: 1
 
   screens:
-    needs: fixtures
+    needs: [lint, fixtures]
     runs-on: macos-26
     timeout-minutes: 40
     steps:

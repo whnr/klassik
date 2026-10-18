@@ -6,13 +6,16 @@ import Testing
 struct WorkIndexTests {
     static func song(
         _ id: String, album: String, track: Int, composer: String = "Ludwig van Beethoven", work: String? = nil,
-        year: Int? = nil, performers: [(String, String)] = []
+        year: Int? = nil, performers: [(String, String)] = [], movement: (number: Int, count: Int)? = nil,
+        contributors: [Song.Contributor]? = nil
     ) -> Song {
         Song(
             id: id, title: "Track \(track)", album: album, albumId: album, artist: "Album Artist", track: track,
             discNumber: 1, year: year, displayComposer: composer,
-            contributors: performers.map { Song.Contributor(role: $0.0, artist: Song.Artist(id: $0.1, name: $0.1)) },
-            works: work.map { [Song.Work(name: $0)] })
+            contributors: contributors
+                ?? performers.map { Song.Contributor(role: $0.0, artist: Song.Artist(id: $0.1, name: $0.1)) },
+            works: work.map { [Song.Work(name: $0)] },
+            movements: movement.map { [Song.Movement(name: "M", number: $0.number, count: $0.count)] })
     }
 
     @Test func groupsTaggedWorksIntoRecordingsByAlbum() throws {
@@ -90,5 +93,33 @@ struct WorkIndexTests {
         second.title = "Symphonie Nr.5 c-moll (2)"
         let work = try #require(WorkIndex(songs: [first, second]).composers.first?.works.first)
         #expect(work.context == "Symphonie Nr.5 c-moll · Symphonie Nr.5")
+    }
+
+    @Test func performersListSoloistsThenEnsemblesThenConductor() {
+        func contributor(_ role: String, _ name: String, _ subRole: String? = nil) -> Song.Contributor {
+            Song.Contributor(role: role, subRole: subRole, artist: Song.Artist(id: name, name: name))
+        }
+        let contributors = [
+            contributor("conductor", "Anna Probe"), contributor("performer", "Testing Philharmonic", "orchestra"),
+            contributor("performer", "Eva Bogen", "violin"), contributor("performer", "Adam Alto", "viola"),
+        ]
+        let song = Self.song("t", album: "A", track: 1, contributors: contributors)
+        #expect(song.performers == "Adam Alto, Eva Bogen, Testing Philharmonic, Anna Probe")
+        let shuffled = Self.song("t", album: "A", track: 1, contributors: contributors.reversed())
+        #expect(shuffled.performers == song.performers)
+    }
+
+    @Test func completenessNamesMissingMovements() {
+        let part = WorkIndex.Recording(
+            id: "r", album: "A", performers: "", songs: [
+                Self.song("a", album: "A", track: 1, movement: (1, 5)),
+                Self.song("b", album: "A", track: 2, movement: (3, 5)),
+                Self.song("c", album: "A", track: 3, movement: (4, 5)),
+            ])
+        #expect(part.completeness == "3 of 5 movements")
+        let whole = WorkIndex.Recording(
+            id: "r", album: "A", performers: "", songs: [Self.song("a", album: "A", track: 1, movement: (1, 1))])
+        #expect(whole.completeness == nil)
+        #expect(WorkIndex.Recording(id: "r", album: "A", performers: "", songs: []).completeness == nil)
     }
 }

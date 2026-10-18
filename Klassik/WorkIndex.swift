@@ -38,6 +38,18 @@ struct WorkIndex: Sendable {
         /// True if this is a whole album, which can hold several works.
         var isAlbum = false
 
+        /// How many movements the tags name for the work, if the tags say.
+        var movementTotal: Int? {
+            songs.compactMap { $0.movements?.first?.count }.max().flatMap { $0 > 0 ? $0 : nil }
+        }
+
+        /// "3 of 5 movements" when the recording holds only part of its work.
+        var completeness: String? {
+            guard !isAlbum, let total = movementTotal else { return nil }
+            let present = Set(songs.compactMap { $0.movements?.first?.number }).count
+            return present > 0 && present < total ? "\(present) of \(total) movements" : nil
+        }
+
         /// A movement name alone does not say which work of an album it belongs to.
         func title(of song: Song) -> String {
             isAlbum ? song.title : song.movementTitle
@@ -126,14 +138,21 @@ extension Song {
         return names.isEmpty ? "Unknown Composer" : names.joined(separator: ", ")
     }
 
-    /// Soloists and ensembles, then the conductor. Without these tags, the track artist.
+    /// Soloists, then ensembles, then the conductor. Without these tags, the track artist.
+    /// Navidrome returns the contributors of a track in a different order after each scan, so each group sorts by name.
     var performers: String {
         let roles = contributors ?? []
+        let performers = roles.filter { $0.role == "performer" }
+        let ensembles = performers.filter(\.isEnsemble)
+        let groups = [
+            performers.filter { !$0.isEnsemble }, ensembles, roles.filter { $0.role == "conductor" },
+        ]
         var names: [String] = []
-        for name in roles.filter({ $0.role == "performer" }).map(\.artist.name)
-            + roles.filter({ $0.role == "conductor" }).map(\.artist.name) where !names.contains(name)
-        {
-            names.append(name)
+        for group in groups {
+            for name in group.map(\.artist.name).sorted(by: { $0.localizedStandardCompare($1) == .orderedAscending })
+            where !names.contains(name) {
+                names.append(name)
+            }
         }
         return names.isEmpty ? artist ?? "" : names.joined(separator: ", ")
     }
@@ -142,5 +161,14 @@ extension Song {
     var movementTitle: String {
         if let name = movements?.first?.name, !name.isEmpty { return name }
         return title
+    }
+}
+
+extension Song.Contributor {
+    /// The tag names an instrument for a soloist and a group for an ensemble.
+    var isEnsemble: Bool {
+        let ensembleWords = ["orchestra", "choir", "chorus", "ensemble", "quartet", "quintet", "trio", "consort"]
+        let sub = (subRole ?? "").lowercased()
+        return ensembleWords.contains { sub.contains($0) }
     }
 }

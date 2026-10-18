@@ -132,7 +132,10 @@ struct WorkView: View {
                         VStack(alignment: .leading) {
                             Text(recording.performers.isEmpty ? recording.album : recording.performers)
                             Text(
-                                [recording.year.map(String.init), recording.album, "\(recording.songs.count) tracks"]
+                                [
+                                    recording.year.map(String.init), recording.album,
+                                    recording.completeness ?? "\(recording.songs.count) tracks",
+                                ]
                                     .compactMap(\.self).joined(separator: " · ")
                             )
                             .font(.subheadline)

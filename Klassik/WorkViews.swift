@@ -51,12 +51,14 @@ struct ShuffleButton: View {
 private struct QueueActions: ViewModifier {
     @Environment(AppModel.self) private var model
     let item: Player.Item
+    let offersDownload: Bool
 
     func body(content: Content) -> some View {
         content
             .swipeActions(edge: .leading) {
                 Button("Play Next", systemImage: "text.line.first.and.arrowtriangle.forward") { playNext() }
                     .tint(.indigo)
+                if offersDownload { downloadAction }
             }
             .swipeActions(edge: .trailing) {
                 Button("Add to Queue", systemImage: "text.line.last.and.arrowtriangle.forward") { addToQueue() }
@@ -71,6 +73,20 @@ private struct QueueActions: ViewModifier {
             }
     }
 
+    @ViewBuilder private var downloadAction: some View {
+        let downloads = model.downloads
+        let songs = item.recording.songs
+        if downloads.state(of: songs) == .none {
+            Button("Download", systemImage: "arrow.down.circle") {
+                if let client = model.client { downloads.download(songs, client: client) }
+            }
+            .tint(.blue)
+        } else {
+            Button("Remove Download", systemImage: "trash") { downloads.remove(songs) }
+                .tint(.gray)
+        }
+    }
+
     private func playNext() {
         if let client = model.client { model.player.playNext(item, client: client) }
     }
@@ -81,8 +97,9 @@ private struct QueueActions: ViewModifier {
 }
 
 extension View {
-    @ViewBuilder func queueActions(_ item: Player.Item?) -> some View {
-        if let item { modifier(QueueActions(item: item)) } else { self }
+    /// With `offersDownload`, the leading swipe also downloads or removes the download of the recording.
+    @ViewBuilder func queueActions(_ item: Player.Item?, offersDownload: Bool = false) -> some View {
+        if let item { modifier(QueueActions(item: item, offersDownload: offersDownload)) } else { self }
     }
 }
 
@@ -113,7 +130,6 @@ private struct WorkRow: View {
 
 /// A work's recordings, oldest first, with the performers up front.
 struct WorkView: View {
-    @Environment(AppModel.self) private var model
     let work: WorkIndex.Work
 
     var body: some View {
@@ -146,7 +162,7 @@ struct WorkView: View {
                             .foregroundStyle(.secondary)
                         }
                     }
-                    .queueActions(Player.Item(work: work, recording: recording))
+                    .queueActions(Player.Item(work: work, recording: recording), offersDownload: true)
                     .accessibilityIdentifier("recording")
                 }
             } header: {
@@ -155,11 +171,10 @@ struct WorkView: View {
         }
         .navigationTitle(work.title)
         .miniPlayerInset()
-        .toolbar { DownloadMenu(songs: work.recordings.flatMap(\.songs)) }
     }
 }
 
-/// Download, cancel and remove for a set of tracks.
+/// Download, cancel and remove for the tracks of one recording.
 struct DownloadMenu: View {
     @Environment(AppModel.self) private var model
     let songs: [Song]

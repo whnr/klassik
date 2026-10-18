@@ -151,7 +151,7 @@ struct AlbumsView: View {
                     .foregroundStyle(Color.secondary)
                 }
             }
-            .queueActions(row.item)
+            .queueActions(row.item, offersDownload: true)
             .accessibilityIdentifier("album")
         }
         .overlay {

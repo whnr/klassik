@@ -16,8 +16,10 @@ A listener plays classical music on a train, without a server. Tracks are large.
 - Downloads do not count toward the maximum. The cache never removes a download.
 - A track that is both cached and downloaded lives once, as a download.
 - The Local Storage screen shows the cache with Clear Cache, and the list of downloads.
+- Sign-out clears the cache and removes all downloads.
 
 ## Consequences
 
 - The system may empty the caches folder, so only a download is a promise.
 - A downloaded recording plays without the server. A cached track may play without it.
+- A new sign-in must download recordings again.

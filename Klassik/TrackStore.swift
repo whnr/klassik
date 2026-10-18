@@ -18,8 +18,10 @@ final class TrackStore {
     /// Loads one track and returns the temporary file. A test replaces it, so no test needs a server.
     typealias Fetch = @MainActor (Song, SubsonicClient) async throws -> URL
 
-    static let limits: [Int64] = [512, 1024, 2048, 5120, 10240].map { $0 * 1_000_000 }
-    static let defaultLimit = limits[2]
+    /// The limit counts whole gigabytes, in the same decimal unit that the screen uses for every size.
+    static let gigabyte: Int64 = 1_000_000_000
+    static let limitRange = 1...50
+    static let defaultLimit = 2 * gigabyte
 
     private(set) var downloads: [Download] = []
     /// The tracks that play without the server, downloaded or cached.

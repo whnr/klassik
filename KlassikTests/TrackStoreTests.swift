@@ -112,11 +112,11 @@ struct TrackStoreTests {
         TrackStore(
             cacheFolder: root.appending(path: "cache"), downloadFolder: root.appending(path: "support/downloads"),
             defaults: defaults
-        ).cacheLimit = TrackStore.limits[0]
+        ).cacheLimit = 3 * TrackStore.gigabyte
         let again = TrackStore(
             cacheFolder: root.appending(path: "cache"), downloadFolder: root.appending(path: "support/downloads"),
             defaults: defaults)
-        #expect(again.cacheLimit == TrackStore.limits[0])
+        #expect(again.cacheLimit == 3 * TrackStore.gigabyte)
     }
 
     @Test func playingATrackFetchesItIntoTheCacheOnce() async throws {

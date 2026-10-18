@@ -154,8 +154,9 @@ struct AlbumsView: View {
 
     var body: some View {
         List(rows) { row in
-            Button {
-                if let client = model.client { model.player.play([row.item], client: client) }
+            NavigationLink {
+                RecordingView(work: row.item.work, recording: row.item.recording)
+                    .miniPlayerInset()
             } label: {
                 VStack(alignment: .leading) {
                     HStack {

@@ -125,6 +125,10 @@ final class ScreensTests: XCTestCase {
             .matching(NSPredicate(format: "label CONTAINS 'Mendelssohn: Violin Concerto'")).firstMatch
         XCTAssertTrue(concerto.waitForExistence(timeout: 10))
         snap(app, "10-classical-albums")
+        // A tap opens the album. It does not start to play.
+        concerto.tap()
+        XCTAssertTrue(app.buttons["play-recording"].waitForExistence(timeout: 10))
+        back(app)
         back(app)
 
         reveal(app.buttons["diagnostics"], in: app).tap()

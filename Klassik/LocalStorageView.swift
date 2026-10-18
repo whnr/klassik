@@ -9,9 +9,15 @@ struct LocalStorageView: View {
         Form {
             Section {
                 LabeledContent("Used", value: Self.size(tracks.cacheBytes))
-                Picker("Limit", selection: $tracks.cacheLimit) {
-                    ForEach(TrackStore.limits, id: \.self) { Text(Self.size($0)).tag($0) }
+                Stepper(
+                    value: Binding(
+                        get: { max(1, Int(tracks.cacheLimit / TrackStore.gigabyte)) },
+                        set: { tracks.cacheLimit = Int64($0) * TrackStore.gigabyte }),
+                    in: TrackStore.limitRange
+                ) {
+                    LabeledContent("Limit", value: Self.size(tracks.cacheLimit))
                 }
+                .accessibilityIdentifier("cache-limit")
                 Button("Clear Cache", role: .destructive) { tracks.clearCache() }
                     .disabled(tracks.cacheBytes == 0)
                     .accessibilityIdentifier("clear-cache")

@@ -74,9 +74,13 @@ final class ScreensTests: XCTestCase {
         let performer = app.buttons.matching(identifier: "performer").firstMatch
         XCTAssertTrue(performer.waitForExistence(timeout: 10))
         snap(app, "06a-performers")
-        performer.tap()
         let performed = app.buttons.matching(identifier: "recording").firstMatch
-        XCTAssertTrue(performed.waitForExistence(timeout: 10))
+        // A tap while the list still settles does not open the row, so the walk taps again.
+        for _ in 0..<3 where !performed.exists {
+            if performer.isHittable { performer.tap() }
+            _ = performed.waitForExistence(timeout: 5)
+        }
+        XCTAssertTrue(performed.exists)
         snap(app, "06b-performer")
         performed.tap()
         reveal(app.buttons["raw-tags"], in: app).tap()

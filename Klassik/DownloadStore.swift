@@ -114,6 +114,14 @@ final class DownloadStore {
         }
     }
 
+    /// Bytes of all downloaded tracks, also those that no recording in the library claims.
+    var totalSize: Int64 {
+        files.values.reduce(0) { total, name in
+            let size = try? folder.appending(path: name).resourceValues(forKeys: [.fileSizeKey]).fileSize
+            return total + Int64(size ?? 0)
+        }
+    }
+
     /// Bytes on disk for the downloaded tracks among these songs.
     func size(of songs: [Song]) -> Int64 {
         songs.reduce(0) { total, song in

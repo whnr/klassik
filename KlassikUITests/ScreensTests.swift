@@ -83,6 +83,12 @@ final class ScreensTests: XCTestCase {
         snap(app, "10-classical-albums")
         back(app)
 
+        reveal(app.buttons["local-storage"], in: app).tap()
+        XCTAssertTrue(app.descendants(matching: .any)["cache-size"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["download-row"].firstMatch.waitForExistence(timeout: 10))
+        snap(app, "15-local-storage")
+        back(app)
+
         reveal(app.buttons["diagnostics"], in: app).tap()
         XCTAssertTrue(app.staticTexts["Diagnostics"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.descendants(matching: .any)["opensubsonic"].waitForExistence(timeout: 10))

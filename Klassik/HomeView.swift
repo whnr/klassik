@@ -84,6 +84,12 @@ struct HomeView: View {
                         Label("Diagnostics", systemImage: "stethoscope")
                     }
                     .accessibilityIdentifier("diagnostics")
+                    NavigationLink {
+                        LocalStorageView()
+                    } label: {
+                        Label("Local Storage", systemImage: "internaldrive")
+                    }
+                    .accessibilityIdentifier("local-storage")
                 }
             }
             .navigationTitle("Klassik")

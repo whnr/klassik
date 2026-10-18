@@ -94,7 +94,10 @@ private struct WorkRow: View {
             WorkView(work: work)
         } label: {
             VStack(alignment: .leading) {
-                Text(work.title)
+                HStack {
+                    Text(work.title)
+                    OfflineHint(recordings: work.recordings)
+                }
                 Text(
                     [work.context, work.recordings.count == 1 ? "1 recording" : "\(work.recordings.count) recordings"]
                         .filter { !$0.isEmpty }.joined(separator: " · ")
@@ -133,11 +136,7 @@ struct WorkView: View {
                         VStack(alignment: .leading) {
                             HStack {
                                 Text(recording.performers.isEmpty ? recording.album : recording.performers)
-                                if model.downloads.state(of: recording.songs) == .complete {
-                                    Image(systemName: "arrow.down.circle.fill")
-                                        .foregroundStyle(.secondary)
-                                        .accessibilityLabel("Downloaded")
-                                }
+                                OfflineHint(songs: recording.songs)
                             }
                             Text(
                                 [recording.year.map(String.init), recording.album, "\(recording.songs.count) tracks"]
@@ -281,6 +280,7 @@ struct RecordingView: View {
                                         .accessibilityLabel("Now playing")
                                 }
                             } else if let duration = song.duration {
+                                OfflineHint(songs: [song])
                                 Text(Duration.seconds(duration).formatted(.time(pattern: .minuteSecond)))
                                     .foregroundStyle(Color.secondary)
                                     .monospacedDigit()

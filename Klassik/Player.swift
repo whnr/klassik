@@ -12,6 +12,8 @@ final class Player {
         var duration: Double
         var workElapsed: Double
         var workDuration: Double
+        /// The length of each track, for the gaps in the whole-work bar.
+        var durations: [Double]
     }
 
     /// One recording in the queue.
@@ -228,7 +230,8 @@ final class Player {
         }
         return Progress(
             movement: movement, elapsed: elapsed, duration: durations[movement],
-            workElapsed: durations[..<movement].reduce(0, +) + elapsed, workDuration: durations.reduce(0, +))
+            workElapsed: durations[..<movement].reduce(0, +) + elapsed, workDuration: durations.reduce(0, +),
+            durations: durations)
     }
 
     private func playedSamples() -> Int64? {

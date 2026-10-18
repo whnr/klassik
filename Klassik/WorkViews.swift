@@ -296,7 +296,7 @@ struct PlaybackProgress: View {
                     )
                     bar(
                         recording.isAlbum ? "Whole Album" : "Whole Work", progress.workElapsed,
-                        of: progress.workDuration)
+                        of: progress.workDuration, gaps: progress.durations)
                 }
                 .padding(.vertical, 4)
             }
@@ -304,11 +304,17 @@ struct PlaybackProgress: View {
         .accessibilityIdentifier("playback-progress")
     }
 
-    private func bar(_ title: String, _ elapsed: Double, of duration: Double) -> some View {
+    private func bar(
+        _ title: String, _ elapsed: Double, of duration: Double, gaps durations: [Double] = []
+    ) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
                 .font(.subheadline)
-            ProgressView(value: min(elapsed, duration), total: max(duration, 1))
+            if durations.count > 1 {
+                SegmentedBar(elapsed: elapsed, durations: durations)
+            } else {
+                ProgressView(value: min(elapsed, duration), total: max(duration, 1))
+            }
             HStack {
                 Text(Self.time(elapsed))
                 Spacer()
@@ -323,5 +329,36 @@ struct PlaybackProgress: View {
     static func time(_ seconds: Double) -> String {
         Duration.seconds(seconds.rounded()).formatted(
             .time(pattern: seconds >= 3600 ? .hourMinuteSecond : .minuteSecond))
+    }
+}
+
+/// A progress bar with a gap at each track boundary, so the bar shows how many tracks there are.
+private struct SegmentedBar: View {
+    let elapsed: Double
+    let durations: [Double]
+    private let gap: CGFloat = 2
+
+    var body: some View {
+        GeometryReader { proxy in
+            let total = max(durations.reduce(0, +), 1)
+            let usable = max(proxy.size.width - gap * CGFloat(durations.count - 1), 0)
+            HStack(spacing: gap) {
+                ForEach(durations.indices, id: \.self) { index in
+                    let start = durations[..<index].reduce(0, +)
+                    let share = min(max((elapsed - start) / max(durations[index], 0.001), 0), 1)
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color.secondary.opacity(0.25))
+                        Capsule().fill(Color.accentColor)
+                            .frame(width: usable * durations[index] / total * share)
+                    }
+                    .frame(width: usable * durations[index] / total)
+                }
+            }
+        }
+        .frame(height: 4)
+        .accessibilityElement()
+        .accessibilityLabel("Progress")
+        .accessibilityValue(
+            Text(elapsed / max(durations.reduce(0, +), 1), format: .percent.precision(.fractionLength(0))))
     }
 }

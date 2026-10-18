@@ -62,7 +62,20 @@ struct WorkIndex: Sendable {
         }
     }
 
+    /// A performer with every recording that names them, grouped by work for the performer page.
+    struct Performer: Identifiable, Sendable {
+        struct Entry: Identifiable, Sendable {
+            var work: Work
+            var recording: Recording
+            var id: String { recording.id }
+        }
+        var name: String
+        var entries: [Entry]
+        var id: String { name }
+    }
+
     var composers: [Composer] = []
+    var performers: [Performer] = []
 
     init() {}
 
@@ -86,6 +99,17 @@ struct WorkIndex: Sendable {
                 )
             }
             .sorted { Self.sortName($0.name).localizedStandardCompare(Self.sortName($1.name)) == .orderedAscending }
+
+        var entries: [String: [Performer.Entry]] = [:]
+        for work in composers.flatMap(\.works) {
+            for recording in work.recordings {
+                for name in recording.songs.first?.performerNames ?? [] {
+                    entries[name, default: []].append(Performer.Entry(work: work, recording: recording))
+                }
+            }
+        }
+        performers = entries.map { Performer(name: $0.key, entries: $0.value) }
+            .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 
     /// The MusicBrainz work ID if there is one, then composer and work name, then composer and album.
@@ -146,7 +170,7 @@ extension Song {
 
     /// Soloists, then ensembles, then the conductor. Without these tags, the track artist.
     /// Navidrome returns the contributors of a track in a different order after each scan, so each group sorts by name.
-    var performers: String {
+    var performerNames: [String] {
         let roles = contributors ?? []
         let performers = roles.filter { $0.role == "performer" }
         let ensembles = performers.filter(\.isEnsemble)
@@ -160,8 +184,10 @@ extension Song {
                 names.append(name)
             }
         }
-        return names.isEmpty ? artist ?? "" : names.joined(separator: ", ")
+        return names.isEmpty ? [artist].compactMap(\.self).filter { !$0.isEmpty } : names
     }
+
+    var performers: String { performerNames.joined(separator: ", ") }
 
     /// The movement name if tagged, else the track title.
     var movementTitle: String {

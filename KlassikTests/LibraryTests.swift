@@ -79,6 +79,16 @@ struct LibraryTests {
         #expect(song.displayComposer == "Wolfgang Amadeus Mozart")
     }
 
+    /// The change dates of Navidrome 0.64.2.
+    @Test func decodesChangeMarkerFields() throws {
+        let indexes =
+            #"{"subsonic-response":{"status":"ok","version":"1.16.1","indexes":{"lastModified":1792286960000}}}"#
+        let scan =
+            #"{"subsonic-response":{"status":"ok","version":"1.16.1","scanStatus":{"scanning":false,"lastScan":"2026-10-18T01:29:20Z"}}}"#
+        #expect(try SubsonicClient.decode(Data(indexes.utf8)).indexes?.lastModified == 1_792_286_960_000)
+        #expect(try SubsonicClient.decode(Data(scan.utf8)).scanStatus?.lastScan == "2026-10-18T01:29:20Z")
+    }
+
     @MainActor @Test func fetchesPagesUntilShortPage() async throws {
         var offsets: [Int] = []
         let songs = try await Library.fetchAll(pageSize: 2) { offset in
@@ -98,6 +108,7 @@ struct LibraryTests {
         try cache.write(to: url)
         let read = try LibraryCache.read(from: url)
         #expect(read.songs == cache.songs)
+        #expect(read.marker == nil)
         #expect(read.server == cache.server)
     }
 

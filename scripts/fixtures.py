@@ -9,6 +9,7 @@ import pathlib
 import subprocess
 import sys
 
+from mutagen.flac import FLAC
 from mutagen.id3 import ID3, TALB, TCOM, TCON, TDRC, TDRL, TIT2, TMCL, TPE1, TPE2, TPE3, TPOS, TRCK, TXXX, MVNM
 
 # (album, album artist, genre, recording date, release date, tracks)
@@ -72,10 +73,15 @@ JAZZ = ("Sine Standards", "Fixture Jazz Trio", "Jazz", "2010", "2010-06-01",
         [("Fixture Jazz Trio", None, "Blue Sine", 1, 0, [], None, 3), ("Fixture Jazz Trio", None, "Square Dance", 2, 0, [], None, 3)])
 
 
+# Not classical: the glide again, lossless. FLAC has no encoder delay, so its movements must join without a trim.
+FLAC_ALBUM = ("Glide in FLAC", "Fixture Lossless Trio", "Electronic", "2020", "2020-02-02", ["Rise", "Climb", "Peak"])
+
+
 def encode(path, source):
+    codec = ["-codec:a", "flac"] if str(path).endswith(".flac") else ["-codec:a", "libmp3lame", "-b:a", "64k"]
     subprocess.run(
-        ["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", source,
-         "-ac", "1", "-ar", "44100", "-codec:a", "libmp3lame", "-b:a", "64k", str(path)],
+        ["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", source, "-ac", "1", "-ar", "44100", *codec,
+         str(path)],
         check=True)
 
 
@@ -119,6 +125,14 @@ def tag(path, album, album_artist, genre, recorded, released, number, total, tra
     tags.save(path, v2_version=4)
 
 
+def tag_flac(path, number, total, title):
+    album, artist, genre, recorded, released, _ = FLAC_ALBUM
+    tags = FLAC(path)
+    tags.update(title=title, album=album, artist=artist, albumartist=artist, genre=genre, date=recorded,
+                tracknumber=f"{number}/{total}", discnumber="1/1")
+    tags.save()
+
+
 def roman(n):
     return ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"][n - 1]
 
@@ -135,7 +149,13 @@ def main(out):
             encode(path, f"sine=frequency={frequency}:duration={seconds}" if seconds else glide(track[3]))
             tag(path, album, album_artist, genre, recorded, released, number, len(tracks), track)
             frequency += 20
-    print(f"wrote {sum(len(a[5]) for a in ALBUMS) + len(JAZZ[5])} tracks to {out}")
+    folder = out / FLAC_ALBUM[1] / FLAC_ALBUM[0]
+    folder.mkdir(parents=True, exist_ok=True)
+    for number, title in enumerate(FLAC_ALBUM[5], 1):
+        path = folder / f"{number:02d} {title}.flac"
+        encode(path, glide(number))
+        tag_flac(path, number, len(FLAC_ALBUM[5]), title)
+    print(f"wrote {sum(len(a[5]) for a in ALBUMS) + len(JAZZ[5]) + len(FLAC_ALBUM[5])} tracks to {out}")
 
 
 if __name__ == "__main__":

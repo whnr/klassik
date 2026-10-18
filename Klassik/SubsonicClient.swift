@@ -135,6 +135,17 @@ struct SubsonicResponse: Decodable, Sendable {
     var openSubsonicExtensions: [Extension]?
     var searchResult3: SearchResult?
     var album: Album?
+    var indexes: Indexes?
+    var scanStatus: ScanStatus?
+
+    struct Indexes: Decodable, Sendable {
+        /// Milliseconds since 1970 of the last change to the artist index.
+        var lastModified: Int64?
+    }
+
+    struct ScanStatus: Decodable, Sendable {
+        var lastScan: String?
+    }
 
     struct SearchResult: Decodable, Sendable {
         var album: [Album]?
@@ -192,6 +203,14 @@ struct SubsonicClient: Sendable {
             throw SubsonicError.notSubsonic
         }
         return album
+    }
+
+    /// Changes when the server scans new or changed files. The classic `getIndexes` date alone can miss a change
+    /// to an existing artist, so the scan date joins it where the server reports one.
+    func changeMarker() async throws -> String {
+        let indexes = try await get("getIndexes").indexes?.lastModified
+        let scan = try? await get("getScanStatus").scanStatus?.lastScan
+        return "\(indexes.map(String.init) ?? "-")|\(scan ?? "-")"
     }
 
     func star(_ ids: [String]) async throws {

@@ -21,6 +21,17 @@ struct HomeView: View {
                     }
                 }
 
+                if !library.index.performers.isEmpty {
+                    Section {
+                        NavigationLink {
+                            PerformersView()
+                        } label: {
+                            LabeledContent("Performers", value: library.index.performers.count.formatted())
+                        }
+                        .accessibilityIdentifier("performers")
+                    }
+                }
+
                 Section {
                     if library.syncedAt == nil {
                         if library.isSyncing {
@@ -78,6 +89,12 @@ struct HomeView: View {
                         Label("Local Storage", systemImage: "internaldrive")
                     }
                     .accessibilityIdentifier("local-storage")
+                    NavigationLink {
+                        SwipeSettingsView()
+                    } label: {
+                        Label("Swipe Actions", systemImage: "arrow.left.arrow.right")
+                    }
+                    .accessibilityIdentifier("swipe-actions")
                     NavigationLink {
                         FilterView()
                     } label: {

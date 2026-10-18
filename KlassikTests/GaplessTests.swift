@@ -81,6 +81,34 @@ final class GaplessTests: XCTestCase {
         XCTAssertEqual(trimmed.shifts, Array(repeating: 0, count: files.count - 1), text)
     }
 
+    /// FLAC carries no encoder delay or padding, so each file plays whole and the joins must still be exact.
+    func testFLACMovementsJoinWithoutGap() async throws {
+        let env = ProcessInfo.processInfo.environment
+        guard let server = env["KLASSIK_SERVER_URL"], let url = ServerCredentials.normalizedURL(from: server) else {
+            throw XCTSkip("No fixture server configured")
+        }
+        let client = SubsonicClient(
+            credentials: ServerCredentials(
+                url: url, username: env["KLASSIK_USERNAME"] ?? "", password: env["KLASSIK_PASSWORD"] ?? ""))
+        let found = try await client.searchAlbums("Glide").first { $0.name == "Glide in FLAC" }
+        let songs = try await client.album(id: XCTUnwrap(found).id).songs
+        XCTAssertEqual(songs.map(\.suffix), ["flac", "flac", "flac"])
+
+        let folder = FileManager.default.temporaryDirectory.appending(path: "flac-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        var files: [URL] = []
+        for (index, song) in songs.enumerated() {
+            let (data, _) = try await URLSession.shared.data(from: client.streamURL(songID: song.id))
+            let local = folder.appending(path: "\(index + 1).flac")
+            try data.write(to: local)
+            files.append(local)
+            XCTAssertEqual(try AVAudioFile(forReading: local).length, Int64(Self.movementSamples[index]))
+        }
+        let joined = try Self.joins(files) { file, _ in 0..<file.length }
+        XCTAssertEqual(joined.start, 0)
+        XCTAssertEqual(joined.shifts, [0, 0])
+    }
+
     // MARK: Measurement
 
     static func read(_ file: AVAudioFile) throws -> [Float] {

@@ -11,3 +11,6 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0005](0005-gapless-playback.md) | Gapless playback with AVAudioEngine and the MP3 header | 2026-10-17 |
 | [0006](0006-queue.md) | The queue holds recordings | 2026-10-18 |
 | [0007](0007-replaygain.md) | ReplayGain in album mode | 2026-10-18 |
+| [0008](0008-offline-storage.md) | Downloads and the cache | 2026-10-18 |
+| [0009](0009-reference-recording.md) | The reference recording is a star | 2026-10-18 |
+| [0010](0010-incremental-sync.md) | Sync at start only when the server changed | 2026-10-18 |

@@ -60,6 +60,20 @@ final class ScreensTests: XCTestCase {
         XCTAssertTrue(miniPlayer.waitForExistence(timeout: 10))
         snap(app, "06-home-playing")
 
+        app.buttons["performers"].tap()
+        let performer = app.buttons.matching(identifier: "performer").firstMatch
+        XCTAssertTrue(performer.waitForExistence(timeout: 10))
+        snap(app, "06a-performers")
+        performer.tap()
+        let performed = app.buttons.matching(identifier: "recording").firstMatch
+        XCTAssertTrue(performed.waitForExistence(timeout: 10))
+        snap(app, "06b-performer")
+        performed.tap()
+        reveal(app.buttons["raw-tags"], in: app).tap()
+        XCTAssertTrue(app.navigationBars["Tags"].waitForExistence(timeout: 10))
+        snap(app, "06c-tags")
+        for _ in 0..<4 { back(app) }
+
         app.buttons.matching(identifier: "composer")
             .matching(NSPredicate(format: "label BEGINSWITH 'Ludwig'")).firstMatch.tap()
         let fifth = app.buttons.matching(identifier: "work").firstMatch
@@ -80,6 +94,11 @@ final class ScreensTests: XCTestCase {
         reveal(app.buttons["local-storage"], in: app).tap()
         XCTAssertTrue(app.descendants(matching: .any)["download"].firstMatch.waitForExistence(timeout: 10))
         snap(app, "08a-local-storage")
+        back(app)
+
+        reveal(app.buttons["swipe-actions"], in: app).tap()
+        XCTAssertTrue(app.navigationBars["Swipe Actions"].waitForExistence(timeout: 10))
+        snap(app, "08b-swipe-actions")
         back(app)
 
         reveal(app.buttons["classical-filter"], in: app).tap()

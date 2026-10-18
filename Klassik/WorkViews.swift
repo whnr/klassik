@@ -59,14 +59,10 @@ private struct ItemActions: ViewModifier {
     func body(content: Content) -> some View {
         content
             .swipeActions(edge: .trailing) {
-                Button("Add to Queue", systemImage: "text.line.last.and.arrowtriangle.forward") { addToQueue() }
-                    .tint(.orange)
-                Button("Play Next", systemImage: "text.line.first.and.arrowtriangle.forward") { playNext() }
-                    .tint(.indigo)
+                ForEach(SwipeSettings.actions(model.swipes.trailing)) { button(for: $0) }
             }
             .swipeActions(edge: .leading) {
-                if downloads { downloadButton.tint(.blue) }
-                if reference { referenceButton.tint(.yellow) }
+                ForEach(SwipeSettings.actions(model.swipes.leading)) { button(for: $0) }
             }
             .contextMenu {
                 Button("Play", systemImage: "play") {
@@ -77,6 +73,22 @@ private struct ItemActions: ViewModifier {
                 if downloads { downloadButton }
                 if reference { referenceButton }
             }
+    }
+
+    /// A row that cannot do an action leaves it out: works never download, albums have no reference.
+    @ViewBuilder private func button(for action: SwipeAction) -> some View {
+        switch action {
+        case .playNext:
+            Button("Play Next", systemImage: "text.line.first.and.arrowtriangle.forward") { playNext() }
+                .tint(.indigo)
+        case .addToQueue:
+            Button("Add to Queue", systemImage: "text.line.last.and.arrowtriangle.forward") { addToQueue() }
+                .tint(.orange)
+        case .download:
+            if downloads { downloadButton.tint(.blue) }
+        case .reference:
+            if reference { referenceButton.tint(.yellow) }
+        }
     }
 
     @ViewBuilder private var downloadButton: some View {
@@ -249,6 +261,10 @@ struct RecordingView: View {
                 if let year = recording.year {
                     LabeledContent("Year", value: String(year))
                 }
+                NavigationLink("Tags and Grouping") {
+                    RawTagsView(work: work, recording: recording)
+                }
+                .accessibilityIdentifier("raw-tags")
             }
 
             Section {

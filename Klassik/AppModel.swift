@@ -13,6 +13,7 @@ final class AppModel {
     let library: Library
     let tracks: TrackStore
     let player: Player
+    let swipes = SwipeSettings()
     private let store: CredentialStore
 
     var client: SubsonicClient? { credentials.map { SubsonicClient(credentials: $0) } }
@@ -51,7 +52,7 @@ final class AppModel {
         guard let credentials, let client else { return }
         await library.load(for: credentials)
         await check()
-        await library.sync(with: client)
+        await library.syncIfChanged(with: client)
     }
 
     func check() async {

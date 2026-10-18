@@ -14,6 +14,8 @@ final class Library {
     /// Tracks received so far in the running sync.
     private(set) var received = 0
     private(set) var syncError: String?
+    /// What the server reported at the last sync. If it is the same at the next start, nothing changed.
+    private var marker: String?
 
     var filter: ClassicalFilter {
         didSet {
@@ -50,7 +52,14 @@ final class Library {
             return
         }
         owner = (cache.server, cache.username)
+        marker = cache.marker
         show(cache.songs, syncedAt: cache.syncedAt)
+    }
+
+    /// Syncs only if the server changed since the last sync. A star by another app does not count as a change.
+    func syncIfChanged(with client: SubsonicClient) async {
+        guard !songs.isEmpty, let known = marker, let current = try? await client.changeMarker(), current == known
+        else { return await sync(with: client) }
     }
 
     func sync(with client: SubsonicClient) async {
@@ -59,13 +68,17 @@ final class Library {
         received = 0
         defer { isSyncing = false }
         do {
+            // Read before the pages, so that a change during the sync shows at the next start.
+            let marker = try? await client.changeMarker()
             let songs = try await Self.fetchAll { offset in
                 let page = try await client.songs(offset: offset, count: Self.pageSize)
                 self.received += page.count
                 return page
             }
             let cache = LibraryCache(
-                server: client.credentials.url, username: client.credentials.username, syncedAt: .now, songs: songs)
+                server: client.credentials.url, username: client.credentials.username, syncedAt: .now, songs: songs,
+                marker: marker)
+            self.marker = marker
             owner = (client.credentials.url, client.credentials.username)
             show(songs, syncedAt: cache.syncedAt)
             syncError = nil
@@ -84,7 +97,8 @@ final class Library {
             changed[index].starred = starred ? ISO8601DateFormatter().string(from: .now) : nil
         }
         show(changed, syncedAt: syncedAt)
-        let cache = LibraryCache(server: owner.server, username: owner.username, syncedAt: syncedAt, songs: changed)
+        let cache = LibraryCache(
+            server: owner.server, username: owner.username, syncedAt: syncedAt, songs: changed, marker: marker)
         let url = cacheURL
         Task.detached { try? cache.write(to: url) }
     }
@@ -119,6 +133,7 @@ struct LibraryCache: Codable, Sendable {
     var username: String
     var syncedAt: Date
     var songs: [Song]
+    var marker: String?
 
     static func read(from url: URL) throws -> LibraryCache {
         try JSONDecoder().decode(LibraryCache.self, from: Data(contentsOf: url))

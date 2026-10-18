@@ -12,6 +12,12 @@ struct MiniPlayer: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(work.title)
                         .lineLimit(1)
+                    if !work.composer.isEmpty {
+                        Text(work.composer)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                     Text(player.current.map { recording.title(of: recording.songs[$0]) } ?? recording.performers)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)

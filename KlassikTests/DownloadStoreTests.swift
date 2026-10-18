@@ -48,6 +48,10 @@ struct DownloadStoreTests {
         URL.temporaryDirectory.appending(path: "klassik-tests-\(UUID().uuidString)")
     }
 
+    private func cache() -> TrackCache {
+        TrackCache(folder: temporaryFolder(), defaults: UserDefaults(suiteName: UUID().uuidString)!)
+    }
+
     /// A fetch that writes a small file, as URLSession does for a finished download.
     private static let fetch: DownloadStore.Fetch = { song, _ in
         let url = URL.temporaryDirectory.appending(path: "fetch-\(UUID().uuidString)")
@@ -70,7 +74,7 @@ struct DownloadStoreTests {
     @Test func downloadsTracksIntoFolder() async throws {
         let folder = temporaryFolder()
         defer { try? FileManager.default.removeItem(at: folder) }
-        let store = DownloadStore(folder: folder, fetch: Self.fetch)
+        let store = DownloadStore(folder: folder, cache: cache(), fetch: Self.fetch)
         let songs = [song("a"), song("b", suffix: "flac")]
 
         store.download(songs, client: client)
@@ -86,11 +90,11 @@ struct DownloadStoreTests {
         let folder = temporaryFolder()
         defer { try? FileManager.default.removeItem(at: folder) }
         let songs = [song("a"), song("b")]
-        let first = DownloadStore(folder: folder, fetch: Self.fetch)
+        let first = DownloadStore(folder: folder, cache: cache(), fetch: Self.fetch)
         first.download(songs, client: client)
         await settle(first)
 
-        let second = DownloadStore(folder: folder, fetch: Self.fetch)
+        let second = DownloadStore(folder: folder, cache: cache(), fetch: Self.fetch)
 
         #expect(second.state(of: songs) == .complete)
     }
@@ -98,7 +102,7 @@ struct DownloadStoreTests {
     @Test func removesFilesAndState() async {
         let folder = temporaryFolder()
         defer { try? FileManager.default.removeItem(at: folder) }
-        let store = DownloadStore(folder: folder, fetch: Self.fetch)
+        let store = DownloadStore(folder: folder, cache: cache(), fetch: Self.fetch)
         let songs = [song("a"), song("b")]
         store.download(songs, client: client)
         await settle(store)
@@ -113,7 +117,7 @@ struct DownloadStoreTests {
     @Test func removeAllEmptiesFolder() async {
         let folder = temporaryFolder()
         defer { try? FileManager.default.removeItem(at: folder) }
-        let store = DownloadStore(folder: folder, fetch: Self.fetch)
+        let store = DownloadStore(folder: folder, cache: cache(), fetch: Self.fetch)
         store.download([song("a")], client: client)
         await settle(store)
 
@@ -126,7 +130,7 @@ struct DownloadStoreTests {
     @Test func failureStopsQueueAndKeepsError() async {
         let folder = temporaryFolder()
         defer { try? FileManager.default.removeItem(at: folder) }
-        let store = DownloadStore(folder: folder) { _, _ in throw SubsonicError.http(status: 500) }
+        let store = DownloadStore(folder: folder, cache: cache()) { _, _ in throw SubsonicError.http(status: 500) }
         let songs = [song("a"), song("b")]
 
         store.download(songs, client: client)
@@ -139,7 +143,7 @@ struct DownloadStoreTests {
     @Test func skipsTracksThatAreAlreadyThere() async {
         let folder = temporaryFolder()
         defer { try? FileManager.default.removeItem(at: folder) }
-        let store = DownloadStore(folder: folder, fetch: Self.fetch)
+        let store = DownloadStore(folder: folder, cache: cache(), fetch: Self.fetch)
         store.download([song("a")], client: client)
         await settle(store)
 

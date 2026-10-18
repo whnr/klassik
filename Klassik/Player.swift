@@ -58,10 +58,12 @@ final class Player {
     private var pausedAt: Int64?
     private let defaults: UserDefaults
     private let downloads: DownloadStore
+    private let cache: TrackCache
     private static let levelingKey = "player.volumeLeveling"
 
-    init(downloads: DownloadStore, defaults: UserDefaults = .standard) {
+    init(downloads: DownloadStore, cache: TrackCache, defaults: UserDefaults = .standard) {
         self.downloads = downloads
+        self.cache = cache
         self.defaults = defaults
         leveling = defaults.string(forKey: Self.levelingKey).flatMap(VolumeLeveling.init) ?? .album
         let center = MPRemoteCommandCenter.shared()
@@ -321,25 +323,12 @@ final class Player {
         ]
     }
 
-    /// A downloaded track plays without the server. Any other track loads first.
+    /// A downloaded or cached track plays without the server. Any other track loads first.
     private func file(for song: Song, client: SubsonicClient) async throws -> URL {
         if let local = downloads.localURL(for: song) { return local }
-        return try await Self.download(song, client: client)
-    }
-
-    /// Keeps each track in the caches folder, so playing it again needs no download.
-    private static func download(_ song: Song, client: SubsonicClient) async throws -> URL {
-        let folder = URL.cachesDirectory.appending(path: "tracks")
-        let local = folder.appending(path: "\(song.id).\(song.suffix ?? "mp3")")
-        if FileManager.default.fileExists(atPath: local.path()) { return local }
-        let (temporary, response) = try await URLSession.shared.download(from: client.streamURL(songID: song.id))
-        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
-            throw SubsonicError.http(status: http.statusCode)
-        }
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        try? FileManager.default.removeItem(at: local)
-        try FileManager.default.moveItem(at: temporary, to: local)
-        return local
+        if let cached = cache.url(for: song) { return cached }
+        let temporary = try await DownloadStore.fetchTrack(song, client: client)
+        return try cache.store(temporary, for: song, protecting: downloads.downloaded)
     }
 
     private static func playableRange(of file: AVAudioFile) -> Range<Int64> {

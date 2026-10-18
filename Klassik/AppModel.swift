@@ -11,6 +11,7 @@ final class AppModel {
     private(set) var isChecking = false
 
     let library: Library
+    let cache: TrackCache
     let downloads: DownloadStore
     let player: Player
     private let store: CredentialStore
@@ -20,14 +21,17 @@ final class AppModel {
     init(store: CredentialStore = CredentialStore(), library: Library = Library()) {
         self.store = store
         self.library = library
-        let downloads = DownloadStore()
+        let cache = TrackCache()
+        let downloads = DownloadStore(cache: cache)
+        self.cache = cache
         self.downloads = downloads
-        player = Player(downloads: downloads)
+        player = Player(downloads: downloads, cache: cache)
         // UI tests start from the connect screen.
         if ProcessInfo.processInfo.arguments.contains("-resetServer") {
             store.clear()
             library.clear()
             downloads.removeAll()
+            cache.clear()
         }
         credentials = store.load()
     }
@@ -70,6 +74,7 @@ final class AppModel {
     func signOut() {
         player.stop()
         downloads.removeAll()
+        cache.clear()
         store.clear()
         library.clear()
         credentials = nil

@@ -55,15 +55,18 @@ final class DownloadStore {
     var downloaded: Set<String> { Set(files.keys) }
 
     let folder: URL
+    private let cache: TrackCache
     private let fetch: Fetch
     private var queue: [Song] = []
     private var worker: Task<Void, Never>?
 
     init(
         folder: URL = URL.applicationSupportDirectory.appending(path: "downloads"),
+        cache: TrackCache,
         fetch: @escaping Fetch = DownloadStore.fetchTrack
     ) {
         self.folder = folder
+        self.cache = cache
         self.fetch = fetch
         var found: [String: String] = [:]
         let names = (try? FileManager.default.contentsOfDirectory(atPath: folder.path())) ?? []
@@ -111,6 +114,14 @@ final class DownloadStore {
         }
     }
 
+    /// Bytes on disk for the downloaded tracks among these songs.
+    func size(of songs: [Song]) -> Int64 {
+        songs.reduce(0) { total, song in
+            guard let url = localURL(for: song) else { return total }
+            return total + Int64((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+        }
+    }
+
     func removeAll() {
         worker?.cancel()
         worker = nil
@@ -125,7 +136,13 @@ final class DownloadStore {
         while !queue.isEmpty {
             let song = queue.removeFirst()
             do {
-                let temporary = try await fetch(song, client)
+                // A cached track moves into the downloads, so it needs no second download.
+                let temporary: URL
+                if let cached = cache.take(song) {
+                    temporary = cached
+                } else {
+                    temporary = try await fetch(song, client)
+                }
                 if Task.isCancelled { return }
                 // The person may have cancelled this track while it loaded.
                 if pending.contains(song.id) {

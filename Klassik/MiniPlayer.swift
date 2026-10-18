@@ -46,6 +46,14 @@ struct MiniPlayer: View {
     }
 }
 
+extension View {
+    /// Shows the mini player below the screen's content. Each screen needs its own inset:
+    /// an inset on the NavigationStack does not move the last rows of a pushed List above the mini player.
+    func miniPlayerInset() -> some View {
+        safeAreaInset(edge: .bottom) { MiniPlayer() }
+    }
+}
+
 /// The recording that plays now. It follows the player when the queue moves on.
 private struct NowPlayingView: View {
     @Environment(AppModel.self) private var model

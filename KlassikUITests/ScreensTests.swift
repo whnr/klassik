@@ -84,6 +84,11 @@ final class ScreensTests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["opensubsonic"].waitForExistence(timeout: 10))
         snap(app, "11-diagnostics")
         app.swipeUp()
+        app.swipeUp()
+        let signOut = app.buttons["Sign Out"]
+        let bar = app.descendants(matching: .any)["mini-player"].firstMatch
+        XCTAssertTrue(signOut.isHittable)
+        XCTAssertLessThanOrEqual(signOut.frame.maxY, bar.frame.minY, "The mini player covers the last row.")
         snap(app, "12-diagnostics-bottom")
 
         reveal(app.buttons["gapless-test"], in: app).tap()

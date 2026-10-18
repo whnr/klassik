@@ -47,6 +47,7 @@ struct FilterView: View {
             }
         }
         .navigationTitle("Classical Filter")
+        .miniPlayerInset()
     }
 }
 

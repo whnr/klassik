@@ -82,6 +82,7 @@ struct HomeView: View {
                 }
             }
             .navigationTitle("Klassik")
+            .miniPlayerInset()
             .toolbar {
                 ShuffleButton(works: library.index.composers.flatMap(\.works))
             }
@@ -89,7 +90,6 @@ struct HomeView: View {
                 if let client = model.client { await library.sync(with: client) }
             }
         }
-        .safeAreaInset(edge: .bottom) { MiniPlayer() }
     }
 
     private var otherSongs: [Song] {
@@ -143,5 +143,6 @@ struct AlbumsView: View {
             if songs.isEmpty { ContentUnavailableView("No Albums", systemImage: "square.stack") }
         }
         .navigationTitle(title)
+        .miniPlayerInset()
     }
 }

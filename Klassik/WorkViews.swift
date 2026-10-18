@@ -24,6 +24,7 @@ struct ComposerView: View {
             }
         }
         .navigationTitle(composer.name)
+        .miniPlayerInset()
         .toolbar { ShuffleButton(works: composer.works) }
     }
 }
@@ -122,7 +123,9 @@ struct WorkView: View {
             Section {
                 ForEach(work.recordings) { recording in
                     NavigationLink {
+                        // Here and not in RecordingView, because the now-playing sheet also shows RecordingView.
                         RecordingView(work: work, recording: recording)
+                            .miniPlayerInset()
                     } label: {
                         VStack(alignment: .leading) {
                             Text(recording.performers.isEmpty ? recording.album : recording.performers)
@@ -140,6 +143,7 @@ struct WorkView: View {
             }
         }
         .navigationTitle(work.title)
+        .miniPlayerInset()
     }
 }
 

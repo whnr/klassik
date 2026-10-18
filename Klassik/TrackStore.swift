@@ -15,6 +15,9 @@ final class TrackStore {
         var date: Date
     }
 
+    /// Loads one track and returns the temporary file. A test replaces it, so no test needs a server.
+    typealias Fetch = @MainActor (Song, SubsonicClient) async throws -> URL
+
     static let limits: [Int64] = [512, 1024, 2048, 5120, 10240].map { $0 * 1_000_000 }
     static let defaultLimit = limits[2]
 
@@ -40,13 +43,15 @@ final class TrackStore {
     private let manifestURL: URL
     private let defaults: UserDefaults
     private var tasks: [String: Task<Void, Never>] = [:]
+    private let load: Fetch
     private static let limitKey = "store.cacheLimit"
 
     init(
         cacheFolder: URL = .cachesDirectory.appending(path: "tracks"),
         downloadFolder: URL = .applicationSupportDirectory.appending(path: "downloads"),
-        defaults: UserDefaults = .standard
+        defaults: UserDefaults = .standard, fetch: Fetch? = nil
     ) {
+        load = fetch ?? Self.stream
         self.cacheFolder = cacheFolder
         self.downloadFolder = downloadFolder
         self.manifestURL = downloadFolder.deletingLastPathComponent().appending(path: "downloads.json")
@@ -175,14 +180,19 @@ final class TrackStore {
     }
 
     private func fetch(_ song: Song, to target: URL, client: SubsonicClient) async throws {
-        let (temporary, response) = try await URLSession.shared.download(from: client.streamURL(songID: song.id))
-        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
-            throw SubsonicError.http(status: http.statusCode)
-        }
+        let temporary = try await load(song, client)
         try FileManager.default.createDirectory(
             at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
         try? FileManager.default.removeItem(at: target)
         try FileManager.default.moveItem(at: temporary, to: target)
+    }
+
+    private static let stream: Fetch = { song, client in
+        let (temporary, response) = try await URLSession.shared.download(from: client.streamURL(songID: song.id))
+        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+            throw SubsonicError.http(status: http.statusCode)
+        }
+        return temporary
     }
 
     private func saveManifest() {

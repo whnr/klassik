@@ -33,6 +33,8 @@ final class Player {
     /// Where each scheduled movement sits on the player's timeline, in samples.
     private var segments: [Int: Range<Int64>] = [:]
     private var sampleRate = 44_100.0
+    /// A paused node reports no player time, so the position is kept here.
+    private var pausedAt: Int64?
 
     init() {
         let center = MPRemoteCommandCenter.shared()
@@ -83,6 +85,7 @@ final class Player {
 
     func pause() {
         guard let node, !isPaused else { return }
+        pausedAt = playedSamples()
         node.pause()
         isPaused = true
         updateNowPlaying()
@@ -92,6 +95,7 @@ final class Player {
         guard let node, isPaused else { return }
         node.play()
         isPaused = false
+        pausedAt = nil
         updateNowPlaying()
     }
 
@@ -118,6 +122,7 @@ final class Player {
         recording = nil
         current = nil
         isPaused = false
+        pausedAt = nil
         isLoading = false
         error = nil
         segments = [:]
@@ -146,6 +151,7 @@ final class Player {
     }
 
     private func playedSamples() -> Int64? {
+        if let pausedAt { return pausedAt }
         guard let node, let time = node.lastRenderTime, let playerTime = node.playerTime(forNodeTime: time) else {
             return nil
         }

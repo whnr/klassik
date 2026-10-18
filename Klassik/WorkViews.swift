@@ -5,12 +5,25 @@ struct ComposerView: View {
     let composer: WorkIndex.Composer
 
     var body: some View {
-        let tagged = composer.works.filter(\.isTagged)
+        let sets = composer.sets
+        let loose = composer.looseWorks
         let untagged = composer.works.filter { !$0.isTagged }
         List {
-            if !tagged.isEmpty {
+            if !sets.isEmpty {
+                Section("Sets") {
+                    ForEach(sets) { set in
+                        DisclosureGroup {
+                            ForEach(set.works) { WorkRow(work: $0) }
+                        } label: {
+                            LabeledContent(set.name, value: "\(set.works.count)")
+                        }
+                        .accessibilityIdentifier("set")
+                    }
+                }
+            }
+            if !loose.isEmpty {
                 Section("Works") {
-                    ForEach(tagged) { WorkRow(work: $0) }
+                    ForEach(loose) { WorkRow(work: $0) }
                 }
             }
             if !untagged.isEmpty {

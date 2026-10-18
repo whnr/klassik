@@ -86,5 +86,9 @@ extension Song {
     /// Groups tracks into albums. A track without an album is an album of its own.
     var albumKey: String { albumId ?? album ?? id }
 
-    var allGenres: [String] { (genres ?? []).map(\.name) + [genre].compactMap(\.self) }
+    /// The server sends the first genre twice: as `genre` and in `genres`.
+    var allGenres: [String] {
+        var seen = Set<String>()
+        return ((genres ?? []).map(\.name) + [genre].compactMap(\.self)).filter { seen.insert($0).inserted }
+    }
 }

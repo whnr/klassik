@@ -10,13 +10,15 @@ import subprocess
 import sys
 
 from mutagen.flac import FLAC
-from mutagen.id3 import ID3, TALB, TCOM, TCON, TDRC, TDRL, TIT2, TMCL, TPE1, TPE2, TPE3, TPOS, TRCK, TXXX, MVNM
+from mutagen.id3 import GRP1, ID3, TALB, TCOM, TCON, TDRC, TDRL, TIT2, TMCL, TPE1, TPE2, TPE3, TPOS, TRCK, TXXX, MVNM
 
 # (album, album artist, genre, recording date, release date, tracks)
-# track: (composer, work, movement name, movement number, movement total, performers, conductor, seconds or None for the glide)
+# track: (composer, work, movement name, movement number, movement total, performers, conductor, seconds or None for the glide,
+#         optional GROUPING)
 BEETHOVEN = "Ludwig van Beethoven"
 BACH = "Johann Sebastian Bach"
 MOZART = "Wolfgang Amadeus Mozart"
+CHOPIN = "Frédéric Chopin"
 BRAHMS = "Johannes Brahms"
 
 ORCH_A = [("orchestra", "Testing Philharmonic")]
@@ -46,6 +48,11 @@ REPLAYGAIN = {"Beethoven: Symphony No. 5": {"album_gain": "+6.00 dB", "album_pea
                                             "track_gain": "+5.00 dB", "track_peak": "0.700000"}}
 
 
+def piece(title, grouping, performer):
+    """A work of one piece with no movements, as in a Chopin edition. The GROUPING tag names its set."""
+    return (CHOPIN, title, "", 0, 0, [("piano", performer)], None, 2, grouping)
+
+
 def work(composer, title, movements, performers, conductor, seconds=4, only=None):
     picked = only or range(1, len(movements) + 1)
     return [(composer, title, movements[n - 1], n, len(movements), performers, conductor, seconds) for n in picked]
@@ -66,6 +73,12 @@ ALBUMS = [
      + work(MOZART, K467, K467_MOVEMENTS, [("piano", "Daniel Keys")] + ORCH_B, "Carl Fixture", only=[2])),
     ("Mendelssohn: Violin Concerto", "Eva Bogen; Testing Philharmonic; Anna Probe", "Classical > Concerto", "2008", "2009-04-01",
      work(MENDELSSOHN, OP64, OP64_MOVEMENTS, [("violin", "Eva Bogen")] + ORCH_A, "Anna Probe", seconds=None)),
+    # Every piece is its own work. The set is only the GROUPING tag; the ninth and tenth nocturne have none.
+    ("Chopin: Nocturnes", "Pia Nissimo", "Classical > Piano", "2012", "2013-01-01",
+     [piece("Nocturne No. 1 in B-flat minor, Op. 9 No. 1", "Nocturnes, Op. 9", "Pia Nissimo"),
+      piece("Nocturne No. 2 in E-flat major, Op. 9 No. 2", "Nocturnes, Op. 9", "Pia Nissimo"),
+      piece("Nocturne No. 4 in F major, Op. 15 No. 1", "Nocturnes, Op. 15", "Pia Nissimo"),
+      piece("Nocturne No. 20 in C-sharp minor, Op. posth.", None, "Pia Nissimo")]),
 ]
 
 # Not classical: the default filter must leave this out.
@@ -95,7 +108,7 @@ def glide(movement):
 
 
 def tag(path, album, album_artist, genre, recorded, released, number, total, track):
-    composer, work_title, movement, movement_no, movement_total, performers, conductor, _ = track
+    composer, work_title, movement, movement_no, movement_total, performers, conductor, _, *rest = track
     tags = ID3()
     tags.add(TALB(encoding=3, text=album))
     tags.add(TPE2(encoding=3, text=album_artist.split("; ")))
@@ -108,9 +121,12 @@ def tag(path, album, album_artist, genre, recorded, released, number, total, tra
         tags.add(TIT2(encoding=3, text=f"{work_title}: {roman(movement_no)}. {movement}" if movement_total > 1 else work_title))
         tags.add(TCOM(encoding=3, text=composer))
         tags.add(TXXX(encoding=3, desc="WORK", text=work_title))
-        tags.add(MVNM(encoding=3, text=movement))
-        tags.add(TXXX(encoding=3, desc="MOVEMENT", text=str(movement_no)))
-        tags.add(TXXX(encoding=3, desc="MOVEMENTTOTAL", text=str(movement_total)))
+        if movement_total:
+            tags.add(MVNM(encoding=3, text=movement))
+            tags.add(TXXX(encoding=3, desc="MOVEMENT", text=str(movement_no)))
+            tags.add(TXXX(encoding=3, desc="MOVEMENTTOTAL", text=str(movement_total)))
+        if rest and rest[0]:
+            tags.add(GRP1(encoding=3, text=rest[0]))
         artists = [name for _, name in performers] + ([conductor] if conductor else [])
         tags.add(TPE1(encoding=3, text=artists))
     else:
@@ -144,7 +160,7 @@ def main(out):
         folder = out / album_artist.split("; ")[0] / album
         folder.mkdir(parents=True, exist_ok=True)
         for number, track in enumerate(tracks, 1):
-            path = folder / f"{number:02d} {track[2]}.mp3".replace("/", "-")
+            path = folder / f"{number:02d} {track[2] or track[1]}.mp3".replace("/", "-")
             seconds = track[7]
             encode(path, f"sine=frequency={frequency}:duration={seconds}" if seconds else glide(track[3]))
             tag(path, album, album_artist, genre, recorded, released, number, len(tracks), track)

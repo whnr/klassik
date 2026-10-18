@@ -3,9 +3,26 @@ import Foundation
 /// The classical tracks ordered by composer, work and recording. Klassik builds it on the device from the tags.
 struct WorkIndex: Sendable {
     struct Composer: Identifiable, Sendable {
+        /// Works that share a GROUPING tag, such as the nocturnes of one opus.
+        struct WorkSet: Identifiable, Sendable {
+            var name: String
+            var works: [Work]
+            var id: String { name }
+        }
+
         var name: String
         var works: [Work]
         var id: String { name }
+
+        /// The sets of tagged works in natural order, so "Op. 6" comes before "Op. 17".
+        var sets: [WorkSet] {
+            Dictionary(grouping: works.filter { $0.isTagged && $0.grouping != nil }, by: { $0.grouping ?? "" })
+                .map { WorkSet(name: $0.key, works: $0.value) }
+                .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        }
+
+        /// Tagged works that no set holds.
+        var looseWorks: [Work] { works.filter { $0.isTagged && $0.grouping == nil } }
     }
 
     struct Work: Identifiable, Sendable {
@@ -15,6 +32,8 @@ struct WorkIndex: Sendable {
         /// False if the tracks carry no WORK tag. Klassik then uses the album as the work.
         var isTagged: Bool
         var recordings: [Recording]
+        /// The GROUPING tag of its tracks, if any.
+        var grouping: String?
 
         /// The reference recording, else the oldest.
         var defaultRecording: Recording? { recordings.first { $0.isReference } ?? recordings.first }
@@ -90,7 +109,8 @@ struct WorkIndex: Sendable {
             works[key] = Work(
                 id: key, title: tag?.name ?? first.album ?? first.title, composer: first.composerName,
                 isTagged: tag != nil,
-                recordings: recordings.sorted { ($0.year ?? .max, $0.performers) < ($1.year ?? .max, $1.performers) })
+                recordings: recordings.sorted { ($0.year ?? .max, $0.performers) < ($1.year ?? .max, $1.performers) },
+                grouping: tracks.lazy.compactMap { $0.groupings?.first { !$0.isEmpty } }.first)
         }
         composers = Dictionary(grouping: works.values, by: \.composer)
             .map { name, works in
@@ -113,7 +133,7 @@ struct WorkIndex: Sendable {
     }
 
     /// The MusicBrainz work ID if there is one, then composer and work name, then composer and album.
-    private static func workKey(_ song: Song) -> String {
+    static func workKey(_ song: Song) -> String {
         if let work = song.works?.first {
             if let id = work.musicBrainzId, !id.isEmpty { return "mbid:\(id)" }
             return "work:\(song.composerName)|\(work.name)"

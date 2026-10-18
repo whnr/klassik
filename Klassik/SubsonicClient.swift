@@ -109,6 +109,8 @@ struct Song: Codable, Sendable, Identifiable, Hashable {
     var contributors: [Contributor]?
     var works: [Work]?
     var movements: [Movement]?
+    /// The GROUPING tag: the set that a piece belongs to, such as "Nocturnes, Op. 9".
+    var groupings: [String]?
     var replayGain: ReplayGain?
     /// The date when the user starred the track. The server omits it for other tracks.
     var starred: String?

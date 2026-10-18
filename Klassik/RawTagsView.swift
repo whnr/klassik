@@ -19,6 +19,7 @@ struct RawTagsView: View {
 
             ForEach(recording.songs) { song in
                 Section(song.title) {
+                    if work.id.hasPrefix("album|") { LabeledContent("Own work key", value: WorkIndex.workKey(song)) }
                     ForEach(Array(song.tagRows.enumerated()), id: \.offset) { _, row in
                         LabeledContent(row.name, value: row.value)
                     }
@@ -36,6 +37,9 @@ extension WorkIndex.Work {
     var groupingReason: String {
         if id.hasPrefix("mbid:") { return "Grouped by the MusicBrainz work ID in the tags." }
         if id.hasPrefix("work:") { return "Grouped by composer and the WORK tag. No MusicBrainz work ID is tagged." }
+        if id.hasPrefix("album|") {
+            return "A whole album played as one work. Each track below shows its own work key."
+        }
         return "The tracks have no WORK tag. Klassik shows the album as one work."
     }
 }
@@ -63,6 +67,7 @@ extension Song {
             add("Work", work.name)
             add("MusicBrainz work", work.musicBrainzId)
         }
+        for grouping in groupings ?? [] { add("Grouping", grouping) }
         for movement in movements ?? [] {
             let number = movement.number.map(String.init) ?? "-"
             let count = movement.count.map(String.init) ?? "-"

@@ -20,10 +20,10 @@ final class LibrarySyncTests: XCTestCase {
         await library.sync(with: client)
 
         XCTAssertNil(library.syncError)
-        XCTAssertEqual(library.songs.count, 27)
-        XCTAssertEqual(library.albumCount, 8)
-        XCTAssertEqual(library.classical.count, 22, "every track but the jazz and FLAC albums")
-        XCTAssertEqual(library.classicalAlbumCount, 6)
+        XCTAssertEqual(library.songs.count, 31)
+        XCTAssertEqual(library.albumCount, 9)
+        XCTAssertEqual(library.classical.count, 26, "every track but the jazz and FLAC albums")
+        XCTAssertEqual(library.classicalAlbumCount, 7)
         let finale = try XCTUnwrap(
             library.songs.first { $0.movements?.first?.number == 3 && $0.album == "Mendelssohn: Violin Concerto" })
         XCTAssertEqual(finale.works?.first?.name, "Violin Concerto in E minor, Op. 64")
@@ -33,9 +33,14 @@ final class LibrarySyncTests: XCTestCase {
         XCTAssertEqual(
             composers,
             [
-                "Johann Sebastian Bach", "Ludwig van Beethoven", "Johannes Brahms", "Felix Mendelssohn",
-                "Wolfgang Amadeus Mozart",
+                "Johann Sebastian Bach", "Ludwig van Beethoven", "Johannes Brahms", "Frédéric Chopin",
+                "Felix Mendelssohn", "Wolfgang Amadeus Mozart",
             ])
+        // Each nocturne is its own work. The GROUPING tag makes the sets, and a piece without one stays loose.
+        let chopin = try XCTUnwrap(library.index.composers.first { $0.name == "Frédéric Chopin" })
+        XCTAssertEqual(chopin.sets.map(\.name), ["Nocturnes, Op. 9", "Nocturnes, Op. 15"])
+        XCTAssertEqual(chopin.sets.first?.works.count, 2)
+        XCTAssertEqual(chopin.looseWorks.map(\.title), ["Nocturne No. 20 in C-sharp minor, Op. posth."])
         let fifth = try XCTUnwrap(library.index.composers.first { $0.name == "Ludwig van Beethoven" }?.works.first)
         XCTAssertEqual(fifth.title, "Symphony No. 5 in C minor, Op. 67")
         XCTAssertEqual(fifth.recordings.map(\.year), [1990, 2015])
@@ -57,7 +62,7 @@ final class LibrarySyncTests: XCTestCase {
 
         let reloaded = Library(cacheURL: cache, defaults: defaults)
         await reloaded.load(for: client.credentials)
-        XCTAssertEqual(reloaded.songs.count, 27)
+        XCTAssertEqual(reloaded.songs.count, 31)
 
         // Nothing changed on the server, so the next start keeps the cache and does not fetch again.
         let cachedAt = try XCTUnwrap(reloaded.syncedAt)

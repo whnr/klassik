@@ -27,6 +27,16 @@ final class ScreensTests: XCTestCase {
         XCTAssertTrue(mendelssohn.waitForExistence(timeout: 30))
         snap(app, "02-home")
 
+        let chopin = app.buttons.matching(identifier: "composer")
+            .matching(NSPredicate(format: "label BEGINSWITH 'Frédéric Chopin'")).firstMatch
+        chopin.tap()
+        let set = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Nocturnes, Op. 9'")).firstMatch
+        XCTAssertTrue(set.waitForExistence(timeout: 10))
+        set.tap()
+        XCTAssertTrue(app.buttons.matching(identifier: "work").firstMatch.waitForExistence(timeout: 10))
+        snap(app, "02a-sets")
+        back(app)
+
         mendelssohn.tap()
         let work = app.buttons.matching(identifier: "work").firstMatch
         XCTAssertTrue(work.waitForExistence(timeout: 10))

@@ -7,7 +7,7 @@ struct WorkIndexTests {
     static func song(
         _ id: String, album: String, track: Int, composer: String = "Ludwig van Beethoven", work: String? = nil,
         year: Int? = nil, performers: [(String, String)] = [], movement: (number: Int, count: Int)? = nil,
-        contributors: [Song.Contributor]? = nil
+        contributors: [Song.Contributor]? = nil, grouping: String? = nil
     ) -> Song {
         Song(
             id: id, title: "Track \(track)", album: album, albumId: album, artist: "Album Artist", track: track,
@@ -15,7 +15,8 @@ struct WorkIndexTests {
             contributors: contributors
                 ?? performers.map { Song.Contributor(role: $0.0, artist: Song.Artist(id: $0.1, name: $0.1)) },
             works: work.map { [Song.Work(name: $0)] },
-            movements: movement.map { [Song.Movement(name: "M", number: $0.number, count: $0.count)] })
+            movements: movement.map { [Song.Movement(name: "M", number: $0.number, count: $0.count)] },
+            groupings: grouping.map { [$0] })
     }
 
     @Test func groupsTaggedWorksIntoRecordingsByAlbum() throws {
@@ -30,6 +31,33 @@ struct WorkIndexTests {
         #expect(fifth.isTagged)
         #expect(fifth.recordings.map(\.album) == ["Karajan", "Kleiber"])
         #expect(fifth.recordings.first?.songs.map(\.id) == ["b1", "b2"])
+    }
+
+    @Test func setsFollowTheGroupingTagInNaturalOrder() throws {
+        func piece(_ id: String, _ work: String, _ grouping: String?) -> Song {
+            Self.song(id, album: "Edition", track: 1, composer: "Frédéric Chopin", work: work, grouping: grouping)
+        }
+        let chopin = try #require(
+            WorkIndex(songs: [
+                piece("a", "Mazurka No. 5", "Mazurkas, Op. 7"),
+                piece("b", "Mazurka No. 1", "Mazurkas, Op. 17"),
+                piece("c", "Mazurka No. 2", "Mazurkas, Op. 7"),
+                piece("d", "Waltz in A minor", nil),
+            ]).composers.first)
+        #expect(chopin.sets.map(\.name) == ["Mazurkas, Op. 7", "Mazurkas, Op. 17"])
+        #expect(chopin.sets.first?.works.map(\.title) == ["Mazurka No. 2", "Mazurka No. 5"])
+        #expect(chopin.looseWorks.map(\.title) == ["Waltz in A minor"])
+    }
+
+    @Test func genresShowOnceWhenTheServerSendsThemTwice() {
+        let song = Song(id: "g", title: "T", genre: "Classical", genres: [Song.Genre(name: "Classical")])
+        #expect(song.allGenres == ["Classical"])
+    }
+
+    @Test func tagsScreenExplainsAWholeAlbum() throws {
+        let tracks = [Self.song("t1", album: "Box", track: 1, work: "Op. 60")]
+        let whole = try #require(WorkIndex.album(tracks)).work
+        #expect(whole.groupingReason.hasPrefix("A whole album"))
     }
 
     /// A whole album plays in disc and track order and names each track in full, because it can hold several works.

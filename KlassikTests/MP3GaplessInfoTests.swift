@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import Klassik
 
 struct MP3GaplessInfoTests {
@@ -48,19 +49,21 @@ struct MP3GaplessInfoTests {
 
     @Test func decodesAlbumWithSongsInOrder() throws {
         let json = #"""
-        {"subsonic-response":{"status":"ok","version":"1.16.1","album":{"id":"a1","name":"Mendelssohn: Violin Concerto",
-        "artist":"Eva Bogen","year":2008,"song":[
-        {"id":"s2","title":"II. Andante","track":2,"discNumber":1,"duration":2,"suffix":"mp3"},
-        {"id":"s1","title":"I. Allegro molto appassionato","track":1,"discNumber":1,"duration":3,"suffix":"mp3"}]}}}
-        """#
+            {"subsonic-response":{"status":"ok","version":"1.16.1","album":{"id":"a1","name":"Mendelssohn: Violin Concerto",
+            "artist":"Eva Bogen","year":2008,"song":[
+            {"id":"s2","title":"II. Andante","track":2,"discNumber":1,"duration":2,"suffix":"mp3"},
+            {"id":"s1","title":"I. Allegro molto appassionato","track":1,"discNumber":1,"duration":3,"suffix":"mp3"}]}}}
+            """#
         let album = try #require(SubsonicClient.decode(Data(json.utf8)).album)
         #expect(album.songs.map(\.id) == ["s1", "s2"])
     }
 
     @Test func streamAsksForOriginalFile() throws {
-        let client = SubsonicClient(credentials: ServerCredentials(
-            url: URL(string: "https://music.example.org")!, username: "joe", password: "sesame"))
-        let components = try #require(URLComponents(url: client.streamURL(songID: "s1"), resolvingAgainstBaseURL: false))
+        let client = SubsonicClient(
+            credentials: ServerCredentials(
+                url: URL(string: "https://music.example.org")!, username: "joe", password: "sesame"))
+        let components = try #require(
+            URLComponents(url: client.streamURL(songID: "s1"), resolvingAgainstBaseURL: false))
         #expect(components.path == "/rest/stream")
         #expect(components.queryItems?.contains(URLQueryItem(name: "format", value: "raw")) == true)
         #expect(components.queryItems?.contains(URLQueryItem(name: "id", value: "s1")) == true)

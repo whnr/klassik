@@ -13,7 +13,8 @@ struct ServerCredentials: Equatable, Sendable {
         guard !text.isEmpty else { return nil }
         if !text.contains("://") { text = "https://" + text }
         guard let parsed = URL(string: text), let scheme = parsed.scheme?.lowercased(),
-              ["http", "https"].contains(scheme), parsed.host()?.isEmpty == false else { return nil }
+            ["http", "https"].contains(scheme), parsed.host()?.isEmpty == false
+        else { return nil }
         while text.hasSuffix("/") { text.removeLast() }
         return URL(string: text)
     }
@@ -159,23 +160,29 @@ struct SubsonicClient: Sendable {
     }
 
     func searchAlbums(_ query: String) async throws -> [Album] {
-        try await get("search3", [
-            URLQueryItem(name: "query", value: query),
-            URLQueryItem(name: "artistCount", value: "0"),
-            URLQueryItem(name: "albumCount", value: "50"),
-            URLQueryItem(name: "songCount", value: "0"),
-        ]).searchResult3?.album ?? []
+        try await get(
+            "search3",
+            [
+                URLQueryItem(name: "query", value: query),
+                URLQueryItem(name: "artistCount", value: "0"),
+                URLQueryItem(name: "albumCount", value: "50"),
+                URLQueryItem(name: "songCount", value: "0"),
+            ]
+        ).searchResult3?.album ?? []
     }
 
     /// One page of all tracks. OpenSubsonic servers return the whole library for an empty query.
     func songs(offset: Int, count: Int) async throws -> [Song] {
-        try await get("search3", [
-            URLQueryItem(name: "query", value: ""),
-            URLQueryItem(name: "artistCount", value: "0"),
-            URLQueryItem(name: "albumCount", value: "0"),
-            URLQueryItem(name: "songCount", value: String(count)),
-            URLQueryItem(name: "songOffset", value: String(offset)),
-        ]).searchResult3?.song ?? []
+        try await get(
+            "search3",
+            [
+                URLQueryItem(name: "query", value: ""),
+                URLQueryItem(name: "artistCount", value: "0"),
+                URLQueryItem(name: "albumCount", value: "0"),
+                URLQueryItem(name: "songCount", value: String(count)),
+                URLQueryItem(name: "songOffset", value: String(offset)),
+            ]
+        ).searchResult3?.song ?? []
     }
 
     func album(id: String) async throws -> Album {
@@ -200,14 +207,15 @@ struct SubsonicClient: Sendable {
 
     /// Token authentication: the password itself never goes over the wire.
     func url(_ endpoint: String, _ query: [URLQueryItem] = [], salt: String = Self.makeSalt()) -> URL {
-        credentials.url.appending(path: "rest/\(endpoint)").appending(queryItems: [
-            URLQueryItem(name: "u", value: credentials.username),
-            URLQueryItem(name: "t", value: Self.token(password: credentials.password, salt: salt)),
-            URLQueryItem(name: "s", value: salt),
-            URLQueryItem(name: "v", value: Self.apiVersion),
-            URLQueryItem(name: "c", value: Self.clientName),
-            URLQueryItem(name: "f", value: "json"),
-        ] + query)
+        credentials.url.appending(path: "rest/\(endpoint)").appending(
+            queryItems: [
+                URLQueryItem(name: "u", value: credentials.username),
+                URLQueryItem(name: "t", value: Self.token(password: credentials.password, salt: salt)),
+                URLQueryItem(name: "s", value: salt),
+                URLQueryItem(name: "v", value: Self.apiVersion),
+                URLQueryItem(name: "c", value: Self.clientName),
+                URLQueryItem(name: "f", value: "json"),
+            ] + query)
     }
 
     static func decode(_ data: Data) throws -> SubsonicResponse {

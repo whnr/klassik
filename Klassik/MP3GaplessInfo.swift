@@ -31,7 +31,8 @@ struct MP3GaplessInfo: Equatable, Sendable {
         let sideInfo = isMPEG1 ? (isMono ? 17 : 32) : (isMono ? 9 : 17)
         start += 4 + sideInfo
         guard start + 8 <= bytes.count,
-              ["Xing", "Info"].contains(String(decoding: bytes[start..<start + 4], as: UTF8.self)) else { return nil }
+            ["Xing", "Info"].contains(String(decoding: bytes[start..<start + 4], as: UTF8.self))
+        else { return nil }
         let flags = uint32(bytes, start + 4)
         var offset = start + 8
         guard flags & 1 != 0, offset + 4 <= bytes.count else { return nil }

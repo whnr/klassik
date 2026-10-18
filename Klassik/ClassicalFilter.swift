@@ -34,13 +34,15 @@ struct ClassicalFilter: Codable, Equatable, Sendable {
             case .genreContains:
                 return !needle.isEmpty && song.allGenres.contains { $0.range(of: needle, options: Self.options) != nil }
             case .genreDoesNotContain:
-                return !needle.isEmpty && !song.allGenres.contains { $0.range(of: needle, options: Self.options) != nil }
+                return !needle.isEmpty
+                    && !song.allGenres.contains { $0.range(of: needle, options: Self.options) != nil }
             case .hasWork:
                 return song.works?.isEmpty == false
             case .hasMovement:
                 return song.movements?.isEmpty == false
             case .hasComposer:
-                return song.displayComposer?.isEmpty == false || song.contributors?.contains { $0.role == "composer" } == true
+                return song.displayComposer?.isEmpty == false
+                    || song.contributors?.contains { $0.role == "composer" } == true
             }
         }
 
@@ -72,9 +74,10 @@ struct ClassicalFilter: Codable, Equatable, Sendable {
     /// The classical tracks. An album counts if most of its tracks match, and then all of its tracks count.
     func classical(_ songs: [Song]) -> [Song] {
         let albums = Dictionary(grouping: songs) { $0.albumKey }
-        let classicalAlbums = Set(albums.compactMap { key, tracks in
-            tracks.filter(matches).count * 2 > tracks.count ? key : nil
-        })
+        let classicalAlbums = Set(
+            albums.compactMap { key, tracks in
+                tracks.filter(matches).count * 2 > tracks.count ? key : nil
+            })
         return songs.filter { classicalAlbums.contains($0.albumKey) }
     }
 }

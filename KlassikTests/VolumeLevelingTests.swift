@@ -1,9 +1,11 @@
 import Testing
+
 @testable import Klassik
 
 struct VolumeLevelingTests {
     /// The ReplayGain of the 1990 fixture recording of the Fifth.
-    static let tagged = Song(id: "t", title: "t", replayGain: Song.ReplayGain(trackGain: 5, albumGain: 6, trackPeak: 0.7, albumPeak: 0.8))
+    static let tagged = Song(
+        id: "t", title: "t", replayGain: Song.ReplayGain(trackGain: 5, albumGain: 6, trackPeak: 0.7, albumPeak: 0.8))
 
     @Test func peakLimitsTheBoost() {
         #expect(abs(VolumeLeveling.album.gain(for: Self.tagged) - 1.938) < 0.001)

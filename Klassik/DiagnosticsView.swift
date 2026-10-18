@@ -12,11 +12,14 @@ struct DiagnosticsView: View {
                     LabeledContent("User", value: credentials.username)
                 }
                 if let info = model.serverInfo {
-                    LabeledContent("Server", value: [info.type, info.serverVersion].compactMap(\.self).joined(separator: " "))
+                    LabeledContent(
+                        "Server", value: [info.type, info.serverVersion].compactMap(\.self).joined(separator: " "))
                     LabeledContent("API version", value: info.apiVersion)
                     LabeledContent("OpenSubsonic", value: info.openSubsonic ? "Yes" : "No")
                         .accessibilityIdentifier("opensubsonic")
-                    LabeledContent("Extensions", value: info.extensions.isEmpty ? "None" : info.extensions.sorted().joined(separator: ", "))
+                    LabeledContent(
+                        "Extensions",
+                        value: info.extensions.isEmpty ? "None" : info.extensions.sorted().joined(separator: ", "))
                 } else {
                     LabeledContent("Status", value: model.isChecking ? "Checking…" : "Not reached")
                 }

@@ -1,7 +1,8 @@
+import AVFoundation
 import Accelerate
 import AudioToolbox
-import AVFoundation
 import XCTest
+
 @testable import Klassik
 
 /// Measures how iOS decodes the attacca fixture work as Navidrome streams it, and whether the engine joins
@@ -20,8 +21,9 @@ final class GaplessTests: XCTestCase {
         guard let server = env["KLASSIK_SERVER_URL"], let url = ServerCredentials.normalizedURL(from: server) else {
             throw XCTSkip("No fixture server configured")
         }
-        let client = SubsonicClient(credentials: ServerCredentials(
-            url: url, username: env["KLASSIK_USERNAME"] ?? "", password: env["KLASSIK_PASSWORD"] ?? ""))
+        let client = SubsonicClient(
+            credentials: ServerCredentials(
+                url: url, username: env["KLASSIK_USERNAME"] ?? "", password: env["KLASSIK_PASSWORD"] ?? ""))
         let found = try await client.searchAlbums("Mendelssohn").first { $0.name == "Mendelssohn: Violin Concerto" }
         let songs = try await client.album(id: XCTUnwrap(found).id).songs
         guard songs.count == Self.movementSamples.count else {
@@ -82,7 +84,8 @@ final class GaplessTests: XCTestCase {
     // MARK: Measurement
 
     static func read(_ file: AVAudioFile) throws -> [Float] {
-        let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length)))
+        let buffer = try XCTUnwrap(
+            AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length)))
         try file.read(into: buffer)
         return Array(UnsafeBufferPointer(start: buffer.floatChannelData![0], count: Int(buffer.frameLength)))
     }
@@ -139,7 +142,9 @@ final class GaplessTests: XCTestCase {
 
     static func fileTable(_ url: URL) -> AudioFilePacketTableInfo? {
         var id: AudioFileID?
-        guard AudioFileOpenURL(url as CFURL, .readPermission, kAudioFileMP3Type, &id) == noErr, let id else { return nil }
+        guard AudioFileOpenURL(url as CFURL, .readPermission, kAudioFileMP3Type, &id) == noErr, let id else {
+            return nil
+        }
         defer { AudioFileClose(id) }
         var info = AudioFilePacketTableInfo()
         var size = UInt32(MemoryLayout<AudioFilePacketTableInfo>.size)
@@ -149,14 +154,16 @@ final class GaplessTests: XCTestCase {
     static func streamTable(_ data: Data) -> AudioFilePacketTableInfo? {
         let found = PacketTable()
         var stream: AudioFileStreamID?
-        let opened = AudioFileStreamOpen(Unmanaged.passUnretained(found).toOpaque(), { client, stream, property, _ in
-            guard property == kAudioFileStreamProperty_PacketTableInfo else { return }
-            var info = AudioFilePacketTableInfo()
-            var size = UInt32(MemoryLayout<AudioFilePacketTableInfo>.size)
-            if AudioFileStreamGetProperty(stream, property, &size, &info) == noErr {
-                Unmanaged<PacketTable>.fromOpaque(client).takeUnretainedValue().info = info
-            }
-        }, { _, _, _, _, _ in }, kAudioFileMP3Type, &stream)
+        let opened = AudioFileStreamOpen(
+            Unmanaged.passUnretained(found).toOpaque(),
+            { client, stream, property, _ in
+                guard property == kAudioFileStreamProperty_PacketTableInfo else { return }
+                var info = AudioFilePacketTableInfo()
+                var size = UInt32(MemoryLayout<AudioFilePacketTableInfo>.size)
+                if AudioFileStreamGetProperty(stream, property, &size, &info) == noErr {
+                    Unmanaged<PacketTable>.fromOpaque(client).takeUnretainedValue().info = info
+                }
+            }, { _, _, _, _, _ in }, kAudioFileMP3Type, &stream)
         guard opened == noErr, let stream else { return nil }
         defer { AudioFileStreamClose(stream) }
         _ = data.withUnsafeBytes { AudioFileStreamParseBytes(stream, UInt32($0.count), $0.baseAddress!, []) }

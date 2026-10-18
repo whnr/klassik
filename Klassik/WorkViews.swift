@@ -95,10 +95,12 @@ private struct WorkRow: View {
         } label: {
             VStack(alignment: .leading) {
                 Text(work.title)
-                Text([work.context, work.recordings.count == 1 ? "1 recording" : "\(work.recordings.count) recordings"]
-                    .filter { !$0.isEmpty }.joined(separator: " · "))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                Text(
+                    [work.context, work.recordings.count == 1 ? "1 recording" : "\(work.recordings.count) recordings"]
+                        .filter { !$0.isEmpty }.joined(separator: " · ")
+                )
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
             }
         }
         .queueActions(work.recordings.first.map { Player.Item(work: work, recording: $0) })
@@ -129,10 +131,12 @@ struct WorkView: View {
                     } label: {
                         VStack(alignment: .leading) {
                             Text(recording.performers.isEmpty ? recording.album : recording.performers)
-                            Text([recording.year.map(String.init), recording.album, "\(recording.songs.count) tracks"]
-                                .compactMap(\.self).joined(separator: " · "))
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                            Text(
+                                [recording.year.map(String.init), recording.album, "\(recording.songs.count) tracks"]
+                                    .compactMap(\.self).joined(separator: " · ")
+                            )
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
                         }
                     }
                     .queueActions(Player.Item(work: work, recording: recording))
@@ -158,8 +162,9 @@ struct RecordingView: View {
     /// The whole album, if it holds more than this recording.
     private var album: Player.Item? {
         guard !recording.isAlbum, let key = recording.songs.first?.albumKey,
-              let album = WorkIndex.album(model.library.songs.filter { $0.albumKey == key }),
-              album.recording.songs.count > recording.songs.count else { return nil }
+            let album = WorkIndex.album(model.library.songs.filter { $0.albumKey == key }),
+            album.recording.songs.count > recording.songs.count
+        else { return nil }
         return Player.Item(work: album.work, recording: album.recording)
     }
 
@@ -183,7 +188,10 @@ struct RecordingView: View {
                     HStack {
                         Button("Previous", systemImage: "backward.fill") { player.previous() }
                         Spacer()
-                        Button(player.isPaused ? "Resume" : "Pause", systemImage: player.isPaused ? "play.fill" : "pause.fill") {
+                        Button(
+                            player.isPaused ? "Resume" : "Pause",
+                            systemImage: player.isPaused ? "play.fill" : "pause.fill"
+                        ) {
                             player.togglePause()
                         }
                         Spacer()
@@ -280,7 +288,9 @@ struct PlaybackProgress: View {
         TimelineView(.periodic(from: .now, by: 0.5)) { _ in
             if let progress = player.progress(), let recording = player.recording {
                 VStack(alignment: .leading, spacing: 12) {
-                    bar(recording.title(of: recording.songs[progress.movement]), progress.elapsed, of: progress.duration)
+                    bar(
+                        recording.title(of: recording.songs[progress.movement]), progress.elapsed, of: progress.duration
+                    )
                     bar("Whole Work", progress.workElapsed, of: progress.workDuration)
                 }
                 .padding(.vertical, 4)
@@ -306,6 +316,7 @@ struct PlaybackProgress: View {
     }
 
     static func time(_ seconds: Double) -> String {
-        Duration.seconds(seconds.rounded()).formatted(.time(pattern: seconds >= 3600 ? .hourMinuteSecond : .minuteSecond))
+        Duration.seconds(seconds.rounded()).formatted(
+            .time(pattern: seconds >= 3600 ? .hourMinuteSecond : .minuteSecond))
     }
 }

@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import Klassik
 
 struct LibraryTests {
@@ -31,7 +32,9 @@ struct LibraryTests {
     }
 
     @Test func allConditionsOfARuleMustMatch() {
-        let filter = ClassicalFilter(rules: [Self.rule(.init(kind: .hasComposer), .init(kind: .genreDoesNotContain, text: "Pop"))])
+        let filter = ClassicalFilter(rules: [
+            Self.rule(.init(kind: .hasComposer), .init(kind: .genreDoesNotContain, text: "Pop"))
+        ])
         #expect(filter.matches(Self.song("t", genre: "Jazz", composer: "Mozart")))
         #expect(!filter.matches(Self.song("t", genre: "Pop", composer: "Mozart")))
         #expect(!filter.matches(Self.song("t", genre: "Jazz")))
@@ -60,15 +63,15 @@ struct LibraryTests {
     /// The tags of the fixture concerto as Navidrome 0.64.2 returns them.
     @Test func decodesOpenSubsonicClassicalFields() throws {
         let json = #"""
-        {"subsonic-response":{"status":"ok","version":"1.16.1","openSubsonic":true,"searchResult3":{"song":[
-        {"id":"s1","title":"Piano Concerto No. 21 in C major, K. 467: III. Allegro vivace assai","album":"Mozart: Piano Concertos 21 & 23",
-        "albumId":"a1","track":3,"discNumber":1,"year":1999,"duration":4,"suffix":"mp3","genre":"Classical > Concerto",
-        "genres":[{"name":"Classical > Concerto"}],"displayComposer":"Wolfgang Amadeus Mozart",
-        "contributors":[{"role":"composer","artist":{"id":"c1","name":"Wolfgang Amadeus Mozart"}},
-        {"role":"performer","subRole":"Piano","artist":{"id":"p1","name":"Daniel Keys"}}],
-        "works":[{"name":"Piano Concerto No. 21 in C major, K. 467"}],
-        "movements":[{"name":"Allegro vivace assai","number":3,"count":3}],"musicBrainzId":"","isrc":[]}]}}}
-        """#
+            {"subsonic-response":{"status":"ok","version":"1.16.1","openSubsonic":true,"searchResult3":{"song":[
+            {"id":"s1","title":"Piano Concerto No. 21 in C major, K. 467: III. Allegro vivace assai","album":"Mozart: Piano Concertos 21 & 23",
+            "albumId":"a1","track":3,"discNumber":1,"year":1999,"duration":4,"suffix":"mp3","genre":"Classical > Concerto",
+            "genres":[{"name":"Classical > Concerto"}],"displayComposer":"Wolfgang Amadeus Mozart",
+            "contributors":[{"role":"composer","artist":{"id":"c1","name":"Wolfgang Amadeus Mozart"}},
+            {"role":"performer","subRole":"Piano","artist":{"id":"p1","name":"Daniel Keys"}}],
+            "works":[{"name":"Piano Concerto No. 21 in C major, K. 467"}],
+            "movements":[{"name":"Allegro vivace assai","number":3,"count":3}],"musicBrainzId":"","isrc":[]}]}}}
+            """#
         let song = try #require(SubsonicClient.decode(Data(json.utf8)).searchResult3?.song?.first)
         #expect(song.works?.first?.name == "Piano Concerto No. 21 in C major, K. 467")
         #expect(song.movements?.first == Song.Movement(name: "Allegro vivace assai", number: 3, count: 3))
@@ -89,7 +92,8 @@ struct LibraryTests {
     @Test func cacheRoundTrip() throws {
         let url = FileManager.default.temporaryDirectory.appending(path: "\(UUID().uuidString)/library.json")
         let cache = LibraryCache(
-            server: URL(string: "https://music.example.org")!, username: "joe", syncedAt: Date(timeIntervalSince1970: 0),
+            server: URL(string: "https://music.example.org")!, username: "joe",
+            syncedAt: Date(timeIntervalSince1970: 0),
             songs: [Self.song("t1", genre: "Classical", work: "W")])
         try cache.write(to: url)
         let read = try LibraryCache.read(from: url)

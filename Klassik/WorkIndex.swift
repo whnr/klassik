@@ -20,7 +20,8 @@ struct WorkIndex: Sendable {
         var context: String {
             let first = recordings.first?.songs ?? []
             let albums = Array(Set(recordings.map(\.album))).sorted()
-            let parts: [String?] = [WorkIndex.commonTitle(first.map(\.title))] + albums.prefix(2).map(Optional.some)
+            let parts: [String?] =
+                [WorkIndex.commonTitle(first.map(\.title))] + albums.prefix(2).map(Optional.some)
                 + [albums.count > 2 ? "+\(albums.count - 2) more" : nil]
             var seen: Set<String> = [title]
             return parts.compactMap(\.self).filter { !$0.isEmpty && seen.insert($0).inserted }.joined(separator: " · ")
@@ -62,7 +63,9 @@ struct WorkIndex: Sendable {
         }
         composers = Dictionary(grouping: works.values, by: \.composer)
             .map { name, works in
-                Composer(name: name, works: works.sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending })
+                Composer(
+                    name: name, works: works.sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
+                )
             }
             .sorted { Self.sortName($0.name).localizedStandardCompare(Self.sortName($1.name)) == .orderedAscending }
     }
@@ -128,7 +131,8 @@ extension Song {
         let roles = contributors ?? []
         var names: [String] = []
         for name in roles.filter({ $0.role == "performer" }).map(\.artist.name)
-            + roles.filter({ $0.role == "conductor" }).map(\.artist.name) where !names.contains(name) {
+            + roles.filter({ $0.role == "conductor" }).map(\.artist.name) where !names.contains(name)
+        {
             names.append(name)
         }
         return names.isEmpty ? artist ?? "" : names.joined(separator: ", ")

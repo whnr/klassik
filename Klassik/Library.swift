@@ -31,10 +31,13 @@ final class Library {
     private static let filterKey = "library.filter.rules"
     static let pageSize = 500
 
-    init(cacheURL: URL = .applicationSupportDirectory.appending(path: "library.json"), defaults: UserDefaults = .standard) {
+    init(
+        cacheURL: URL = .applicationSupportDirectory.appending(path: "library.json"), defaults: UserDefaults = .standard
+    ) {
         self.cacheURL = cacheURL
         self.defaults = defaults
-        filter = defaults.data(forKey: Self.filterKey).flatMap { try? JSONDecoder().decode(ClassicalFilter.self, from: $0) }
+        filter =
+            defaults.data(forKey: Self.filterKey).flatMap { try? JSONDecoder().decode(ClassicalFilter.self, from: $0) }
             ?? ClassicalFilter()
     }
 
@@ -42,7 +45,9 @@ final class Library {
     func load(for credentials: ServerCredentials) async {
         let url = cacheURL
         let cache = await Task.detached { try? LibraryCache.read(from: url) }.value
-        guard let cache, cache.server == credentials.url, cache.username == credentials.username, songs.isEmpty else { return }
+        guard let cache, cache.server == credentials.url, cache.username == credentials.username, songs.isEmpty else {
+            return
+        }
         show(cache.songs, syncedAt: cache.syncedAt)
     }
 

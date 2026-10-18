@@ -11,8 +11,9 @@ struct CredentialStore {
 
     func load() -> ServerCredentials? {
         guard let url = defaults.url(forKey: Self.urlKey),
-              let username = defaults.string(forKey: Self.usernameKey),
-              let password = Self.readPassword(account: username) else { return nil }
+            let username = defaults.string(forKey: Self.usernameKey),
+            let password = Self.readPassword(account: username)
+        else { return nil }
         return ServerCredentials(url: url, username: username, password: password)
     }
 
@@ -36,9 +37,11 @@ struct CredentialStore {
     }
 
     private static func query(account: String) -> [String: Any] {
-        [kSecClass as String: kSecClassGenericPassword,
-         kSecAttrService as String: service,
-         kSecAttrAccount as String: account]
+        [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+        ]
     }
 
     private static func readPassword(account: String) -> String? {
@@ -46,7 +49,9 @@ struct CredentialStore {
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
         var item: CFTypeRef?
-        guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess, let data = item as? Data else { return nil }
+        guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess, let data = item as? Data else {
+            return nil
+        }
         return String(decoding: data, as: UTF8.self)
     }
 

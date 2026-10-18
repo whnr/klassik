@@ -42,7 +42,8 @@ struct HomeView: View {
                         NavigationLink {
                             AlbumsView(title: "Other Albums", songs: otherSongs)
                         } label: {
-                            LabeledContent("Other Albums", value: (library.albumCount - library.classicalAlbumCount).formatted())
+                            LabeledContent(
+                                "Other Albums", value: (library.albumCount - library.classicalAlbumCount).formatted())
                         }
                         .accessibilityIdentifier("other-albums")
                     }
@@ -52,8 +53,12 @@ struct HomeView: View {
                     if let error = library.syncError {
                         Text(error)
                     } else if let syncedAt = library.syncedAt {
-                        Text(library.isSyncing ? "Syncing… \(library.received) tracks" : "Synced \(syncedAt.formatted(.relative(presentation: .named))).")
-                            .accessibilityIdentifier("library-synced")
+                        Text(
+                            library.isSyncing
+                                ? "Syncing… \(library.received) tracks"
+                                : "Synced \(syncedAt.formatted(.relative(presentation: .named)))."
+                        )
+                        .accessibilityIdentifier("library-synced")
                     }
                 }
 
@@ -116,7 +121,8 @@ struct AlbumsView: View {
         Dictionary(grouping: songs, by: \.albumKey)
             .compactMap { key, tracks in
                 WorkIndex.album(tracks).map { album in
-                    Row(id: key, name: album.work.title, artist: tracks[0].artist,
+                    Row(
+                        id: key, name: album.work.title, artist: tracks[0].artist,
                         item: Player.Item(work: album.work, recording: album.recording))
                 }
             }
@@ -131,9 +137,12 @@ struct AlbumsView: View {
                 VStack(alignment: .leading) {
                     Text(row.name)
                         .foregroundStyle(.primary)
-                    Text([row.artist, "\(row.item.recording.songs.count) tracks"].compactMap(\.self).joined(separator: " · "))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                    Text(
+                        [row.artist, "\(row.item.recording.songs.count) tracks"].compactMap(\.self).joined(
+                            separator: " · ")
+                    )
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
                 }
             }
             .queueActions(row.item)

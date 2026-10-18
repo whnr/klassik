@@ -26,7 +26,10 @@ struct GaplessTestView: View {
                     .accessibilityIdentifier("gapless-album")
                 }
             } footer: {
-                Text(error ?? "Search for a work whose movements run into each other, then listen at each change of track.")
+                Text(
+                    error
+                        ?? "Search for a work whose movements run into each other, then listen at each change of track."
+                )
             }
         }
         .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Album")
@@ -64,14 +67,17 @@ struct GaplessAlbumView: View {
                 }
                 Toggle("Start 10 s Before the End", isOn: $startNearEnd)
             } footer: {
-                Text("AVQueuePlayer streams each track. AVAudioEngine downloads each track and cuts encoder delay and padding as the MP3 header specifies.")
+                Text(
+                    "AVQueuePlayer streams each track. AVAudioEngine downloads each track and cuts encoder delay and padding as the MP3 header specifies."
+                )
             }
 
             Section("Tap a Track to Play from There") {
                 ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
                     Button {
                         guard let client = model.client else { return }
-                        player.play(songs, from: index, with: kind, client: client, lastSeconds: startNearEnd ? 10 : nil)
+                        player.play(
+                            songs, from: index, with: kind, client: client, lastSeconds: startNearEnd ? 10 : nil)
                     } label: {
                         VStack(alignment: .leading) {
                             Text(song.title)

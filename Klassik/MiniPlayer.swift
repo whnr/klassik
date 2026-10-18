@@ -18,7 +18,8 @@ struct MiniPlayer: View {
                         .lineLimit(1)
                 }
                 Spacer()
-                Button(player.isPaused ? "Resume" : "Pause", systemImage: player.isPaused ? "play.fill" : "pause.fill") {
+                Button(player.isPaused ? "Resume" : "Pause", systemImage: player.isPaused ? "play.fill" : "pause.fill")
+                {
                     player.togglePause()
                 }
                 .labelStyle(.iconOnly)

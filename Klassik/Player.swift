@@ -336,8 +336,9 @@ final class Player {
 
     private static func playableRange(of file: AVAudioFile) -> Range<Int64> {
         guard file.url.pathExtension.lowercased() == "mp3",
-              let data = try? Data(contentsOf: file.url, options: .mappedIfSafe),
-              let header = MP3GaplessInfo.parse(data) else { return 0..<file.length }
+            let data = try? Data(contentsOf: file.url, options: .mappedIfSafe),
+            let header = MP3GaplessInfo.parse(data)
+        else { return 0..<file.length }
         return header.playableRange(decodedLength: file.length)
     }
 }

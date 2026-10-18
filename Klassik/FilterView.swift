@@ -33,7 +33,9 @@ struct FilterView: View {
                 }
                 .accessibilityIdentifier("add-rule")
             } footer: {
-                Text("A track is classical if one of the rules matches. A rule matches if all of its conditions match. An album is classical if most of its tracks are; then all of its tracks count. Klassik keeps the rules on this iPhone.")
+                Text(
+                    "A track is classical if one of the rules matches. A rule matches if all of its conditions match. An album is classical if most of its tracks are; then all of its tracks count. Klassik keeps the rules on this iPhone."
+                )
             }
 
             Section("Result") {

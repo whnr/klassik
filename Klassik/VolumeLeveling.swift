@@ -23,7 +23,8 @@ enum VolumeLeveling: String, CaseIterable, Identifiable, Sendable {
         let album = (gain: tags.albumGain, peak: tags.albumPeak)
         let track = (gain: tags.trackGain, peak: tags.trackPeak)
         let (preferred, other) = self == .album ? (album, track) : (track, album)
-        let chosen = preferred.gain != nil ? preferred : other.gain != nil ? other : (gain: tags.fallbackGain, peak: nil)
+        let chosen =
+            preferred.gain != nil ? preferred : other.gain != nil ? other : (gain: tags.fallbackGain, peak: nil)
         guard let gain = chosen.gain else { return 0 }
         guard let peak = chosen.peak, peak > 0 else { return Float(gain) }
         return Float(min(gain, -20 * log10(peak)))

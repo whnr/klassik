@@ -1,10 +1,12 @@
 import Foundation
 import Testing
+
 @testable import Klassik
 
 struct SubsonicClientTests {
-    let client = SubsonicClient(credentials: ServerCredentials(
-        url: URL(string: "https://music.example.org/navidrome")!, username: "joe", password: "sesame"))
+    let client = SubsonicClient(
+        credentials: ServerCredentials(
+            url: URL(string: "https://music.example.org/navidrome")!, username: "joe", password: "sesame"))
 
     @Test(arguments: [
         ("music.example.org", "https://music.example.org"),
@@ -40,7 +42,8 @@ struct SubsonicClientTests {
     }
 
     @Test func decodesNavidromePing() throws {
-        let json = #"{"subsonic-response":{"status":"ok","version":"1.16.1","type":"navidrome","serverVersion":"0.64.2 (10114574)","openSubsonic":true}}"#
+        let json =
+            #"{"subsonic-response":{"status":"ok","version":"1.16.1","type":"navidrome","serverVersion":"0.64.2 (10114574)","openSubsonic":true}}"#
         let response = try SubsonicClient.decode(Data(json.utf8))
         #expect(response.version == "1.16.1")
         #expect(response.type == "navidrome")
@@ -48,7 +51,8 @@ struct SubsonicClientTests {
     }
 
     @Test func surfacesServerError() {
-        let json = #"{"subsonic-response":{"status":"failed","version":"1.16.1","error":{"code":40,"message":"Wrong username or password"}}}"#
+        let json =
+            #"{"subsonic-response":{"status":"failed","version":"1.16.1","error":{"code":40,"message":"Wrong username or password"}}}"#
         #expect(throws: SubsonicError.server(code: 40, message: "Wrong username or password")) {
             try SubsonicClient.decode(Data(json.utf8))
         }

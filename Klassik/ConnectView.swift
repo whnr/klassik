@@ -10,7 +10,9 @@ struct ConnectView: View {
     @State private var isConnecting = false
 
     private var candidate: ServerCredentials? {
-        guard let url = ServerCredentials.normalizedURL(from: url), !username.isEmpty, !password.isEmpty else { return nil }
+        guard let url = ServerCredentials.normalizedURL(from: url), !username.isEmpty, !password.isEmpty else {
+            return nil
+        }
         return ServerCredentials(url: url, username: username, password: password)
     }
 

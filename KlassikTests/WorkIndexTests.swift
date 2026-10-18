@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import Klassik
 
 struct WorkIndexTests {
@@ -61,18 +62,22 @@ struct WorkIndexTests {
     }
 
     @Test func performersBeforeConductorElseArtist() {
-        let tagged = Self.song("t", album: "A", track: 1, performers: [("conductor", "Anna Probe"), ("performer", "Eva Bogen")])
+        let tagged = Self.song(
+            "t", album: "A", track: 1, performers: [("conductor", "Anna Probe"), ("performer", "Eva Bogen")])
         #expect(tagged.performers == "Eva Bogen, Anna Probe")
         #expect(Self.song("u", album: "A", track: 1).performers == "Album Artist")
     }
 
-    @Test(arguments: [
-        (["Symphonie Nr.5 c-moll (1)", "Symphonie Nr.5 c-moll (2)"], "Symphonie Nr.5 c-moll"),
-        (["Violin Concerto in E minor, Op. 64: I. Allegro", "Violin Concerto in E minor, Op. 64: II. Andante"],
-         "Violin Concerto in E minor, Op. 64"),
-        (["Symphony No. 9: IV. Presto"], "Symphony No. 9: IV. Presto"),
-        (["Blue Sine", "Square Dance"], nil),
-    ] as [([String], String?)])
+    @Test(
+        arguments: [
+            (["Symphonie Nr.5 c-moll (1)", "Symphonie Nr.5 c-moll (2)"], "Symphonie Nr.5 c-moll"),
+            (
+                ["Violin Concerto in E minor, Op. 64: I. Allegro", "Violin Concerto in E minor, Op. 64: II. Andante"],
+                "Violin Concerto in E minor, Op. 64"
+            ),
+            (["Symphony No. 9: IV. Presto"], "Symphony No. 9: IV. Presto"),
+            (["Blue Sine", "Square Dance"], nil),
+        ] as [([String], String?)])
     func sharedTitleNamesTheWork(titles: [String], expected: String?) {
         #expect(WorkIndex.commonTitle(titles) == expected)
     }

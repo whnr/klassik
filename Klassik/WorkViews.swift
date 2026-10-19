@@ -2,6 +2,7 @@ import SwiftUI
 
 /// A composer's works. Albums without work tags come last, each as one work.
 struct ComposerView: View {
+    @Environment(AppModel.self) private var model
     let composer: WorkIndex.Composer
 
     var body: some View {
@@ -9,6 +10,16 @@ struct ComposerView: View {
         let loose = composer.looseWorks
         let untagged = composer.works.filter { !$0.isTagged }
         List {
+            if let facts = model.enrichment.composer(named: composer.name), facts.born != nil || facts.died != nil {
+                Section {
+                    LabeledContent(
+                        "Lived", value: "\(facts.born.map(String.init) ?? "?")–\(facts.died.map(String.init) ?? "")")
+                    if let period = Timeline.Period.of(born: facts.born, died: facts.died) {
+                        LabeledContent("Period", value: period.title)
+                    }
+                }
+                .accessibilityIdentifier("composer-dates")
+            }
             if !sets.isEmpty {
                 Section("Sets") {
                     ForEach(sets) { set in
@@ -196,6 +207,9 @@ struct WorkView: View {
                     Text(work.context)
                         .foregroundStyle(.secondary)
                 }
+                if work.isTagged {
+                    ComposedRow(work: work)
+                }
                 if let recording = work.defaultRecording {
                     Button(recording.isReference ? "Play Reference Recording" : "Play", systemImage: "play.fill") {
                         if let client = model.client { model.player.play(recording, of: work, client: client) }
@@ -242,6 +256,32 @@ struct WorkView: View {
         }
         .navigationTitle(work.title)
         .miniPlayerInset()
+    }
+}
+
+/// When the work was composed. It opens the sources, and asks the listener to confirm an unclear match.
+private struct ComposedRow: View {
+    @Environment(AppModel.self) private var model
+    let work: WorkIndex.Work
+
+    var body: some View {
+        let enrichment = model.enrichment
+        NavigationLink {
+            WorkSourcesView(work: work)
+        } label: {
+            if case .candidates = enrichment.link(of: work) {
+                Label("Confirm the MusicBrainz Work", systemImage: "questionmark.circle")
+            } else {
+                LabeledContent("Composed") {
+                    if let composed = enrichment.composed(work) {
+                        Text(composed.span.text)
+                    } else {
+                        Text(enrichment.isRunning ? "Looking up…" : "Unknown")
+                    }
+                }
+            }
+        }
+        .accessibilityIdentifier("composed")
     }
 }
 

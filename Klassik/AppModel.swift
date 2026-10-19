@@ -13,6 +13,7 @@ final class AppModel {
     let library: Library
     let tracks: TrackStore
     let player: Player
+    let enrichment: Enrichment
     let swipes = SwipeSettings()
     private let store: CredentialStore
 
@@ -23,11 +24,13 @@ final class AppModel {
         self.library = library
         tracks = TrackStore()
         player = Player(store: tracks)
+        enrichment = Enrichment.forLaunch()
         // UI tests start from the connect screen.
         if ProcessInfo.processInfo.arguments.contains("-resetServer") {
             store.clear()
             library.clear()
             tracks.clearAll()
+            enrichment.clear()
         }
         credentials = store.load()
     }
@@ -48,11 +51,13 @@ final class AppModel {
     }
 
     /// Shows the cached library at once, then checks the server and syncs again.
+    /// Then looks up the works that MusicBrainz has not described yet.
     func start() async {
         guard let credentials, let client else { return }
         await library.load(for: credentials)
         await check()
         await library.syncIfChanged(with: client)
+        await enrichment.enrich(library.index)
     }
 
     func check() async {

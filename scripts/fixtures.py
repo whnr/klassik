@@ -26,6 +26,8 @@ ORCH_B = [("orchestra", "Sine Wave Chamber Orchestra")]
 
 B5 = "Symphony No. 5 in C minor, Op. 67"
 B5_MOVEMENTS = ["Allegro con brio", "Andante con moto", "Scherzo. Allegro", "Allegro"]
+# The real MusicBrainz work ID of the Fifth. Other works have none, so Klassik searches for them.
+B5_MUSICBRAINZ = "6efdb083-5bff-465e-b07d-41925e877788"
 SUITE = "Cello Suite No. 1 in G major, BWV 1007"
 SUITE_MOVEMENTS = ["Prélude", "Allemande", "Courante", "Sarabande", "Menuets I & II", "Gigue"]
 K467 = "Piano Concerto No. 21 in C major, K. 467"
@@ -121,6 +123,8 @@ def tag(path, album, album_artist, genre, recorded, released, number, total, tra
         tags.add(TIT2(encoding=3, text=f"{work_title}: {roman(movement_no)}. {movement}" if movement_total > 1 else work_title))
         tags.add(TCOM(encoding=3, text=composer))
         tags.add(TXXX(encoding=3, desc="WORK", text=work_title))
+        if work_title == B5:
+            tags.add(TXXX(encoding=3, desc="MusicBrainz Work Id", text=B5_MUSICBRAINZ))
         if movement_total:
             tags.add(MVNM(encoding=3, text=movement))
             tags.add(TXXX(encoding=3, desc="MOVEMENT", text=str(movement_no)))

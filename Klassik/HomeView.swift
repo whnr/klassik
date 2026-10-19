@@ -9,6 +9,14 @@ struct HomeView: View {
         NavigationStack {
             List {
                 if !library.index.composers.isEmpty {
+                    Section {
+                        NavigationLink {
+                            WorkTimelineView()
+                        } label: {
+                            Label("Timeline", systemImage: "calendar")
+                        }
+                        .accessibilityIdentifier("timeline")
+                    }
                     Section("Composers") {
                         ForEach(library.index.composers) { composer in
                             NavigationLink {
@@ -115,7 +123,10 @@ struct HomeView: View {
                 ShuffleButton(works: library.index.composers.flatMap(\.works))
             }
             .refreshable {
-                if let client = model.client { await library.sync(with: client) }
+                guard let client = model.client else { return }
+                await library.sync(with: client)
+                // The lookup can take minutes; the pull to refresh ends with the sync.
+                Task { await model.enrichment.enrich(library.index) }
             }
         }
     }

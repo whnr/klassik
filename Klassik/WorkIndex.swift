@@ -182,10 +182,12 @@ struct WorkIndex: Sendable {
 }
 
 extension Song {
+    static let unknownComposer = "Unknown Composer"
+
     var composerName: String {
         if let name = displayComposer, !name.isEmpty { return name }
         let names = (contributors ?? []).filter { $0.role == "composer" }.map(\.artist.name)
-        return names.isEmpty ? "Unknown Composer" : names.joined(separator: ", ")
+        return names.isEmpty ? Self.unknownComposer : names.joined(separator: ", ")
     }
 
     /// Soloists, then ensembles, then the conductor. Without these tags, the track artist.

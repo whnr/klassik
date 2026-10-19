@@ -14,6 +14,7 @@ final class ScreensTests: XCTestCase {
             "KLASSIK_SERVER_URL": server,
             "KLASSIK_USERNAME": env["KLASSIK_USERNAME"] ?? "",
             "KLASSIK_PASSWORD": env["KLASSIK_PASSWORD"] ?? "",
+            "KLASSIK_MUSICBRAINZ_STUB": Self.musicBrainz,
         ]
         app.launch()
 
@@ -27,6 +28,14 @@ final class ScreensTests: XCTestCase {
         XCTAssertTrue(mendelssohn.waitForExistence(timeout: 30))
         snap(app, "02-home")
 
+        app.buttons["timeline"].tap()
+        let dated = app.buttons.matching(identifier: "timeline-work")
+            .matching(NSPredicate(format: "label CONTAINS 'Symphony No. 5'")).firstMatch
+        XCTAssertTrue(dated.waitForExistence(timeout: 30))
+        XCTAssertTrue(dated.label.contains("1804"))
+        snap(app, "02b-timeline")
+        back(app)
+
         let chopin = app.buttons.matching(identifier: "composer")
             .matching(NSPredicate(format: "label BEGINSWITH 'Frédéric Chopin'")).firstMatch
         chopin.tap()
@@ -37,6 +46,28 @@ final class ScreensTests: XCTestCase {
         snap(app, "02a-sets")
         back(app)
 
+        // Two good matches with different titles: the listener picks one once.
+        reveal(
+            app.buttons.matching(identifier: "composer").matching(NSPredicate(format: "label BEGINSWITH 'Wolfgang'"))
+                .firstMatch, in: app
+        ).tap()
+        app.buttons.matching(identifier: "work").matching(NSPredicate(format: "label CONTAINS 'K. 467'")).firstMatch
+            .tap()
+        let confirm = app.buttons["composed"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 10))
+        XCTAssertTrue(confirm.label.contains("Confirm"), confirm.label)
+        confirm.tap()
+        let candidate = app.buttons.matching(identifier: "candidate").firstMatch
+        XCTAssertTrue(candidate.waitForExistence(timeout: 10))
+        snap(app, "04b-confirm-match")
+        candidate.tap()
+        let linked = app.descendants(matching: .any)["musicbrainz-work"]
+        XCTAssertTrue(linked.waitForExistence(timeout: 10))
+        let year = app.staticTexts.matching(NSPredicate(format: "label CONTAINS '1785'")).firstMatch
+        XCTAssertTrue(year.waitForExistence(timeout: 10))
+        snap(app, "04c-sources")
+        for _ in 0..<3 { back(app) }
+
         mendelssohn.tap()
         let work = app.buttons.matching(identifier: "work").firstMatch
         XCTAssertTrue(work.waitForExistence(timeout: 10))
@@ -45,6 +76,7 @@ final class ScreensTests: XCTestCase {
         work.tap()
         let recording = app.buttons.matching(identifier: "recording").firstMatch
         XCTAssertTrue(recording.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["composed"].label.contains("1844"), app.buttons["composed"].label)
         snap(app, "04-work")
 
         recording.tap()
@@ -172,6 +204,45 @@ final class ScreensTests: XCTestCase {
         XCTAssertTrue(analysis.waitForExistence(timeout: 30))
         snap(app, "14-gapless-album")
     }
+
+    /// MusicBrainz answers for the fixture works, shaped like real ones, by the keys of `Enrichment.stubKey`.
+    /// Bach, Brahms and the nocturnes get no answer, as if MusicBrainz had no match.
+    static let musicBrainz: String = {
+        let beethoven = "1f9df192-a621-4f54-8850-2c5373b7eac9"
+        let mendelssohn = "0e85eb79-1c05-44ba-827c-7b259a3d941a"
+        let mozart = "b972f589-fb0e-474e-b64a-803b0364fa75"
+        let fifth = "6efdb083-5bff-465e-b07d-41925e877788"
+        let concerto = "c230858f-8b2b-3e77-aa3e-777743980263"
+        let k467 = "f210c793-f668-413c-8821-3628b3c55483"
+        func work(_ id: String, _ title: String, _ begin: String, _ end: String, _ composer: String) -> String {
+            """
+            {"id":"\(id)","title":"\(title)","relations":[{"type":"composer","direction":"backward",\
+            "begin":"\(begin)","end":"\(end)","artist":{"id":"\(composer)"}}]}
+            """
+        }
+        func artist(_ id: String, _ name: String, _ born: String, _ died: String) -> String {
+            #"{"id":"\#(id)","name":"\#(name)","score":100,"life-span":{"begin":"\#(born)","end":"\#(died)"}}"#
+        }
+        let bodies = [
+            "work/\(fifth)": work(fifth, "Symphony no. 5 in C minor, op. 67", "1804", "1808", beethoven),
+            "artist/\(beethoven)": artist(beethoven, "Ludwig van Beethoven", "1770-12-16", "1827-03-26"),
+            "work?\"op. 64\" AND artist:\"Mendelssohn\"": """
+            {"works":[{"id":"\(concerto)","score":95,"title":"Violinkonzert in e-Moll, op. 64"}]}
+            """,
+            "work/\(concerto)": work(concerto, "Violinkonzert in e-Moll, op. 64", "1844", "1844", mendelssohn),
+            "artist/\(mendelssohn)": artist(mendelssohn, "Felix Mendelssohn", "1809-02-03", "1847-11-04"),
+            "work?\"K. 467\" AND artist:\"Mozart\"": """
+            {"works":[{"id":"\(k467)","score":100,"title":"Concerto for Piano no. 21 in C major, K. 467"},\
+            {"id":"29d6128d-d64e-4db0-a099-4a8b79331d46","score":96,"title":"Piano Concerto no. 21, K. 467 “Elvira Madigan”"}]}
+            """,
+            "work/\(k467)": work(k467, "Concerto for Piano no. 21 in C major, K. 467", "1785", "1785", mozart),
+            "artist/\(mozart)": artist(mozart, "Wolfgang Amadeus Mozart", "1756-01-27", "1791-12-05"),
+            "artist?artist:\"Frédéric Chopin\" AND type:person": """
+            {"artists":[\(artist("09ff1fe8-d61c-4b98-bb82-18487c74d7b7", "Fryderyk Chopin", "1810-03-01", "1849-10-17"))]}
+            """,
+        ]
+        return String(decoding: try! JSONEncoder().encode(bodies), as: UTF8.self)
+    }()
 
     @MainActor
     private func back(_ app: XCUIApplication) {

@@ -2,7 +2,8 @@ name: Test
 
 # Unit, library sync and gapless tests against a fixture Navidrome. The UI walk and its screenshots run only on
 # request, because the walk takes most of the time: a line "[ui]" or "[ui: browse,settings]" in the newest commit
-# message, or the "ui" input of a run by hand.
+# message, or the "ui" input of a run by hand. After a walk, screens-diff compares each screenshot with the newest
+# green walk on ci.
 # main fast-forwards to a green commit of ci, so a push to main starts no macOS run. testflight.yml refuses a commit that has no green run of this workflow.
 on:
   push:
@@ -111,3 +112,32 @@ jobs:
           name: screens-xcresult
           path: ${{ runner.temp }}/screens/screens.xcresult
 
+  # The diff informs; it never fails the run.
+  screens-diff:
+    needs: test
+    if: needs.test.outputs.ui != 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: screens
+          path: current
+      - run: pip install pillow numpy
+      - name: Collect the baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/screen_baseline.py current baseline
+      - name: Compare
+        run: |
+          python3 scripts/screen_diff.py baseline current screens-diff
+          cat screens-diff/diff.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: screens-diff
+          path: screens-diff

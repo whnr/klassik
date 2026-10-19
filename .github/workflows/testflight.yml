@@ -49,7 +49,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           passed=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/test.yml/runs?head_sha=$GITHUB_SHA&status=success" --jq .total_count)
-          [ "$passed" -gt 0 ] || { echo "::error::no green Test run for $GITHUB_SHA; push it to the screens branch first"; exit 1; }
+          [ "$passed" -gt 0 ] || { echo "::error::no green Test run for $GITHUB_SHA; push it to the ci branch first"; exit 1; }
 
   upload:
     needs: due

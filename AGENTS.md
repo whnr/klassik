@@ -9,7 +9,7 @@ Rules for coding agents in this repository.
 - Write a decision into its bead when Flo makes it.
 - Build in tracer bullets. Each slice reaches Flo's phone through TestFlight. Flo tests it before the next slice lands.
 - After the pipeline works, put several beads into one push. Make one push per round of feedback.
-- Push to `main`. Pull requests open later; `CONTRIBUTING.md` applies then.
+- Push to branch `ci`. When `test.yml` is green there, fast-forward `main` to the same commit, so `main` holds only green commits. Pull requests open later; `CONTRIBUTING.md` applies then.
 
 ## App rules
 
@@ -25,8 +25,8 @@ Rules for coding agents in this repository.
 - `project.yml` defines the project. XcodeGen generates `Klassik.xcodeproj`; do not commit it.
 - `scripts/test.sh` generates the project and runs the unit tests on an iPhone simulator.
 - `scripts/lint.sh` checks the Swift layout against `.swift-format` (Swift 6.2 `swift format`). Run it before you push. `swift format --in-place --recursive Klassik KlassikTests KlassikUITests` fixes most findings.
-- `.github/workflows/test.yml` runs `scripts/lint.sh` on Linux, then the full suite on `macos-26` against the fixture Navidrome: unit, library sync, gapless and UI tests. It runs on a push to branch `screens`, on pull requests, or by hand. A push to `main` starts no macOS run. It uploads the screenshots as artifact `screens`.
-- Before you report a UI change as done, fast-forward `screens`, download the artifact through the GitHub REST API, and look at every PNG. Every release runs the full suite, also a release without UI changes.
+- `.github/workflows/test.yml` runs `scripts/lint.sh` on Linux, then the full suite on `macos-26` against the fixture Navidrome: unit, library sync, gapless and UI tests. It runs on a push to branch `ci`, on pull requests, or by hand. A push to `main` starts no macOS run. It uploads the screenshots as artifact `screens`.
+- Before you report a UI change as done, download the artifact through the GitHub REST API, and look at every PNG. Every release runs the full suite, also a release without UI changes.
 - `.github/workflows/testflight.yml` runs by hand. It refuses a commit without a green run of `test.yml`. It archives without signing, signs at export with the App Store Connect API key, and uploads with `altool`. A daily run uploads again when the newest build is 85 days old, because TestFlight builds expire after 90 days.
 - Every TestFlight build has a "What to Test" text. Write it in `docs/what-to-test.md` before you release. The first line is `Klassik X.Y.Z`, the same version as in `project.yml`. Then list what changed for the listener and what Flo must test: short steps, one line each, a bead ID after each, and the known problems. At most 4000 characters. The TestFlight workflow stops before the macOS job if the version does not match, and `scripts/testflight_notes.py` sets the text on the build when the upload ends.
 - `.github/workflows/testflight-feedback.yml` runs by hand. It checks the API key secrets (`scripts/asc_check.py`), then prints TestFlight feedback and crash logs and uploads the feedback screenshots.

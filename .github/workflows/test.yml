@@ -1,10 +1,10 @@
 name: Test
 
 # The full suite against a fixture Navidrome: unit, library sync, gapless and UI tests, plus screenshots.
-# A push to main starts no macOS run. testflight.yml refuses a commit that has no green run of this workflow.
+# main fast-forwards to a green commit of ci, so a push to main starts no macOS run. testflight.yml refuses a commit that has no green run of this workflow.
 on:
   push:
-    branches: [screens]
+    branches: [ci]
   pull_request:
     paths-ignore: ["**.md", "LICENSE", "docs/**"]
   workflow_dispatch:

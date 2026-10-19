@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Runs the unit, UI, library sync and gapless tests against a running fixture server.
+# Runs the unit, library sync and gapless tests against a running fixture server, and the UI walk if KLASSIK_UI=true.
 # Exports the screenshots and the gapless report.
-# Usage: scripts/screens.sh <output-dir>   (start scripts/fixture-server.sh first)
+# Usage: [KLASSIK_UI=true] scripts/screens.sh <output-dir>   (start scripts/fixture-server.sh first)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -16,6 +16,9 @@ formatter=cat
 command -v xcbeautify >/dev/null && formatter=xcbeautify
 
 # xcodebuild hands TEST_RUNNER_* variables to the test runner without the prefix.
+suites=(-only-testing:KlassikTests)
+[ "${KLASSIK_UI:-false}" = true ] && suites+=(-only-testing:KlassikUITests)
+
 status=0
 TEST_RUNNER_KLASSIK_SERVER_URL=http://localhost:4533 \
 TEST_RUNNER_KLASSIK_USERNAME=fixture \
@@ -24,8 +27,7 @@ xcodebuild test \
   -project Klassik.xcodeproj \
   -scheme Klassik \
   -destination "id=$udid" \
-  -only-testing:KlassikUITests \
-  -only-testing:KlassikTests \
+  "${suites[@]}" \
   -resultBundlePath "$result" \
   CODE_SIGN_IDENTITY=- \
   | $formatter || status=$?

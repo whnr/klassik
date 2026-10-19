@@ -42,7 +42,7 @@ jobs:
       - name: Require What to Test notes for this version
         if: steps.age.outputs.upload == 'true'
         run: python3 scripts/testflight_notes.py --check
-      # Every release runs the UI tests, so the commit needs a green run of the full suite.
+      # The commit needs a green test run. The UI walk is not required.
       - name: Require a green test run
         if: steps.age.outputs.upload == 'true'
         env:

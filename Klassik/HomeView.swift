@@ -102,6 +102,12 @@ struct HomeView: View {
 
                 Section {
                     NavigationLink {
+                        FilterView()
+                    } label: {
+                        Label("Classical Filter", systemImage: "line.3.horizontal.decrease.circle")
+                    }
+                    .accessibilityIdentifier("classical-filter")
+                    NavigationLink {
                         LocalStorageView()
                     } label: {
                         Label("Local Storage", systemImage: "internaldrive")
@@ -113,12 +119,6 @@ struct HomeView: View {
                         Label("Swipe Actions", systemImage: "arrow.left.arrow.right")
                     }
                     .accessibilityIdentifier("swipe-actions")
-                    NavigationLink {
-                        FilterView()
-                    } label: {
-                        Label("Classical Filter", systemImage: "line.3.horizontal.decrease.circle")
-                    }
-                    .accessibilityIdentifier("classical-filter")
                     NavigationLink {
                         DiagnosticsView()
                     } label: {

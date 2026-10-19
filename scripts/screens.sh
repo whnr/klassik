@@ -22,24 +22,24 @@ phase() {
 }
 
 xcodegen generate
+phase project
 udid=$(scripts/simulator.sh)
 echo "Simulator: $udid"
-# The simulator boots while the app builds. A fixed status bar keeps the clock out of the screenshot diff.
-(
-  xcrun simctl boot "$udid" 2>/dev/null || true
-  xcrun simctl bootstatus "$udid" >/dev/null
-  xcrun simctl status_bar "$udid" override --time 9:41 --dataNetwork wifi --wifiBars 3 --cellularMode notSupported \
-    --batteryState charged --batteryLevel 100 || echo "No status bar override: the screenshot diff shows the clock."
-) &
-boot=$!
-phase setup
-
-common=(-project Klassik.xcodeproj -scheme Klassik -destination "id=$udid" -derivedDataPath build/DerivedData)
-# The index store serves only the editor.
-xcodebuild build-for-testing "${common[@]}" COMPILER_INDEX_STORE_ENABLE=NO CODE_SIGN_IDENTITY=- | $formatter
-phase build
-wait $boot
+phase simulator
+xcrun simctl boot "$udid" 2>/dev/null || true
+xcrun simctl bootstatus "$udid" >/dev/null
+# A fixed status bar keeps the clock out of the screenshot diff.
+xcrun simctl status_bar "$udid" override --time 9:41 --dataNetwork wifi --wifiBars 3 --cellularMode notSupported \
+  --batteryState charged --batteryLevel 100 || echo "No status bar override: the screenshot diff shows the clock."
 phase boot
+
+# The simulator answers in two architectures; naming one spares xcodebuild the choice.
+common=(-project Klassik.xcodeproj -scheme Klassik -destination "platform=iOS Simulator,id=$udid,arch=arm64"
+  -derivedDataPath build/DerivedData)
+# The index store serves only the editor.
+xcodebuild build-for-testing "${common[@]}" -showBuildTimingSummary COMPILER_INDEX_STORE_ENABLE=NO CODE_SIGN_IDENTITY=- \
+  | $formatter
+phase build
 
 # xcodebuild hands TEST_RUNNER_* variables to the test runner without the prefix.
 suites=(-only-testing:KlassikTests)

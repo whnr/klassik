@@ -158,6 +158,8 @@ final class ScreensTests: XCTestCase {
         app.buttons["Pause"].firstMatch.tap()
         for _ in 0..<3 { back(app) }
         XCTAssertTrue(app.descendants(matching: .any)["mini-player"].waitForExistence(timeout: 10))
+        XCTAssertTrue(reveal(app.buttons["diagnostics"], in: app).isHittable)
+        snap(app, "08c-home-settings")
 
         reveal(app.buttons["swipe-actions"], in: app).tap()
         XCTAssertTrue(app.navigationBars["Swipe Actions"].waitForExistence(timeout: 10))

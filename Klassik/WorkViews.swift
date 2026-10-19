@@ -459,6 +459,8 @@ struct PlaybackProgress: View {
                 .padding(.vertical, 4)
             }
         }
+        // A container keeps the identifiers of its children, such as the position slider.
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("playback-progress")
     }
 

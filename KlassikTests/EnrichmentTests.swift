@@ -135,7 +135,8 @@ struct MusicBrainzTests {
     }
 
     @Test func wikidataGivesTheEarliestYear() async throws {
-        #expect(try await MusicBrainzStub().wikidata.published(musicBrainzID: MusicBrainzStub.nocturne) == 1832)
+        let years = try await MusicBrainzStub().wikidata.published(musicBrainzIDs: [MusicBrainzStub.nocturne])
+        #expect(years == [MusicBrainzStub.nocturne: 1832])
     }
 
     @Test func yearsOfDates() {
@@ -197,7 +198,7 @@ struct EnrichmentTests {
             return
         }
         #expect(found.count == 2)
-        #expect(enrichment.link(of: Self.work("Nocturne in C-sharp minor, Op. posth.")) == .noCatalogue)
+        #expect(enrichment.link(of: Self.work("Nocturne in C-sharp minor, Op. posth.")) == .unmatched)
 
         #expect(enrichment.composer(named: "Antonio Vivaldi")?.born == 1678)
         #expect(enrichment.composer(named: "Frédéric Chopin")?.died == 1849)
@@ -260,6 +261,88 @@ struct EnrichmentTests {
         await enrichment.enrich(Self.index)
         #expect(enrichment.lastError == nil)
         #expect(enrichment.composed(Self.work("Summer"))?.span == YearSpan(1723))
+    }
+}
+
+/// A composer with several open works: Klassik lists their works once and matches on the device.
+@MainActor
+struct ComposerListTests {
+    static let chopin = MusicBrainzStub.chopin
+
+    nonisolated static let index = WorkIndex(
+        songs: [
+            "Étude in C major, Op. 10 No. 1", "Nocturne in E-flat major, Op. 9 No. 2",
+            "Allegro de concert in A major, Op. 46", "Cantabile in B-flat major, KK IVb/6",
+            "Mazurka in A-flat major, KK IVb/4",
+        ].enumerated().map { EnrichmentTests.song(String($0.offset), composer: "Frédéric Chopin", work: $0.element) })
+
+    /// Shaped like a page of musicbrainz.org/ws/2/work?artist=…; the IDs other than the étude and nocturne are made up.
+    static let page = """
+        {"work-count":7,"work-offset":0,"works":[
+          {"id":"\(MusicBrainzStub.etude)","title":"Étude in C major, op. 10 no. 1: Allegro","relations":[
+            {"type":"composer","direction":"backward","begin":"1829","artist":{"id":"\(chopin)"}}]},
+          {"id":"\(MusicBrainzStub.nocturne)","title":"Nocturne, op. 9 no. 2","relations":[
+            {"type":"composer","direction":"backward","artist":{"id":"\(chopin)"}}]},
+          {"id":"00000000-0000-4000-8000-000000000001","title":"Chopiniana, op. 46","relations":[
+            {"type":"composer","direction":"backward","artist":{"id":"\(chopin)"}}]},
+          {"id":"00000000-0000-4000-8000-000000000002","title":"Allegro de concert in A major, op. 46","relations":[
+            {"type":"composer","direction":"backward","begin":"1841","artist":{"id":"\(chopin)"}}]},
+          {"id":"00000000-0000-4000-8000-000000000003","title":"Cantabile in B‐flat major, BI 84","relations":[
+            {"type":"composer","direction":"backward","begin":"1834","artist":{"id":"\(chopin)"}}]},
+          {"id":"00000000-0000-4000-8000-000000000004","title":"Mazurka in A‐flat major, BI 7","relations":[
+            {"type":"composer","direction":"backward","artist":{"id":"\(chopin)"}}]},
+          {"id":"00000000-0000-4000-8000-000000000005","title":"Mazurka in A‐flat major, op. 7 no. 4","relations":[
+            {"type":"composer","direction":"backward","artist":{"id":"\(chopin)"}}]}]}
+        """
+
+    static func work(_ title: String) -> WorkIndex.Work {
+        index.composers.flatMap(\.works).first { $0.title == title }!
+    }
+
+    @Test func oneListServesAllWorks() async {
+        var bodies = MusicBrainzStub.recorded
+        bodies["work?artist=\(Self.chopin)&offset=0"] = Self.page
+        let stub = MusicBrainzStub(bodies)
+        let enrichment = Enrichment(
+            musicBrainz: stub.musicBrainz, wikidata: stub.wikidata, cacheURL: EnrichmentTests.cacheURL())
+        await enrichment.enrich(Self.index)
+
+        #expect(enrichment.composed(Self.work("Étude in C major, Op. 10 No. 1"))?.span == YearSpan(1829))
+        // A ballet with the same opus number loses on the title words.
+        #expect(enrichment.composed(Self.work("Allegro de concert in A major, Op. 46"))?.span == YearSpan(1841))
+        // MusicBrainz has no KK number in the title; the words alone find the one cantabile.
+        #expect(enrichment.composed(Self.work("Cantabile in B-flat major, KK IVb/6"))?.span == YearSpan(1834))
+        // Two mazurkas in A-flat major: the words do not decide.
+        guard case .candidates(let found) = enrichment.link(of: Self.work("Mazurka in A-flat major, KK IVb/4")) else {
+            Issue.record("two mazurkas need the listener")
+            return
+        }
+        #expect(found.count == 2)
+        // Wikidata dates the nocturne, in one query for all undated works.
+        #expect(enrichment.composed(Self.work("Nocturne in E-flat major, Op. 9 No. 2"))?.span == YearSpan(1832))
+        #expect(
+            stub.requests == [
+                "artist?(artist:\"Frédéric Chopin\" OR alias:\"Frédéric Chopin\") AND type:person",
+                "work?artist=\(Self.chopin)&offset=0", "sparql?\(MusicBrainzStub.nocturne)",
+            ])
+        let summary = enrichment.summary(of: Self.index)
+        #expect((summary.works, summary.linked, summary.toConfirm.count, summary.dated) == (5, 4, 1, 4))
+    }
+
+    /// Without a list, each work is searched as before.
+    @Test func failedListFallsBackToSearch() async {
+        let stub = MusicBrainzStub()
+        let enrichment = Enrichment(
+            musicBrainz: stub.musicBrainz, wikidata: stub.wikidata, cacheURL: EnrichmentTests.cacheURL())
+        await enrichment.enrich(Self.index)
+        #expect(enrichment.composed(Self.work("Étude in C major, Op. 10 No. 1"))?.span == YearSpan(1829))
+        #expect(stub.requests.contains("work?\"op. 10 no. 1\" AND artist:\"Chopin\""))
+    }
+
+    @Test func oldCacheKeepsTheListenersYears() throws {
+        let url = EnrichmentTests.cacheURL()
+        try Data(#"{"years":{"work:Frédéric Chopin|Bolero":1833}}"#.utf8).write(to: url)
+        #expect(Enrichment(cacheURL: url).cache.years["work:Frédéric Chopin|Bolero"] == 1833)
     }
 }
 

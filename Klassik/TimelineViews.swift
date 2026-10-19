@@ -83,22 +83,6 @@ private struct TimelineRow: View {
     }
 }
 
-/// What the MusicBrainz lookup does now, for the footer of a list.
-struct LookupStatus: View {
-    @Environment(AppModel.self) private var model
-
-    var body: some View {
-        let enrichment = model.enrichment
-        if enrichment.isRunning, enrichment.remaining > 0 {
-            Text("Looking up \(enrichment.remaining) works and composers in MusicBrainz…")
-        } else if let error = enrichment.lastError {
-            Text("MusicBrainz lookup stopped: \(error) Klassik tries again at the next start.")
-        } else {
-            Text("Dates come from MusicBrainz and Wikidata. Your own years win.")
-        }
-    }
-}
-
 /// When a work was composed, where Klassik found it, and its MusicBrainz match.
 struct WorkSourcesView: View {
     @Environment(AppModel.self) private var model
@@ -164,24 +148,20 @@ struct WorkSourcesView: View {
                 Button {
                     Task { await enrichment.confirm(candidate, for: work) }
                 } label: {
-                    VStack(alignment: .leading) {
-                        Text(candidate.title)
-                            .foregroundStyle(Color.primary)
-                        Text("Match \(candidate.score)%")
-                            .font(.subheadline)
-                            .foregroundStyle(Color.secondary)
-                    }
+                    Text(candidate.title)
+                        .foregroundStyle(Color.primary)
                 }
                 .accessibilityIdentifier("candidate")
             }
             Button("None of These", systemImage: "xmark.circle") { enrichment.reject(work) }
         case .unmatched:
-            Text("No MusicBrainz work matches.")
-                .foregroundStyle(.secondary)
+            Text(
+                CatalogueNumber.find(in: work.title) == nil
+                    ? "No MusicBrainz work matches. A catalogue number in the title, such as Op. 67, helps."
+                    : "No MusicBrainz work matches."
+            )
+            .foregroundStyle(.secondary)
             lookUpAgain
-        case .noCatalogue:
-            Text("The title has no catalogue number, such as Op. 67 or BWV 1007, so Klassik does not search.")
-                .foregroundStyle(.secondary)
         case .pending:
             Text("Not looked up yet.")
                 .foregroundStyle(.secondary)

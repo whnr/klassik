@@ -36,6 +36,13 @@ final class ScreensTests: XCTestCase {
         snap(app, "02b-timeline")
         back(app)
 
+        app.buttons["musicbrainz"].tap()
+        let toConfirm = app.buttons["to-confirm"]
+        XCTAssertTrue(toConfirm.waitForExistence(timeout: 10))
+        XCTAssertTrue(toConfirm.label.contains("1"), toConfirm.label)
+        snap(app, "02c-musicbrainz")
+        back(app)
+
         let chopin = app.buttons.matching(identifier: "composer")
             .matching(NSPredicate(format: "label BEGINSWITH 'Frédéric Chopin'")).firstMatch
         chopin.tap()
@@ -213,6 +220,10 @@ final class ScreensTests: XCTestCase {
         let fifth = "6efdb083-5bff-465e-b07d-41925e877788"
         let concerto = "c230858f-8b2b-3e77-aa3e-777743980263"
         let k467 = "f210c793-f668-413c-8821-3628b3c55483"
+        let chopin = "09ff1fe8-d61c-4b98-bb82-18487c74d7b7"
+        func listed(_ id: String, _ title: String, _ begin: String) -> String {
+            #"{"id":"\#(id)","title":"\#(title)","relations":[{"type":"composer","direction":"backward","begin":"\#(begin)","artist":{"id":"\#(chopin)"}}]}"#
+        }
         func work(_ id: String, _ title: String, _ begin: String, _ end: String, _ composer: String) -> String {
             """
             {"id":"\(id)","title":"\(title)","relations":[{"type":"composer","direction":"backward",\
@@ -236,6 +247,17 @@ final class ScreensTests: XCTestCase {
             """,
             "work/\(k467)": work(k467, "Klavierkonzert Nr. 21 C-Dur, K. 467", "1785", "1785", mozart),
             "artist/\(mozart)": artist(mozart, "Wolfgang Amadeus Mozart", "1756-01-27", "1791-12-05"),
+            // The nocturnes come from one list of Chopin's works, not from one search each.
+            "work?artist=\(chopin)&offset=0": """
+            {"work-count":4,"works":[\([
+                listed("00000000-0000-4000-8000-000000000011", "Nocturne in B‐flat minor, op. 9 no. 1", "1830"),
+                listed("00000000-0000-4000-8000-000000000012", "Nocturne in E‐flat major, op. 9 no. 2", "1831"),
+                listed("00000000-0000-4000-8000-000000000013", "Nocturne in F major, op. 15 no. 1", "1832"),
+                listed(
+                    "00000000-0000-4000-8000-000000000014",
+                    "Nocturne no. 20 in C‐sharp minor “Reminiscence”, op. posth. 1 no. 16, KKIVa/16", "1830"),
+            ].joined(separator: ","))]}
+            """,
             "artist?(artist:\"Frédéric Chopin\" OR alias:\"Frédéric Chopin\") AND type:person": """
             {"artists":[\(artist("09ff1fe8-d61c-4b98-bb82-18487c74d7b7", "Fryderyk Chopin", "1810-03-01", "1849-10-17"))]}
             """,

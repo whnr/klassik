@@ -76,12 +76,17 @@ struct MusicBrainz: Sendable {
     }
 
     /// The facts of a work. A movement walks up to its work: the facts then describe the whole work.
-    func work(id: String) async throws -> WorkFacts? {
-        guard var work = try await lookUp(id) else { return nil }
+    /// Works in `known`, such as a composer's listed works, need no request.
+    func work(id: String, known: [String: Work] = [:]) async throws -> WorkFacts? {
+        func find(_ id: String) async throws -> Work? {
+            if let work = known[id] { return work }
+            return try await lookUp(id)
+        }
+        guard var work = try await find(id) else { return nil }
         var movement: Work?
         // Only a movement relation leads up. A plain part, such as one étude of a set, is a work of its own.
         for _ in 0..<3 {
-            guard let parent = work.parentID, let found = try await lookUp(parent) else { break }
+            guard let parent = work.parentID, let found = try await find(parent) else { break }
             movement = movement ?? work
             work = found
         }
@@ -110,6 +115,40 @@ struct MusicBrainz: Sendable {
         guard let top = artists.first, top.score == 100, artists.dropFirst().allSatisfy({ ($0.score ?? 0) < 100 })
         else { return nil }
         return top.facts
+    }
+
+    /// One page of the works of a composer, with their relations, and the number of all their works.
+    func works(composerID: String, offset: Int) async throws -> (works: [Work], total: Int) {
+        let query = [
+            URLQueryItem(name: "artist", value: composerID), URLQueryItem(name: "inc", value: "artist-rels work-rels"),
+            URLQueryItem(name: "limit", value: String(Self.pageSize)),
+            URLQueryItem(name: "offset", value: String(offset)),
+        ]
+        guard let data = try await get("work", query) else { return ([], 0) }
+        let page = try JSONDecoder().decode(WorkPage.self, from: data)
+        return (page.works, page.workCount)
+    }
+
+    static let pageSize = 100
+
+    /// The listed works of a composer that can be the work with this tag title: the works that carry its
+    /// catalogue number. Without such works, the works whose titles hold 80% of the other words of the tag title.
+    /// `byCatalogue` tells which: two works with the same words are two works, not two spellings of one.
+    static func candidates(in works: [Work], composerID: String, title: String) -> (
+        found: [WorkCandidate], byCatalogue: Bool
+    ) {
+        let own = works.filter { $0.composerIDs.contains(composerID) }
+        let catalogue = CatalogueNumber.find(in: title)
+        if let catalogue {
+            let found = own.filter { catalogue.matches($0.title) }
+            if !found.isEmpty {
+                return (found.map { WorkCandidate(id: $0.id, title: $0.title, score: 100) }.preferringWholeWorks, true)
+            }
+        }
+        let wanted = words(title).subtracting(catalogue.map { words($0.text) } ?? [])
+        guard wanted.count >= 2 else { return ([], false) }
+        let found = own.filter { Double(wanted.intersection(words($0.title)).count) >= 0.8 * Double(wanted.count) }
+        return (found.map { WorkCandidate(id: $0.id, title: $0.title, score: 100) }.preferringWholeWorks, false)
     }
 
     /// Works of the composer that carry the catalogue number, best first.
@@ -204,9 +243,9 @@ struct MusicBrainz: Sendable {
 
     // MARK: JSON
 
-    struct Work: Decodable {
-        struct Relation: Decodable {
-            struct Target: Decodable {
+    struct Work: Decodable, Sendable {
+        struct Relation: Decodable, Sendable {
+            struct Target: Decodable, Sendable {
                 var id: String
             }
             var type: String
@@ -242,6 +281,18 @@ struct MusicBrainz: Sendable {
         }
 
         var composerID: String? { composerRelations.first?.artist?.id }
+
+        var composerIDs: [String] { composerRelations.compactMap(\.artist?.id) }
+    }
+
+    struct WorkPage: Decodable, Sendable {
+        var works: [Work]
+        var workCount: Int
+
+        enum CodingKeys: String, CodingKey {
+            case works
+            case workCount = "work-count"
+        }
     }
 
     struct WorkSearch: Decodable {

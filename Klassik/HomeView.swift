@@ -16,6 +16,16 @@ struct HomeView: View {
                             Label("Timeline", systemImage: "calendar")
                         }
                         .accessibilityIdentifier("timeline")
+                        NavigationLink {
+                            EnrichmentStatusView()
+                        } label: {
+                            LabeledContent {
+                                Text(lookupState)
+                            } label: {
+                                Label("MusicBrainz", systemImage: "books.vertical")
+                            }
+                        }
+                        .accessibilityIdentifier("musicbrainz")
                     }
                     Section("Composers") {
                         ForEach(library.index.composers) { composer in
@@ -129,6 +139,14 @@ struct HomeView: View {
                 Task { await model.enrichment.enrich(library.index) }
             }
         }
+    }
+
+    /// Progress while the lookup runs, else the works that wait for the listener.
+    private var lookupState: String {
+        let enrichment = model.enrichment
+        if let progress = enrichment.progress { return "\(progress.done) of \(progress.total)" }
+        let toConfirm = enrichment.summary(of: model.library.index).toConfirm.count
+        return toConfirm > 0 ? "\(toConfirm) to confirm" : ""
     }
 
     private var otherSongs: [Song] {

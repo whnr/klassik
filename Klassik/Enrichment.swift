@@ -11,12 +11,12 @@ final class Enrichment {
         var works: [String: WorkFacts] = [:]
         /// IDs that MusicBrainz does not know.
         var unknownIDs: Set<String> = []
-        /// MusicBrainz IDs of works without one in the tags, by Klassik work ID: a clear search match or the
+        /// MusicBrainz IDs of works without one in the tags, by Klassik work ID: a clear match or the
         /// listener's choice.
         var links: [String: String] = [:]
-        /// Search matches that the listener must confirm once, by Klassik work ID.
+        /// Matches that the listener must confirm once, by Klassik work ID.
         var candidates: [String: [WorkCandidate]] = [:]
-        /// Klassik work IDs whose search found nothing, or whose match the listener turned down.
+        /// Klassik work IDs that found no match, or whose match the listener turned down.
         var unmatched: Set<String> = []
         var composers: [String: ComposerFacts] = [:]
         /// MusicBrainz artist IDs by the composer name in the tags.
@@ -24,6 +24,28 @@ final class Enrichment {
         var unknownComposers: Set<String> = []
         /// Composition years that the listener typed, by Klassik work ID.
         var years: [String: Int] = [:]
+        /// MusicBrainz IDs of undated works that Wikidata was asked about.
+        var askedWikidata: Set<String> = []
+        /// Klassik work IDs whose match the listener turned down. They are never looked up again.
+        var rejected: Set<String> = []
+
+        init() {}
+
+        /// A cache from an older version lacks the newer fields; the listener's years must survive.
+        init(from decoder: Decoder) throws {
+            let values = try decoder.container(keyedBy: CodingKeys.self)
+            works = try values.decodeIfPresent([String: WorkFacts].self, forKey: .works) ?? [:]
+            unknownIDs = try values.decodeIfPresent(Set<String>.self, forKey: .unknownIDs) ?? []
+            links = try values.decodeIfPresent([String: String].self, forKey: .links) ?? [:]
+            candidates = try values.decodeIfPresent([String: [WorkCandidate]].self, forKey: .candidates) ?? [:]
+            unmatched = try values.decodeIfPresent(Set<String>.self, forKey: .unmatched) ?? []
+            composers = try values.decodeIfPresent([String: ComposerFacts].self, forKey: .composers) ?? [:]
+            composerIDs = try values.decodeIfPresent([String: String].self, forKey: .composerIDs) ?? [:]
+            unknownComposers = try values.decodeIfPresent(Set<String>.self, forKey: .unknownComposers) ?? []
+            years = try values.decodeIfPresent([String: Int].self, forKey: .years) ?? [:]
+            askedWikidata = try values.decodeIfPresent(Set<String>.self, forKey: .askedWikidata) ?? []
+            rejected = try values.decodeIfPresent(Set<String>.self, forKey: .rejected) ?? []
+        }
     }
 
     enum Source: Equatable, Sendable {
@@ -42,23 +64,41 @@ final class Enrichment {
     enum Link: Equatable, Sendable {
         /// The WORK tag carries the ID.
         case tagged(String)
-        /// A search or the listener found the ID.
+        /// A match or the listener found the ID.
         case found(String)
         case candidates([WorkCandidate])
         case unmatched
-        /// The title has no catalogue number to search for.
-        case noCatalogue
         /// Not looked up yet.
         case pending
+    }
+
+    /// Where the running pass is.
+    struct Progress: Equatable, Sendable {
+        var done: Int
+        var total: Int
+        var composer: String?
+    }
+
+    /// What the lookup found for the tagged works of the library.
+    struct Summary {
+        var works = 0
+        var linked = 0
+        var dated = 0
+        var toConfirm: [WorkIndex.Work] = []
+        var unmatched: [WorkIndex.Work] = []
+        var pending = 0
+        var composers = 0
+        var composersWithDates = 0
     }
 
     private(set) var cache = Cache()
     /// Lookups that run now: the pass over the library, and single works the listener asked for.
     private(set) var running = 0
     var isRunning: Bool { running > 0 }
-    /// Works and composers still to look up in the running pass.
-    private(set) var remaining = 0
+    private(set) var progress: Progress?
     private(set) var lastError: String?
+    /// Requests sent since the app started, to show how much the lookup costs.
+    private(set) var requests = 0
 
     private let musicBrainz: MusicBrainz
     private let wikidata: Wikidata
@@ -72,9 +112,9 @@ final class Enrichment {
         musicBrainz: MusicBrainz = MusicBrainz(), wikidata: Wikidata = Wikidata(),
         cacheURL: URL = .applicationSupportDirectory.appending(path: "enrichment.json")
     ) {
+        self.cacheURL = cacheURL
         self.musicBrainz = musicBrainz
         self.wikidata = wikidata
-        self.cacheURL = cacheURL
         if let data = try? Data(contentsOf: cacheURL), let cache = try? JSONDecoder().decode(Cache.self, from: data) {
             self.cache = cache
         }
@@ -86,8 +126,7 @@ final class Enrichment {
         if let id = Self.taggedID(of: work) { return .tagged(id) }
         if let id = cache.links[work.id] { return .found(id) }
         if let found = cache.candidates[work.id] { return .candidates(found) }
-        if cache.unmatched.contains(work.id) { return .unmatched }
-        return CatalogueNumber.find(in: work.title) == nil ? .noCatalogue : .pending
+        return cache.unmatched.contains(work.id) ? .unmatched : .pending
     }
 
     func musicBrainzID(of work: WorkIndex.Work) -> String? {
@@ -109,6 +148,29 @@ final class Enrichment {
         cache.composerIDs[name].flatMap { cache.composers[$0] }
     }
 
+    func summary(of index: WorkIndex) -> Summary {
+        var summary = Summary()
+        for composer in index.composers {
+            let works = composer.works.filter(\.isTagged)
+            guard !works.isEmpty else { continue }
+            summary.composers += 1
+            if let facts = self.composer(named: composer.name), facts.born != nil {
+                summary.composersWithDates += 1
+            }
+            for work in works {
+                summary.works += 1
+                if composed(work) != nil { summary.dated += 1 }
+                switch link(of: work) {
+                case .tagged, .found: summary.linked += 1
+                case .candidates: summary.toConfirm.append(work)
+                case .unmatched: summary.unmatched.append(work)
+                case .pending: summary.pending += 1
+                }
+            }
+        }
+        return summary
+    }
+
     // MARK: Listener
 
     func setYear(_ year: Int?, for work: WorkIndex.Work) {
@@ -119,11 +181,13 @@ final class Enrichment {
     func confirm(_ candidate: WorkCandidate, for work: WorkIndex.Work) async {
         cache.candidates[work.id] = nil
         cache.unmatched.remove(work.id)
+        cache.rejected.remove(work.id)
         cache.links[work.id] = candidate.id
         save()
         await run {
-            try await self.lookUp(work)
-            try await self.lookUpComposer(work.composer, works: [work])
+            try await self.lookUp(work, in: [:], complete: false)
+            try await self.lookUpComposerDates(work.composer, works: [work])
+            try await self.askWikidata()
         }
     }
 
@@ -131,6 +195,7 @@ final class Enrichment {
         cache.candidates[work.id] = nil
         cache.links[work.id] = nil
         cache.unmatched.insert(work.id)
+        cache.rejected.insert(work.id)
         save()
     }
 
@@ -140,40 +205,52 @@ final class Enrichment {
         if let id = musicBrainzID(of: work) {
             cache.works[id] = nil
             cache.unknownIDs.remove(id)
+            cache.askedWikidata.remove(id)
         } else {
             cache.candidates[work.id] = nil
             cache.unmatched.remove(work.id)
+            cache.rejected.remove(work.id)
         }
         await run {
-            try await self.lookUp(work)
-            try await self.lookUpComposer(work.composer, works: [work])
+            try await self.lookUp(work, in: [:], complete: false)
+            try await self.lookUpComposerDates(work.composer, works: [work])
+            try await self.askWikidata()
         }
+    }
+
+    /// Asks again for every work and composer without a match, for example after many fixes in MusicBrainz.
+    func lookUpMissingAgain(_ index: WorkIndex) async {
+        cache.unmatched = cache.rejected
+        cache.unknownIDs = []
+        cache.unknownComposers = []
+        cache.askedWikidata = []
+        await enrich(index)
     }
 
     // MARK: Lookup
 
-    /// Looks up every tagged work and composer that is not in the cache yet. A network failure ends the pass;
-    /// the next start goes on from there.
+    /// Looks up every tagged work and composer that is not in the cache yet, composer by composer.
+    /// A network failure ends the pass; the next start goes on from there.
     func enrich(_ index: WorkIndex) async {
         guard !isPassRunning else {
             queued = index
             return
         }
         isPassRunning = true
-        let works = index.composers.flatMap(\.works).filter { $0.isTagged && needsLookUp($0) }
-        remaining = works.count + index.composers.count
-        await run {
-            for (number, work) in works.enumerated() {
-                try await self.lookUp(work)
-                self.remaining -= 1
-                if number % 10 == 9 { self.save() }
-            }
-            for composer in index.composers {
-                try await self.lookUpComposer(composer.name, works: composer.works)
-                self.remaining -= 1
-            }
+        let open = index.composers.map { composer in
+            (composer, composer.works.filter { $0.isTagged && needsLookUp($0) })
         }
-        remaining = 0
+        progress = Progress(done: 0, total: open.map(\.1.count).reduce(0, +))
+        await run {
+            for (composer, works) in open {
+                self.progress?.composer = composer.name
+                try await self.enrich(composer, works)
+                self.save()
+            }
+            self.progress?.composer = nil
+            try await self.askWikidata()
+        }
+        progress = nil
         isPassRunning = false
         if let next = queued {
             queued = nil
@@ -185,7 +262,123 @@ final class Enrichment {
         switch link(of: work) {
         case .tagged(let id), .found(let id): cache.works[id] == nil && !cache.unknownIDs.contains(id)
         case .pending: true
-        case .candidates, .unmatched, .noCatalogue: false
+        case .candidates, .unmatched: false
+        }
+    }
+
+    /// Lists the composer's works when that costs fewer requests than a search for each work.
+    /// The matches then come from the list, on the device.
+    private func enrich(_ composer: WorkIndex.Composer, _ open: [WorkIndex.Work]) async throws {
+        if !open.isEmpty { try await lookUpComposerID(composer.name, works: open) }
+        var known: [String: MusicBrainz.Work] = [:]
+        var complete = false
+        if let id = cache.composerIDs[composer.name], open.count >= 2 {
+            let first = try await listWorks(of: id, offset: 0)
+            for work in first.works { known[work.id] = work }
+            let pages = (first.total + MusicBrainz.pageSize - 1) / MusicBrainz.pageSize
+            if first.total > 0, pages - 1 <= open.count {
+                for page in 1..<max(pages, 1) {
+                    for work in try await listWorks(of: id, offset: page * MusicBrainz.pageSize).works {
+                        known[work.id] = work
+                    }
+                }
+                complete = true
+            }
+        }
+        for work in open {
+            try await lookUp(work, in: known, complete: complete)
+            progress?.done += 1
+        }
+        try await lookUpComposerDates(composer.name, works: composer.works)
+    }
+
+    private func listWorks(of composerID: String, offset: Int) async throws -> (works: [MusicBrainz.Work], total: Int) {
+        requests += 1
+        return try await musicBrainz.works(composerID: composerID, offset: offset)
+    }
+
+    /// `known` holds listed works of the composer. If `complete`, it holds all of them and no search is needed.
+    private func lookUp(_ work: WorkIndex.Work, in known: [String: MusicBrainz.Work], complete: Bool) async throws {
+        if let id = musicBrainzID(of: work) {
+            guard cache.works[id] == nil, !cache.unknownIDs.contains(id) else { return }
+            if known[id] == nil { requests += 1 }
+            if let facts = try await musicBrainz.work(id: id, known: known) {
+                cache.works[id] = facts
+            } else {
+                cache.unknownIDs.insert(id)
+            }
+            return
+        }
+        var found: [WorkCandidate] = []
+        var byCatalogue = true
+        if let composerID = cache.composerIDs[work.composer], !known.isEmpty {
+            (found, byCatalogue) = MusicBrainz.candidates(
+                in: Array(known.values), composerID: composerID, title: work.title)
+        }
+        if found.isEmpty, !complete, let catalogue = CatalogueNumber.find(in: work.title) {
+            requests += 1
+            found = try await musicBrainz.candidates(composer: work.composer, catalogue: catalogue)
+            byCatalogue = true
+        }
+        // Two works with the same words but no shared catalogue number are two works, not two spellings.
+        let best = byCatalogue ? MusicBrainz.confident(found, for: work.title) : (found.count == 1 ? found.first : nil)
+        if let best {
+            cache.links[work.id] = best.id
+            try await lookUp(work, in: known, complete: complete)
+        } else if found.isEmpty {
+            cache.unmatched.insert(work.id)
+        } else {
+            cache.candidates[work.id] = Array(found.prefix(5))
+        }
+    }
+
+    /// The composer ID comes from a work of the composer, else from a search by name.
+    private func lookUpComposerID(_ name: String, works: [WorkIndex.Work]) async throws {
+        guard cache.composerIDs[name] == nil else { return }
+        if let id = works.lazy.compactMap({ self.facts(of: $0)?.composerID }).first {
+            cache.composerIDs[name] = id
+            return
+        }
+        // A tagged work names the composer for certain; a name can be ambiguous.
+        if let tagged = works.first(where: { Self.taggedID(of: $0) != nil }) {
+            try await lookUp(tagged, in: [:], complete: false)
+            if let id = facts(of: tagged)?.composerID {
+                cache.composerIDs[name] = id
+                return
+            }
+        }
+        guard !cache.unknownComposers.contains(name), name != Song.unknownComposer else { return }
+        requests += 1
+        if let found = try await musicBrainz.composer(named: name) {
+            cache.composerIDs[name] = found.id
+            cache.composers[found.id] = found
+        } else {
+            cache.unknownComposers.insert(name)
+        }
+    }
+
+    private func lookUpComposerDates(_ name: String, works: [WorkIndex.Work]) async throws {
+        try await lookUpComposerID(name, works: works)
+        guard let id = cache.composerIDs[name], cache.composers[id] == nil else { return }
+        requests += 1
+        if let found = try await musicBrainz.composer(id: id) { cache.composers[id] = found }
+    }
+
+    /// Asks Wikidata for the works that MusicBrainz has no date for, many works in one query.
+    private func askWikidata() async throws {
+        let undated = cache.works.values.filter { $0.composed == nil && !cache.askedWikidata.contains($0.id) }
+            .map(\.id)
+        for start in stride(from: 0, to: undated.count, by: Wikidata.batchSize) {
+            let batch = Array(undated[start..<min(start + Wikidata.batchSize, undated.count)])
+            requests += 1
+            // Wikidata only fills gaps, so its failure does not end the pass.
+            guard let years = try? await wikidata.published(musicBrainzIDs: batch) else { continue }
+            for key in cache.works.keys {
+                guard let facts = cache.works[key], facts.composed == nil, let year = years[facts.id] else { continue }
+                cache.works[key]?.composed = YearSpan(year)
+                cache.works[key]?.source = .wikidata
+            }
+            cache.askedWikidata.formUnion(batch)
         }
     }
 
@@ -201,50 +394,6 @@ final class Enrichment {
         } catch {
             lastError = error.localizedDescription
         }
-    }
-
-    private func lookUp(_ work: WorkIndex.Work) async throws {
-        if let id = musicBrainzID(of: work) {
-            guard cache.works[id] == nil, !cache.unknownIDs.contains(id) else { return }
-            guard var facts = try await musicBrainz.work(id: id) else {
-                cache.unknownIDs.insert(id)
-                return
-            }
-            if facts.composed == nil, let year = try? await wikidata.published(musicBrainzID: facts.id) {
-                facts.composed = YearSpan(year)
-                facts.source = .wikidata
-            }
-            cache.works[id] = facts
-            return
-        }
-        guard let catalogue = CatalogueNumber.find(in: work.title) else { return }
-        let found = try await musicBrainz.candidates(composer: work.composer, catalogue: catalogue)
-        if let best = MusicBrainz.confident(found, for: work.title) {
-            cache.links[work.id] = best.id
-            try await lookUp(work)
-        } else if found.isEmpty {
-            cache.unmatched.insert(work.id)
-        } else {
-            cache.candidates[work.id] = Array(found.prefix(5))
-        }
-    }
-
-    /// The composer ID comes from a work of the composer, else from a search by name.
-    private func lookUpComposer(_ name: String, works: [WorkIndex.Work]) async throws {
-        if cache.composerIDs[name] == nil {
-            if let id = works.lazy.compactMap({ self.facts(of: $0)?.composerID }).first {
-                cache.composerIDs[name] = id
-            } else if !cache.unknownComposers.contains(name), name != Song.unknownComposer {
-                if let found = try await musicBrainz.composer(named: name) {
-                    cache.composerIDs[name] = found.id
-                    cache.composers[found.id] = found
-                } else {
-                    cache.unknownComposers.insert(name)
-                }
-            }
-        }
-        guard let id = cache.composerIDs[name], cache.composers[id] == nil else { return }
-        if let found = try await musicBrainz.composer(id: id) { cache.composers[id] = found }
     }
 
     /// Each write waits for the one before, so an older cache never overwrites a newer one.
@@ -290,15 +439,19 @@ extension Enrichment {
     }
 
     #if DEBUG
-        /// "work/<id>", "artist/<id>", "work?<query>", "artist?<query>", or "sparql?<MusicBrainz ID>".
+        /// "work/<id>", "artist/<id>", "work?<query>", "artist?<query>", "work?artist=<id>&offset=<n>", or
+        /// "sparql?<MusicBrainz IDs, sorted, joined by commas>".
         nonisolated static func stubKey(_ url: URL) -> String {
-            let query = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?
-                .first { $0.name == "query" }?.value
+            let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            func value(_ name: String) -> String? { items.first { $0.name == name }?.value }
             if url.host == "query.wikidata.org" {
-                return "sparql?" + (query?.split(separator: "\"").dropFirst().first.map(String.init) ?? "")
+                let ids = (value("query") ?? "").split(separator: "\"").filter { UUID(uuidString: String($0)) != nil }
+                return "sparql?" + ids.map(String.init).sorted().joined(separator: ",")
             }
             let path = url.path.replacingOccurrences(of: "/ws/2/", with: "")
-            return path.contains("/") ? path : path + (query.map { "?" + $0 } ?? "")
+            if path.contains("/") { return path }
+            if let artist = value("artist") { return "\(path)?artist=\(artist)&offset=\(value("offset") ?? "0")" }
+            return path + (value("query").map { "?" + $0 } ?? "")
         }
     #endif
 }

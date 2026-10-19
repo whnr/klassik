@@ -65,9 +65,9 @@ final class MusicBrainzStub: @unchecked Sendable {
           {"type":"composer","direction":"backward","artist":{"id":"\(chopin)","name":"Fryderyk Chopin"}}]}
         """,
         "sparql?\(nocturne)": """
-        {"head":{"vars":["date"]},"results":{"bindings":[
-          {"date":{"datatype":"http://www.w3.org/2001/XMLSchema#dateTime","type":"literal","value":"1833-01-01T00:00:00Z"}},
-          {"date":{"datatype":"http://www.w3.org/2001/XMLSchema#dateTime","type":"literal","value":"1832-01-01T00:00:00Z"}}]}}
+        {"head":{"vars":["id","date"]},"results":{"bindings":[
+          {"id":{"type":"literal","value":"\(nocturne)"},"date":{"datatype":"http://www.w3.org/2001/XMLSchema#dateTime","type":"literal","value":"1833-01-01T00:00:00Z"}},
+          {"id":{"type":"literal","value":"\(nocturne)"},"date":{"datatype":"http://www.w3.org/2001/XMLSchema#dateTime","type":"literal","value":"1832-01-01T00:00:00Z"}}]}}
         """,
         "artist/\(vivaldi)": """
         {"id":"\(vivaldi)","name":"Antonio Vivaldi","type":"Person","life-span":{"begin":"1678-03-04","end":"1741-07-28","ended":true}}

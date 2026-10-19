@@ -57,6 +57,9 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      # The first boot takes about 3 minutes; it overlaps the steps up to the tests. screens.sh waits for it.
+      - name: Start the simulator
+        run: xcrun simctl boot "$(scripts/simulator.sh)"
       - name: Choose the UI areas
         id: ui
         env:

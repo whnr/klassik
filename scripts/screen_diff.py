@@ -18,7 +18,7 @@ MERGE = 8  # Points between changed rows that still belong to one region.
 # Rectangles in points (x, y, width, height) that change on every walk. Keep them tight: a mask hides real changes.
 MASKS = {
     "11-diagnostics": [(140, 610, 262, 45)],  # "Last check" time.
-    "12-diagnostics-bottom": [(0, 50, 402, 50)],  # "Last sync" time, blurred under the navigation bar.
+    "12-diagnostics-bottom": [(0, 50, 402, 60)],  # "Last sync" time, blurred under the navigation bar.
 }
 
 

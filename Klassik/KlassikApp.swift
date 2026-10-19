@@ -14,13 +14,17 @@ struct KlassikApp: App {
 
 struct RootView: View {
     @Environment(AppModel.self) private var model
+    @AppStorage(TapIndicator.storageKey) private var showTaps = false
 
     var body: some View {
-        if model.credentials == nil {
-            ConnectView()
-        } else {
-            HomeView()
-                .task { await model.start() }
+        Group {
+            if model.credentials == nil {
+                ConnectView()
+            } else {
+                HomeView()
+                    .task { await model.start() }
+            }
         }
+        .onChange(of: showTaps, initial: true) { TapIndicator.shared.setEnabled(showTaps) }
     }
 }

@@ -193,6 +193,11 @@ final class ScreensTests: XCTestCase {
         XCTAssertLessThanOrEqual(signOut.frame.maxY, bar.frame.minY, "The mini player covers the last row.")
         snap(app, "12-diagnostics-bottom")
 
+        let showTaps = reveal(app.switches["show-taps"], in: app)
+        showTaps.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        XCTAssertEqual(showTaps.value as? String, "1")
+        snap(app, "12a-show-taps")
+
         reveal(app.buttons["gapless-test"], in: app).tap()
         let search = app.searchFields.firstMatch
         XCTAssertTrue(search.waitForExistence(timeout: 10))

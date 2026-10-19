@@ -3,6 +3,7 @@ import SwiftUI
 /// What a bug report needs: which server, which API, what the app holds, what went wrong last.
 struct DiagnosticsView: View {
     @Environment(AppModel.self) private var model
+    @AppStorage(TapIndicator.storageKey) private var showTaps = false
 
     var body: some View {
         Form {
@@ -60,6 +61,15 @@ struct DiagnosticsView: View {
             Section("Playback") {
                 NavigationLink("Gapless Test") { GaplessTestView() }
                     .accessibilityIdentifier("gapless-test")
+            }
+
+            Section {
+                Toggle("Show Taps", isOn: $showTaps)
+                    .accessibilityIdentifier("show-taps")
+            } header: {
+                Text("Recording")
+            } footer: {
+                Text("Shows a circle at each touch, so a screen recording shows where you tap.")
             }
 
             Section("App") {

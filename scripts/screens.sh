@@ -26,7 +26,8 @@ phase project
 udid=$(scripts/simulator.sh)
 echo "Simulator: $udid"
 phase simulator
-# The first boot of a simulator takes about 3 minutes, so it runs during the build. CI starts it even earlier.
+# The first boot of a simulator takes about 3 minutes, so it runs during the build. An earlier start slows the
+# other CI steps, because the boot takes the whole runner.
 (
   xcrun simctl bootstatus "$udid" -b >/dev/null
   # A fixed status bar keeps the clock out of the screenshot diff.

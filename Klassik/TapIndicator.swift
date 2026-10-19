@@ -43,7 +43,7 @@ final class TapIndicator {
         for window in overlay?.windowScene?.windows ?? [] {
             window.gestureRecognizers?.filter { $0 is TouchObserver }.forEach(window.removeGestureRecognizer)
         }
-        markers.values.forEach { $0.removeFromSuperview() }
+        for marker in markers.values { marker.removeFromSuperview() }
         markers = [:]
         overlay?.isHidden = true
         overlay = nil
@@ -68,7 +68,9 @@ final class TapIndicator {
     fileprivate func hide(_ touches: Set<UITouch>) {
         for touch in touches {
             guard let marker = markers.removeValue(forKey: ObjectIdentifier(touch)) else { continue }
-            UIView.animate(withDuration: 0.4, animations: { marker.alpha = 0 }) { _ in marker.removeFromSuperview() }
+            let fade = UIViewPropertyAnimator(duration: 0.4, curve: .easeOut) { marker.alpha = 0 }
+            fade.addCompletion { _ in marker.removeFromSuperview() }
+            fade.startAnimation()
         }
     }
 

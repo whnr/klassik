@@ -1,7 +1,8 @@
 name: Test
 
 # Unit, library sync and gapless tests against a fixture Navidrome. The UI walk and its screenshots run only on
-# request: "[ui]" in the newest commit message, or the "ui" input of a run by hand. The walk takes most of the time.
+# request, because the walk takes most of the time: a line "[ui]" or "[ui: browse,settings]" in the newest commit
+# message, or the "ui" input of a run by hand.
 # main fast-forwards to a green commit of ci, so a push to main starts no macOS run. testflight.yml refuses a commit that has no green run of this workflow.
 on:
   push:
@@ -11,9 +12,9 @@ on:
   workflow_dispatch:
     inputs:
       ui:
-        description: Walk the screens and take screenshots
-        type: boolean
-        default: false
+        description: 'Walk the screens: "all", or areas such as "browse,settings"'
+        type: string
+        default: ""
 
 concurrency:
   group: test-${{ github.ref }}
@@ -49,8 +50,34 @@ jobs:
     needs: [lint, fixtures]
     runs-on: macos-26
     timeout-minutes: 40
+    outputs:
+      ui: ${{ steps.ui.outputs.ui }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Choose the UI areas
+        id: ui
+        env:
+          MESSAGE: ${{ github.event.head_commit.message }}
+          INPUT: ${{ inputs.ui }}
+        run: |
+          line=$(printf '%s\n' "$MESSAGE" | grep -E '^\[ui(:[a-zA-Z, ]+)?\] *$' | head -1 || true)
+          case "$line" in
+            "") ui=${INPUT:-false} ;;
+            "[ui]"*) ui=all ;;
+            *) ui=${line#"[ui:"}; ui=${ui%%"]"*} ;;
+          esac
+          echo "ui=$ui" | tee -a "$GITHUB_OUTPUT"
+      # The cached DerivedData helps only if unchanged files keep their time.
+      - run: python3 scripts/git_mtimes.py
+      - id: xcode
+        run: echo "version=$(xcodebuild -version | tr -s '\n ' '--')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v6
+        with:
+          path: build/DerivedData
+          key: deriveddata-${{ steps.xcode.outputs.version }}-${{ hashFiles('project.yml', 'Klassik/**', 'KlassikTests/**', 'KlassikUITests/**') }}
+          restore-keys: deriveddata-${{ steps.xcode.outputs.version }}-
       - uses: actions/download-artifact@v8
         with:
           name: fixture-music
@@ -62,8 +89,11 @@ jobs:
         run: scripts/fixture-server.sh "$RUNNER_TEMP/fixture"
       - name: Run the tests
         env:
-          KLASSIK_UI: ${{ contains(github.event.head_commit.message, '[ui]') || inputs.ui }}
+          KLASSIK_UI: ${{ steps.ui.outputs.ui }}
         run: scripts/screens.sh "$RUNNER_TEMP/screens"
+      - name: Time of each phase
+        if: always()
+        run: (echo '```'; cat "$RUNNER_TEMP/screens/timings.txt"; echo '```') >> "$GITHUB_STEP_SUMMARY" || true
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -80,3 +110,4 @@ jobs:
         with:
           name: screens-xcresult
           path: ${{ runner.temp }}/screens/screens.xcresult
+

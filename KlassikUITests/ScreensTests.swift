@@ -3,29 +3,11 @@ import XCTest
 /// Walks the main screens against the fixture server and keeps a screenshot of each.
 /// The screens workflow passes the server through TEST_RUNNER_KLASSIK_* variables.
 final class ScreensTests: XCTestCase {
+    // Each test starts from a reset app, so a UI change can walk only its own area: scripts/screens.sh takes the
+    // names after "test" in KLASSIK_UI.
     @MainActor
-    func testWalkMainScreens() throws {
-        let env = ProcessInfo.processInfo.environment
-        guard let server = env["KLASSIK_SERVER_URL"] else { throw XCTSkip("No fixture server configured") }
-
-        let app = XCUIApplication()
-        app.launchArguments = ["-resetServer"]
-        app.launchEnvironment = [
-            "KLASSIK_SERVER_URL": server,
-            "KLASSIK_USERNAME": env["KLASSIK_USERNAME"] ?? "",
-            "KLASSIK_PASSWORD": env["KLASSIK_PASSWORD"] ?? "",
-            "KLASSIK_MUSICBRAINZ_STUB": Self.musicBrainz,
-        ]
-        app.launch()
-
-        let connect = app.buttons["connect"]
-        XCTAssertTrue(connect.waitForExistence(timeout: 10))
-        snap(app, "01-connect")
-        connect.tap()
-
-        let mendelssohn = app.buttons.matching(identifier: "composer")
-            .matching(NSPredicate(format: "label BEGINSWITH 'Felix Mendelssohn'")).firstMatch
-        XCTAssertTrue(mendelssohn.waitForExistence(timeout: 30))
+    func testBrowse() throws {
+        let app = try launchAndConnect(snapConnect: true)
         snap(app, "02-home")
 
         app.buttons["timeline"].tap()
@@ -43,9 +25,7 @@ final class ScreensTests: XCTestCase {
         snap(app, "02c-musicbrainz")
         back(app)
 
-        let chopin = app.buttons.matching(identifier: "composer")
-            .matching(NSPredicate(format: "label BEGINSWITH 'Frédéric Chopin'")).firstMatch
-        chopin.tap()
+        composer(app, "Frédéric Chopin").tap()
         let set = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Nocturnes, Op. 9'")).firstMatch
         XCTAssertTrue(set.waitForExistence(timeout: 10))
         set.tap()
@@ -54,10 +34,7 @@ final class ScreensTests: XCTestCase {
         back(app)
 
         // Two good matches in another language: the listener picks one once.
-        reveal(
-            app.buttons.matching(identifier: "composer").matching(NSPredicate(format: "label BEGINSWITH 'Wolfgang'"))
-                .firstMatch, in: app
-        ).tap()
+        reveal(composer(app, "Wolfgang"), in: app).tap()
         app.buttons.matching(identifier: "work").matching(NSPredicate(format: "label CONTAINS 'K. 467'")).firstMatch
             .tap()
         let confirm = app.buttons["composed"]
@@ -73,9 +50,12 @@ final class ScreensTests: XCTestCase {
         let year = app.staticTexts.matching(NSPredicate(format: "label CONTAINS '1785'")).firstMatch
         XCTAssertTrue(year.waitForExistence(timeout: 10))
         snap(app, "04c-sources")
-        for _ in 0..<3 { back(app) }
+    }
 
-        mendelssohn.tap()
+    @MainActor
+    func testPlayback() throws {
+        let app = try launchAndConnect()
+        composer(app, "Felix Mendelssohn").tap()
         let work = app.buttons.matching(identifier: "work").firstMatch
         XCTAssertTrue(work.waitForExistence(timeout: 10))
         snap(app, "03-composer")
@@ -83,7 +63,9 @@ final class ScreensTests: XCTestCase {
         work.tap()
         let recording = app.buttons.matching(identifier: "recording").firstMatch
         XCTAssertTrue(recording.waitForExistence(timeout: 10))
-        XCTAssertTrue(app.buttons["composed"].label.contains("1844"), app.buttons["composed"].label)
+        // The MusicBrainz pass may still run right after the connect.
+        let composed = app.buttons.matching(NSPredicate(format: "identifier == 'composed' AND label CONTAINS '1844'"))
+        XCTAssertTrue(composed.firstMatch.waitForExistence(timeout: 30), app.buttons["composed"].label)
         snap(app, "04-work")
 
         recording.tap()
@@ -138,8 +120,7 @@ final class ScreensTests: XCTestCase {
         snap(app, "06c-tags")
         for _ in 0..<4 { back(app) }
 
-        app.buttons.matching(identifier: "composer")
-            .matching(NSPredicate(format: "label BEGINSWITH 'Ludwig'")).firstMatch.tap()
+        composer(app, "Ludwig").tap()
         let fifth = app.buttons.matching(identifier: "work").firstMatch
         XCTAssertTrue(fifth.waitForExistence(timeout: 10))
         fifth.swipeLeft()
@@ -159,6 +140,24 @@ final class ScreensTests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["download"].firstMatch.waitForExistence(timeout: 10))
         snap(app, "08a-local-storage")
         back(app)
+    }
+
+    @MainActor
+    func testSettings() throws {
+        let app = try launchAndConnect()
+        // Diagnostics checks that the mini player leaves the last row free, so something must be playing.
+        composer(app, "Felix Mendelssohn").tap()
+        let work = app.buttons.matching(identifier: "work").firstMatch
+        XCTAssertTrue(work.waitForExistence(timeout: 10))
+        work.tap()
+        let recording = app.buttons.matching(identifier: "recording").firstMatch
+        XCTAssertTrue(recording.waitForExistence(timeout: 10))
+        recording.tap()
+        app.buttons["play-recording"].tap()
+        XCTAssertTrue(app.buttons["Pause"].firstMatch.waitForExistence(timeout: 30))
+        app.buttons["Pause"].firstMatch.tap()
+        for _ in 0..<3 { back(app) }
+        XCTAssertTrue(app.descendants(matching: .any)["mini-player"].waitForExistence(timeout: 10))
 
         reveal(app.buttons["swipe-actions"], in: app).tap()
         XCTAssertTrue(app.navigationBars["Swipe Actions"].waitForExistence(timeout: 10))
@@ -269,6 +268,35 @@ final class ScreensTests: XCTestCase {
         ]
         return String(decoding: try! JSONEncoder().encode(bodies), as: UTF8.self)
     }()
+
+    @MainActor
+    private func launchAndConnect(snapConnect: Bool = false) throws -> XCUIApplication {
+        let env = ProcessInfo.processInfo.environment
+        guard let server = env["KLASSIK_SERVER_URL"] else { throw XCTSkip("No fixture server configured") }
+
+        let app = XCUIApplication()
+        app.launchArguments = ["-resetServer"]
+        app.launchEnvironment = [
+            "KLASSIK_SERVER_URL": server,
+            "KLASSIK_USERNAME": env["KLASSIK_USERNAME"] ?? "",
+            "KLASSIK_PASSWORD": env["KLASSIK_PASSWORD"] ?? "",
+            "KLASSIK_MUSICBRAINZ_STUB": Self.musicBrainz,
+        ]
+        app.launch()
+
+        let connect = app.buttons["connect"]
+        XCTAssertTrue(connect.waitForExistence(timeout: 10))
+        if snapConnect { snap(app, "01-connect") }
+        connect.tap()
+        XCTAssertTrue(composer(app, "Felix Mendelssohn").waitForExistence(timeout: 30))
+        return app
+    }
+
+    @MainActor
+    private func composer(_ app: XCUIApplication, _ name: String) -> XCUIElement {
+        app.buttons.matching(identifier: "composer").matching(NSPredicate(format: "label BEGINSWITH %@", name))
+            .firstMatch
+    }
 
     @MainActor
     private func back(_ app: XCUIApplication) {

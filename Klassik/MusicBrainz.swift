@@ -146,8 +146,16 @@ struct MusicBrainz: Sendable {
             }
         }
         let wanted = words(title).subtracting(catalogue.map { words($0.text) } ?? [])
-        guard wanted.count >= 2 else { return ([], false) }
-        let found = own.filter { Double(wanted.intersection(words($0.title)).count) >= 0.8 * Double(wanted.count) }
+        // "Song in G major" must not match "Bourrée in G major": the words that name the piece must all be there.
+        let naming = wanted.filter { $0.count >= 3 && !$0.allSatisfy(\.isNumber) && !genericWords.contains($0) }
+        guard wanted.count >= 2, !naming.isEmpty else { return ([], false) }
+        let wantedKey = key(of: title)
+        let found = own.filter { work in
+            let words = words(work.title)
+            let found = key(of: work.title)
+            return naming.isSubset(of: words) && (wantedKey == nil || found == nil || wantedKey == found)
+                && Double(wanted.intersection(words).count) >= 0.8 * Double(wanted.count)
+        }
         return (found.map { WorkCandidate(id: $0.id, title: $0.title, score: 100) }.preferringWholeWorks, false)
     }
 
@@ -182,6 +190,21 @@ struct MusicBrainz: Sendable {
         let best = candidates.max { (shared($0), $0.score) < (shared($1), $1.score) }
         return best.flatMap { shared($0) / Double(wanted.count) >= 0.6 ? $0 : nil }
     }
+
+    /// The key that a title names, such as "e flat major", in one spelling for all hyphens.
+    static func key(of title: String) -> String? {
+        let pattern = "\\b([A-Ga-g])(?:[-‐ ](flat|sharp))?\\s+(major|minor)\\b"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+            let match = regex.firstMatch(in: title, range: NSRange(title.startIndex..., in: title))
+        else { return nil }
+        return (1...3).compactMap { Range(match.range(at: $0), in: title).map { title[$0].lowercased() } }
+            .joined(separator: " ")
+    }
+
+    /// Words of keys and joins, which many titles share.
+    static let genericWords: Set<String> = [
+        "major", "minor", "flat", "sharp", "and", "for", "the", "dur", "moll", "und", "von",
+    ]
 
     static func words(_ text: String) -> Set<String> {
         Set(

@@ -116,6 +116,13 @@ struct MusicBrainzTests {
         #expect(MusicBrainz.confident(prelude, for: "Prelude No. 20 in C minor, Op. 28 No. 20") == nil)
     }
 
+    @Test func keysOfTitles() {
+        #expect(MusicBrainz.key(of: "Bourrée No. 1 in G major, KK VIIb/1") == "g major")
+        #expect(MusicBrainz.key(of: "Mazurka no. 20 in D‐flat major, op. 30 no. 3") == "d flat major")
+        #expect(MusicBrainz.key(of: "Nocturne in C-sharp minor") == "c sharp minor")
+        #expect(MusicBrainz.key(of: "Three Écossaises, Op. 72 No. 3") == nil)
+    }
+
     @Test func singleMatchWithALowScoreIsConfident() {
         let found = [WorkCandidate(id: "a", title: "Étude in E‐flat minor, op. 10 no. 6", score: 81)]
         #expect(MusicBrainz.confident(found, for: "Étude in E-flat minor, Op. 10 No. 6")?.id == "a")
@@ -278,7 +285,7 @@ struct ComposerListTests {
 
     /// Shaped like a page of musicbrainz.org/ws/2/work?artist=…; the IDs other than the étude and nocturne are made up.
     static let page = """
-        {"work-count":7,"work-offset":0,"works":[
+        {"work-count":9,"work-offset":0,"works":[
           {"id":"\(MusicBrainzStub.etude)","title":"Étude in C major, op. 10 no. 1: Allegro","relations":[
             {"type":"composer","direction":"backward","begin":"1829","artist":{"id":"\(chopin)"}}]},
           {"id":"\(MusicBrainzStub.nocturne)","title":"Nocturne, op. 9 no. 2","relations":[
@@ -290,6 +297,10 @@ struct ComposerListTests {
           {"id":"00000000-0000-4000-8000-000000000003","title":"Cantabile in B‐flat major, BI 84","relations":[
             {"type":"composer","direction":"backward","begin":"1834","artist":{"id":"\(chopin)"}}]},
           {"id":"00000000-0000-4000-8000-000000000004","title":"Mazurka in A‐flat major, BI 7","relations":[
+            {"type":"composer","direction":"backward","artist":{"id":"\(chopin)"}}]},
+          {"id":"00000000-0000-4000-8000-000000000007","title":"Cantabile in D major","relations":[
+            {"type":"composer","direction":"backward","artist":{"id":"\(chopin)"}}]},
+          {"id":"00000000-0000-4000-8000-000000000006","title":"Song in B‐flat major, op. 74 no. 6","relations":[
             {"type":"composer","direction":"backward","artist":{"id":"\(chopin)"}}]},
           {"id":"00000000-0000-4000-8000-000000000005","title":"Mazurka in A‐flat major, op. 7 no. 4","relations":[
             {"type":"composer","direction":"backward","artist":{"id":"\(chopin)"}}]}]}
@@ -310,7 +321,8 @@ struct ComposerListTests {
         #expect(enrichment.composed(Self.work("Étude in C major, Op. 10 No. 1"))?.span == YearSpan(1829))
         // A ballet with the same opus number loses on the title words.
         #expect(enrichment.composed(Self.work("Allegro de concert in A major, Op. 46"))?.span == YearSpan(1841))
-        // MusicBrainz has no KK number in the title; the words alone find the one cantabile.
+        // MusicBrainz has no KK number in the title; the words and the key find the one cantabile: not the
+        // song in the same key, not the cantabile in another key.
         #expect(enrichment.composed(Self.work("Cantabile in B-flat major, KK IVb/6"))?.span == YearSpan(1834))
         // Two mazurkas in A-flat major: the words do not decide.
         guard case .candidates(let found) = enrichment.link(of: Self.work("Mazurka in A-flat major, KK IVb/4")) else {

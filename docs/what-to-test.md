@@ -1,26 +1,16 @@
-Klassik 0.10.0
+Klassik 0.10.1
 
-Seek
-- Play a long movement. Drag the movement bar on the recording page: playback moves there. sz-rs30.1.61
-- Pause, drag, resume: playback goes on from the new place.
-- Drag near the end of a movement: the next movement follows without a gap.
-- Lock screen: drag the position there too.
-
-Dates from MusicBrainz
-- The first start after the update looks up your works in MusicBrainz, one request a second. A large library takes many minutes. Leave the app open. sz-rs30.1.7
-- Vivaldi > a Four Seasons concerto: Composed shows a year. Tap it: Dates and Sources names MusicBrainz and the work. sz-rs30.1.7.1
-- Open in MusicBrainz opens the work page.
-- A work without a MusicBrainz date may show "Wikidata (published)". sz-rs30.1.7.2
-- Chopin > an étude or nocturne: Composed shows a year found by its Op. or KK number. sz-rs30.1.7.3
-- A work with "Confirm the MusicBrainz Work": pick the right match once, or None of These. sz-rs30.1.7.3
-- Dates and Sources: type your own year. It wins and stays on the phone. sz-rs30.1.7.4
-
-Timeline
-- Home > Timeline: works by year, in Baroque, Classical, Romantic and later sections. sz-rs30.1.7.4
-- Works without a date show "≈" and the composer's lifetime.
-- Composer page: Lived and Period at the top.
+Faster MusicBrainz lookup
+- Klassik now lists each composer's works in MusicBrainz at once and matches them on the phone. On your library: about one minute, 46 requests, down from 14 minutes. sz-rs30.1.64
+- Home > MusicBrainz: watch the progress while it runs. sz-rs30.1.64
+- When it ends: Linked, With a Year, To Confirm and No Match show counts.
+- To Confirm: open a work and pick its match once.
+- No Match: open a work, then Search on MusicBrainz or type your own year.
+- Chopin's KK pieces (mazurkas, polonaises, waltzes) now find their works by title and key.
+- Your years from 0.10.0 stay.
+- Look Up Missing Again asks again for works without a match. Works you turned down stay turned down.
 
 Known problems
-- Works without a WORK tag are not on the timeline.
-- A title without a catalogue number, such as "Op. posth.", is not searched.
-- Wikidata gives the publication year, which can be later than the composition.
+- The Bourrées show 1968: MusicBrainz has that date on their composer relation. Open in MusicBrainz to fix it there.
+- "New Étude" Nos. 1 to 3 link to the set "Trois nouvelles études".
+- Prelude Op. 28 No. 20, the Écossaises Op. 72 No. 3 and three KK pieces ask you to confirm.

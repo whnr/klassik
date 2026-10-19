@@ -67,9 +67,16 @@ final class GaplessTests: XCTestCase {
         let trimmed = try Self.joins(files) { file, index in
             headers[index]?.playableRange(decodedLength: file.length) ?? 0..<file.length
         }
+        // A seek into the first movement schedules the rest as before, so the joins must stay exact.
+        let skip = Int(Self.sampleRate)
+        let seeked = try Self.joins(files, skip: skip) { file, index in
+            let range = headers[index]?.playableRange(decodedLength: file.length) ?? 0..<file.length
+            return index == 0 ? Player.seekRange(range, to: 1, sampleRate: Self.sampleRate) : range
+        }
         report += [
             "Engine, whole decoded files: start \(whole.start), shift after each join \(whole.shifts)",
             "Engine, playable ranges from the MP3 header: start \(trimmed.start), shift after each join \(trimmed.shifts)",
+            "Engine, after a seek to 1 s: start \(seeked.start), shift after each join \(seeked.shifts)",
         ]
 
         let text = report.joined(separator: "\n")
@@ -79,6 +86,8 @@ final class GaplessTests: XCTestCase {
         attachment.lifetime = .keepAlways
         add(attachment)
         XCTAssertEqual(trimmed.shifts, Array(repeating: 0, count: files.count - 1), text)
+        XCTAssertEqual(seeked.start, trimmed.start, text)
+        XCTAssertEqual(seeked.shifts, trimmed.shifts, text)
     }
 
     /// FLAC carries no encoder delay or padding, so each file plays whole and the joins must still be exact.
@@ -129,10 +138,11 @@ final class GaplessTests: XCTestCase {
         return best.shift
     }
 
-    /// Renders the files back to back through AVAudioPlayerNode, offline.
+    /// Renders the files back to back through AVAudioPlayerNode, offline. `skip` is how many glide samples
+    /// the ranges leave out at the start, as after a seek.
     /// Returns where the glide starts in the output and how far each join moves it.
     static func joins(
-        _ urls: [URL], range: (AVAudioFile, Int) -> Range<Int64>
+        _ urls: [URL], skip: Int = 0, range: (AVAudioFile, Int) -> Range<Int64>
     ) throws -> (start: Int, shifts: [Int]) {
         let files = try urls.map { try AVAudioFile(forReading: $0) }
         let format = files[0].processingFormat
@@ -159,11 +169,11 @@ final class GaplessTests: XCTestCase {
         }
         engine.stop()
 
-        let start = alignment(output, at: 2048, referenceAt: 2048)
+        let start = alignment(output, at: 2048, referenceAt: skip + 2048)
         var join = 0
         let shifts = movementSamples.dropLast().map { length in
             join += length
-            return alignment(output, at: start + join + 256, referenceAt: join + 256)
+            return alignment(output, at: start + join - skip + 256, referenceAt: join + 256)
         }
         return (start, shifts)
     }

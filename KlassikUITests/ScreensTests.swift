@@ -55,6 +55,18 @@ final class ScreensTests: XCTestCase {
         // The fixture movements last seconds; paused, the player stays for the next screens.
         app.buttons["Pause"].firstMatch.tap()
 
+        // A paused player moves to the dragged position and stays paused.
+        let position = app.sliders["position"]
+        XCTAssertTrue(position.waitForExistence(timeout: 10))
+        position.adjust(toNormalizedSliderPosition: 0)
+        let atStart = expectation(for: NSPredicate(format: "value == '0:00'"), evaluatedWith: position)
+        XCTAssertEqual(XCTWaiter.wait(for: [atStart], timeout: 5), .completed)
+        position.adjust(toNormalizedSliderPosition: 0.9)
+        let moved = expectation(for: NSPredicate(format: "value != '0:00'"), evaluatedWith: position)
+        XCTAssertEqual(XCTWaiter.wait(for: [moved], timeout: 5), .completed)
+        XCTAssertTrue(app.buttons["Resume"].firstMatch.exists)
+        snap(app, "05c-seek")
+
         reveal(app.buttons["download"], in: app).tap()
         XCTAssertTrue(app.buttons["remove-download"].waitForExistence(timeout: 30))
         snap(app, "05a-downloaded")

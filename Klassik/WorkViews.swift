@@ -407,9 +407,11 @@ struct PlaybackProgress: View {
         TimelineView(.periodic(from: .now, by: 0.5)) { _ in
             if let progress = player.progress(), let recording = player.recording {
                 VStack(alignment: .leading, spacing: 12) {
-                    bar(
-                        recording.title(of: recording.songs[progress.movement]), progress.elapsed, of: progress.duration
+                    PositionSlider(
+                        player: player, title: recording.title(of: recording.songs[progress.movement]),
+                        elapsed: progress.elapsed, duration: progress.duration
                     )
+                    .id(progress.movement)
                     bar(
                         recording.isAlbum ? "Whole Album" : "Whole Work", progress.workElapsed,
                         of: progress.workDuration, gaps: progress.durations)
@@ -431,20 +433,67 @@ struct PlaybackProgress: View {
             } else {
                 ProgressView(value: min(elapsed, duration), total: max(duration, 1))
             }
-            HStack {
-                Text(Self.time(elapsed))
-                Spacer()
-                Text("−" + Self.time(max(duration - elapsed, 0)))
-            }
-            .font(.caption)
-            .monospacedDigit()
-            .foregroundStyle(.secondary)
+            Self.times(elapsed, of: duration)
         }
+    }
+
+    static func times(_ elapsed: Double, of duration: Double) -> some View {
+        HStack {
+            Text(time(elapsed))
+            Spacer()
+            Text("−" + time(max(duration - elapsed, 0)))
+        }
+        .font(.caption)
+        .monospacedDigit()
+        .foregroundStyle(.secondary)
     }
 
     static func time(_ seconds: Double) -> String {
         Duration.seconds(seconds.rounded()).formatted(
             .time(pattern: seconds >= 3600 ? .hourMinuteSecond : .minuteSecond))
+    }
+}
+
+/// The position in the current movement. A drag moves playback when the finger lifts, so the movement does not
+/// restart for every step of the drag.
+private struct PositionSlider: View {
+    let player: Player
+    let title: String
+    let elapsed: Double
+    let duration: Double
+    @State private var dragged: Double?
+    @State private var isDragging = false
+
+    var body: some View {
+        let shown = dragged ?? min(elapsed, duration)
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.subheadline)
+            Slider(
+                value: Binding(
+                    get: { shown },
+                    set: { value in
+                        dragged = value
+                        // VoiceOver adjusts the value without a drag.
+                        if !isDragging { seek() }
+                    }),
+                in: 0...max(duration, 1)
+            ) { editing in
+                isDragging = editing
+                if !editing { seek() }
+            }
+            .accessibilityLabel("Position")
+            .accessibilityValue(PlaybackProgress.time(shown))
+            .accessibilityIdentifier("position")
+            PlaybackProgress.times(shown, of: duration)
+        }
+    }
+
+    private func seek() {
+        guard let dragged else { return }
+        player.seek(to: dragged)
+        // The player reports the new position at once, so the slider does not jump back.
+        self.dragged = nil
     }
 }
 

@@ -58,6 +58,8 @@ final class Player {
     private var sampleRate = 44_100.0
     /// A paused node reports no player time, so the position is kept here.
     private var pausedAt: Int64?
+    /// Where the first movement starts after a seek, in seconds. Progress shows it until the movement plays.
+    private var startOffset = 0.0
     private let defaults: UserDefaults
     private let store: TrackStore
     private static let levelingKey = "player.volumeLeveling"
@@ -86,6 +88,13 @@ final class Player {
         }
         center.previousTrackCommand.addTarget { [weak self] _ in
             MainActor.assumeIsolated { self?.previous() }
+            return .success
+        }
+        center.changePlaybackPositionCommand.addTarget { [weak self] event in
+            guard let time = (event as? MPChangePlaybackPositionCommandEvent)?.positionTime else {
+                return .commandFailed
+            }
+            MainActor.assumeIsolated { self?.seek(to: time) }
             return .success
         }
     }
@@ -136,7 +145,9 @@ final class Player {
         upNext.move(fromOffsets: source, toOffset: destination)
     }
 
-    private func start(_ item: Item, from index: Int, client: SubsonicClient) {
+    private func start(
+        _ item: Item, from index: Int, client: SubsonicClient, offset: Double = 0, paused: Bool = false
+    ) {
         reset()
         do {
             try AVAudioSession.sharedInstance().setCategory(.playback)
@@ -147,10 +158,24 @@ final class Player {
         }
         self.item = item
         self.client = client
+        startOffset = offset
+        if paused {
+            isPaused = true
+            pausedAt = 0
+        }
         current = index
         generation += 1
         let generation = generation
-        task = Task { await schedule(item.recording.songs, from: index, client: client, generation: generation) }
+        task = Task {
+            await schedule(item.recording.songs, from: index, offset: offset, client: client, generation: generation)
+        }
+    }
+
+    /// Moves to a position in the current movement. The movements after it schedule again, as after a skip,
+    /// so they still join without a gap. A paused player stays paused.
+    func seek(to seconds: Double) {
+        guard let item, let client, let current else { return }
+        start(item, from: current, client: client, offset: seconds, paused: isPaused)
     }
 
     func togglePause() {
@@ -212,14 +237,15 @@ final class Player {
         isLoading = false
         error = nil
         segments = [:]
+        startOffset = 0
     }
 
     /// The position in the current movement and in the whole work.
     func progress() -> Progress? {
         guard let recording, let current else { return nil }
         var movement = current
-        var elapsed = 0.0
-        if let sample = playedSamples() {
+        var elapsed = startOffset
+        if let sample = playedSamples(), segments[current] != nil {
             if let playing = segments.first(where: { $0.value.contains(sample) }) {
                 movement = playing.key
                 elapsed = Double(sample - playing.value.lowerBound) / sampleRate
@@ -244,7 +270,9 @@ final class Player {
         return playerTime.sampleTime
     }
 
-    private func schedule(_ songs: [Song], from index: Int, client: SubsonicClient, generation: Int) async {
+    private func schedule(
+        _ songs: [Song], from index: Int, offset: Double, client: SubsonicClient, generation: Int
+    ) async {
         let engine = AVAudioEngine()
         let node = AVAudioPlayerNode()
         let gain = AVAudioUnitEQ(numberOfBands: 0)
@@ -263,7 +291,10 @@ final class Player {
                 let file = try AVAudioFile(forReading: url)
                 isLoading = false
                 try Task.checkCancellation()
-                let range = Self.playableRange(of: file)
+                let playable = Self.playableRange(of: file)
+                let range =
+                    position == index
+                    ? Self.seekRange(playable, to: offset, sampleRate: file.processingFormat.sampleRate) : playable
                 if format == nil {
                     format = file.processingFormat
                     sampleRate = file.processingFormat.sampleRate
@@ -271,6 +302,7 @@ final class Player {
                     engine.connect(gain, to: engine.mainMixerNode, format: file.processingFormat)
                     try engine.start()
                     node.play()
+                    if isPaused { node.pause() }
                 } else if file.processingFormat != format {
                     error = "Movement \(position + 1) has a different audio format."
                     return
@@ -278,7 +310,8 @@ final class Player {
                 // A slow download leaves the player idle; the movement then starts at the current position.
                 let start = max(scheduledEnd, playedSamples() ?? 0)
                 scheduledEnd = start + Int64(range.count)
-                segments[position] = start..<scheduledEnd
+                // The segment covers the whole movement, so that elapsed time counts from the movement's start.
+                segments[position] = (start - (range.lowerBound - playable.lowerBound))..<scheduledEnd
                 node.scheduleSegment(
                     file, startingFrame: range.lowerBound, frameCount: AVAudioFrameCount(range.count), at: nil,
                     completionCallbackType: .dataPlayedBack
@@ -322,6 +355,14 @@ final class Player {
             MPNowPlayingInfoPropertyElapsedPlaybackTime: progress.elapsed,
             MPNowPlayingInfoPropertyPlaybackRate: isPaused ? 0.0 : 1.0,
         ]
+    }
+
+    /// The part of a movement that plays after a seek. It keeps at least one frame, so the movement still ends
+    /// and the next one follows.
+    nonisolated static func seekRange(_ range: Range<Int64>, to seconds: Double, sampleRate: Double) -> Range<Int64> {
+        let frame = seconds.isFinite ? Int64((seconds * sampleRate).rounded()) : 0
+        let skip = min(max(frame, 0), max(Int64(range.count) - 1, 0))
+        return (range.lowerBound + skip)..<range.upperBound
     }
 
     private static func playableRange(of file: AVAudioFile) -> Range<Int64> {

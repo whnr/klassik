@@ -26,14 +26,12 @@ final class TapIndicator {
         window.backgroundColor = .clear
         window.isHidden = false
         overlay = window
-        scene.windows.forEach(watch)
+        watchAll()
         // Menus and sheets can open their own windows.
         observer = NotificationCenter.default.addObserver(
             forName: UIWindow.didBecomeVisibleNotification, object: nil, queue: .main
-        ) { note in
-            MainActor.assumeIsolated {
-                if let window = note.object as? UIWindow { TapIndicator.shared.watch(window) }
-            }
+        ) { _ in
+            MainActor.assumeIsolated { TapIndicator.shared.watchAll() }
         }
     }
 
@@ -47,6 +45,10 @@ final class TapIndicator {
         markers = [:]
         overlay?.isHidden = true
         overlay = nil
+    }
+
+    private func watchAll() {
+        for window in overlay?.windowScene?.windows ?? [] { watch(window) }
     }
 
     private func watch(_ window: UIWindow) {

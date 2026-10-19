@@ -89,7 +89,7 @@ final class MusicBrainzStub: @unchecked Sendable {
         "work?\"KK IVa\\/16\" AND artist:\"Chopin\"": """
         {"count":2,"works":[
           {"id":"a7619cf9-0d62-31a5-aa0c-436edd8b7dd1","score":100,"title":"Nocturne no. 20 in C‐sharp minor “Reminiscence”, op. posth. 1 no. 16, B. 49, KKIVa/16"},
-          {"id":"5f1c3b0e-5a40-4a6b-9a3e-2d1c7f0e9b11","score":96,"title":"Nocturne in C‐sharp minor, KK IVa/16 “Lento con gran espressione”"}]}
+          {"id":"5f1c3b0e-5a40-4a6b-9a3e-2d1c7f0e9b11","score":96,"title":"Nocturne in C‐sharp minor, KK IVa/16"}]}
         """,
         "work?\"op. 64\" AND artist:\"Mendelssohn\"": """
         {"count":6,"works":[

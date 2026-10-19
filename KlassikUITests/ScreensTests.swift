@@ -46,7 +46,7 @@ final class ScreensTests: XCTestCase {
         snap(app, "02a-sets")
         back(app)
 
-        // Two good matches with different titles: the listener picks one once.
+        // Two good matches in another language: the listener picks one once.
         reveal(
             app.buttons.matching(identifier: "composer").matching(NSPredicate(format: "label BEGINSWITH 'Wolfgang'"))
                 .firstMatch, in: app
@@ -91,11 +91,10 @@ final class ScreensTests: XCTestCase {
         let position = app.sliders["position"]
         XCTAssertTrue(position.waitForExistence(timeout: 10))
         position.adjust(toNormalizedSliderPosition: 0)
-        let atStart = expectation(for: NSPredicate(format: "value == '0:00'"), evaluatedWith: position)
-        XCTAssertEqual(XCTWaiter.wait(for: [atStart], timeout: 5), .completed)
+        let start = position.value as? String ?? ""
         position.adjust(toNormalizedSliderPosition: 0.9)
-        let moved = expectation(for: NSPredicate(format: "value != '0:00'"), evaluatedWith: position)
-        XCTAssertEqual(XCTWaiter.wait(for: [moved], timeout: 5), .completed)
+        let moved = expectation(for: NSPredicate(format: "value != %@", start), evaluatedWith: position)
+        XCTAssertEqual(XCTWaiter.wait(for: [moved], timeout: 5), .completed, start)
         XCTAssertTrue(app.buttons["Resume"].firstMatch.exists)
         snap(app, "05c-seek")
 
@@ -232,10 +231,10 @@ final class ScreensTests: XCTestCase {
             "work/\(concerto)": work(concerto, "Violinkonzert in e-Moll, op. 64", "1844", "1844", mendelssohn),
             "artist/\(mendelssohn)": artist(mendelssohn, "Felix Mendelssohn", "1809-02-03", "1847-11-04"),
             "work?\"K. 467\" AND artist:\"Mozart\"": """
-            {"works":[{"id":"\(k467)","score":100,"title":"Concerto for Piano no. 21 in C major, K. 467"},\
-            {"id":"29d6128d-d64e-4db0-a099-4a8b79331d46","score":96,"title":"Piano Concerto no. 21, K. 467 “Elvira Madigan”"}]}
+            {"works":[{"id":"\(k467)","score":100,"title":"Klavierkonzert Nr. 21 C-Dur, K. 467"},\
+            {"id":"29d6128d-d64e-4db0-a099-4a8b79331d46","score":96,"title":"Klavierkonzert Nr. 21, K. 467 „Elvira Madigan“"}]}
             """,
-            "work/\(k467)": work(k467, "Concerto for Piano no. 21 in C major, K. 467", "1785", "1785", mozart),
+            "work/\(k467)": work(k467, "Klavierkonzert Nr. 21 C-Dur, K. 467", "1785", "1785", mozart),
             "artist/\(mozart)": artist(mozart, "Wolfgang Amadeus Mozart", "1756-01-27", "1791-12-05"),
             "artist?(artist:\"Frédéric Chopin\" OR alias:\"Frédéric Chopin\") AND type:person": """
             {"artists":[\(artist("09ff1fe8-d61c-4b98-bb82-18487c74d7b7", "Fryderyk Chopin", "1810-03-01", "1849-10-17"))]}

@@ -78,7 +78,9 @@ struct MusicBrainzTests {
             composer: "Frédéric Chopin", catalogue: #require(CatalogueNumber.find(in: "Nocturne, Op. 9 No. 2")))
         // The two Andante movements drop, because whole works are in the list.
         #expect(found.map(\.score) == [100, 74, 68])
-        #expect(MusicBrainz.confident(found)?.id == MusicBrainzStub.nocturne)
+        #expect(
+            MusicBrainz.confident(found, for: "Nocturne No. 2 in E-flat major, Op. 9 No. 2")?.id
+                == MusicBrainzStub.nocturne)
     }
 
     /// Movements outrank their work, and MusicBrainz holds this concerto twice.
@@ -87,7 +89,9 @@ struct MusicBrainzTests {
             composer: "Felix Mendelssohn",
             catalogue: #require(CatalogueNumber.find(in: "Violin Concerto in E minor, Op. 64")))
         #expect(found.map(\.score) == [95, 92])
-        #expect(MusicBrainz.confident(found)?.id == "c230858f-8b2b-3e77-aa3e-777743980263")
+        #expect(
+            MusicBrainz.confident(found, for: "Violin Concerto in E minor, Op. 64")?.id
+                == "c230858f-8b2b-3e77-aa3e-777743980263")
     }
 
     @Test func aMovementAloneStays() {
@@ -97,17 +101,32 @@ struct MusicBrainzTests {
         #expect(mixed.preferringWholeWorks.map(\.id) == ["w"])
     }
 
+    /// Real matches for Op. 46 and Op. 28 No. 20: a ballet arrangement outranks the work, and a set of variations
+    /// shares as few words as the prelude itself.
+    @Test func sharedWordsDecideBetweenRivals() {
+        let allegro = [
+            WorkCandidate(id: "ballet", title: "Chopiniana, op. 46", score: 100),
+            WorkCandidate(id: "work", title: "Allegro de concert in A major, op. 46", score: 90),
+        ]
+        #expect(MusicBrainz.confident(allegro, for: "Allegro de concert in A major, Op. 46")?.id == "work")
+        let prelude = [
+            WorkCandidate(id: "a", title: "Prelude, op. 28 no. 20", score: 100),
+            WorkCandidate(id: "b", title: "Prelude, Op. 28, No. 20 and Variations", score: 89),
+        ]
+        #expect(MusicBrainz.confident(prelude, for: "Prelude No. 20 in C minor, Op. 28 No. 20") == nil)
+    }
+
     @Test func singleMatchWithALowScoreIsConfident() {
         let found = [WorkCandidate(id: "a", title: "Étude in E‐flat minor, op. 10 no. 6", score: 81)]
-        #expect(MusicBrainz.confident(found)?.id == "a")
-        #expect(MusicBrainz.confident([WorkCandidate(id: "b", title: "Étude", score: 60)]) == nil)
+        #expect(MusicBrainz.confident(found, for: "Étude in E-flat minor, Op. 10 No. 6")?.id == "a")
+        #expect(MusicBrainz.confident([WorkCandidate(id: "b", title: "Étude", score: 60)], for: "Étude") == nil)
     }
 
     @Test func twoGoodMatchesAreNotConfident() async throws {
         let found = try await MusicBrainzStub().musicBrainz.candidates(
             composer: "Frédéric Chopin", catalogue: #require(CatalogueNumber.find(in: "Nocturne, KK IVa/16")))
         #expect(found.count == 2)
-        #expect(MusicBrainz.confident(found) == nil)
+        #expect(MusicBrainz.confident(found, for: "Lento con gran espressione, KK IVa/16") == nil)
     }
 
     @Test func composerByName() async throws {
@@ -141,7 +160,7 @@ struct EnrichmentTests {
         song("1", composer: "Antonio Vivaldi", work: "Summer", workID: MusicBrainzStub.summerFirstMovement),
         song("2", composer: "Frédéric Chopin", work: "Étude in C major, Op. 10 No. 1"),
         song("3", composer: "Frédéric Chopin", work: "Nocturne in E-flat major, Op. 9 No. 2"),
-        song("4", composer: "Frédéric Chopin", work: "Nocturne in C-sharp minor, KK IVa/16"),
+        song("4", composer: "Frédéric Chopin", work: "Lento con gran espressione, KK IVa/16"),
         song("5", composer: "Frédéric Chopin", work: "Nocturne in C-sharp minor, Op. posth."),
     ])
 
@@ -172,7 +191,7 @@ struct EnrichmentTests {
         #expect(enrichment.composed(nocturne)?.span == YearSpan(1832))
         #expect(enrichment.composed(nocturne)?.source == .wikidata)
 
-        guard case .candidates(let found) = enrichment.link(of: Self.work("Nocturne in C-sharp minor, KK IVa/16"))
+        guard case .candidates(let found) = enrichment.link(of: Self.work("Lento con gran espressione, KK IVa/16"))
         else {
             Issue.record("KK IVa/16 needs the listener")
             return
@@ -199,7 +218,7 @@ struct EnrichmentTests {
         let url = Self.cacheURL()
         let enrichment = Enrichment(musicBrainz: stub.musicBrainz, wikidata: stub.wikidata, cacheURL: url)
         await enrichment.enrich(Self.index)
-        let work = Self.work("Nocturne in C-sharp minor, KK IVa/16")
+        let work = Self.work("Lento con gran espressione, KK IVa/16")
         guard case .candidates(let found) = enrichment.link(of: work) else {
             Issue.record("KK IVa/16 needs the listener")
             return

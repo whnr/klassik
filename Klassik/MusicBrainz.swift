@@ -127,14 +127,27 @@ struct MusicBrainz: Sendable {
             .preferringWholeWorks
     }
 
-    /// The candidate that Klassik takes without asking: a good match, and no other good match with another title.
-    /// MusicBrainz holds some works twice under the same title; either one gives the same facts.
-    /// A score of 75 is good: every candidate carries the catalogue number, and MusicBrainz scores an exact title
-    /// lower when it spells the hyphens differently.
-    static func confident(_ candidates: [WorkCandidate]) -> WorkCandidate? {
+    /// The candidate that Klassik takes without asking, for the work with this title in the tags.
+    /// A good match with no good rival of another title wins: MusicBrainz holds some works twice, and scores an
+    /// exact title as low as 75 when it spells the hyphens differently. Else the candidate whose title shares the
+    /// most words with the tag title wins, if it shares 60% of them: a rival with the same catalogue number is
+    /// mostly a spelling of the same work, sometimes a derived work such as a ballet. The words of the catalogue
+    /// number do not count, because every candidate has them.
+    static func confident(_ candidates: [WorkCandidate], for title: String) -> WorkCandidate? {
         guard let top = candidates.max(by: { $0.score < $1.score }), top.score >= 75 else { return nil }
-        let title = top.title.lowercased()
-        return candidates.allSatisfy { $0.score < 75 || $0.title.lowercased() == title } ? top : nil
+        let lowered = top.title.lowercased()
+        if candidates.allSatisfy({ $0.score < 75 || $0.title.lowercased() == lowered }) { return top }
+        let wanted = words(title).subtracting(CatalogueNumber.find(in: title).map { words($0.text) } ?? [])
+        guard !wanted.isEmpty else { return nil }
+        let shared = { (candidate: WorkCandidate) in Double(wanted.intersection(words(candidate.title)).count) }
+        let best = candidates.max { (shared($0), $0.score) < (shared($1), $1.score) }
+        return best.flatMap { shared($0) / Double(wanted.count) >= 0.6 ? $0 : nil }
+    }
+
+    static func words(_ text: String) -> Set<String> {
+        Set(
+            text.lowercased().folding(options: .diacriticInsensitive, locale: nil)
+                .split { !$0.isLetter && !$0.isNumber }.map(String.init))
     }
 
     static func workURL(id: String) -> URL { URL(string: "https://musicbrainz.org/work/\(id)")! }

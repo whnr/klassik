@@ -219,7 +219,7 @@ final class Enrichment {
         }
         guard let catalogue = CatalogueNumber.find(in: work.title) else { return }
         let found = try await musicBrainz.candidates(composer: work.composer, catalogue: catalogue)
-        if let best = MusicBrainz.confident(found) {
+        if let best = MusicBrainz.confident(found, for: work.title) {
             cache.links[work.id] = best.id
             try await lookUp(work)
         } else if found.isEmpty {

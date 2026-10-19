@@ -38,8 +38,9 @@ boot=$!
 # The simulator answers in two architectures; naming one spares xcodebuild the choice.
 common=(-project Klassik.xcodeproj -scheme Klassik -destination "platform=iOS Simulator,id=$udid,arch=arm64"
   -derivedDataPath build/DerivedData)
-# The index store serves only the editor.
-xcodebuild build-for-testing "${common[@]}" -showBuildTimingSummary COMPILER_INDEX_STORE_ENABLE=NO CODE_SIGN_IDENTITY=- \
+# The index store and the preview dylibs serve only the editor.
+xcodebuild build-for-testing "${common[@]}" -showBuildTimingSummary CODE_SIGN_IDENTITY=- \
+  COMPILER_INDEX_STORE_ENABLE=NO ENABLE_PREVIEWS=NO ENABLE_DEBUG_DYLIB=NO \
   | $formatter
 phase build
 wait $boot

@@ -19,6 +19,7 @@ MERGE = 8  # Points between changed rows that still belong to one region.
 MASKS = {
     "11-diagnostics": [(140, 610, 262, 45)],  # "Last check" time.
     "12-diagnostics-bottom": [(0, 50, 402, 60)],  # "Last sync" time, blurred under the navigation bar.
+    "08c-home-settings": [(30, 362, 200, 22)],  # "Synced … ago".
 }
 
 

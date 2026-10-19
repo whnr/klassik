@@ -99,7 +99,9 @@ struct MusicBrainz: Sendable {
 
     /// The composer of this name, if MusicBrainz knows exactly one person by it.
     func composer(named name: String) async throws -> ComposerFacts? {
-        let query = "artist:\"\(Self.escape(name))\" AND type:person"
+        // An alias finds "Georg Friedrich Händel" and "Pjotr Iljitsch Tschaikowski".
+        let name = Self.escape(name)
+        let query = "(artist:\"\(name)\" OR alias:\"\(name)\") AND type:person"
         guard
             let data = try await get(
                 "artist", [URLQueryItem(name: "query", value: query), .init(name: "limit", value: "3")])
@@ -122,7 +124,7 @@ struct MusicBrainz: Sendable {
         return try JSONDecoder().decode(WorkSearch.self, from: data).works
             .filter { catalogue.matches($0.title) }
             .map { WorkCandidate(id: $0.id, title: $0.title, score: $0.score ?? 0) }
-            .withoutMovementsOfListedWorks
+            .preferringWholeWorks
     }
 
     /// The candidate that Klassik takes without asking: a good match, and no other good match with another title.
@@ -260,14 +262,11 @@ struct MusicBrainz: Sendable {
 }
 
 extension [WorkCandidate] {
-    /// A search often ranks a movement, such as "…, op. 67: IV. Allegro", above its work.
-    /// A movement whose work is also in the list adds nothing.
-    var withoutMovementsOfListedWorks: [WorkCandidate] {
-        let titles = map { $0.title.lowercased() + ":" }
-        return filter { candidate in
-            let title = candidate.title.lowercased()
-            return !titles.contains { title.hasPrefix($0) }
-        }
+    /// A search often ranks a movement, such as "…, op. 35: IV. Finale", above its work. A colon marks the
+    /// movement. If any candidate is a whole work, the movements drop. A movement alone stays: the lookup walks up.
+    var preferringWholeWorks: [WorkCandidate] {
+        let whole = filter { !$0.title.contains(":") }
+        return whole.isEmpty ? self : whole
     }
 }
 

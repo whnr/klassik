@@ -29,6 +29,8 @@ struct CatalogueNumberTests {
         #expect(kk.matches("Nocturne no. 20 in C‐sharp minor, op. posth. 1 no. 16, B. 49, KKIVa/16"))
         let opus = try #require(CatalogueNumber.find(in: "Sonata, Op. 1"))
         #expect(!opus.matches("Sonata, op. 10"))
+        let mazurka = try #require(CatalogueNumber.find(in: "Mazurka No. 36 in A minor, Op. 59 No. 1"))
+        #expect(mazurka.matches("Mazurkas, op. 59: No. 1 in A minor. Moderato"))
         #expect(opus.matches("Sonata, op. 1: I. Allegro"))
     }
 }
@@ -74,7 +76,7 @@ struct MusicBrainzTests {
     @Test func clearBestMatchIsConfident() async throws {
         let found = try await MusicBrainzStub().musicBrainz.candidates(
             composer: "Frédéric Chopin", catalogue: #require(CatalogueNumber.find(in: "Nocturne, Op. 9 No. 2")))
-        // The two Andante movements drop: their work is in the list, at 74.
+        // The two Andante movements drop, because whole works are in the list.
         #expect(found.map(\.score) == [100, 74, 68])
         #expect(MusicBrainz.confident(found)?.id == MusicBrainzStub.nocturne)
     }
@@ -86,6 +88,13 @@ struct MusicBrainzTests {
             catalogue: #require(CatalogueNumber.find(in: "Violin Concerto in E minor, Op. 64")))
         #expect(found.map(\.score) == [95, 92])
         #expect(MusicBrainz.confident(found)?.id == "c230858f-8b2b-3e77-aa3e-777743980263")
+    }
+
+    @Test func aMovementAloneStays() {
+        let movement = [WorkCandidate(id: "m", title: "Mazurkas, op. 59: No. 1", score: 100)]
+        #expect(movement.preferringWholeWorks == movement)
+        let mixed = movement + [WorkCandidate(id: "w", title: "Mazurka, op. 59 no. 1", score: 80)]
+        #expect(mixed.preferringWholeWorks.map(\.id) == ["w"])
     }
 
     @Test func singleMatchWithALowScoreIsConfident() {

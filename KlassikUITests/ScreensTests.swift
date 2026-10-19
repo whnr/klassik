@@ -237,7 +237,7 @@ final class ScreensTests: XCTestCase {
             """,
             "work/\(k467)": work(k467, "Concerto for Piano no. 21 in C major, K. 467", "1785", "1785", mozart),
             "artist/\(mozart)": artist(mozart, "Wolfgang Amadeus Mozart", "1756-01-27", "1791-12-05"),
-            "artist?artist:\"Frédéric Chopin\" AND type:person": """
+            "artist?(artist:\"Frédéric Chopin\" OR alias:\"Frédéric Chopin\") AND type:person": """
             {"artists":[\(artist("09ff1fe8-d61c-4b98-bb82-18487c74d7b7", "Fryderyk Chopin", "1810-03-01", "1849-10-17"))]}
             """,
         ]

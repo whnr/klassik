@@ -99,7 +99,7 @@ final class MusicBrainzStub: @unchecked Sendable {
           {"id":"0c40c54e-6ea7-4ecd-8a92-93e38f0437e4","score":92,"title":"Violinkonzert in e-Moll, op. 64"},
           {"id":"6e6efb69-17ea-3687-af9c-3ba6d06f8446","score":90,"title":"Violinkonzert in e-Moll, op. 64: III. Allegretto non troppo – Allegro molto vivace"}]}
         """,
-        "artist?artist:\"Frédéric Chopin\" AND type:person": """
+        "artist?(artist:\"Frédéric Chopin\" OR alias:\"Frédéric Chopin\") AND type:person": """
         {"count":1,"artists":[{"id":"\(chopin)","name":"Fryderyk Chopin","score":100,"life-span":{"begin":"1810-03-01","end":"1849-10-17"}}]}
         """,
     ]

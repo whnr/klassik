@@ -47,9 +47,9 @@ struct CatalogueNumber: Equatable, Sendable {
         return !next.isNumber
     }
 
-    /// Lower case without accents, spaces, dots and commas.
+    /// Lower case without accents, spaces, dots, commas and colons. MusicBrainz writes "op. 59: No. 1".
     private static func squeeze(_ text: String) -> String {
         text.lowercased().folding(options: .diacriticInsensitive, locale: nil)
-            .filter { !" .,\u{2009}\u{00a0}".contains($0) }
+            .filter { !" .,:\u{2009}\u{00a0}".contains($0) }
     }
 }

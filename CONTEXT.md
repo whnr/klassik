@@ -28,9 +28,25 @@ _Avoid_: Favourite recording, default recording
 
 ### Views
 
+**Place**:
+One of the top-level parts of the app that the listener moves between: Library, Chronology, Search, Settings.
+_Avoid_: Tab, section, area
+
+**Library**:
+The place that holds the listener's own collection: composers, playlists and favourites. It shows nothing that Klassik picks for the listener.
+_Avoid_: Home, Browse
+
 **Chronology**:
 The view that places composers and their works by year.
 _Avoid_: Timeline, History
+
+**Mini player**:
+The bar that shows what plays, on top of every place.
+_Avoid_: Now playing bar
+
+**Player**:
+The full view of what plays. It opens from the mini player and covers the place below it.
+_Avoid_: Now playing, playback screen
 
 ### Listener data
 

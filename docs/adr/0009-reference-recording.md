@@ -1,6 +1,6 @@
 # 0009. The reference recording is a star
 
-Date: 2026-10-17, built 2026-10-18. Decided by Flo. Bead: sz-rs30.1.6.
+Date: 2026-10-17, built 2026-10-18. Decided by Flo. Bead: sz-rs30.1.6. Replaced by [0013](0013-favourites.md).
 
 ## Context
 

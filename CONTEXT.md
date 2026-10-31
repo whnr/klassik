@@ -19,12 +19,12 @@ One performance of a work, as the tracks of that work on one album.
 _Avoid_: Performance, version
 
 **Album**:
-The release that a recording comes from. It shows provenance only.
+The release that a recording comes from. It shows provenance, and the listener can make it a favourite.
 _Avoid_: Disc, CD
 
 **Reference recording**:
-The one recording of a work that plays when the listener plays the work.
-_Avoid_: Favourite recording, default recording
+The first recording in the list of a work: the first favourite recording, else the first that a favourite lifts, else the newest. It plays when the listener plays the work.
+_Avoid_: Default recording
 
 ### Views
 
@@ -50,6 +50,10 @@ _Avoid_: Now playing, playback screen
 
 ### Listener data
 
+**Favourite**:
+A composer, performer, work, recording or album that the listener marks as liked. It has no scale.
+_Avoid_: Mark, like, love, rating
+
 **Listening note**:
-A note that the listener attaches to a position in a recording.
-_Avoid_: Timeline tag, timeline comment
+A note that the listener attaches to a position in one recording. The same note does not fit another recording of the work, because tempos differ.
+_Avoid_: Timeline tag, timeline comment, bookmark

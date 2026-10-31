@@ -12,7 +12,8 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0006](0006-queue.md) | The queue holds recordings | 2026-10-18 |
 | [0007](0007-replaygain.md) | ReplayGain in album mode | 2026-10-18 |
 | [0008](0008-offline-storage.md) | Downloads and the cache | 2026-10-18 |
-| [0009](0009-reference-recording.md) | The reference recording is a star | 2026-10-18 |
+| [0009](0009-reference-recording.md) | The reference recording is a star (replaced by 0013) | 2026-10-18 |
 | [0010](0010-incremental-sync.md) | Sync at start only when the server changed | 2026-10-18 |
 | [0011](0011-enrichment.md) | Composition dates from MusicBrainz and Wikidata | 2026-10-19 |
 | [0012](0012-composer-lists.md) | Look up works composer by composer | 2026-10-19 |
+| [0013](0013-favourites.md) | Favourites and the recording order | 2026-10-31 |

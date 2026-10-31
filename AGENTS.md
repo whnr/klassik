@@ -58,3 +58,17 @@ Rules for coding agents in this repository.
 - A decision that a comment or a commit body cannot hold goes into an architecture decision record in [`docs/adr/`](docs/adr/). Write it when Flo makes the decision, and link it from the commit body. A changed decision gets a new record.
 - Prose (documentation, comments, commit bodies, bead text) follows ASD-STE100 Simplified Technical English: sentences of 20 words or fewer (25 for descriptions), active voice, one meaning for each word, no hedging.
 - Generated text is never longer than the thing it explains.
+
+## Agent skills
+
+### Issue tracker
+
+Beads in the Schaltzentrale ledger, reached only through the `sz` MCP. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Beads labels. Two are new (`needs-triage`, `needs-info`); three already exist. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.

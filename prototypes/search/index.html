@@ -1,0 +1,429 @@
+<!doctype html>
+<!--
+  PROTOTYPE, throw away. Map ticket sz-rs30.1.74.5: how does composable search look and behave?
+  Three variants of the Search place, switched with ?variant=A|B|C or the pill at the top.
+  A: sentence. B: tokens with an All/Any switch. C: funnel of sets.
+  Generated library only. Real composer and performer names are public facts, not anyone's library.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>Search prototype</title>
+<style>
+:root {
+  --bg: #f2f2f7; --card: #fff; --label: #000; --label2: rgba(60,60,67,.6); --label3: rgba(60,60,67,.3);
+  --sep: rgba(60,60,67,.18); --tint: #b5482f; --tintSoft: rgba(181,72,47,.12); --fill: rgba(118,118,128,.12);
+  --glass: rgba(250,250,252,.72); --glassLine: rgba(0,0,0,.08); --groupBg: rgba(181,72,47,.08);
+}
+@media (prefers-color-scheme: dark) { :root {
+  --bg: #000; --card: #1c1c1e; --label: #fff; --label2: rgba(235,235,245,.6); --label3: rgba(235,235,245,.3);
+  --sep: rgba(84,84,88,.6); --tint: #ff7a5c; --tintSoft: rgba(255,122,92,.18); --fill: rgba(118,118,128,.24);
+  --glass: rgba(40,40,44,.7); --glassLine: rgba(255,255,255,.1); --groupBg: rgba(255,122,92,.12);
+} }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; background: var(--bg); color: var(--label); font: 17px/1.3 -apple-system, system-ui, sans-serif; }
+body { overscroll-behavior-y: none; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+#app { padding: calc(env(safe-area-inset-top) + 44px) 0 calc(env(safe-area-inset-bottom) + 170px); min-height: 100vh; }
+h1.large { font-size: 34px; font-weight: 700; margin: 6px 16px 10px; letter-spacing: .3px; }
+.section-h { font-size: 13px; text-transform: uppercase; color: var(--label2); margin: 22px 32px 6px; letter-spacing: .2px; }
+.section-f { font-size: 13px; color: var(--label2); margin: 6px 32px 0; }
+.list { background: var(--card); border-radius: 12px; margin: 0 16px; overflow: hidden; }
+.row { display: flex; align-items: center; gap: 12px; padding: 10px 16px; min-height: 44px; position: relative; width: 100%; text-align: left; }
+.row + .row::before { content: ""; position: absolute; top: 0; left: 16px; right: 0; border-top: .5px solid var(--sep); }
+.row:active { background: var(--fill); }
+.row .main { flex: 1; min-width: 0; }
+.row .t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .s { font-size: 14px; color: var(--label2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .n { font-size: 15px; color: var(--label2); font-variant-numeric: tabular-nums; }
+.row .n.zero { color: var(--label3); }
+.chev::after { content: "›"; color: var(--label3); font-size: 22px; margin-left: 4px; }
+.kind { font-size: 12px; color: var(--label2); background: var(--fill); border-radius: 6px; padding: 2px 6px; white-space: nowrap; }
+.icon { width: 30px; height: 30px; border-radius: 7px; display: grid; place-items: center; font-size: 15px; color: #fff; flex: none; }
+.k-genre { background: #8e8e93; } .k-composer { background: #b5482f; } .k-conductor { background: #5e5ce6; } .k-performer { background: #30a46c; } .k-work { background: #0a84ff; }
+.empty { text-align: center; color: var(--label2); padding: 40px 32px; }
+.hit { font-weight: 600; }
+
+/* bottom chrome: mini player plus the search field, as in an iOS 26 search tab */
+#bottom { position: fixed; left: 0; right: 0; bottom: 0; padding: 0 12px calc(env(safe-area-inset-bottom) + 8px); z-index: 10; transition: bottom .2s; }
+.glass { background: var(--glass); backdrop-filter: blur(24px) saturate(1.8); -webkit-backdrop-filter: blur(24px) saturate(1.8); border: .5px solid var(--glassLine); box-shadow: 0 6px 24px rgba(0,0,0,.12); }
+#mini { border-radius: 26px; height: 52px; display: flex; align-items: center; gap: 10px; padding: 0 16px 0 8px; margin: 0 4px 8px; }
+#mini .art { width: 36px; height: 36px; border-radius: 8px; background: linear-gradient(135deg,#b5482f,#e7a15a); }
+#mini .t { flex: 1; font-size: 15px; }
+#mini .t small { display: block; color: var(--label2); font-size: 13px; }
+.searchrow { display: flex; gap: 8px; align-items: center; }
+.roundbtn { width: 50px; height: 50px; border-radius: 25px; display: grid; place-items: center; font-size: 20px; flex: none; }
+.field { flex: 1; min-height: 50px; border-radius: 25px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 7px 14px; }
+.field .mag { color: var(--label2); }
+.field input { flex: 1; min-width: 80px; border: 0; outline: 0; background: transparent; font: inherit; color: var(--label); padding: 6px 0; }
+.field input::placeholder { color: var(--label2); }
+body.typing #mini { display: none; }
+
+/* tokens and chips */
+.tok { display: inline-flex; align-items: center; gap: 4px; background: var(--tintSoft); color: var(--tint); border-radius: 8px; padding: 4px 8px; font-size: 15px; white-space: nowrap; }
+.tok .x { opacity: .6; font-size: 13px; }
+.seg { display: flex; background: var(--fill); border-radius: 9px; padding: 2px; margin: 0 16px; }
+.seg button { flex: 1; padding: 6px; border-radius: 7px; font-size: 14px; font-weight: 500; }
+.seg button.on { background: var(--card); box-shadow: 0 1px 3px rgba(0,0,0,.15); }
+
+/* A: sentence */
+.sentence { margin: 4px 16px 0; font-size: 26px; line-height: 1.55; font-weight: 600; letter-spacing: -.2px; }
+.sentence .lead { color: var(--label2); font-weight: 500; }
+.sentence .grp { background: var(--groupBg); border-radius: 10px; padding: 1px 4px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.sentence .term { color: var(--tint); border-bottom: 2px solid var(--tintSoft); }
+.sentence .verb { color: var(--label2); font-weight: 500; }
+.sentence .conn { color: var(--label2); font-weight: 500; font-style: italic; border-bottom: 2px dashed var(--label3); }
+.sentence .count { color: var(--label2); font-weight: 400; font-size: 15px; display: block; letter-spacing: 0; line-height: 1.4; margin-top: 4px; }
+.hint { font-size: 13px; color: var(--label2); margin: 6px 16px 0; }
+
+/* C: funnel */
+.funnel { margin: 0 16px; }
+.set { background: var(--card); border-radius: 12px; padding: 10px 12px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; position: relative; }
+.set.target { box-shadow: 0 0 0 2px var(--tint); }
+.set .or { color: var(--label2); font-size: 14px; font-style: italic; }
+.set .cnt { margin-left: auto; font-size: 13px; color: var(--label2); font-variant-numeric: tabular-nums; }
+.and { display: flex; align-items: center; gap: 8px; margin: 4px 0 4px 18px; color: var(--label2); font-size: 13px; font-style: italic; }
+.and::before { content: ""; width: 2px; height: 18px; background: var(--sep); }
+.orbtn { font-size: 13px; color: var(--tint); background: var(--tintSoft); border-radius: 12px; padding: 4px 10px; white-space: nowrap; }
+.total { font-size: 13px; color: var(--label2); margin: 0 16px 8px; font-variant-numeric: tabular-nums; }
+
+/* work page stub */
+#page { position: fixed; inset: 0; background: var(--bg); z-index: 20; overflow-y: auto; transform: translateX(100%); transition: transform .3s cubic-bezier(.2,.8,.2,1); padding: calc(env(safe-area-inset-top) + 8px) 0 40px; }
+#page.open { transform: none; }
+.navbar { display: flex; align-items: center; height: 44px; padding: 0 8px; }
+.navbar button { color: var(--tint); font-size: 17px; display: flex; align-items: center; gap: 2px; }
+.navbar button::before { content: "‹"; font-size: 30px; line-height: 1; margin-top: -3px; }
+
+/* prototype switcher: at the top, because the bottom belongs to the iOS search field */
+#switcher { position: fixed; top: calc(env(safe-area-inset-top) + 6px); left: 50%; transform: translateX(-50%); z-index: 30; display: flex; align-items: center; background: #111; color: #fff; border-radius: 18px; font-size: 13px; box-shadow: 0 2px 10px rgba(0,0,0,.35); }
+#switcher button { color: #fff; padding: 7px 12px; font-size: 15px; }
+#switcher span { padding: 0 2px; white-space: nowrap; }
+#switcher a { color: #ff9f87; padding: 7px 10px 7px 4px; text-decoration: none; }
+</style>
+</head>
+<body>
+<div id="switcher"><button id="prev">‹</button><span id="vlabel"></span><button id="next">›</button><a id="reset" href="#">reset</a></div>
+<div id="app"></div>
+<div id="bottom">
+  <div id="mini" class="glass"><div class="art"></div><div class="t">Symphony No. 4 in E minor<small>Brahms · Kleiber</small></div><span>▶︎</span></div>
+  <div class="searchrow">
+    <button class="roundbtn glass" title="Back to the other places">⌂</button>
+    <div class="field glass" id="field"><span class="mag">⌕</span><span id="fieldToks" style="display:contents"></span><input id="q" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search"></div>
+  </div>
+</div>
+<div id="page"></div>
+
+<script>
+// ---------- generated library ----------
+let seed = 7;
+const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const pick = a => a[Math.floor(rnd() * a.length)];
+const pickN = (a, n) => { const c = [...a], out = []; while (out.length < n && c.length) out.push(c.splice(Math.floor(rnd() * c.length), 1)[0]); return out; };
+
+const COMPOSERS = [
+  ["Johann Sebastian Bach", "Bach", 1685, "Baroque", "BWV", ["Orchestral", "Concerto", "Piano", "Choral", "Chamber"]],
+  ["Antonio Vivaldi", "Vivaldi", 1678, "Baroque", "RV", ["Concerto", "Choral"]],
+  ["George Frideric Handel", "Handel", 1685, "Baroque", "HWV", ["Orchestral", "Choral", "Opera"]],
+  ["Joseph Haydn", "Haydn", 1732, "Classical", "Hob.", ["Orchestral", "Chamber", "Piano"]],
+  ["Wolfgang Amadeus Mozart", "Mozart", 1756, "Classical", "K.", ["Orchestral", "Concerto", "Piano", "Chamber", "Opera", "Choral"]],
+  ["Ludwig van Beethoven", "Beethoven", 1770, "Classical", "Op.", ["Orchestral", "Concerto", "Piano", "Chamber"]],
+  ["Franz Schubert", "Schubert", 1797, "Romantic", "D.", ["Orchestral", "Piano", "Chamber", "Vocal"]],
+  ["Frédéric Chopin", "Chopin", 1810, "Romantic", "Op.", ["Piano", "Concerto"]],
+  ["Robert Schumann", "Schumann", 1810, "Romantic", "Op.", ["Orchestral", "Piano", "Concerto", "Vocal"]],
+  ["Franz Liszt", "Liszt", 1811, "Romantic", "S.", ["Piano", "Orchestral"]],
+  ["Johannes Brahms", "Brahms", 1833, "Romantic", "Op.", ["Orchestral", "Concerto", "Piano", "Chamber", "Choral"]],
+  ["Anton Bruckner", "Bruckner", 1824, "Romantic", "WAB", ["Orchestral", "Choral"]],
+  ["Pyotr Ilyich Tchaikovsky", "Tchaikovsky", 1840, "Romantic", "Op.", ["Orchestral", "Concerto", "Piano"]],
+  ["Antonín Dvořák", "Dvořák", 1841, "Romantic", "Op.", ["Orchestral", "Concerto", "Chamber"]],
+  ["Gustav Mahler", "Mahler", 1860, "Romantic", "", ["Orchestral", "Vocal"]],
+  ["Claude Debussy", "Debussy", 1862, "Modern", "L.", ["Orchestral", "Piano", "Chamber"]],
+  ["Jean Sibelius", "Sibelius", 1865, "Romantic", "Op.", ["Orchestral", "Concerto"]],
+  ["Sergei Rachmaninoff", "Rachmaninoff", 1873, "Romantic", "Op.", ["Piano", "Concerto", "Orchestral"]],
+  ["Maurice Ravel", "Ravel", 1875, "Modern", "M.", ["Orchestral", "Piano", "Concerto", "Chamber"]],
+  ["Igor Stravinsky", "Stravinsky", 1882, "Modern", "", ["Orchestral"]],
+  ["Dmitri Shostakovich", "Shostakovich", 1906, "Modern", "Op.", ["Orchestral", "Chamber", "Concerto"]],
+];
+const TITLES = {
+  Orchestral: n => `Symphony No. ${n}`, Concerto: n => pick([`Piano Concerto No. ${n}`, `Violin Concerto No. ${n}`, `Cello Concerto`, `Concerto for Orchestra`]),
+  Piano: n => pick([`Piano Sonata No. ${n + 10}`, `Études`, `Nocturnes`, `Préludes`, `Variations`, `Impromptus`, `Ballade No. ${n}`]),
+  Chamber: n => pick([`String Quartet No. ${n}`, `Piano Trio No. ${n}`, `Cello Sonata No. ${n}`, `Piano Quintet`]),
+  Choral: () => pick(["Requiem", "Mass in B minor", "Te Deum", "Magnificat", "Stabat Mater"]),
+  Vocal: () => pick(["Lieder", "Winterreise", "Songs of a Wayfarer", "Dichterliebe"]),
+  Opera: () => pick(["Le nozze di Figaro", "Giulio Cesare", "Don Giovanni", "Rinaldo"]),
+};
+const KEYS = ["C major", "C minor", "D major", "D minor", "E-flat major", "E minor", "F major", "G minor", "A major", "A minor", "B-flat major", "B minor"];
+const CONDUCTORS = ["Herbert von Karajan", "Claudio Abbado", "Leonard Bernstein", "Wilhelm Furtwängler", "Carlos Kleiber", "Georg Solti", "Simon Rattle", "John Eliot Gardiner", "Nikolaus Harnoncourt", "Bernard Haitink", "Mariss Jansons", "Yannick Nézet-Séguin", "Trevor Pinnock", "Teodor Currentzis"];
+const ORCHESTRAS = ["Berliner Philharmoniker", "Wiener Philharmoniker", "Royal Concertgebouw Orchestra", "London Symphony Orchestra", "Chamber Orchestra of Europe", "English Baroque Soloists", "Concentus Musicus Wien", "Gewandhausorchester Leipzig"];
+const SOLOISTS = { Piano: ["Martha Argerich", "Maurizio Pollini", "Krystian Zimerman", "Mitsuko Uchida", "Daniil Trifonov", "Glenn Gould", "Alfred Brendel"], Violin: ["Anne-Sophie Mutter", "Gidon Kremer", "Hilary Hahn", "Isabelle Faust"], Cello: ["Mstislav Rostropovich", "Jacqueline du Pré", "Sol Gabetta"], Tenor: ["Ian Bostridge", "Jonas Kaufmann"], Baritone: ["Dietrich Fischer-Dieskau", "Christian Gerhaher"] };
+const QUARTETS = ["Alban Berg Quartett", "Emerson String Quartet", "Quatuor Ébène", "Hagen Quartett"];
+const CHOIRS = ["Monteverdi Choir", "Arnold Schoenberg Chor", "RIAS Kammerchor"];
+
+const composers = COMPOSERS.map(([name, short, born, period, cat, scorings], i) => ({ id: "c" + i, name, short, born, period, cat, scorings }));
+const works = [], recs = [];
+for (const c of composers) {
+  const count = 4 + Math.floor(rnd() * 6), seen = new Set();
+  for (let i = 0; i < count; i++) {
+    const scoring = pick(c.scorings), n = 1 + Math.floor(rnd() * 9);
+    let title = TITLES[scoring](n);
+    if (seen.has(title)) continue; seen.add(title);
+    if (/No\.|Sonata|Concerto|Quartet|Trio|Quintet/.test(title)) title += ` in ${pick(KEYS)}`;
+    const catNo = c.cat ? `${c.cat} ${Math.floor(10 + rnd() * (c.cat === "K." ? 600 : c.cat === "BWV" ? 1000 : 120))}` : "";
+    const w = { id: "w" + works.length, composer: c, title, catNo, genres: ["Classical", scoring, c.period] };
+    works.push(w);
+    const nr = 1 + Math.floor(rnd() * 4);
+    for (let r = 0; r < nr; r++) {
+      const rec = { id: "r" + recs.length, work: w, conductor: null, performers: [], year: 1950 + Math.floor(rnd() * 74) };
+      const conductor = () => (rnd() < 0.3 ? "Herbert von Karajan" : pick(CONDUCTORS));
+      if (["Orchestral", "Concerto", "Choral", "Opera"].includes(scoring)) {
+        rec.conductor = conductor();
+        const orch = rec.conductor === "Herbert von Karajan" && rnd() < .7 ? "Berliner Philharmoniker" : pick(ORCHESTRAS);
+        rec.performers.push({ name: orch, sub: "Orchestra" });
+      }
+      if (scoring === "Concerto") { const inst = title.includes("Violin") ? "Violin" : title.includes("Cello") ? "Cello" : "Piano"; rec.performers.unshift({ name: pick(SOLOISTS[inst]), sub: inst }); }
+      if (scoring === "Piano") rec.performers.push({ name: pick(SOLOISTS.Piano), sub: "Piano" });
+      if (scoring === "Chamber") rec.performers.push(title.includes("Quartet") ? { name: pick(QUARTETS), sub: "String Quartet" } : { name: pick(SOLOISTS.Piano), sub: "Piano" });
+      if (scoring === "Choral" || scoring === "Opera") rec.performers.push({ name: pick(CHOIRS), sub: "Choir" });
+      if (scoring === "Vocal") { const v = rnd() < .5 ? "Tenor" : "Baritone"; rec.performers.push({ name: pick(SOLOISTS[v]), sub: v }, { name: pick(SOLOISTS.Piano), sub: "Piano" }); }
+      recs.push(rec);
+    }
+  }
+}
+
+// ---------- search terms ----------
+// A term is one picked value. Genres carry no facet: the app does not know which value is the period.
+const termKey = t => t.kind + ":" + t.value;
+const terms = new Map();
+const addTerm = (kind, value, extra = {}) => { const k = kind + ":" + value; if (!terms.has(k)) terms.set(k, { kind, value, ...extra }); };
+for (const w of works) { w.genres.forEach(g => addTerm("genre", g)); addTerm("composer", w.composer.name, { short: w.composer.short }); }
+for (const r of recs) { if (r.conductor) addTerm("conductor", r.conductor); r.performers.forEach(p => addTerm("performer", p.name, { sub: p.sub })); }
+const termList = [...terms.values()];
+const lastName = s => s.split(" ").slice(-1)[0];
+const shortName = t => t.kind === "composer" ? t.short : t.kind === "genre" ? t.value : lastName(t.value).replace(/^Pré$/, "du Pré");
+
+const recMatches = (r, t) => {
+  switch (t.kind) {
+    case "genre": return r.work.genres.includes(t.value);
+    case "composer": return r.work.composer.name === t.value;
+    case "conductor": return r.conductor === t.value;
+    case "performer": return r.performers.some(p => p.name === t.value);
+  }
+};
+// groups: AND between groups, OR inside a group
+const matchGroups = (r, groups) => groups.every(g => g.length === 0 || g.some(t => recMatches(r, t)));
+const run = groups => recs.filter(r => matchGroups(r, groups));
+
+const fold = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const wordStarts = (s, q) => fold(s).split(/[\s\-.,]+/).some(w => w.startsWith(q)) || fold(s).startsWith(q);
+function suggest(q, within, exclude) {
+  q = fold(q.trim()); if (!q) return { terms: [], works: [] };
+  const ex = new Set(exclude.map(termKey));
+  const ts = termList.filter(t => !ex.has(termKey(t)) && wordStarts(t.value, q))
+    .map(t => ({ t, n: within.filter(r => recMatches(r, t)).length, all: recs.filter(r => recMatches(r, t)).length }))
+    .sort((a, b) => (b.n > 0) - (a.n > 0) || b.all - a.all).slice(0, 8);
+  const ws = works.filter(w => wordStarts(w.title + " " + w.catNo, q) || fold(w.catNo).replace(/\s/g, "").startsWith(q.replace(/\s/g, ""))).slice(0, 4);
+  return { terms: ts, works: ws };
+}
+
+// ---------- shared rendering ----------
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const ICON = { genre: "♯", composer: "✎", conductor: "𝄞", performer: "♪", work: "♫" };
+const KIND = { genre: "Genre", composer: "Composer", conductor: "Conductor", performer: "Performer" };
+const kindLabel = t => t.kind === "performer" && t.sub ? t.sub : KIND[t.kind];
+const hl = (s, q) => { q = fold(q.trim()); if (!q) return esc(s); const i = fold(s).indexOf(q); return i < 0 ? esc(s) : esc(s.slice(0, i)) + `<span class="hit">${esc(s.slice(i, i + q.length))}</span>` + esc(s.slice(i + q.length)); };
+
+function suggestionRows(sug, q, trailing) {
+  let h = "";
+  if (sug.terms.length) {
+    h += `<div class="section-h">Add to search</div><div class="list">`;
+    for (const { t, n } of sug.terms) h += `<button class="row" data-term="${esc(termKey(t))}"><span class="icon k-${t.kind}">${ICON[t.kind]}</span><span class="main"><div class="t">${hl(t.value, q)}</div></span><span class="kind">${esc(kindLabel(t))}</span><span class="n ${n ? "" : "zero"}">${n}</span>${trailing ? trailing(t) : ""}</button>`;
+    h += `</div><div class="section-f">The number counts the recordings that remain when you add it.${trailing ? " Tap a row for “and”, tap “or” to join the last set." : ""}</div>`;
+  }
+  if (sug.works.length) {
+    h += `<div class="section-h">Works</div><div class="list">`;
+    for (const w of sug.works) h += `<button class="row chev" data-work="${w.id}"><span class="icon k-work">${ICON.work}</span><span class="main"><div class="t">${hl(w.title, q)}</div><div class="s">${esc(w.composer.short)}${w.catNo ? " · " + hl(w.catNo, q) : ""}</div></span></button>`;
+    h += `</div>`;
+  }
+  if (!sug.terms.length && !sug.works.length) h += `<div class="empty">Nothing in your library starts with “${esc(q)}”.</div>`;
+  return h;
+}
+function resultRows(matched, limit = 60) {
+  const byWork = new Map();
+  for (const r of matched) { if (!byWork.has(r.work)) byWork.set(r.work, []); byWork.get(r.work).push(r); }
+  const list = [...byWork.entries()].sort((a, b) => a[0].composer.born - b[0].composer.born || a[0].title.localeCompare(b[0].title));
+  if (!list.length) return `<div class="empty">No recording matches all of this.<br>Remove a term, or join two with “or”.</div>`;
+  let h = `<div class="section-h">${list.length} work${list.length > 1 ? "s" : ""} · ${matched.length} recording${matched.length > 1 ? "s" : ""}</div><div class="list">`;
+  for (const [w, rs] of list.slice(0, limit)) {
+    const who = [...new Set(rs.map(r => r.conductor ? lastName(r.conductor) : lastName(r.performers[0].name)))].slice(0, 3).join(", ");
+    h += `<button class="row chev" data-work="${w.id}"><span class="main"><div class="t">${esc(w.title)}</div><div class="s">${esc(w.composer.short)}${w.catNo ? " · " + esc(w.catNo) : ""} · ${rs.length === 1 ? who : rs.length + " recordings: " + who}</div></span></button>`;
+  }
+  return h + `</div>`;
+}
+function startRows() {
+  const top = kind => termList.filter(t => t.kind === kind).map(t => ({ t, n: recs.filter(r => recMatches(r, t)).length })).sort((a, b) => b.n - a.n).slice(0, 4);
+  let h = `<div class="section-h">Try</div><div class="list">`;
+  for (const { t, n } of [...top("genre").slice(1, 4), ...top("conductor").slice(0, 2), ...top("performer").filter(x => x.t.sub === "Piano").slice(0, 2)])
+    h += `<button class="row" data-term="${esc(termKey(t))}"><span class="icon k-${t.kind}">${ICON[t.kind]}</span><span class="main"><div class="t">${esc(t.value)}</div></span><span class="kind">${esc(kindLabel(t))}</span><span class="n">${n}</span></button>`;
+  return h + `</div><div class="section-f">Type a few letters: a genre, composer, conductor or performer. ${recs.length} recordings, ${works.length} works in this generated library.</div>`;
+}
+
+// ---------- state ----------
+const S = { q: "", A: [], B: { picks: [], mode: "all" }, C: { groups: [], target: null } };
+const input = document.getElementById("q");
+const app = document.getElementById("app");
+const fieldToks = document.getElementById("fieldToks");
+
+// ---------- variant A: one sentence ----------
+const VERB = { genre: "tagged", composer: "by", conductor: "conducted by", performer: "with" };
+const A = {
+  name: "Sentence",
+  groups: () => S.A,
+  add(t) {
+    // a second conductor or composer joins with "or": one recording has one of each. A genre adds with "and".
+    const g = t.kind !== "genre" && S.A.find(g => g.every(x => x.kind === t.kind));
+    g ? g.push(t) : S.A.push([t]);
+  },
+  render() {
+    const groups = S.A, matched = run(groups);
+    let h = `<h1 class="large">Search</h1>`;
+    if (groups.length) {
+      let s = `<span class="lead">Works </span>`;
+      groups.forEach((g, gi) => {
+        if (gi) s += ` <button class="conn" data-merge="${gi}">and</button> `;
+        s += `<span class="grp">`;
+        g.forEach((t, ti) => {
+          const verb = ti === 0 || t.kind !== g[ti - 1].kind ? `<span class="verb">${VERB[t.kind]} </span>` : "";
+          if (ti) s += ` <button class="conn" data-split="${gi}:${ti}">or</button> `;
+          s += `${verb}<button class="term" data-remove="${gi}:${ti}">${esc(shortName(t))}</button>`;
+        });
+        s += `</span>`;
+      });
+      h += `<div class="sentence">${s}<span class="count">${matched.length} recordings of ${new Set(matched.map(r => r.work)).size} works</span></div>`;
+      h += `<div class="hint">Tap “and” or “or” to swap it. Tap a name to remove it.</div>`;
+    }
+    if (S.q) h += suggestionRows(suggest(S.q, matched, groups.flat()), S.q);
+    else h += groups.length ? resultRows(matched) : startRows();
+    app.innerHTML = h;
+    fieldToks.innerHTML = "";
+    input.placeholder = groups.length ? "and …" : "Genres, composers, performers";
+  },
+  click(el) {
+    if (el.dataset.remove) { const [g, t] = el.dataset.remove.split(":").map(Number); S.A[g].splice(t, 1); if (!S.A[g].length) S.A.splice(g, 1); return true; }
+    if (el.dataset.split) { const [g, t] = el.dataset.split.split(":").map(Number); S.A.splice(g + 1, 0, S.A[g].splice(t)); return true; }
+    if (el.dataset.merge) { const g = Number(el.dataset.merge); S.A[g - 1].push(...S.A[g]); S.A.splice(g, 1); return true; }
+  },
+};
+
+// ---------- variant B: tokens in the field, one All/Any switch ----------
+const B = {
+  name: "Tokens + All/Any",
+  groups: () => S.B.mode === "all" ? S.B.picks.map(t => [t]) : [S.B.picks],
+  add(t) { S.B.picks.push(t); },
+  render() {
+    const groups = B.groups(), matched = run(groups);
+    let h = `<h1 class="large">Search</h1>`;
+    if (S.B.picks.length > 1) h += `<div class="seg"><button data-mode="all" class="${S.B.mode === "all" ? "on" : ""}">Match all</button><button data-mode="any" class="${S.B.mode === "any" ? "on" : ""}">Match any</button></div>`;
+    if (S.q) h += suggestionRows(suggest(S.q, matched, S.B.picks), S.q);
+    else h += S.B.picks.length ? resultRows(matched) : startRows();
+    app.innerHTML = h;
+    fieldToks.innerHTML = S.B.picks.map((t, i) => `<button class="tok" data-untok="${i}">${esc(shortName(t))}<span class="x">✕</span></button>`).join("");
+    input.placeholder = S.B.picks.length ? "" : "Genres, composers, performers";
+  },
+  click(el) {
+    if (el.dataset.untok) { S.B.picks.splice(Number(el.dataset.untok), 1); return true; }
+    if (el.dataset.mode) { S.B.mode = el.dataset.mode; return true; }
+  },
+};
+
+// ---------- variant C: a funnel of sets ----------
+const C = {
+  name: "Funnel of sets",
+  groups: () => S.C.groups,
+  add(t, intoTarget) {
+    if (intoTarget && S.C.target != null) S.C.groups[S.C.target].push(t);
+    else { S.C.groups.push([t]); }
+    S.C.target = null;
+  },
+  render() {
+    const gs = S.C.groups, matched = run(gs);
+    let h = `<h1 class="large">Search</h1>`;
+    if (gs.length) {
+      h += `<div class="total">${recs.length} recordings in the library</div><div class="funnel">`;
+      gs.forEach((g, gi) => {
+        const n = run(gs.slice(0, gi + 1)).length;
+        if (gi) h += `<div class="and">and</div>`;
+        h += `<div class="set ${S.C.target === gi ? "target" : ""}">`;
+        g.forEach((t, ti) => { if (ti) h += `<span class="or">or</span>`; h += `<button class="tok" data-cremove="${gi}:${ti}">${esc(shortName(t))}<span class="x">✕</span></button>`; });
+        h += `<button class="orbtn" data-target="${gi}">${S.C.target === gi ? "Choose below" : "or …"}</button><span class="cnt">→ ${n}</span></div>`;
+      });
+      h += `</div>`;
+    }
+    const trailing = gs.length && S.C.target == null ? t => `<span class="orbtn" data-orinto="${esc(termKey(t))}">or</span>` : null;
+    if (S.q) h += suggestionRows(suggest(S.q, matched, gs.flat()), S.q, trailing);
+    else h += gs.length ? resultRows(matched) : startRows();
+    app.innerHTML = h;
+    fieldToks.innerHTML = "";
+    input.placeholder = S.C.target != null ? "or …" : gs.length ? "and …" : "Genres, composers, performers";
+  },
+  click(el) {
+    if (el.dataset.cremove) { const [g, t] = el.dataset.cremove.split(":").map(Number); S.C.groups[g].splice(t, 1); if (!S.C.groups[g].length) S.C.groups.splice(g, 1); S.C.target = null; return true; }
+    if (el.dataset.target) { const g = Number(el.dataset.target); S.C.target = S.C.target === g ? null : g; input.focus(); return true; }
+  },
+};
+
+// ---------- wiring ----------
+const VARIANTS = { A, B, C }, KEYS_V = Object.keys(VARIANTS);
+let V = new URLSearchParams(location.search).get("variant");
+if (!VARIANTS[V]) V = "A";
+function setVariant(v) { V = v; const u = new URL(location); u.searchParams.set("variant", v); history.replaceState(null, "", u); render(); }
+function render() { document.getElementById("vlabel").textContent = `${V} · ${VARIANTS[V].name}`; VARIANTS[V].render(); }
+document.getElementById("prev").onclick = () => setVariant(KEYS_V[(KEYS_V.indexOf(V) + KEYS_V.length - 1) % KEYS_V.length]);
+document.getElementById("next").onclick = () => setVariant(KEYS_V[(KEYS_V.indexOf(V) + 1) % KEYS_V.length]);
+document.getElementById("reset").onclick = e => { e.preventDefault(); S.q = ""; input.value = ""; S.A = []; S.B = { picks: [], mode: "all" }; S.C = { groups: [], target: null }; render(); };
+addEventListener("keydown", e => {
+  if (e.target.closest("input,textarea,[contenteditable]")) return;
+  if (e.key === "ArrowLeft") document.getElementById("prev").click();
+  if (e.key === "ArrowRight") document.getElementById("next").click();
+});
+input.addEventListener("input", () => { S.q = input.value; render(); });
+input.addEventListener("focus", () => document.body.classList.add("typing"));
+input.addEventListener("blur", () => setTimeout(() => document.body.classList.remove("typing"), 150));
+input.addEventListener("keydown", e => {
+  if (e.key === "Backspace" && !input.value && V === "B" && S.B.picks.length) { S.B.picks.pop(); render(); }
+  if (e.key === "Enter") input.blur();
+});
+
+function choose(t, intoTarget) { VARIANTS[V].add(t, intoTarget); S.q = ""; input.value = ""; render(); }
+document.addEventListener("click", e => {
+  const el = e.target.closest("button, [data-orinto]"); if (!el) return;
+  if (el.dataset.orinto) { e.stopPropagation(); S.C.target = S.C.groups.length - 1; choose(terms.get(el.dataset.orinto), true); return; }
+  if (el.dataset.term) { choose(terms.get(el.dataset.term), true); return; }
+  if (el.dataset.work) { openWork(el.dataset.work); return; }
+  if (el.dataset.back != null) { document.getElementById("page").classList.remove("open"); return; }
+  if (VARIANTS[V].click(el)) render();
+});
+
+// Work page stub: the real one is map ticket sz-rs30.1.74.10. It shows which recordings matched.
+function openWork(id) {
+  const w = works.find(w => w.id === id), groups = VARIANTS[V].groups();
+  const rs = recs.filter(r => r.work === w), hit = rs.filter(r => matchGroups(r, groups));
+  const row = r => `<div class="row"><span class="main"><div class="t">${esc(r.conductor ? r.conductor : r.performers[0].name)}</div><div class="s">${esc(r.performers.map(p => p.name).filter(n => n !== r.conductor).join(", "))} · ${r.year}</div></span></div>`;
+  let h = `<div class="navbar"><button data-back>Search</button></div><h1 class="large" style="font-size:28px">${esc(w.title)}</h1><div class="section-f" style="margin:0 16px">${esc(w.composer.name)}${w.catNo ? " · " + esc(w.catNo) : ""} · ${esc(w.genres.join("; "))}</div>`;
+  if (groups.flat().length && hit.length < rs.length) h += `<div class="section-h">Match your search</div><div class="list">${hit.map(row).join("")}</div><div class="section-h">Other recordings</div><div class="list">${rs.filter(r => !hit.includes(r)).map(row).join("")}</div>`;
+  else h += `<div class="section-h">Recordings</div><div class="list">${rs.map(row).join("")}</div>`;
+  h += `<div class="section-f">Stub. The work page is its own map ticket.</div>`;
+  const p = document.getElementById("page"); p.innerHTML = h; p.scrollTop = 0; p.classList.add("open");
+}
+
+// keep the search field above the keyboard
+if (window.visualViewport) {
+  const bottom = document.getElementById("bottom");
+  const place = () => { const kb = innerHeight - visualViewport.height - visualViewport.offsetTop; bottom.style.bottom = Math.max(0, kb) + "px"; };
+  visualViewport.addEventListener("resize", place); visualViewport.addEventListener("scroll", place);
+}
+render();
+</script>
+</body>
+</html>

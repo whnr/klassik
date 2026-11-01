@@ -1,8 +1,8 @@
 <!doctype html>
 <!--
   PROTOTYPE, throw away. Map ticket sz-rs30.1.74.5: how does composable search look and behave?
-  Three variants of the Search place, switched with ?variant=A|B|C or the pill at the top.
-  A: sentence. B: tokens with an All/Any switch. C: funnel of sets.
+  Three variants of the Search place, switched with ?variant=A|B|C|D or the pill at the top.
+  A: sentence. B: tokens with an All/Any switch. C: funnel of sets. D: results first, refine rows.
   Generated library only. Real composer and performer names are public facts, not anyone's library.
 -->
 <html lang="en">
@@ -89,6 +89,28 @@ body.typing #mini { display: none; }
 .and::before { content: ""; width: 2px; height: 18px; background: var(--sep); }
 .orbtn { font-size: 13px; color: var(--tint); background: var(--tintSoft); border-radius: 12px; padding: 4px 10px; white-space: nowrap; }
 .total { font-size: 13px; color: var(--label2); margin: 0 16px 8px; font-variant-numeric: tabular-nums; }
+
+/* D: refine rows */
+.dsum { margin: 0 16px 4px; font-size: 15px; color: var(--label2); display: flex; gap: 8px; align-items: baseline; }
+.dsum .q { flex: 1; min-width: 0; }
+.dsum .q b { color: var(--label); font-weight: 600; }
+.dsum .clr { color: var(--tint); font-size: 15px; flex: none; }
+.drow { display: flex; gap: 6px; align-items: center; overflow-x: auto; padding: 5px 16px; scrollbar-width: none; }
+.drow::-webkit-scrollbar { display: none; }
+.drow .lab { font-size: 13px; color: var(--label2); flex: none; width: 70px; }
+.dchip { flex: none; display: inline-flex; align-items: baseline; gap: 5px; background: var(--card); border: .5px solid var(--sep); border-radius: 17px; padding: 6px 12px; font-size: 15px; white-space: nowrap; }
+.dchip:active { background: var(--fill); }
+.dchip small { font-size: 12px; color: var(--label2); }
+.dchip .c { font-size: 13px; color: var(--label2); font-variant-numeric: tabular-nums; }
+.dchip.on { background: var(--tint); border-color: var(--tint); color: #fff; }
+.dchip.on small, .dchip.on .c { color: rgba(255,255,255,.8); }
+.dchip.on::after { content: "✕"; font-size: 11px; opacity: .8; margin-left: 1px; }
+.dchip.sug { background: var(--tintSoft); border-color: transparent; color: var(--tint); }
+.dchip.sug::before { content: "+"; font-weight: 600; }
+.dmode { flex: none; display: flex; background: var(--fill); border-radius: 8px; padding: 2px; }
+.dmode button { font-size: 13px; padding: 4px 9px; border-radius: 6px; color: var(--label2); }
+.dmode button.on { background: var(--card); color: var(--label); box-shadow: 0 1px 2px rgba(0,0,0,.15); }
+.dfoot { font-size: 12px; color: var(--label2); margin: 4px 16px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* work page stub */
 #page { position: fixed; inset: 0; background: var(--bg); z-index: 20; overflow-y: auto; transform: translateX(100%); transition: transform .3s cubic-bezier(.2,.8,.2,1); padding: calc(env(safe-area-inset-top) + 8px) 0 40px; }
@@ -270,7 +292,7 @@ function startRows() {
 }
 
 // ---------- state ----------
-const S = { q: "", A: [], B: { picks: [], mode: "all" }, C: { groups: [], target: null } };
+const S = { q: "", A: [], B: { picks: [], mode: "all" }, C: { groups: [], target: null }, D: { picks: { composer: [], conductor: [], performer: [], genre: [] }, gmode: "all" } };
 const input = document.getElementById("q");
 const app = document.getElementById("app");
 const fieldToks = document.getElementById("fieldToks");
@@ -373,15 +395,91 @@ const C = {
   },
 };
 
+// ---------- variant D: results first, refine rows built from the results ----------
+// Chips in one row join with "or", rows join with "and". Genres are untyped, so "Romantic" and "Piano"
+// share one row. They join with "and" by default; the Genre row carries an All/Any switch.
+const D_FACETS = [["composer", "Composer"], ["conductor", "Conductor"], ["performer", "Performer"], ["genre", "Genre"]];
+const dGroups = skip => {
+  const p = S.D.picks, gs = [];
+  for (const [k] of D_FACETS) {
+    if (k === skip || !p[k].length) continue;
+    if (k === "genre" && S.D.gmode === "all") p.genre.forEach(t => gs.push([t])); else gs.push(p[k]);
+  }
+  return gs;
+};
+const dText = (r, q) => {
+  const words = fold(q.trim()).split(/\s+/).filter(Boolean); if (!words.length) return true;
+  const hay = fold([r.work.title, r.work.catNo, r.work.composer.name, r.conductor || "", ...r.performers.map(p => p.name)].join(" ")).split(/[\s\-.,]+/);
+  const cat = fold(r.work.catNo).replace(/\s/g, "");
+  return words.every(w => hay.some(h => h.startsWith(w))) || (!!cat && cat.startsWith(fold(q).replace(/\s/g, "")));
+};
+// an ensemble's last word ("Orchestra", "Soloists") names nothing, so ensembles keep the full name
+const dName = t => t.kind === "performer" && /Orchestra|Choir|Quartet/.test(t.sub) ? t.value : shortName(t);
+const dOr =(names, word) => names.length < 2 ? names.join("") : names.slice(0, -1).join(", ") + ` ${word} ` + names[names.length - 1];
+const D = {
+  name: "Refine rows",
+  groups: () => dGroups(),
+  add(t) { const row = S.D.picks[t.kind]; if (!row.some(x => termKey(x) === termKey(t))) row.push(t); },
+  render() {
+    const p = S.D.picks, picked = Object.values(p).flat(), q = S.q.trim();
+    const base = run(dGroups()), matched = base.filter(r => dText(r, q));
+    const nWorks = new Set(matched.map(r => r.work)).size;
+    let h = `<h1 class="large">Search</h1>`;
+    const b = s => `<b>${esc(s)}</b>`;
+    let say = p.genre.length ? dOr(p.genre.map(t => b(t.value)), S.D.gmode === "all" ? "and" : "or") + " recordings" : "Recordings";
+    if (p.composer.length) say += " of " + dOr(p.composer.map(t => b(t.short)), "or");
+    if (p.conductor.length) say += " conducted by " + dOr(p.conductor.map(t => b(shortName(t))), "or");
+    if (p.performer.length) say += " with " + dOr(p.performer.map(t => b(dName(t))), "or");
+    if (q) say += ` matching “${b(q)}”`;
+    if (!picked.length && !q) say = "All recordings";
+    h += `<div class="dsum"><span class="q">${say}: ${nWorks} work${nWorks === 1 ? "" : "s"}, ${matched.length} recording${matched.length === 1 ? "" : "s"}</span>${picked.length ? `<button class="clr" data-dclear>Clear</button>` : ""}</div>`;
+    // the typed letters also complete to terms, counted against the picks without the text
+    if (q) {
+      const sug = suggest(q, base, picked).terms.filter(x => x.n > 0).slice(0, 6);
+      if (sug.length) h += `<div class="drow"><span class="lab">Add</span>${sug.map(({ t, n }) => `<button class="dchip sug" data-term="${esc(termKey(t))}">${esc(dName(t))} <small>${esc(kindLabel(t))}</small><span class="c">${n}</span></button>`).join("")}</div>`;
+    }
+    // a row counts the results without its own picks, else a second "or" chip could never appear
+    for (const [k, label] of D_FACETS) {
+      const within = (k === "genre" && S.D.gmode === "all" ? base : run(dGroups(k))).filter(r => dText(r, q));
+      const counts = new Map();
+      for (const r of within) {
+        const vals = k === "genre" ? r.work.genres.map(g => "genre:" + g) : k === "composer" ? ["composer:" + r.work.composer.name] : k === "conductor" ? (r.conductor ? ["conductor:" + r.conductor] : []) : r.performers.map(x => "performer:" + x.name);
+        for (const v of new Set(vals)) counts.set(v, (counts.get(v) || 0) + 1);
+      }
+      const on = new Set(p[k].map(termKey));
+      const rest = [...counts.entries()].filter(([key]) => !on.has(key)).sort((a, b) => b[1] - a[1]).slice(0, 15);
+      if (!p[k].length && !rest.length) continue;
+      const chip = (t, n, sel) => `<button class="dchip ${sel ? "on" : ""}" data-dpick="${esc(termKey(t))}">${esc(dName(t))}${k === "performer" && t.sub ? ` <small>${esc(t.sub)}</small>` : ""}<span class="c">${n}</span></button>`;
+      let row = `<span class="lab">${label}</span>`;
+      if (k === "genre") row += `<span class="dmode"><button data-gmode="all" class="${S.D.gmode === "all" ? "on" : ""}">All</button><button data-gmode="any" class="${S.D.gmode === "any" ? "on" : ""}">Any</button></span>`;
+      row += p[k].map(t => chip(t, counts.get(termKey(t)) || 0, true)).join("") + rest.map(([key, n]) => chip(terms.get(key), n, false)).join("");
+      h += `<div class="drow">${row}</div>`;
+    }
+    h += `<div class="dfoot">One row: “or”. Rows: “and”. Genres: ${S.D.gmode === "all" ? "all picked (“and”)" : "any picked (“or”)"}.</div>`;
+    h += resultRows(matched);
+    app.innerHTML = h;
+    fieldToks.innerHTML = "";
+    input.placeholder = "Titles, names, catalogue numbers";
+  },
+  click(el) {
+    if (el.dataset.dpick) {
+      const t = terms.get(el.dataset.dpick), row = S.D.picks[t.kind], i = row.findIndex(x => termKey(x) === el.dataset.dpick);
+      i < 0 ? row.push(t) : row.splice(i, 1); return true;
+    }
+    if (el.dataset.gmode) { S.D.gmode = el.dataset.gmode; return true; }
+    if (el.dataset.dclear != null) { for (const k in S.D.picks) S.D.picks[k] = []; return true; }
+  },
+};
+
 // ---------- wiring ----------
-const VARIANTS = { A, B, C }, KEYS_V = Object.keys(VARIANTS);
+const VARIANTS = { A, B, C, D }, KEYS_V = Object.keys(VARIANTS);
 let V = new URLSearchParams(location.search).get("variant");
 if (!VARIANTS[V]) V = "A";
 function setVariant(v) { V = v; const u = new URL(location); u.searchParams.set("variant", v); history.replaceState(null, "", u); render(); }
 function render() { document.getElementById("vlabel").textContent = `${V} · ${VARIANTS[V].name}`; VARIANTS[V].render(); }
 document.getElementById("prev").onclick = () => setVariant(KEYS_V[(KEYS_V.indexOf(V) + KEYS_V.length - 1) % KEYS_V.length]);
 document.getElementById("next").onclick = () => setVariant(KEYS_V[(KEYS_V.indexOf(V) + 1) % KEYS_V.length]);
-document.getElementById("reset").onclick = e => { e.preventDefault(); S.q = ""; input.value = ""; S.A = []; S.B = { picks: [], mode: "all" }; S.C = { groups: [], target: null }; render(); };
+document.getElementById("reset").onclick = e => { e.preventDefault(); S.q = ""; input.value = ""; S.A = []; S.B = { picks: [], mode: "all" }; S.C = { groups: [], target: null }; S.D = { picks: { composer: [], conductor: [], performer: [], genre: [] }, gmode: "all" }; render(); };
 addEventListener("keydown", e => {
   if (e.target.closest("input,textarea,[contenteditable]")) return;
   if (e.key === "ArrowLeft") document.getElementById("prev").click();

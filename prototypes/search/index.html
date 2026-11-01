@@ -1,8 +1,8 @@
 <!doctype html>
 <!--
   PROTOTYPE, throw away. Map ticket sz-rs30.1.74.5: how does composable search look and behave?
-  Three variants of the Search place, switched with ?variant=A|B|C|D or the pill at the top.
-  A: sentence. B: tokens with an All/Any switch. C: funnel of sets. D: results first, refine rows.
+  Variants of the Search place, switched with ?variant=A|B|C|D|E or the pill at the top.
+  A: sentence. B: tokens with an All/Any switch. C: funnel of sets. D: results first, refine rows. E: overlapping circles.
   Generated library only. Real composer and performer names are public facts, not anyone's library.
 -->
 <html lang="en">
@@ -111,6 +111,33 @@ body.typing #mini { display: none; }
 .dmode button { font-size: 13px; padding: 4px 9px; border-radius: 6px; color: var(--label2); }
 .dmode button.on { background: var(--card); color: var(--label); box-shadow: 0 1px 2px rgba(0,0,0,.15); }
 .dfoot { font-size: 12px; color: var(--label2); margin: 4px 16px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* E: overlap */
+:root { --eSel: #b5482f; --e0: #c27c0e; --e1: #5e5ce6; --e2: #1f8f5a; }
+@media (prefers-color-scheme: dark) { :root { --eSel: #d9583b; --e0: #ffb340; --e1: #8e8cff; --e2: #4cd18a; } }
+.evenn { margin: 0 16px; background: var(--card); border-radius: 16px; overflow: hidden; }
+.evenn svg { display: block; width: 100%; height: auto; cursor: pointer; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+.evenn .esel { fill: var(--eSel); }
+.evenn text { text-anchor: middle; dominant-baseline: central; pointer-events: none; font-variant-numeric: tabular-nums; }
+.evenn .ecount { font-size: 15px; font-weight: 600; fill: var(--label); }
+.evenn .ecount.zero { fill: var(--label3); }
+.evenn .ename { font-size: 13px; font-weight: 600; fill: var(--label); }
+.evenn .on { fill: #fff; }
+.evenn .ecount.zero.on { fill: rgba(255,255,255,.7); }
+.seg.eseg { margin-top: 10px; }
+.seg.eseg button { min-height: 40px; }
+.elegend { display: flex; flex-wrap: wrap; gap: 0 6px; margin: 4px 16px 0; align-items: center; }
+.elegend .lab { font-size: 13px; color: var(--label2); margin-right: 2px; }
+.echip { min-height: 44px; display: inline-flex; align-items: center; }
+.echip > span { display: inline-flex; align-items: center; gap: 6px; background: var(--card); border: .5px solid var(--sep); border-radius: 16px; padding: 5px 10px; font-size: 15px; white-space: nowrap; }
+.echip:active > span { background: var(--fill); }
+.echip .dot { width: 10px; height: 10px; border-radius: 5px; }
+.echip .x { color: var(--label3); font-size: 12px; }
+.esum { margin: 4px 16px 0; font-size: 15px; color: var(--label2); }
+.esum b { color: var(--label); font-weight: 600; }
+.efoot { font-size: 13px; color: var(--label2); margin: 4px 16px 0; }
+.efoot + .evenn { margin-top: 10px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* work page stub */
 #page { position: fixed; inset: 0; background: var(--bg); z-index: 20; overflow-y: auto; transform: translateX(100%); transition: transform .3s cubic-bezier(.2,.8,.2,1); padding: calc(env(safe-area-inset-top) + 8px) 0 40px; }
@@ -292,7 +319,7 @@ function startRows() {
 }
 
 // ---------- state ----------
-const S = { q: "", A: [], B: { picks: [], mode: "all" }, C: { groups: [], target: null }, D: { picks: { composer: [], conductor: [], performer: [], genre: [] }, gmode: "all" } };
+const S = { q: "", A: [], B: { picks: [], mode: "all" }, C: { groups: [], target: null }, D: { picks: { composer: [], conductor: [], performer: [], genre: [] }, gmode: "all" }, E: { picks: [], sel: [] } };
 const input = document.getElementById("q");
 const app = document.getElementById("app");
 const fieldToks = document.getElementById("fieldToks");
@@ -471,15 +498,188 @@ const D = {
   },
 };
 
+// ---------- variant E: overlapping circles, tap regions ----------
+// A region is a bit mask: bit i set means "matches circle i". The selection is a set of masks, so
+// "only this, not that" needs no extra model. Three circles is the limit of a readable diagram:
+// older picks leave the diagram and always apply ("and").
+const E_MAX = 3, E_W = 361;
+const ePop = m => { let n = 0; for (; m; m >>= 1) n += m & 1; return n; };
+const eSplit = () => ({ fixed: S.E.picks.slice(0, -E_MAX), circ: S.E.picks.slice(-E_MAX) });
+const eFull = n => (1 << n) - 1;
+const eMasks = n => Array.from({ length: eFull(n) }, (_, i) => i + 1);
+const eMask = (r, circ) => circ.reduce((m, t, i) => m | (recMatches(r, t) ? 1 << i : 0), 0);
+const eDefault = () => { S.E.sel = S.E.picks.length ? [eFull(eSplit().circ.length)] : []; };
+const eSame = (a, b) => a.size === b.length && b.every(m => a.has(m));
+
+// the cheapest AND of OR groups (each group a mask of circles) that selects exactly `sel`, or null
+function eCnf(sel, n) {
+  const want = new Set(sel), all = eMasks(n);
+  let best = null;
+  for (let p = 1; p < 1 << all.length; p++) {
+    const gs = all.filter((_, i) => p >> i & 1);
+    if (!eSame(want, all.filter(m => gs.every(g => m & g)))) continue;
+    const cost = gs.length * 10 + gs.reduce((s, g) => s + ePop(g), 0);
+    if (!best || cost < best.cost) best = { gs, cost };
+  }
+  return best && best.gs;
+}
+// a selection with "not" in it: cover it with cubes (must have pos, must not have neg)
+function eCubes(sel, n) {
+  const want = new Set(sel), cubes = [];
+  for (let c = 0; c < 3 ** n; c++) {
+    let pos = 0, neg = 0;
+    for (let i = 0, x = c; i < n; i++, x = Math.floor(x / 3)) { if (x % 3 === 1) pos |= 1 << i; if (x % 3 === 2) neg |= 1 << i; }
+    const ms = eMasks(n).filter(m => (m & pos) === pos && !(m & neg));
+    if (ms.length && ms.every(m => want.has(m))) cubes.push({ pos, neg, ms });
+  }
+  cubes.sort((a, b) => b.ms.length - a.ms.length || ePop(a.pos | a.neg) - ePop(b.pos | b.neg));
+  const left = new Set(sel), out = [];
+  for (const c of cubes) if (c.ms.some(m => left.has(m))) { out.push(c); c.ms.forEach(m => left.delete(m)); }
+  return out;
+}
+
+const ePre = { composer: "by", conductor: "conducted by", performer: "with" };
+const eB = s => `<b>${esc(s)}</b>`;
+function eSentence(groups, nots = []) {
+  const adj = [], byKind = new Map(), tail = [];
+  for (const g of groups) {
+    if (g.every(t => t.kind === "genre")) adj.push(dOr(g.map(t => eB(t.value)), "or"));
+    else if (g.every(t => t.kind === g[0].kind)) { const k = g[0].kind; if (!byKind.has(k)) byKind.set(k, []); byKind.get(k).push(dOr(g.map(t => eB(dName(t))), "or")); }
+    else tail.push(dOr(g.map(t => (t.kind === "genre" ? "tagged " : ePre[t.kind] + " ") + eB(dName(t))), "or"));
+  }
+  const tails = [...byKind].map(([k, parts]) => ePre[k] + " " + parts.join(" and ")).concat(tail);
+  let s = (adj.length ? adj.join(" ") + " recordings" : "Recordings") + (tails.length ? " " + tails.join(", ") : "");
+  if (nots.length) s += ", not " + dOr(nots.map(t => (t.kind === "genre" ? "" : ePre[t.kind] + " ") + eB(dName(t))), "or");
+  return s;
+}
+const eRegionName = (m, circ) => {
+  const ins = circ.filter((_, i) => m >> i & 1).map(dName), outs = circ.filter((_, i) => !(m >> i & 1)).map(dName);
+  if (circ.length === 1) return ins[0];
+  if (!outs.length) return "Overlap of " + dOr(ins, "and");
+  return ins.length === 1 ? ins[0] + " only" : ins.join(" and ") + ", not " + dOr(outs, "or");
+};
+const eLines = s => { if (s.length <= 11 || !s.includes(" ")) return [s]; const mid = s.length / 2; let best = -1; for (let i = 0; i < s.length; i++) if (s[i] === " " && (best < 0 || Math.abs(i - mid) < Math.abs(best - mid))) best = i; return [s.slice(0, best), s.slice(best + 1)]; };
+
+// circle sizes follow the recording count only lightly, so a small set stays tappable
+function eLayout(tot) {
+  const n = tot.length, max = Math.max(...tot, 1), pad = 12;
+  const [lo, hi] = n === 3 ? [56, 76] : n === 2 ? [64, 86] : [72, 88];
+  const r = tot.map(c => lo + (hi - lo) * Math.sqrt(c / max));
+  let p;
+  if (n === 1) p = [[0, 0]];
+  else if (n === 2) { const d = 0.56 * (r[0] + r[1]); p = [[-d / 2, 0], [d / 2, 0]]; }
+  else { const k = 0.6 * (r[0] + r[1] + r[2]) / 3; p = [[-k * .866, -k / 2], [k * .866, -k / 2], [0, k]]; }
+  const x0 = Math.min(...p.map((q, i) => q[0] - r[i])), x1 = Math.max(...p.map((q, i) => q[0] + r[i]));
+  const y0 = Math.min(...p.map((q, i) => q[1] - r[i])), y1 = Math.max(...p.map((q, i) => q[1] + r[i]));
+  const c = p.map((q, i) => ({ x: q[0] + E_W / 2 - (x0 + x1) / 2, y: q[1] - y0 + pad, r: r[i] }));
+  const at = (x, y) => c.reduce((m, k, i) => m | ((x - k.x) ** 2 + (y - k.y) ** 2 <= k.r ** 2 ? 1 << i : 0), 0);
+  return { W: E_W, H: Math.ceil(y1 - y0 + 2 * pad), c, at };
+}
+
+function eSvg(circ, base, counts, sel) {
+  const L = eLayout(circ.map(t => base.filter(r => recMatches(r, t)).length)), { W, H, c, at } = L;
+  E.lay = L;
+  // label each region at its pole: the sampled point farthest from every circle edge
+  const pole = {};
+  for (let y = 1; y < H; y += 3) for (let x = 1; x < W; x += 3) {
+    const m = at(x, y); if (!m) continue;
+    const d = Math.min(...c.map(k => Math.abs(Math.hypot(x - k.x, y - k.y) - k.r)));
+    if (!pole[m] || d > pole[m].d) pole[m] = { x, y, d };
+  }
+  const circle = (k, extra) => `<circle cx="${k.x.toFixed(1)}" cy="${k.y.toFixed(1)}" r="${k.r.toFixed(1)}" ${extra}/>`;
+  let defs = c.map((k, i) => `<clipPath id="e-c${i}">${circle(k, "")}</clipPath>`).join(""), hi = "";
+  for (const m of sel) {
+    const outs = c.filter((_, i) => !(m >> i & 1));
+    if (outs.length) defs += `<mask id="e-m${m}"><rect width="${W}" height="${H}" fill="#fff"/>${outs.map(k => circle(k, 'fill="#000"')).join("")}</mask>`;
+    let s = `<rect class="esel" width="${W}" height="${H}"${outs.length ? ` mask="url(#e-m${m})"` : ""}/>`;
+    c.forEach((_, i) => { if (m >> i & 1) s = `<g clip-path="url(#e-c${i})">${s}</g>`; });
+    hi += s;
+  }
+  let fills = "", strokes = "", labels = "";
+  c.forEach((k, i) => { fills += circle(k, `style="fill:var(--e${i})" fill-opacity=".14"`); strokes += circle(k, `fill="none" style="stroke:var(--e${i})" stroke-width="2"`); });
+  for (const m of eMasks(c.length)) {
+    const p = pole[m]; if (!p) continue;
+    const n = counts[m] || 0, on = sel.has(m) ? " on" : "", num = `<text class="ecount${n ? "" : " zero"}${on}" x="${p.x}" y="${p.y + (ePop(m) === 1 ? 10 : 0)}">${n}</text>`;
+    if (ePop(m) === 1) {
+      const lines = eLines(dName(circ[Math.log2(m)])), top = p.y - 8 - (lines.length - 1) * 15;
+      labels += lines.map((s, j) => `<text class="ename${on}" x="${p.x}" y="${top + j * 15}">${esc(s)}</text>`).join("");
+      if (p.d >= 16) labels += num;
+    } else if (p.d >= 9) labels += num;
+  }
+  return `<svg viewBox="0 0 ${W} ${H}" aria-hidden="true"><defs>${defs}</defs>${fills}${hi}${strokes}${labels}</svg>`;
+}
+
+const E = {
+  name: "Overlap",
+  // exact when the selection is an AND of OR groups; with a "not" region it returns the circles the
+  // selection touches, a superset, because the shared groups model has no "not"
+  groups() {
+    const { fixed, circ } = eSplit(), n = circ.length, out = fixed.map(t => [t]);
+    if (!n) return out;
+    const gs = eCnf(S.E.sel, n), bits = gs || [S.E.sel.reduce((a, m) => a | m, 0)];
+    return out.concat(bits.map(g => circ.filter((_, i) => g >> i & 1)));
+  },
+  add(t) { if (!S.E.picks.some(x => termKey(x) === termKey(t))) S.E.picks.push(t); eDefault(); },
+  render() {
+    const { fixed, circ } = eSplit(), n = circ.length, sel = new Set(S.E.sel);
+    const base = run(fixed.map(t => [t])), counts = {};
+    for (const r of base) { const m = eMask(r, circ); counts[m] = (counts[m] || 0) + 1; }
+    const matched = base.filter(r => sel.has(eMask(r, circ)));
+    let h = `<h1 class="large">Search</h1>`;
+    const chip = (t, i, dot) => `<button class="echip" data-eremove="${i}" aria-label="Remove ${esc(dName(t))}"><span>${dot ? `<i class="dot" style="background:var(--e${dot - 1})"></i>` : ""}${esc(dName(t))}<span class="x">✕</span></span></button>`;
+    if (fixed.length) h += `<div class="elegend"><span class="lab">Always</span>${fixed.map((t, i) => chip(t, i)).join("")}</div><div class="efoot">From four picks on, the oldest picks leave the circles and always apply (“and”). Remove a circle to bring one back.</div>`;
+    if (n && !S.q) {
+      h += `<div class="evenn">${eSvg(circ, base, counts, sel)}</div>`;
+      if (n > 1) {
+        const all = eMasks(n), and = eSame(sel, [eFull(n)]), or = eSame(sel, all);
+        h += `<div class="seg eseg"><button data-eset="and" class="${and ? "on" : ""}">Overlap</button><button data-eset="or" class="${or ? "on" : ""}">Any of them</button></div>`;
+      }
+      h += `<div class="sr-only" role="group" aria-label="Regions">${eMasks(n).sort((a, b) => ePop(b) - ePop(a)).map(m => `<button data-eregion="${m}" aria-pressed="${sel.has(m)}" aria-label="${esc(eRegionName(m, circ))}: ${counts[m] || 0} recordings">${esc(eRegionName(m, circ))}</button>`).join("")}</div>`;
+    }
+    if (n) h += `<div class="elegend">${circ.map((t, i) => chip(t, fixed.length + i, i + 1)).join("")}</div>`;
+    if (n && !S.q) {
+      const fx = fixed.map(t => [t]), gs = eCnf(S.E.sel, n);
+      let say;
+      if (!sel.size) say = "Nothing chosen. Tap a region in the circles";
+      else if (gs) say = eSentence(fx.concat(gs.map(g => circ.filter((_, i) => g >> i & 1))));
+      else say = eCubes(S.E.sel, n).map((cb, j) => {
+        const pos = circ.filter((_, i) => cb.pos >> i & 1).map(t => [t]), nots = circ.filter((_, i) => cb.neg >> i & 1);
+        const free = circ.filter((_, i) => !((cb.pos | cb.neg) >> i & 1));
+        const s = eSentence(fx.concat(pos.length ? pos : [free]), nots);
+        return j ? s.replace(/^Recordings/, "recordings") : s;
+      }).join("; or ");
+      h += `<div class="esum">${say}: <b>${matched.length}</b></div>`;
+      if (n > 1) h += `<div class="efoot">Tap a region to add it or take it away.</div>`;
+    }
+    if (S.q) h += suggestionRows(suggest(S.q, run(S.E.picks.map(t => [t])), S.E.picks), S.q);
+    else if (!n) h += startRows();
+    else h += sel.size ? resultRows(matched) : `<div class="empty">Tap a region to choose recordings.</div>`;
+    app.innerHTML = h;
+    fieldToks.innerHTML = "";
+    input.placeholder = n ? "Add a circle …" : "Genres, composers, performers";
+    const svg = app.querySelector(".evenn svg");
+    if (svg) svg.addEventListener("click", e => {
+      const b = svg.getBoundingClientRect(), m = E.lay.at((e.clientX - b.left) * E.lay.W / b.width, (e.clientY - b.top) * E.lay.H / b.height);
+      if (m) { E.toggle(m); render(); }
+    });
+  },
+  toggle(m) { const i = S.E.sel.indexOf(m); i < 0 ? S.E.sel.push(m) : S.E.sel.splice(i, 1); },
+  click(el) {
+    if (el.dataset.eregion) { E.toggle(Number(el.dataset.eregion)); return true; }
+    if (el.dataset.eset) { const n = eSplit().circ.length; S.E.sel = el.dataset.eset === "and" ? [eFull(n)] : eMasks(n); return true; }
+    if (el.dataset.eremove) { S.E.picks.splice(Number(el.dataset.eremove), 1); eDefault(); return true; }
+  },
+};
+
 // ---------- wiring ----------
-const VARIANTS = { A, B, C, D }, KEYS_V = Object.keys(VARIANTS);
+const VARIANTS = { A, B, C, D, E }, KEYS_V = Object.keys(VARIANTS);
 let V = new URLSearchParams(location.search).get("variant");
 if (!VARIANTS[V]) V = "A";
 function setVariant(v) { V = v; const u = new URL(location); u.searchParams.set("variant", v); history.replaceState(null, "", u); render(); }
 function render() { document.getElementById("vlabel").textContent = `${V} · ${VARIANTS[V].name}`; VARIANTS[V].render(); }
 document.getElementById("prev").onclick = () => setVariant(KEYS_V[(KEYS_V.indexOf(V) + KEYS_V.length - 1) % KEYS_V.length]);
 document.getElementById("next").onclick = () => setVariant(KEYS_V[(KEYS_V.indexOf(V) + 1) % KEYS_V.length]);
-document.getElementById("reset").onclick = e => { e.preventDefault(); S.q = ""; input.value = ""; S.A = []; S.B = { picks: [], mode: "all" }; S.C = { groups: [], target: null }; S.D = { picks: { composer: [], conductor: [], performer: [], genre: [] }, gmode: "all" }; render(); };
+document.getElementById("reset").onclick = e => { e.preventDefault(); S.q = ""; input.value = ""; S.A = []; S.B = { picks: [], mode: "all" }; S.C = { groups: [], target: null }; S.D = { picks: { composer: [], conductor: [], performer: [], genre: [] }, gmode: "all" }; S.E = { picks: [], sel: [] }; render(); };
 addEventListener("keydown", e => {
   if (e.target.closest("input,textarea,[contenteditable]")) return;
   if (e.key === "ArrowLeft") document.getElementById("prev").click();

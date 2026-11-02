@@ -40,6 +40,22 @@ _Avoid_: Home, Browse
 The view that places composers and their works by year.
 _Avoid_: Timeline, History
 
+**Page**:
+A view about one thing, such as a composer, work, recording, album or performer. A link pushes it onto the stack of the current place.
+_Avoid_: Screen, detail view
+
+**Work page**:
+The page of one work: its composer and its recordings, each with its own cover. The work page has no cover of its own.
+_Avoid_: Work screen
+
+**Recording page**:
+The page of one recording: its cover, performers, album and one row for each movement. It has the player's layout, but it must not look like the player while another recording plays.
+_Avoid_: Player, work page
+
+**Album page**:
+The page of one album: its works and their tracks in disc order. It has the player's layout.
+_Avoid_: Disc page, release page
+
 **Search term**:
 One value that the listener adds to a search: a genre, composer, conductor or performer. A genre value carries no facet, because the app does not know which value is the period.
 _Avoid_: Rule, condition, filter, token, criterion
@@ -61,7 +77,7 @@ The card that shows what plays, in every place: movement, work and people. It jo
 _Avoid_: Now playing bar
 
 **Player**:
-The full view of what plays: one row for each movement or track, beside the timeline. It opens from the mini player.
+The recording page or album page of what plays, beside the timeline. It opens from the mini player.
 _Avoid_: Now playing, playback screen
 
 ### Listener data

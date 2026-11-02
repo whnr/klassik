@@ -1,0 +1,416 @@
+<!doctype html>
+<!--
+  PROTOTYPE, throw away. Map ticket sz-rs30.1.74.7, round 6. Player and mini player are locked.
+  Question: how do listening notes show, calmly? ?variant=row|caption|title. Bar side: ?side=right|left.
+  Notes are samples written for the prototype; their times are approximate.
+  ?play=creation|b5|teatime. Tags come from Flo's library at his request. No audio, no cover art.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Listening notes, round 6</title>
+<style>
+:root {
+  --bg: #f2f2f7; --card: #fff; --label: #000; --label2: rgba(60,60,67,.6); --label3: rgba(60,60,67,.3);
+  --sep: rgba(60,60,67,.18); --tint: #b5482f; --tintSoft: rgba(181,72,47,.1); --fill: rgba(118,118,128,.14); --track: rgba(118,118,128,.32);
+  --glass: rgba(250,250,252,.82); --glassLine: rgba(0,0,0,.08); --onTint: #fff;
+  --barW: 26px; --lineX: 12px; --edgeTop: calc(env(safe-area-inset-top) + 52px);
+  --bot: calc(env(safe-area-inset-bottom) + 12px); --tabH: 56px; --miniH: 64px;
+}
+@media (prefers-color-scheme: dark) { :root {
+  --bg: #000; --card: #1c1c1e; --label: #fff; --label2: rgba(235,235,245,.6); --label3: rgba(235,235,245,.3);
+  --sep: rgba(84,84,88,.6); --tint: #ff7a5c; --tintSoft: rgba(255,122,92,.14); --fill: rgba(118,118,128,.24); --track: rgba(118,118,128,.5);
+  --glass: rgba(40,40,44,.82); --glassLine: rgba(255,255,255,.1); --onTint: #000;
+} }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--label); font: 17px/1.3 -apple-system, system-ui, sans-serif; -webkit-user-select: none; user-select: none; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; touch-action: manipulation; }
+.glass { background: var(--glass); backdrop-filter: blur(24px) saturate(1.8); -webkit-backdrop-filter: blur(24px) saturate(1.8); border: .5px solid var(--glassLine); }
+.ell { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* ---------- place ---------- */
+#place { position: fixed; top: 0; left: 0; bottom: 0; right: var(--barW); overflow-y: auto; padding: calc(env(safe-area-inset-top) + 56px) 4px 220px 16px; }
+#place h1 { font-size: 34px; margin: 0 0 12px; }
+#place .sh { font-size: 13px; text-transform: uppercase; color: var(--label2); margin: 22px 16px 6px; }
+#place .pl { background: var(--card); border-radius: 12px; overflow: hidden; }
+#place .pr { padding: 11px 16px; position: relative; display: flex; gap: 8px; } #place .pr + .pr::before { content: ""; position: absolute; top: 0; left: 16px; right: 0; border-top: .5px solid var(--sep); }
+#place .pr .m { flex: 1; min-width: 0; } #place .pr .s { font-size: 13px; color: var(--label2); } #place .pr .eq { color: var(--tint); font-size: 13px; }
+#tabs { position: fixed; left: 16px; right: calc(var(--barW) + 6px); bottom: var(--bot); height: var(--tabH); display: flex; gap: 8px; z-index: 5; transition: opacity .3s; }
+#tabs .cap { flex: 1; border-radius: 28px; display: flex; justify-content: space-around; align-items: center; font-size: 11px; color: var(--label2); }
+#tabs .cap span { display: flex; flex-direction: column; align-items: center; gap: 1px; } #tabs .cap b { font-size: 20px; font-weight: 400; }
+#tabs .cap .on { color: var(--tint); }
+#tabs .circ { width: var(--tabH); border-radius: 28px; display: grid; place-items: center; font-size: 22px; color: var(--label2); flex: none; }
+
+/* ---------- mini player: an island with a flat right face that meets the timeline line ---------- */
+#mini { position: fixed; left: 16px; right: var(--lineX); bottom: calc(var(--bot) + var(--tabH) + 8px); height: var(--miniH); z-index: 6;
+  background: var(--card); border-radius: 18px 0 0 18px; box-shadow: 0 4px 18px rgba(0,0,0,.14); display: flex; align-items: center; gap: 10px; padding: 0 10px 0 8px; transition: opacity .3s, transform .3s; }
+body.three #mini { --miniH: 76px; }
+#mini .art { width: 48px; height: 48px; border-radius: 8px; overflow: hidden; flex: none; }
+body.three #mini .art { width: 58px; height: 58px; }
+#mini .txt { flex: 1; min-width: 0; line-height: 1.22; }
+#mini .mv { font-size: 15px; font-weight: 600; }
+#mini .by { font-size: 13px; color: var(--label2); } #mini .wk { font-size: 12px; color: var(--label2); }
+#mini .hd { font-size: 12px; color: var(--label2); }
+#mini .big { font-size: 16px; font-weight: 600; }
+#mini .pp { width: 42px; height: 42px; border-radius: 21px; display: grid; place-items: center; font-size: 18px; flex: none; }
+/* marquee: a long movement title glides once, pauses, and returns; short titles stay still */
+.mq { overflow: hidden; white-space: nowrap; }
+.mq span { display: inline-block; padding-right: 32px; }
+.mq.run span { animation: mq var(--dur) linear infinite; }
+@keyframes mq { 0%, 18% { transform: translateX(0); } 82%, 100% { transform: translateX(var(--shift)); } }
+body.player #mini, body.player #tabs { opacity: 0; pointer-events: none; }
+
+/* ---------- the timeline: one bar on the right edge, always the same ---------- */
+#bar { position: fixed; right: 0; width: var(--barW); top: var(--edgeTop); bottom: calc(var(--bot) + var(--tabH) + 8px); z-index: 20; touch-action: none; }
+#bar svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+#bubble { position: fixed; right: calc(var(--barW) + 6px); z-index: 25; pointer-events: none; display: none; max-width: 250px; padding: 7px 10px; border-radius: 10px; font-size: 13px; line-height: 1.25; box-shadow: 0 4px 16px rgba(0,0,0,.18); }
+#bubble b { color: var(--tint); font-weight: 600; }
+
+/* ---------- player: slides in from the left, beside the bar ---------- */
+#player { position: fixed; top: 0; left: 0; bottom: 0; right: var(--barW); background: var(--bg); z-index: 10; transform: translateX(-102%); transition: transform .4s cubic-bezier(.2,.8,.2,1); box-shadow: 6px 0 24px rgba(0,0,0,.12); }
+body.player #player { transform: none; }
+#content { position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain; padding: calc(env(safe-area-inset-top) + 100px) 6px calc(var(--bot) + 120px) 16px; }
+#pin { position: absolute; left: 0; right: 0; top: calc(env(safe-area-inset-top) + 46px); height: 52px; z-index: 4; display: flex; align-items: center; gap: 10px; padding: 0 12px; }
+#pinbg { position: absolute; left: 0; right: 0; top: 0; height: calc(env(safe-area-inset-top) + 98px); z-index: 3; opacity: 0; transition: opacity .2s; border-width: 0 0 .5px; }
+#player.solid #pinbg { opacity: 1; }
+#pin .close { width: 34px; height: 34px; border-radius: 17px; background: var(--fill); display: grid; place-items: center; flex: none; font-size: 18px; }
+#pin .ttl { flex: 1; min-width: 0; opacity: 0; transition: opacity .2s; display: flex; gap: 8px; align-items: center; }
+#player.solid #pin .ttl { opacity: 1; }
+#pin .ttl .pa { width: 34px; height: 34px; border-radius: 6px; overflow: hidden; flex: none; }
+#pin .ttl .a { font-size: 15px; font-weight: 600; } #pin .ttl .b { font-size: 12px; color: var(--label2); }
+.hero { padding: 0 0 16px; }
+.hero .art { width: min(260px, 100%); aspect-ratio: 1; border-radius: 12px; overflow: hidden; margin: 0 auto 14px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+.hero h2 { font-size: 22px; margin: 0 0 3px; line-height: 1.15; }
+.hero .c { color: var(--tint); font-size: 16px; margin-bottom: 8px; }
+.hero .meta { font-size: 13px; color: var(--label2); margin-top: 8px; }
+.facts { background: var(--card); border-radius: 12px; margin-top: 4px; }
+.fact { display: flex; gap: 10px; padding: 9px 14px; font-size: 15px; position: relative; }
+.fact + .fact::before { content: ""; position: absolute; top: 0; left: 14px; right: 0; border-top: .5px solid var(--sep); }
+.fact .k { color: var(--label2); width: 92px; flex: none; } .fact .v { flex: 1; min-width: 0; }
+
+.list { background: var(--card); border-radius: 12px; overflow: hidden; margin-top: 18px; }
+.row { position: relative; }
+.row + .row::before { content: ""; position: absolute; top: 0; left: 14px; right: 0; border-top: .5px solid var(--sep); z-index: 1; }
+.rh { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 11px 8px 11px 14px; min-height: 48px; }
+.rh:active { background: var(--fill); }
+.rh .main { flex: 1; min-width: 0; }
+.rh .t { font-size: 16px; } .rh .s { font-size: 13px; color: var(--label2); }
+.rh .t .d { font-size: 14px; color: var(--label2); font-weight: 400; white-space: nowrap; margin-left: 6px; }
+.row.cur .rh .t { color: var(--tint); font-weight: 600; }
+.rh .slot { width: 34px; height: 34px; flex: none; display: grid; place-items: center; color: var(--label3); font-size: 15px; }
+.rh .slot.go { border-radius: 17px; background: var(--tintSoft); color: var(--tint); font-size: 13px; }
+.rb { display: none; padding: 0 0 10px; }
+.row.open .rb { display: block; }
+.rb .fact { font-size: 14px; padding: 7px 14px; } .rb .fact .k { width: 92px; }
+.seek { position: relative; height: 22px; touch-action: none; margin: 4px 14px 0; }
+.seek .tr { position: absolute; left: 0; right: 0; top: 10px; height: 3px; background: var(--track); } .seek .tr i { display: block; height: 100%; background: var(--tint); }
+.times { display: flex; justify-content: space-between; font-size: 12px; color: var(--label2); margin: -2px 14px 0; }
+.ctl { display: flex; align-items: center; justify-content: space-between; margin: 6px 18px 0; }
+.ctl button { width: 48px; height: 44px; display: grid; place-items: center; font-size: 18px; }
+.ctl button.pp { width: 56px; height: 56px; font-size: 24px; }
+#arrow { position: absolute; right: 10px; width: 44px; height: 44px; border-radius: 22px; z-index: 5; display: none; place-items: center; font-size: 20px; color: var(--tint); box-shadow: 0 4px 16px rgba(0,0,0,.18); }
+#arrow.up { top: calc(env(safe-area-inset-top) + 104px); display: grid; } #arrow.down { bottom: calc(var(--bot) + 12px); display: grid; }
+
+/* the bar on the left: everything mirrors */
+body.left #place { left: var(--barW); right: 0; padding-left: 4px; padding-right: 16px; }
+body.left #tabs { left: calc(var(--barW) + 6px); right: 16px; }
+body.left #mini { left: var(--lineX); right: 16px; border-radius: 0 18px 18px 0; }
+body.left #bar { left: 0; right: auto; }
+body.left #bubble { left: calc(var(--barW) + 6px); right: auto; }
+body.left #player { left: var(--barW); right: 0; transform: translateX(102%); box-shadow: -6px 0 24px rgba(0,0,0,.12); }
+body.left.player #player { transform: none; }
+body.left #content { padding-left: 6px; padding-right: 16px; }
+body.left #arrow { right: auto; left: 10px; }
+
+/* listening notes */
+.note { display: flex; gap: 10px; padding: 7px 14px; font-size: 14px; position: relative; }
+.note .k { width: 92px; flex: none; color: var(--label2); } .note .v { flex: 1; min-width: 0; font-style: italic; }
+.note.on .k { color: var(--tint); }
+.caption { margin: 8px 14px 0; min-height: 44px; font: italic 16px/1.35 ui-serif, Georgia, serif; color: var(--label); text-align: center; transition: opacity .6s; }
+.caption small { display: block; font: 12px -apple-system, system-ui, sans-serif; color: var(--label2); font-style: normal; margin-top: 3px; }
+.caption.off { opacity: 0; }
+.tn { font: italic 13px/1.3 ui-serif, Georgia, serif; color: var(--label2); margin-top: 3px; }
+.tn.on { color: var(--tint); }
+.addn { display: block; margin: 8px 14px 0; font-size: 14px; color: var(--tint); }
+.nin { display: block; width: calc(100% - 28px); margin: 6px 14px 0; font: italic 15px ui-serif, Georgia, serif; border: 0; border-bottom: .5px solid var(--sep); background: transparent; color: var(--label); padding: 6px 0; outline: none; user-select: text; -webkit-user-select: text; }
+
+/* prototype switches */
+#sw { position: fixed; top: calc(env(safe-area-inset-top) + 6px); left: 8px; right: 8px; z-index: 30; display: flex; gap: 6px; justify-content: center; }
+#sw .p { display: flex; align-items: center; background: #111; color: #fff; border-radius: 18px; height: 36px; box-shadow: 0 2px 10px rgba(0,0,0,.35); }
+#sw .p button { color: #fff; height: 36px; padding: 0 10px; font-size: 14px; white-space: nowrap; }
+#sw .p button.arr { font-size: 19px; padding: 0 10px; }
+#toast { position: fixed; top: calc(env(safe-area-inset-top) + 48px); left: 50%; transform: translateX(-50%); z-index: 29; background: rgba(17,17,17,.88); color: #fff; font-size: 13px; padding: 7px 12px; border-radius: 12px; opacity: 0; transition: opacity .25s; pointer-events: none; max-width: 90%; text-align: center; }
+#toast.on { opacity: 1; }
+</style>
+</head>
+<body>
+<div id="place"></div>
+<div id="tabs"><div class="cap glass"><span class="on"><b>♪</b>Library</span><span><b>◷</b>Chronology</span><span><b>⚙︎</b>Settings</span></div><div class="circ glass">⌕</div></div>
+<div id="mini"></div>
+<div id="player">
+  <div id="content"></div>
+  <div id="pinbg" class="glass"></div>
+  <div id="pin"><button class="close" id="close" aria-label="Close player">‹</button><div class="ttl"></div></div>
+  <button id="arrow" class="glass" aria-label="Back to what plays"></button>
+</div>
+<div id="bar" aria-label="Timeline"></div>
+<div id="bubble" class="glass"></div>
+<div id="sw"><div class="p"><button class="arr" id="vp" aria-label="Previous variant">‹</button><button id="vl"></button><button class="arr" id="vn" aria-label="Next variant">›</button></div><div class="p"><button id="src"></button></div><div class="p"><button id="side"></button></div></div>
+<div id="toast"></div>
+<script>
+const DATA={"b5":[{"trk":1,"work":"Symphony No. 5 in C minor, Op. 67","composer":"Ludwig van Beethoven","t":"Allegro con brio","n":"1","of":"4","d":448.0,"cond":"Carlos Kleiber","r":[["orchestra","Wiener Philharmoniker"]],"cs":"Beethoven, Ludwig van","album":"Symphonies Nos. 5 & 7","label":"Deutsche Grammophon","year":"1974"},{"trk":2,"work":"Symphony No. 5 in C minor, Op. 67","composer":"Ludwig van Beethoven","t":"Andante con moto","n":"2","of":"4","d":601.5,"cond":"Carlos Kleiber","r":[["orchestra","Wiener Philharmoniker"]],"cs":"Beethoven, Ludwig van","album":"Symphonies Nos. 5 & 7","label":"Deutsche Grammophon","year":"1974"},{"trk":3,"work":"Symphony No. 5 in C minor, Op. 67","composer":"Ludwig van Beethoven","t":"Allegro","n":"3","of":"4","d":308.9,"cond":"Carlos Kleiber","r":[["orchestra","Wiener Philharmoniker"]],"cs":"Beethoven, Ludwig van","album":"Symphonies Nos. 5 & 7","label":"Deutsche Grammophon","year":"1974"},{"trk":4,"work":"Symphony No. 5 in C minor, Op. 67","composer":"Ludwig van Beethoven","t":"Allegro","n":"4","of":"4","d":661.4,"cond":"Carlos Kleiber","r":[["orchestra","Wiener Philharmoniker"]],"cs":"Beethoven, Ludwig van","album":"Symphonies Nos. 5 & 7","label":"Deutsche Grammophon","year":"1974"}],"creation":[{"trk":1,"work":"Die Schöpfung, Hob. XXI:2","composer":"Joseph Haydn","t":"Einleitung: Die Vorstellung des Chaos","n":null,"of":"34","d":320.1,"cond":"René Jacobs","r":[["orchestra","Freiburger Barockorchester"]],"cs":"Haydn, Joseph","album":"Die Schöpfung","label":"Harmonia Mundi","year":"2009"},{"trk":2,"work":"Die Schöpfung, Hob. XXI:2","composer":"Joseph Haydn","t":"No. 1, Rezitativ mit Chor: Im Anfange schuf Gott Himmel und Erde","n":"1","of":"34","d":155.4,"cond":"René Jacobs","r":[["tenor","Maximilian Schmitt"],["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"],["choir","RIAS Kammerchor"]],"cs":"Haydn, Joseph","album":"Die Schöpfung","label":"Harmonia Mundi","year":"2009"},{"trk":3,"work":"Die Schöpfung, Hob. XXI:2","composer":"Joseph Haydn","t":"No. 2, Arie mit Chor: Nun schwanden vor dem heiligen Strahle","n":"2","of":"34","d":230.3,"cond":"René Jacobs","r":[["tenor","Maximilian Schmitt"],["orchestra","Freiburger Barockorchester"],["choir","RIAS Kammerchor"]],"cs":"Haydn, Joseph","album":"Die Schöpfung","label":"Harmonia Mundi","year":"2009"},{"trk":4,"work":"Die Schöpfung, Hob. XXI:2","composer":"Joseph Haydn","t":"No. 3, Rezitativ: Und Gott machte das Firmament","n":"3","of":"34","d":111.3,"cond":"René Jacobs","r":[["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]],"cs":"Haydn, Joseph","album":"Die Schöpfung","label":"Harmonia Mundi","year":"2009"},{"trk":5,"work":"Die Schöpfung, Hob. XXI:2","composer":"Joseph Haydn","t":"No. 4, Chor mit Sopransolo: Mit Staunen sieht das Wunderwerk","n":"4","of":"34","d":137.8,"cond":"René Jacobs","r":[["soprano","Julia Kleiter"],["orchestra","Freiburger Barockorchester"],["choir","RIAS Kammerchor"]],"cs":"Haydn, Joseph","album":"Die Schöpfung","label":"Harmonia Mundi","year":"2009"},{"trk":6,"work":"Die Schöpfung, Hob. XXI:2","composer":"Joseph Haydn","t":"No. 5, Rezitativ: Und Gott sprach, Es sammle sich das Wasser","n":"5","of":"34","d":35.9,"cond":"René Jacobs","r":[["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]],"cs":"Haydn, Joseph","album":"Die Schöpfung","label":"Harmonia Mundi","year":"2009"},{"trk":7,"work":"Die Schöpfung, Hob. XXI:2","composer":"Joseph Haydn","t":"No. 6, Arie: Rollend in schäumenden Wellen","n":"6","of":"34","d":200.7,"cond":"René Jacobs","r":[["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]],"cs":"Haydn, Joseph","album":"Die Schöpfung","label":"Harmonia Mundi","year":"2009"},{"trk":8,"work":"Die Schöpfung, Hob. XXI:2","composer":"Joseph Haydn","t":"No. 7, Rezitativ: Und Gott sprach, Es bringe die Erde Gras hervor","n":"7","of":"34","d":32.1,"cond":"René Jacobs","r":[["soprano","Julia Kleiter"],["orchestra","Freiburger Barockorchester"]],"cs":"Haydn, Joseph","album":"Die Schöpfung","label":"Harmonia Mundi","year":"2009"},{"trk":9,"work":"Die Schöpfung, Hob. XXI:2","composer":"Joseph Haydn","t":"No. 8, Arie: Nun beut die Flur das frische Grün","n":"8","of":"34","d":301.2,"cond":"René Jacobs","r":[["soprano","Julia Kleiter"],["orchestra","Freiburger Barockorchester"]],"cs":"Haydn, Joseph","album":"Die Schöpfung","label":"Harmonia Mundi","year":"2009"},{"trk":10,"work":"Die Schöpfung, Hob. XXI:2","composer":"Joseph Haydn","t":"No. 9, Rezitativ: Und die himmlischen Heerscharen","n":"9","of":"34","d":11.9,"cond":"René Jacobs","r":[["tenor","Maximilian Schmitt"],["orchestra","Freiburger Barockorchester"]],"cs":"Haydn, Joseph","album":"Die Schöpfung","label":"Harmonia Mundi","year":"2009"},{"trk":11,"work":"Die Schöpfung, Hob. XXI:2","composer":"Joseph Haydn","t":"No. 10, Chor: Stimmt an die Saiten","n":"10","of":"34","d":128.2,"cond":"René Jacobs","r":[["orchestra","Freiburger Barockorchester"],["choir","RIAS Kammerchor"]],"cs":"Haydn, Joseph","album":"Die Schöpfung","label":"Harmonia Mundi","year":"2009"},{"trk":12,"work":"Die Schöpfung, Hob. XXI:2","composer":"Joseph Haydn","t":"No. 11, Rezitativ: Und Gott sprach, Es sei'n Lichter","n":"11","of":"34","d":35.1,"cond":"René Jacobs","r":[["tenor","Maximilian Schmitt"],["orchestra","Freiburger Barockorchester"]],"cs":"Haydn, Joseph","album":"Die Schöpfung","label":"Harmonia Mundi","year":"2009"},{"trk":13,"work":"Die Schöpfung, Hob. XXI:2","composer":"Joseph Haydn","t":"No. 12, Rezitativ: In vollem Glanze steiget jetzt die Sonne","n":"12","of":"34","d":147.0,"cond":"René Jacobs","r":[["tenor","Maximilian Schmitt"],["orchestra","Freiburger Barockorchester"]],"cs":"Haydn, Joseph","album":"Die Schöpfung","label":"Harmonia Mundi","year":"2009"},{"trk":14,"work":"Die Schöpfung, Hob. XXI:2","composer":"Joseph Haydn","t":"No. 13, Chor mit Soli: Die Himmel erzählen die Ehre Gottes","n":"13","of":"34","d":248.9,"cond":"René Jacobs","r":[["soprano","Julia Kleiter"],["tenor","Maximilian Schmitt"],["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"],["choir","RIAS Kammerchor"]],"cs":"Haydn, Joseph","album":"Die Schöpfung","label":"Harmonia Mundi","year":"2009"},{"trk":15,"work":"Die Schöpfung, Hob. XXI:2","composer":"Joseph Haydn","t":"No. 14, Rezitativ: Und Gott sprach, Es bringe das Wasser","n":"14","of":"34","d":27.1,"cond":"René Jacobs","r":[["soprano","Julia Kleiter"],["orchestra","Freiburger Barockorchester"]],"cs":"Haydn, Joseph","album":"Die Schöpfung","label":"Harmonia Mundi","year":"2009"},{"trk":16,"work":"Die Schöpfung, Hob. XXI:2","composer":"Joseph Haydn","t":"No. 15, Arie: Auf starkem Fittiche schwinget sich der Adler","n":"15","of":"34","d":440.7,"cond":"René Jacobs","r":[["soprano","Julia Kleiter"],["orchestra","Freiburger Barockorchester"]],"cs":"Haydn, Joseph","album":"Die Schöpfung","label":"Harmonia Mundi","year":"2009"},{"trk":17,"work":"Die Schöpfung, Hob. XXI:2","composer":"Joseph Haydn","t":"No. 16, Rezitativ: Und Gott schuf große Walfische","n":"16","of":"34","d":116.6,"cond":"René Jacobs","r":[["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]],"cs":"Haydn, Joseph","album":"Die Schöpfung","label":"Harmonia Mundi","year":"2009"},{"trk":18,"work":"Die Schöpfung, Hob. XXI:2","composer":"Joseph Haydn","t":"No. 17, Rezitativ: Und die Engel rührten ihr' unsterblichen Harfen","n":"17","of":"34","d":21.7,"cond":"René Jacobs","r":[["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]],"cs":"Haydn, Joseph","album":"Die Schöpfung","label":"Harmonia Mundi","year":"2009"},{"trk":19,"work":"Die Schöpfung, Hob. XXI:2","composer":"Joseph Haydn","t":"No. 18, Terzett: In holder Anmut stehn – No. 19, Chor: Der Herr ist groß in seiner Macht","n":"18","of":"34","d":396.1,"cond":"René Jacobs","r":[["soprano","Julia Kleiter"],["tenor","Maximilian Schmitt"],["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"],["choir","RIAS Kammerchor"]],"cs":"Haydn, Joseph","album":"Die Schöpfung","label":"Harmonia Mundi","year":"2009"},{"trk":20,"work":"Die Schöpfung, Hob. XXI:2","composer":"Joseph Haydn","t":"No. 20, Rezitativ: Und Gott sprach, Es bringe die Erde hervor","n":"20","of":"34","d":36.9,"cond":"René Jacobs","r":[["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]],"cs":"Haydn, Joseph","album":"Die Schöpfung","label":"Harmonia Mundi","year":"2009"},{"trk":21,"work":"Die Schöpfung, Hob. XXI:2","composer":"Joseph Haydn","t":"No. 21, Rezitativ: Gleich öffnet sich der Erde Schoß","n":"21","of":"34","d":173.8,"cond":"René Jacobs","r":[["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]],"cs":"Haydn, Joseph","album":"Die Schöpfung","label":"Harmonia Mundi","year":"2009"},{"trk":22,"work":"Die Schöpfung, Hob. XXI:2","composer":"Joseph Haydn","t":"No. 22, Arie: Nun scheint in vollem Glanze der Himmel","n":"22","of":"34","d":180.3,"cond":"René Jacobs","r":[["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]],"cs":"Haydn, Joseph","album":"Die Schöpfung","label":"Harmonia Mundi","year":"2009"},{"trk":23,"work":"Die Schöpfung, Hob. XXI:2","composer":"Joseph Haydn","t":"No. 23, Rezitativ: Und Gott schuf den Menschen","n":"23","of":"34","d":39.9,"cond":"René Jacobs","r":[["tenor","Maximilian Schmitt"],["orchestra","Freiburger Barockorchester"]],"cs":"Haydn, Joseph","album":"Die Schöpfung","label":"Harmonia Mundi","year":"2009"},{"trk":24,"work":"Die Schöpfung, Hob. XXI:2","composer":"Joseph Haydn","t":"No. 24, Arie: Mit Würd' und Hoheit angetan","n":"24","of":"34","d":233.0,"cond":"René Jacobs","r":[["tenor","Maximilian Schmitt"],["orchestra","Freiburger Barockorchester"]],"cs":"Haydn, Joseph","album":"Die Schöpfung","label":"Harmonia Mundi","year":"2009"},{"trk":25,"work":"Die Schöpfung, Hob. XXI:2","composer":"Joseph Haydn","t":"No. 25, Rezitativ: Und Gott sah jedes Ding, was er gemacht hatte","n":"25","of":"34","d":22.4,"cond":"René Jacobs","r":[["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]],"cs":"Haydn, Joseph","album":"Die Schöpfung","label":"Harmonia Mundi","year":"2009"},{"trk":26,"work":"Die Schöpfung, Hob. XXI:2","composer":"Joseph Haydn","t":"No. 26, Chor: Vollendet ist das große Werk – No. 27, Terzett: Zu dir, o Herr – No. 28, Chor","n":"26","of":"34","d":593.9,"cond":"René Jacobs","r":[["soprano","Julia Kleiter"],["tenor","Maximilian Schmitt"],["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"],["choir","RIAS Kammerchor"]],"cs":"Haydn, Joseph","album":"Die Schöpfung","label":"Harmonia Mundi","year":"2009"},{"trk":27,"work":"Die Schöpfung, Hob. XXI:2","composer":"Joseph Haydn","t":"No. 29, Rezitativ: Aus Rosenwolken bricht","n":"29","of":"34","d":234.8,"cond":"René Jacobs","r":[["tenor","Maximilian Schmitt"],["orchestra","Freiburger Barockorchester"]],"cs":"Haydn, Joseph","album":"Die Schöpfung","label":"Harmonia Mundi","year":"2009"},{"trk":28,"work":"Die Schöpfung, Hob. XXI:2","composer":"Joseph Haydn","t":"No. 30, Duett mit Chor: Von deiner Güt', o Herr und Gott","n":"30","of":"34","d":580.9,"cond":"René Jacobs","r":[["soprano","Julia Kleiter"],["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"],["choir","RIAS Kammerchor"]],"cs":"Haydn, Joseph","album":"Die Schöpfung","label":"Harmonia Mundi","year":"2009"},{"trk":29,"work":"Die Schöpfung, Hob. XXI:2","composer":"Joseph Haydn","t":"No. 31, Rezitativ: Nun ist die erste Pflicht erfüllt","n":"31","of":"34","d":143.6,"cond":"René Jacobs","r":[["soprano","Julia Kleiter"],["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]],"cs":"Haydn, Joseph","album":"Die Schöpfung","label":"Harmonia Mundi","year":"2009"},{"trk":30,"work":"Die Schöpfung, Hob. XXI:2","composer":"Joseph Haydn","t":"No. 32, Duett: Holde Gattin, dir zur Seite","n":"32","of":"34","d":494.8,"cond":"René Jacobs","r":[["soprano","Julia Kleiter"],["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]],"cs":"Haydn, Joseph","album":"Die Schöpfung","label":"Harmonia Mundi","year":"2009"},{"trk":31,"work":"Die Schöpfung, Hob. XXI:2","composer":"Joseph Haydn","t":"No. 33, Rezitativ: O glücklich Paar, und glücklich immerfort","n":"33","of":"34","d":25.4,"cond":"René Jacobs","r":[["tenor","Maximilian Schmitt"],["orchestra","Freiburger Barockorchester"]],"cs":"Haydn, Joseph","album":"Die Schöpfung","label":"Harmonia Mundi","year":"2009"},{"trk":32,"work":"Die Schöpfung, Hob. XXI:2","composer":"Joseph Haydn","t":"No. 34, Schlusschor: Singt dem Herren alle Stimmen","n":"34","of":"34","d":203.8,"cond":"René Jacobs","r":[["orchestra","Freiburger Barockorchester"],["choir","RIAS Kammerchor"]],"cs":"Haydn, Joseph","album":"Die Schöpfung","label":"Harmonia Mundi","year":"2009"}],"teatime":[{"trk":1,"work":"Il signor Bruschino: Sinfonia","composer":"Gioachino Rossini","t":"Il signor Bruschino: Sinfonia","n":null,"of":null,"d":310.4,"cond":null,"r":[["orchestra","Orpheus Chamber Orchestra"]],"cs":"Rossini, Gioachino","album":"Tea Time Classics","label":"","year":"1985"},{"trk":2,"work":"String Quintet in E major, Op. 11 No. 5","composer":"Luigi Boccherini","t":"Minuetto (con un poco di moto)","n":"3","of":"4","d":204.0,"cond":null,"r":[["orchestra","Orpheus Chamber Orchestra"]],"cs":"Boccherini, Luigi","album":"Tea Time Classics","label":"","year":"1993"},{"trk":3,"work":"Fantasia on Greensleeves","composer":"Ralph Vaughan Williams","t":"Fantasia on Greensleeves","n":null,"of":null,"d":269.1,"cond":null,"r":[["orchestra","Orpheus Chamber Orchestra"]],"cs":"Vaughan Williams, Ralph","album":"Tea Time Classics","label":"","year":"1986"},{"trk":4,"work":"Masques et bergamasques, Op. 112","composer":"Gabriel Fauré","t":"Ouverture. Allegro molto vivo","n":"1","of":"4","d":204.9,"cond":null,"r":[["orchestra","Orpheus Chamber Orchestra"]],"cs":"Fauré, Gabriel","album":"Tea Time Classics","label":"","year":"1996"},{"trk":5,"work":"Horn Concerto No. 4 in E-flat major, K. 495","composer":"Wolfgang Amadeus Mozart","t":"Romance. Andante cantabile","n":"2","of":"3","d":294.8,"cond":null,"r":[["orchestra","Orpheus Chamber Orchestra"],["horn","David Jolley"]],"cs":"Mozart, Wolfgang Amadeus","album":"Tea Time Classics","label":"","year":"1988"},{"trk":6,"work":"Orfeo ed Euridice, Wq. 30","composer":"Christoph Willibald Gluck","t":"Act 2, Dance of the Blessed Spirits","n":null,"of":null,"d":368.8,"cond":null,"r":[["orchestra","Orpheus Chamber Orchestra"]],"cs":"Gluck, Christoph Willibald","album":"Tea Time Classics","label":"","year":"1993"},{"trk":7,"work":"Water Music Suite No. 1 in F major, HWV 348","composer":"George Frideric Handel","t":"Air","n":"5","of":"9","d":208.2,"cond":null,"r":[["orchestra","Orpheus Chamber Orchestra"]],"cs":"Handel, George Frideric","album":"Tea Time Classics","label":"","year":"1992"},{"trk":8,"work":"String Quartet in F major, Op. 3 No. 5","composer":"Roman Hoffstetter","t":"Andante cantabile","n":"2","of":"4","d":194.7,"cond":null,"r":[["orchestra","Orpheus Chamber Orchestra"]],"cs":"Hoffstetter, Roman","album":"Tea Time Classics","label":"","year":"1993"},{"trk":9,"work":"Flute Concerto in D major, Op. 10 No. 3, RV 428","composer":"Antonio Vivaldi","t":"Allegro","n":"1","of":"3","d":231.7,"cond":null,"r":[["orchestra","Orpheus Chamber Orchestra"],["flute","Patrick Gallois"]],"cs":"Vivaldi, Antonio","album":"Tea Time Classics","label":"","year":"1993"},{"trk":10,"work":"A Midsummer Night's Dream, Op. 61","composer":"Felix Mendelssohn","t":"No. 5, Intermezzo. Allegro appassionato","n":"5","of":"13","d":201.5,"cond":null,"r":[["orchestra","Orpheus Chamber Orchestra"]],"cs":"Mendelssohn, Felix","album":"Tea Time Classics","label":"","year":"1993"},{"trk":11,"work":"Serenade No. 13 in G major, K. 525","composer":"Wolfgang Amadeus Mozart","t":"Rondo. Allegro","n":"4","of":"4","d":235.4,"cond":null,"r":[["orchestra","Orpheus Chamber Orchestra"]],"cs":"Mozart, Wolfgang Amadeus","album":"Tea Time Classics","label":"","year":"1986"},{"trk":12,"work":"Rosamunde, D. 797","composer":"Franz Schubert","t":"No. 9, Ballet Music No. 2. Andantino","n":"9","of":"9","d":387.1,"cond":null,"r":[["orchestra","Orpheus Chamber Orchestra"]],"cs":"Schubert, Franz","album":"Tea Time Classics","label":"","year":"1993"},{"trk":13,"work":"Fantasía para un gentilhombre","composer":"Joaquín Rodrigo","t":"Villano y Ricercar. Adagietto","n":"1","of":"4","d":295.3,"cond":null,"r":[["orchestra","Orpheus Chamber Orchestra"],["guitar","Göran Söllscher"]],"cs":"Rodrigo, Joaquín","album":"Tea Time Classics","label":"","year":"1990"},{"trk":14,"work":"Symphony No. 1 in D major, Op. 25","composer":"Sergei Prokofiev","t":"Allegro","n":"1","of":"4","d":263.5,"cond":null,"r":[["orchestra","Orpheus Chamber Orchestra"]],"cs":"Prokofiev, Sergei","album":"Tea Time Classics","label":"","year":"1988"},{"trk":15,"work":"Serenade for Strings in C major, Op. 48","composer":"Pyotr Ilyich Tchaikovsky","t":"Waltz. Moderato - Tempo di valse","n":"2","of":"4","d":236.3,"cond":null,"r":[["orchestra","Orpheus Chamber Orchestra"]],"cs":"Tchaikovsky, Pyotr Ilyich","album":"Tea Time Classics","label":"","year":"1987"},{"trk":16,"work":"Symphony No. 1 in C major","composer":"Georges Bizet","t":"Finale. Allegro vivace","n":"4","of":"4","d":365.3,"cond":null,"r":[["orchestra","Orpheus Chamber Orchestra"]],"cs":"Bizet, Georges","album":"Tea Time Classics","label":"","year":"1988"}]};
+const VARIANTS = [["row", "A · In the row"], ["caption", "B · Caption"], ["title", "C · Under titles"]];
+const SOURCES = [["creation", "Schöpfung"], ["b5", "Beethoven 5"], ["teatime", "Tea Time"]];
+// Sample notes: [track, start s, length s or 0, text]. A length makes a span.
+const NOTES = {
+  creation: [[0, 0, 0, "Chaos: a unison C, muted strings."], [1, 122, 20, "\u201eUnd es ward Licht\u201c: fortissimo C major."], [13, 0, 45, "Die Himmel erzählen: the chorus everyone knows."], [15, 30, 0, "The eagle, the lark, the dove."], [29, 0, 0, "Adam and Eve: the love duet."]],
+  b5: [[0, 0, 8, "Fate motif: four notes and a fermata."], [1, 0, 0, "Theme in violas and cellos."], [2, 249, 60, "Timpani pianissimo, then the crescendo into the finale."], [3, 0, 0, "C major arrives, with trombones."]],
+  teatime: [[2, 0, 0, "The tune everyone hums."], [4, 20, 40, "The horn's first phrase."]],
+};
+const Q = new URLSearchParams(location.search);
+const S = {
+  variant: VARIANTS.some(v => v[0] === Q.get("variant")) ? Q.get("variant") : "row",
+  side: Q.get("side") === "left" ? "left" : "right", marking: null, editing: null,
+  play: SOURCES.some(v => v[0] === Q.get("play")) ? Q.get("play") : "creation",
+  playing: true, speed: +(Q.get("speed") || 1), open: new Set(),
+};
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const fmt = s => { s = Math.max(0, Math.floor(s)); const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, x = String(s % 60).padStart(2, "0"); return h ? `${h}:${String(m).padStart(2, "0")}:${x}` : `${m}:${x}`; };
+// A surname comes from the sort name ("Haydn, Joseph"). Without one, the full name shows: no rule guesses.
+const surname = (name, sort) => sort && sort.includes(",") ? sort.split(",")[0] : name;
+const cap = s => s[0].toUpperCase() + s.slice(1);
+
+// ---------- what plays ----------
+let P, T = 0;
+function loadNotes() { for (const k in NOTES) notes[k] = NOTES[k].map(([i, t, len, x]) => ({ i, t, len, x })); }
+function load(key) {
+  let s = 0; const items = DATA[key].map((x, i) => { const o = { ...x, i, start: s }; s += x.d; return o; });
+  const album = new Set(items.map(x => x.work)).size > 1, k = r => r.join("|");
+  const common = items[0].r.filter(r => items.every(x => x.r.some(y => k(y) === k(r))));
+  const conds = new Set(items.map(x => x.cond).filter(Boolean)), cond = conds.size === 1 ? [...conds][0] : null;
+  P = { key, items, total: s, album, common, cond, title: album ? items[0].album : items[0].work, composer: album ? null : items[0].composer, cs: items[0].cs, label: items[0].label, year: album ? null : items[0].year };
+  T = key === "creation" ? items[13].start + 20 : key === "b5" ? items[1].start + 100 : items[4].start + 30;
+  S.open = new Set();
+}
+const cur = () => P.items.findLast(x => T >= x.start) || P.items[0];
+let notes = {};
+const notesOf = i => (notes[P.key] || []).filter(n => n.i === i).sort((a, b) => a.t - b.t);
+// A point note counts as current for 12 s; a span for its length.
+const isOn = n => { const x = P.items[n.i], a = x.start + n.t; return T >= a && T < a + (n.len || 12); };
+// Two ways to write a span: start and end (A, C), or start and length (B).
+const when = n => !n.len ? fmt(n.t) : S.variant === "caption" ? `${fmt(n.t)} · ${n.len} s` : `${fmt(n.t)}–${fmt(n.t + n.len)}`;
+const extra = x => { const k = r => r.join("|"), c = new Set(P.common.map(k)); const out = x.r.filter(r => !c.has(k(r))); if (x.cond && x.cond !== P.cond) out.unshift(["conductor", x.cond]); return out; };
+let coverN = 0;
+function cover() {
+  const seed = P.title + P.label; let h = 0; for (const c of seed) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const a = h % 360, b = (a + 40 + (h >> 8) % 80) % 360, id = "g" + (++coverN), lab = P.album ? "Tea Time" : surname(P.composer, P.cs);
+  return `<svg viewBox="0 0 100 100" style="width:100%;height:100%;display:block"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="hsl(${a},45%,38%)"/><stop offset="1" stop-color="hsl(${b},55%,62%)"/></linearGradient></defs><rect width="100" height="100" fill="url(#${id})"/><text x="8" y="90" font-family="Georgia,serif" font-size="12" fill="rgba(255,255,255,.85)">${esc(lab)}</text></svg>`;
+}
+function rowText(x) { if (!P.album) return { t: x.t, s: "" }; return { t: x.work, s: surname(x.composer, x.cs) + (x.t === x.work ? "" : " · " + x.t) }; }
+
+// ---------- the three facts ----------
+function facts(x) {
+  const comp = surname(x.composer, x.cs), cond = x.cond || P.cond;
+  const by = [comp, cond || (P.common[0] && P.common[0][1])].filter(Boolean).join(" · ");
+  return { mv: x.t, by, wk: x.work };
+}
+let miniKey = "";
+function renderMini() {
+  const x = cur(), f = facts(x), key = S.variant + P.key + x.i + S.playing;
+  if (key === miniKey) return; miniKey = key;
+  document.body.classList.add("three");
+  const pp = `<button class="pp" data-a="pp" aria-label="Play or pause">${S.playing ? "❚❚" : "▶"}</button>`;
+  // Locked: movement, then work, then people.
+  const txt = `<div class="mq mv"><span>${esc(f.mv)}</span></div><div class="wk ell">${esc(f.wk)}</div><div class="by ell">${esc(f.by)}</div>`;
+  $("#mini").innerHTML = `<div class="art">${cover()}</div><div class="txt">${txt}</div>${pp}`;
+  requestAnimationFrame(marquee);
+}
+function marquee() {
+  document.querySelectorAll("#mini .mq").forEach(m => { const sp = m.firstElementChild, over = sp.scrollWidth - 32 - m.clientWidth;
+    m.classList.toggle("run", over > 0); if (over > 0) { m.style.setProperty("--shift", -(over + 8) + "px"); m.style.setProperty("--dur", Math.max(8, over / 18 + 5) + "s"); } });
+}
+
+// ---------- place ----------
+function renderPlace() {
+  const all = Object.values(DATA).flat(), comps = [...new Map(all.map(x => [x.composer, x.cs])).entries()].sort((a, b) => (a[1] || a[0]).localeCompare(b[1] || b[0]));
+  $("#place").innerHTML = `<h1>Library</h1><div class="sh">Composers</div><div class="pl">${comps.map(([c]) => { const n = new Set(all.filter(x => x.composer === c).map(x => x.work)).size; return `<div class="pr"><div class="m">${esc(c)}<div class="s">${n} ${n === 1 ? "work" : "works"}</div></div>${P.items.some(x => x.composer === c) ? `<span class="eq">♫</span>` : ""}</div>`; }).join("")}</div>`;
+}
+
+// ---------- player ----------
+function factRows(pairs) { return pairs.map(([k, v]) => `<div class="fact"><span class="k">${esc(cap(k))}</span><span class="v">${esc(v)}</span></div>`).join(""); }
+function rowHead(x) {
+  const { t, s } = rowText(x), isCur = x === cur(), open = isCur || S.open.has(x.i);
+  const tn = S.variant === "title" ? notesOf(x.i).map(n => `<div class="tn" data-n="${n.i}-${n.t}">${when(n)} · ${esc(n.x)}</div>`).join("") : "";
+  // The play button takes the chevron's slot, so opening a row never reflows its title.
+  const slot = isCur ? `<span class="slot"></span>` : open ? `<span class="slot go" data-a="play" data-i="${x.i}">▶</span>` : `<span class="slot">›</span>`;
+  return `<button class="rh" data-row="${x.i}"><span class="main"><div class="t">${esc(t)}<span class="d tnum">${fmt(x.d)}</span></div>${s ? `<div class="s">${esc(s)}</div>` : ""}${tn}</span>${slot}</button>`;
+}
+function rowBody(x) {
+  let h = factRows(extra(x));
+  if (S.variant === "row") h += notesOf(x.i).map(n => `<div class="note" data-n="${n.i}-${n.t}"><span class="k tnum">${when(n)}</span><span class="v">${esc(n.x)}</span></div>`).join("");
+  if (x === cur()) h += `<div class="seek"><div class="tr"><i></i></div></div><div class="times tnum"><span class="el"></span><span class="rm"></span></div>
+    <div class="ctl"><button data-a="prev" aria-label="Previous">⏮</button><button data-a="back" aria-label="Back 15 seconds">↺</button><button class="pp" data-a="pp" aria-label="Play or pause"></button><button data-a="fwd" aria-label="Forward 15 seconds">↻</button><button data-a="next" aria-label="Next">⏭</button></div>`
+    + (S.variant === "caption" ? `<div class="caption off"></div>` : "")
+    + (S.editing ? `<input class="nin" placeholder="Write the note" value="">` : `<button class="addn" data-a="note">${S.marking ? "End the note here" : "Add a note here"}</button>`);
+  return h;
+}
+let lastCur = null;
+// Re-render the rows without moving the anchor row on screen: changes happen in place.
+function renderRows(anchor) {
+  const c = $("#content"), el = anchor != null ? document.querySelector(`.row[data-i="${anchor}"]`) : null, before = el ? el.getBoundingClientRect().top : null;
+  const now = cur();
+  $("#rows").innerHTML = P.items.map(x => `<div class="row ${x === now ? "cur open" : ""} ${S.open.has(x.i) ? "open" : ""}" data-i="${x.i}">${rowHead(x)}<div class="rb">${rowBody(x)}</div></div>`).join("");
+  lastCur = now;
+  if (before != null) { const after = document.querySelector(`.row[data-i="${anchor}"]`).getBoundingClientRect().top; progUntil = Date.now() + 80; c.scrollTop += after - before; }
+  tick(true);
+}
+function renderPlayer() {
+  const head = [P.cond && ["conductor", P.cond], ...P.common].filter(Boolean);
+  $("#content").innerHTML = `<div class="hero"><div class="art">${cover()}</div><h2>${esc(P.title)}</h2>${P.composer ? `<div class="c">${esc(P.composer)}</div>` : ""}
+    <div class="facts">${factRows(head)}</div><div class="meta">${esc(P.label)}${P.year ? " · " + P.year : ""} · ${P.items.length} ${P.album ? "tracks" : "movements"} · ${fmt(P.total)}</div></div><div class="list" id="rows"></div>`;
+  $("#pin .ttl").innerHTML = `<div class="pa">${cover()}</div><div style="min-width:0"><div class="a ell">${esc(P.title)}</div><div class="b ell">${esc(P.composer || head.map(h => h[1]).join(" · "))}</div></div>`;
+  renderRows(); placeNow(false);
+}
+function firstVisibleRow() { const top = $("#content").getBoundingClientRect().top + 100; return [...document.querySelectorAll(".row")].find(r => r.getBoundingClientRect().bottom > top); }
+
+// ---------- the bar ----------
+let G = null;
+function drawBar() {
+  const el = $("#bar"), H = el.clientHeight, n = P.items.length, gap = n > 12 ? 2 : 4, min = 3;
+  let fixed = new Set(), k = 0; const avail = H - gap * (n - 1);
+  for (let it = 0; it < 6; it++) { const free = P.items.filter(x => !fixed.has(x.i)).reduce((a, x) => a + x.d, 0); k = (avail - min * fixed.size) / free; let ch = false; for (const x of P.items) if (!fixed.has(x.i) && x.d * k < min) { fixed.add(x.i); ch = true; } if (!ch) break; }
+  let y = 0; const segs = P.items.map(x => { const h = fixed.has(x.i) ? min : x.d * k; const s = { y, h }; y += h + gap; return s; });
+  G = { segs, y(t) { const x = P.items.findLast(x => t >= x.start) || P.items[0], s = segs[x.i]; return s.y + Math.min(1, (t - x.start) / x.d) * s.h; },
+    t(py) { for (const x of P.items) { const s = segs[x.i]; if (py < s.y + s.h + gap / 2 || x.i === n - 1) return x.start + Math.min(1, Math.max(0, (py - s.y) / s.h)) * x.d; } return 0; } };
+  const w = el.clientWidth, lx = S.side === "left" ? 10 : w - 14;
+  const lx2 = S.side === "left" ? 10 : w - 14, dir = S.side === "left" ? 1 : -1, base = S.side === "left" ? lx2 + 4 : lx2;
+  // Notes on the bar: a hairline beside the line; a span runs alongside it.
+  const marks = (notes[P.key] || []).map(n => { const a = P.items[n.i].start + n.t, y1 = G.y(a), y2 = n.len ? Math.max(y1 + 2, G.y(a + n.len)) : y1 + 1.2;
+    const x1 = dir < 0 ? base - 9 : base + 3; return `<rect x="${x1}" y="${y1}" width="6" height="1.2"/>` + (n.len ? `<rect x="${dir < 0 ? base - 5 : base + 3.5}" y="${y1}" width="1.2" height="${y2 - y1}"/>` : ""); }).join("");
+  el.innerHTML = `<svg viewBox="0 0 ${w} ${H}" preserveAspectRatio="none"><defs><clipPath id="pc"><rect id="pcr" x="0" y="0" width="${w}" height="0"/></clipPath></defs><g fill="var(--label2)">${marks}</g>`
+    + `<g fill="var(--track)">${segs.map(s => `<rect x="${lx}" y="${s.y}" width="4" height="${s.h}"/>`).join("")}</g>`
+    + `<g fill="var(--tint)" clip-path="url(#pc)">${segs.map(s => `<rect x="${lx}" y="${s.y}" width="4" height="${s.h}"/>`).join("")}</g></svg>`;
+}
+// A vertical drag scrubs. A tap starts the movement under the finger. A sideways swipe changes nothing.
+(() => {
+  const el = $("#bar"); let on = false, mode = null, t = 0, x0 = 0, y0 = 0;
+  const at = e => { const r = el.getBoundingClientRect(); t = G.t(e.clientY - r.top); const x = P.items.findLast(x => t >= x.start) || P.items[0], tx = rowText(x), b = $("#bubble");
+    b.style.display = "block"; b.style.top = Math.max(60, Math.min(innerHeight - 140, e.clientY - 30)) + "px";
+    b.innerHTML = `<b class="tnum">${fmt(t - x.start)}</b> of ${fmt(x.d)}<br>${esc(tx.t)}${tx.s ? `<br><span style="color:var(--label2)">${esc(tx.s)}</span>` : ""}`;
+    $("#pcr").setAttribute("height", G.y(t)); };
+  el.onpointerdown = e => { on = true; mode = null; x0 = e.clientX; y0 = e.clientY; el.setPointerCapture(e.pointerId); touched(); };
+  el.onpointermove = e => { if (!on) return; const dx = Math.abs(e.clientX - x0), dy = Math.abs(e.clientY - y0); if (!mode && (dx > 8 || dy > 8)) mode = dy > dx * 1.5 ? "scrub" : "ignore"; if (mode === "scrub") at(e); };
+  el.onpointerup = el.onpointercancel = e => {
+    if (!on) return; on = false; $("#bubble").style.display = "none";
+    if (e.type === "pointerup" && mode === "scrub") { T = t; changed(null); toast("Seek"); }
+    else if (e.type === "pointerup" && !mode) { const r = el.getBoundingClientRect(), tt = G.t(e.clientY - r.top), x = P.items.findLast(x => tt >= x.start) || P.items[0]; T = x.start; S.playing = true; changed(null); toast("Plays " + rowText(x).t); }
+    $("#pcr").setAttribute("height", G.y(T)); mode = null;
+  };
+})();
+
+// ---------- calm following ----------
+// The view moves only when the listener asks (the arrow) or after a quiet spell without touches.
+const IDLE = 8000;
+let lastTouch = Date.now(), progUntil = 0;
+const touched = () => lastTouch = Date.now();
+["touchstart", "pointerdown", "wheel"].forEach(ev => addEventListener(ev, touched, { passive: true, capture: true }));
+function where() { const r = document.querySelector(".row.cur"); if (!r) return 0; const c = $("#content").getBoundingClientRect(), a = r.getBoundingClientRect(), top = c.top + 100, bot = c.bottom - 20;
+  const vis = Math.min(a.bottom, bot) - Math.max(a.top, top); return vis > Math.min(60, a.height * .5) ? 0 : a.bottom < top + 30 ? -1 : 1; }
+function placeNow(smooth) { // the playing row in the upper part, the previous title just above it
+  const c = $("#content"), r = document.querySelector(".row.cur"); if (!r) return;
+  const prev = r.previousElementSibling, ref = prev || r, cr = c.getBoundingClientRect();
+  const target = c.scrollTop + ref.getBoundingClientRect().top - cr.top - 100 - 8;
+  if (Math.abs(target - c.scrollTop) < 4) return;
+  progUntil = Date.now() + (smooth ? 900 : 80); c.scrollTo({ top: Math.max(0, target), behavior: smooth ? "smooth" : "auto" });
+}
+// A new movement: the old row closes, the new one opens, and the rows on screen stay put.
+function changed(anchorRow) { const a = anchorRow ?? (firstVisibleRow() ? +firstVisibleRow().dataset.i : null); renderRows(a); miniKey = ""; renderMini(); }
+$("#content").addEventListener("scroll", () => {
+  if (Date.now() > progUntil) touched();
+  const h2 = document.querySelector(".hero h2"); $("#player").classList.toggle("solid", !!h2 && h2.getBoundingClientRect().bottom < $("#content").getBoundingClientRect().top + 100);
+  arrow();
+}, { passive: true });
+let arrowKey = "";
+function arrow() { const w = where(), key = w + "" + cur().i; if (key === arrowKey) return; arrowKey = key; const a = $("#arrow"); a.className = "glass"; if (w) { a.classList.add(w < 0 ? "up" : "down"); a.textContent = w < 0 ? "↑" : "↓"; } }
+$("#arrow").onclick = () => { placeNow(true); toast("Back to what plays"); };
+
+// ---------- taps ----------
+document.addEventListener("click", e => {
+  const a = e.target.closest("[data-a]");
+  if (a) { e.stopPropagation(); act(a.dataset.a, +a.dataset.i, a.closest(".row")); return; }
+  const rh = e.target.closest(".rh[data-row]");
+  if (rh) { const i = +rh.dataset.row; if (P.items[i] === cur()) return; S.open.has(i) ? S.open.delete(i) : S.open.add(i); renderRows(i); }
+}, true);
+function act(a, i, row) {
+  const c = cur();
+  if (a === "pp") { S.playing = !S.playing; miniKey = ""; renderMini(); tick(true); return; }
+  if (a === "note") {
+    if (!S.marking) { S.marking = { i: c.i, t: Math.floor(T - c.start) }; renderRows(c.i); toast("Note starts at " + fmt(S.marking.t)); return; }
+    const m = S.marking, len = c.i === m.i ? Math.max(0, Math.round(T - c.start - m.t)) : 0;
+    S.marking = null; S.editing = { i: m.i, t: m.t, len }; renderRows(c.i);
+    const inp = document.querySelector(".nin"); inp.focus();
+    inp.onkeydown = ev => { if (ev.key === "Enter") inp.blur(); };
+    inp.onblur = () => { const e = S.editing; if (!e) return; S.editing = null; (notes[P.key] ||= []).push({ ...e, x: inp.value.trim() || "Note" }); drawBar(); renderRows(cur().i); toast(e.len ? `Note: ${fmt(e.t)}–${fmt(e.t + e.len)}` : `Note at ${fmt(e.t)}`); };
+    return;
+  }
+  if (a === "play") { T = P.items[i].start; S.playing = true; S.open.delete(i); changed(i); return; }
+  if (a === "back") T = Math.max(0, T - 15);
+  if (a === "fwd") T = Math.min(P.total - 1, T + 15);
+  if (a === "prev") T = T - c.start > 3 || !c.i ? c.start : P.items[c.i - 1].start;
+  if (a === "next" && c.i < P.items.length - 1) T = P.items[c.i + 1].start;
+  if (cur() !== lastCur) changed(row ? +row.dataset.i : null); else tick(true);
+}
+document.addEventListener("pointerdown", e => {
+  const sk = e.target.closest(".seek"); if (!sk) return; const x = cur(); sk.setPointerCapture(e.pointerId);
+  const set = ev => { const r = sk.getBoundingClientRect(); T = x.start + Math.min(.999, Math.max(0, (ev.clientX - r.left) / r.width)) * x.d; tick(true); };
+  set(e); sk.onpointermove = set; sk.onpointerup = () => sk.onpointermove = null;
+});
+
+// ---------- per frame ----------
+let lastPP = null;
+function tick(force) {
+  const x = cur();
+  if (x !== lastCur && !force) { changed(null); return; }
+  const f = (T - x.start) / x.d, i = document.querySelector(".row.cur .tr i"); if (i) i.style.width = f * 100 + "%";
+  const el = document.querySelector(".row.cur .el"); if (el) { el.textContent = fmt(T - x.start); document.querySelector(".row.cur .rm").textContent = "−" + fmt(x.d - (T - x.start)); }
+  if (force || lastPP !== S.playing) { lastPP = S.playing; document.querySelectorAll(".row.cur .pp").forEach(b => b.textContent = S.playing ? "❚❚" : "▶"); }
+  if (G) $("#pcr").setAttribute("height", G.y(T));
+  const on = (notes[P.key] || []).filter(isOn), ids = new Set(on.map(n => n.i + "-" + n.t));
+  document.querySelectorAll("[data-n]").forEach(e => e.classList.toggle("on", ids.has(e.dataset.n)));
+  const capEl = document.querySelector(".row.cur .caption");
+  if (capEl) { const n = on.find(n => n.i === x.i), key = n ? n.i + "-" + n.t : "";
+    if (capEl.dataset.k !== key) { capEl.dataset.k = key; capEl.classList.add("off"); clearTimeout(capEl._t);
+      if (n) capEl._t = setTimeout(() => { capEl.innerHTML = `${esc(n.x)}<small>${when(n)}</small>`; capEl.classList.remove("off"); }, 600); } }
+}
+let t0 = performance.now(), slow = 0;
+function frame(now) {
+  const dt = Math.min(.1, (now - t0) / 1000) * S.speed; t0 = now;
+  if (S.playing) { T += dt; if (T >= P.total) { T = 0; S.playing = false; } }
+  if (now - slow > 250) { slow = now; tick(); arrow(); if (document.body.classList.contains("player") && Date.now() - lastTouch > IDLE) placeNow(true); }
+  requestAnimationFrame(frame);
+}
+
+// ---------- open, close, switches ----------
+$("#mini").onclick = e => { if (e.target.closest("[data-a]")) return; document.body.classList.add("player"); touched(); requestAnimationFrame(() => placeNow(false)); };
+$("#close").onclick = () => document.body.classList.remove("player");
+function setQ() { history.replaceState(null, "", "?" + new URLSearchParams({ variant: S.variant, play: S.play, side: S.side })); }
+function stepVariant(d) { const i = VARIANTS.findIndex(v => v[0] === S.variant); S.variant = VARIANTS[(i + d + VARIANTS.length) % VARIANTS.length][0]; setQ(); renderRows(firstVisibleRow() ? +firstVisibleRow().dataset.i : null); label(); toast(VARIANTS.find(v => v[0] === S.variant)[1]); }
+$("#vp").onclick = () => stepVariant(-1); $("#vn").onclick = () => stepVariant(1); $("#vl").onclick = () => stepVariant(1);
+$("#src").onclick = () => { const i = SOURCES.findIndex(v => v[0] === S.play); S.play = SOURCES[(i + 1) % 3][0]; setQ(); all(); };
+$("#side").onclick = () => { S.side = S.side === "right" ? "left" : "right"; setQ(); document.body.classList.toggle("left", S.side === "left"); requestAnimationFrame(() => { drawBar(); tick(true); }); label(); };
+function label() { $("#side").textContent = S.side === "right" ? "Bar ▸" : "◂ Bar"; $("#vl").textContent = VARIANTS.find(v => v[0] === S.variant)[1]; $("#src").textContent = SOURCES.find(v => v[0] === S.play)[1] + " ▾"; }
+let tt = 0;
+function toast(s) { const t = $("#toast"); t.textContent = s; t.classList.add("on"); clearTimeout(tt); tt = setTimeout(() => t.classList.remove("on"), 1500); }
+function all() { load(S.play); S.marking = null; S.editing = null; miniKey = ""; renderMini(); drawBar(); renderPlace(); renderPlayer(); label(); }
+addEventListener("resize", () => { drawBar(); tick(true); marquee(); });
+if (Q.get("screen") === "player") document.body.classList.add("player");
+document.body.classList.toggle("left", S.side === "left");
+loadNotes();
+all(); requestAnimationFrame(frame);
+</script>
+</body>
+</html>

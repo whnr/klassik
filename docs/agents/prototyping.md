@@ -12,7 +12,7 @@ How to build a UX prototype that Flo tests on his phone. The search ticket (sz-r
 
 - Branch `prototypes`, worktree `../klassik-prototypes`, one folder for each question: `prototypes/<name>/index.html`.
 - One self-contained HTML file. Vanilla JavaScript, no dependencies, no network.
-- Generated data from a fixed seed. Never a real library, cover or credential.
+- Generated data from a fixed seed. Tags from Flo's library only when he asks for them. Never audio, cover art or a credential.
 - Build at least three variants that differ in structure, not in colour. Switch with `?variant=` and a pill at the top of the screen. The bottom belongs to the iOS search field. Add a reset link.
 - Each variant shows its state after every tap: counts, the current selection, and what a tap will do.
 - Only the content scrolls, never the page. Move the bottom bar with `visualViewport`. Otherwise the layout jumps when the keyboard opens.
@@ -27,8 +27,8 @@ How to build a UX prototype that Flo tests on his phone. The search ticket (sz-r
 
 ## Hand over
 
-- At home: in `prototypes/`, run `python3 -m http.server 8765 --bind 0.0.0.0`. Flo opens `http://<laptop LAN address>:8765/<name>/` on his phone.
-- Away from home: send the screenshots and the HTML file into the chat. Or copy the file to `whnr:/var/www/virtual/whnr/html/klassik/<name>/index.html`. It is then at `https://whnr.uber.space/klassik/<name>/`. Touch nothing else in that web root. Delete the folder after Flo's verdict.
+- Default: copy the file to `whnr:/var/www/virtual/whnr/html/klassik/<name>-<8 random hex>/index.html`. Flo opens `https://whnr.uber.space/klassik/<name>-<hex>/`. The random suffix keeps it unlisted: link it nowhere except to Flo. Touch nothing else in that web root. Delete the folder after Flo's verdict.
+- At home, if Flo asks: in `prototypes/`, run `python3 -m http.server 8765 --bind 0.0.0.0`. Flo opens `http://<laptop LAN address>:8765/<name>/` on his phone.
 - Commit each round on `prototypes`. Do not push that branch until Flo says.
 
 ## Record

@@ -1,0 +1,661 @@
+<!doctype html>
+<!--
+  PROTOTYPE, throw away. Map ticket sz-rs30.1.74.10, round 2.
+  Locked in round 1: variant A (the recording page is the player), Full rows, the Wash look, the fermata as the favourite mark.
+  Question: the player page follows the music. The next recording continues below on the same page. ?play=place|open sets what Play on the work page does.
+  Recordings, albums and summaries are sample data. Die Schöpfung (Jacobs) tracks come from Flo's library at his request. No audio, no cover art.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Work and recording pages, round 2</title>
+<style>
+:root {
+  --bg: #f2f2f7; --card: #fff; --label: #000; --label2: rgba(60,60,67,.6); --label3: rgba(60,60,67,.3);
+  --sep: rgba(60,60,67,.18); --tint: #b5482f; --tintSoft: rgba(181,72,47,.1); --fill: rgba(118,118,128,.14); --track: rgba(118,118,128,.32);
+  --glass: rgba(250,250,252,.82); --glassLine: rgba(0,0,0,.08); --gap: #dcdce2;
+  --barW: 26px; --lineX: 12px; --edgeTop: calc(env(safe-area-inset-top) + 52px);
+  --bot: calc(env(safe-area-inset-bottom) + 12px); --tabH: 56px; --miniH: 76px; --navH: 44px;
+  --top: calc(env(safe-area-inset-top) + 48px);
+}
+@media (prefers-color-scheme: dark) { :root {
+  --bg: #000; --card: #1c1c1e; --label: #fff; --label2: rgba(235,235,245,.6); --label3: rgba(235,235,245,.3);
+  --sep: rgba(84,84,88,.6); --tint: #ff7a5c; --tintSoft: rgba(255,122,92,.14); --fill: rgba(118,118,128,.24); --track: rgba(118,118,128,.5);
+  --glass: rgba(40,40,44,.82); --glassLine: rgba(255,255,255,.1); --gap: #2a2a2e;
+} }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--label); font: 17px/1.3 -apple-system, system-ui, sans-serif; -webkit-user-select: none; user-select: none; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; touch-action: manipulation; text-align: left; }
+.glass { background: var(--glass); backdrop-filter: blur(24px) saturate(1.8); -webkit-backdrop-filter: blur(24px) saturate(1.8); border: .5px solid var(--glassLine); }
+.ell { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tnum { font-variant-numeric: tabular-nums; }
+.lk { color: var(--tint); }
+
+/* ---------- the stack of pages ---------- */
+#nav { position: fixed; inset: 0; overflow: hidden; }
+.pg { position: absolute; top: 0; left: 0; bottom: 0; right: var(--barW); background: var(--bg); color: var(--label); transition: transform .35s cubic-bezier(.2,.8,.2,1), background-color .6s, right .35s, border-radius .35s; will-change: transform; }
+.pg .scroll { position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain; padding: calc(var(--top) + var(--navH) + 4px) 6px calc(var(--bot) + var(--tabH) + var(--miniH) + 40px) 16px; }
+#navbar { position: fixed; top: var(--top); left: 0; right: var(--barW); height: var(--navH); z-index: 8; display: flex; align-items: center; padding: 0 8px; gap: 6px; pointer-events: none; }
+#navbar > * { pointer-events: auto; }
+#back { color: var(--tint); font-size: 17px; max-width: 42%; display: flex; align-items: center; gap: 2px; height: 44px; padding: 0 6px; border-radius: 22px; }
+#back b { font-size: 26px; font-weight: 400; line-height: 1; margin-top: -3px; }
+#nt { flex: 1; text-align: center; font-weight: 600; font-size: 16px; opacity: 0; transition: opacity .2s; padding-right: 40px; }
+#navbar.solid #nt { opacity: 1; }
+#navbg { position: fixed; top: 0; left: 0; right: var(--barW); height: calc(var(--top) + var(--navH)); z-index: 7; opacity: 0; transition: opacity .2s; border-width: 0 0 .5px; }
+#navbg.solid { opacity: 1; }
+
+h1.pt { font-size: 28px; line-height: 1.15; margin: 4px 0 4px; }
+.sub { font-size: 17px; margin-bottom: 10px; }
+.sh { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; text-transform: uppercase; color: var(--label2); margin: 22px 8px 6px 14px; }
+.sh button { text-transform: none; font-size: 15px; color: var(--tint); }
+.foot { font-size: 13px; color: var(--label2); margin: 8px 14px 0; }
+.list { background: var(--card); border-radius: 12px; overflow: hidden; }
+.meta { font-size: 13px; color: var(--label2); margin: 6px 0 0; }
+.sum { margin: 12px 0 0; font-size: 15px; line-height: 1.4; }
+.sum p { margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.sum.open p { -webkit-line-clamp: unset; }
+.sum .more { color: var(--tint); font-size: 15px; }
+.sum .cred { font-size: 12px; color: var(--label2); }
+.acts { display: flex; gap: 8px; margin: 14px 0 0; }
+.btn { height: 40px; padding: 0 16px; border-radius: 20px; background: var(--fill); color: var(--tint); font-size: 15px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.btn.pri { background: var(--tint); color: #fff; min-width: 112px; justify-content: center; }
+.stub { font-size: 13px; color: var(--label2); background: var(--fill); border-radius: 10px; padding: 8px 12px; margin: 8px 0 0; }
+
+/* plain link rows (library, composer, performer stubs) */
+.pr { display: flex; gap: 10px; align-items: center; width: 100%; padding: 11px 14px; position: relative; }
+.pr + .pr::before { content: ""; position: absolute; top: 0; left: 14px; right: 0; border-top: .5px solid var(--sep); }
+.pr .m { flex: 1; min-width: 0; } .pr .s { font-size: 13px; color: var(--label2); } .pr .chev { color: var(--label3); }
+.pr:active { background: var(--fill); }
+
+/* ---------- recording rows on the work page ---------- */
+.rr { position: relative; overflow: hidden; }
+.rr + .rr::before { content: ""; position: absolute; top: 0; left: 14px; right: 0; border-top: .5px solid var(--sep); z-index: 3; }
+.rr .fg { position: relative; z-index: 2; background: var(--card); display: flex; gap: 12px; padding: 12px 8px 12px 14px; touch-action: pan-y; transition: transform .25s; }
+.rr .fg.drag { transition: none; }
+.rr .fg:active { background: color-mix(in srgb, var(--card), var(--label) 4%); }
+.rr .ra { position: absolute; top: 0; bottom: 0; display: flex; z-index: 1; }
+.rr .ra.L { left: 0; } .rr .ra.R { right: 0; }
+.rr .ra button { white-space: pre-line; width: 84px; color: #fff; font-size: 14px; font-weight: 600; display: grid; place-items: center; text-align: center; padding: 0 6px; line-height: 1.15; }
+.rr .ra .q1 { background: #5856d6; } .rr .ra .q2 { background: #ff9500; } .rr .ra .d1 { background: #34a0a4; } .rr .ra .f1 { background: var(--tint); }
+.rr .cv { flex: none; border-radius: 6px; overflow: hidden; }
+.rr .mn { flex: 1; min-width: 0; }
+.rr .l1 { font-size: 16px; font-weight: 600; } .rr .l2 { font-size: 14px; color: var(--label); } .rr .l3 { font-size: 13px; color: var(--label2); margin-top: 2px; }
+.rr .why { font-size: 13px; color: var(--tint); margin-top: 3px; }
+.rr .side { width: 64px; flex: none; display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; gap: 4px; }
+.rr .st { font-size: 12px; color: var(--tint); text-align: right; line-height: 1.25; white-space: pre-line; min-height: 15px; }
+.rr .slot { width: 34px; height: 34px; display: grid; place-items: center; color: var(--label3); font-size: 15px; border-radius: 17px; }
+.rr .slot.go { background: var(--tintSoft); color: var(--tint); font-size: 13px; }
+.rr .slot.hd { font-size: 20px; color: var(--label2); touch-action: none; }
+.rr.now .l1 { color: var(--tint); }
+.rr.dim { opacity: .45; }
+.rr.lifted { z-index: 9; box-shadow: 0 8px 24px rgba(0,0,0,.22); }
+.rr .rb2 { display: none; background: var(--card); position: relative; z-index: 2; padding: 0 0 8px; }
+.rr.open .rb2 { display: block; }
+.strip { display: flex; gap: 2px; height: 6px; margin-top: 8px; }
+.strip i { display: block; height: 100%; background: var(--track); border-radius: 1px; }
+.rr.now .strip i { background: color-mix(in srgb, var(--tint), transparent 45%); }
+body.rows-card .rr .fg { flex-wrap: wrap; }
+
+/* ---------- recording and album pages: the player's layout ---------- */
+.hero { padding: 0 0 6px; }
+.hero .art { width: min(240px, 100%); aspect-ratio: 1; border-radius: 12px; overflow: hidden; margin: 0 auto 14px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+.hero h2 { font-size: 22px; margin: 0 0 3px; line-height: 1.15; font-weight: 700; }
+.hero h2 button { font-weight: 700; color: var(--label); }
+.hero .c { color: var(--tint); font-size: 16px; display: block; margin-bottom: 8px; }
+.facts { background: var(--card); border-radius: 12px; margin-top: 4px; }
+.fact { display: flex; gap: 10px; padding: 9px 14px; font-size: 15px; position: relative; width: 100%; }
+.fact + .fact::before { content: ""; position: absolute; top: 0; left: 14px; right: 0; border-top: .5px solid var(--sep); }
+.fact .k { color: var(--label2); width: 92px; flex: none; } .fact .v { flex: 1; min-width: 0; }
+button.fact .v { color: var(--tint); }
+.grp { margin: 22px 0 6px 14px; } .grp .gt { font-size: 16px; font-weight: 600; color: var(--label); } .grp .gs { font-size: 13px; color: var(--label2); }
+.list.rows { margin-top: 14px; }
+.grp + .list.rows { margin-top: 0; }
+.row { position: relative; }
+.row + .row::before { content: ""; position: absolute; top: 0; left: 14px; right: 0; border-top: .5px solid var(--sep); z-index: 1; }
+.rh { display: flex; align-items: center; gap: 10px; width: 100%; padding: 11px 8px 11px 14px; min-height: 48px; }
+.rh:active { background: var(--fill); }
+.rh .main { flex: 1; min-width: 0; } .rh .t { font-size: 16px; }
+.rh .t .d { font-size: 14px; color: var(--label2); white-space: nowrap; margin-left: 6px; }
+.row.cur .rh .t { color: var(--tint); font-weight: 600; }
+.rh .slot { width: 34px; height: 34px; flex: none; display: grid; place-items: center; color: var(--label3); font-size: 15px; }
+.rh .slot.go { border-radius: 17px; background: var(--tintSoft); color: var(--tint); font-size: 13px; }
+.rb { display: none; padding: 0 0 10px; }
+.row.open .rb { display: block; }
+.rb .fact { font-size: 14px; padding: 7px 14px; }
+.seek { position: relative; height: 22px; touch-action: none; margin: 4px 14px 0; }
+.seek .tr { position: absolute; left: 0; right: 0; top: 10px; height: 3px; background: var(--track); } .seek .tr i { display: block; height: 100%; background: var(--tint); }
+.times { display: flex; justify-content: space-between; font-size: 12px; color: var(--label2); margin: -2px 14px 0; }
+.ctl { display: flex; align-items: center; justify-content: space-between; margin: 6px 18px 0; }
+.ctl button { width: 48px; height: 44px; display: grid; place-items: center; font-size: 18px; }
+.ctl button.pp { width: 56px; height: 56px; font-size: 24px; }
+
+/* ---------- the player: a page washed with the colour of what plays ---------- */
+.player-look { background: hsl(var(--h), 55%, 87%); transition: transform .35s cubic-bezier(.2,.8,.2,1), background-color 2.5s; }
+@media (prefers-color-scheme: dark) { .player-look { background: hsl(var(--h), 42%, 15%); } }
+.player-look .list, .player-look .facts, .player-look .nx { background: color-mix(in srgb, var(--card), hsl(var(--h), 60%, 55%) 9%); }
+.cont { margin-top: 26px; }
+.ch { display: flex; gap: 10px; align-items: center; margin: 0 0 8px 6px; }
+.ch .cv { width: 44px; height: 44px; border-radius: 6px; overflow: hidden; flex: none; }
+.ch .m { min-width: 0; } .gt { font-size: 16px; font-weight: 600; color: var(--label); }
+.cont .list.rows { margin-top: 0; }
+.nx { display: flex; gap: 12px; align-items: center; width: 100%; margin-top: 14px; background: var(--card); border-radius: 12px; padding: 10px 12px; }
+.nx .cv { width: 52px; height: 52px; border-radius: 6px; overflow: hidden; flex: none; }
+.nx .m { flex: 1; min-width: 0; } .nx .lab { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--label2); }
+.nx .t { font-size: 16px; font-weight: 600; } .nx .s { font-size: 13px; color: var(--label2); } .nx .chev { color: var(--label3); }
+.rr.now .fg { background: color-mix(in srgb, var(--card), var(--tint) 9%); }
+.fm { width: 1.05em; height: 1.05em; vertical-align: -.12em; }
+#arrow { position: fixed; right: calc(var(--barW) + 10px); width: 44px; height: 44px; border-radius: 22px; z-index: 9; display: none; place-items: center; font-size: 20px; color: var(--tint); box-shadow: 0 4px 16px rgba(0,0,0,.18); }
+#arrow.up { top: calc(var(--top) + var(--navH) + 10px); display: grid; } #arrow.down { bottom: calc(var(--bot) + var(--tabH) + 16px); display: grid; }
+body.onplayer #mini { opacity: 0; pointer-events: none; }
+
+/* ---------- tabs, mini player, timeline, player (locked, ADR 0014) ---------- */
+#tabs { position: fixed; left: 16px; right: calc(var(--barW) + 6px); bottom: var(--bot); height: var(--tabH); display: flex; gap: 8px; z-index: 5; transition: opacity .3s; }
+#tabs .cap { flex: 1; border-radius: 28px; display: flex; justify-content: space-around; align-items: center; font-size: 11px; color: var(--label2); }
+#tabs .cap span { display: flex; flex-direction: column; align-items: center; gap: 1px; } #tabs .cap b { font-size: 20px; font-weight: 400; }
+#tabs .cap .on { color: var(--tint); }
+#tabs .circ { width: var(--tabH); border-radius: 28px; display: grid; place-items: center; font-size: 22px; color: var(--label2); flex: none; }
+#mini { position: fixed; left: 16px; right: var(--lineX); bottom: calc(var(--bot) + var(--tabH) + 8px); height: var(--miniH); z-index: 6;
+  background: var(--card); border-radius: 18px 0 0 18px; box-shadow: 0 4px 18px rgba(0,0,0,.14); display: flex; align-items: center; gap: 10px; padding: 0 10px 0 8px; transition: opacity .3s; }
+#mini .art { width: 58px; height: 58px; border-radius: 8px; overflow: hidden; flex: none; }
+#mini .txt { flex: 1; min-width: 0; line-height: 1.22; }
+#mini .mv { font-size: 15px; font-weight: 600; } #mini .by, #mini .wk { font-size: 13px; color: var(--label2); }
+#mini .pp { width: 42px; height: 42px; border-radius: 21px; display: grid; place-items: center; font-size: 18px; flex: none; }
+.mq { overflow: hidden; white-space: nowrap; } .mq span { display: inline-block; padding-right: 32px; }
+.mq.run span { animation: mq var(--dur) linear infinite; }
+@keyframes mq { 0%, 18% { transform: translateX(0); } 82%, 100% { transform: translateX(var(--shift)); } }
+body.player #mini, body.player #tabs, body.player #navbar, body.player #navbg { opacity: 0; pointer-events: none; }
+#bar { position: fixed; right: 0; width: var(--barW); top: var(--edgeTop); bottom: calc(var(--bot) + var(--tabH) + 8px); z-index: 20; touch-action: none; }
+#bar svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+#bubble { position: fixed; right: calc(var(--barW) + 6px); z-index: 25; pointer-events: none; display: none; max-width: 250px; padding: 7px 10px; border-radius: 10px; font-size: 13px; line-height: 1.25; box-shadow: 0 4px 16px rgba(0,0,0,.18); }
+#bubble b { color: var(--tint); font-weight: 600; }
+#player { position: fixed; top: 0; left: 0; bottom: 0; right: var(--barW); z-index: 10; transform: translateX(-102%); transition: transform .4s cubic-bezier(.2,.8,.2,1); box-shadow: 6px 0 24px rgba(0,0,0,.12); background: var(--bg); color: var(--label); }
+body.player #player { transform: none; }
+#player .scroll { position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain; padding: calc(env(safe-area-inset-top) + 100px) 6px calc(var(--bot) + 60px) 16px; }
+#pin { position: absolute; left: 0; right: 0; top: calc(env(safe-area-inset-top) + 46px); height: 52px; z-index: 4; display: flex; align-items: center; gap: 10px; padding: 0 12px; }
+#pin .close { width: 34px; height: 34px; border-radius: 17px; background: var(--fill); display: grid; place-items: center; flex: none; font-size: 18px; }
+
+/* prototype switches */
+#sw { position: fixed; top: calc(env(safe-area-inset-top) + 6px); left: 6px; right: 6px; z-index: 30; display: flex; gap: 5px; justify-content: center; }
+#sw .p { display: flex; align-items: center; background: #111; color: #fff; border-radius: 18px; height: 34px; box-shadow: 0 2px 10px rgba(0,0,0,.35); }
+#sw .p button, #sw .p a { color: #fff; height: 34px; padding: 0 9px; font-size: 13px; white-space: nowrap; display: flex; align-items: center; text-decoration: none; }
+#sw .p button.arr { font-size: 18px; padding: 0 8px; }
+#toast { position: fixed; top: calc(env(safe-area-inset-top) + 46px); left: 50%; transform: translateX(-50%); z-index: 29; background: rgba(17,17,17,.88); color: #fff; font-size: 13px; padding: 7px 12px; border-radius: 12px; opacity: 0; transition: opacity .25s; pointer-events: none; max-width: 90%; text-align: center; }
+#toast.on { opacity: 1; }
+</style>
+</head>
+<body>
+<div id="nav"></div>
+<div id="navbg" class="glass"></div>
+<div id="navbar"><button id="back"><b>‹</b><span class="ell"></span></button><div id="nt" class="ell"></div></div>
+<div id="tabs"><div class="cap glass"><span class="on"><b>♪</b>Library</span><span><b>◷</b>Chronology</span><span><b>⚙︎</b>Settings</span></div><div class="circ glass">⌕</div></div>
+<div id="mini"></div>
+<button id="arrow" class="glass" aria-label="Back to what plays"></button>
+<div id="bar" aria-label="Timeline"></div>
+<div id="bubble" class="glass"></div>
+<div id="sw"><div class="p"><button id="wp"></button></div><div class="p"><button id="end">⏭ Near end</button></div><div class="p"><a href="?" aria-label="Reset">↺</a></div></div>
+<div id="toast"></div>
+<script>
+
+const CREATION = [["Einleitung: Die Vorstellung des Chaos",320.1,[["orchestra","Freiburger Barockorchester"]]],["No. 1, Rezitativ mit Chor: Im Anfange schuf Gott Himmel und Erde",155.4,[["tenor","Maximilian Schmitt"],["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"],["choir","RIAS Kammerchor"]]],["No. 2, Arie mit Chor: Nun schwanden vor dem heiligen Strahle",230.3,[["tenor","Maximilian Schmitt"],["orchestra","Freiburger Barockorchester"],["choir","RIAS Kammerchor"]]],["No. 3, Rezitativ: Und Gott machte das Firmament",111.3,[["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]]],["No. 4, Chor mit Sopransolo: Mit Staunen sieht das Wunderwerk",137.8,[["soprano","Julia Kleiter"],["orchestra","Freiburger Barockorchester"],["choir","RIAS Kammerchor"]]],["No. 5, Rezitativ: Und Gott sprach, Es sammle sich das Wasser",35.9,[["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]]],["No. 6, Arie: Rollend in schäumenden Wellen",200.7,[["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]]],["No. 7, Rezitativ: Und Gott sprach, Es bringe die Erde Gras hervor",32.1,[["soprano","Julia Kleiter"],["orchestra","Freiburger Barockorchester"]]],["No. 8, Arie: Nun beut die Flur das frische Grün",301.2,[["soprano","Julia Kleiter"],["orchestra","Freiburger Barockorchester"]]],["No. 9, Rezitativ: Und die himmlischen Heerscharen",11.9,[["tenor","Maximilian Schmitt"],["orchestra","Freiburger Barockorchester"]]],["No. 10, Chor: Stimmt an die Saiten",128.2,[["orchestra","Freiburger Barockorchester"],["choir","RIAS Kammerchor"]]],["No. 11, Rezitativ: Und Gott sprach, Es sei'n Lichter",35.1,[["tenor","Maximilian Schmitt"],["orchestra","Freiburger Barockorchester"]]],["No. 12, Rezitativ: In vollem Glanze steiget jetzt die Sonne",147.0,[["tenor","Maximilian Schmitt"],["orchestra","Freiburger Barockorchester"]]],["No. 13, Chor mit Soli: Die Himmel erzählen die Ehre Gottes",248.9,[["soprano","Julia Kleiter"],["tenor","Maximilian Schmitt"],["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"],["choir","RIAS Kammerchor"]]],["No. 14, Rezitativ: Und Gott sprach, Es bringe das Wasser",27.1,[["soprano","Julia Kleiter"],["orchestra","Freiburger Barockorchester"]]],["No. 15, Arie: Auf starkem Fittiche schwinget sich der Adler",440.7,[["soprano","Julia Kleiter"],["orchestra","Freiburger Barockorchester"]]],["No. 16, Rezitativ: Und Gott schuf große Walfische",116.6,[["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]]],["No. 17, Rezitativ: Und die Engel rührten ihr' unsterblichen Harfen",21.7,[["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]]],["No. 18, Terzett: In holder Anmut stehn – No. 19, Chor: Der Herr ist groß in seiner Macht",396.1,[["soprano","Julia Kleiter"],["tenor","Maximilian Schmitt"],["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"],["choir","RIAS Kammerchor"]]],["No. 20, Rezitativ: Und Gott sprach, Es bringe die Erde hervor",36.9,[["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]]],["No. 21, Rezitativ: Gleich öffnet sich der Erde Schoß",173.8,[["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]]],["No. 22, Arie: Nun scheint in vollem Glanze der Himmel",180.3,[["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]]],["No. 23, Rezitativ: Und Gott schuf den Menschen",39.9,[["tenor","Maximilian Schmitt"],["orchestra","Freiburger Barockorchester"]]],["No. 24, Arie: Mit Würd' und Hoheit angetan",233.0,[["tenor","Maximilian Schmitt"],["orchestra","Freiburger Barockorchester"]]],["No. 25, Rezitativ: Und Gott sah jedes Ding, was er gemacht hatte",22.4,[["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]]],["No. 26, Chor: Vollendet ist das große Werk – No. 27, Terzett: Zu dir, o Herr – No. 28, Chor",593.9,[["soprano","Julia Kleiter"],["tenor","Maximilian Schmitt"],["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"],["choir","RIAS Kammerchor"]]],["No. 29, Rezitativ: Aus Rosenwolken bricht",234.8,[["tenor","Maximilian Schmitt"],["orchestra","Freiburger Barockorchester"]]],["No. 30, Duett mit Chor: Von deiner Güt', o Herr und Gott",580.9,[["soprano","Julia Kleiter"],["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"],["choir","RIAS Kammerchor"]]],["No. 31, Rezitativ: Nun ist die erste Pflicht erfüllt",143.6,[["soprano","Julia Kleiter"],["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]]],["No. 32, Duett: Holde Gattin, dir zur Seite",494.8,[["soprano","Julia Kleiter"],["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]]],["No. 33, Rezitativ: O glücklich Paar, und glücklich immerfort",25.4,[["tenor","Maximilian Schmitt"],["orchestra","Freiburger Barockorchester"]]],["No. 34, Schlusschor: Singt dem Herren alle Stimmen",203.8,[["orchestra","Freiburger Barockorchester"],["choir","RIAS Kammerchor"]]]];
+const Q = new URLSearchParams(location.search);
+const S = { workPlay: Q.get("play") === "open" ? "open" : "place", playing: true, queue: [], session: [], dl: {}, pages: {} };
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const fmt = s => { s = Math.max(0, Math.floor(s)); const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, x = String(s % 60).padStart(2, "0"); return h ? `${h}:${String(m).padStart(2, "0")}:${x}` : `${m}:${x}`; };
+const mins = s => { const m = Math.round(s / 60); return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`; };
+const cap = s => s[0].toUpperCase() + s.slice(1);
+// A surname comes from the sort name. Without one, the full name shows: no rule guesses.
+const surname = (name, sort) => sort && sort.includes(",") ? sort.split(",")[0] : name;
+
+// ---------- sample library ----------
+const COMP = { lvb: { name: "Ludwig van Beethoven", sort: "Beethoven, Ludwig van" }, haydn: { name: "Joseph Haydn", sort: "Haydn, Joseph" } };
+const WORKS = {
+  b5: { title: "Symphony No. 5 in C minor, Op. 67", comp: "lvb", genre: "Symphony", mv: ["Allegro con brio", "Andante con moto", "Allegro", "Allegro"],
+    sum: "Beethoven wrote the symphony between 1804 and 1808. Four notes open it, and their rhythm returns in every movement. The music moves from C minor to a C major finale, where piccolo, contrabassoon and trombones join the orchestra." },
+  b6: { title: "Symphony No. 6 in F major, Op. 68 “Pastoral”", comp: "lvb", genre: "Symphony", mv: ["Awakening of cheerful feelings on arrival in the country. Allegro ma non troppo", "Scene by the brook. Andante molto mosso", "Merry gathering of country folk. Allegro", "Thunderstorm. Allegro", "Shepherd's song. Allegretto"],
+    sum: "Beethoven gave each of the five movements a title about life in the country. A storm interrupts the dance, and the last movement gives thanks when it passes." },
+  b7: { title: "Symphony No. 7 in A major, Op. 92", comp: "lvb", genre: "Symphony", mv: ["Poco sostenuto – Vivace", "Allegretto", "Presto", "Allegro con brio"],
+    sum: "Rhythm drives every movement of this symphony. The Allegretto had to be repeated at the first performance in 1813." },
+  egm: { title: "Egmont, Op. 84: Overture", comp: "lvb", genre: "Overture", mv: ["Sostenuto, ma non troppo – Allegro"],
+    sum: "The overture to Goethe's play about a Flemish count who resists Spanish rule." },
+  creation: { title: "Die Schöpfung, Hob. XXI:2", comp: "haydn", genre: "Oratorio", mv: null,
+    sum: "Haydn's oratorio tells the creation of the world, after Genesis and Milton's Paradise Lost. Three archangels tell the six days, and Adam and Eve sing in the third part. The first public performance was in Vienna in 1799." },
+};
+const ALBUMS = {
+  k57: { title: "Symphonies Nos. 5 & 7", label: "Deutsche Grammophon", year: 1976, recs: ["k74", "k75"] },
+  ga: { title: "Symphonies Nos. 5 & 6", label: "Archiv Produktion", year: 1994, recs: ["ga94", "ga94b"] },
+  ha: { title: "Symphonies Nos. 5 & 6", label: "Teldec", year: 1991, recs: ["ha90", "ha90b"] },
+  cu: { title: "Symphony No. 5", label: "Sony Classical", year: 2020, recs: ["cu20"], mono: true },
+  ka: { title: "Symphony No. 5 · Egmont Overture", label: "Deutsche Grammophon", year: 1963, recs: ["ka62", "ka62b"] },
+  ja: { title: "Die Schöpfung", label: "Harmonia Mundi", year: 2009, recs: ["ja09"] },
+  kc: { title: "Die Schöpfung", label: "Deutsche Grammophon", year: 1969, recs: ["ka69"] },
+  gc: { title: "Die Schöpfung", label: "Archiv Produktion", year: 1996, recs: ["ga96"] },
+};
+const BP = "Berliner Philharmoniker";
+const RECS = {
+  k74: { work: "b5", cond: "Carlos Kleiber", ens: [["orchestra", "Wiener Philharmoniker"]], album: "k57", year: 1974, d: [448, 601, 309, 661] },
+  k75: { work: "b7", cond: "Carlos Kleiber", ens: [["orchestra", "Wiener Philharmoniker"]], album: "k57", year: 1975, d: [818, 488, 525, 517] },
+  ga94: { work: "b5", cond: "John Eliot Gardiner", ens: [["orchestra", "Orchestre Révolutionnaire et Romantique"]], album: "ga", year: 1994, d: [438, 552, 294, 640] },
+  ga94b: { work: "b6", cond: "John Eliot Gardiner", ens: [["orchestra", "Orchestre Révolutionnaire et Romantique"]], album: "ga", year: 1994, d: [610, 690, 290, 222, 545] },
+  ha90: { work: "b5", cond: "Nikolaus Harnoncourt", ens: [["orchestra", "Chamber Orchestra of Europe"]], album: "ha", year: 1990, d: [480, 585, 330, 676] },
+  ha90b: { work: "b6", cond: "Nikolaus Harnoncourt", ens: [["orchestra", "Chamber Orchestra of Europe"]], album: "ha", year: 1990, d: [720, 760, 315, 240, 590] },
+  cu20: { work: "b5", cond: "Teodor Currentzis", ens: [["orchestra", "musicAeterna"]], album: "cu", year: 2020, d: [421, 534, 281, 612] },
+  ka62: { work: "b5", cond: "Herbert von Karajan", ens: [["orchestra", BP]], album: "ka", year: 1962, d: [445, 625, 318, 535] },
+  ka62b: { work: "egm", cond: "Herbert von Karajan", ens: [["orchestra", BP]], album: "ka", year: 1969, d: [508] },
+  ja09: { work: "creation", cond: "René Jacobs", k: 1, album: "ja", year: 2009, cast: { soprano: "Julia Kleiter", tenor: "Maximilian Schmitt", bass: "Johannes Weisser", orchestra: "Freiburger Barockorchester", choir: "RIAS Kammerchor" } },
+  ka69: { work: "creation", cond: "Herbert von Karajan", k: 1.14, album: "kc", year: 1969, cast: { soprano: "Gundula Janowitz", tenor: "Fritz Wunderlich", bass: "Walter Berry", orchestra: BP, choir: "Wiener Singverein" } },
+  ga96: { work: "creation", cond: "John Eliot Gardiner", k: .96, album: "gc", year: 1996, cast: { soprano: "Sylvia McNair", tenor: "Michael Schade", bass: "Gerald Finley", orchestra: "English Baroque Soloists", choir: "Monteverdi Choir" } },
+};
+// Listener data (ADR 0013): ordered favourite recordings per work, favourite performers and albums.
+const FAV = { b5: ["k74", "ga94"], creation: ["ja09"] };
+const FAV_PERF = new Set(["John Eliot Gardiner"]), FAV_ALB = new Set(["ha"]), FAV_WORK = new Set(["creation"]);
+
+function tracksOf(id) {
+  const r = RECS[id], w = WORKS[r.work];
+  if (r.cast) return CREATION.map(([t, d, rs]) => ({ t, d: d * r.k, r: rs.map(([role]) => [role, r.cast[role]]) }));
+  return w.mv.map((t, i) => ({ t, d: r.d[i], r: r.ens }));
+}
+const recTotal = id => tracksOf(id).reduce((a, x) => a + x.d, 0);
+function people(id) {
+  const r = RECS[id], seen = new Map();
+  tracksOf(id).forEach(x => x.r.forEach(([role, n]) => seen.has(n) || seen.set(n, role)));
+  const all = [...seen].map(([n, role]) => [role, n]), isEns = p => p[0] === "orchestra" || p[0] === "choir";
+  return { cond: r.cond, ens: all.filter(isEns), solo: all.filter(p => !isEns(p)) };
+}
+const peopleRows = id => { const p = people(id); return [p.cond && ["conductor", p.cond], ...p.solo, ...p.ens].filter(Boolean); };
+// Favourites in the listener's order; then a favourite performer; then a favourite album; then the newest.
+function ordered(work) {
+  const ids = Object.keys(RECS).filter(id => RECS[id].work === work), fav = (FAV[work] || []).filter(id => ids.includes(id));
+  const why = id => { const n = peopleRows(id).map(p => p[1]).find(n => FAV_PERF.has(n)); return n ? [1, "Favourite performer: " + n] : FAV_ALB.has(RECS[id].album) ? [2, "From a favourite album"] : [3, ""]; };
+  const rest = ids.filter(id => !fav.includes(id)).sort((a, b) => why(a)[0] - why(b)[0] || RECS[b].year - RECS[a].year);
+  return [...fav, ...rest].map(id => ({ id, why: fav.includes(id) ? "Favourite" : why(id)[1] }));
+}
+
+// ---------- covers ----------
+let coverN = 0;
+const hueOf = seed => { let h = 0; for (const c of seed) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h % 360; };
+function cover(albumId) {
+  const a = ALBUMS[albumId], h = hueOf(a.title + a.label), b = (h + 50) % 360, sat = a.mono ? 0 : 1, id = "g" + (++coverN), r0 = RECS[a.recs[0]];
+  return `<svg viewBox="0 0 100 100" style="width:100%;height:100%;display:block"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="hsl(${h},${45 * sat}%,${a.mono ? 22 : 36}%)"/><stop offset="1" stop-color="hsl(${b},${55 * sat}%,${a.mono ? 70 : 62}%)"/></linearGradient></defs><rect width="100" height="100" fill="url(#${id})"/><text x="8" y="80" font-family="Georgia,serif" font-size="11" fill="rgba(255,255,255,.9)">${esc(surname(COMP[WORKS[r0.work].comp].name, COMP[WORKS[r0.work].comp].sort))}</text><text x="8" y="92" font-family="Georgia,serif" font-size="8" fill="rgba(255,255,255,.75)">${esc(r0.cond.split(" ").pop())}</text></svg>`;
+}
+
+// ---------- what plays ----------
+let P = null, T = 0;
+function itemsOf(key) {
+  const [kind, id] = key.split(":"), recs = kind === "rec" ? [id] : ALBUMS[id].recs;
+  let s = 0, i = 0; const out = [];
+  for (const rid of recs) for (const x of tracksOf(rid)) { out.push({ ...x, rec: rid, work: RECS[rid].work, i: i++, start: s }); s += x.d; }
+  return out;
+}
+function setPlaying(key, at) { const items = itemsOf(key); P = { key, items, total: items.reduce((a, x) => a + x.d, 0) }; T = items[at || 0].start; S.playing = true; }
+const cur = () => P.items.findLast(x => T >= x.start) || P.items[0];
+const FERMATA = `<svg class="fm" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 17 C3.2 6.5, 20.8 6.5, 21.5 17 L19.3 17 C18.3 10, 5.7 10, 4.7 17 Z" fill="currentColor"/><circle cx="12" cy="15.4" r="2" fill="currentColor"/></svg>`;
+const isPlayingRec = id => P && (P.key === "rec:" + id || (P.key.startsWith("album:") && cur().rec === id));
+function commonOf(rid) { const t = tracksOf(rid), k = r => r.join("|"); return t[0].r.filter(r => t.every(x => x.r.some(y => k(y) === k(r)))); }
+const extra = x => { const c = new Set(commonOf(x.rec).map(r => r.join("|"))); return x.r.filter(r => !c.has(r.join("|"))); };
+
+// ---------- the session: what played since the last Play, then the queue ----------
+// The player page follows the music: its recording, then everything that plays after it.
+const playKeys = () => [...S.session, ...S.queue.map(id => "rec:" + id)];
+const isPlayerPage = key => !!P && S.session.includes(key);
+
+// ---------- pages ----------
+const pageOf = key => S.pages[key] ||= { open: new Set(), editing: false, order: null };
+function titleOf(key) {
+  const [k, id] = key.split(":");
+  if (k === "lib") return "Library"; if (k === "comp") return surname(COMP[id].name, COMP[id].sort);
+  if (k === "work") return WORKS[id].title; if (k === "rec") return WORKS[RECS[id].work].title;
+  if (k === "album") return ALBUMS[id].title; if (k === "perf") return decodeURIComponent(id);
+}
+const link = (key, text, cls = "lk") => `<button class="${cls}" data-link="${key}">${esc(text)}</button>`;
+const perfKey = n => "perf:" + encodeURIComponent(n);
+const albumOfKey = key => key.startsWith("rec:") ? RECS[key.slice(4)].album : key.slice(6);
+
+function pageHTML(key) {
+  const [k, id] = key.split(":");
+  if (k === "lib") return `<h1 class="pt">Library</h1><div class="sh">Composers</div><div class="list">${Object.entries(COMP).map(([c, x]) => `<button class="pr" data-link="comp:${c}"><span class="m">${esc(x.name)}</span><span class="chev">›</span></button>`).join("")}</div>`;
+  if (k === "comp") { const ws = Object.keys(WORKS).filter(w => WORKS[w].comp === id);
+    return `<h1 class="pt">${esc(COMP[id].name)}</h1><div class="stub">Stub. The composer page is its own ticket.</div><div class="sh">Works</div><div class="list">${ws.map(w => { const n = Object.values(RECS).filter(r => r.work === w).length; return `<button class="pr" data-link="work:${w}"><span class="m">${esc(WORKS[w].title)}<div class="s">${n} ${n === 1 ? "recording" : "recordings"}</div></span><span class="chev">›</span></button>`; }).join("")}</div>`; }
+  if (k === "perf") { const n = decodeURIComponent(id), rs = Object.keys(RECS).filter(r => peopleRows(r).some(p => p[1] === n));
+    return `<h1 class="pt">${esc(n)}</h1><div class="stub">Stub. The performer page is not part of this round.</div><div class="sh">Recordings</div><div class="list">${rs.map(r => `<button class="pr" data-link="rec:${r}"><span class="m">${esc(WORKS[RECS[r].work].title)}<div class="s">${RECS[r].year} · ${esc(RECS[r].cond)}</div></span><span class="chev">›</span></button>`).join("")}</div>`; }
+  if (k === "work") return workHTML(id);
+  return playableHTML(key);
+}
+
+// ----- the work page -----
+const workPlaying = w => P && P.key.startsWith("rec:") && RECS[P.key.slice(4)].work === w;
+function workHTML(w) {
+  const W = WORKS[w], pg = pageOf("work:" + w);
+  pg.order ||= ordered(w);
+  const lens = pg.order.map(o => recTotal(o.id)), lo = Math.min(...lens), hi = Math.max(...lens);
+  const len = Math.round(lo / 60) === Math.round(hi / 60) ? mins(lo) : `${mins(lo).replace(" min", "")} to ${mins(hi)}`;
+  const nm = W.mv ? W.mv.length : CREATION.length, on = workPlaying(w);
+  return `<h1 class="pt">${esc(W.title)}</h1><div class="sub">${link("comp:" + W.comp, COMP[W.comp].name)}</div>
+    <div class="meta">${esc(W.genre)} · ${nm} ${nm === 1 ? "movement" : "movements"} · ${len}</div>
+    <div class="sum" id="sum-${w}"><p>${esc(W.sum)}</p><button class="more" data-a="more">More</button><div class="cred">Wikipedia · sample text for the prototype</div></div>
+    <div class="acts">${on ? `<button class="btn pri" data-a="pp">${S.playing ? "❚❚ Pause" : "▶ Resume"}</button>` : `<button class="btn pri" data-a="playwork" data-w="${w}">▶ Play</button>`}<button class="btn" data-a="favwork" data-w="${w}">${FAV_WORK.has(w) ? `${FERMATA} Favourite` : "Favourite"}</button></div>
+    <div class="sh"><span>${pg.order.length} recordings</span><button data-a="edit" data-w="${w}">${pg.editing ? "Done" : "Edit"}</button></div>
+    <div class="list" data-recs="${w}">${recRows(w)}</div>
+    <div class="foot">Favourites come first, in your order. Then recordings with a favourite performer or from a favourite album. Then the newest. The first one plays when you play the work.</div>`;
+}
+function stateText(id) {
+  const out = [];
+  const q = S.queue.indexOf(id); if (q === 0) out.push("Next"); else if (q > 0) out.push("In queue");
+  const d = S.dl[id]; if (d != null) out.push(d >= 1 ? "Offline" : `↓ ${Math.floor(d * 100)}%`);
+  return out.join("\n");
+}
+// Full rows: the conductor, every soloist and ensemble on its own line, then year, album and label.
+function recRows(w) {
+  const pg = pageOf("work:" + w);
+  return pg.order.map(({ id, why }) => {
+    const r = RECS[id], p = people(id), a = ALBUMS[r.album], fav = (FAV[w] || []).includes(id), now = P && P.key === "rec:" + id;
+    const whyNow = fav ? `${FERMATA} Favourite` : why === "Favourite" ? "" : esc(why);
+    const body = `<div class="l1">${esc(p.cond)}</div>${p.solo.map(s => `<div class="l2">${esc(s[1])} <span style="color:var(--label2)">· ${s[0]}</span></div>`).join("")}${p.ens.map(e => `<div class="l2">${esc(e[1])}</div>`).join("")}<div class="l3">${r.year} · ${esc(a.title)} · ${esc(a.label)}</div>`;
+    // The recording that plays keeps its place; its row is tinted and its slot pauses and resumes.
+    const slot = pg.editing ? (fav ? `<span class="slot hd" data-h="${id}">≡</span>` : `<span class="slot"></span>`)
+      : now ? `<span class="slot go" data-a="pp">${S.playing ? "❚❚" : "▶"}</span>` : `<span class="slot">›</span>`;
+    return `<div class="rr ${now ? "now" : ""} ${pg.editing && !fav ? "dim" : ""}" data-rec="${id}" data-w="${w}" data-fav="${fav ? 1 : 0}">
+      <div class="ra L"><button class="d1" data-sw="dl">${S.dl[id] != null ? "Remove\ndownload" : "Download"}</button><button class="f1" data-sw="fav">${fav ? "Remove\nfavourite" : "Favourite"}</button></div>
+      <div class="ra R"><button class="q1" data-sw="next">Play next</button><button class="q2" data-sw="queue">Queue</button></div>
+      <div class="fg"><div class="cv" style="width:64px;height:64px">${cover(r.album)}</div><div class="mn">${body}${whyNow ? `<div class="why">${whyNow}</div>` : ""}${now ? `<div class="why">♫ Plays</div>` : ""}</div><div class="side"><span class="st" data-st="${id}">${stateText(id)}</span>${slot}</div></div></div>`;
+  }).join("");
+}
+
+// ----- recording and album pages; on the player page, the music continues below -----
+function factRows(pairs) { return pairs.map(([k, v, key]) => key ? `<button class="fact" data-link="${key}"><span class="k">${esc(cap(k))}</span><span class="v">${esc(v)}</span></button>` : `<div class="fact"><span class="k">${esc(cap(k))}</span><span class="v">${esc(v)}</span></div>`).join(""); }
+function playableHTML(key) {
+  const [k, id] = key.split(":"), player = isPlayerPage(key), items = itemsOf(key), total = items.reduce((a, x) => a + x.d, 0);
+  const albumId = albumOfKey(key), a = ALBUMS[albumId];
+  const btn = player ? `<button class="btn pri" data-a="pp">${S.playing ? "❚❚ Pause" : "▶ Resume"}</button>` : `<button class="btn pri" data-a="playkey" data-k="${key}">▶ Play</button>`;
+  let head;
+  if (k === "rec") {
+    const r = RECS[id], w = WORKS[r.work], fav = (FAV[r.work] || []).includes(id);
+    const shared = [r.cond && ["conductor", r.cond, perfKey(r.cond)], ...commonOf(id).map(([role, n]) => [role, n, perfKey(n)]), ["album", a.title, "album:" + albumId]].filter(Boolean);
+    head = `<h2>${link("work:" + r.work, w.title, "")}</h2>${link("comp:" + w.comp, COMP[w.comp].name, "c lk")}<div class="facts">${factRows(shared)}</div>
+      <div class="meta">${esc(a.label)} · ${r.year} · ${items.length} movements · ${fmt(total)}</div>
+      <div class="acts">${btn}<button class="btn" data-a="favrec" data-r="${id}">${fav ? `${FERMATA} Favourite` : "Favourite"}</button><button class="btn" data-a="dl" data-r="${id}">${S.dl[id] == null ? "Download" : S.dl[id] >= 1 ? "Offline" : "Downloading"}</button></div>`;
+  } else {
+    head = `<h2>${esc(a.title)}</h2><div class="meta">${esc(a.label)} · ${a.year} · ${items.length} tracks · ${fmt(total)}</div>
+      <div class="acts">${btn}<button class="btn" data-a="favalb" data-al="${id}">${FAV_ALB.has(id) ? `${FERMATA} Favourite` : "Favourite"}</button></div>`;
+  }
+  let out = `<div class="hero"><div class="art">${cover(albumId)}</div>${head}</div><div data-rows="${key}">${rowsHTML(key)}</div>`;
+  if (player) out += continuation(key);
+  return out;
+}
+// What plays after this page's recording: played and playing parts as rows, the rest as one folded row each.
+function continuation(key) {
+  const keys = playKeys(), from = keys.indexOf(key), curAt = S.session.length - 1;
+  let out = "";
+  keys.forEach((k, i) => {
+    if (i <= from) return;
+    const al = albumOfKey(k), [kind, id] = k.split(":"), r = kind === "rec" ? RECS[id] : null;
+    const title = r ? WORKS[r.work].title : ALBUMS[id].title, who = r ? [surname(COMP[WORKS[r.work].comp].name, COMP[WORKS[r.work].comp].sort), r.cond].join(" · ") : ALBUMS[id].label;
+    if (i <= curAt) {
+      out += `<div class="cont"><div class="ch"><div class="cv">${cover(al)}</div><div class="m">${link(k.startsWith("rec:") ? "work:" + r.work : k, title, "gt")}<div class="gs">${esc(who)}</div></div></div><div data-rows="${k}">${rowsHTML(k)}</div></div>`;
+    } else {
+      const tot = itemsOf(k).reduce((a, x) => a + x.d, 0);
+      out += `<button class="nx" data-link="${k}"><div class="cv">${cover(al)}</div><div class="m"><div class="lab">${i === curAt + 1 ? "Next" : "Then"}</div><div class="t">${esc(title)}</div><div class="s">${esc(who)} · ${fmt(tot)}</div></div><span class="chev">›</span></button>`;
+    }
+  });
+  return out;
+}
+function rowsHTML(key) {
+  const items = itemsOf(key), now = P && key === P.key ? cur() : null, pg = pageOf(key), album = key.startsWith("album:");
+  let out = "", lastRec = null;
+  for (const x of items) {
+    if (album && x.rec !== lastRec) {
+      if (lastRec) out += `</div>`;
+      const r = RECS[x.rec], w = WORKS[r.work];
+      out += `<div class="grp">${link("work:" + r.work, w.title, "gt")}<div class="gs">${link("comp:" + w.comp, COMP[w.comp].name)} · ${link(perfKey(r.cond), r.cond)}</div></div><div class="list rows">`;
+      lastRec = x.rec;
+    } else if (!album && x.i === 0) out += `<div class="list rows">`;
+    const isCur = now && x.i === now.i, open = isCur || pg.open.has(x.i);
+    const slot = isCur ? `<span class="slot"></span>` : open ? `<span class="slot go" data-a="playfrom" data-k="${key}" data-i="${x.i}">▶</span>` : `<span class="slot">›</span>`;
+    const ex = extra(x).map(([role, n]) => [role, n, perfKey(n)]);
+    const player = isCur ? `<div class="seek"><div class="tr"><i></i></div></div><div class="times tnum"><span class="el"></span><span class="rm"></span></div><div class="ctl"><button data-a="prev">⏮</button><button data-a="back">↺</button><button class="pp" data-a="pp"></button><button data-a="fwd">↻</button><button data-a="next">⏭</button></div>` : "";
+    out += `<div class="row ${isCur ? "cur" : ""} ${open ? "open" : ""}" data-i="${x.i}"><button class="rh" data-row="${x.i}" data-k="${key}"><span class="main"><div class="t">${esc(x.t)}<span class="d tnum">${fmt(x.d)}</span></div></span>${slot}</button><div class="rb">${factRows(ex)}${player}</div></div>`;
+  }
+  return out + `</div>`;
+}
+
+// ---------- the stack ----------
+const stack = [];
+function makePage(key) {
+  const el = document.createElement("section"); el.className = "pg"; el.dataset.key = key;
+  el.innerHTML = `<div class="scroll"></div>`;
+  el.querySelector(".scroll").addEventListener("scroll", () => { if (Date.now() > progUntil) touched(); navState(); arrow(); }, { passive: true });
+  $("#nav").appendChild(el); return el;
+}
+// Wash: the player takes its tint from the cover of what plays. A cover without colour falls back to Klassik's tint, so the player never looks like a page.
+function wash(el) {
+  const al = P ? albumOfKey(P.key) : null, a = al && ALBUMS[al];
+  el.style.setProperty("--h", a && !a.mono ? hueOf(a.title + a.label) : 12);
+}
+// Re-render a page and keep the first row on screen where it was: changes happen in place.
+function paint(entry) {
+  const sc = entry.el.querySelector(".scroll"), top = sc.scrollTop;
+  const first = [...sc.querySelectorAll("[data-rows] .row, .nx")].find(r => r.getBoundingClientRect().bottom > sc.getBoundingClientRect().top + 100);
+  const sel = first && (first.classList.contains("nx") ? null : `[data-rows="${first.closest("[data-rows]").dataset.rows}"] .row[data-i="${first.dataset.i}"]`), before = first && first.getBoundingClientRect().top;
+  sc.innerHTML = pageHTML(entry.key); sc.scrollTop = top;
+  if (sel) { const now = sc.querySelector(sel); if (now) { progUntil = Date.now() + 80; sc.scrollTop += now.getBoundingClientRect().top - before; } }
+  const pl = isPlayerPage(entry.key); entry.el.classList.toggle("player-look", pl); if (pl) wash(entry.el);
+}
+function go(key) {
+  const at = stack.findIndex(e => e.key === key);
+  if (at >= 0) { while (stack.length - 1 > at) pop(true); layout(); return; } // a link to a page in the stack jumps back to it
+  const e = { key, el: makePage(key) }; paint(e); stack.push(e);
+  e.el.style.transform = "translateX(100%)"; requestAnimationFrame(() => requestAnimationFrame(layout));
+}
+function pop(quick) { const e = stack.pop(); e.el.style.transform = "translateX(100%)"; setTimeout(() => e.el.remove(), quick ? 0 : 400); }
+function layout() {
+  stack.forEach((e, i) => { const d = stack.length - 1 - i; e.el.style.transform = d === 0 ? "none" : "translateX(-30%)"; e.el.style.visibility = d > 1 ? "hidden" : "visible"; e.el.style.zIndex = i; });
+  const top = stack.at(-1), prev = stack.at(-2);
+  $("#back").style.visibility = prev ? "visible" : "hidden"; $("#back span").textContent = prev ? titleOf(prev.key) : "";
+  $("#nt").textContent = titleOf(top.key); navState(); onPlayer();
+}
+// The mini player never sits on top of the player page. The timeline stays.
+function onPlayer() { document.body.classList.toggle("onplayer", isPlayerPage(stack.at(-1).key)); arrowKey = ""; arrow(); }
+function navState() { const sc = stack.at(-1).el.querySelector(".scroll"), solid = sc.scrollTop > 40; $("#navbar").classList.toggle("solid", solid); $("#navbg").classList.toggle("solid", solid); }
+$("#back").onclick = () => { if (stack.length > 1) { pop(); layout(); } };
+const topScroll = () => stack.at(-1).el.querySelector(".scroll");
+
+// The mini player is a link to the player page: it jumps back to it when it is in the stack, else it pushes it.
+$("#mini").onclick = e => { if (e.target.closest("[data-a]")) return; const inStack = stack.find(x => isPlayerPage(x.key)); go(inStack ? inStack.key : P.key); requestAnimationFrame(() => placeNow(false)); };
+
+// ---------- mini player (locked: movement, work, people) ----------
+let miniKey = "";
+function renderMini() {
+  const x = cur(), key = P.key + x.i + S.playing; if (key === miniKey) return; miniKey = key;
+  const r = RECS[x.rec], w = WORKS[r.work], c = COMP[w.comp], by = [surname(c.name, c.sort), r.cond].join(" · ");
+  $("#mini").innerHTML = `<div class="art">${cover(r.album)}</div><div class="txt"><div class="mq mv"><span>${esc(x.t)}</span></div><div class="wk ell">${esc(w.title)}</div><div class="by ell">${esc(by)}</div></div><button class="pp" data-a="pp" aria-label="Play or pause">${S.playing ? "❚❚" : "▶"}</button>`;
+  requestAnimationFrame(() => document.querySelectorAll("#mini .mq").forEach(m => { const over = m.firstElementChild.scrollWidth - 32 - m.clientWidth; m.classList.toggle("run", over > 0); if (over > 0) { m.style.setProperty("--shift", -(over + 8) + "px"); m.style.setProperty("--dur", Math.max(8, over / 18 + 5) + "s"); } }));
+}
+
+// ---------- live rows ----------
+let lastCur = null;
+function repaintLive() {
+  stack.forEach(e => { if (e.key.startsWith("rec:") || e.key.startsWith("album:") || e.key.startsWith("work:")) paint(e); });
+  lastCur = cur(); miniKey = ""; renderMini(); tick(true);
+}
+function moved() { if (cur() !== lastCur) repaintLive(); tick(true); }
+function tick(force) {
+  if (cur() !== lastCur && !force) { repaintLive(); return; }
+  const x = cur(), f = (T - x.start) / x.d;
+  document.querySelectorAll(".row.cur .tr i").forEach(i => i.style.width = f * 100 + "%");
+  document.querySelectorAll(".row.cur .el").forEach(e => e.textContent = fmt(T - x.start));
+  document.querySelectorAll(".row.cur .rm").forEach(e => e.textContent = "−" + fmt(x.d - (T - x.start)));
+  document.querySelectorAll(".row.cur .pp").forEach(b => b.textContent = S.playing ? "❚❚" : "▶");
+  if (G) $("#pcr").setAttribute("height", G.y(T));
+}
+// When a recording ends, the next one in the queue starts below it on the same page.
+function advance() {
+  if (!S.queue.length) { T = P.total - .01; S.playing = false; repaintLive(); return; }
+  const next = "rec:" + S.queue.shift(); S.session.push(next); setPlaying(next, 0);
+  stack.forEach(e => paint(e)); drawBar(); lastCur = null; repaintLive();
+}
+
+// ---------- calm following (ADR 0014) ----------
+const IDLE = 8000;
+let lastTouch = Date.now(), progUntil = 0, arrowKey = "";
+const touched = () => lastTouch = Date.now();
+["touchstart", "pointerdown", "wheel"].forEach(ev => addEventListener(ev, touched, { passive: true, capture: true }));
+function where() { if (!isPlayerPage(stack.at(-1).key)) return 0; const sc = topScroll(), r = sc.querySelector(".row.cur"); if (!r) return 0; const c = sc.getBoundingClientRect(), a = r.getBoundingClientRect(), top = c.top + 100, bot = c.bottom - 150;
+  const vis = Math.min(a.bottom, bot) - Math.max(a.top, top); return vis > Math.min(60, a.height * .5) ? 0 : a.bottom < top + 30 ? -1 : 1; }
+function placeNow(smooth) {
+  if (!isPlayerPage(stack.at(-1).key)) return;
+  const sc = topScroll(), r = sc.querySelector(".row.cur"); if (!r) return;
+  const ref = r.previousElementSibling || r, target = sc.scrollTop + ref.getBoundingClientRect().top - sc.getBoundingClientRect().top - 110;
+  if (Math.abs(target - sc.scrollTop) < 4) return;
+  progUntil = Date.now() + (smooth ? 900 : 80); sc.scrollTo({ top: Math.max(0, target), behavior: smooth ? "smooth" : "auto" });
+}
+function arrow() { const w = where(), key = w + "" + (P && cur().i) + stack.length; if (key === arrowKey) return; arrowKey = key; const a = $("#arrow"); a.className = "glass"; if (w) { a.classList.add(w < 0 ? "up" : "down"); a.textContent = w < 0 ? "↑" : "↓"; } }
+$("#arrow").onclick = () => placeNow(true);
+
+// ---------- taps ----------
+let suppressUntil = 0;
+document.addEventListener("click", e => {
+  if (e.target.closest("#sw")) return;
+  if (Date.now() < suppressUntil) { e.preventDefault(); e.stopPropagation(); return; }
+  if (openSwipe && !e.target.closest(".ra")) { closeSwipe(); e.preventDefault(); e.stopPropagation(); return; }
+  const sw = e.target.closest("[data-sw]"); if (sw) { e.stopPropagation(); swipeAct(sw.closest(".rr").dataset.rec, sw.dataset.sw); return; }
+  const ln = e.target.closest("[data-link]"); if (ln) { e.stopPropagation(); go(ln.dataset.link); return; }
+  const a = e.target.closest("[data-a]"); if (a) { e.stopPropagation(); act(a.dataset.a, a.dataset); return; }
+  const rr = e.target.closest(".rr .fg");
+  if (rr) { const row = rr.closest(".rr"); if (pageOf("work:" + row.dataset.w).editing) return; go("rec:" + row.dataset.rec); return; }
+  const rh = e.target.closest(".rh[data-row]");
+  if (rh) { const i = +rh.dataset.row, key = rh.dataset.k; if (rh.closest(".row.cur")) return;
+    const pg = pageOf(key); pg.open.has(i) ? pg.open.delete(i) : pg.open.add(i); const box = rh.closest("[data-rows]"), before = rh.getBoundingClientRect().top; box.innerHTML = rowsHTML(key);
+    const sc = box.closest(".scroll"), now = box.querySelector(`.row[data-i="${i}"]`); sc.scrollTop += now.getBoundingClientRect().top - before; tick(true); }
+}, true);
+function paintList(w) { document.querySelectorAll(`[data-recs="${w}"]`).forEach(b => b.innerHTML = recRows(w)); }
+function startPlay(key, at) {
+  S.session = [key]; S.queue = S.queue.filter(id => "rec:" + id !== key); setPlaying(key, at); lastCur = null;
+  stack.forEach(e => paint(e)); drawBar(); repaintLive(); layout();
+}
+function act(a, d) {
+  if (a === "more") { const s = document.getElementById("sum-" + stack.at(-1).key.slice(5)); s && s.classList.toggle("open"); return; }
+  if (a === "pp") { S.playing = !S.playing; miniKey = ""; renderMini(); document.querySelectorAll('.btn[data-a="pp"]').forEach(b => b.textContent = S.playing ? "❚❚ Pause" : "▶ Resume"); document.querySelectorAll('.rr .slot[data-a="pp"]').forEach(b => b.textContent = S.playing ? "❚❚" : "▶"); tick(true); return; }
+  if (a === "playkey") { startPlay(d.k, 0); return; }
+  if (a === "playfrom") { pageOf(d.k).open.delete(+d.i); startPlay(d.k, +d.i); return; }
+  if (a === "playwork") { const id = pageOf("work:" + d.w).order[0].id; startPlay("rec:" + id, 0); if (S.workPlay === "open") go("rec:" + id); return; }
+  if (a === "favwork") { FAV_WORK.has(d.w) ? FAV_WORK.delete(d.w) : FAV_WORK.add(d.w); paint(stack.at(-1)); return; }
+  if (a === "favrec") { toggleFav(d.r); paint(stack.at(-1)); return; }
+  if (a === "favalb") { FAV_ALB.has(d.al) ? FAV_ALB.delete(d.al) : FAV_ALB.add(d.al); paint(stack.at(-1)); return; }
+  if (a === "dl") { if (S.dl[d.r] == null) S.dl[d.r] = 0; paint(stack.at(-1)); return; }
+  if (a === "edit") { const pg = pageOf("work:" + d.w); pg.editing = !pg.editing; paint(stack.at(-1)); return; }
+  const c = cur();
+  if (a === "back") T = Math.max(0, T - 15);
+  if (a === "fwd") T = Math.min(P.total - 1, T + 15);
+  if (a === "prev") T = T - c.start > 3 || !c.i ? c.start : P.items[c.i - 1].start;
+  if (a === "next") { if (c.i < P.items.length - 1) T = P.items[c.i + 1].start; else { advance(); return; } }
+  moved();
+}
+function toggleFav(id) { const w = RECS[id].work, f = FAV[w] ||= []; const i = f.indexOf(id); i >= 0 ? f.splice(i, 1) : f.push(id); }
+document.addEventListener("pointerdown", e => {
+  const sk = e.target.closest(".seek"); if (!sk) return; const x = cur(); sk.setPointerCapture(e.pointerId);
+  const set = ev => { const r = sk.getBoundingClientRect(); T = x.start + Math.min(.999, Math.max(0, (ev.clientX - r.left) / r.width)) * x.d; tick(true); };
+  set(e); sk.onpointermove = set; sk.onpointerup = () => sk.onpointermove = null;
+});
+
+// ---------- the timeline (locked) ----------
+let G = null;
+function drawBar() {
+  const el = $("#bar"), H = el.clientHeight, n = P.items.length, gap = n > 12 ? 2 : 4, min = 3;
+  let fixed = new Set(), k = 0; const avail = H - gap * (n - 1);
+  for (let it = 0; it < 6; it++) { const free = P.items.filter(x => !fixed.has(x.i)).reduce((a, x) => a + x.d, 0); k = (avail - min * fixed.size) / free; let ch = false; for (const x of P.items) if (!fixed.has(x.i) && x.d * k < min) { fixed.add(x.i); ch = true; } if (!ch) break; }
+  let y = 0; const segs = P.items.map(x => { const h = fixed.has(x.i) ? min : x.d * k; const s = { y, h }; y += h + gap; return s; });
+  G = { y(t) { const x = P.items.findLast(x => t >= x.start) || P.items[0], s = segs[x.i]; return s.y + Math.min(1, (t - x.start) / x.d) * s.h; },
+    t(py) { for (const x of P.items) { const s = segs[x.i]; if (py < s.y + s.h + gap / 2 || x.i === n - 1) return x.start + Math.min(1, Math.max(0, (py - s.y) / s.h)) * x.d; } return 0; } };
+  const w = el.clientWidth, lx = w - 14;
+  el.innerHTML = `<svg viewBox="0 0 ${w} ${H}" preserveAspectRatio="none"><defs><clipPath id="pc"><rect id="pcr" x="0" y="0" width="${w}" height="0"/></clipPath></defs>`
+    + `<g fill="var(--track)">${segs.map(s => `<rect x="${lx}" y="${s.y}" width="4" height="${s.h}"/>`).join("")}</g>`
+    + `<g fill="var(--tint)" clip-path="url(#pc)">${segs.map(s => `<rect x="${lx}" y="${s.y}" width="4" height="${s.h}"/>`).join("")}</g></svg>`;
+}
+(() => {
+  const el = $("#bar"); let on = false, mode = null, t = 0, x0 = 0, y0 = 0;
+  const at = e => { const r = el.getBoundingClientRect(); t = G.t(e.clientY - r.top); const x = P.items.findLast(x => t >= x.start) || P.items[0], b = $("#bubble");
+    b.style.display = "block"; b.style.top = Math.max(60, Math.min(innerHeight - 140, e.clientY - 30)) + "px";
+    b.innerHTML = `<b class="tnum">${fmt(t - x.start)}</b> of ${fmt(x.d)}<br>${esc(x.t)}`; $("#pcr").setAttribute("height", G.y(t)); };
+  el.onpointerdown = e => { on = true; mode = null; x0 = e.clientX; y0 = e.clientY; el.setPointerCapture(e.pointerId); };
+  el.onpointermove = e => { if (!on) return; const dx = Math.abs(e.clientX - x0), dy = Math.abs(e.clientY - y0); if (!mode && (dx > 8 || dy > 8)) mode = dy > dx * 1.5 ? "scrub" : "ignore"; if (mode === "scrub") at(e); };
+  el.onpointerup = el.onpointercancel = e => {
+    if (!on) return; on = false; $("#bubble").style.display = "none";
+    if (e.type === "pointerup" && mode === "scrub") { T = t; moved(); }
+    else if (e.type === "pointerup" && !mode) { const r = el.getBoundingClientRect(), x = P.items.findLast(x => G.t(e.clientY - r.top) >= x.start) || P.items[0]; T = x.start; S.playing = true; moved(); }
+    $("#pcr").setAttribute("height", G.y(T)); mode = null;
+  };
+})();
+
+
+// ---------- swipe actions: the row's label changes in place, no toast ----------
+let openSwipe = null;
+function closeSwipe() { if (openSwipe) { openSwipe.querySelector(".fg").style.transform = ""; openSwipe = null; } }
+function swipeAct(id, what) {
+  if (what === "next") { S.queue = [id, ...S.queue.filter(x => x !== id)]; }
+  if (what === "queue") { if (!S.queue.includes(id)) S.queue.push(id); }
+  if (what === "dl") { S.dl[id] == null ? S.dl[id] = 0 : delete S.dl[id]; }
+  if (what === "fav") toggleFav(id); // the row stays where it is; the order changes the next time the page opens
+  navigator.vibrate && navigator.vibrate(10);
+  const row = openSwipe; closeSwipe();
+  setTimeout(() => { const w = RECS[id].work; if (what === "fav" || what === "dl") paintList(w); else row && (row.querySelector(".st").textContent = stateText(id)); }, 260);
+}
+// Long press on a favourite, or the handle in Edit, lifts the row to reorder it.
+let G2 = null, lpTimer = 0, dragRow = null;
+document.addEventListener("pointerdown", e => {
+  const fg = e.target.closest(".rr .fg"); if (!fg || openSwipe) return;
+  const row = fg.closest(".rr"), pg = pageOf("work:" + row.dataset.w);
+  G2 = { x: e.clientX, y: e.clientY, row, fg, mode: null, id: e.pointerId, dx: 0 };
+  if (row.dataset.fav === "1" && (pg.editing ? e.target.closest(".hd") : true)) {
+    const lift = () => { if (!G2) return; G2.mode = "drag"; dragRow = row; row.classList.add("lifted"); fg.classList.add("drag"); navigator.vibrate && navigator.vibrate(15); };
+    if (pg.editing) lift(); else lpTimer = setTimeout(lift, 450);
+  }
+});
+document.addEventListener("pointermove", e => {
+  if (!G2) return; const dx = e.clientX - G2.x, dy = e.clientY - G2.y;
+  if (G2.mode === "drag") { G2.row.style.transform = `translateY(${dy}px)`; return; }
+  if (!G2.mode && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) { clearTimeout(lpTimer); G2.mode = Math.abs(dx) > Math.abs(dy) * 1.5 && !pageOf("work:" + G2.row.dataset.w).editing ? "swipe" : "none"; if (G2.mode === "swipe") G2.fg.classList.add("drag"); }
+  if (G2.mode === "swipe") { G2.dx = Math.max(-168, Math.min(168, dx)); G2.fg.style.transform = `translateX(${G2.dx}px)`; }
+});
+const endPointer = e => {
+  clearTimeout(lpTimer); if (!G2) return; const g = G2; G2 = null;
+  if (g.mode === "swipe") { g.fg.classList.remove("drag"); suppressUntil = Date.now() + 300;
+    if (Math.abs(g.dx) > 60) { g.fg.style.transform = `translateX(${g.dx > 0 ? 168 : -168}px)`; openSwipe = g.row; } else g.fg.style.transform = ""; }
+  if (g.mode === "drag") { suppressUntil = Date.now() + 300; const w = g.row.dataset.w, pg = pageOf("work:" + w), favs = [...g.row.parentNode.querySelectorAll('.rr[data-fav="1"]')];
+    const y = e.clientY, others = favs.filter(r => r !== g.row), idx = others.filter(r => { const b = r.getBoundingClientRect(); return b.top + b.height / 2 < y; }).length;
+    const ids = others.map(r => r.dataset.rec); ids.splice(idx, 0, g.row.dataset.rec);
+    FAV[w] = ids; pg.order = ordered(w); g.row.style.transform = ""; dragRow = null; paintList(w); }
+};
+document.addEventListener("pointerup", endPointer); document.addEventListener("pointercancel", endPointer);
+document.addEventListener("touchmove", e => { if (dragRow || (G2 && G2.mode === "swipe")) e.preventDefault(); }, { passive: false });
+
+
+// ---------- per frame ----------
+let t0 = performance.now(), slow = 0;
+function frame(now) {
+  const dt = Math.min(.1, (now - t0) / 1000); t0 = now;
+  if (S.playing) { T += dt; if (T >= P.total) advance(); }
+  for (const id in S.dl) if (S.dl[id] < 1) S.dl[id] = Math.min(1, S.dl[id] + dt / 12);
+  if (now - slow > 250) { slow = now; tick(); arrow(); document.querySelectorAll(".st[data-st]").forEach(s => { const t = stateText(s.dataset.st); if (s.textContent !== t) s.textContent = t; });
+    if (Date.now() - lastTouch > IDLE) placeNow(true); }
+  requestAnimationFrame(frame);
+}
+
+// ---------- switches ----------
+const WORKPLAY = [["place", "Play: in place"], ["open", "Play: opens player"]];
+function label() { $("#wp").textContent = WORKPLAY.find(v => v[0] === S.workPlay)[1]; }
+$("#wp").onclick = () => { S.workPlay = S.workPlay === "place" ? "open" : "place"; history.replaceState(null, "", "?" + new URLSearchParams({ play: S.workPlay })); label(); toast(S.workPlay === "place" ? "Play on the work page stays on the work page." : "Play on the work page opens the player page."); };
+$("#end").onclick = () => { T = Math.max(cur().start, P.total - 6); S.playing = true; moved(); toast(S.queue.length ? "Six seconds to the end. The next recording starts below." : "Six seconds to the end. The queue is empty."); };
+let tt = 0;
+function toast(s) { const t = $("#toast"); t.textContent = s; t.classList.add("on"); clearTimeout(tt); tt = setTimeout(() => t.classList.remove("on"), 2400); }
+addEventListener("resize", () => { drawBar(); tick(true); });
+
+// Start: Die Schöpfung plays, Harnoncourt's Sixth waits in the queue; the listener browses to Beethoven's Fifth.
+S.session = ["rec:ja09"]; S.queue = ["ha90b"]; setPlaying("rec:ja09", 13); T += 20;
+label();
+for (const k of ["lib", "comp:lvb", "work:b5"]) { const e = { key: k, el: makePage(k) }; stack.push(e); paint(e); }
+layout(); renderMini(); drawBar(); repaintLive(); requestAnimationFrame(frame);
+</script>
+</body>
+</html>

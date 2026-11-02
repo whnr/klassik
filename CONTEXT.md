@@ -40,6 +40,18 @@ _Avoid_: Home, Browse
 The view that places composers and their works by year.
 _Avoid_: Timeline, History
 
+**Search term**:
+One value that the listener adds to a search: a genre, composer, conductor or performer. A genre value carries no facet, because the app does not know which value is the period.
+_Avoid_: Rule, condition, filter, token, criterion
+
+**Set**:
+One row of a search. Its search terms join with "or". The sets of a search join with "and", and each set shows how many recordings remain.
+_Avoid_: Group, clause, step
+
+**Scope**:
+The kind of search term that the search lists: all kinds, genres, composers, conductors or performers. A scope with an empty field lists every search term of that kind.
+_Avoid_: Facet, category, tab
+
 **Mini player**:
 The bar that shows what plays, on top of every place.
 _Avoid_: Now playing bar

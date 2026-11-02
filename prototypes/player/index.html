@@ -1,0 +1,749 @@
+<!doctype html>
+<!--
+  PROTOTYPE, throw away. Map ticket sz-rs30.1.74.7: how does the vertical player look and behave?
+  Player variants: ?variant=accordion|bridges|scroll|score. Mini player forms: ?mini=who|context|twoline|ticks.
+  Timeline on the edge of the places: ?edge=on. Notes drawer: ?drawer=list|widen. Timeline side: ?side=right|left.
+  Work: ?work=creation|b5. Speed: ?speed=1|10|60. The pill at the top opens all switches.
+  Tags and a 2-second loudness envelope come from two recordings in Flo's library. No audio, no cover art.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Vertical player prototype</title>
+<style>
+:root {
+  --bg: #f2f2f7; --card: #fff; --label: #000; --label2: rgba(60,60,67,.6); --label3: rgba(60,60,67,.3);
+  --sep: rgba(60,60,67,.18); --tint: #b5482f; --tintSoft: rgba(181,72,47,.14); --fill: rgba(118,118,128,.14); --fill2: rgba(118,118,128,.28);
+  --glass: rgba(250,250,252,.8); --glassLine: rgba(0,0,0,.08); --onTint: #fff; --sheet: #fff;
+  --tlw: 44px; --gap: 8px; --top: calc(env(safe-area-inset-top) + 40px); --pinH: 52px; --barH: 60px;
+  --bot: calc(env(safe-area-inset-bottom) + 10px);
+}
+@media (prefers-color-scheme: dark) { :root {
+  --bg: #000; --card: #1c1c1e; --label: #fff; --label2: rgba(235,235,245,.6); --label3: rgba(235,235,245,.3);
+  --sep: rgba(84,84,88,.6); --tint: #ff7a5c; --tintSoft: rgba(255,122,92,.2); --fill: rgba(118,118,128,.24); --fill2: rgba(118,118,128,.42);
+  --glass: rgba(40,40,44,.8); --glassLine: rgba(255,255,255,.1); --onTint: #000; --sheet: #111113;
+} }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--label); font: 17px/1.3 -apple-system, system-ui, sans-serif; -webkit-user-select: none; user-select: none; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+.glass { background: var(--glass); backdrop-filter: blur(24px) saturate(1.8); -webkit-backdrop-filter: blur(24px) saturate(1.8); border: .5px solid var(--glassLine); box-shadow: 0 6px 24px rgba(0,0,0,.12); }
+.ell { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* ---------- place (Library) ---------- */
+#place { position: fixed; inset: 0; overflow-y: auto; padding: calc(env(safe-area-inset-top) + 44px) 0 200px; }
+#place h1 { font-size: 34px; margin: 6px 16px 10px; }
+.navbar { height: 44px; display: flex; align-items: center; padding: 0 8px; color: var(--tint); }
+.navbar button::before { content: "‹ "; font-size: 26px; vertical-align: -2px; }
+.section-h { font-size: 13px; text-transform: uppercase; color: var(--label2); margin: 22px 32px 6px; }
+.list { background: var(--card); border-radius: 12px; margin: 0 16px; overflow: hidden; }
+.row { display: flex; align-items: center; gap: 12px; padding: 10px 16px; min-height: 44px; position: relative; width: 100%; text-align: left; }
+.row + .row::before { content: ""; position: absolute; top: 0; left: 16px; right: 0; border-top: .5px solid var(--sep); }
+.row:active { background: var(--fill); }
+.row .main { flex: 1; min-width: 0; } .row .s { font-size: 14px; color: var(--label2); }
+.chev::after { content: "›"; color: var(--label3); font-size: 22px; }
+.eq { color: var(--tint); font-size: 13px; }
+#tabs { position: fixed; left: 12px; right: 12px; bottom: var(--bot); display: flex; gap: 8px; z-index: 5; }
+#tabs .cap { flex: 1; height: 56px; border-radius: 28px; display: flex; justify-content: space-around; align-items: center; font-size: 11px; color: var(--label2); }
+#tabs .cap span { display: flex; flex-direction: column; align-items: center; gap: 2px; } #tabs .cap span b { font-size: 20px; font-weight: 400; }
+#tabs .cap span.on { color: var(--tint); }
+#tabs .circ { width: 56px; height: 56px; border-radius: 28px; display: grid; place-items: center; font-size: 22px; color: var(--label2); }
+#acc { position: fixed; left: 16px; right: 16px; bottom: calc(var(--bot) + 64px); height: 52px; border-radius: 26px; z-index: 6; }
+#edge { position: fixed; top: calc(env(safe-area-inset-top) + 52px); bottom: calc(var(--bot) + 64px + 26px); width: 22px; z-index: 6; display: none; }
+body.edge-on #edge { display: block; }
+body.edge-on.side-right #place { padding-right: 12px; } body.edge-on.side-left #place { padding-left: 12px; }
+body.side-right #edge { right: 0; } body.side-left #edge { left: 0; }
+#edge svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+body.edge-on.side-right #acc { right: 26px; } body.edge-on.side-left #acc { left: 26px; }
+
+/* ---------- mini player forms (shared by the accessory and the player bar) ---------- */
+.mini { display: flex; align-items: center; gap: 10px; height: 100%; padding: 0 6px 0 7px; position: relative; overflow: hidden; border-radius: inherit; }
+.mini .art { width: 38px; height: 38px; border-radius: 9px; flex: none; overflow: hidden; }
+.mini .txt { flex: 1; min-width: 0; line-height: 1.2; }
+.mini .l1 { font-size: 15px; font-weight: 500; } .mini .l2 { font-size: 13px; color: var(--label2); }
+.mini .pp { width: 40px; height: 40px; border-radius: 20px; display: grid; place-items: center; font-size: 18px; flex: none; }
+.mini .prog { position: absolute; left: 22px; right: 22px; bottom: 3px; height: 2px; border-radius: 1px; background: var(--fill); overflow: hidden; }
+.mini .prog i { display: block; height: 100%; background: var(--tint); }
+.mini .ticks { flex: 1; height: 22px; position: relative; }
+.mini .ticks svg { width: 100%; height: 100%; display: block; }
+.mini .cnt { font-size: 13px; color: var(--label2); flex: none; }
+.mini .arrow { font-size: 15px; color: var(--tint); flex: none; width: 18px; text-align: center; }
+
+/* ---------- player sheet ---------- */
+#scrim { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 9; opacity: 0; pointer-events: none; transition: opacity .3s; }
+body.player #scrim { opacity: 1; pointer-events: auto; }
+#sheet { position: fixed; left: 0; right: 0; top: var(--top); bottom: 0; background: var(--sheet); border-radius: 14px 14px 0 0; z-index: 10; transform: translateY(105%); transition: transform .35s cubic-bezier(.2,.8,.2,1); overflow: hidden; }
+body.player #sheet { transform: none; }
+#sheet.dragging { transition: none; }
+#content { position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--pinH) 0 calc(var(--barH) + var(--bot) + 40px); }
+body.side-right #content { padding-right: calc(var(--tlw) + var(--gap)); padding-left: 16px; }
+body.side-left #content { padding-left: calc(var(--tlw) + var(--gap)); padding-right: 16px; }
+body.v-bridges { --gap: 40px; }
+body.v-scroll #content { padding-right: 16px; padding-left: 16px; }
+#pin { position: absolute; left: 0; right: 0; top: 0; height: var(--pinH); z-index: 4; display: flex; align-items: center; gap: 8px; padding: 0 10px; touch-action: none; }
+#pin .bg { position: absolute; inset: 0; opacity: 0; transition: opacity .2s; border-radius: 0; border-width: 0 0 .5px; box-shadow: none; }
+#pin.solid .bg { opacity: 1; }
+#pin .grab { position: absolute; top: 5px; left: 50%; width: 36px; height: 5px; margin-left: -18px; border-radius: 3px; background: var(--label3); }
+#pin .rb { width: 36px; height: 36px; border-radius: 18px; display: grid; place-items: center; font-size: 17px; position: relative; flex: none; background: var(--fill); }
+#pin .rb small { position: absolute; top: -2px; right: -4px; font-size: 10px; background: var(--tint); color: var(--onTint); border-radius: 8px; padding: 1px 5px; }
+#pin .ttl { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; opacity: 0; transition: opacity .2s; position: relative; }
+#pin.solid .ttl { opacity: 1; }
+#pin .ttl .art { width: 30px; height: 30px; border-radius: 6px; overflow: hidden; flex: none; }
+#pin .ttl .a { font-size: 15px; font-weight: 600; } #pin .ttl .b { font-size: 12px; color: var(--label2); }
+
+.hero { padding: 6px 0 18px; }
+.hero .art { width: min(240px, 100%); aspect-ratio: 1; border-radius: 12px; overflow: hidden; margin: 0 auto 16px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+.hero h2 { font-size: 24px; margin: 0 0 4px; line-height: 1.15; }
+.hero .comp { font-size: 17px; color: var(--tint); margin-bottom: 10px; }
+.hero .rec { font-size: 14px; color: var(--label2); line-height: 1.45; }
+.hero .rec b { color: var(--label); font-weight: 500; }
+
+/* blocks */
+.blk { position: relative; border-radius: 12px; background: var(--card); margin-bottom: 6px; overflow: hidden; }
+@media (prefers-color-scheme: light) { .blk { box-shadow: 0 0 0 .5px var(--sep); } }
+.blk .bh { display: flex; gap: 10px; align-items: baseline; padding: 11px 12px; width: 100%; text-align: left; }
+.blk .num { font-size: 13px; color: var(--label2); min-width: 18px; font-variant-numeric: tabular-nums; }
+.blk .tt { flex: 1; min-width: 0; font-size: 16px; }
+.blk .dur { font-size: 13px; color: var(--label2); font-variant-numeric: tabular-nums; }
+.blk .bd { padding: 0 12px 12px 40px; font-size: 14px; color: var(--label2); }
+.blk.cur { box-shadow: inset 3px 0 0 var(--tint); }
+body.side-left .blk.cur { box-shadow: inset -3px 0 0 var(--tint); }
+.blk.cur .num, .blk.cur .tt { color: var(--tint); }
+.blk .state { font-size: 12px; font-weight: 600; color: var(--tint); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 6px; }
+.ppl { margin: 2px 0; } .ppl .role { color: var(--label2); } .ppl .nm { color: var(--label); }
+.ppl.in .nm::after { content: " enters"; font-size: 11px; color: var(--tint); font-weight: 600; text-transform: uppercase; margin-left: 4px; }
+.ppl.out { color: var(--label3); text-decoration: line-through; } .ppl.out .nm { color: var(--label3); }
+.nt { display: flex; gap: 8px; margin-top: 8px; padding: 8px 10px; border-radius: 9px; background: var(--fill); color: var(--label); width: 100%; text-align: left; font-size: 14px; }
+.nt .at { color: var(--tint); font-variant-numeric: tabular-nums; flex: none; }
+.det { margin-top: 8px; font-size: 12px; color: var(--label3); }
+/* accordion */
+body.v-accordion .blk:not(.open) .bd { display: none; }
+body.v-accordion .blk:not(.open) .tt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body.v-accordion .blk:not(.open) { margin-bottom: 2px; border-radius: 9px; }
+body.v-accordion .blk:not(.open) .bh { padding-top: 9px; padding-bottom: 9px; }
+body.v-accordion .blk:not(.open) .tt { font-size: 15px; }
+/* score */
+body.v-score .blk, body.v-scroll .blk { overflow: visible; }
+body.v-score .blk { background: none; box-shadow: none; border-radius: 0; margin: 0; border-top: .5px solid var(--sep); padding-left: 68px; }
+body.v-score .blk .bh { padding: 10px 0 2px; display: block; }
+body.v-score .blk .num { display: block; font: 300 13px/1 ui-serif, Georgia, serif; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 6px; }
+body.v-score .blk .tt { display: block; font: italic 400 22px/1.15 ui-serif, Georgia, serif; }
+body.v-score .blk .dur { display: none; }
+body.v-score .blk .bd { padding: 6px 0 0; }
+body.v-score .blk.cur { box-shadow: none; }
+body.v-score .mnote { position: absolute; left: 0; width: 62px; font: italic 11px/1.2 ui-serif, Georgia, serif; color: var(--label2); border-top: 1px solid var(--tint); padding-top: 3px; text-align: left; }
+body.v-score .mline { position: absolute; left: 68px; right: 0; border-top: .5px dashed var(--sep); pointer-events: none; }
+.phl { position: absolute; left: 0; right: -6px; height: 0; border-top: 1.5px solid var(--tint); pointer-events: none; display: none; z-index: 2; }
+.phl span { position: absolute; right: 6px; top: -17px; font-size: 11px; color: var(--tint); font-variant-numeric: tabular-nums; background: var(--sheet); padding: 0 3px; }
+body.v-score .blk.cur .phl { display: block; }
+/* scroll: blocks share the content column with the timeline */
+body.v-scroll .blk { margin: 0 calc(var(--tlw) + 8px) 0 0; border-radius: 0; background: none; box-shadow: none; border-top: .5px solid var(--sep); }
+body.side-left.v-scroll .blk { margin: 0 0 0 calc(var(--tlw) + 8px); }
+body.v-scroll .blk .bh { position: sticky; top: var(--pinH); background: var(--sheet); z-index: 1; }
+body.v-scroll .blk.cur { box-shadow: none; }
+#blocks { position: relative; }
+
+.next { margin-top: 18px; border-radius: 12px; border: 1.5px dashed var(--label3); padding: 12px; }
+.next .h { font-size: 12px; text-transform: uppercase; color: var(--label2); margin-bottom: 8px; letter-spacing: .03em; }
+.next .r { display: flex; gap: 12px; align-items: center; }
+.next .art { width: 48px; height: 48px; border-radius: 8px; overflow: hidden; flex: none; }
+.next .a { font-size: 15px; font-weight: 500; } .next .b { font-size: 13px; color: var(--label2); }
+.next .mv { margin-top: 10px; font-size: 13px; color: var(--label2); display: none; }
+.next.open .mv { display: block; } .next .mv div { padding: 4px 0; border-top: .5px solid var(--sep); }
+.next .btns { display: flex; gap: 8px; margin-top: 10px; }
+.pill { font-size: 14px; padding: 7px 14px; border-radius: 16px; background: var(--tintSoft); color: var(--tint); font-weight: 500; }
+
+/* timeline */
+#tl { position: absolute; top: calc(var(--pinH) + 6px); bottom: calc(var(--barH) + var(--bot) + 10px); width: var(--tlw); z-index: 3; touch-action: none; }
+body.side-right #tl { right: 0; } body.side-left #tl { left: 0; }
+body.v-scroll #tl { display: none; }
+#tl svg, #stl svg { position: absolute; left: 0; top: 0; width: 100%; overflow: visible; }
+#stl { position: absolute; top: 0; width: var(--tlw); touch-action: none; }
+body.side-right #stl { right: 0; } body.side-left #stl { left: 0; }
+.marker { position: absolute; left: 0; width: var(--tlw); height: 44px; margin-top: -22px; touch-action: none; z-index: 2; }
+.marker::before { content: ""; position: absolute; left: 4px; right: 4px; top: 21px; height: 2px; background: var(--tint); border-radius: 1px; }
+.marker::after { content: ""; position: absolute; left: 50%; top: 22px; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 8px; background: var(--tint); box-shadow: 0 1px 4px rgba(0,0,0,.3), 0 0 0 3px var(--sheet); }
+.marker.drag::after { transform: scale(1.35); }
+#bubble { position: absolute; z-index: 8; pointer-events: none; display: none; max-width: 240px; padding: 7px 10px; border-radius: 10px; font-size: 13px; line-height: 1.25; }
+#bubble b { color: var(--tint); font-variant-numeric: tabular-nums; }
+#bridges { position: absolute; inset: 0; pointer-events: none; z-index: 2; width: 100%; height: 100%; }
+
+/* bar: transport and mini player */
+#bar { position: absolute; left: 12px; right: 12px; bottom: var(--bot); height: var(--barH); border-radius: 30px; z-index: 6; overflow: hidden; }
+#bar .ctl, #bar .mini { position: absolute; inset: 0; transition: opacity .2s, transform .25s; }
+#bar .ctl { display: flex; align-items: center; justify-content: space-around; padding: 0 8px; }
+#bar .ctl button { width: 44px; height: 44px; border-radius: 22px; font-size: 17px; display: grid; place-items: center; }
+#bar .ctl button.big { font-size: 24px; width: 52px; height: 52px; background: var(--tint); color: var(--onTint); }
+#bar .ctl .tm { font-size: 12px; color: var(--label2); text-align: center; line-height: 1.25; min-width: 64px; }
+#bar .ctl .prog, #bar .mini .prog { position: absolute; left: 26px; right: 26px; bottom: 3px; height: 2px; border-radius: 1px; background: var(--fill); overflow: hidden; }
+#bar .ctl .prog i { display: block; height: 100%; background: var(--tint); }
+#bar.away .ctl { opacity: 0; transform: translateY(12px); pointer-events: none; }
+#bar:not(.away) .mini { opacity: 0; transform: translateY(-12px); pointer-events: none; }
+
+/* notes drawer */
+#drawer { position: absolute; top: var(--pinH); bottom: calc(var(--barH) + var(--bot) + 6px); width: calc(100% - var(--tlw) - 14px); z-index: 5; background: var(--card); box-shadow: 0 10px 40px rgba(0,0,0,.3); transition: transform .3s cubic-bezier(.2,.8,.2,1); overflow-y: auto; padding: 14px 0; }
+body.side-right #drawer { left: 0; border-radius: 0 16px 16px 0; transform: translateX(-105%); }
+body.side-left #drawer { right: 0; border-radius: 16px 0 0 16px; transform: translateX(105%); }
+body.drawer-open #drawer { transform: none; }
+#drawer h3 { margin: 0 16px 2px; font-size: 20px; } #drawer .sub { margin: 0 16px 12px; font-size: 13px; color: var(--label2); }
+#drawer .row .at { color: var(--tint); font-size: 13px; font-variant-numeric: tabular-nums; min-width: 64px; }
+#dscrim { position: absolute; inset: 0; z-index: 4; display: none; }
+body.drawer-open #dscrim, body.widen-open #dscrim { display: block; }
+#widen { position: absolute; top: var(--pinH); bottom: calc(var(--barH) + var(--bot) + 6px); width: calc(100% - 12px); z-index: 5; background: var(--card); box-shadow: 0 10px 40px rgba(0,0,0,.3); transition: transform .3s cubic-bezier(.2,.8,.2,1), opacity .3s; opacity: 0; pointer-events: none; overflow: hidden; }
+body.side-right #widen { right: 0; border-radius: 16px 0 0 16px; transform: scaleX(.12); transform-origin: right; }
+body.side-left #widen { left: 0; border-radius: 0 16px 16px 0; transform: scaleX(.12); transform-origin: left; }
+body.widen-open #widen { transform: none; opacity: 1; pointer-events: auto; }
+#widen .wtl { position: absolute; top: 40px; bottom: 12px; width: 56px; }
+body.side-right #widen .wtl { right: 6px; } body.side-left #widen .wtl { left: 6px; }
+#widen .wtl svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+#widen .wh { position: absolute; top: 10px; left: 14px; right: 14px; font-size: 13px; color: var(--label2); display: flex; justify-content: space-between; }
+#widen .wn { position: absolute; font-size: 13px; line-height: 1.25; padding: 6px 9px; border-radius: 9px; background: var(--fill); text-align: left; }
+#widen .wn b { color: var(--tint); font-weight: 500; font-variant-numeric: tabular-nums; }
+#widen .lead { position: absolute; height: 0; border-top: 1px solid var(--tint); opacity: .6; }
+
+/* lab: the prototype's own switches */
+#switch { position: fixed; top: calc(env(safe-area-inset-top) + 6px); left: 50%; transform: translateX(-50%); z-index: 30; background: #111; color: #fff; border-radius: 16px; font-size: 13px; padding: 6px 12px; box-shadow: 0 2px 10px rgba(0,0,0,.35); white-space: nowrap; }
+#lab { position: fixed; top: calc(env(safe-area-inset-top) + 42px); left: 10px; right: 10px; z-index: 31; border-radius: 18px; padding: 10px 12px 12px; display: none; max-height: 75vh; overflow-y: auto; background: var(--card); box-shadow: 0 12px 40px rgba(0,0,0,.35); }
+#lab.open { display: block; }
+#lab .lr { margin: 8px 0; } #lab .lr > div:first-child { font-size: 12px; color: var(--label2); margin: 0 0 4px 4px; text-transform: uppercase; }
+.seg { display: flex; background: var(--fill); border-radius: 9px; padding: 2px; }
+.seg button { flex: 1; padding: 6px 4px; border-radius: 7px; font-size: 13px; font-weight: 500; }
+.seg button.on { background: var(--sheet); box-shadow: 0 1px 3px rgba(0,0,0,.18); }
+#lab .foot { display: flex; justify-content: space-between; font-size: 14px; margin-top: 10px; color: var(--label2); }
+#lab .foot a { color: var(--tint); text-decoration: none; }
+#toast { position: fixed; top: calc(env(safe-area-inset-top) + 44px); left: 50%; transform: translateX(-50%); z-index: 29; background: rgba(17,17,17,.88); color: #fff; font-size: 13px; padding: 7px 12px; border-radius: 12px; opacity: 0; transition: opacity .25s; pointer-events: none; max-width: 90%; text-align: center; }
+#toast.on { opacity: 1; }
+</style>
+</head>
+<body>
+<div id="place"></div>
+<div id="tabs"><div class="cap glass"><span class="on"><b>♪</b>Library</span><span><b>◷</b>Chronology</span><span><b>⚙︎</b>Settings</span></div><div class="circ glass">⌕</div></div>
+<div id="acc" class="glass"></div>
+<div id="edge"></div>
+<div id="scrim"></div>
+<div id="sheet">
+  <div id="content"></div>
+  <svg id="bridges"></svg>
+  <div id="tl"></div>
+  <div id="pin"><div class="bg glass"></div><div class="grab"></div>
+    <button class="rb" id="close" aria-label="Close player">⌄</button>
+    <div class="ttl"></div>
+    <button class="rb" id="notesBtn" aria-label="Listening notes">✎<small></small></button>
+  </div>
+  <div id="dscrim"></div>
+  <div id="drawer"></div>
+  <div id="widen"></div>
+  <div id="bar" class="glass"><div class="ctl"></div><div class="mini"></div></div>
+  <div id="bubble" class="glass"></div>
+</div>
+<button id="switch"></button>
+<div id="lab"></div>
+<div id="toast"></div>
+
+<script>
+const DATA={"b5":{"work":"Symphony No. 5 in C minor, Op. 67","composer":"Ludwig van Beethoven","album":"Symphonies Nos. 5 & 7","label":"Deutsche Grammophon","year":"1974","ensemble":"Wiener Philharmoniker","conductor":"Carlos Kleiber","mv":[{"t":"Allegro con brio","d":448.0,"r":[["orchestra","Wiener Philharmoniker"]],"e":"0KUQSN@BCRUFXUC?HLOTVUZUOIDEHEBEHOSVTTWRSTTROPNRN@BBRUGVUK?CKNRTUYURLBDGHBCHMQUSRVSSSRRORVQDCDEIEHKIGISUUVPPROQSTSSQNHCC=KVQGHVVYYYYRAEEEQGB@8318@NRPRTUXVRHCGDDEEFFHMPSXTWVUUVVVWWXSUYVRUSQSTWVWXWUSSSSRRURTUTVWZXYRBATWVVB000"},{"t":"Andante con moto","d":601.5,"r":[["orchestra","Wiener Philharmoniker"]],"e":"4<A@?>@AD8FE@LEC>C>CGKMIBCLA=@??B:;;SYXTUVVXXXWJ?=<:::87:89CLFB@ABDGFJFLFJGBBB@;EJLK@AL?=@A@C;;<TWUOTWVXXXVI<==::;:888;GJFDCEDDCCA>;?@@>ABCAPTTRTVTTVSTSI423109;>;7A>BCDEABEBIF;9BHIUVYUWXXYXWUIC=610001008@DBHCGACFJAAF@;:DJQWUVVVVWWWVUTLGF@A9BHGG@C9:>:9;=?RPUTLDCC>@8CLNQM:110:CBBDEACAGHLNNSVUTTDIUVD00"},{"t":"Allegro","d":308.9,"r":[["orchestra","Wiener Philharmoniker"]],"e":"06@B@7:CIGCTUUVXVWSSN:CDC<9;>BBLQVWYYXXUTR=FFHDFEEGHOQVXREKIKJOSRKHKJOTTMJKNLMPTWVTVSIBDECCEEGE>3:975EA>966749=5788765665>>>;=76778747658898898987::9:9=MV"},{"t":"Allegro","d":661.4,"r":[["orchestra","Wiener Philharmoniker"]],"e":"ZZXYYVVUTVUUWUUVPPRVXWVXZXSUUSVUPPSFRVHJHINTTTSOFCDGGLSTTRSZZUWY[WWXUUUTUUUUUTVTNQUWXWXYXTUUUWWSPSHQVIIIINSRSRPFDEHIQRSSRT[ZVXYWVTNDDBCDHKIIRURUSTZV[VYYSUUVTUVSSSXYWXXYVUWYYS809<49:<;;:?@@@TYXWWWUVUVVVVWUUUNQVXYXWYWTUUVVWWWUPSGQVEOKJQVVUQGEFJINTTUTVYYXYUTSTTVYZYWVXTSSUKHBFILTVUVUPOPHHLORVTUTCBEINOKMOQLRXZYZZXWVVZZWWZVTVWZU000000"}],"next":"creation","notes":[[0,0,"Fate motif: four notes and a fermata."],[1,0,"Theme in violas and cellos."],[2,249,"Timpani pianissimo. The crescendo runs straight into the finale."],[3,0,"C major arrives, with trombones for the first time."]]},"creation":{"work":"Die Schöpfung, Hob. XXI:2","composer":"Joseph Haydn","album":"Die Schöpfung","label":"Harmonia Mundi","year":"2009","ensemble":"Freiburger Barockorchester","conductor":"René Jacobs","mv":[{"t":"Einleitung: Die Vorstellung des Chaos","d":320.1,"r":[["orchestra","Freiburger Barockorchester"]],"e":"0ZXQJG@;CDD9?0UR@=FHLPSSQSIGIIUUVWURRSQPPRQQNG:=:<A<:C@MRTVOVOUTLTOSUVRMRPSSRTTPUOEDDFBCFBDE?KKDMGEMEFGNSWV8<<FJLJKNQTRMUOUVNXTSRNSR0045@BED;??C?>@BECDDFDGHE?8="},{"t":"No. 1, Rezitativ mit Chor: Im Anfange schuf Gott Himmel und Erde","d":155.4,"r":[["tenor","Maximilian Schmitt"],["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"],["choir","RIAS Kammerchor"]],"e":"??GJEJC?>=40:>JECBB>>G:>@C@CCJ:<>6ACAA>?C>@EFIHHGJD>AEG@EKQKDEY`_^^^]\\SORUQNN"},{"t":"No. 2, Arie mit Chor: Nun schwanden vor dem heiligen Strahle","d":230.3,"r":[["tenor","Maximilian Schmitt"],["orchestra","Freiburger Barockorchester"],["choir","RIAS Kammerchor"]],"e":"CLMNPGKJSWRILWLGPKJNINQTROEJLTLRSURMKNPRJFQMNROMJSTSMMOINPTOMSMRSSWYZ^[[`Y\\\\[KGRTQZRIOQRYQNQLIY\\\\X@MQTXXMLNSUXWX]XV"},{"t":"No. 3, Rezitativ: Und Gott machte das Firmament","d":111.3,"r":[["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]],"e":"BFFIKDHMMQKKLUTVRLTVUULOTROVYZXPBADADGHKK>RTUH:538CIN@D"},{"t":"No. 4, Chor mit Sopransolo: Mit Staunen sieht das Wunderwerk","d":137.8,"r":[["soprano","Julia Kleiter"],["orchestra","Freiburger Barockorchester"],["choir","RIAS Kammerchor"]],"e":"CFLNJELJSOROPMQIJPSTWYYUQVYY]^TORLSV\\\\[ZWGFDOVTPTYUU\\OWZ[]][W^]^YVVV"},{"t":"No. 5, Rezitativ: Und Gott sprach, Es sammle sich das Wasser","d":35.9,"r":[["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]],"e":"MIMONELLHKHLIJFKG"},{"t":"No. 6, Arie: Rollend in schäumenden Wellen","d":200.7,"r":[["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]],"e":"PUUUWUSSSVPMNPOMRPQTSPQRTVSPUOOSOVTTKPMOOQQPQPQROROKNOEIMKJJNOJRNKJGGHCGJNLLJNONNKLKHHFJF?DILGFCCBC>"},{"t":"No. 7, Rezitativ: Und Gott sprach, Es bringe die Erde Gras hervor","d":32.1,"r":[["soprano","Julia Kleiter"],["orchestra","Freiburger Barockorchester"]],"e":"GKJSHHEOFGIJJAC>"},{"t":"No. 8, Arie: Nun beut die Flur das frische Grün","d":301.2,"r":[["soprano","Julia Kleiter"],["orchestra","Freiburger Barockorchester"]],"e":"FKNJFMBIPOMMJLVPJRRSKUUFOQORPOTNRIJVPETJHSQJJEIJRKSVVQBHHPQQMMORVRRQMMSMLKVKPQQOTVSCIMKKOSKPJFMUPMTRUIWSFPQNQPKTFMNVPULUSQROIPPSOOUSNTVNTU=EFOUUMOXXTU"},{"t":"No. 9, Rezitativ: Und die himmlischen Heerscharen","d":11.9,"r":[["tenor","Maximilian Schmitt"],["orchestra","Freiburger Barockorchester"]],"e":"IILOS"},{"t":"No. 10, Chor: Stimmt an die Saiten","d":128.2,"r":[["orchestra","Freiburger Barockorchester"],["choir","RIAS Kammerchor"]],"e":"RZ[]]^ZX[]WMMRRQUSYUYW\\\\ZZ^[YYTPSXXZ\\WYZX]XY[TWVX[T[^Y]Y\\[W_]^VT"},{"t":"No. 11, Rezitativ: Und Gott sprach, Es sei'n Lichter","d":35.1,"r":[["tenor","Maximilian Schmitt"],["orchestra","Freiburger Barockorchester"]],"e":"LMMNHLLIJHMFNLJHC"},{"t":"No. 12, Rezitativ: In vollem Glanze steiget jetzt die Sonne","d":147.0,"r":[["tenor","Maximilian Schmitt"],["orchestra","Freiburger Barockorchester"]],"e":"0?@9@BECDIIMQTWZ[[[Y[[[ZXYUMTZZWNJQXPTRVS2667?C?BFGDIRFE@CEB?RLKTLOQTSSSS"},{"t":"No. 13, Chor mit Soli: Die Himmel erzählen die Ehre Gottes","d":248.9,"r":[["soprano","Julia Kleiter"],["tenor","Maximilian Schmitt"],["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"],["choir","RIAS Kammerchor"]],"e":"Z^\\TQW]UQ\\[QPONULJHEHJMR[^^]\\]Y\\[\\VQQTTSVTLQVRRTWTTWVOWWWSQLUY\\]\\]\\[TVQUVWXUWVYYWTUX[YUTVVWNY][[\\]]]XXZ\\W[^\\\\]^___^]]_Z^][G3"},{"t":"No. 14, Rezitativ: Und Gott sprach, Es bringe das Wasser","d":27.1,"r":[["soprano","Julia Kleiter"],["orchestra","Freiburger Barockorchester"]],"e":"LNPMMMONJPONW"},{"t":"No. 15, Arie: Auf starkem Fittiche schwinget sich der Adler","d":440.7,"r":[["soprano","Julia Kleiter"],["orchestra","Freiburger Barockorchester"]],"e":"LQRUSSUHJIKLWVVTPQQSVTUVRNOVWRSFLLTRRIHLJYPUXTMIJKJOSLLGMOKADSPIHVLKKPMPGMULTUNRRPMNTKLHLQLHENSNFQYVMMNQMQQUOQSVURKQRQTUUSRMDDFIHDLWMRONSUPMHHLNTMKLULKILTIEQWWIQPQQQUQQLXYLKINKGOJMJPKJPOIMTUNLPPSUPUMOLOQKVPJOTRXVTVVUIORS"},{"t":"No. 16, Rezitativ: Und Gott schuf große Walfische","d":116.6,"r":[["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]],"e":"IMUHFHFPPMQJMPSJLORPPHPMQQMOONQLJONKNGKKMQNQVRQUANLNDHDDF:"},{"t":"No. 17, Rezitativ: Und die Engel rührten ihr' unsterblichen Harfen","d":21.7,"r":[["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]],"e":";CIGIDMUUK"},{"t":"No. 18, Terzett: In holder Anmut stehn – No. 19, Chor: Der Herr ist groß in seiner Macht","d":396.1,"r":[["soprano","Julia Kleiter"],["tenor","Maximilian Schmitt"],["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"],["choir","RIAS Kammerchor"]],"e":"DFJJIHOMOKMKROMSOOHGGIGLORWOKMQRJMMUJILLUOVYJLNLJMLNLPSOLJOGQIGKNLLSPKLLNMKQPUMMIMOQSMTSYTUWSSWRTTSRRPNNPSUTQTISWGOG<PLINPKMMHFSYXWVXYTQUUWXW]\\`]Y][WU\\^`]VZW[]__^]\\SXYZW]]_]VYVZ\\___^[SXY\\X\\]_]\\__XWY"},{"t":"No. 20, Rezitativ: Und Gott sprach, Es bringe die Erde hervor","d":36.9,"r":[["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]],"e":"BDCDFCJLOKKGLNJIFK"},{"t":"No. 21, Rezitativ: Gleich öffnet sich der Erde Schoß","d":173.8,"r":[["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]],"e":"SSPHPPLPFMWYWQWURRRSNNPNRPHMKPTQVTNPGNOOLMGLOIHAMNNOOIGHIG@I=FLHD9EEJHHIMCKPBBGDDBCB>;"},{"t":"No. 22, Arie: Nun scheint in vollem Glanze der Himmel","d":180.3,"r":[["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]],"e":"RVTNWXWSTTWVSNJWWUTMNRLQUPKMJQIKTRNOMRPVSZMHIIPUWWTPNSTSSOGMSOEDNJVZRNSRSSSWTWVMC;LPNYYXUW"},{"t":"No. 23, Rezitativ: Und Gott schuf den Menschen","d":39.9,"r":[["tenor","Maximilian Schmitt"],["orchestra","Freiburger Barockorchester"]],"e":"MMCKIQLEPJHIIGFRULE"},{"t":"No. 24, Arie: Mit Würd' und Hoheit angetan","d":233.0,"r":[["tenor","Maximilian Schmitt"],["orchestra","Freiburger Barockorchester"]],"e":"ELOMPPMVYWVNNNSOOFJRYWWTUUMSUVLRSLLTONQQXYWNNOUSLMJOSUWUJMOMONONLJHLJIQOQHKQLONKQNJMPLLPSUMJOLLOMKQPKPONQUWRJ=NQHIFB"},{"t":"No. 25, Rezitativ: Und Gott sah jedes Ding, was er gemacht hatte","d":22.4,"r":[["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]],"e":"DHJPFHBPQMQ"},{"t":"No. 26, Chor: Vollendet ist das große Werk – No. 27, Terzett: Zu dir, o Herr – No. 28, Chor","d":593.9,"r":[["soprano","Julia Kleiter"],["tenor","Maximilian Schmitt"],["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"],["choir","RIAS Kammerchor"]],"e":"PTTTST\\\\YX^ZVUYTUYY][RPVZ\\\\XS[^^UZ^^Y^\\UTRTDFRRNSPORPSVTQRPPRMVQLMMUSTTWVQWPXROJJJRKMPPRXSVURRWVWVPJCADIEFIECFCCFFF>9>BCE8@DA>=?>>9=B;CHBCCJLJHJEFLTUQWUPSQUSUTRUOKRWNLVRV\\\\KJJQSTVXWSVTTRRRLHXSKMSTX\\WKGINKIKH?OZYX^]XSZQRTSTZZXZZ^WTVUZ]XTRUZ\\_^[Y[]ZYTV\\Z[__^_[]YSS`a[]\\\\[^\\\\]]`YY\\YW[]][\\Z^^]]]]^\\[5"},{"t":"No. 29, Rezitativ: Aus Rosenwolken bricht","d":234.8,"r":[["tenor","Maximilian Schmitt"],["orchestra","Freiburger Barockorchester"]],"e":"0MKB;GIHGNPJM?EGKCLJPRLPNQUIIGIKKHFQPIRFTLSLHJIKHHOMKOKFIFEHMJGGC@GFCHIGINPLKDFFGJNKNPHJFB=HGSNEINKPNFLTHHMNKRMLPRNMN"},{"t":"No. 30, Duett mit Chor: Von deiner Güt', o Herr und Gott","d":580.9,"r":[["soprano","Julia Kleiter"],["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"],["choir","RIAS Kammerchor"]],"e":"@BEJIJGJOMQJURUQWPMQQRSQPORSULNOQMROSOJSVPONMRQRKWQXPVRSSOQRVQWQSWWSNRPPSQQPNWUSNPX[PKJLKLKOMDKQLNPOPOKJTOQQPLMURW[XVZXWTXKRQLQNSOPMKNQRMQOPSPQCPUTVQVZZZ]Z[YYYMPMOWQNOPSURONONTQUTSVQRTURUQTX]Z^]Z][PPOOSUORPQTQPMQSTSQQXQWZ^[]]\\GIKNRSPVV\\Y]\\WT]\\\\YV[ZSX[Y^Y]_^NHKLMLPX[[LLY\\XJP[\\ZBEH]^][[]ZZYX"},{"t":"No. 31, Rezitativ: Nun ist die erste Pflicht erfüllt","d":143.6,"r":[["soprano","Julia Kleiter"],["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]],"e":"CIKQMKPNKIKKMJQMLJOKDGGLJILMHNNPOFNOHMCFMOSM=JDPXXPM@MLKIFKFKIKJDKXXQOJ"},{"t":"No. 32, Duett: Holde Gattin, dir zur Seite","d":494.8,"r":[["soprano","Julia Kleiter"],["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]],"e":"2DJLGIGJGPHHHAGNNH?CGOGHLKIGFJNFMDIKKKJLIIOJMILQJFQRSSHCMRPLQTQAJOPHPNGMSRKUJFRJQMRRMMRPJIJLLKQOSHQLKLJJLRRTSJJLMWORPPLNOLLMNQMOOLOUPSOJNKLPUTKAPTSQTONJROPXRSNTVWRZUPIHSSUXTVUQTLMMKMNSNOPMMROSOJKLNQITPPIH>IRUTRTPLLPMQXSSOTXYQNQNMJDHRQRQQVUWZTVSSKJ"},{"t":"No. 33, Rezitativ: O glücklich Paar, und glücklich immerfort","d":25.4,"r":[["tenor","Maximilian Schmitt"],["orchestra","Freiburger Barockorchester"]],"e":"JHLMQGKONJAH"},{"t":"No. 34, Schlusschor: Singt dem Herren alle Stimmen","d":203.8,"r":[["orchestra","Freiburger Barockorchester"],["choir","RIAS Kammerchor"]],"e":"SWYZTJSOQSX[ZVZ[W\\]ZTSIONWTWTVUW[VWSWWUTVRUWZ[YWYWSVTWWVXYVSURWWXWVYZWYVXX[RQUTWWXUV[VY\\^]\\]YYXYVX[Y0"}],"next":"h94","notes":[[0,0,"Chaos: a unison C, muted strings."],[1,122,"\"Und es ward Licht\": fortissimo C major."],[13,0,"Die Himmel erzählen: the chorus everyone knows."],[15,30,"The eagle, the lark, the dove."],[29,0,"Adam and Eve: the love duet."]]},"h94":{"work":"Symphony No. 94 in G major, Hob. I:94","composer":"Joseph Haydn","album":"Haydn 2032, Vol. 16: The Surprise","label":"Alpha","year":"2021","ensemble":"Il Giardino Armonico","conductor":"Giovanni Antonini","mv":[{"t":"Adagio - Vivace assai","d":515.2,"r":[["orchestra","Il Giardino Armonico"],["orchestra","Kammerorchester Basel"]],"e":"CPMN?LNJDQUQBMLI@KKMOLPQVYVPKRUXB;DJT\\[\\[[\\\\[ZNFBGKZ\\X\\\\\\ZSHHG[\\[[YMLKMQ\\]]ZNNJNMRQMQPQPO[YYZVGIG[[][[]\\[ZRIEBKS]Y[\\^[YFJEY\\Z\\ZSJKKPY]^YPMNHOQPQQOOPPXZXZVNMOVUAPQQQIZ\\W\\\\\\^\\[]]YWTYX[\\UCNQ[\\^[\\^][[VQZ^\\\\]SJJLU^_ZWWUZYXVSSW\\XVHHJMOMNRPLLNIKOOQMMOQQP]\\\\\\]\\Y=:9"},{"t":"Andante","d":374.3,"r":[["orchestra","Il Giardino Armonico"],["orchestra","Kammerorchester Basel"]],"e":"DCCBDCCBGF>?GGC?ZNEIBBJGFOJOJIPOLYFGDIELHYEGFGCKJGJKJHLGJGIMKKKFEUUWQSLIKSVVRTHIKSXVYVXU[[\\^\\\\\\K?=;:GLJLLOLLMQQMJKOEKIJIMKGFLKMMQRNIZ^][]_^ZLEFGHFFHBIHLCFFEF]]^^_^Z[_^_]XABFMPNNNOMNLMIM<9"},{"t":"Minuet. Allegro molto - Trio","d":204.4,"r":[["orchestra","Il Giardino Armonico"],["orchestra","Kammerorchester Basel"]],"e":"VZYWR\\[ZYZWR[ZTPGYYWUXW[Y\\TNSSV]VQHWZWUXO[Z[XKRTT\\\\NLPKMMNFLMLLOMQFNMKJOMOPZZXQW\\XUIEZXUXXZZ[^WJSSS[]C"},{"t":"Finale. Allegro di molto","d":256.7,"r":[["orchestra","Il Giardino Armonico"],["orchestra","Kammerorchester Basel"]],"e":"GLHHKPMFHMNINNPPX]\\ZYYZWZ[UZ\\XW\\TILOOSVY[YVXSDGNKW]\\]]YVWXVX\\\\ZN;KPPW[VWYXX\\\\^]SCJPOLHKOW[\\]XOJKOPR[WPTP`[[QU[[_``^^]^ZXY?::7666"}],"next":"b5","notes":[[1,30,"The surprise chord."]]}};
+// ---------- state ----------
+const OPT = {
+  variant: [["accordion", "Accordion"], ["bridges", "Bridges"], ["scroll", "Scroll"], ["score", "Score"]],
+  mini: [["who", "Who"], ["context", "Context"], ["twoline", "Two lines"], ["ticks", "Ticks"]],
+  edge: [["off", "Off"], ["on", "On"]],
+  drawer: [["list", "List"], ["widen", "Widen"]],
+  side: [["right", "Right"], ["left", "Left"]],
+  work: [["creation", "Schöpfung"], ["b5", "Beethoven 5"]],
+  speed: [["1", "1×"], ["10", "10×"], ["60", "60×"]],
+};
+const LABEL = { variant: "Player", mini: "Mini player", edge: "Timeline on the edge of places", drawer: "Notes drawer", side: "Timeline side", work: "Plays", speed: "Speed" };
+const Q = new URLSearchParams(location.search);
+const S = {};
+for (const k in OPT) S[k] = OPT[k].some(o => o[0] === Q.get(k)) ? Q.get(k) : OPT[k][0][0];
+Object.assign(S, { playing: true, screen: Q.get("screen") === "place" ? "place" : "player", page: "library", manual: new Map(), notes: {} });
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const fmt = s => { s = Math.max(0, Math.floor(s)); const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, x = String(s % 60).padStart(2, "0"); return h ? `${h}:${String(m).padStart(2, "0")}:${x}` : `${m}:${x}`; };
+const last = n => n.trim().split(/\s+/).pop();
+const cap = s => s[0].toUpperCase() + s.slice(1);
+
+function model(key) {
+  const w = DATA[key]; let s = 0;
+  const mv = w.mv.map((m, i) => { const o = { ...m, i, start: s, env: [...m.e].map(c => c.charCodeAt(0) - 48) }; s += m.d; return o; });
+  if (!S.notes[key]) S.notes[key] = w.notes.map(([i, t, x]) => ({ i, t, x }));
+  const all = mv.flatMap(m => m.env).sort((a, b) => a - b);
+  return { ...w, key, mv, total: s, lo: all[Math.floor(all.length * .1)], hi: all[Math.floor(all.length * .995)] };
+}
+let W, T = 0;
+function loadWork(key, at) {
+  S.work = key; W = model(key);
+  T = at != null ? at : key === "creation" ? W.mv[13].start + 30 : key === "b5" ? W.mv[1].start + 120 : 0;
+  S.manual = new Map();
+}
+const notes = () => S.notes[W.key].map(n => ({ ...n, at: W.mv[n.i].start + n.t })).sort((a, b) => a.at - b.at);
+const curI = () => { for (let i = W.mv.length - 1; i >= 0; i--) if (T >= W.mv[i].start) return i; return 0; };
+const curM = () => W.mv[curI()];
+
+let coverN = 0;
+// generated cover: a seeded abstract, never real art
+function cover(w) {
+  let h = 0; for (const c of w.album + w.conductor) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const a = h % 360, b = (a + 40 + (h >> 8) % 80) % 360, id = "g" + (++coverN);
+  return `<svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice" style="width:100%;height:100%;display:block"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="hsl(${a},45%,38%)"/><stop offset="1" stop-color="hsl(${b},55%,62%)"/></linearGradient></defs><rect width="100" height="100" fill="url(#${id})"/><circle cx="${30 + h % 40}" cy="${35 + (h >> 4) % 30}" r="${18 + (h >> 6) % 14}" fill="rgba(255,255,255,.18)"/><text x="8" y="90" font-family="Georgia,serif" font-size="13" fill="rgba(255,255,255,.85)">${esc(last(w.composer))}</text></svg>`;
+}
+
+// ---------- people: show who enters and who leaves ----------
+function cast(i) {
+  const key = r => r[0] + "|" + r[1];
+  const now = W.mv[i].r, prev = i ? W.mv[i - 1].r : [];
+  const pk = new Set(prev.map(key)), nk = new Set(now.map(key));
+  return { now, enter: now.filter(r => !pk.has(key(r))), leave: prev.filter(r => !nk.has(key(r))) };
+}
+function castHtml(i, full) {
+  const c = cast(i), rows = [];
+  const line = (r, cls) => `<div class="ppl ${cls}"><span class="role">${cap(r[0])}</span> <span class="nm">${esc(r[1])}</span></div>`;
+  if (full) for (const r of c.now) rows.push(line(r, c.enter.includes(r) && i ? "in" : ""));
+  else { for (const r of c.enter) rows.push(line(r, i ? "in" : "")); for (const r of c.leave) rows.push(line(r, "out")); }
+  return rows.join("");
+}
+const noteRow = n => `<button class="nt" data-seek="${W.mv[n.i].start + n.t}"><span class="at">${fmt(n.t)}</span><span>${esc(n.x)}</span></button>`;
+
+// ---------- timeline geometry ----------
+// Whole work in height H. Short movements keep a minimum height so a finger can find them.
+function fitSegs(H) {
+  const n = W.mv.length, gap = n > 12 ? 1.5 : 3, min = n > 12 ? 4 : 8, avail = H - gap * (n - 1);
+  let fixed = new Set(), k = 0;
+  for (let it = 0; it < 6; it++) {
+    const free = W.mv.filter(m => !fixed.has(m.i)).reduce((a, m) => a + m.d, 0);
+    k = (avail - min * fixed.size) / free;
+    let changed = false; for (const m of W.mv) if (!fixed.has(m.i) && m.d * k < min) { fixed.add(m.i); changed = true; }
+    if (!changed) break;
+  }
+  let y = 0; return W.mv.map(m => { const h = fixed.has(m.i) ? min : m.d * k; const s = { y, h }; y += h + gap; return s; });
+}
+function geom(segs) {
+  return {
+    segs,
+    y(t) { const m = W.mv[Math.max(0, (() => { for (let i = W.mv.length - 1; i >= 0; i--) if (t >= W.mv[i].start) return i; return 0; })())]; const s = segs[m.i]; return s.y + Math.min(1, (t - m.start) / m.d) * s.h; },
+    t(y) { for (let i = 0; i < segs.length; i++) { const s = segs[i], m = W.mv[i]; if (y < s.y + s.h || i === segs.length - 1) { if (y < s.y) return m.start; return m.start + Math.min(1, Math.max(0, (y - s.y) / s.h)) * m.d; } } return 0; },
+    seg(y) { let best = 0, bd = 1e9; segs.forEach((s, i) => { const d = y < s.y ? s.y - y : y > s.y + s.h ? y - s.y - s.h : 0; if (d < bd) { bd = d; best = i; } }); return best; },
+  };
+}
+// Loudness shape: mirrored around the centre line, as wide as the movement is loud.
+function shapePath(m, s, w, cx) {
+  const env = m.env, n = Math.max(2, Math.min(env.length, Math.round(s.h / 1.5)));
+  const pts = []; for (let k = 0; k < n; k++) { let v = 0; const a = Math.floor(k * env.length / n), b = Math.max(a + 1, Math.floor((k + 1) * env.length / n)); for (let j = a; j < b; j++) v += env[j] || 0; pts.push(v / (b - a)); }
+  const half = v => 1.5 + Math.pow(Math.min(1, Math.max(0, (v - W.lo) / (W.hi - W.lo))), 1.6) * (w / 2 - 1.5);
+  let d = `M${cx},${s.y}`; pts.forEach((v, k) => d += `L${(cx + half(v)).toFixed(1)},${(s.y + (k + .5) * s.h / n).toFixed(1)}`);
+  d += `L${cx},${s.y + s.h}`; for (let k = n - 1; k >= 0; k--) d += `L${(cx - half(pts[k])).toFixed(1)},${(s.y + (k + .5) * s.h / n).toFixed(1)}`;
+  return d + "Z";
+}
+let clipN = 0;
+function timelineSvg(g, w, H, opt = {}) {
+  const cx = w / 2, id = "pc" + (++clipN), ns = notes(), side = S.side === "right" ? 0 : w;
+  let s = `<svg height="${H}" viewBox="0 0 ${w} ${H}"><defs><clipPath id="${id}"><rect class="playedClip" x="-20" y="0" width="${w + 40}" height="0"/></clipPath></defs>`;
+  if (opt.bracket) s += `<rect class="vbr" x="${S.side === "right" ? -5 : w + 1}" width="4" rx="2" y="0" height="0" fill="var(--label3)"/>`;
+  g.segs.forEach((sg, i) => {
+    s += `<rect class="segbg" data-i="${i}" x="${cx - w / 2 + 3}" y="${sg.y}" width="${w - 6}" height="${Math.max(1, sg.h)}" rx="${Math.min(4, sg.h / 2)}" fill="var(--fill)"/>`;
+  });
+  let shapes = ""; g.segs.forEach((sg, i) => shapes += `<path d="${shapePath(W.mv[i], sg, w - 10, cx)}"/>`);
+  s += `<g fill="var(--fill2)">${shapes}</g><g fill="var(--tint)" clip-path="url(#${id})">${shapes}</g>`;
+  for (const n of ns) { const y = g.y(n.at); s += `<circle cx="${side === 0 ? 2 : w - 2}" cy="${y}" r="3" fill="var(--tint)" stroke="var(--sheet)" stroke-width="1.5"/>`; }
+  return s + "</svg>";
+}
+
+// ---------- player rendering ----------
+const SCALE = { score: 1, scroll: .8 };
+const minH = { score: 120, scroll: 64 };
+function blockHtml(m) {
+  const ns = notes().filter(n => n.i === m.i), v = S.variant;
+  const full = v === "accordion";
+  let bd = `<div class="state"></div>${castHtml(m.i, full)}`;
+  if (v !== "score") bd += ns.map(noteRow).join("");
+  if (v === "accordion") bd += `<div class="det">${m.i + 1} of ${W.mv.length} · ${fmt(m.d)} · from ${fmt(m.start)} in the work</div>`;
+  let extra = "";
+  if (v === "score") {
+    const h = Math.max(minH.score, m.d * SCALE.score);
+    for (let s = 60; s < m.d; s += 60) extra += `<div class="mline" style="top:${s / m.d * 100}%"></div>`;
+    extra += ns.map(n => `<button class="mnote" data-seek="${m.start + n.t}" style="top:${n.t / m.d * 100}%">${esc(n.x)}</button>`).join("");
+    extra += `<div class="phl"><span></span></div>`;
+    return `<div class="blk" data-i="${m.i}" style="min-height:${h}px">${extra}<button class="bh"><span class="num">${m.i + 1} of ${W.mv.length} · ${fmt(m.d)}</span><span class="tt">${esc(m.t)}</span></button><div class="bd">${bd}</div></div>`;
+  }
+  const style = v === "scroll" ? ` style="min-height:${Math.max(minH.scroll, m.d * SCALE.scroll)}px"` : "";
+  return `<div class="blk" data-i="${m.i}"${style}><button class="bh"><span class="num">${m.i + 1}</span><span class="tt">${esc(m.t)}</span><span class="dur">${fmt(m.d)}</span></button><div class="bd">${bd}</div></div>`;
+}
+function nextHtml() {
+  const n = DATA[W.next]; const tot = n.mv.reduce((a, m) => a + m.d, 0);
+  return `<div class="next" id="next"><div class="h">Next in the queue</div><div class="r"><div class="art">${cover(n)}</div><div style="min-width:0;flex:1"><div class="a">${esc(n.work)}</div><div class="b">${esc(last(n.composer))} · ${esc(n.conductor)} · ${fmt(tot)}</div></div></div>
+  <div class="mv">${n.mv.map((m, i) => `<div>${i + 1}. ${esc(m.t)} · ${fmt(m.d)}</div>`).join("")}</div>
+  <div class="btns"><button class="pill" id="nextOpen">${n.mv.length} movements</button><button class="pill" id="nextPlay">Play now</button></div></div>`;
+}
+function renderPlayer() {
+  const c = $("#content");
+  c.innerHTML = `<div class="hero"><div class="art">${cover(W)}</div><h2>${esc(W.work)}</h2><div class="comp">${esc(W.composer)}</div>
+    <div class="rec"><b>${esc(W.conductor)}</b> · ${esc(W.ensemble)}<br>${esc(W.album)} · ${esc(W.label)} · ${esc(W.year)}<br>${W.mv.length} movements · ${fmt(W.total)}</div></div>
+    <div id="blocks">${W.mv.map(blockHtml).join("")}${S.variant === "scroll" ? `<div id="stl"></div>` : ""}</div>${nextHtml()}`;
+  $("#pin .ttl").innerHTML = `<div class="art">${cover(W)}</div><div style="min-width:0"><div class="a ell">${esc(W.work)}</div><div class="b ell">${esc(W.composer)} · ${esc(W.conductor)}</div></div>`;
+  $("#notesBtn small").textContent = notes().length;
+  lastCur = -1; markCur(); layout(); scrollToNow(false);
+}
+let G = null, GH = 0, SG = null;
+function layout() {
+  const tl = $("#tl");
+  if (S.variant !== "scroll") {
+    GH = tl.clientHeight - 30; G = geom(fitSegs(GH));
+    tl.innerHTML = timelineSvg(G, tl.clientWidth, GH, { bracket: S.variant !== "bridges" }) + hookSvg(tl.clientWidth, GH) + `<div class="marker"></div>`;
+    bindTimeline(tl, () => G, () => tl.getBoundingClientRect().top);
+  } else {
+    const stl = $("#stl"), blocks = [...document.querySelectorAll(".blk")];
+    const segs = blocks.map(b => ({ y: b.offsetTop, h: b.offsetHeight }));
+    const H = segs.at(-1).y + segs.at(-1).h; stl.style.height = H + "px";
+    SG = geom(segs); G = SG; GH = H;
+    stl.innerHTML = timelineSvg(SG, stl.clientWidth, H) + `<div class="marker"></div>`;
+    bindTimeline(stl, () => SG, () => stl.getBoundingClientRect().top);
+  }
+  update(true); drawBridges();
+}
+// the timeline's end bends towards the next work
+function hookSvg(w, H) {
+  const cx = w / 2, dir = S.side === "right" ? -1 : 1;
+  return `<svg style="top:${H}px" height="30" viewBox="0 0 ${w} 30"><path d="M${cx},2 C${cx},18 ${cx + dir * 4},22 ${cx + dir * 20},22" stroke="var(--label3)" stroke-width="2" fill="none" stroke-dasharray="3 3"/><text x="${cx + dir * 22}" y="26" font-size="10" fill="var(--label2)" text-anchor="${dir < 0 ? "end" : "start"}">next</text><rect class="hookHit" x="0" y="0" width="${w}" height="30" fill="transparent"/></svg>`;
+}
+
+// ---------- timeline interaction ----------
+// Drag the marker: seek. Touch anywhere else on the timeline: pick a movement, release plays it from the start.
+function bindTimeline(el, g, top) {
+  const mk = el.querySelector(".marker");
+  let mode = null, pick = 0, scrub = 0, autoS = 0;
+  const yOf = e => e.clientY - top();
+  const show = (y, text) => { const b = $("#bubble"), sr = $("#sheet").getBoundingClientRect(), er = el.getBoundingClientRect(); b.innerHTML = text; b.style.display = "block"; const by = Math.min(sr.height - 160, Math.max(60, er.top - sr.top + y - 24)); b.style.top = by + "px"; if (S.side === "right") { b.style.right = (sr.right - er.left + 6) + "px"; b.style.left = "auto"; } else { b.style.left = (er.right - sr.left + 6) + "px"; b.style.right = "auto"; } };
+  const hide = () => $("#bubble").style.display = "none";
+  el.onpointerdown = e => {
+    if (e.target.classList.contains("hookHit")) { $("#next").scrollIntoView({ behavior: "smooth", block: "center" }); toast("Next in the queue"); return; }
+    e.preventDefault(); el.setPointerCapture(e.pointerId);
+    const y = yOf(e), my = g().y(T);
+    if (Math.abs(y - my) < 22) { mode = "seek"; mk.classList.add("drag"); scrub = T; } else { mode = "pick"; }
+    move(e);
+  };
+  const move = e => {
+    if (!mode) return; const y = yOf(e), gg = g();
+    if (mode === "seek") { scrub = gg.t(y); const m = W.mv[idxAt(scrub)]; mk.style.top = gg.y(scrub) + "px"; show(gg.y(scrub), `<b>${m.i + 1} · ${fmt(scrub - m.start)}</b> of ${fmt(m.d)}<br>${esc(m.t)}`); autoS = edgeAuto(e.clientY); }
+    else { pick = gg.seg(y); const m = W.mv[pick]; show(gg.segs[pick].y + gg.segs[pick].h / 2, `<b>${m.i + 1} of ${W.mv.length}</b> · ${fmt(m.d)}<br>${esc(m.t)}<br><span style="color:var(--label2)">Release plays it</span>`); highlightPick(pick); }
+  };
+  el.onpointermove = move;
+  el.onpointerup = el.onpointercancel = e => {
+    if (!mode) return; hide(); mk.classList.remove("drag"); highlightPick(-1); autoS = 0;
+    if (e.type === "pointerup") {
+      if (mode === "seek") { T = scrub; toast(`Seek to ${curM().i + 1} · ${fmt(T - curM().start)}`); }
+      else { T = W.mv[pick].start; S.playing = true; toast(`Plays ${pick + 1}: ${W.mv[pick].t.slice(0, 40)}`); }
+      holdUntil = 0; update(true); scrollToNow(true);
+    }
+    mode = null;
+  };
+  // In the scroll variant the timeline leaves the screen: dragging near an edge scrolls it.
+  function edgeAuto(cy) { if (S.variant !== "scroll") return 0; const r = $("#content").getBoundingClientRect(); return cy < r.top + 90 ? -8 : cy > r.bottom - 140 ? 8 : 0; }
+  el._auto = () => mode === "seek" ? autoS : 0;
+}
+const idxAt = t => { for (let i = W.mv.length - 1; i >= 0; i--) if (t >= W.mv[i].start) return i; return 0; };
+function highlightPick(i) { document.querySelectorAll(".segbg").forEach(r => r.setAttribute("fill", +r.dataset.i === i ? "var(--tintSoft)" : +r.dataset.i === curI() ? "var(--tintSoft)" : "var(--fill)")); }
+
+// ---------- follow ----------
+// The view follows the playing movement while it is on screen. Scroll it away and the view stays put;
+// scroll it back into view and following resumes.
+let holdUntil = 0, touching = false, progUntil = 0, followLock = 0, lastCur = -1;
+function viewRect() { const c = $("#content").getBoundingClientRect(); const pin = $("#pin").offsetHeight, bar = $("#sheet").clientHeight - $("#bar").offsetTop; return { top: c.top + pin, bottom: c.top + $("#content").clientHeight - bar }; }
+function curEl() { return document.querySelector(`.blk[data-i="${curI()}"]`); }
+function curVisible() {
+  const b = curEl(); if (!b) return { vis: false, dir: 0 };
+  const r = b.getBoundingClientRect(), v = viewRect();
+  if (S.variant === "score" || S.variant === "scroll") { const y = playY(); return { vis: y > v.top + 10 && y < v.bottom - 10, dir: y <= v.top + 10 ? -1 : 1 }; }
+  const overlap = Math.min(r.bottom, v.bottom) - Math.max(r.top, v.top);
+  return { vis: overlap > Math.min(36, r.height * .6), dir: r.bottom < v.top + 20 ? -1 : 1 };
+}
+function playY() { // viewport y of the playing position, for the variants whose blocks follow duration
+  const b = curEl(), m = curM(); if (!b) return 0; const r = b.getBoundingClientRect(); return r.top + Math.min(1, (T - m.start) / m.d) * r.height;
+}
+function scrollToNow(smooth) {
+  const c = $("#content"), b = curEl(); if (!b) return;
+  const v = viewRect(), cr = c.getBoundingClientRect();
+  let target;
+  if (S.variant === "score" || S.variant === "scroll") target = c.scrollTop + playY() - (v.top + (v.bottom - v.top) * .38);
+  else { const r = b.getBoundingClientRect(); target = c.scrollTop + r.top - v.top - Math.max(16, (v.bottom - v.top - r.height) * .3); }
+  progUntil = Date.now() + (smooth ? 700 : 100); followLock = Date.now() + (smooth ? 700 : 0); S.away = false; c.scrollTo({ top: Math.max(0, target), behavior: smooth ? "smooth" : "auto" });
+}
+function markCur() {
+  const i = curI(); if (i === lastCur) return false;
+  const prev = lastCur; lastCur = i;
+  document.querySelectorAll(".blk").forEach(b => {
+    const k = +b.dataset.i; b.classList.toggle("cur", k === i);
+    const open = S.manual.has(k) ? S.manual.get(k) : k === i; b.classList.toggle("open", open);
+    b.querySelector(".state").textContent = k === i ? "Playing" : "";
+  });
+  return prev !== -1;
+}
+
+// ---------- per-frame update ----------
+function update(force) {
+  const wasAway = S.away, m = curM(), i = m.i, changed = markCur();
+  if (changed && S.variant === "accordion" || changed && force) requestAnimationFrame(() => { if (S.variant !== "scroll") { /* accordion heights changed */ } drawBridges(); });
+  // timeline
+  const host = S.variant === "scroll" ? $("#stl") : $("#tl");
+  if (host && G) {
+    const y = G.y(T), mk = host.querySelector(".marker:not(.drag)"); if (mk) mk.style.top = y + "px";
+    const pc = host.querySelector(".playedClip"); if (pc) pc.setAttribute("height", y);
+    host.querySelectorAll(".segbg").forEach(r => r.setAttribute("fill", +r.dataset.i === i ? "var(--tintSoft)" : "var(--fill)"));
+    const vb = host.querySelector(".vbr"); if (vb) { const [a, b] = visibleTimes(); vb.setAttribute("y", G.y(a)); vb.setAttribute("height", Math.max(4, G.y(b) - G.y(a))); }
+  }
+  // score playhead line
+  const ph = document.querySelector(".blk.cur .phl"); if (ph) { ph.style.top = ((T - m.start) / m.d * 100) + "%"; ph.querySelector("span").textContent = fmt(T - m.start); }
+  // bar
+  if (changed && !wasAway && Date.now() > holdUntil && !touching && S.screen === "player") { scrollToNow(true); followLock = Date.now() + 800; }
+  if (Date.now() > followLock) { const vis = curVisible(); S.away = !vis.vis; S.dir = vis.dir; }
+  $("#bar").classList.toggle("away", S.away);
+  $("#bar .ctl").innerHTML = ctlHtml();
+  $("#bar .mini").innerHTML = miniHtml("player");
+  $("#acc").innerHTML = `<div class="mini">${miniInner("place")}</div>`;
+  if (S.edge === "on") drawEdge();
+}
+function visibleTimes() {
+  const v = viewRect(), bl = [...document.querySelectorAll(".blk")]; let a = null, b = null;
+  for (const el of bl) {
+    const r = el.getBoundingClientRect(), m = W.mv[+el.dataset.i];
+    const f = y => m.start + Math.min(1, Math.max(0, (y - r.top) / r.height)) * m.d;
+    if (a == null && r.bottom > v.top) a = f(v.top);
+    if (r.top < v.bottom) b = f(v.bottom);
+  }
+  return [a ?? 0, b ?? 0];
+}
+function ctlHtml() {
+  const m = curM();
+  return `<button data-a="prev" aria-label="Previous movement">⏮</button><button data-a="back" aria-label="Back 15 seconds">↺</button>
+    <button class="big" data-a="pp">${S.playing ? "❚❚" : "▶︎"}</button>
+    <div class="tm tnum">${m.i + 1} of ${W.mv.length}<br>${fmt(T - m.start)} / ${fmt(m.d)}</div>
+    <button data-a="fwd" aria-label="Forward 15 seconds">↻</button><button data-a="next" aria-label="Next movement">⏭</button>
+    <div class="prog"><i style="width:${(T - m.start) / m.d * 100}%"></i></div>`;
+}
+
+// ---------- mini player forms ----------
+function miniHtml(where) { return miniInner(where); }
+function miniInner(where) {
+  const m = curM(), comp = last(W.composer), cond = last(W.conductor);
+  const onComposer = S.screen === "place" && S.page === "composer:" + W.composer;
+  let l1 = m.t, l2 = "";
+  if (S.mini === "who") l2 = `${comp} · ${cond}`;
+  if (S.mini === "twoline") l2 = W.work;
+  if (S.mini === "context") {
+    if (where === "player") l2 = `${fmt(m.d - (T - m.start))} left · ${m.i + 1} of ${W.mv.length}`;
+    else if (onComposer) l2 = `${W.conductor} · ${W.ensemble}`;
+    else l2 = `${comp} · ${W.work}`;
+  }
+  const arrow = where === "player" ? `<span class="arrow">${S.dir < 0 ? "↑" : "↓"}</span>` : "";
+  const pp = `<button class="pp" data-a="pp">${S.playing ? "❚❚" : "▶︎"}</button>`;
+  if (S.mini === "ticks") {
+    return `${arrow}<div class="art">${cover(W)}</div><div class="ticks">${ticksSvg()}</div><span class="cnt tnum">${m.i + 1}/${W.mv.length}</span>${pp}`;
+  }
+  return `${arrow}<div class="art">${cover(W)}</div><div class="txt"><div class="l1 ell">${esc(l1)}</div><div class="l2 ell">${esc(l2)}</div></div>${pp}<div class="prog"><i style="width:${(T - m.start) / m.d * 100}%"></i></div>`;
+}
+function ticksSvg() {
+  const w = 1000, i = curI(); let s = `<svg viewBox="0 0 ${w} 22" preserveAspectRatio="none">`, x = 0;
+  for (const m of W.mv) { const mw = m.d / W.total * w; const played = Math.min(mw, Math.max(0, (T - m.start) / W.total * w));
+    s += `<rect x="${x + 2}" y="${m.i === i ? 5 : 8}" width="${Math.max(2, mw - 4)}" height="${m.i === i ? 12 : 6}" rx="3" fill="var(--fill2)"/>`;
+    if (played > 0) s += `<rect x="${x + 2}" y="${m.i === i ? 5 : 8}" width="${Math.max(0, Math.min(mw - 4, played))}" height="${m.i === i ? 12 : 6}" rx="3" fill="var(--tint)"/>`; x += mw; }
+  return s + "</svg>";
+}
+$("#bar .mini").onclick = e => { if (e.target.closest("[data-a]")) return; S.away = false; holdUntil = 0; scrollToNow(true); toast("Back to what plays"); };
+$("#acc").onclick = e => { if (e.target.closest("[data-a]")) return; openPlayer(); };
+
+// ---------- edge timeline in the places ----------
+let edgeKey = "";
+function drawEdge() {
+  const el = $("#edge"), H = el.clientHeight, w = 22, k = W.key + H + S.side;
+  if (edgeKey !== k) { edgeKey = k; const g = geom(fitSegs(H)); el._g = g;
+    const cx = S.side === "right" ? 13 : 9;
+    let s = `<svg viewBox="0 0 ${w} ${H}" height="${H}"><defs><clipPath id="ec"><rect id="ecr" x="0" y="0" width="${w}" height="0"/></clipPath></defs>`;
+    let segs = g.segs.map((sg, i) => `<rect data-i="${i}" x="${cx - 2}" y="${sg.y}" width="4" height="${Math.max(1, sg.h)}" rx="2"/>`).join("");
+    s += `<g fill="var(--fill2)" class="eseg">${segs}</g><g fill="var(--tint)" clip-path="url(#ec)">${segs}</g>`;
+    // the edge timeline runs into the mini player below it
+    const dir = S.side === "right" ? -1 : 1;
+    s += `<path d="M${cx},${H} C${cx},${H + 16} ${cx},${H + 26} ${cx + dir * 12},${H + 26}" stroke="var(--tint)" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+    s += `<circle id="edot" cx="${cx}" cy="0" r="5" fill="var(--tint)" stroke="var(--bg)" stroke-width="2"/></svg>`;
+    el.innerHTML = s;
+  }
+  const y = el._g.y(T); $("#ecr").setAttribute("height", y); $("#edot").setAttribute("cy", y);
+  el.querySelectorAll(".eseg rect").forEach(r => r.setAttribute("fill", +r.dataset.i === curI() ? "var(--label2)" : "var(--fill2)"));
+}
+$("#edge").onclick = () => { openPlayer(); toast("Timeline: tap opens the player"); };
+
+// ---------- bridges ----------
+// Bezier ribbons tie each visible block to its segment, so small segments stay readable.
+function drawBridges() {
+  const svg = $("#bridges");
+  if (S.variant !== "bridges" || !G) { svg.innerHTML = ""; return; }
+  const sr = $("#sheet").getBoundingClientRect(), tr = $("#tl").getBoundingClientRect(), v = viewRect();
+  const right = S.side === "right", xT = right ? tr.left - sr.left + 3 : tr.right - sr.left - 3;
+  let s = "";
+  document.querySelectorAll(".blk").forEach(b => {
+    const r = b.getBoundingClientRect(); if (r.bottom < v.top || r.top > v.bottom) return;
+    const i = +b.dataset.i, sg = G.segs[i];
+    const xC = right ? r.right - sr.left : r.left - sr.left;
+    const bt = Math.max(r.top, v.top) - sr.top, bb = Math.min(r.bottom, v.bottom) - sr.top;
+    const st = tr.top - sr.top + sg.y, sb = st + Math.max(1, sg.h), mx = (xC + xT) / 2;
+    const cur = i === curI();
+    s += `<path d="M${xC},${bt + 2} C${mx},${bt + 2} ${mx},${st} ${xT},${st} L${xT},${sb} C${mx},${sb} ${mx},${bb - 2} ${xC},${bb - 2} Z" fill="${cur ? "var(--tintSoft)" : "var(--fill)"}" stroke="${cur ? "var(--tint)" : "var(--sep)"}" stroke-width=".7"/>`;
+  });
+  svg.innerHTML = s;
+}
+
+// ---------- notes: drawer and widened timeline ----------
+function renderDrawer() {
+  const m = curM(), ns = notes();
+  $("#drawer").innerHTML = `<h3>Listening notes</h3><div class="sub">${esc(W.conductor)} · ${esc(W.year)} · this recording only</div>
+    <div class="list"><button class="row" id="addNote"><span class="at">${m.i + 1} · ${fmt(T - m.start)}</span><span class="main" style="color:var(--tint)">Add a note here</span></button></div>
+    <div class="section-h" style="margin-left:32px">${ns.length} notes</div>
+    <div class="list">${ns.map(n => `<button class="row" data-seek="${n.at}"><span class="at">${n.i + 1} · ${fmt(n.t)}</span><span class="main"><div>${esc(n.x)}</div><div class="s ell">${esc(W.mv[n.i].t)}</div></span></button>`).join("")}</div>`;
+  $("#addNote").onclick = () => { S.notes[W.key].push({ i: m.i, t: Math.floor(T - m.start), x: "New note" }); renderDrawer(); renderPlayer(); toast("Note added at " + fmt(T - m.start)); };
+}
+function renderWiden() {
+  const el = $("#widen"); el.innerHTML = `<div class="wh"><span>Listening notes · whole work</span><button id="wclose" style="color:var(--tint)">Done</button></div><div class="wtl"></div>`;
+  const wtl = el.querySelector(".wtl"), H = wtl.clientHeight, g = geom(fitSegs(H));
+  const sv = timelineSvg(g, 56, H); wtl.innerHTML = sv; wtl.querySelector(".playedClip").setAttribute("height", g.y(T));
+  const right = S.side === "right"; let lastY = -99; const top0 = wtl.offsetTop;
+  for (const n of notes()) {
+    const y = g.y(n.at) + top0, ny = Math.max(y - 14, lastY + 4);
+    const b = document.createElement("button"); b.className = "wn"; b.dataset.seek = n.at;
+    b.style.top = ny + "px"; b.style[right ? "right" : "left"] = "84px"; b.style[right ? "left" : "right"] = "12px";
+    b.innerHTML = `<b>${n.i + 1} · ${fmt(n.t)}</b> ${esc(n.x)}`; el.appendChild(b);
+    const ld = document.createElement("div"); ld.className = "lead"; ld.style.top = y + "px"; ld.style[right ? "right" : "left"] = "62px"; ld.style.width = "22px"; el.appendChild(ld);
+    lastY = ny + b.offsetHeight;
+  }
+  $("#wclose").onclick = closeNotes;
+}
+function openNotes() {
+  if (S.drawer === "list") { renderDrawer(); document.body.classList.add("drawer-open"); }
+  else { document.body.classList.add("widen-open"); renderWiden(); }
+}
+function closeNotes() { document.body.classList.remove("drawer-open", "widen-open"); }
+$("#notesBtn").onclick = openNotes;
+$("#dscrim").onclick = closeNotes;
+
+// ---------- gestures in the content ----------
+const content = $("#content");
+let sx = 0, sy = 0;
+content.addEventListener("touchstart", e => { touching = true; sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
+content.addEventListener("touchend", e => {
+  touching = false; holdUntil = Date.now() + 1500;
+  const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+  if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.6) {
+    const towardTimeline = S.side === "right" ? dx < 0 : dx > 0;
+    if (S.drawer === "list" && !towardTimeline) { openNotes(); toast("Swipe: notes drawer"); }
+    else if (S.drawer === "widen" && towardTimeline) { openNotes(); toast("Swipe: the timeline widens"); }
+  }
+}, { passive: true });
+["#drawer", "#widen"].forEach(sel => {
+  const el = $(sel); let x0 = 0;
+  el.addEventListener("touchstart", e => x0 = e.touches[0].clientX, { passive: true });
+  el.addEventListener("touchend", e => { const dx = e.changedTouches[0].clientX - x0; if (Math.abs(dx) > 60) closeNotes(); }, { passive: true });
+});
+content.addEventListener("wheel", () => holdUntil = Date.now() + 1500, { passive: true });
+content.addEventListener("scroll", () => {
+  if (Date.now() > progUntil) holdUntil = Math.max(holdUntil, Date.now() + 1200);
+  drawBridges();
+  const h2 = content.querySelector(".hero h2"); $("#pin").classList.toggle("solid", !!h2 && h2.getBoundingClientRect().bottom < content.getBoundingClientRect().top + 52);
+}, { passive: true });
+
+// taps
+document.addEventListener("click", e => {
+  const a = e.target.closest("[data-a]");
+  if (a) { act(a.dataset.a); e.stopPropagation(); return; }
+  const sk = e.target.closest("[data-seek]");
+  if (sk) { T = +sk.dataset.seek; S.playing = true; closeNotes(); holdUntil = 0; update(true); scrollToNow(true); toast("Plays from the note"); return; }
+  const bh = e.target.closest(".blk .bh");
+  if (bh && S.variant === "accordion") { const i = +bh.parentNode.dataset.i, b = bh.parentNode; const open = !b.classList.contains("open"); S.manual.set(i, open); b.classList.toggle("open", open); toast(open ? "Opened. The timeline plays it." : "Closed"); requestAnimationFrame(() => { update(); drawBridges(); }); return; }
+  if (bh) { toast("Tap the timeline to play this movement"); return; }
+  if (e.target.id === "nextOpen") { $("#next").classList.toggle("open"); return; }
+  if (e.target.id === "nextPlay") { loadWork(W.next, 0); renderAll(); toast("Plays the next work"); return; }
+}, true);
+function act(a) {
+  const m = curM();
+  if (a === "pp") { S.playing = !S.playing; toast(S.playing ? "Play" : "Pause"); }
+  if (a === "back") T = Math.max(0, T - 15);
+  if (a === "fwd") T = Math.min(W.total - 1, T + 15);
+  if (a === "prev") T = T - m.start > 3 || !m.i ? m.start : W.mv[m.i - 1].start;
+  if (a === "next") T = m.i < W.mv.length - 1 ? W.mv[m.i + 1].start : T;
+  update(true);
+}
+
+// ---------- sheet open and close ----------
+function openPlayer() { S.screen = "player"; document.body.classList.add("player"); requestAnimationFrame(() => { layout(); scrollToNow(false); }); }
+function closePlayer() { S.screen = "place"; document.body.classList.remove("player"); closeNotes(); renderPlace(); }
+$("#close").onclick = closePlayer;
+$("#scrim").onclick = closePlayer;
+(() => { // drag down on the title bar closes the sheet; the timeline marker never does
+  const pin = $("#pin"), sh = $("#sheet"); let y0 = null, dy = 0;
+  pin.onpointerdown = e => { if (e.target.closest("button")) return; y0 = e.clientY; dy = 0; sh.classList.add("dragging"); pin.setPointerCapture(e.pointerId); };
+  pin.onpointermove = e => { if (y0 == null) return; dy = Math.max(0, e.clientY - y0); sh.style.transform = `translateY(${dy}px)`; };
+  pin.onpointerup = pin.onpointercancel = () => { if (y0 == null) return; y0 = null; sh.classList.remove("dragging"); sh.style.transform = ""; if (dy > 110) closePlayer(); };
+})();
+
+// ---------- place: a small Library ----------
+function renderPlace() {
+  const p = $("#place");
+  if (S.page === "library") {
+    const comps = [...new Set(Object.values(DATA).map(w => w.composer))];
+    p.innerHTML = `<h1>Library</h1><div class="section-h">Composers</div><div class="list">${comps.map(c => `<button class="row" data-page="composer:${esc(c)}"><span class="main">${esc(c)}</span>${c === W.composer ? `<span class="eq">♫</span>` : ""}<span class="chev"></span></button>`).join("")}</div>
+      <div class="section-h">Favourites</div><div class="list"><div class="row"><span class="main">Works</span><span class="chev"></span></div><div class="row"><span class="main">Recordings</span><span class="chev"></span></div></div>
+      <p style="margin:24px 32px;color:var(--label2);font-size:14px">The mini player sits above the tabs. Turn on the edge timeline in the pill at the top. Open a composer: the Context form changes there.</p>`;
+  } else {
+    const c = S.page.slice(9), works = Object.values(DATA).filter(w => w.composer === c);
+    p.innerHTML = `<div class="navbar"><button data-page="library">Library</button></div><h1>${esc(c)}</h1><div class="section-h">Works</div><div class="list">${works.map(w => `<div class="row"><span class="main"><div>${esc(w.work)}</div><div class="s">${esc(w.conductor)} · ${esc(w.year)}</div></span>${w.work === W.work ? `<span class="eq">♫ playing</span>` : ""}</div>`).join("")}</div>`;
+  }
+  p.querySelectorAll("[data-page]").forEach(b => b.onclick = () => { S.page = b.dataset.page; renderPlace(); update(); });
+}
+
+// ---------- lab ----------
+function renderLab() {
+  $("#switch").textContent = `${OPT.variant.find(o => o[0] === S.variant)[1]} · ${OPT.mini.find(o => o[0] === S.mini)[1]}${S.edge === "on" ? " · edge" : ""} ▾`;
+  $("#lab").innerHTML = Object.keys(OPT).map(k => `<div class="lr"><div>${LABEL[k]}</div><div class="seg">${OPT[k].map(([v, l]) => `<button data-k="${k}" data-v="${v}" class="${S[k] === v ? "on" : ""}">${l}</button>`).join("")}</div></div>`).join("")
+    + `<div class="foot"><a href="?">Reset</a><span>sz-rs30.1.74.7</span><button id="labClose" style="color:var(--tint);font-weight:600">Done</button></div>`;
+  $("#lab").querySelectorAll("[data-k]").forEach(b => b.onclick = () => { set(b.dataset.k, b.dataset.v); });
+  $("#labClose").onclick = () => $("#lab").classList.remove("open");
+}
+function set(k, v) {
+  if (k === "work") loadWork(v); else S[k] = v;
+  const q = new URLSearchParams(); for (const kk in OPT) if (S[kk] !== OPT[kk][0][0]) q.set(kk, S[kk]);
+  history.replaceState(null, "", "?" + q);
+  renderAll();
+}
+$("#switch").onclick = () => $("#lab").classList.toggle("open");
+
+let toastT = 0;
+function toast(s) { const t = $("#toast"); t.textContent = s; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 1800); }
+
+function renderAll() {
+  const b = document.body;
+  b.className = `v-${S.variant} side-${S.side} edge-${S.edge}` + (S.screen === "player" ? " player" : "");
+  edgeKey = ""; closeNotes(); renderLab(); renderPlace(); renderPlayer();
+}
+
+// ---------- clock ----------
+let t0 = performance.now(), slow = 0;
+function frame(now) {
+  const dt = Math.min(.1, (now - t0) / 1000) * +S.speed; t0 = now;
+  if (S.playing) {
+    T += dt;
+    if (T >= W.total) { loadWork(W.next, 0); renderAll(); }
+  }
+  // Duration variants glide with the music while the playing position is on screen.
+  if ((S.variant === "score" || S.variant === "scroll") && S.screen === "player" && !S.away && !touching && Date.now() > holdUntil) {
+    const v = viewRect(), want = v.top + (v.bottom - v.top) * .38, d = playY() - want;
+    if (Math.abs(d) > .5) { progUntil = Date.now() + 100; content.scrollTop += Math.abs(d) > 200 ? d : d * .08; }
+  }
+  const ah = S.variant === "scroll" ? $("#stl") : null; if (ah && ah._auto && ah._auto()) { progUntil = Date.now() + 100; content.scrollTop += ah._auto(); }
+  if (now - slow > 120) { slow = now; update(); }
+  requestAnimationFrame(frame);
+}
+addEventListener("resize", () => { edgeKey = ""; layout(); });
+loadWork(S.work);
+renderAll();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

@@ -69,6 +69,10 @@ Beads in the Schaltzentrale ledger, reached only through the `sz` MCP. See `docs
 
 Beads labels. Two are new (`needs-triage`, `needs-info`); three already exist. See `docs/agents/triage-labels.md`.
 
+### Prototypes
+
+HTML prototypes that Flo tests on his phone: three variants or more, judged as a flow. See `docs/agents/prototyping.md`.
+
 ### Domain docs
 
 Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.

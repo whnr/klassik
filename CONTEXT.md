@@ -52,12 +52,16 @@ _Avoid_: Group, clause, step
 The kind of search term that the search lists: all kinds, genres, composers, conductors or performers. A scope with an empty field lists every search term of that kind.
 _Avoid_: Facet, category, tab
 
+**Timeline**:
+The bar on the screen edge that shows the whole work or album that plays, one segment for each movement or track. It is always on screen, and the listener scrubs on it.
+_Avoid_: Rail, edge bar, progress bar
+
 **Mini player**:
-The bar that shows what plays, on top of every place.
+The card that shows what plays, in every place: movement, work and people. It joins the timeline, and a tap opens the player.
 _Avoid_: Now playing bar
 
 **Player**:
-The full view of what plays. It opens from the mini player and covers the place below it.
+The full view of what plays: one row for each movement or track, beside the timeline. It opens from the mini player.
 _Avoid_: Now playing, playback screen
 
 ### Listener data

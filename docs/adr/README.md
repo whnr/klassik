@@ -17,3 +17,4 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0011](0011-enrichment.md) | Composition dates from MusicBrainz and Wikidata | 2026-10-19 |
 | [0012](0012-composer-lists.md) | Look up works composer by composer | 2026-10-19 |
 | [0013](0013-favourites.md) | Favourites and the recording order | 2026-10-31 |
+| [0014](0014-player.md) | The player: rows beside one timeline | 2026-11-02 |

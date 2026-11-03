@@ -2,7 +2,7 @@
 <!--
   PROTOTYPE, throw away. Map ticket sz-rs30.1.74.10, round 3.
   Locked in round 1: variant A (the recording page is the player), Full rows, the Wash look, the fermata as the favourite mark.
-  Question: how the next queue item replaces the player page. ?next=fade|rise. Previous and next cross items; the queue end stops like a record.
+  Question: how the next queue item replaces the player page. ?next=fade|rise. Next crosses into the next item; the queue end stops like a record.
   Recordings, albums and summaries are sample data. Die Schöpfung (Jacobs) tracks come from Flo's library at his request. No audio, no cover art.
 -->
 <html lang="en">
@@ -154,6 +154,7 @@ body.onplayer #mini, body.gone #mini, body.gone #bar { opacity: 0; pointer-event
 .hero.grow > :not(.art) { animation: fadein .55s; }
 @keyframes grow { from { transform: scale(.22); opacity: .6; } to { transform: none; opacity: 1; } }
 @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+.endq { margin: 26px 16px 0; text-align: center; font: italic 16px/1.4 ui-serif, Georgia, serif; color: var(--label2); animation: fadein 1.2s; }
 @media (prefers-reduced-motion: reduce) { .hero.grow .art, .hero.grow > * { animation: none; } }
 
 /* ---------- tabs, mini player, timeline, player (locked, ADR 0014) ---------- */
@@ -390,7 +391,7 @@ function playableHTML(key) {
       <div class="acts">${btn}<button class="btn" data-a="favalb" data-al="${id}">${FAV_ALB.has(id) ? `${FERMATA} Favourite` : "Favourite"}</button></div>`;
   }
   let out = `<div class="hero"><div class="art">${cover(albumId)}</div>${head}</div><div data-rows="${key}">${rowsHTML(key)}</div>`;
-  if (player) out += nextRow();
+  if (player) out += nextRow() + (S.ended ? `<div class="endq">You reached the end of the queue.</div>` : "");
   return out;
 }
 // The next queue item, so the listener sees what comes. A tap opens its page; it does not play.
@@ -565,7 +566,8 @@ function act(a, d) {
   if (a === "more") { const s = document.getElementById("sum-" + stack.at(-1).key.slice(5)); s && s.classList.toggle("open"); return; }
   if (a === "pp") { if (S.ended) { S.ended = false; T = 0; S.playing = false; lastCur = null; repaintLive(); } S.playing = !S.playing; miniKey = ""; renderMini(); document.querySelectorAll('.btn[data-a="pp"]').forEach(b => b.textContent = S.playing ? "❚❚ Pause" : "▶ Resume"); document.querySelectorAll('.rr .slot[data-a="pp"]').forEach(b => b.textContent = S.playing ? "❚❚" : "▶"); tick(true); return; }
   if (a === "playkey") { startPlay(d.k, 0); return; }
-  if (a === "playfrom") { pageOf(d.k).open.delete(+d.i); startPlay(d.k, +d.i); return; }
+  // A movement of what already plays only moves the position; the queue stays.
+  if (a === "playfrom") { pageOf(d.k).open.delete(+d.i); if (d.k === P.key && !S.ended) { T = P.items[+d.i].start; S.playing = true; moved(); return; } startPlay(d.k, +d.i); return; }
   if (a === "playwork") { const id = pageOf("work:" + d.w).order[0].id; startPlay("rec:" + id, 0); if (S.workPlay === "open") go("rec:" + id); return; }
   if (a === "favwork") { FAV_WORK.has(d.w) ? FAV_WORK.delete(d.w) : FAV_WORK.add(d.w); paint(stack.at(-1)); return; }
   if (a === "favrec") { toggleFav(d.r); paint(stack.at(-1)); return; }
@@ -575,8 +577,8 @@ function act(a, d) {
   const c = cur();
   if (a === "back") T = Math.max(0, T - 15);
   if (a === "fwd") T = Math.min(P.total - 1, T + 15);
-  // Previous and next cross from one queue item to the next.
-  if (a === "prev") { if (T - c.start <= 3 && !c.i) { advance(-1); return; } T = T - c.start > 3 || !c.i ? c.start : P.items[c.i - 1].start; }
+  // Next on the last movement goes on to the next queue item.
+  if (a === "prev") T = T - c.start > 3 || !c.i ? c.start : P.items[c.i - 1].start;
   if (a === "next") { if (c.i < P.items.length - 1) T = P.items[c.i + 1].start; else { advance(1); return; } }
   moved();
 }

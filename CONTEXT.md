@@ -77,8 +77,12 @@ The card that shows what plays, in every place: movement, work and people. It jo
 _Avoid_: Now playing bar
 
 **Player**:
-The recording page or album page of what plays, beside the timeline. It opens from the mini player.
+The recording page or album page of the queue item that plays. The mini player links to it.
 _Avoid_: Now playing, playback screen
+
+**Queue item**:
+One thing in the queue: a recording, or a whole album. When it ends, the next queue item takes the player.
+_Avoid_: Track, entry
 
 ### Listener data
 

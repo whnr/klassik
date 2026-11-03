@@ -21,7 +21,8 @@ How to build a UX prototype that Flo tests on his phone. The search ticket (sz-r
 
 ## Check before the handover
 
-- Open the page with Playwright at 393×852.
+- Open the page with Playwright at 393×852, `deviceScaleFactor: 3`, `isMobile` and `hasTouch`. A check at scale 1 with a mouse hides canvas size faults and taps that land on a control that opens under the finger.
+- Drive every gesture with touch: taps with `touchscreen.tap`, drags and pinches with CDP `Input.dispatchTouchEvent`.
 - Drive the main flow in each variant. Confirm that the counts agree between the variants.
 - Look at a screenshot of each variant. Fix what overlaps or hides behind the pill.
 

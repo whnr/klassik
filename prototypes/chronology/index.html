@@ -209,6 +209,8 @@ const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).
 function readColors() { for (const n of ["label", "label2", "label3", "sep", "tint", "tintSoft", "fill", "card", "bg", "band", "track"]) K[n] = css("--" + n); }
 function sizeCanvas() {
   const r = area.getBoundingClientRect(); W = r.width; H = r.height; dpr = devicePixelRatio || 1;
+  // A canvas is a replaced element: without an explicit CSS size it shows at its pixel size, three times too big on an iPhone.
+  cv.style.width = W + "px"; cv.style.height = H + "px";
   cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 const FONT = "-apple-system, system-ui, sans-serif";
@@ -638,8 +640,14 @@ area.addEventListener("pointermove", e => {
 area.addEventListener("pointerup", e => {
   if (!down || e.pointerId !== down.id) return;
   const d = down; down = null;
-  if (!d.moved && performance.now() - d.t < 600) { if (V === "A") aTap(d.lx, d.ly); else if (V === "B") bTap(d.lx, d.ly); else cTap(d.lx, d.ly); }
-  else if (V === "B") bKick();
+  tap = !d.moved && performance.now() - d.t < 600 ? d : null;
+  if (!tap && V === "B") bKick();
+});
+// A tap acts on click, after the browser has placed it. A card that opens under the finger cannot catch the same tap.
+let tap = null;
+area.addEventListener("click", () => {
+  const d = tap; tap = null; if (!d) return;
+  if (V === "A") aTap(d.lx, d.ly); else if (V === "B") bTap(d.lx, d.ly); else cTap(d.lx, d.ly);
 });
 area.addEventListener("pointercancel", () => { down = null; });
 area.addEventListener("scroll", () => { if (V === "A") draw(); }, { passive: true });

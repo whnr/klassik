@@ -114,6 +114,6 @@ final class GaplessTestPlayer {
     private func schedule(_ file: AVAudioFile, on node: AVAudioPlayerNode, range: Range<Int64>) {
         node.scheduleSegment(
             file, startingFrame: range.lowerBound, frameCount: AVAudioFrameCount(range.count), at: nil,
-            completionHandler: nil)
+            completionHandler: {})
     }
 }

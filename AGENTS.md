@@ -30,11 +30,25 @@ Rules for coding agents in this repository.
 - After a UI walk, job `screens-diff` compares each screenshot with the newest green walk on `ci`. Download artifact `screens-diff` through the GitHub REST API and read `diff.md`. Look at the `-diff.png` of each new or large screen. Look at a small screen only if the push changed it.
 - The job summary of `test` gives the time of each phase: project, simulator, build, boot (the wait after the build), test, export.
 - `.github/workflows/testflight.yml` runs by hand. It refuses a commit without a green run of `test.yml`. It archives without signing, signs at export with the App Store Connect API key, and uploads with `altool`. A daily run uploads again when the newest build is 85 days old, because TestFlight builds expire after 90 days.
-- Every TestFlight build has a "What to Test" text. Write it in `docs/what-to-test.md` before you release. The first line is `Klassik X.Y.Z`, the same version as in `project.yml`. Then list what changed for the listener and what Flo must test: short steps, one line each, a bead ID after each, and the known problems. At most 4000 characters. The TestFlight workflow stops before the macOS job if the version does not match, and `scripts/testflight_notes.py` sets the text on the build when the upload ends.
+- Every TestFlight build has a "What to Test" text. Write it in `docs/what-to-test.md` before you release. The first line is `Klassik X.Y.Z`, the same version as in `project.yml`. Then list what changed for the listener and the known problems. Include one numbered on-device check per change since the last TestFlight build, with the expected result and bead ID. At most 4000 characters. The TestFlight workflow stops before the macOS job if the version does not match, and `scripts/testflight_notes.py` sets the text on the build when the upload ends.
 - `.github/workflows/testflight-feedback.yml` runs by hand. It checks the API key secrets (`scripts/asc_check.py`), then prints TestFlight feedback and crash logs and uploads the feedback screenshots.
-- Versions follow semantic versioning: `MARKETING_VERSION` in `project.yml` is MAJOR.MINOR.PATCH. Increase MINOR for a batch with features and PATCH for a batch with only fixes. A fix gets its own PATCH increase, also when that version never reaches TestFlight. 1.0.0 is the first App Store release. The build number is the TestFlight run number. The TestFlight workflow tags each uploaded version as `vX.Y.Z`.
+- Versions follow semantic versioning: `MARKETING_VERSION` in `project.yml` is MAJOR.MINOR.PATCH. In a release PR, increase MINOR for a batch with features and PATCH for a batch with only fixes. 1.0.0 is the first App Store release. The build number is the TestFlight run number. The TestFlight workflow tags each uploaded version as `vX.Y.Z`.
 - Repository secrets: `APPLE_TEAM_ID`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` (the text of the `.p8` key). Bundle ID: `de.whnr.klassik`.
 - macOS runner time is expensive. Push batches, not single commits. Read CI results through the GitHub REST API. Do not poll in a tight loop.
+
+## Releases and TestFlight
+
+- Fix PRs never change the app version.
+- `Klassik release` means one PR that bumps `MARKETING_VERSION` and adds TestFlight “What to Test” text.
+- Flo merges the release PR and starts the TestFlight workflow.
+- Every TestFlight build includes a clear test plan in “What to Test”.
+- Include one numbered on-device check per change since the last TestFlight build, with the expected result.
+
+## Pull requests
+
+- End every PR body with `## Test plan`: numbered on-device checks, one per change, with expected results.
+- Copy the same test plan to the bead.
+- A fresh Codex review must comment on the PR before Flo merges.
 
 ## Writing
 

@@ -19,7 +19,7 @@ Klassik is a classical music player for iPhone. It plays your own library from a
 
 The Xcode project is generated from `project.yml` by [XcodeGen](https://github.com/yonaskolb/XcodeGen) and is not in the repository.
 
-Without a Mac: push to a fork. GitHub Actions builds the app and runs the tests on a macOS runner (`.github/workflows/test.yml`).
+Without a Mac: open a pull request from a fork. GitHub Actions builds the app and runs tests on macOS, except for documentation-only changes (`.github/workflows/test.yml`).
 
 With a Mac and Xcode 26:
 

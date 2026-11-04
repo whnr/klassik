@@ -175,11 +175,18 @@ final class ScreensTests: XCTestCase {
         let concerto = app.buttons.matching(identifier: "album")
             .matching(NSPredicate(format: "label CONTAINS 'Mendelssohn: Violin Concerto'")).firstMatch
         XCTAssertTrue(concerto.waitForExistence(timeout: 10))
+        let encores = app.buttons.matching(identifier: "album")
+            .matching(NSPredicate(format: "label CONTAINS 'Romantic Encores'")).firstMatch
+        XCTAssertTrue(encores.waitForExistence(timeout: 10))
+        let performers = "Sine Wave Chamber Orchestra • Carl Fixture • Daniel Keys"
+        XCTAssertTrue(encores.label.contains(performers), encores.label)
         snap(app, "10-classical-albums")
         // A tap opens the album. It does not start to play.
         concerto.tap()
         XCTAssertTrue(app.buttons["play-recording"].waitForExistence(timeout: 10))
         back(app)
+        XCTAssertTrue(encores.waitForExistence(timeout: 10))
+        XCTAssertTrue(encores.label.contains(performers), encores.label)
         back(app)
 
         reveal(app.buttons["diagnostics"], in: app).tap()

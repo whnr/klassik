@@ -142,7 +142,9 @@ struct WorkIndex: Sendable {
     }
 
     private static func recording(id: String, _ tracks: [Song]) -> Recording {
-        let ordered = tracks.sorted { ($0.discNumber ?? 0, $0.track ?? 0) < ($1.discNumber ?? 0, $1.track ?? 0) }
+        let ordered = tracks.sorted {
+            ($0.discNumber ?? 0, $0.track ?? 0, $0.id) < ($1.discNumber ?? 0, $1.track ?? 0, $1.id)
+        }
         // A file that the server holds twice must not play twice.
         var seen = Set<String>()
         let songs = ordered.filter { seen.insert("\($0.discNumber ?? 0)|\($0.track ?? 0)|\($0.title)").inserted }
@@ -157,9 +159,10 @@ struct WorkIndex: Sendable {
         guard let first = tracks.first else { return nil }
         var whole = Self.recording(id: "album|\(first.albumKey)", tracks)
         whole.isAlbum = true
-        // Album metadata follows disc and track order, independent of the sync response order.
-        let albumFirst = whole.songs[0]
-        whole.performers = albumFirst.artist ?? whole.performers
+        // Each performer appears once, at their first track in disc and track order.
+        var seen = Set<String>()
+        whole.performers = whole.songs.flatMap(\.performerNames)
+            .filter { seen.insert($0).inserted }.joined(separator: " • ")
         let work = Work(
             id: whole.id, title: whole.album.isEmpty ? first.title : whole.album,
             composer: first.composerName, isTagged: false, recordings: [whole])

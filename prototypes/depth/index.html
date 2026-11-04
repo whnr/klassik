@@ -1,0 +1,477 @@
+<!doctype html>
+<!--
+  PROTOTYPE, throw away. Map ticket sz-rs30.1.74.11, round 1.
+  Question: how a page shows how deep the listener is in a tab's stack, and lets them jump back to any level.
+  ?variant=menu|crumbs|sheet|edges. Settled in sz-rs30.1.74.4: a link to a page already in the stack jumps back to it.
+  Each tab keeps its own stack. A second tap on the active tab goes to its root. A swipe from the left edge goes back.
+  Library, recordings and performers are sample data. No audio, no cover art.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Stack depth, round 1</title>
+<style>
+:root {
+  --bg: #f2f2f7; --card: #fff; --label: #000; --label2: rgba(60,60,67,.6); --label3: rgba(60,60,67,.3);
+  --sep: rgba(60,60,67,.18); --tint: #b5482f; --tintSoft: rgba(181,72,47,.1); --fill: rgba(118,118,128,.14); --track: rgba(118,118,128,.32);
+  --glass: rgba(250,250,252,.82); --glassLine: rgba(0,0,0,.08); --dim: rgba(0,0,0,.25);
+  --barW: 26px; --lineX: 12px; --edgeTop: calc(env(safe-area-inset-top) + 52px);
+  --bot: calc(env(safe-area-inset-bottom) + 12px); --tabH: 56px; --miniH: 64px; --navH: 44px; --crumbH: 0px;
+  --top: calc(env(safe-area-inset-top) + 48px);
+}
+@media (prefers-color-scheme: dark) { :root {
+  --bg: #000; --card: #1c1c1e; --label: #fff; --label2: rgba(235,235,245,.6); --label3: rgba(235,235,245,.3);
+  --sep: rgba(84,84,88,.6); --tint: #ff7a5c; --tintSoft: rgba(255,122,92,.14); --fill: rgba(118,118,128,.24); --track: rgba(118,118,128,.5);
+  --glass: rgba(40,40,44,.82); --glassLine: rgba(255,255,255,.1); --dim: rgba(0,0,0,.5);
+} }
+body.v-crumbs { --crumbH: 38px; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--label); font: 17px/1.3 -apple-system, system-ui, sans-serif; -webkit-user-select: none; user-select: none; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; touch-action: manipulation; text-align: left; }
+.glass { background: var(--glass); backdrop-filter: blur(24px) saturate(1.8); -webkit-backdrop-filter: blur(24px) saturate(1.8); border: .5px solid var(--glassLine); }
+.ell { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---------- pages ---------- */
+#nav { position: fixed; inset: 0; overflow: hidden; }
+.pg { position: absolute; top: 0; left: 0; bottom: 0; right: var(--barW); background: var(--bg); transition: transform .35s cubic-bezier(.2,.8,.2,1); will-change: transform; }
+.pg.shade::after { content: ""; position: absolute; inset: 0; background: var(--dim); opacity: .5; pointer-events: none; }
+.pg .scroll { position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain; padding: calc(var(--top) + var(--navH) + var(--crumbH) + 4px) 6px calc(var(--bot) + var(--tabH) + var(--miniH) + 40px) 16px; }
+h1.pt { font-size: 32px; line-height: 1.12; margin: 2px 0 4px; font-weight: 700; }
+h1.pt.tm { display: inline-flex; align-items: baseline; gap: 6px; }
+h1.pt.tm .cv { font-size: 20px; color: var(--tint); font-weight: 600; }
+.kind { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--label2); margin: 6px 0 0; }
+.sub { font-size: 16px; color: var(--label2); margin: 0 0 6px; }
+.sh { font-size: 13px; text-transform: uppercase; color: var(--label2); margin: 22px 8px 6px 14px; }
+.list { background: var(--card); border-radius: 12px; overflow: hidden; }
+.pr { display: flex; gap: 12px; align-items: center; width: 100%; padding: 11px 14px; position: relative; min-height: 48px; }
+.pr + .pr::before { content: ""; position: absolute; top: 0; left: 14px; right: 0; border-top: .5px solid var(--sep); }
+.pr .ic { width: 22px; text-align: center; color: var(--tint); flex: none; }
+.pr .m { flex: 1; min-width: 0; } .pr .s { font-size: 13px; color: var(--label2); } .pr .chev { color: var(--label3); }
+.pr.in .chev::after { content: "↩"; }
+.pr:active { background: var(--fill); }
+.pr.static { cursor: default; } .pr.static:active { background: none; }
+.hint { font-size: 14px; line-height: 1.4; color: var(--label2); background: var(--fill); border-radius: 12px; padding: 10px 14px; margin: 10px 0 0; }
+.hint b { color: var(--label); }
+.field { display: flex; align-items: center; gap: 8px; height: 40px; border-radius: 20px; background: var(--fill); padding: 0 14px; color: var(--label2); margin: 8px 0 0; }
+
+/* ---------- navigation bar ---------- */
+#navbg { position: fixed; top: 0; left: 0; right: var(--barW); height: calc(var(--top) + var(--navH) + var(--crumbH)); z-index: 7; opacity: 0; transition: opacity .2s; border-width: 0 0 .5px; }
+#navbg.solid, body.v-crumbs #navbg { opacity: 1; }
+#navbar { position: fixed; top: var(--top); left: 0; right: var(--barW); height: var(--navH); z-index: 8; display: flex; align-items: center; padding: 0 8px; gap: 4px; }
+#back { color: var(--tint); font-size: 17px; max-width: 34%; display: flex; align-items: center; gap: 2px; height: 44px; padding: 0 8px 0 4px; border-radius: 22px; flex: none; }
+#back b { font-size: 28px; font-weight: 400; line-height: 1; margin-top: -3px; }
+#back[hidden] { display: none; }
+#nt { flex: 1; min-width: 0; display: flex; justify-content: center; opacity: 0; transition: opacity .2s; }
+#navbar.solid #nt { opacity: 1; }
+#nt button, #nt span { font-weight: 600; font-size: 17px; max-width: 100%; height: 44px; display: inline-flex; align-items: center; gap: 4px; padding: 0 6px; }
+#nt .cv { color: var(--tint); font-size: 13px; }
+#tools { flex: none; min-width: 44px; display: flex; justify-content: flex-end; }
+#depthBtn { height: 34px; padding: 0 11px; border-radius: 17px; color: var(--tint); font-size: 15px; font-weight: 600; display: none; align-items: center; gap: 5px; }
+#depthBtn i { font-style: normal; font-size: 16px; }
+body.v-sheet #depthBtn.on { display: inline-flex; }
+
+/* ---------- variant crumbs: a breadcrumb bar under the title bar ---------- */
+#crumbs { position: fixed; top: calc(var(--top) + var(--navH)); left: 0; right: var(--barW); height: var(--crumbH); z-index: 8; display: none; align-items: center; padding: 0 12px; overflow: hidden; }
+body.v-crumbs #crumbs { display: flex; }
+#crumbs ol { list-style: none; margin: 0; padding: 0; display: flex; align-items: center; min-width: 0; white-space: nowrap; }
+#crumbs li { display: flex; align-items: center; min-width: 0; flex: 0 1 auto; }
+#crumbs li.root { flex: none; }
+#crumbs li.sepr { color: var(--label3); flex: none; padding: 0 3px; font-size: 14px; }
+#crumbs button, #crumbs span.cur { font-size: 14px; height: 38px; display: block; line-height: 38px; padding: 0 3px; max-width: 128px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#crumbs button { color: var(--tint); }
+#crumbs button.more { font-weight: 700; letter-spacing: .1em; padding: 0 8px; background: var(--fill); border-radius: 12px; height: 26px; line-height: 26px; flex: none; }
+#crumbs span.cur { color: var(--label); font-weight: 600; max-width: 150px; }
+
+/* ---------- variant edges: the pages behind as stacked strips ---------- */
+.edges { margin: 0 0 8px; display: flex; flex-direction: column; gap: 3px; }
+.edge { display: flex; align-items: center; gap: 8px; height: 34px; border-radius: 10px; background: var(--card); padding: 0 12px; font-size: 14px; color: var(--tint); box-shadow: 0 1px 2px rgba(0,0,0,.06); width: 100%; }
+.edge .k { color: var(--label2); font-size: 12px; text-transform: uppercase; letter-spacing: .03em; flex: none; }
+.edge .t { flex: 1; min-width: 0; }
+.edge:active { background: var(--fill); }
+.edge.more { color: var(--label2); justify-content: center; }
+
+/* ---------- menus and the sheet ---------- */
+#scrim { position: fixed; inset: 0; z-index: 40; display: none; }
+#scrim.on { display: block; }
+#scrim.dim { background: var(--dim); }
+#menu { position: fixed; z-index: 41; width: 270px; max-height: 60vh; overflow-y: auto; border-radius: 14px; display: none; box-shadow: 0 10px 40px rgba(0,0,0,.25); transform-origin: top center; }
+#menu.on { display: block; animation: pop .18s cubic-bezier(.2,.8,.2,1); }
+@keyframes pop { from { transform: scale(.85); opacity: 0; } to { transform: none; opacity: 1; } }
+#menu .mh { font-size: 13px; color: var(--label2); padding: 10px 16px 6px; }
+#menu .mi { display: flex; align-items: center; gap: 10px; width: 100%; padding: 11px 16px; font-size: 16px; position: relative; }
+#menu .mi + .mi::before { content: ""; position: absolute; top: 0; left: 16px; right: 0; border-top: .5px solid var(--sep); }
+#menu .mi .ck { width: 16px; flex: none; color: var(--label); font-weight: 600; }
+#menu .mi .m { flex: 1; min-width: 0; } #menu .mi .s { font-size: 12px; color: var(--label2); }
+#menu .mi .ic { color: var(--label2); width: 20px; text-align: center; flex: none; }
+#menu .mi.cur { color: var(--label2); }
+#menu .mi:active:not(.cur) { background: var(--fill); }
+#sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 42; height: 62vh; border-radius: 22px 22px 0 0; background: var(--bg); transform: translateY(105%); transition: transform .35s cubic-bezier(.2,.8,.2,1); display: flex; flex-direction: column; box-shadow: 0 -6px 30px rgba(0,0,0,.2); }
+#sheet.on { transform: none; }
+#sheet .grab { width: 36px; height: 5px; border-radius: 3px; background: var(--track); margin: 6px auto 0; flex: none; }
+#sheet .hd { display: flex; align-items: center; justify-content: space-between; padding: 8px 16px 4px; flex: none; }
+#sheet .hd b { font-size: 17px; } #sheet .hd button { color: var(--tint); font-weight: 600; height: 44px; }
+#sheet .bd { flex: 1; overflow-y: auto; padding: 4px 16px calc(var(--bot) + 20px); overscroll-behavior: contain; }
+.route .pr { padding-left: 40px; }
+.route .pr .dot { position: absolute; left: 16px; top: 50%; width: 11px; height: 11px; margin-top: -5px; border-radius: 6px; border: 2px solid var(--tint); background: var(--card); z-index: 1; }
+.route .pr .ln { position: absolute; left: 20px; top: 0; bottom: 0; width: 3px; background: var(--tintSoft); }
+.route .pr:first-child .ln { top: 50%; } .route .pr:last-child .ln { bottom: 50%; }
+.route .pr.cur .dot { background: var(--tint); }
+.route .pr.cur .m { font-weight: 600; } .route .pr.cur .chev::after { content: "Here"; font-size: 13px; color: var(--label2); }
+
+/* ---------- tabs, mini player, timeline (locked, ADR 0014) ---------- */
+#tabs { position: fixed; left: 16px; right: calc(var(--barW) + 6px); bottom: var(--bot); height: var(--tabH); display: flex; gap: 8px; z-index: 5; }
+#tabs .cap { flex: 1; border-radius: 28px; display: flex; justify-content: space-around; align-items: center; font-size: 11px; color: var(--label2); }
+#tabs button { display: flex; flex-direction: column; align-items: center; gap: 1px; font-size: 11px; color: var(--label2); padding: 4px 8px; text-align: center; }
+#tabs button b { font-size: 20px; font-weight: 400; }
+#tabs button.on { color: var(--tint); }
+#tabs .circ { width: var(--tabH); border-radius: 28px; display: grid; place-items: center; font-size: 22px; flex: none; }
+#mini { position: fixed; left: 16px; right: var(--lineX); bottom: calc(var(--bot) + var(--tabH) + 8px); height: var(--miniH); z-index: 6; background: var(--card); border-radius: 18px 0 0 18px; box-shadow: 0 4px 18px rgba(0,0,0,.14); display: flex; align-items: center; gap: 10px; padding: 0 10px; width: auto; }
+#mini .art { width: 46px; height: 46px; border-radius: 8px; flex: none; background: linear-gradient(135deg, hsl(18,55%,62%), hsl(32,45%,38%)); }
+#mini .txt { flex: 1; min-width: 0; line-height: 1.22; }
+#mini .mv { font-size: 15px; font-weight: 600; } #mini .by { font-size: 13px; color: var(--label2); }
+#bar { position: fixed; right: 0; width: var(--barW); top: var(--edgeTop); bottom: calc(var(--bot) + var(--tabH) + 8px); z-index: 20; pointer-events: none; }
+#bar svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+/* ---------- prototype switches ---------- */
+#sw { position: fixed; top: calc(env(safe-area-inset-top) + 6px); left: 6px; right: 6px; z-index: 30; display: flex; gap: 5px; justify-content: center; }
+#sw .p { display: flex; align-items: center; background: #111; color: #fff; border-radius: 18px; height: 34px; box-shadow: 0 2px 10px rgba(0,0,0,.35); }
+#sw .p button, #sw .p a { color: #fff; height: 34px; padding: 0 9px; font-size: 13px; white-space: nowrap; display: flex; align-items: center; text-decoration: none; }
+#sw .p button.arr { font-size: 18px; padding: 0 8px; }
+#sw .p .dep { color: #bbb; font-size: 12px; padding: 0 10px 0 2px; }
+#toast { position: fixed; bottom: calc(var(--bot) + var(--tabH) + var(--miniH) + 22px); left: 50%; transform: translateX(-50%); z-index: 45; background: rgba(17,17,17,.9); color: #fff; font-size: 13px; padding: 7px 12px; border-radius: 12px; opacity: 0; transition: opacity .25s; pointer-events: none; max-width: 90%; text-align: center; }
+#toast.on { opacity: 1; }
+</style>
+</head>
+<body>
+<div id="nav"></div>
+<div id="navbg" class="glass"></div>
+<div id="navbar">
+  <button id="back" aria-label="Back"><b>‹</b><span class="ell"></span></button>
+  <div id="nt"></div>
+  <div id="tools"><button id="depthBtn" class="glass" aria-label="Show the path"><i>⋮</i><span></span></button></div>
+</div>
+<nav id="crumbs" aria-label="Breadcrumb"></nav>
+<div id="tabs">
+  <div class="cap glass">
+    <button data-tab="lib" class="on"><b>♪</b>Library</button>
+    <button data-tab="chr"><b>◷</b>Chronology</button>
+    <button data-tab="set"><b>⚙︎</b>Settings</button>
+  </div>
+  <button class="circ glass" data-tab="sea" aria-label="Search"><b>⌕</b></button>
+</div>
+<button id="mini"><div class="art"></div><div class="txt"><div class="mv ell">I. Allegro con brio</div><div class="by ell">Symphony No. 5 · Karajan, 1962</div></div><span style="font-size:20px">❙❙</span></button>
+<div id="bar" aria-hidden="true"></div>
+<div id="scrim"></div>
+<div id="menu" class="glass" role="menu"></div>
+<div id="sheet" role="dialog" aria-label="Path"><div class="grab"></div><div class="hd"><b>Path</b><button id="done">Done</button></div><div class="bd"></div></div>
+<div id="sw">
+  <div class="p"><button class="arr" id="prev" aria-label="Previous variant">‹</button><button id="vname"></button><button class="arr" id="next" aria-label="Next variant">›</button><span class="dep" id="dep"></span></div>
+  <div class="p"><button id="deep">Go deep</button></div>
+  <div class="p"><a href="?" id="reset" aria-label="Reset">↺</a></div>
+</div>
+<div id="toast"></div>
+<script>
+const VARIANTS = [["menu", "Title menu"], ["crumbs", "Breadcrumbs"], ["sheet", "Path sheet"], ["edges", "Page edges"]];
+const Q = new URLSearchParams(location.search);
+let V = VARIANTS.some(v => v[0] === Q.get("variant")) ? Q.get("variant") : "menu";
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// ---------- sample library ----------
+const COMP = {
+  lvb: { name: "Ludwig van Beethoven", life: "1770–1827", works: ["b5", "b9", "egm"] },
+  brahms: { name: "Johannes Brahms", life: "1833–1897", works: ["bs1", "bvc"] },
+  haydn: { name: "Joseph Haydn", life: "1732–1809", works: ["cre"] },
+  mozart: { name: "Wolfgang Amadeus Mozart", life: "1756–1791", works: ["req"] },
+};
+const WORK = {
+  b5: { title: "Symphony No. 5 in C minor, Op. 67", short: "Symphony No. 5", comp: "lvb" },
+  b9: { title: "Symphony No. 9 in D minor, Op. 125", short: "Symphony No. 9", comp: "lvb" },
+  egm: { title: "Egmont, Op. 84: Overture", short: "Egmont Overture", comp: "lvb" },
+  bs1: { title: "Symphony No. 1 in C minor, Op. 68", short: "Symphony No. 1", comp: "brahms" },
+  bvc: { title: "Violin Concerto in D major, Op. 77", short: "Violin Concerto", comp: "brahms" },
+  cre: { title: "Die Schöpfung, Hob. XXI:2", short: "Die Schöpfung", comp: "haydn" },
+  req: { title: "Requiem in D minor, K. 626", short: "Requiem", comp: "mozart" },
+};
+const PERF = {
+  karajan: { name: "Herbert von Karajan", role: "Conductor" },
+  bpo: { name: "Berliner Philharmoniker", role: "Orchestra" },
+  vpo: { name: "Wiener Philharmoniker", role: "Orchestra" },
+  mutter: { name: "Anne-Sophie Mutter", role: "Violin" },
+  gardiner: { name: "John Eliot Gardiner", role: "Conductor" },
+  orr: { name: "Orchestre Révolutionnaire et Romantique", role: "Orchestra" },
+  jacobs: { name: "René Jacobs", role: "Conductor" },
+  fbo: { name: "Freiburger Barockorchester", role: "Orchestra" },
+};
+const ALBUM = {
+  ka5: { title: "Symphony No. 5 · Egmont Overture", year: 1963, recs: ["ka62", "ka62e"] },
+  ka9: { title: "Symphony No. 9", year: 1963, recs: ["ka63"] },
+  mu: { title: "Brahms: Violin Concerto", year: 1982, recs: ["ka81"] },
+  kbr: { title: "Brahms: Symphony No. 1", year: 1964, recs: ["ka64"] },
+  ga: { title: "Symphonies Nos. 5 & 9", year: 1994, recs: ["ga94", "ga94n"] },
+  ja: { title: "Die Schöpfung", year: 2009, recs: ["ja09"] },
+  kmz: { title: "Mozart: Requiem", year: 1976, recs: ["ka76"] },
+};
+const REC = {
+  ka62: { work: "b5", year: 1962, perfs: ["karajan", "bpo"], album: "ka5" },
+  ka62e: { work: "egm", year: 1962, perfs: ["karajan", "bpo"], album: "ka5" },
+  ka63: { work: "b9", year: 1963, perfs: ["karajan", "bpo"], album: "ka9" },
+  ka81: { work: "bvc", year: 1981, perfs: ["mutter", "karajan", "bpo"], album: "mu" },
+  ka64: { work: "bs1", year: 1964, perfs: ["karajan", "bpo"], album: "kbr" },
+  ga94: { work: "b5", year: 1994, perfs: ["gardiner", "orr"], album: "ga" },
+  ga94n: { work: "b9", year: 1992, perfs: ["gardiner", "orr"], album: "ga" },
+  ja09: { work: "cre", year: 2009, perfs: ["jacobs", "fbo"], album: "ja" },
+  ka76: { work: "req", year: 1976, perfs: ["karajan", "vpo"], album: "kmz" },
+};
+const surname = n => n.split(" ").slice(-1)[0];
+const recLabel = r => `${surname(PERF[REC[r].perfs[0]].name)}, ${REC[r].year}`;
+const recsOf = w => Object.keys(REC).filter(r => REC[r].work === w);
+const albumsOf = p => Object.keys(ALBUM).filter(a => ALBUM[a].recs.some(r => REC[r].perfs.includes(p))).sort((a, b) => ALBUM[b].year - ALBUM[a].year);
+const albumPerfs = a => [...new Set(ALBUM[a].recs.flatMap(r => REC[r].perfs))];
+const SETTINGS = {
+  "set:server": { title: "Server", kids: [["set:account", "Account", "flo"], ["set:advanced", "Advanced", "Transcoding, timeouts"]] },
+  "set:account": { title: "Account", kids: [] },
+  "set:advanced": { title: "Advanced", kids: [["set:cache", "Cache", "2.1 GB"], ["set:tech", "Technical details", "Off"]] },
+  "set:cache": { title: "Cache", kids: [["set:cachefiles", "Cached files", "312 files"]] },
+  "set:cachefiles": { title: "Cached files", kids: [] },
+  "set:tech": { title: "Technical details", kids: [] },
+  "set:playback": { title: "Playback", kids: [["set:gapless", "Gapless", "On"]] },
+  "set:gapless": { title: "Gapless", kids: [] },
+};
+const ROOTS = { lib: "root:lib", chr: "root:chr", set: "root:set", sea: "root:sea" };
+const ICON = { root: "⌂", list: "≡", comp: "✎", work: "♫", rec: "◉", perf: "☺", album: "▣", set: "⚙︎" };
+
+// A page knows its title, a short name for crumbs and menus, and its kind.
+function meta(key) {
+  const [k, id] = key.split(":");
+  if (k === "root") return { title: { lib: "Library", chr: "Chronology", set: "Settings", sea: "Search" }[id], kind: "root" };
+  if (k === "list") return { title: { comps: "Composers", perfs: "Performers", albums: "Albums" }[id], kind: "list", kl: "List" };
+  if (k === "comp") return { title: COMP[id].name, short: surname(COMP[id].name), kind: "comp", kl: "Composer" };
+  if (k === "work") return { title: WORK[id].title, short: WORK[id].short, kind: "work", kl: "Work" };
+  if (k === "rec") return { title: WORK[REC[id].work].short, short: recLabel(id), kind: "rec", kl: "Recording", sub: `${REC[id].perfs.map(p => PERF[p].name).join(", ")} · ${REC[id].year}` };
+  if (k === "perf") return { title: PERF[id].name, short: PERF[id].name.length > 18 ? surname(PERF[id].name) : PERF[id].name, kind: "perf", kl: PERF[id].role };
+  if (k === "album") return { title: ALBUM[id].title, kind: "album", kl: "Album", sub: `${albumPerfs(id).map(p => PERF[p].name).join(", ")} · ${ALBUM[id].year}` };
+  if (k === "set") return { title: SETTINGS[key].title, kind: "set", kl: "Settings" };
+}
+const shortOf = key => meta(key).short || meta(key).title;
+
+// ---------- state ----------
+const S = { tab: "lib", stacks: { lib: [{ key: "root:lib", top: 0 }], chr: [{ key: "root:chr", top: 0 }], set: [{ key: "root:set", top: 0 }], sea: [{ key: "root:sea", top: 0 }] }, edgesOpen: false };
+const stack = () => S.stacks[S.tab];
+const cur = () => stack()[stack().length - 1];
+
+// ---------- page bodies ----------
+const row = (key, t, s, ic) => {
+  const inStack = stack().slice(0, -1).some(e => e.key === key);
+  return `<button class="pr${inStack ? " in" : ""}" data-go="${key}"><span class="ic">${ic || ICON[key.split(":")[0]]}</span><div class="m"><div class="ell">${esc(t)}</div>${s ? `<div class="s ell">${esc(s)}</div>` : ""}</div><span class="chev">${inStack ? "" : "›"}</span></button>`;
+};
+const recRow = r => row("rec:" + r, recLabel(r), REC[r].perfs.map(p => PERF[p].name).join(", "));
+function body(key) { const b = body0(key); return /^(root|list)/.test(key) ? b : b + about(); }
+function body0(key) {
+  const [k, id] = key.split(":"); const M = meta(key);
+  if (key === "root:lib") return `<div class="list">${row("list:comps", "Composers", "4")}${row("list:perfs", "Performers", "8")}${row("list:albums", "Albums", "7")}</div>
+    <div class="hint">Walk deep: <b>Composers › Beethoven › Symphony No. 5 › Karajan, 1962 › Herbert von Karajan › an album › …</b> Or tap <b>Go deep</b> at the top. A row marked ↩ is already in the stack: it jumps back. A swipe from the left edge goes back. A second tap on the tab goes to its root.</div>`;
+  if (key === "list:comps") return `<div class="list">${Object.keys(COMP).map(c => row("comp:" + c, COMP[c].name, COMP[c].life)).join("")}</div>`;
+  if (key === "list:perfs") return `<div class="list">${Object.keys(PERF).map(p => row("perf:" + p, PERF[p].name, PERF[p].role)).join("")}</div>`;
+  if (key === "list:albums") return `<div class="list">${Object.keys(ALBUM).map(a => row("album:" + a, ALBUM[a].title, albumPerfs(a).map(p => PERF[p].name).join(", "))).join("")}</div>`;
+  if (key === "root:chr") return `<div class="sub">Composers in the library, by birth</div><div class="list">${Object.keys(COMP).sort((a, b) => COMP[a].life.localeCompare(COMP[b].life)).map(c => row("comp:" + c, COMP[c].name, COMP[c].life)).join("")}</div>`;
+  if (key === "root:sea") return `<div class="field">⌕ <span>Karajan</span></div><div class="sh">Results</div><div class="list">${row("perf:karajan", "Herbert von Karajan", "Conductor")}${["ka62", "ka81", "ka76"].map(recRow).join("")}${row("album:ka9", ALBUM.ka9.title, "Karajan · 1963")}</div>`;
+  if (key === "root:set") return `<div class="list">${row("set:server", "Server", "navidrome.local")}${row("set:playback", "Playback", "Gapless, ReplayGain")}</div>`;
+  if (k === "set") return SETTINGS[key].kids.length ? `<div class="list">${SETTINGS[key].kids.map(([kk, t, s]) => row(kk, t, s)).join("")}</div>` : `<div class="list"><div class="pr static"><div class="m s">A setting lives here.</div></div></div>`;
+  if (k === "comp") return `<div class="sub">${COMP[id].life}</div><div class="sh">Works</div><div class="list">${COMP[id].works.map(w => row("work:" + w, WORK[w].title, `${recsOf(w).length} recording${recsOf(w).length > 1 ? "s" : ""}`)).join("")}</div>`;
+  if (k === "work") return `<div class="list">${row("comp:" + WORK[id].comp, COMP[WORK[id].comp].name, "Composer")}</div><div class="sh">Recordings</div><div class="list">${recsOf(id).map(recRow).join("")}</div>`;
+  if (k === "rec") { const R = REC[id]; return `<div class="sub">${esc(M.sub)}</div><div class="list">${row("work:" + R.work, WORK[R.work].title, "Work")}${row("comp:" + WORK[R.work].comp, COMP[WORK[R.work].comp].name, "Composer")}</div>
+    <div class="sh">Performers</div><div class="list">${R.perfs.map(p => row("perf:" + p, PERF[p].name, PERF[p].role)).join("")}</div>
+    <div class="sh">Album</div><div class="list">${row("album:" + R.album, ALBUM[R.album].title, ALBUM[R.album].year)}</div>`; }
+  if (k === "perf") return `<div class="sub">${PERF[id].role}</div><div class="sh">Albums</div><div class="list">${albumsOf(id).map(a => row("album:" + a, ALBUM[a].title, `${ALBUM[a].year} · ${albumPerfs(a).filter(p => p !== id).map(p => PERF[p].name).join(", ")}`)).join("")}</div>`;
+  if (k === "album") return `<div class="sub">${esc(M.sub)}</div><div class="sh">Performers</div><div class="list">${albumPerfs(id).map(p => row("perf:" + p, PERF[p].name, PERF[p].role)).join("")}</div>
+    <div class="sh">Works</div><div class="list">${ALBUM[id].recs.map(r => row("rec:" + r, WORK[REC[r].work].title, `${COMP[WORK[REC[r].work].comp].name} · ${REC[r].year}`)).join("")}</div>`;
+}
+
+// Sample text, so that every page scrolls and the title bar can collapse.
+const ABOUT = "Sample text. This paragraph stands for the About section, the credits and the long lists of a real page. It is here so that the page scrolls. Scroll down: the large title moves away and the title bar shows a short title. Check how the variant shows the depth in that state, and how a jump back works from there. A real page holds the biography, the notes or the track list in this place.";
+const about = () => `<div class="sh">About</div><div class="list"><div class="pr static"><div class="m" style="font-size:15px;line-height:1.45">${ABOUT}<br><br>${ABOUT}</div></div></div>`;
+
+// The variant decides what sits above the large title.
+function header(key) {
+  const M = meta(key), st = stack(), n = st.length;
+  let pre = "";
+  if (V === "edges" && n > 1) {
+    const back = st.slice(0, -1).map((e, i) => ({ e, i }));
+    const shown = S.edgesOpen || back.length <= 3 ? back : back.slice(-3);
+    const hidden = back.length - shown.length;
+    pre = `<div class="edges" aria-label="Pages behind this one">${hidden ? `<button class="edge more" id="edgeMore">${hidden} more behind · ${esc(shortOf(back[0].e.key))} …</button>` : ""}${shown.map(({ e, i }) => {
+      const inset = (n - 2 - i) * 8; const m = meta(e.key);
+      return `<button class="edge" data-jump="${i}" style="width:calc(100% - ${inset * 2}px);margin:0 ${inset}px"><span class="k">${esc(m.kl || "")}</span><span class="t ell">${esc(shortOf(e.key))}</span><span style="color:var(--label3)">↑</span></button>`;
+    }).join("")}</div>`;
+  }
+  const kind = M.kl ? `<div class="kind">${esc(M.kl)}</div>` : "";
+  const title = V === "menu" && n > 1 ? `<button id="bigTitle"><h1 class="pt tm"><span>${esc(M.title)}</span><span class="cv" aria-hidden="true">⌄</span></h1></button>` : `<h1 class="pt">${esc(M.title)}</h1>`;
+  return pre + kind + title;
+}
+
+// ---------- paint ----------
+const nav = $("#nav");
+function makePage(entry) {
+  const el = document.createElement("div"); el.className = "pg";
+  el.innerHTML = `<div class="scroll">${header(entry.key)}${body(entry.key)}</div>`;
+  const sc = el.firstChild;
+  sc.addEventListener("scroll", () => { entry.top = sc.scrollTop; chrome(); }, { passive: true });
+  return el;
+}
+let pageEl = null;
+function mount(dir, fromDepth) {
+  const e = cur(), el = makePage(e), old = pageEl; pageEl = el;
+  if (dir === "push") { el.style.transform = "translateX(100%)"; nav.appendChild(el); }
+  else if (dir === "pop") { el.style.transform = "translateX(-30%)"; el.classList.add("shade"); nav.insertBefore(el, old); }
+  else { nav.innerHTML = ""; nav.appendChild(el); }
+  el.firstChild.scrollTop = e.top;
+  if (old && dir) {
+    el.getBoundingClientRect();
+    requestAnimationFrame(() => {
+      el.style.transform = ""; el.classList.remove("shade");
+      old.style.transform = dir === "push" ? "translateX(-30%)" : "translateX(100%)";
+      if (dir === "push") old.classList.add("shade");
+      setTimeout(() => old.remove(), 380);
+    });
+  } else if (old) old.remove();
+  chrome();
+}
+
+// Title bar, crumbs, depth readouts: everything that follows the stack and the scroll.
+function chrome() {
+  const st = stack(), n = st.length, e = cur(), M = meta(e.key);
+  // The bar turns solid when the large title has passed under it; the page edges push the title down.
+  const h1 = pageEl && pageEl.querySelector("h1.pt"); const solid = e.top > (h1 ? h1.offsetTop + h1.offsetHeight / 2 : 40);
+  $("#navbar").classList.toggle("solid", solid); $("#navbg").classList.toggle("solid", solid);
+  const back = $("#back"); back.hidden = n < 2;
+  if (n > 1) { back.querySelector("span").textContent = shortOf(st[n - 2].key); back.setAttribute("aria-label", "Back to " + shortOf(st[n - 2].key)); }
+  $("#nt").innerHTML = V === "menu" && n > 1
+    ? `<button id="smallTitle" aria-label="${esc(shortOf(e.key))}, show the path"><span class="ell">${esc(shortOf(e.key))}</span><span class="cv">⌄</span></button>`
+    : `<span class="ell">${esc(shortOf(e.key))}</span>`;
+  const db = $("#depthBtn"); db.classList.toggle("on", n > 2); db.querySelector("span").textContent = n;
+  db.setAttribute("aria-label", `Path, ${n} levels`);
+  $("#crumbs").innerHTML = crumbs();
+  $("#dep").textContent = `${n} deep`;
+  document.querySelectorAll("#tabs [data-tab]").forEach(b => b.classList.toggle("on", b.dataset.tab === S.tab));
+}
+
+// WAI-ARIA breadcrumb: crumbs jump, the current page is no link, a long trail folds its middle into one overflow.
+function crumbs() {
+  const st = stack(), n = st.length;
+  const li = (e, i) => i === 0 ? `<li class="root"><button data-jump="0">${esc(shortOf(e.key))}</button></li>` : i === n - 1 ? `<li><span class="cur" aria-current="page">${esc(shortOf(e.key))}</span></li>` : `<li><button data-jump="${i}">${esc(shortOf(e.key))}</button></li>`;
+  const sep = `<li class="sepr" aria-hidden="true">›</li>`;
+  let parts;
+  if (n <= 3) parts = st.map(li);
+  else parts = [li(st[0], 0), `<li><button class="more" id="crumbMore" aria-label="${n - 3} more levels">…</button></li>`, li(st[n - 2], n - 2), li(st[n - 1], n - 1)];
+  return `<ol>${parts.join(sep)}</ol>`;
+}
+
+// ---------- navigation ----------
+function go(key) {
+  const st = stack(), at = st.findIndex(e => e.key === key);
+  if (at === st.length - 1) return;
+  if (at >= 0) { popTo(at, true); return; }
+  st.push({ key, top: 0 }); S.edgesOpen = false; mount("push");
+}
+function popTo(i, wasLink) {
+  const st = stack(), n = st.length; if (i < 0 || i >= n - 1) return;
+  const lv = n - 1 - i; st.length = i + 1; S.edgesOpen = false; mount("pop");
+  toast(`${wasLink ? "Already open: " : ""}back ${lv} level${lv > 1 ? "s" : ""} to ${shortOf(st[i].key)}`);
+}
+let tt; function toast(t) { const el = $("#toast"); el.textContent = t; el.classList.add("on"); clearTimeout(tt); tt = setTimeout(() => el.classList.remove("on"), 1600); }
+
+// ---------- the stack menu (title menu, crumb overflow) ----------
+function openMenu(anchor, items, head) {
+  const m = $("#menu");
+  m.innerHTML = (head ? `<div class="mh">${esc(head)}</div>` : "") + items.map(({ e, i }) => {
+    const isCur = i === stack().length - 1, M = meta(e.key);
+    return `<button class="mi${isCur ? " cur" : ""}" role="menuitem" ${isCur ? 'aria-current="page" aria-disabled="true"' : `data-jump="${i}"`}><span class="ck">${isCur ? "✓" : ""}</span><div class="m"><div class="ell">${esc(shortOf(e.key))}</div><div class="s ell">${esc(M.kl || M.title)}</div></div><span class="ic">${ICON[e.key.split(":")[0]]}</span></button>`;
+  }).join("");
+  const r = anchor.getBoundingClientRect(), W = innerWidth;
+  m.style.left = Math.max(8, Math.min(W - 278, r.left + r.width / 2 - 135)) + "px";
+  m.style.top = (r.bottom + 6) + "px";
+  m.classList.add("on"); $("#scrim").className = "on";
+}
+function closeOverlays() { $("#menu").classList.remove("on"); $("#sheet").classList.remove("on"); $("#scrim").className = ""; }
+function titleMenu(anchor) {
+  // Newest first, like the system back menu: the nearest level sits under the finger.
+  const items = stack().map((e, i) => ({ e, i })).reverse();
+  openMenu(anchor, items, `${stack().length} levels in ${meta(ROOTS[S.tab]).title}`);
+}
+function openSheet() {
+  const st = stack();
+  $("#sheet .bd").innerHTML = `<div class="sub" style="margin:4px 4px 10px">${st.length} levels in ${esc(meta(ROOTS[S.tab]).title)}</div><div class="list route">${st.map((e, i) => {
+    const M = meta(e.key), isCur = i === st.length - 1;
+    return `<button class="pr${isCur ? " cur" : ""}" ${isCur ? 'aria-current="page"' : `data-jump="${i}"`}><span class="ln"></span><span class="dot"></span><div class="m"><div class="ell">${esc(shortOf(e.key))}</div><div class="s ell">${esc(M.kl || "")}</div></div><span class="chev">${isCur ? "" : "›"}</span></button>`;
+  }).join("")}</div>`;
+  $("#sheet").classList.add("on"); $("#scrim").className = "on dim";
+  const bd = $("#sheet .bd"); requestAnimationFrame(() => bd.scrollTop = bd.scrollHeight);
+}
+
+// ---------- events ----------
+document.addEventListener("click", ev => {
+  const t = ev.target;
+  if (t.closest("#scrim")) { closeOverlays(); return; }
+  const j = t.closest("[data-jump]");
+  if (j) { closeOverlays(); popTo(+j.dataset.jump); return; }
+  const g = t.closest("[data-go]");
+  if (g) { go(g.dataset.go); return; }
+  if (t.closest("#back")) { popTo(stack().length - 2); return; }
+  if (t.closest("#bigTitle") || t.closest("#smallTitle")) { titleMenu(t.closest("#bigTitle, #smallTitle")); return; }
+  if (t.closest("#crumbMore")) { const st = stack(); openMenu(t.closest("#crumbMore"), st.slice(1, -2).map((e, k) => ({ e, i: k + 1 })).reverse(), "Hidden levels"); return; }
+  if (t.closest("#edgeMore")) { S.edgesOpen = true; const sc = pageEl.firstChild, top = sc.scrollTop; pageEl.firstChild.innerHTML = header(cur().key) + body(cur().key); sc.scrollTop = top; return; }
+  if (t.closest("#depthBtn")) { openSheet(); return; }
+  if (t.closest("#done")) { closeOverlays(); return; }
+  const tab = t.closest("[data-tab]");
+  if (tab) {
+    if (tab.dataset.tab === S.tab) { if (stack().length > 1) popTo(0); return; }
+    S.tab = tab.dataset.tab; mount(null); return;
+  }
+  if (t.closest("#mini")) { const st = stack(); if (st.some(e => e.key === "rec:ka62")) go("rec:ka62"); else { st.push({ key: "rec:ka62", top: 0 }); mount("push"); } return; }
+  if (t.closest("#prev") || t.closest("#next") || t.closest("#vname")) {
+    const i = VARIANTS.findIndex(v => v[0] === V), d = t.closest("#prev") ? -1 : 1;
+    setVariant(VARIANTS[(i + d + VARIANTS.length) % VARIANTS.length][0]); return;
+  }
+  if (t.closest("#deep")) {
+    S.tab = "lib";
+    S.stacks.lib = ["root:lib", "list:comps", "comp:lvb", "work:b5", "rec:ka62", "perf:karajan", "album:mu", "rec:ka81", "perf:mutter"].map(key => ({ key, top: 0 }));
+    mount(null); toast("9 levels deep in Library"); return;
+  }
+});
+function setVariant(v) {
+  V = v; document.body.className = "v-" + V;
+  history.replaceState(null, "", "?variant=" + V);
+  $("#vname").textContent = VARIANTS.find(x => x[0] === V)[1];
+  $("#reset").href = "?variant=" + V;
+  closeOverlays(); mount(null);
+}
+
+// A swipe from the left edge goes back, as in the system stack.
+let sw = null;
+// Safari may keep its own edge gesture for browser history; Klassik has no such conflict.
+nav.addEventListener("touchstart", e => { const x = e.touches[0].clientX; if (x < 24 && stack().length > 1) { e.preventDefault(); sw = { x, y: e.touches[0].clientY, dx: 0 }; } }, { passive: false });
+nav.addEventListener("touchmove", e => { if (!sw) return; sw.dx = Math.max(0, e.touches[0].clientX - sw.x); pageEl.style.transition = "none"; pageEl.style.transform = `translateX(${sw.dx}px)`; }, { passive: true });
+nav.addEventListener("touchend", () => {
+  if (!sw) return; const dx = sw.dx; sw = null; pageEl.style.transition = "";
+  if (dx > 90) popTo(stack().length - 2); else pageEl.style.transform = "";
+});
+
+// Sheet: a drag down on the grabber closes it.
+let sd = null; const sheet = $("#sheet");
+sheet.querySelector(".grab").parentElement.addEventListener("touchstart", e => { if (e.target.closest(".bd")) return; sd = e.touches[0].clientY; }, { passive: true });
+sheet.addEventListener("touchend", e => { if (sd === null) return; if (e.changedTouches[0].clientY - sd > 60) closeOverlays(); sd = null; }, { passive: true });
+
+// Timeline bar on the edge: locked (ADR 0014), drawn only to take its space.
+(function drawBar() {
+  const segs = [0.3, 0.2, 0.22, 0.28], gap = 4, H = 1000; let y = 0;
+  const rects = segs.map((s, i) => { const h = s * H - gap; const r = `<rect x="9" y="${y}" width="8" height="${h}" rx="2" fill="${i === 0 ? "var(--tint)" : "var(--track)"}" opacity="${i === 0 ? .9 : 1}"/>`; y += s * H; return r; }).join("");
+  $("#bar").innerHTML = `<svg viewBox="0 0 26 1000" preserveAspectRatio="none">${rects}<rect x="4" y="180" width="18" height="3" fill="var(--label)"/></svg>`;
+})();
+
+setVariant(V);
+</script>
+</body>
+</html>

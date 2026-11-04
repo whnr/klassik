@@ -76,21 +76,51 @@ struct WorkIndexTests {
 
     @Test(arguments: [false, true])
     func albumPerformersMatchDirectAndRecordingWalks(visitRecordingFirst: Bool) throws {
-        var brahms = Self.song("b", album: "Romantic Encores", track: 1, work: "Op. 98")
-        brahms.artist = "Sine Wave Chamber Orchestra • Carl Fixture"
-        var mozart = Self.song("m", album: "Romantic Encores", track: 2, work: "K. 467")
-        mozart.artist = "Daniel Keys • Sine Wave Chamber Orchestra • Carl Fixture"
+        let brahms = Self.song(
+            "b", album: "Romantic Encores", track: 1, work: "Op. 98",
+            performers: [("performer", "Sine Wave Chamber Orchestra"), ("conductor", "Carl Fixture")])
+        let mozart = Self.song(
+            "m", album: "Romantic Encores", track: 2, work: "K. 467",
+            contributors: [
+                .init(role: "conductor", artist: .init(id: "c", name: "Carl Fixture")),
+                .init(
+                    role: "performer", subRole: "orchestra", artist: .init(id: "o", name: "Sine Wave Chamber Orchestra")
+                ),
+                .init(role: "performer", subRole: "piano", artist: .init(id: "p", name: "Daniel Keys")),
+            ])
+        var encore = Self.song("e", album: "Romantic Encores", track: 1)
+        encore.discNumber = 2
+        encore.artist = "Guest Soloist"
 
-        // Sync responses can return the recital's tracks in either order.
-        for tracks in [[brahms, mozart], [mozart, brahms]] {
-            if visitRecordingFirst {
-                let index = WorkIndex(songs: tracks)
-                let recording = try #require(index.composers.first?.works.first?.defaultRecording)
-                #expect(!recording.songs.isEmpty)
+        // Sync responses and contributor lists can arrive in either order.
+        for tracks in [[brahms, mozart, encore], [encore, mozart, brahms], [mozart, brahms, encore]] {
+            for reverseContributors in [false, true] {
+                let tracks = tracks.map { song in
+                    var song = song
+                    if reverseContributors { song.contributors = song.contributors?.reversed() }
+                    return song
+                }
+                if visitRecordingFirst {
+                    let index = WorkIndex(songs: tracks)
+                    let recording = try #require(index.composers.first?.works.first?.defaultRecording)
+                    #expect(!recording.songs.isEmpty)
+                }
+                let album = try #require(WorkIndex.album(tracks))
+                #expect(
+                    album.recording.performers
+                        == "Sine Wave Chamber Orchestra • Carl Fixture • Daniel Keys • Guest Soloist")
+                #expect(album.recording.songs.map(\.id) == ["b", "m", "e"])
             }
+        }
+    }
+
+    @Test func albumOrdersEqualTrackNumbersByID() throws {
+        let first = Self.song("a", album: "A", track: 1, performers: [("performer", "First Soloist")])
+        var second = Self.song("b", album: "A", track: 1, performers: [("performer", "Second Soloist")])
+        second.title = "Other Track"
+        for tracks in [[first, second], [second, first]] {
             let album = try #require(WorkIndex.album(tracks))
-            #expect(album.recording.performers == brahms.artist)
-            #expect(album.recording.songs.map(\.id) == ["b", "m"])
+            #expect(album.recording.performers == "First Soloist • Second Soloist")
         }
     }
 

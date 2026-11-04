@@ -6,6 +6,8 @@ import Observation
 /// Each track is on the device first, because only a whole MP3 file lets the engine cut encoder delay and padding.
 @MainActor @Observable
 final class Player {
+    typealias CompletionDelivery = @Sendable (@escaping @MainActor @Sendable () -> Void) -> Void
+
     struct Progress {
         var movement: Int
         var elapsed: Double
@@ -51,6 +53,8 @@ final class Player {
     private var positionTask: Task<Void, Never>?
     /// Engine reconfiguration can erase its timeline before the notification reaches the main actor.
     private var checkpoint: (movement: Int, elapsed: Double)?
+    /// Pause can reach the main actor before the final completion does.
+    private var recordingCompleted = false
     private var engine: AVAudioEngine?
     private var node: AVAudioPlayerNode?
     /// Applies the ReplayGain. The node volume cannot go above 1, so it cannot boost.
@@ -68,11 +72,18 @@ final class Player {
     private var startOffset = 0.0
     private let defaults: UserDefaults
     private let store: TrackStore
+    private let deliverCompletion: CompletionDelivery
     private static let levelingKey = "player.volumeLeveling"
 
-    init(store: TrackStore, defaults: UserDefaults = .standard) {
+    init(
+        store: TrackStore, defaults: UserDefaults = .standard,
+        deliverCompletion: @escaping CompletionDelivery = { completion in
+            Task { @MainActor in completion() }
+        }
+    ) {
         self.store = store
         self.defaults = defaults
+        self.deliverCompletion = deliverCompletion
         leveling = defaults.string(forKey: Self.levelingKey).flatMap(VolumeLeveling.init) ?? .album
         observeAudioSession()
         let center = MPRemoteCommandCenter.shared()
@@ -227,6 +238,10 @@ final class Player {
     private func handle(_ event: PlaybackState.Event) {
         let action = playback.handle(event)
         guard item != nil else { return }
+        if recordingCompleted && playback.shouldPlay {
+            completeRecording()
+            return
+        }
         switch action {
         case .none: break
         case .pause:
@@ -262,9 +277,9 @@ final class Player {
     }
 
     private func savePosition() {
-        guard let progress = progress() else { return }
+        guard let progress = progress(), let current, progress.movement >= current else { return }
         checkpoint = (progress.movement, progress.elapsed)
-        if current != progress.movement { current = progress.movement }
+        if current != progress.movement { self.current = progress.movement }
     }
 
     private func rebuild() {
@@ -326,6 +341,7 @@ final class Player {
         item = nil
         current = nil
         checkpoint = nil
+        recordingCompleted = false
         error = nil
         startOffset = 0
     }
@@ -353,7 +369,8 @@ final class Player {
         var movement = checkpoint?.movement ?? current
         var elapsed = checkpoint?.elapsed ?? startOffset
         if let sample = playedSamples(), segments[current] != nil {
-            if let playing = segments.first(where: { $0.value.contains(sample) }) {
+            // Completion can arrive before the render clock reflects the next movement.
+            if let playing = segments.first(where: { $0.key >= current && $0.value.contains(sample) }) {
                 movement = playing.key
                 elapsed = Double(sample - playing.value.lowerBound) / sampleRate
             } else if let range = segments[current], sample >= range.upperBound {
@@ -431,12 +448,13 @@ final class Player {
                 scheduledEnd = start + Int64(range.count)
                 // The segment covers the whole movement, so that elapsed time counts from the movement's start.
                 segments[position] = (start - (range.lowerBound - playable.lowerBound))..<scheduledEnd
+                let deliverCompletion = deliverCompletion
                 node.scheduleSegment(
                     file, startingFrame: range.lowerBound, frameCount: AVAudioFrameCount(range.count), at: nil,
                     completionCallbackType: .dataPlayedBack
                 ) { @Sendable [weak self] _ in
                     // The engine calls this on its own thread.
-                    Task { @MainActor in self?.finished(position, generation: generation) }
+                    deliverCompletion { [weak self] in self?.finished(position, generation: generation) }
                 }
                 if !isPaused && !node.isPlaying { node.play() }
                 if position == current { updateNowPlaying() }
@@ -448,12 +466,20 @@ final class Player {
     }
 
     private func finished(_ position: Int, generation: Int) {
-        guard generation == self.generation, playback.shouldPlay, engine?.isRunning == true,
-            node?.isPlaying == true, let recording
+        guard generation == self.generation, engine?.isRunning == true,
+            let recording, let current, position >= current
         else { return }
         if position + 1 < recording.songs.count {
-            current = position + 1
-        } else if !upNext.isEmpty {
+            checkpoint = (position + 1, 0)
+            self.current = position + 1
+        } else {
+            recordingCompleted = true
+            if playback.shouldPlay { completeRecording() }
+        }
+    }
+
+    private func completeRecording() {
+        if !upNext.isEmpty {
             nextWork()
         } else {
             stop()

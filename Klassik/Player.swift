@@ -6,6 +6,8 @@ import Observation
 /// Each track is on the device first, because only a whole MP3 file lets the engine cut encoder delay and padding.
 @MainActor @Observable
 final class Player {
+    typealias CompletionDelivery = @Sendable (@escaping @MainActor @Sendable () -> Void) -> Void
+
     struct Progress {
         var movement: Int
         var elapsed: Double
@@ -35,7 +37,7 @@ final class Player {
             updateNowPlaying()
         }
     }
-    private(set) var isPaused = false
+    var isPaused: Bool { !playback.shouldPlay }
     private(set) var error: String?
     private(set) var isLoading = false
     var leveling: VolumeLeveling {
@@ -45,6 +47,14 @@ final class Player {
         }
     }
 
+    private var playback = PlaybackState()
+    private let notifications = PlaybackNotifications()
+    private var engineNotifications: PlaybackNotifications?
+    private var positionTask: Task<Void, Never>?
+    /// Engine reconfiguration can erase its timeline before the notification reaches the main actor.
+    private var checkpoint: (movement: Int, elapsed: Double)?
+    /// Pause can reach the main actor before the final completion does.
+    private var recordingCompleted = false
     private var engine: AVAudioEngine?
     private var node: AVAudioPlayerNode?
     /// Applies the ReplayGain. The node volume cannot go above 1, so it cannot boost.
@@ -62,12 +72,20 @@ final class Player {
     private var startOffset = 0.0
     private let defaults: UserDefaults
     private let store: TrackStore
+    private let deliverCompletion: CompletionDelivery
     private static let levelingKey = "player.volumeLeveling"
 
-    init(store: TrackStore, defaults: UserDefaults = .standard) {
+    init(
+        store: TrackStore, defaults: UserDefaults = .standard,
+        deliverCompletion: @escaping CompletionDelivery = { completion in
+            Task { @MainActor in completion() }
+        }
+    ) {
         self.store = store
         self.defaults = defaults
+        self.deliverCompletion = deliverCompletion
         leveling = defaults.string(forKey: Self.levelingKey).flatMap(VolumeLeveling.init) ?? .album
+        observeAudioSession()
         let center = MPRemoteCommandCenter.shared()
         // The system calls these on the main thread.
         center.playCommand.addTarget { [weak self] _ in
@@ -149,33 +167,21 @@ final class Player {
         _ item: Item, from index: Int, client: SubsonicClient, offset: Double = 0, paused: Bool = false
     ) {
         reset()
-        do {
-            try AVAudioSession.sharedInstance().setCategory(.playback)
-            try AVAudioSession.sharedInstance().setActive(true)
-        } catch {
-            self.error = error.localizedDescription
-            return
-        }
+        _ = playback.handle(paused ? .pause : .play)
         self.item = item
         self.client = client
         startOffset = offset
-        if paused {
-            isPaused = true
-            pausedAt = 0
-        }
+        checkpoint = (index, offset)
         current = index
-        generation += 1
-        let generation = generation
-        task = Task {
-            await schedule(item.recording.songs, from: index, offset: offset, client: client, generation: generation)
-        }
+        if playback.shouldPlay { rebuild() }
+        updateNowPlaying()
     }
 
     /// Moves to a position in the current movement. The movements after it schedule again, as after a skip,
     /// so they still join without a gap. A paused player stays paused.
     func seek(to seconds: Double) {
         guard let item, let client, let current else { return }
-        start(item, from: current, client: client, offset: seconds, paused: isPaused)
+        start(item, from: current, client: client, offset: seconds, paused: !playback.wantsPlayback)
     }
 
     func togglePause() {
@@ -183,18 +189,125 @@ final class Player {
     }
 
     func pause() {
-        guard let node, !isPaused else { return }
-        pausedAt = playedSamples()
-        node.pause()
-        isPaused = true
-        updateNowPlaying()
+        handle(.pause)
     }
 
     func resume() {
-        guard let node, isPaused else { return }
-        node.play()
-        isPaused = false
-        pausedAt = nil
+        guard item != nil else { return }
+        handle(.resume)
+    }
+
+    private func observeAudioSession() {
+        notifications.observe(AVAudioSession.interruptionNotification) { [weak self] notification in
+            guard let raw = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+                let type = AVAudioSession.InterruptionType(rawValue: raw)
+            else { return }
+            let event: PlaybackState.Event
+            switch type {
+            case .began: event = .interruptionBegan
+            case .ended:
+                let rawOptions = notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
+                event = .interruptionEnded(
+                    shouldResume: AVAudioSession.InterruptionOptions(rawValue: rawOptions).contains(.shouldResume))
+            @unknown default: return
+            }
+            Task { @MainActor in self?.handle(event) }
+        }
+        notifications.observe(AVAudioSession.routeChangeNotification) { [weak self] notification in
+            let reason = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt
+            let previous =
+                notification.userInfo?[AVAudioSessionRouteChangePreviousRouteKey] as? AVAudioSessionRouteDescription
+            let headphonesRemoved =
+                previous?.outputs.contains {
+                    [.headphones, .bluetoothA2DP, .bluetoothLE, .bluetoothHFP].contains($0.portType)
+                } ?? false
+            let event = PlaybackState.Event.routeChanged(
+                oldDeviceUnavailable: reason == AVAudioSession.RouteChangeReason.oldDeviceUnavailable.rawValue,
+                headphonesRemoved: headphonesRemoved)
+            Task { @MainActor in self?.handle(event) }
+        }
+        notifications.observe(AVAudioSession.mediaServicesWereLostNotification) { [weak self] _ in
+            Task { @MainActor in self?.handle(.mediaServicesLost) }
+        }
+        notifications.observe(AVAudioSession.mediaServicesWereResetNotification) { [weak self] _ in
+            Task { @MainActor in self?.handle(.mediaServicesReset) }
+        }
+        // Secondary-audio hints concern soundtracks, not this app's primary music.
+    }
+
+    private func handle(_ event: PlaybackState.Event) {
+        let action = playback.handle(event)
+        guard item != nil else { return }
+        if recordingCompleted && playback.shouldPlay {
+            completeRecording()
+            return
+        }
+        switch action {
+        case .none: break
+        case .pause:
+            savePosition()
+            pausedAt = playedSamples()
+            node?.pause()
+        case .suspend:
+            savePosition()
+            discardEngine()
+        case .rebuild:
+            savePosition()
+            rebuild()
+        case .resume:
+            if let engine, let node, engine.isRunning {
+                do {
+                    try activateSession()
+                    node.play()
+                    pausedAt = nil
+                } catch {
+                    playbackFailed(error)
+                }
+            } else {
+                rebuild()
+            }
+        }
+        updateNowPlaying()
+    }
+
+    private func activateSession() throws {
+        let session = AVAudioSession.sharedInstance()
+        try session.setCategory(.playback, mode: .default)
+        try session.setActive(true)
+    }
+
+    private func savePosition() {
+        guard let progress = progress(), let current, progress.movement >= current else { return }
+        checkpoint = (progress.movement, progress.elapsed)
+        if current != progress.movement { self.current = progress.movement }
+    }
+
+    private func rebuild() {
+        guard playback.shouldPlay, let item, let client, let checkpoint else { return }
+        discardEngine()
+        current = checkpoint.movement
+        startOffset = checkpoint.elapsed
+        error = nil
+        let generation = generation
+        task = Task {
+            await schedule(
+                item.recording.songs, from: checkpoint.movement, offset: checkpoint.elapsed,
+                client: client, generation: generation)
+        }
+        positionTask = Task { [weak self] in
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .milliseconds(250)) } catch { return }
+                guard let self else { return }
+                self.savePosition()
+            }
+        }
+    }
+
+    private func playbackFailed(_ error: Error) {
+        savePosition()
+        _ = playback.handle(.pause)
+        discardEngine()
+        self.error = error.localizedDescription
         updateNowPlaying()
     }
 
@@ -223,30 +336,41 @@ final class Player {
     }
 
     private func reset() {
+        _ = playback.handle(.stop)
+        discardEngine()
+        item = nil
+        current = nil
+        checkpoint = nil
+        recordingCompleted = false
+        error = nil
+        startOffset = 0
+    }
+
+    private func discardEngine() {
+        // Invalidate callbacks before stopping: node teardown also calls completion handlers.
         generation += 1
         task?.cancel()
         task = nil
+        positionTask?.cancel()
+        positionTask = nil
+        engineNotifications = nil
         engine?.stop()
         engine = nil
         node = nil
         gain = nil
-        item = nil
-        current = nil
-        isPaused = false
         pausedAt = nil
         isLoading = false
-        error = nil
         segments = [:]
-        startOffset = 0
     }
 
     /// The position in the current movement and in the whole work.
     func progress() -> Progress? {
         guard let recording, let current else { return nil }
-        var movement = current
-        var elapsed = startOffset
+        var movement = checkpoint?.movement ?? current
+        var elapsed = checkpoint?.elapsed ?? startOffset
         if let sample = playedSamples(), segments[current] != nil {
-            if let playing = segments.first(where: { $0.value.contains(sample) }) {
+            // Completion can arrive before the render clock reflects the next movement.
+            if let playing = segments.first(where: { $0.key >= current && $0.value.contains(sample) }) {
                 movement = playing.key
                 elapsed = Double(sample - playing.value.lowerBound) / sampleRate
             } else if let range = segments[current], sample >= range.upperBound {
@@ -264,7 +388,9 @@ final class Player {
 
     private func playedSamples() -> Int64? {
         if let pausedAt { return pausedAt }
-        guard let node, let time = node.lastRenderTime, let playerTime = node.playerTime(forNodeTime: time) else {
+        guard engine?.isRunning == true, let node, let time = node.lastRenderTime,
+            let playerTime = node.playerTime(forNodeTime: time)
+        else {
             return nil
         }
         return playerTime.sampleTime
@@ -281,6 +407,15 @@ final class Player {
         self.engine = engine
         self.node = node
         self.gain = gain
+        let observers = PlaybackNotifications()
+        observers.observe(.AVAudioEngineConfigurationChange, object: engine) { [weak self] _ in
+            // The engine posts from an internal queue; teardown must run after that callback returns.
+            Task { @MainActor in
+                guard let self, generation == self.generation else { return }
+                self.handle(.configurationChanged)
+            }
+        }
+        engineNotifications = observers
         applyGain()
         var format: AVAudioFormat?
         var scheduledEnd: Int64 = 0
@@ -288,9 +423,10 @@ final class Player {
             for position in index..<songs.count {
                 isLoading = true
                 let url = try await store.file(for: songs[position], client: client)
+                try Task.checkCancellation()
+                guard generation == self.generation else { return }
                 let file = try AVAudioFile(forReading: url)
                 isLoading = false
-                try Task.checkCancellation()
                 let playable = Self.playableRange(of: file)
                 let range =
                     position == index
@@ -300,11 +436,11 @@ final class Player {
                     sampleRate = file.processingFormat.sampleRate
                     engine.connect(node, to: gain, format: file.processingFormat)
                     engine.connect(gain, to: engine.mainMixerNode, format: file.processingFormat)
+                    guard playback.shouldPlay else { return }
+                    try activateSession()
                     try engine.start()
-                    node.play()
-                    if isPaused { node.pause() }
                 } else if file.processingFormat != format {
-                    error = "Movement \(position + 1) has a different audio format."
+                    self.error = "Movement \(position + 1) has a different audio format."
                     return
                 }
                 // A slow download leaves the player idle; the movement then starts at the current position.
@@ -312,26 +448,38 @@ final class Player {
                 scheduledEnd = start + Int64(range.count)
                 // The segment covers the whole movement, so that elapsed time counts from the movement's start.
                 segments[position] = (start - (range.lowerBound - playable.lowerBound))..<scheduledEnd
+                let deliverCompletion = deliverCompletion
                 node.scheduleSegment(
                     file, startingFrame: range.lowerBound, frameCount: AVAudioFrameCount(range.count), at: nil,
                     completionCallbackType: .dataPlayedBack
                 ) { @Sendable [weak self] _ in
                     // The engine calls this on its own thread.
-                    Task { @MainActor in self?.finished(position, generation: generation) }
+                    deliverCompletion { [weak self] in self?.finished(position, generation: generation) }
                 }
+                if !isPaused && !node.isPlaying { node.play() }
                 if position == current { updateNowPlaying() }
             }
         } catch {
-            isLoading = false
-            if !Task.isCancelled { self.error = error.localizedDescription }
+            guard generation == self.generation, !Task.isCancelled else { return }
+            playbackFailed(error)
         }
     }
 
     private func finished(_ position: Int, generation: Int) {
-        guard generation == self.generation, let recording else { return }
+        guard generation == self.generation, engine?.isRunning == true,
+            let recording, let current, position >= current
+        else { return }
         if position + 1 < recording.songs.count {
-            current = position + 1
-        } else if !upNext.isEmpty {
+            checkpoint = (position + 1, 0)
+            self.current = position + 1
+        } else {
+            recordingCompleted = true
+            if playback.shouldPlay { completeRecording() }
+        }
+    }
+
+    private func completeRecording() {
+        if !upNext.isEmpty {
             nextWork()
         } else {
             stop()

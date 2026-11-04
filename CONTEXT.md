@@ -64,6 +64,18 @@ _Avoid_: Player, work page
 The page of one album: its works and their tracks in disc order. It has the player's layout.
 _Avoid_: Disc page, release page
 
+**Composer page**:
+The page of one composer: a picture, the Wikidata description and years, then the Works and About tabs. About holds the bio and every credit.
+_Avoid_: Artist page, composer screen
+
+**Performer page**:
+The page of one conductor, soloist or ensemble. It has the composer page's layout, with the Albums and About tabs.
+_Avoid_: Artist page, musician page
+
+**Genre**:
+A label from the tags of a track. A track carries one to many genres. Klassik gives no meaning to their order or style.
+_Avoid_: Category, period, form
+
 **Search term**:
 One value that the listener adds to a search: a genre, composer, conductor or performer. A genre value carries no facet, because the app does not know which value is the period.
 _Avoid_: Rule, condition, filter, token, criterion

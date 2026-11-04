@@ -20,3 +20,4 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0014](0014-player.md) | The player: rows beside one timeline (partly replaced by 0015) | 2026-11-02 |
 | [0015](0015-player-page.md) | The player is the page of what plays | 2026-11-03 |
 | [0016](0016-chronology.md) | The Chronology: a chart of one composer among their contemporaries | 2026-11-04 |
+| [0017](0017-composer-and-performer-pages.md) | Composer and performer pages | 2026-11-04 |

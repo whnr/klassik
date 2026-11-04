@@ -1,0 +1,1143 @@
+<!doctype html>
+<!--
+  PROTOTYPE, throw away. Map tickets sz-rs30.1.74.8 (composer page) and sz-rs30.1.74.12 (performer page), round 2.
+  From round 1 (Flo): the picture fills the width, cropped to the face, on every page. Each fact shows once.
+  Question added: tracks carry one to many genres, in each library's own style. ?g=A|B|C. ?w=page|screen: the picture under the timeline or not.
+  Base: pages round 3 with ADR 0015 locked (the player is the page of what plays; the next item rises).
+  Question: what the composer page and the performer page show. ?c=A|B|C for the composer page, ?p=A|B|C for the performer page.
+  Weak cases: Zelenka (no portrait, weak tags), "Strauss" (a surname only), "Anonymous" (no lookup), Pärt (a credit is needed).
+  Recordings, albums, bios and portraits are sample data. Portraits are generated drawings. No audio, no cover art.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Composer and performer pages, round 2</title>
+<style>
+:root {
+  --bg: #f2f2f7; --card: #fff; --label: #000; --label2: rgba(60,60,67,.6); --label3: rgba(60,60,67,.3);
+  --sep: rgba(60,60,67,.18); --tint: #b5482f; --tintSoft: rgba(181,72,47,.1); --fill: rgba(118,118,128,.14); --track: rgba(118,118,128,.32);
+  --glass: rgba(250,250,252,.82); --glassLine: rgba(0,0,0,.08); --gap: #dcdce2;
+  --barW: 26px; --lineX: 12px; --edgeTop: calc(env(safe-area-inset-top) + 52px);
+  --bot: calc(env(safe-area-inset-bottom) + 12px); --tabH: 56px; --miniH: 76px; --navH: 44px;
+  --top: calc(env(safe-area-inset-top) + 48px);
+}
+@media (prefers-color-scheme: dark) { :root {
+  --bg: #000; --card: #1c1c1e; --label: #fff; --label2: rgba(235,235,245,.6); --label3: rgba(235,235,245,.3);
+  --sep: rgba(84,84,88,.6); --tint: #ff7a5c; --tintSoft: rgba(255,122,92,.14); --fill: rgba(118,118,128,.24); --track: rgba(118,118,128,.5);
+  --glass: rgba(40,40,44,.82); --glassLine: rgba(255,255,255,.1); --gap: #2a2a2e;
+} }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--label); font: 17px/1.3 -apple-system, system-ui, sans-serif; -webkit-user-select: none; user-select: none; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; touch-action: manipulation; text-align: left; }
+.glass { background: var(--glass); backdrop-filter: blur(24px) saturate(1.8); -webkit-backdrop-filter: blur(24px) saturate(1.8); border: .5px solid var(--glassLine); }
+.ell { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tnum { font-variant-numeric: tabular-nums; }
+.lk { color: var(--tint); }
+
+/* ---------- the stack of pages ---------- */
+#nav { position: fixed; inset: 0; overflow: hidden; }
+.pg { position: absolute; top: 0; left: 0; bottom: 0; right: var(--barW); background: var(--bg); color: var(--label); transition: transform .35s cubic-bezier(.2,.8,.2,1), background-color .6s, right .35s, border-radius .35s; will-change: transform; }
+.pg .scroll { position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain; padding: calc(var(--top) + var(--navH) + 4px) 6px calc(var(--bot) + var(--tabH) + var(--miniH) + 40px) 16px; }
+#navbar { position: fixed; top: var(--top); left: 0; right: var(--barW); height: var(--navH); z-index: 8; display: flex; align-items: center; padding: 0 8px; gap: 6px; pointer-events: none; }
+#navbar > * { pointer-events: auto; }
+#back { color: var(--tint); font-size: 17px; max-width: 42%; display: flex; align-items: center; gap: 2px; height: 44px; padding: 0 6px; border-radius: 22px; }
+#back b { font-size: 26px; font-weight: 400; line-height: 1; margin-top: -3px; }
+#nt { flex: 1; text-align: center; font-weight: 600; font-size: 16px; opacity: 0; transition: opacity .2s; padding-right: 40px; }
+#navbar.solid #nt { opacity: 1; }
+#navbg { position: fixed; top: 0; left: 0; right: var(--barW); height: calc(var(--top) + var(--navH)); z-index: 7; opacity: 0; transition: opacity .2s; border-width: 0 0 .5px; }
+#navbg.solid { opacity: 1; }
+
+h1.pt { font-size: 28px; line-height: 1.15; margin: 4px 0 4px; }
+.sub { font-size: 17px; margin-bottom: 10px; }
+.sh { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; text-transform: uppercase; color: var(--label2); margin: 22px 8px 6px 14px; }
+.sh button { text-transform: none; font-size: 15px; color: var(--tint); }
+.foot { font-size: 13px; color: var(--label2); margin: 8px 14px 0; }
+.list { background: var(--card); border-radius: 12px; overflow: hidden; }
+.meta { font-size: 13px; color: var(--label2); margin: 6px 0 0; }
+.sum { margin: 12px 0 0; font-size: 15px; line-height: 1.4; }
+.sum p { margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.sum.open p { -webkit-line-clamp: unset; }
+.sum .more { color: var(--tint); font-size: 15px; }
+.sum .cred { font-size: 12px; color: var(--label2); }
+.acts { display: flex; gap: 8px; margin: 14px 0 0; }
+.btn { height: 40px; padding: 0 16px; border-radius: 20px; background: var(--fill); color: var(--tint); font-size: 15px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.btn.pri { background: var(--tint); color: #fff; min-width: 112px; justify-content: center; }
+.stub { font-size: 13px; color: var(--label2); background: var(--fill); border-radius: 10px; padding: 8px 12px; margin: 8px 0 0; }
+
+/* plain link rows (library, composer, performer stubs) */
+.pr { display: flex; gap: 10px; align-items: center; width: 100%; padding: 11px 14px; position: relative; }
+.pr + .pr::before { content: ""; position: absolute; top: 0; left: 14px; right: 0; border-top: .5px solid var(--sep); }
+.pr .m { flex: 1; min-width: 0; } .pr .s { font-size: 13px; color: var(--label2); } .pr .chev { color: var(--label3); }
+.pr:active { background: var(--fill); }
+
+/* ---------- recording rows on the work page ---------- */
+.rr { position: relative; overflow: hidden; }
+.rr + .rr::before { content: ""; position: absolute; top: 0; left: 14px; right: 0; border-top: .5px solid var(--sep); z-index: 3; }
+.rr .fg { position: relative; z-index: 2; background: var(--card); display: flex; gap: 12px; padding: 12px 8px 12px 14px; touch-action: pan-y; transition: transform .25s; }
+.rr .fg.drag { transition: none; }
+.rr .fg:active { background: color-mix(in srgb, var(--card), var(--label) 4%); }
+.rr .ra { position: absolute; top: 0; bottom: 0; display: flex; z-index: 1; }
+.rr .ra.L { left: 0; } .rr .ra.R { right: 0; }
+.rr .ra button { white-space: pre-line; width: 84px; color: #fff; font-size: 14px; font-weight: 600; display: grid; place-items: center; text-align: center; padding: 0 6px; line-height: 1.15; }
+.rr .ra .q1 { background: #5856d6; } .rr .ra .q2 { background: #ff9500; } .rr .ra .d1 { background: #34a0a4; } .rr .ra .f1 { background: var(--tint); }
+.rr .cv { flex: none; border-radius: 6px; overflow: hidden; }
+.rr .mn { flex: 1; min-width: 0; }
+.rr .l1 { font-size: 16px; font-weight: 600; } .rr .l2 { font-size: 14px; color: var(--label); } .rr .l3 { font-size: 13px; color: var(--label2); margin-top: 2px; }
+.rr .why { font-size: 13px; color: var(--tint); margin-top: 3px; }
+.rr .side { width: 64px; flex: none; display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; gap: 4px; }
+.rr .st { font-size: 12px; color: var(--tint); text-align: right; line-height: 1.25; white-space: pre-line; min-height: 15px; }
+.rr .slot { width: 34px; height: 34px; display: grid; place-items: center; color: var(--label3); font-size: 15px; border-radius: 17px; }
+.rr .slot.go { background: var(--tintSoft); color: var(--tint); font-size: 13px; }
+.rr .slot.hd { font-size: 20px; color: var(--label2); touch-action: none; }
+.rr.now .l1 { color: var(--tint); }
+.rr.dim { opacity: .45; }
+.rr.lifted { z-index: 9; box-shadow: 0 8px 24px rgba(0,0,0,.22); }
+.rr .rb2 { display: none; background: var(--card); position: relative; z-index: 2; padding: 0 0 8px; }
+.rr.open .rb2 { display: block; }
+.strip { display: flex; gap: 2px; height: 6px; margin-top: 8px; }
+.strip i { display: block; height: 100%; background: var(--track); border-radius: 1px; }
+.rr.now .strip i { background: color-mix(in srgb, var(--tint), transparent 45%); }
+body.rows-card .rr .fg { flex-wrap: wrap; }
+
+/* ---------- recording and album pages: the player's layout ---------- */
+.hero { padding: 0 0 6px; }
+.hero .art { width: min(240px, 100%); aspect-ratio: 1; border-radius: 12px; overflow: hidden; margin: 0 auto 14px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+.hero h2 { font-size: 22px; margin: 0 0 3px; line-height: 1.15; font-weight: 700; }
+.hero h2 button { font-weight: 700; color: var(--label); }
+.hero .c { color: var(--tint); font-size: 16px; display: block; margin-bottom: 8px; }
+.facts { background: var(--card); border-radius: 12px; margin-top: 4px; }
+.fact { display: flex; gap: 10px; padding: 9px 14px; font-size: 15px; position: relative; width: 100%; }
+.fact + .fact::before { content: ""; position: absolute; top: 0; left: 14px; right: 0; border-top: .5px solid var(--sep); }
+.fact .k { color: var(--label2); width: 92px; flex: none; } .fact .v { flex: 1; min-width: 0; }
+button.fact .v { color: var(--tint); }
+.grp { margin: 22px 0 6px 14px; } .grp .gt { font-size: 16px; font-weight: 600; color: var(--label); } .grp .gs { font-size: 13px; color: var(--label2); }
+.list.rows { margin-top: 14px; }
+.grp + .list.rows { margin-top: 0; }
+.row { position: relative; }
+.row + .row::before { content: ""; position: absolute; top: 0; left: 14px; right: 0; border-top: .5px solid var(--sep); z-index: 1; }
+.rh { display: flex; align-items: center; gap: 10px; width: 100%; padding: 11px 8px 11px 14px; min-height: 48px; }
+.rh:active { background: var(--fill); }
+.rh .main { flex: 1; min-width: 0; } .rh .t { font-size: 16px; }
+.rh .t .d { font-size: 14px; color: var(--label2); white-space: nowrap; margin-left: 6px; }
+.row.cur .rh .t { color: var(--tint); font-weight: 600; }
+.rh .slot { width: 34px; height: 34px; flex: none; display: grid; place-items: center; color: var(--label3); font-size: 15px; }
+.rh .slot.go { border-radius: 17px; background: var(--tintSoft); color: var(--tint); font-size: 13px; }
+.rb { display: none; padding: 0 0 10px; }
+.row.open .rb { display: block; }
+.rb .fact { font-size: 14px; padding: 7px 14px; }
+.seek { position: relative; height: 22px; touch-action: none; margin: 4px 14px 0; }
+.seek .tr { position: absolute; left: 0; right: 0; top: 10px; height: 3px; background: var(--track); } .seek .tr i { display: block; height: 100%; background: var(--tint); }
+.times { display: flex; justify-content: space-between; font-size: 12px; color: var(--label2); margin: -2px 14px 0; }
+.ctl { display: flex; align-items: center; justify-content: space-between; margin: 6px 18px 0; }
+.ctl button { width: 48px; height: 44px; display: grid; place-items: center; font-size: 18px; }
+.ctl button.pp { width: 56px; height: 56px; font-size: 24px; }
+
+/* ---------- the player: a page washed with the colour of what plays ---------- */
+.player-look { background: hsl(var(--h), 55%, 87%); transition: transform .35s cubic-bezier(.2,.8,.2,1), background-color 2.5s; }
+@media (prefers-color-scheme: dark) { .player-look { background: hsl(var(--h), 42%, 15%); } }
+.player-look .list, .player-look .facts, .player-look .nx { background: color-mix(in srgb, var(--card), hsl(var(--h), 60%, 55%) 9%); }
+.cont { margin-top: 26px; }
+.ch { display: flex; gap: 10px; align-items: center; margin: 0 0 8px 6px; }
+.ch .cv { width: 44px; height: 44px; border-radius: 6px; overflow: hidden; flex: none; }
+.ch .m { min-width: 0; } .gt { font-size: 16px; font-weight: 600; color: var(--label); }
+.cont .list.rows { margin-top: 0; }
+.nx { display: flex; gap: 12px; align-items: center; width: 100%; margin-top: 14px; background: var(--card); border-radius: 12px; padding: 10px 12px; }
+.nx .cv { width: 52px; height: 52px; border-radius: 6px; overflow: hidden; flex: none; }
+.nx .m { flex: 1; min-width: 0; } .nx .lab { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--label2); }
+.nx .t { font-size: 16px; font-weight: 600; } .nx .s { font-size: 13px; color: var(--label2); } .nx .chev { color: var(--label3); }
+.rr.now .fg { background: color-mix(in srgb, var(--card), var(--tint) 9%); }
+.fm { width: 1.05em; height: 1.05em; vertical-align: -.12em; }
+#arrow { position: fixed; right: calc(var(--barW) + 10px); width: 44px; height: 44px; border-radius: 22px; z-index: 9; display: none; place-items: center; font-size: 20px; color: var(--tint); box-shadow: 0 4px 16px rgba(0,0,0,.18); }
+#arrow.up { top: calc(var(--top) + var(--navH) + 10px); display: grid; } #arrow.down { bottom: calc(var(--bot) + var(--tabH) + 16px); display: grid; }
+body.onplayer #mini, body.gone #mini, body.gone #bar { opacity: 0; pointer-events: none; }
+#mini, #bar { transition: opacity .4s; }
+.hero.grow .art { animation: grow .55s cubic-bezier(.2,.8,.2,1); transform-origin: top left; }
+.hero.grow > :not(.art) { animation: fadein .55s; }
+@keyframes grow { from { transform: scale(.22); opacity: .6; } to { transform: none; opacity: 1; } }
+@keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+.endq { margin: 26px 16px 0; text-align: center; font: italic 16px/1.4 ui-serif, Georgia, serif; color: var(--label2); animation: fadein 1.2s; }
+@media (prefers-reduced-motion: reduce) { .hero.grow .art, .hero.grow > * { animation: none; } }
+
+/* ---------- tabs, mini player, timeline, player (locked, ADR 0014) ---------- */
+#tabs { position: fixed; left: 16px; right: calc(var(--barW) + 6px); bottom: var(--bot); height: var(--tabH); display: flex; gap: 8px; z-index: 5; transition: opacity .3s; }
+#tabs .cap { flex: 1; border-radius: 28px; display: flex; justify-content: space-around; align-items: center; font-size: 11px; color: var(--label2); }
+#tabs .cap span { display: flex; flex-direction: column; align-items: center; gap: 1px; } #tabs .cap b { font-size: 20px; font-weight: 400; }
+#tabs .cap .on { color: var(--tint); }
+#tabs .circ { width: var(--tabH); border-radius: 28px; display: grid; place-items: center; font-size: 22px; color: var(--label2); flex: none; }
+#mini { position: fixed; left: 16px; right: var(--lineX); bottom: calc(var(--bot) + var(--tabH) + 8px); height: var(--miniH); z-index: 6;
+  background: var(--card); border-radius: 18px 0 0 18px; box-shadow: 0 4px 18px rgba(0,0,0,.14); display: flex; align-items: center; gap: 10px; padding: 0 10px 0 8px; transition: opacity .3s; }
+#mini .art { width: 58px; height: 58px; border-radius: 8px; overflow: hidden; flex: none; }
+#mini .txt { flex: 1; min-width: 0; line-height: 1.22; }
+#mini .mv { font-size: 15px; font-weight: 600; } #mini .by, #mini .wk { font-size: 13px; color: var(--label2); }
+#mini .pp { width: 42px; height: 42px; border-radius: 21px; display: grid; place-items: center; font-size: 18px; flex: none; }
+.mq { overflow: hidden; white-space: nowrap; } .mq span { display: inline-block; padding-right: 32px; }
+.mq.run span { animation: mq var(--dur) linear infinite; }
+@keyframes mq { 0%, 18% { transform: translateX(0); } 82%, 100% { transform: translateX(var(--shift)); } }
+body.player #mini, body.player #tabs, body.player #navbar, body.player #navbg { opacity: 0; pointer-events: none; }
+#bar { position: fixed; right: 0; width: var(--barW); top: var(--edgeTop); bottom: calc(var(--bot) + var(--tabH) + 8px); z-index: 20; touch-action: none; }
+#bar svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+#bubble { position: fixed; right: calc(var(--barW) + 6px); z-index: 25; pointer-events: none; display: none; max-width: 250px; padding: 7px 10px; border-radius: 10px; font-size: 13px; line-height: 1.25; box-shadow: 0 4px 16px rgba(0,0,0,.18); }
+#bubble b { color: var(--tint); font-weight: 600; }
+#player { position: fixed; top: 0; left: 0; bottom: 0; right: var(--barW); z-index: 10; transform: translateX(-102%); transition: transform .4s cubic-bezier(.2,.8,.2,1); box-shadow: 6px 0 24px rgba(0,0,0,.12); background: var(--bg); color: var(--label); }
+body.player #player { transform: none; }
+#player .scroll { position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain; padding: calc(env(safe-area-inset-top) + 100px) 6px calc(var(--bot) + 60px) 16px; }
+#pin { position: absolute; left: 0; right: 0; top: calc(env(safe-area-inset-top) + 46px); height: 52px; z-index: 4; display: flex; align-items: center; gap: 10px; padding: 0 12px; }
+#pin .close { width: 34px; height: 34px; border-radius: 17px; background: var(--fill); display: grid; place-items: center; flex: none; font-size: 18px; }
+
+/* prototype switches */
+#sw { position: fixed; top: calc(env(safe-area-inset-top) + 6px); left: 6px; right: 6px; z-index: 30; display: flex; gap: 5px; justify-content: center; }
+#sw .p { display: flex; align-items: center; background: #111; color: #fff; border-radius: 18px; height: 34px; box-shadow: 0 2px 10px rgba(0,0,0,.35); }
+#sw .p button, #sw .p a { color: #fff; height: 34px; padding: 0 9px; font-size: 13px; white-space: nowrap; display: flex; align-items: center; text-decoration: none; }
+#sw .p button.arr { font-size: 18px; padding: 0 8px; }
+#toast { position: fixed; top: calc(env(safe-area-inset-top) + 46px); left: 50%; transform: translateX(-50%); z-index: 29; background: rgba(17,17,17,.88); color: #fff; font-size: 13px; padding: 7px 12px; border-radius: 12px; opacity: 0; transition: opacity .25s; pointer-events: none; max-width: 90%; text-align: center; }
+#toast.on { opacity: 1; }
+
+/* ---------- people pages (this round) ---------- */
+.pr .s .fm { width: .95em; height: .95em; }
+.pr.ind { padding-left: 30px; } .pr.ind + .pr::before, .pr + .pr.ind::before { left: 30px; }
+.pr.on .m { color: var(--tint); }
+.pr.fold .chev { transition: transform .2s; } .pr.fold.open .chev { transform: rotate(90deg); }
+.pr.fold .m { font-weight: 600; }
+.sh .cnt { text-transform: none; }
+.sh.sm2 { margin-top: 16px; }
+.ch1 { display: flex; gap: 14px; align-items: center; margin: 4px 0 8px; }
+.ch1 .m { min-width: 0; } .ch1 h1.pt { margin: 0; }
+.face { flex: none; width: 84px; height: 84px; border-radius: 50%; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,.18); }
+.face.sm { width: 48px; height: 48px; } .face.lg { width: 112px; height: 112px; margin: 0 auto 10px; display: block; }
+.yrs { font-size: 15px; color: var(--label2); }
+.desc { font-size: 15px; color: var(--label2); margin: 2px 0 0; }
+.bio { margin: 10px 0 0; } .bio p { margin: 0 0 8px; font-size: 15px; line-height: 1.42; }
+.bio.short p:not(:first-child) { display: none; }
+.bio.short p:first-child { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; margin: 0; }
+.biob { display: flex; gap: 18px; margin: 4px 0 6px; font-size: 15px; }
+.cred { font-size: 12px; color: var(--label2); line-height: 1.35; margin: 4px 0 0; }
+.s2 { font-size: 12px; color: var(--label2); }
+.lk.small { font-size: 13px; margin-top: 6px; display: inline-block; }
+.foot0 { font-size: 13px; color: var(--label2); margin: 8px 0 0; line-height: 1.35; }
+.pick { margin: 10px 0 0; } .pk-t { font-weight: 600; font-size: 17px; } .pk-s { font-size: 14px; color: var(--label2); margin: 2px 0 8px; line-height: 1.35; }
+.banner { position: relative; margin: -6px -6px 0 -16px; height: 230px; overflow: hidden; }
+.banner .img { position: absolute; inset: 0; }
+.banner .shade2 { position: absolute; inset: 0; background: linear-gradient(to bottom, transparent 45%, rgba(0,0,0,.6)); }
+.banner .nm { position: absolute; left: 16px; right: 60px; bottom: 12px; color: #fff; }
+.banner .n { font-size: 28px; font-weight: 700; line-height: 1.1; } .banner .y { font-size: 15px; opacity: .85; }
+.banner .info { position: absolute; right: 10px; bottom: 12px; width: 34px; height: 34px; border-radius: 17px; display: grid; place-items: center; font-size: 17px; color: var(--label); }
+.seg { display: flex; background: var(--fill); border-radius: 9px; padding: 2px; margin: 16px 0 4px; }
+.seg button { flex: 1; text-align: center; padding: 7px 0; border-radius: 7px; font-size: 14px; font-weight: 500; }
+.seg button.on { background: var(--card); box-shadow: 0 1px 3px rgba(0,0,0,.15); }
+.facts .fact .v { line-height: 1.3; }
+.pr.rec { align-items: center; } .pr.rec .cv { width: 52px; height: 52px; border-radius: 6px; overflow: hidden; flex: none; }
+.pr .t1 { font-size: 16px; } .pr.wk .t1 { font-weight: 600; }
+.pr.rec.on .t1 { color: var(--tint); }
+.phead { text-align: center; margin-top: 4px; } .phead h1.pt { margin: 0; }
+.chips { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin: 8px 0 4px; }
+.chip { font-size: 13px; padding: 3px 10px; border-radius: 12px; background: var(--fill); color: var(--label2); }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 12px; }
+.tile { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tile .cv { width: 100%; aspect-ratio: 1; border-radius: 8px; overflow: hidden; margin-bottom: 4px; box-shadow: 0 2px 8px rgba(0,0,0,.12); }
+.tile .t1 { font-size: 14px; font-weight: 600; } .tile .s { font-size: 12px; color: var(--label2); } .tile .s.w { color: var(--label); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.tile.on .t1 { color: var(--tint); }
+#shade { position: fixed; inset: 0; background: rgba(0,0,0,.3); z-index: 26; opacity: 0; pointer-events: none; transition: opacity .25s; }
+#shade.on { opacity: 1; pointer-events: auto; } #shade.clear { background: transparent; }
+#sheet { position: fixed; left: 0; right: 0; bottom: 0; height: 78%; z-index: 27; background: var(--bg); border-radius: 14px 14px 0 0; transform: translateY(102%); transition: transform .35s cubic-bezier(.2,.8,.2,1); display: flex; flex-direction: column; box-shadow: 0 -6px 30px rgba(0,0,0,.2); }
+#sheet.on { transform: none; }
+#sheet .grab { width: 36px; height: 5px; border-radius: 3px; background: var(--track); margin: 6px auto 0; flex: none; }
+#sheet .shd { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; flex: none; }
+#sheet .shb { overflow-y: auto; padding: 0 16px calc(var(--bot) + 20px); overscroll-behavior: contain; }
+.fullpic { display: block; width: 62%; aspect-ratio: 3/4; margin: 4px auto 6px; border-radius: 10px; overflow: hidden; }
+#viewer { position: fixed; inset: 0; z-index: 28; background: #000; color: #fff; display: none; flex-direction: column; }
+#viewer.on { display: flex; }
+#viewer .vh { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: calc(env(safe-area-inset-top) + 48px) 16px 10px; font-weight: 600; }
+#viewer .vh button { color: #ff9f85; font-weight: 600; }
+#viewer .vimg { flex: 1; min-height: 0; display: grid; place-items: center; padding: 0 16px; } #viewer .vimg svg { max-height: 100%; width: auto !important; aspect-ratio: 3/4; }
+#viewer .vc { padding: 14px 16px calc(var(--bot) + 16px); font-size: 14px; line-height: 1.5; color: rgba(255,255,255,.85); } #viewer .vc .lk { color: #ff9f85; } #viewer .s2 { color: rgba(255,255,255,.6); }
+#menu { position: fixed; z-index: 27; min-width: 210px; border-radius: 14px; background: var(--glass); backdrop-filter: blur(24px) saturate(1.8); -webkit-backdrop-filter: blur(24px) saturate(1.8); box-shadow: 0 10px 30px rgba(0,0,0,.25); display: none; overflow: hidden; }
+#menu.on { display: block; }
+#menu button { display: flex; width: 100%; padding: 11px 14px; font-size: 16px; gap: 6px; } #menu button + button { border-top: .5px solid var(--sep); }
+#menu .ck { width: 18px; color: var(--tint); } #menu .mfoot { font-size: 12px; color: var(--label2); padding: 8px 14px; border-top: .5px solid var(--sep); }
+
+/* round 2 */
+.banner2 { display: block; margin: -6px -6px 0 -16px; width: calc(100% + 22px); aspect-ratio: 1.6; overflow: hidden; }
+.cred.bc { text-align: right; margin: 4px 0 8px; font-size: 11px; }
+body.wide .pg { right: 0; } body.wide .pg .scroll { padding-right: calc(6px + var(--barW)); }
+body.wide .banner2 { margin-right: calc(-6px - var(--barW)); width: calc(100% + 22px + var(--barW)); }
+.chips2 { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 10px; }
+.chip2 { font-size: 14px; padding: 6px 12px; border-radius: 16px; background: var(--fill); color: var(--label); }
+.chip2 span { color: var(--label2); margin-left: 2px; } .chip2.on { background: var(--tint); color: #fff; } .chip2.on span { color: rgba(255,255,255,.75); }
+.desc { margin-top: 4px; }
+</style>
+</head>
+<body>
+<div id="nav"></div>
+<div id="navbg" class="glass"></div>
+<div id="navbar"><button id="back"><b>‹</b><span class="ell"></span></button><div id="nt" class="ell"></div></div>
+<div id="tabs"><div class="cap glass"><span class="on"><b>♪</b>Library</span><span><b>◷</b>Chronology</span><span><b>⚙︎</b>Settings</span></div><div class="circ glass">⌕</div></div>
+<div id="mini"></div>
+<button id="arrow" class="glass" aria-label="Back to what plays"></button>
+<div id="bar" aria-label="Timeline"></div>
+<div id="bubble" class="glass"></div>
+<div id="sw"><div class="p"><button data-sv="c" id="cvl"></button></div><div class="p"><button data-sv="g" id="gvl"></button></div><div class="p"><button data-sv="p" id="pvl"></button></div><div class="p"><button data-sv="w" id="wvl"></button></div><div class="p"><a href="?" aria-label="Reset">↺</a></div></div>
+<div id="shade" data-a="closeov"></div><div id="sheet"></div><div id="viewer"></div><div id="menu"></div>
+<div id="toast"></div>
+<script>
+const CREATION = [["Einleitung: Die Vorstellung des Chaos",320.1,[["orchestra","Freiburger Barockorchester"]]],["No. 1, Rezitativ mit Chor: Im Anfange schuf Gott Himmel und Erde",155.4,[["tenor","Maximilian Schmitt"],["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"],["choir","RIAS Kammerchor"]]],["No. 2, Arie mit Chor: Nun schwanden vor dem heiligen Strahle",230.3,[["tenor","Maximilian Schmitt"],["orchestra","Freiburger Barockorchester"],["choir","RIAS Kammerchor"]]],["No. 3, Rezitativ: Und Gott machte das Firmament",111.3,[["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]]],["No. 4, Chor mit Sopransolo: Mit Staunen sieht das Wunderwerk",137.8,[["soprano","Julia Kleiter"],["orchestra","Freiburger Barockorchester"],["choir","RIAS Kammerchor"]]],["No. 5, Rezitativ: Und Gott sprach, Es sammle sich das Wasser",35.9,[["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]]],["No. 6, Arie: Rollend in schäumenden Wellen",200.7,[["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]]],["No. 7, Rezitativ: Und Gott sprach, Es bringe die Erde Gras hervor",32.1,[["soprano","Julia Kleiter"],["orchestra","Freiburger Barockorchester"]]],["No. 8, Arie: Nun beut die Flur das frische Grün",301.2,[["soprano","Julia Kleiter"],["orchestra","Freiburger Barockorchester"]]],["No. 9, Rezitativ: Und die himmlischen Heerscharen",11.9,[["tenor","Maximilian Schmitt"],["orchestra","Freiburger Barockorchester"]]],["No. 10, Chor: Stimmt an die Saiten",128.2,[["orchestra","Freiburger Barockorchester"],["choir","RIAS Kammerchor"]]],["No. 11, Rezitativ: Und Gott sprach, Es sei'n Lichter",35.1,[["tenor","Maximilian Schmitt"],["orchestra","Freiburger Barockorchester"]]],["No. 12, Rezitativ: In vollem Glanze steiget jetzt die Sonne",147.0,[["tenor","Maximilian Schmitt"],["orchestra","Freiburger Barockorchester"]]],["No. 13, Chor mit Soli: Die Himmel erzählen die Ehre Gottes",248.9,[["soprano","Julia Kleiter"],["tenor","Maximilian Schmitt"],["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"],["choir","RIAS Kammerchor"]]],["No. 14, Rezitativ: Und Gott sprach, Es bringe das Wasser",27.1,[["soprano","Julia Kleiter"],["orchestra","Freiburger Barockorchester"]]],["No. 15, Arie: Auf starkem Fittiche schwinget sich der Adler",440.7,[["soprano","Julia Kleiter"],["orchestra","Freiburger Barockorchester"]]],["No. 16, Rezitativ: Und Gott schuf große Walfische",116.6,[["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]]],["No. 17, Rezitativ: Und die Engel rührten ihr' unsterblichen Harfen",21.7,[["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]]],["No. 18, Terzett: In holder Anmut stehn – No. 19, Chor: Der Herr ist groß in seiner Macht",396.1,[["soprano","Julia Kleiter"],["tenor","Maximilian Schmitt"],["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"],["choir","RIAS Kammerchor"]]],["No. 20, Rezitativ: Und Gott sprach, Es bringe die Erde hervor",36.9,[["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]]],["No. 21, Rezitativ: Gleich öffnet sich der Erde Schoß",173.8,[["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]]],["No. 22, Arie: Nun scheint in vollem Glanze der Himmel",180.3,[["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]]],["No. 23, Rezitativ: Und Gott schuf den Menschen",39.9,[["tenor","Maximilian Schmitt"],["orchestra","Freiburger Barockorchester"]]],["No. 24, Arie: Mit Würd' und Hoheit angetan",233.0,[["tenor","Maximilian Schmitt"],["orchestra","Freiburger Barockorchester"]]],["No. 25, Rezitativ: Und Gott sah jedes Ding, was er gemacht hatte",22.4,[["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]]],["No. 26, Chor: Vollendet ist das große Werk – No. 27, Terzett: Zu dir, o Herr – No. 28, Chor",593.9,[["soprano","Julia Kleiter"],["tenor","Maximilian Schmitt"],["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"],["choir","RIAS Kammerchor"]]],["No. 29, Rezitativ: Aus Rosenwolken bricht",234.8,[["tenor","Maximilian Schmitt"],["orchestra","Freiburger Barockorchester"]]],["No. 30, Duett mit Chor: Von deiner Güt', o Herr und Gott",580.9,[["soprano","Julia Kleiter"],["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"],["choir","RIAS Kammerchor"]]],["No. 31, Rezitativ: Nun ist die erste Pflicht erfüllt",143.6,[["soprano","Julia Kleiter"],["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]]],["No. 32, Duett: Holde Gattin, dir zur Seite",494.8,[["soprano","Julia Kleiter"],["bass","Johannes Weisser"],["orchestra","Freiburger Barockorchester"]]],["No. 33, Rezitativ: O glücklich Paar, und glücklich immerfort",25.4,[["tenor","Maximilian Schmitt"],["orchestra","Freiburger Barockorchester"]]],["No. 34, Schlusschor: Singt dem Herren alle Stimmen",203.8,[["orchestra","Freiburger Barockorchester"],["choir","RIAS Kammerchor"]]]];
+const Q = new URLSearchParams(location.search);
+const S = { swap: "rise", playing: true, queue: [], history: [], ended: false, gone: false, dl: {}, pages: {} };
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const fmt = s => { s = Math.max(0, Math.floor(s)); const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, x = String(s % 60).padStart(2, "0"); return h ? `${h}:${String(m).padStart(2, "0")}:${x}` : `${m}:${x}`; };
+const mins = s => { const m = Math.round(s / 60); return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`; };
+const cap = s => s[0].toUpperCase() + s.slice(1);
+// A surname comes from the sort name. Without one, the full name shows: no rule guesses.
+const surname = (name, sort) => sort && sort.includes(",") ? sort.split(",")[0] : name;
+
+// ---------- sample library ----------
+const COMP = { lvb: { name: "Ludwig van Beethoven", sort: "Beethoven, Ludwig van" }, haydn: { name: "Joseph Haydn", sort: "Haydn, Joseph" }, chopin: { name: "Frédéric Chopin", sort: "Chopin, Frédéric" } };
+const WORKS = {
+  b5: { title: "Symphony No. 5 in C minor, Op. 67", comp: "lvb", genre: "Symphony", mv: ["Allegro con brio", "Andante con moto", "Allegro", "Allegro"],
+    sum: "Beethoven wrote the symphony between 1804 and 1808. Four notes open it, and their rhythm returns in every movement. The music moves from C minor to a C major finale, where piccolo, contrabassoon and trombones join the orchestra." },
+  b6: { title: "Symphony No. 6 in F major, Op. 68 “Pastoral”", comp: "lvb", genre: "Symphony", mv: ["Awakening of cheerful feelings on arrival in the country. Allegro ma non troppo", "Scene by the brook. Andante molto mosso", "Merry gathering of country folk. Allegro", "Thunderstorm. Allegro", "Shepherd's song. Allegretto"],
+    sum: "Beethoven gave each of the five movements a title about life in the country. A storm interrupts the dance, and the last movement gives thanks when it passes." },
+  b7: { title: "Symphony No. 7 in A major, Op. 92", comp: "lvb", genre: "Symphony", mv: ["Poco sostenuto – Vivace", "Allegretto", "Presto", "Allegro con brio"],
+    sum: "Rhythm drives every movement of this symphony. The Allegretto had to be repeated at the first performance in 1813." },
+  egm: { title: "Egmont, Op. 84: Overture", comp: "lvb", genre: "Overture", mv: ["Sostenuto, ma non troppo – Allegro"],
+    sum: "The overture to Goethe's play about a Flemish count who resists Spanish rule." },
+  noct: { title: "Nocturnes", comp: "chopin", genre: "Album without work tags", untagged: true, mv: ["Nocturne in B-flat minor, Op. 9 No. 1", "Nocturne in E-flat major, Op. 9 No. 2", "Nocturne in B major, Op. 9 No. 3", "Nocturne in F major, Op. 15 No. 1", "Nocturne in F-sharp major, Op. 15 No. 2", "Nocturne in G minor, Op. 15 No. 3", "Nocturne in C-sharp minor, Op. 27 No. 1", "Nocturne in D-flat major, Op. 27 No. 2"],
+    sum: "The tracks of this album carry no work tag. Klassik shows the album as one work until the tags name the works." },
+  creation: { title: "Die Schöpfung, Hob. XXI:2", comp: "haydn", genre: "Oratorio", mv: null,
+    sum: "Haydn's oratorio tells the creation of the world, after Genesis and Milton's Paradise Lost. Three archangels tell the six days, and Adam and Eve sing in the third part. The first public performance was in Vienna in 1799." },
+};
+const ALBUMS = {
+  k57: { title: "Symphonies Nos. 5 & 7", label: "Deutsche Grammophon", year: 1976, recs: ["k74", "k75"] },
+  ga: { title: "Symphonies Nos. 5 & 6", label: "Archiv Produktion", year: 1994, recs: ["ga94", "ga94b"] },
+  ha: { title: "Symphonies Nos. 5 & 6", label: "Teldec", year: 1991, recs: ["ha90", "ha90b"] },
+  cu: { title: "Symphony No. 5", label: "Sony Classical", year: 2020, recs: ["cu20"], mono: true },
+  ka: { title: "Symphony No. 5 · Egmont Overture", label: "Deutsche Grammophon", year: 1963, recs: ["ka62", "ka62b"] },
+  pi: { title: "Nocturnes", label: "Deutsche Grammophon", year: 1996, recs: ["pi96"] },
+  ja: { title: "Die Schöpfung", label: "Harmonia Mundi", year: 2009, recs: ["ja09"] },
+  kc: { title: "Die Schöpfung", label: "Deutsche Grammophon", year: 1969, recs: ["ka69"] },
+  gc: { title: "Die Schöpfung", label: "Archiv Produktion", year: 1996, recs: ["ga96"] },
+};
+const BP = "Berliner Philharmoniker";
+const RECS = {
+  k74: { work: "b5", cond: "Carlos Kleiber", ens: [["orchestra", "Wiener Philharmoniker"]], album: "k57", year: 1974, d: [448, 601, 309, 661] },
+  k75: { work: "b7", cond: "Carlos Kleiber", ens: [["orchestra", "Wiener Philharmoniker"]], album: "k57", year: 1975, d: [818, 488, 525, 517] },
+  ga94: { work: "b5", cond: "John Eliot Gardiner", ens: [["orchestra", "Orchestre Révolutionnaire et Romantique"]], album: "ga", year: 1994, d: [438, 552, 294, 640] },
+  ga94b: { work: "b6", cond: "John Eliot Gardiner", ens: [["orchestra", "Orchestre Révolutionnaire et Romantique"]], album: "ga", year: 1994, d: [610, 690, 290, 222, 545] },
+  ha90: { work: "b5", cond: "Nikolaus Harnoncourt", ens: [["orchestra", "Chamber Orchestra of Europe"]], album: "ha", year: 1990, d: [480, 585, 330, 676] },
+  ha90b: { work: "b6", cond: "Nikolaus Harnoncourt", ens: [["orchestra", "Chamber Orchestra of Europe"]], album: "ha", year: 1990, d: [720, 760, 315, 240, 590] },
+  cu20: { work: "b5", cond: "Teodor Currentzis", ens: [["orchestra", "musicAeterna"]], album: "cu", year: 2020, d: [421, 534, 281, 612] },
+  ka62: { work: "b5", cond: "Herbert von Karajan", ens: [["orchestra", BP]], album: "ka", year: 1962, d: [445, 625, 318, 535] },
+  ka62b: { work: "egm", cond: "Herbert von Karajan", ens: [["orchestra", BP]], album: "ka", year: 1969, d: [508] },
+  pi96: { work: "noct", cond: null, ens: [["piano", "Maria João Pires"]], album: "pi", year: 1996, d: [350, 280, 410, 270, 220, 260, 310, 360] },
+  ja09: { work: "creation", cond: "René Jacobs", k: 1, album: "ja", year: 2009, cast: { soprano: "Julia Kleiter", tenor: "Maximilian Schmitt", bass: "Johannes Weisser", orchestra: "Freiburger Barockorchester", choir: "RIAS Kammerchor" } },
+  ka69: { work: "creation", cond: "Herbert von Karajan", k: 1.14, album: "kc", year: 1969, cast: { soprano: "Gundula Janowitz", tenor: "Fritz Wunderlich", bass: "Walter Berry", orchestra: BP, choir: "Wiener Singverein" } },
+  ga96: { work: "creation", cond: "John Eliot Gardiner", k: .96, album: "gc", year: 1996, cast: { soprano: "Sylvia McNair", tenor: "Michael Schade", bass: "Gerald Finley", orchestra: "English Baroque Soloists", choir: "Monteverdi Choir" } },
+};
+// Listener data (ADR 0013): ordered favourite recordings per work, favourite performers and albums.
+const FAV = { b5: ["k74", "ga94"], creation: ["ja09"] };
+const FAV_PERF = new Set(["John Eliot Gardiner"]), FAV_ALB = new Set(["ha"]), FAV_WORK = new Set(["creation"]);
+
+function tracksOf(id) {
+  const r = RECS[id], w = WORKS[r.work];
+  if (r.cast) return CREATION.map(([t, d, rs]) => ({ t, d: d * r.k, r: rs.map(([role]) => [role, r.cast[role]]) }));
+  return w.mv.map((t, i) => ({ t, d: r.d[i], r: r.ens }));
+}
+const recTotal = id => tracksOf(id).reduce((a, x) => a + x.d, 0);
+function people(id) {
+  const r = RECS[id], seen = new Map();
+  tracksOf(id).forEach(x => x.r.forEach(([role, n]) => seen.has(n) || seen.set(n, role)));
+  const all = [...seen].map(([n, role]) => [role, n]), isEns = p => isEnsRole(p[0]);
+  return { cond: r.cond, ens: all.filter(isEns), solo: all.filter(p => !isEns(p)) };
+}
+const peopleRows = id => { const p = people(id); return [p.cond && ["conductor", p.cond], ...p.solo, ...p.ens].filter(Boolean); };
+// Favourites in the listener's order; then a favourite performer; then a favourite album; then the newest.
+function ordered(work) {
+  const ids = Object.keys(RECS).filter(id => RECS[id].work === work), fav = (FAV[work] || []).filter(id => ids.includes(id));
+  const why = id => { const n = peopleRows(id).map(p => p[1]).find(n => FAV_PERF.has(n)); return n ? [1, "Favourite performer: " + n] : FAV_ALB.has(RECS[id].album) ? [2, "From a favourite album"] : [3, ""]; };
+  const rest = ids.filter(id => !fav.includes(id)).sort((a, b) => why(a)[0] - why(b)[0] || RECS[b].year - RECS[a].year);
+  return [...fav, ...rest].map(id => ({ id, why: fav.includes(id) ? "Favourite" : why(id)[1] }));
+}
+
+
+// ---------- more library for the people pages ----------
+let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+Object.assign(COMP, {
+  part: { name: "Arvo Pärt", sort: "Pärt, Arvo" }, zelenka: { name: "Jan Dismas Zelenka", sort: "Zelenka, Jan Dismas" },
+  strauss: { name: "Strauss", sort: "Strauss" }, anon: { name: "Anonymous", sort: "Anonymous" },
+});
+const isEnsRole = r => ["orchestra", "choir", "quartet", "trio", "ensemble"].includes(r);
+function W_(id, comp, genre, title, mv, grp) { WORKS[id] = { title, comp, genre, mv, grp }; }
+function A_(id, title, label, year, extra) { ALBUMS[id] = { title, label, year, recs: [], ...extra }; }
+function R_(id, work, album, year, cond, ens) {
+  const m = WORKS[work].mv, short = m.length > 8 || ["Étude", "Prélude", "Mazurka", "Nocturne", "Chant"].includes(WORKS[work].genre);
+  RECS[id] = { work, album, year, cond, ens, d: m.map(() => Math.round(short ? 70 + rnd() * 290 : 200 + rnd() * 540)) }; ALBUMS[album].recs.push(id);
+}
+// Beethoven
+W_("b3", "lvb", "Symphony", "Symphony No. 3 in E-flat major, Op. 55 “Eroica”", ["Allegro con brio", "Marcia funebre. Adagio assai", "Scherzo. Allegro vivace", "Finale. Allegro molto"]);
+W_("b9", "lvb", "Symphony", "Symphony No. 9 in D minor, Op. 125", ["Allegro ma non troppo, un poco maestoso", "Molto vivace", "Adagio molto e cantabile", "Finale. Presto – Allegro assai"]);
+W_("cor", "lvb", "Overture", "Coriolan Overture, Op. 62", ["Allegro con brio"]);
+W_("pc5", "lvb", "Concerto", "Piano Concerto No. 5 in E-flat major, Op. 73 “Emperor”", ["Allegro", "Adagio un poco mosso", "Rondo. Allegro"]);
+W_("vc", "lvb", "Concerto", "Violin Concerto in D major, Op. 61", ["Allegro ma non troppo", "Larghetto", "Rondo. Allegro"]);
+W_("ps8", "lvb", "Piano sonata", "Piano Sonata No. 8 in C minor, Op. 13 “Pathétique”", ["Grave – Allegro di molto e con brio", "Adagio cantabile", "Rondo. Allegro"]);
+W_("ps13", "lvb", "Piano sonata", "Piano Sonata No. 13 in E-flat major, Op. 27 No. 1", ["Andante – Allegro", "Allegro molto e vivace", "Adagio con espressione", "Allegro vivace"], "Sonatas quasi una fantasia, Op. 27");
+W_("ps14", "lvb", "Piano sonata", "Piano Sonata No. 14 in C-sharp minor, Op. 27 No. 2 “Moonlight”", ["Adagio sostenuto", "Allegretto", "Presto agitato"], "Sonatas quasi una fantasia, Op. 27");
+W_("ps23", "lvb", "Piano sonata", "Piano Sonata No. 23 in F minor, Op. 57 “Appassionata”", ["Allegro assai", "Andante con moto", "Allegro ma non troppo"]);
+W_("ps32", "lvb", "Piano sonata", "Piano Sonata No. 32 in C minor, Op. 111", ["Maestoso – Allegro con brio ed appassionato", "Arietta. Adagio molto semplice e cantabile"]);
+["F major", "E minor", "C major"].forEach((k, i) => W_("sq" + (7 + i), "lvb", "String quartet", `String Quartet No. ${7 + i} in ${k}, Op. 59 No. ${i + 1}`, ["Allegro", "Adagio", "Allegretto", "Allegro molto"], "Razumovsky Quartets, Op. 59"));
+W_("sq14", "lvb", "String quartet", "String Quartet No. 14 in C-sharp minor, Op. 131", ["Adagio ma non troppo e molto espressivo", "Allegro molto vivace", "Allegro moderato", "Andante ma non troppo e molto cantabile", "Presto", "Adagio quasi un poco andante", "Allegro"]);
+W_("pt7", "lvb", "Piano trio", "Piano Trio No. 7 in B-flat major, Op. 97 “Archduke”", ["Allegro moderato", "Scherzo. Allegro", "Andante cantabile", "Allegro moderato"]);
+A_("kb", "Symphonies Nos. 3 & 9", "Deutsche Grammophon", 1963);
+R_("ka63", "b3", "kb", 1962, "Herbert von Karajan", [["orchestra", BP]]); R_("ka63b", "b9", "kb", 1962, "Herbert von Karajan", [["orchestra", BP], ["choir", "Wiener Singverein"]]);
+R_("ka65", "cor", "ka", 1965, "Herbert von Karajan", [["orchestra", BP]]);
+A_("zb", "Piano Concerto No. 5", "Deutsche Grammophon", 1989); R_("zb89", "pc5", "zb", 1989, "Leonard Bernstein", [["piano", "Krystian Zimerman"], ["orchestra", "Wiener Philharmoniker"]]);
+A_("fa", "Violin Concerto", "Harmonia Mundi", 2012); R_("fa12", "vc", "fa", 2012, "Claudio Abbado", [["violin", "Isabelle Faust"], ["orchestra", "Orchestra Mozart"]]);
+A_("bar", "Piano Sonatas", "Deutsche Grammophon", 1984); ["ps8", "ps13", "ps14", "ps23"].forEach(w => R_("bar" + w, w, "bar", 1984, null, [["piano", "Daniel Barenboim"]]));
+A_("pol2", "Late Piano Sonatas", "Deutsche Grammophon", 1977); R_("pol32", "ps32", "pol2", 1977, null, [["piano", "Maurizio Pollini"]]);
+A_("abq", "Razumovsky Quartets", "EMI", 1979); ["sq7", "sq8", "sq9"].forEach(w => R_("abq" + w, w, "abq", 1979, null, [["quartet", "Alban Berg Quartett"]]));
+A_("tak", "Late String Quartets", "Decca", 2004); R_("tak14", "sq14", "tak", 2004, null, [["quartet", "Takács Quartet"]]);
+A_("bat", "Archduke Trio", "Philips", 1979); R_("bat7", "pt7", "bat", 1979, null, [["trio", "Beaux Arts Trio"]]);
+// Chopin: most works sit in a grouping (the GROUPING tag), as in a full edition.
+A_("rub", "Nocturnes", "RCA", 1965); A_("pol", "Études", "Deutsche Grammophon", 1972); A_("zim", "Ballades", "Deutsche Grammophon", 1988);
+A_("arg", "24 Préludes · Polonaise", "Deutsche Grammophon", 1977); A_("rub2", "Mazurkas", "RCA", 1966);
+// Album-wide artists on every track and no roles (digest T07): the tags do not say who conducts or who plays.
+A_("zc", "Piano Concertos", "Deutsche Grammophon", 1999);
+[[9, ["B-flat minor", "E-flat major", "B major"]], [15, ["F major", "F-sharp major", "G minor"]], [27, ["C-sharp minor", "D-flat major"]]].forEach(([op, ks]) => ks.forEach((k, i) => {
+  const id = `n${op}_${i + 1}`; W_(id, "chopin", "Nocturne", `Nocturne in ${k}, Op. ${op} No. ${i + 1}`, [`Nocturne in ${k}`], `Nocturnes, Op. ${op}`); R_("rub" + id, id, "rub", 1965, null, [["piano", "Arthur Rubinstein"]]); }));
+[[10, ["C major", "A minor", "E major", "C-sharp minor", "G-flat major", "E-flat minor", "C major", "F major", "F minor", "A-flat major", "E-flat major", "C minor"]],
+ [25, ["A-flat major", "F minor", "F major", "A minor", "E minor", "G-sharp minor", "C-sharp minor", "D-flat major", "G-flat major", "B minor", "A minor", "C minor"]]].forEach(([op, ks]) => ks.forEach((k, i) => {
+  const id = `e${op}_${i + 1}`; W_(id, "chopin", "Étude", `Étude in ${k}, Op. ${op} No. ${i + 1}`, [`Étude in ${k}`], `Études, Op. ${op}`); R_("pol" + id, id, "pol", 1972, null, [["piano", "Maurizio Pollini"]]); }));
+[["G minor", 23], ["F major", 38], ["A-flat major", 47], ["F minor", 52]].forEach(([k, op], i) => { const id = "bal" + (i + 1); W_(id, "chopin", "Ballade", `Ballade No. ${i + 1} in ${k}, Op. ${op}`, [`Ballade No. ${i + 1}`]); R_("zim" + id, id, "zim", 1988, null, [["piano", "Krystian Zimerman"]]); });
+W_("pre", "chopin", "Prélude", "24 Préludes, Op. 28", ["C major", "A minor", "G major", "E minor", "D major", "B minor", "A major", "F-sharp minor", "E major", "C-sharp minor", "B major", "G-sharp minor", "F-sharp major", "E-flat minor", "D-flat major", "B-flat minor", "A-flat major", "F minor", "E-flat major", "C minor", "B-flat major", "G minor", "F major", "D minor"].map((k, i) => `No. ${i + 1} in ${k}`));
+R_("argpre", "pre", "arg", 1977, null, [["piano", "Martha Argerich"]]);
+W_("pol53", "chopin", "Polonaise", "Polonaise in A-flat major, Op. 53 “Heroic”", ["Maestoso"]); R_("argpol", "pol53", "arg", 1977, null, [["piano", "Martha Argerich"]]);
+W_("pcc1", "chopin", "Concerto", "Piano Concerto No. 1 in E minor, Op. 11", ["Allegro maestoso", "Romance. Larghetto", "Rondo. Vivace"]);
+W_("pcc2", "chopin", "Concerto", "Piano Concerto No. 2 in F minor, Op. 21", ["Maestoso", "Larghetto", "Allegro vivace"]);
+["pcc1", "pcc2"].forEach(w => R_("zc" + w, w, "zc", 1999, null, [["artist", "Krystian Zimerman"], ["artist", "Polish Festival Orchestra"]]));
+["B-flat major", "E minor", "A-flat major", "A minor"].forEach((k, i) => { const id = "mz17_" + (i + 1); W_(id, "chopin", "Mazurka", `Mazurka in ${k}, Op. 17 No. ${i + 1}`, [`Mazurka in ${k}`], "Mazurkas, Op. 17"); R_("rub2" + id, id, "rub2", 1966, null, [["piano", "Arthur Rubinstein"]]); });
+// Haydn
+W_("hs94", "haydn", "Symphony", "Symphony No. 94 in G major “Surprise”", ["Adagio – Vivace assai", "Andante", "Menuetto. Allegro molto", "Finale. Allegro di molto"], "London Symphonies");
+W_("hs104", "haydn", "Symphony", "Symphony No. 104 in D major “London”", ["Adagio – Allegro", "Andante", "Menuetto. Allegro", "Finale. Spiritoso"], "London Symphonies");
+W_("hq", "haydn", "String quartet", "String Quartet in C major, Op. 76 No. 3 “Emperor”", ["Allegro", "Poco adagio, cantabile", "Menuetto. Allegro", "Finale. Presto"]);
+A_("min", "London Symphonies", "Naïve", 2010); ["hs94", "hs104"].forEach(w => R_("min" + w, w, "min", 2010, "Marc Minkowski", [["orchestra", "Les Musiciens du Louvre"]]));
+A_("mos", "String Quartets, Op. 76", "Naïve", 2001); R_("mosq", "hq", "mos", 2001, null, [["quartet", "Quatuor Mosaïques"]]);
+// Pärt: a living composer; his portrait needs a credit.
+W_("tr", "part", "Orchestral", "Tabula rasa", ["Ludus", "Silentium"]); W_("fr", "part", "Chamber", "Fratres", ["Fratres"]); W_("sp", "part", "Chamber", "Spiegel im Spiegel", ["Spiegel im Spiegel"]);
+A_("ecm", "Tabula rasa", "ECM", 1984); R_("ecmtr", "tr", "ecm", 1984, "Saulius Sondeckis", [["violin", "Gidon Kremer"], ["violin", "Tatjana Grindenko"], ["orchestra", "Lithuanian Chamber Orchestra"]]);
+R_("ecmfr", "fr", "ecm", 1984, null, [["violin", "Gidon Kremer"], ["piano", "Keith Jarrett"]]);
+A_("alina", "Alina", "ECM", 1999); R_("alsp", "sp", "alina", 1999, null, [["violin", "Vladimir Spivakov"], ["piano", "Sergej Bezrodny"]]);
+// Zelenka: no portrait, and one album with weak tags.
+W_("zm", "zelenka", "Mass", "Missa Dei Patris, ZWV 19", ["Kyrie", "Gloria", "Credo", "Sanctus", "Benedictus", "Agnus Dei"]);
+W_("zt", "zelenka", "Chamber", "Trio Sonata No. 5 in F major, ZWV 181", ["Adagio", "Allegro", "Adagio", "Allegro"]);
+A_("zel", "Missa Dei Patris", "Carus", 1990); R_("zelm", "zm", "zel", 1990, null, [["artist", "Kammerchor Stuttgart"], ["artist", "Barockorchester Stuttgart"], ["artist", "Frieder Bernius"]]);
+A_("zts", "Trio Sonatas", "ECM", 1999); R_("ztsr", "zt", "zts", 1999, null, [["oboe", "Heinz Holliger"], ["oboe", "Maurice Bourgue"], ["bassoon", "Klaus Thunemann"]]);
+// "Strauss": the tag names a surname only. The works are Richard's; Wikidata ranks Johann II first.
+W_("zar", "strauss", "Tone poem", "Also sprach Zarathustra, Op. 30", ["Einleitung", "Von den Hinterweltlern", "Von der großen Sehnsucht", "Von den Freuden und Leidenschaften", "Das Grablied", "Von der Wissenschaft", "Der Genesende", "Das Tanzlied", "Nachtwandlerlied"]);
+W_("vll", "strauss", "Song", "Vier letzte Lieder", ["Frühling", "September", "Beim Schlafengehen", "Im Abendrot"]);
+A_("kz", "Also sprach Zarathustra · Vier letzte Lieder", "Deutsche Grammophon", 1973);
+R_("kzar", "zar", "kz", 1973, "Herbert von Karajan", [["orchestra", BP]]); R_("kvll", "vll", "kz", 1973, "Herbert von Karajan", [["soprano", "Gundula Janowitz"], ["orchestra", BP]]);
+// Anonymous: Klassik looks up no facts for such a tag.
+[["g1", "Puer natus est nobis"], ["g2", "Victimae paschali laudes"], ["g3", "Dies irae"]].forEach(([id, t]) => W_(id, "anon", "Chant", t, [t]));
+A_("greg", "Gregorian Chant", "Supraphon", 2005); ["g1", "g2", "g3"].forEach(w => R_("greg" + w, w, "greg", 2005, null, [["choir", "Schola Gregoriana Pragensis"]]));
+
+// ---------- outside facts (Wikidata, Wikipedia, Commons): sample text and generated portraits ----------
+// pic: the face sits at (fx, fy) with radius r in a 300×400 image. The page crops to the face only for display.
+const FACTS = {
+  lvb: { life: "1770–1827", desc: "German composer", pic: { h: 28, fx: 168, fy: 150, r: 50, hair: "#4a3a2c", by: "Joseph Karl Stieler, 1820", lic: "Public domain" },
+    lead: ["Ludwig van Beethoven was a German composer and pianist. He bridged the Classical and Romantic periods, and his works are among the most performed in the repertoire.",
+      "Born in Bonn, he moved to Vienna at 21 and studied with Haydn. He became known first as a virtuoso pianist. His hearing began to fail in his late twenties, and he was almost deaf in his last decade.",
+      "He wrote nine symphonies, five piano concertos, thirty-two piano sonatas, sixteen string quartets and one opera, Fidelio. The late quartets and sonatas puzzled his contemporaries and became models for later composers."] },
+  haydn: { life: "1732–1809", desc: "Austrian composer", pic: { h: 210, fx: 140, fy: 160, r: 48, hair: "#d8d4cc", by: "Thomas Hardy, 1791", lic: "Public domain" },
+    lead: ["Joseph Haydn was an Austrian composer of the Classical period. He did much to shape the symphony and the string quartet.",
+      "For almost thirty years he served the Esterházy family at their remote estate. Cut off from other composers, he said, he was forced to become original. Two visits to London late in life brought him fame across Europe."] },
+  chopin: { life: "1810–1849", desc: "Polish composer and pianist", pic: { mono: true, h: 0, fx: 150, fy: 140, r: 46, hair: "#3a3530", by: "Louis-Auguste Bisson, 1849", lic: "Public domain" },
+    lead: ["Frédéric Chopin was a Polish composer and virtuoso pianist of the Romantic period. Nearly all his works are for solo piano.",
+      "He left Warsaw at twenty and settled in Paris, where he taught and played mostly in salons. He gave few public concerts. He died of tuberculosis at thirty-nine.",
+      "His mazurkas and polonaises draw on Polish dances. His nocturnes, études and ballades widened what the piano could express."] },
+  part: { life: "born 1935", desc: "Estonian composer", pic: { h: 200, fx: 152, fy: 170, r: 54, hair: "#9a958e", beard: true, by: "Sample photographer, 2011", lic: "CC BY-SA 2.0", need: true },
+    lead: ["Arvo Pärt is an Estonian composer of sacred and minimalist music.",
+      "After a long silence in the 1970s he found a style he calls tintinnabuli: simple triads that ring like bells around a melody. Tabula rasa and Fratres date from 1977."] },
+  zelenka: { life: "1679–1745", desc: "Czech composer", pic: null,
+    lead: ["Jan Dismas Zelenka was a Czech Baroque composer who worked at the court of Dresden.",
+      "His sacred music and his trio sonatas are known for bold harmony and hard writing for the oboes. He was little known after his death until the twentieth century."] },
+};
+const CAND = { strauss: [
+  { id: "js2", name: "Johann Strauss II", desc: "Austrian composer", facts: { life: "1825–1899", desc: "Austrian composer", pic: { h: 30, fx: 150, fy: 150, r: 48, hair: "#2a2420", beard: true, by: "Fritz Luckhardt, 1880s", lic: "Public domain" },
+    lead: ["Johann Strauss II was an Austrian composer of light music, known as the Waltz King.", "He wrote more than 500 waltzes, polkas and marches, among them The Blue Danube, and the operetta Die Fledermaus."] } },
+  { id: "rs", name: "Richard Strauss", desc: "German composer and conductor", facts: { life: "1864–1949", desc: "German composer and conductor", pic: { mono: true, h: 0, fx: 160, fy: 150, r: 50, hair: "#5c5650", by: "Unknown photographer, 1910s", lic: "Public domain" },
+    lead: ["Richard Strauss was a German composer and conductor of the late Romantic period.", "He is known for his tone poems, such as Also sprach Zarathustra, and for operas such as Salome and Der Rosenkavalier. He wrote the Vier letzte Lieder in 1948, a year before his death."] } },
+  { id: "js1", name: "Johann Strauss I", desc: "Austrian composer", facts: { life: "1804–1849", desc: "Austrian composer", pic: null, lead: ["Johann Strauss I was an Austrian composer of waltzes and marches, best known for the Radetzky March."] } },
+] };
+// Performers: a Wikidata description and sometimes a photo. Not researched yet; the prototype assumes the composer path works for them too.
+const PERF_WD = {
+  "Herbert von Karajan": { desc: "Austrian conductor", life: "1908–1989", pic: { h: 220, fx: 150, fy: 150, r: 50, hair: "#cfcac2", by: "Sample photographer, 1970s", lic: "CC BY-SA 3.0", need: true } },
+  "Carlos Kleiber": { desc: "German-Austrian conductor", life: "1930–2004" },
+  "John Eliot Gardiner": { desc: "English conductor", life: "born 1943", pic: { h: 190, fx: 150, fy: 160, r: 50, hair: "#bdb7ae", by: "Sample photographer, 2008", lic: "CC BY 2.0", need: true } },
+  "Berliner Philharmoniker": { desc: "orchestra in Berlin, Germany" },
+  "Wiener Philharmoniker": { desc: "orchestra in Vienna, Austria" },
+  "Maria João Pires": { desc: "Portuguese pianist", life: "born 1944", pic: { h: 340, fx: 150, fy: 160, r: 48, hair: "#6b6560", by: "Sample photographer, 2012", lic: "CC BY-SA 4.0", need: true } },
+  "Krystian Zimerman": { desc: "Polish pianist", life: "born 1956", pic: { h: 30, fx: 150, fy: 150, r: 50, hair: "#ddd8d0", beard: true, by: "Sample photographer, 2015", lic: "CC BY-SA 4.0", need: true } },
+  "Arthur Rubinstein": { desc: "Polish-American pianist", life: "1887–1982", pic: { mono: true, h: 0, fx: 150, fy: 150, r: 50, hair: "#e0ddd8", by: "Unknown photographer, 1940s", lic: "Public domain" } },
+  "Julia Kleiter": { desc: "German soprano", life: "born 1980" },
+};
+S.match = {}; S.bio = "short"; S.cg = "genre"; S.favComp = new Set(["chopin"]);
+const CV = { A: "Inline", B: "Tabs", C: "Sheet" }, PV = { A: "By composer", B: "By work", C: "Albums" }, GV = { A: "Chips", B: "Sections", C: "To Search" };
+S.cv = CV[Q.get("c")] ? Q.get("c") : "A"; S.pv = PV[Q.get("p")] ? Q.get("p") : "A"; S.gv = GV[Q.get("g")] ? Q.get("g") : "A"; S.wv = Q.get("w") === "screen" ? "screen" : "page";
+// undefined: the listener must choose; null: no facts.
+function factsOf(c) { if (c === "anon") return null; if (CAND[c]) { const m = S.match[c]; return m == null ? undefined : m === "none" ? null : CAND[c].find(x => x.id === m).facts; } return FACTS[c] || null; }
+const dispName = c => CAND[c] && S.match[c] && S.match[c] !== "none" ? CAND[c].find(x => x.id === S.match[c]).name : COMP[c].name;
+
+// ---------- portraits: generated paintings, never real images ----------
+let picN = 0;
+function portraitSVG(p, crop) {
+  const id = "pp" + (++picN), sat = p.mono ? 0 : 1, { fx, fy, r } = p;
+  let vb = "0 0 300 400";
+  if (crop === "face") vb = `${fx - r * 1.25} ${fy - r * 1.3} ${r * 2.5} ${r * 2.5}`;
+  if (crop === "band") { const w = r * 4.6, h = w / 1.6; vb = `${fx - w / 2} ${fy - h * .5} ${w} ${h}`; }
+  const skin = `hsl(26,${40 * sat}%,${p.mono ? 70 : 72}%)`, coat = `hsl(${p.h},${25 * sat}%,16%)`;
+  return `<svg viewBox="${vb}" preserveAspectRatio="xMidYMid slice" style="width:100%;height:100%;display:block"><defs><radialGradient id="${id}" cx=".45" cy=".35" r=".8"><stop offset="0" stop-color="hsl(${p.h},${30 * sat}%,46%)"/><stop offset="1" stop-color="hsl(${p.h},${30 * sat}%,14%)"/></radialGradient></defs>
+    <rect width="300" height="400" fill="url(#${id})"/>
+    <path d="M${fx - 135} 400 C${fx - 120} ${fy + r * 1.6}, ${fx - 50} ${fy + r * 1.25}, ${fx} ${fy + r * 1.2} C${fx + 50} ${fy + r * 1.25}, ${fx + 120} ${fy + r * 1.6}, ${fx + 135} 400 Z" fill="${coat}"/>
+    <path d="M${fx - 26} ${fy + r * 1.15} L${fx} ${fy + r * 1.9} L${fx + 26} ${fy + r * 1.15} Z" fill="hsl(40,${20 * sat}%,88%)"/>
+    <rect x="${fx - r * .3}" y="${fy + r * .6}" width="${r * .6}" height="${r * .6}" fill="${skin}"/>
+    <ellipse cx="${fx}" cy="${fy}" rx="${r * .78}" ry="${r}" fill="${skin}"/>
+    <path d="M${fx - r * .85} ${fy - r * .05} C${fx - r * .95} ${fy - r * 1.25}, ${fx + r * .95} ${fy - r * 1.3}, ${fx + r * .86} ${fy - r * .05} C${fx + r * .6} ${fy - r * .75}, ${fx - r * .6} ${fy - r * .75}, ${fx - r * .85} ${fy - r * .05} Z" fill="${p.hair}"/>
+    ${p.beard ? `<path d="M${fx - r * .7} ${fy + r * .2} C${fx - r * .6} ${fy + r * 1.15}, ${fx + r * .6} ${fy + r * 1.15}, ${fx + r * .7} ${fy + r * .2} C${fx + r * .3} ${fy + r * .55}, ${fx - r * .3} ${fy + r * .55}, ${fx - r * .7} ${fy + r * .2} Z" fill="${p.hair}"/>` : ""}
+    <ellipse cx="${fx - r * .3}" cy="${fy - r * .05}" rx="${r * .09}" ry="${r * .06}" fill="#2a2420"/><ellipse cx="${fx + r * .3}" cy="${fy - r * .05}" rx="${r * .09}" ry="${r * .06}" fill="#2a2420"/>
+    <path d="M${fx - r * .22} ${fy + r * .5} Q${fx} ${fy + r * .58} ${fx + r * .22} ${fy + r * .5}" stroke="#7a4a3a" stroke-width="${r * .05}" fill="none"/></svg>`;
+}
+const credit = p => `Portrait: ${esc(p.by)} · ${esc(p.lic)}${p.need ? " · Wikimedia Commons" : ""}`;
+
+// ---------- genres: one to many on each track, in whatever style the library uses ----------
+// Klassik reads genre values as plain labels. It does not know which value is a kind, a period or a form.
+const KIND = { Symphony: "Orchestral", Overture: "Orchestral", "Tone poem": "Orchestral", Orchestral: "Orchestral", Concerto: "Concerto", "String quartet": "Chamber", "Piano trio": "Chamber", Chamber: "Chamber",
+  "Piano sonata": "Keyboard", Ballade: "Keyboard", "Étude": "Keyboard", Mazurka: "Keyboard", Nocturne: "Keyboard", Polonaise: "Keyboard", "Prélude": "Keyboard", Oratorio: "Choral", Mass: "Choral", Song: "Vocal", Chant: "Choral" };
+const PERIOD = { lvb: "Romantic", haydn: "Classical period", chopin: "Romantic", part: "Contemporary", zelenka: "Baroque", strauss: "Late Romantic", anon: "Medieval" };
+// Albums tagged in other styles: another period, one Presto value, a form as the genre, only "Classical", no genre at all.
+const GENRE_STYLE = { kb: ["Classical", "Orchestral", "Classical period"], bar: ["Classical", "Keyboard", "Classical period"], abq: ["Classical > Chamber"], ga: ["Classical", "Symphony"], zc: ["Classical"], pi: ["Classical"], zel: [], greg: [] };
+function recGenres(r) { const R = RECS[r]; return GENRE_STYLE[R.album] || ["Classical", KIND[WORKS[R.work].genre] || "Classical", PERIOD[WORKS[R.work].comp]]; }
+const recsOf = w => Object.keys(RECS).filter(r => RECS[r].work === w);
+const workGenres = w => [...new Set(recsOf(w).flatMap(recGenres))];
+function genreCounts(ws) { const m = new Map(); ws.forEach(w => workGenres(w).forEach(g => m.set(g, (m.get(g) || 0) + 1))); return [...m].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])); }
+// A genre that every work carries splits nothing, so the page names it once and leaves it out.
+const splitting = ws => genreCounts(ws).filter(([, k]) => k < ws.length);
+const everyWork = ws => genreCounts(ws).filter(([, k]) => k === ws.length).map(([g]) => g);
+
+// ---------- composer pages ----------
+const compWorks = c => Object.keys(WORKS).filter(w => WORKS[w].comp === c && !WORKS[w].untagged).sort((a, b) => WORKS[a].title.localeCompare(WORKS[b].title, "en", { numeric: true }));
+const untaggedOf = c => Object.keys(WORKS).filter(w => WORKS[w].comp === c && WORKS[w].untagged);
+const recCount = w => recsOf(w).length;
+const nRec = n => `${n} ${n === 1 ? "recording" : "recordings"}`, nWork = n => `${n} ${n === 1 ? "work" : "works"}`;
+const nowWork = () => loaded() ? cur().work : null;
+function workRow(w, ind) {
+  const on = nowWork() === w, bits = [FAV_WORK.has(w) && `${FERMATA} Favourite`, on && "♫ Plays", nRec(recCount(w))].filter(Boolean).join(" · ");
+  return `<button class="pr ${ind ? "ind" : ""} ${on ? "on" : ""}" data-link="work:${w}"><span class="m">${esc(WORKS[w].title)}<div class="s">${bits}</div></span><span class="chev">›</span></button>`;
+}
+// Works that share a grouping fold into one row that opens in place.
+function foldRows(key, ws, tag = "") {
+  const pg = pageOf(key); pg.og ||= new Set(); const done = new Set(); let out = "";
+  for (const w of ws) {
+    const g = WORKS[w].grp; if (!g) { out += workRow(w); continue; } if (done.has(g)) continue; done.add(g);
+    const kids = ws.filter(x => WORKS[x].grp === g), id = tag + "|" + g, open = pg.og.has(id), on = kids.includes(nowWork());
+    if (kids.length === 1) { out += workRow(kids[0]); continue; }
+    out += `<button class="pr fold ${open ? "open" : ""}" data-a="grp" data-g="${esc(id)}"><span class="m">${esc(g)}<div class="s">${on ? "♫ Plays · " : ""}${nWork(kids.length)} · ${nRec(kids.reduce((a, x) => a + recCount(x), 0))}</div></span><span class="chev">›</span></button>`;
+    if (open) out += kids.map(x => workRow(x, true)).join("");
+  }
+  return out;
+}
+function favWorksSection(c) { const f = compWorks(c).filter(w => FAV_WORK.has(w)); return f.length ? `<div class="sh">Favourite works</div><div class="list">${f.map(w => workRow(w)).join("")}</div>` : ""; }
+function untaggedSection(c) { const u = untaggedOf(c); return u.length ? `<div class="sh">Albums without work tags</div><div class="list">${u.map(w => workRow(w)).join("")}</div>` : ""; }
+function pickCard(c) {
+  return `<div class="pick"><div class="pk-t">Which ${esc(COMP[c].name)}?</div><div class="pk-s">The tags say only “${esc(COMP[c].name)}”. Wikidata knows several composers with this name. Klassik shows facts after you choose. The first one is Wikidata's best guess.</div>
+  <div class="list">${CAND[c].map(x => `<button class="pr" data-a="pick" data-c="${c}" data-id="${x.id}"><span class="m">${esc(x.name)}<div class="s">${esc(x.desc)} · ${esc(x.facts.life)}</div></span><span class="chev">›</span></button>`).join("")}<button class="pr" data-a="pick" data-c="${c}" data-id="none"><span class="m">None of these</span></button></div></div>`;
+}
+const repick = c => CAND[c] && S.match[c] ? `<button class="lk small" data-a="repick" data-c="${c}">Wrong composer? Choose again</button>` : "";
+function noFacts(c) {
+  if (c === "anon") return `<div class="foot0">Klassik looks up no facts for “Anonymous”.</div>`;
+  if (CAND[c] && S.match[c] === "none") return `<div class="foot0">You said that no Wikidata composer matches. ${repick(c)}</div>`;
+  return "";
+}
+function compActs(c) { return `<div class="acts"><button class="btn" data-a="favcomp" data-c="${c}">${S.favComp.has(c) ? `${FERMATA} Favourite` : "Favourite"}</button><button class="btn" data-a="chron" data-c="${c}">◷ Chronology</button></div>`; }
+const compCount = c => { const ws = compWorks(c); return `${nWork(ws.length)} · ${nRec(ws.reduce((a, w) => a + recCount(w), 0))}`; };
+// The picture fills the width, cropped to the face. A tap shows the whole image and its credit.
+function banner(p, data) { return p ? `<button class="banner2" ${data} aria-label="Show the whole picture">${portraitSVG(p, "band")}</button><div class="cred bc">${credit(p)} · cropped</div>` : ""; }
+// Each fact shows once: the description, then the years.
+const descLine = (d, life) => [d, life].filter(Boolean).map(esc).join(" · ");
+function compHead(c, f) {
+  return (f && f.pic ? banner(f.pic, `data-a="full" data-c="${c}"`) : "") + `<h1 class="pt">${esc(dispName(c))}</h1>${f ? `<div class="desc">${descLine(f.desc, f.life)}</div>` : ""}`;
+}
+
+// The works list. Genres are labels on works, so the variants differ only in how they use them.
+function worksList(c) {
+  const key = "comp:" + c, pg = pageOf(key), ws = compWorks(c), sp = splitting(ws), all = everyWork(ws);
+  const every = all.length ? `<div class="foot0">Every work here carries ${all.map(g => `“${esc(g)}”`).join(" and ")}.</div>` : "";
+  const noGenre = ws.filter(w => !workGenres(w).length);
+  if (S.gv === "B") {
+    // Sections: a work shows under each of its genres.
+    const left = ws.filter(w => !workGenres(w).some(g => sp.some(([x]) => x === g)));
+    return `<div class="sh"><span>${compCount(c)}</span></div>${every}${sp.length ? `<div class="foot0">A work with several genres shows in each of them.</div>` : ""}`
+      + sp.map(([g, k]) => `<div class="sh sm2"><span>${esc(g)}</span><span class="cnt">${k}</span></div><div class="list">${foldRows(key, ws.filter(w => workGenres(w).includes(g)), g)}</div>`).join("")
+      + (left.length ? `<div class="sh sm2"><span>${sp.length ? "Other works" : "Works"}</span><span class="cnt">${left.length}</span></div><div class="list">${foldRows(key, left, "other")}</div>` : "") + untaggedSection(c);
+  }
+  if (S.gv === "C") {
+    // To Search: genre rows hand the composer and the genre to Search as two search terms.
+    return `<div class="sh"><span>${compCount(c)}</span></div><div class="list">${foldRows(key, ws)}</div>${untaggedSection(c)}`
+      + (sp.length || all.length ? `<div class="sh">Genres</div><div class="list">${genreCounts(ws).map(([g, k]) => `<button class="pr" data-a="tosearch" data-c="${c}" data-g="${esc(g)}"><span class="m">${esc(g)}<div class="s">${nWork(k)}</div></span><span class="chev">⌕</span></button>`).join("")}</div><div class="foot0">A genre opens Search with ${esc(dispName(c))} and the genre as search terms.</div>` : "");
+  }
+  // Chips: genres filter the list. Several chips join with "or", as in a set of Search.
+  pg.gsel ||= new Set(); const sel = [...pg.gsel].filter(g => sp.some(([x]) => x === g)), shown = sel.length ? ws.filter(w => workGenres(w).some(g => sel.includes(g))) : ws;
+  const chips = sp.length ? `<div class="chips2">${sp.map(([g, k]) => `<button class="chip2 ${sel.includes(g) ? "on" : ""}" data-a="gchip" data-g="${esc(g)}">${esc(g)} <span>${k}</span></button>`).join("")}</div>` : "";
+  return `<div class="sh"><span>${sel.length ? `${shown.length} of ${nWork(ws.length)}` : compCount(c)}</span>${sel.length ? `<button data-a="gclear">Show all</button>` : ""}</div>${chips}${every}${noGenre.length && sp.length ? `<div class="foot0">${nWork(noGenre.length)} without a genre ${noGenre.length === 1 ? "shows" : "show"} only under Show all.</div>` : ""}<div class="list">${foldRows(key, shown)}</div>` + untaggedSection(c);
+}
+
+function composerHTML(c) { return S.cv === "B" ? composerB(c) : S.cv === "C" ? composerC(c) : composerA(c); }
+// A: the bio on the page; More shows the whole lead on every composer page.
+function composerA(c) {
+  const f = factsOf(c); let h = compHead(c, f);
+  if (f === undefined) h += pickCard(c);
+  else if (f) h += `<div class="bio ${S.bio}">${f.lead.map(p => `<p>${esc(p)}</p>`).join("")}</div><div class="biob"><button class="lk" data-a="bio">${S.bio === "short" ? "More" : "Less"}</button>${S.bio === "full" ? `<button class="lk" data-a="wiki">Wikipedia ›</button>` : ""}</div><div class="cred">Text: Wikipedia · CC BY-SA · sample text</div>${repick(c)}`;
+  else h += noFacts(c);
+  return h + compActs(c) + favWorksSection(c) + worksList(c);
+}
+// B: Works and About tabs.
+function composerB(c) {
+  const f = factsOf(c), pg = pageOf("comp:" + c), tab = pg.tab || "works"; let h = compHead(c, f);
+  if (f === undefined) return h + pickCard(c) + compActs(c) + worksList(c);
+  if (!f) return h + noFacts(c) + compActs(c) + favWorksSection(c) + worksList(c);
+  h += compActs(c) + `<div class="seg"><button class="${tab === "works" ? "on" : ""}" data-a="tab" data-t="works">Works</button><button class="${tab === "about" ? "on" : ""}" data-a="tab" data-t="about">About</button></div>`;
+  if (tab === "works") return h + favWorksSection(c) + worksList(c);
+  return h + `<div class="bio full">${f.lead.map(p => `<p>${esc(p)}</p>`).join("")}</div><div class="biob"><button class="lk" data-a="wiki">Read on Wikipedia ›</button></div>
+    <div class="sh">Credits</div><div class="facts">${f.pic ? `<div class="fact"><span class="k">Picture</span><span class="v">${esc(f.pic.by)}<br><span class="s2">${esc(f.pic.lic)} · cropped for the page</span></span></div>` : ""}<div class="fact"><span class="k">Text</span><span class="v">Wikipedia<br><span class="s2">CC BY-SA · sample text</span></span></div><div class="fact"><span class="k">Facts</span><span class="v">Wikidata<br><span class="s2">CC0</span></span></div></div>${repick(c)}`;
+}
+// C: works first; the bio opens in a sheet.
+function composerC(c) {
+  const f = factsOf(c); let h = compHead(c, f);
+  if (f === undefined) h += pickCard(c);
+  else if (f) h += `<div class="list" style="margin-top:12px"><button class="pr" data-a="about" data-c="${c}"><span class="m">About ${esc(surname(dispName(c), COMP[c].sort.includes(",") ? COMP[c].sort : ""))}<div class="s ell">${esc(f.lead[0])}</div></span><span class="chev">›</span></button></div>`;
+  else h += noFacts(c);
+  return h + compActs(c) + favWorksSection(c) + worksList(c);
+}
+function aboutSheet(c) {
+  const f = factsOf(c);
+  return `<div class="grab"></div><div class="shd"><b>About ${esc(dispName(c))}</b><button class="lk" data-a="closeov">Done</button></div><div class="shb">
+    ${f.pic ? `<button class="fullpic" data-a="full" data-c="${c}">${portraitSVG(f.pic, "full")}</button><div class="cred" style="text-align:center">${credit(f.pic)}</div>` : ""}
+    <div class="bio full">${f.lead.map(p => `<p>${esc(p)}</p>`).join("")}</div>
+    <div class="biob"><button class="lk" data-a="wiki">Read on Wikipedia ›</button></div><div class="cred">Text: Wikipedia · CC BY-SA · sample text</div>${repick(c)}</div>`;
+}
+
+// ---------- performer pages ----------
+const ROLE = { conductor: "Conductor", orchestra: "Orchestra", choir: "Choir", quartet: "Quartet", trio: "Trio", artist: "No role in the tags" };
+const roleWord = r => ROLE[r] || cap(r);
+function perfData(n) {
+  const recs = Object.keys(RECS).filter(r => peopleRows(r).some(p => p[1] === n));
+  const roles = [...new Set(recs.flatMap(r => peopleRows(r).filter(p => p[1] === n).map(p => p[0])))];
+  return { recs, roles };
+}
+const allPerformers = () => [...new Set(Object.keys(RECS).flatMap(r => peopleRows(r).map(p => p[1])))].sort((a, b) => a.split(" ").pop().localeCompare(b.split(" ").pop()));
+// The album title shows only when it adds something to the work title.
+function perfRecRow(r, n, showWorkTitle = true) {
+  const R = RECS[r], w = WORKS[R.work], a = ALBUMS[R.album], others = peopleRows(r).filter(p => p[1] !== n).map(p => p[1]), on = isPlayingRec(r);
+  const ppl = others.length ? esc(others.slice(0, 3).join(" · ")) + (others.length > 3 ? ` +${others.length - 3}` : "") : "";
+  const alb = w.title.startsWith(a.title) ? "" : " · " + esc(a.title);
+  return `<button class="pr rec ${on ? "on" : ""}" data-link="rec:${r}"><span class="cv">${cover(R.album)}</span><span class="m">${showWorkTitle ? `<div class="t1">${esc(w.title)}</div>` : ""}${ppl ? `<div class="s">${ppl}</div>` : ""}<div class="s">${on ? "♫ Plays · " : ""}${R.year}${alb}</div></span><span class="chev">›</span></button>`;
+}
+function weakNote(d) { return d.roles.includes("artist") ? `<div class="foot0">${d.roles.length > 1 ? "On some albums the" : "The"} tags name this artist for the whole album and give no role. Klassik cannot tell who conducts or who plays which track.</div>` : ""; }
+const favPerfBtn = n => `<button class="btn" data-a="favperf" data-n="${esc(n)}">${FAV_PERF.has(n) ? `${FERMATA} Favourite` : "Favourite"}</button>`;
+const compOfRec = r => WORKS[RECS[r].work].comp;
+const byComposer = recs => { const m = new Map(); [...recs].sort((a, b) => COMP[compOfRec(a)].sort.localeCompare(COMP[compOfRec(b)].sort) || WORKS[RECS[a].work].title.localeCompare(WORKS[RECS[b].work].title, "en", { numeric: true })).forEach(r => { const c = compOfRec(r); m.has(c) || m.set(c, []); m.get(c).push(r); }); return [...m]; };
+// Same head on every performer page: the picture when there is one, the name, then roles and Wikidata facts once.
+function perfHead(n, d) {
+  const wd = PERF_WD[n];
+  return (wd && wd.pic ? banner(wd.pic, `data-a="full" data-pn="${esc(n)}"`) : "") + `<h1 class="pt">${esc(n)}</h1><div class="desc">${descLine(wd && wd.desc, wd && wd.life)}</div><div class="yrs">${d.roles.map(roleWord).join(" · ")}</div>${weakNote(d)}<div class="acts">${favPerfBtn(n)}</div>`;
+}
+function performerHTML(n) { return S.pv === "B" ? performerB(n) : S.pv === "C" ? performerC(n) : performerA(n); }
+// A: recordings under each composer.
+function performerA(n) {
+  const d = perfData(n);
+  return perfHead(n, d) + `<div class="sh"><span>${nRec(d.recs.length)}</span></div>` + byComposer(d.recs).map(([c, rs]) => `<div class="sh sm2"><span>${esc(dispName(c))}</span><span class="cnt">${rs.length}</span></div><div class="list">${rs.map(r => perfRecRow(r, n)).join("")}</div>`).join("");
+}
+// B: recordings under each work; the people they play with.
+function performerB(n) {
+  const d = perfData(n);
+  const works = [...new Set(d.recs.map(r => RECS[r].work))].sort((a, b) => COMP[WORKS[a].comp].sort.localeCompare(COMP[WORKS[b].comp].sort) || WORKS[a].title.localeCompare(WORKS[b].title, "en", { numeric: true }));
+  let h = perfHead(n, d) + `<div class="sh"><span>${nWork(works.length)} · ${nRec(d.recs.length)}</span></div><div class="list">${works.map(w => { const rs = d.recs.filter(r => RECS[r].work === w);
+    return `<button class="pr wk" data-link="work:${w}"><span class="m"><div class="t1">${esc(WORKS[w].title)}</div><div class="s">${esc(dispName(WORKS[w].comp))}</div></span><span class="chev">›</span></button>${rs.map(r => perfRecRow(r, n, false)).join("")}`; }).join("")}</div>`;
+  const co = new Map(); d.recs.forEach(r => new Set(peopleRows(r).map(p => p[1])).forEach(x => x !== n && co.set(x, (co.get(x) || 0) + 1)));
+  const top = [...co].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 8);
+  if (top.length) h += `<div class="sh">Plays with</div><div class="list">${top.map(([x, k]) => `<button class="pr" data-link="${perfKey(x)}"><span class="m">${esc(x)}<div class="s">${perfData(x).roles.map(roleWord).join(" · ")} · ${k} together</div></span><span class="chev">›</span></button>`).join("")}</div>`;
+  return h;
+}
+// C: the albums they are on, newest first.
+function performerC(n) {
+  const d = perfData(n), albums = [...new Set(d.recs.map(r => RECS[r].album))].sort((a, b) => ALBUMS[b].year - ALBUMS[a].year);
+  return perfHead(n, d) + `<div class="sh"><span>${albums.length} ${albums.length === 1 ? "album" : "albums"} · ${nRec(d.recs.length)}</span></div><div class="grid">${albums.map(al => { const a = ALBUMS[al], rs = d.recs.filter(r => RECS[r].album === al), on = rs.some(isPlayingRec), wt = rs.map(r => WORKS[RECS[r].work].title.split(",")[0]).join(" · ");
+    return `<button class="tile ${on ? "on" : ""}" data-link="album:${al}"><span class="cv">${cover(al)}</span><span class="t1">${esc(a.title)}</span><span class="s">${on ? "♫ Plays · " : ""}${a.year} · ${esc(a.label)}</span>${wt === a.title ? "" : `<span class="s w">${esc(wt)}</span>`}</button>`; }).join("")}</div>`;
+}
+function performersHTML() {
+  return `<h1 class="pt">Performers</h1><div class="list" style="margin-top:10px">${allPerformers().map(n => { const d = perfData(n); return `<button class="pr" data-link="${perfKey(n)}"><span class="m">${esc(n)}<div class="s">${d.roles.map(roleWord).join(" · ")} · ${nRec(d.recs.length)}</div></span><span class="chev">›</span></button>`; }).join("")}</div>`;
+}
+function libHTML() {
+  const cs = Object.keys(COMP).sort((a, b) => COMP[a].sort.localeCompare(COMP[b].sort));
+  return `<h1 class="pt">Library</h1><div class="list" style="margin-top:10px"><button class="pr" data-link="perfs"><span class="m">Performers</span><span class="chev">›</span></button></div>
+    <div class="sh">Composers</div><div class="list">${cs.map(c => `<button class="pr" data-link="comp:${c}"><span class="m">${esc(dispName(c))}<div class="s">${S.favComp.has(c) ? FERMATA + " Favourite · " : ""}${compCount(c)}</div></span><span class="chev">›</span></button>`).join("")}</div>`;
+}
+
+// ---------- overlays: the whole portrait, the About sheet, the Group menu ----------
+function openViewer(d) {
+  const p = d.pn ? PERF_WD[d.pn].pic : factsOf(d.c).pic, who = d.pn || dispName(d.c);
+  $("#viewer").innerHTML = `<div class="vh"><span class="ell">${esc(who)}</span><button data-a="closeov">Done</button></div><div class="vimg">${portraitSVG(p, "full")}</div>
+    <div class="vc">${esc(p.by)}<br>${esc(p.lic)}${p.need ? " · the licence needs this credit" : " · no credit needed"}<br><button class="lk" data-a="wiki">File page on Wikimedia Commons ›</button><br><span class="s2">The page shows this image cropped to the face. The whole image stays in the cache.</span></div>`;
+  $("#viewer").classList.add("on");
+}
+function openSheet(c) { $("#sheet").innerHTML = aboutSheet(c); $("#sheet").classList.add("on"); $("#shade").classList.add("on"); $("#sheet").dataset.c = c; }
+function openMenu(btn) {
+  const r = btn.getBoundingClientRect(), m = $("#menu");
+  m.innerHTML = [["genre", "Genre"], ["grouping", "Grouping"], ["none", "None, A to Z"]].map(([k, l]) => `<button data-a="setg" data-g="${k}"><span class="ck">${S.cg === k ? "✓" : ""}</span>${l}</button>`).join("") + `<div class="mfoot">Every composer page uses this.</div>`;
+  m.style.top = Math.min(innerHeight - 200, r.bottom + 6) + "px"; m.style.right = (innerWidth - r.right) + "px"; m.classList.add("on"); $("#shade").classList.add("on", "clear");
+}
+function closeOverlays() { ["#viewer", "#sheet", "#menu", "#shade"].forEach(s => $(s).classList.remove("on", "clear")); }
+function repaintPeople() { stack.forEach(e => /^(lib|comp|perf|perfs|genre|work|rec|album)/.test(e.key) && paint(e)); layout(); const sc = $("#sheet"); if (sc.classList.contains("on")) { if (factsOf(sc.dataset.c)) sc.innerHTML = aboutSheet(sc.dataset.c); else closeOverlays(); } }
+function peopleAct(a, d, el) {
+  if (a === "bio") { S.bio = S.bio === "short" ? "full" : "short"; repaintPeople(); toast(S.bio === "full" ? "Whole lead. Every composer page keeps this choice." : "Three lines. Every composer page keeps this choice."); return true; }
+  if (a === "grp") { const pg = pageOf(stack.at(-1).key); pg.og ||= new Set(); pg.og.has(d.g) ? pg.og.delete(d.g) : pg.og.add(d.g); paint(stack.at(-1)); return true; }
+  if (a === "tab") { pageOf(stack.at(-1).key).tab = d.t; paint(stack.at(-1)); return true; }
+  if (a === "full") { openViewer(d); return true; }
+  if (a === "about") { openSheet(d.c); return true; }
+  if (a === "gchip") { const pg = pageOf(stack.at(-1).key); pg.gsel ||= new Set(); pg.gsel.has(d.g) ? pg.gsel.delete(d.g) : pg.gsel.add(d.g); paint(stack.at(-1)); return true; }
+  if (a === "gclear") { pageOf(stack.at(-1).key).gsel = new Set(); paint(stack.at(-1)); return true; }
+  if (a === "tosearch") { toast(`Opens Search with two search terms: ${dispName(d.c)} and ${d.g}. Not part of this prototype.`); return true; }
+  if (a === "setg") { S.cg = d.g; closeOverlays(); repaintPeople(); return true; }
+  if (a === "pick") { S.match[d.c] = d.id; repaintPeople(); if (d.id !== "none") toast(`Klassik stores this match. ${dispName(d.c)} is now the composer of these works.`); return true; }
+  if (a === "repick") { delete S.match[d.c]; closeOverlays(); repaintPeople(); return true; }
+  if (a === "favcomp") { S.favComp.has(d.c) ? S.favComp.delete(d.c) : S.favComp.add(d.c); repaintPeople(); return true; }
+  if (a === "favperf") { FAV_PERF.has(d.n) ? FAV_PERF.delete(d.n) : FAV_PERF.add(d.n);
+    // Work pages in the stack keep their order; the others order again when they open.
+    for (const k in S.pages) if (k.startsWith("work:") && !stack.some(e => e.key === k)) S.pages[k].order = null;
+    repaintPeople(); toast(FAV_PERF.has(d.n) ? `Recordings with ${d.n} now rise on their work pages.` : `${d.n} is no longer a favourite.`); return true; }
+  if (a === "chron") { toast(`Opens the Chronology on ${dispName(d.c)} (ADR 0016). Not part of this prototype.`); return true; }
+  if (a === "wiki") { toast("Opens the page in Safari. Not part of this prototype."); return true; }
+  if (a === "closeov") { closeOverlays(); return true; }
+  return false;
+}
+
+// ---------- covers ----------
+let coverN = 0;
+const hueOf = seed => { let h = 0; for (const c of seed) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h % 360; };
+function cover(albumId) {
+  const a = ALBUMS[albumId], h = hueOf(a.title + a.label), b = (h + 50) % 360, sat = a.mono ? 0 : 1, id = "g" + (++coverN), r0 = RECS[a.recs[0]];
+  return `<svg viewBox="0 0 100 100" style="width:100%;height:100%;display:block"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="hsl(${h},${45 * sat}%,${a.mono ? 22 : 36}%)"/><stop offset="1" stop-color="hsl(${b},${55 * sat}%,${a.mono ? 70 : 62}%)"/></linearGradient></defs><rect width="100" height="100" fill="url(#${id})"/><text x="8" y="80" font-family="Georgia,serif" font-size="11" fill="rgba(255,255,255,.9)">${esc(surname(COMP[WORKS[r0.work].comp].name, COMP[WORKS[r0.work].comp].sort))}</text><text x="8" y="92" font-family="Georgia,serif" font-size="8" fill="rgba(255,255,255,.75)">${esc((r0.cond || r0.ens[0][1]).split(" ").pop())}</text></svg>`;
+}
+
+// ---------- what plays ----------
+let P = null, T = 0;
+function itemsOf(key) {
+  const [kind, id] = key.split(":"), recs = kind === "rec" ? [id] : ALBUMS[id].recs;
+  let s = 0, i = 0; const out = [];
+  for (const rid of recs) for (const x of tracksOf(rid)) { out.push({ ...x, rec: rid, work: RECS[rid].work, i: i++, start: s }); s += x.d; }
+  return out;
+}
+function setPlaying(key, at) { const items = itemsOf(key); P = { key, items, total: items.reduce((a, x) => a + x.d, 0) }; T = items[at || 0].start; S.playing = true; }
+const cur = () => P.items.findLast(x => T >= x.start) || P.items[0];
+const FERMATA = `<svg class="fm" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 17 C3.2 6.5, 20.8 6.5, 21.5 17 L19.3 17 C18.3 10, 5.7 10, 4.7 17 Z" fill="currentColor"/><circle cx="12" cy="15.4" r="2" fill="currentColor"/></svg>`;
+const isPlayingRec = id => P && (P.key === "rec:" + id || (P.key.startsWith("album:") && cur().rec === id));
+function commonOf(rid) { const t = tracksOf(rid), k = r => r.join("|"); return t[0].r.filter(r => t.every(x => x.r.some(y => k(y) === k(r)))); }
+const extra = x => { const c = new Set(commonOf(x.rec).map(r => r.join("|"))); return x.r.filter(r => !c.has(r.join("|"))); };
+
+// ---------- the player page ----------
+// The player page is the page of the queue item that plays. When the queue moves on, it becomes the next item's page.
+const loaded = () => !!P && !S.gone;
+const isPlayerPage = key => loaded() && key === P.key;
+
+// ---------- pages ----------
+const pageOf = key => S.pages[key] ||= { open: new Set(), editing: false, order: null };
+function titleOf(key) {
+  const [k, id] = key.split(":");
+  if (k === "lib") return "Library"; if (k === "comp") return CAND[id] ? surname(dispName(id), "") .split(" ").pop() : surname(COMP[id].name, COMP[id].sort);
+  if (k === "work") return WORKS[id].title; if (k === "rec") return WORKS[RECS[id].work].title;
+  if (k === "album") return ALBUMS[id].title; if (k === "perf") return decodeURIComponent(id);
+  if (k === "perfs") return "Performers"; if (k === "genre") return plural(decodeURIComponent(key.split(":")[2]));
+}
+const link = (key, text, cls = "lk") => `<button class="${cls}" data-link="${key}">${esc(text)}</button>`;
+const perfKey = n => "perf:" + encodeURIComponent(n);
+const albumOfKey = key => key.startsWith("rec:") ? RECS[key.slice(4)].album : key.slice(6);
+
+function pageHTML(key) {
+  const [k, id] = key.split(":");
+  if (k === "lib") return libHTML(); if (k === "perfs") return performersHTML();
+  if (k === "comp") return composerHTML(id); if (k === "perf") return performerHTML(decodeURIComponent(id));
+  if (k === "genre") return genreHTML(id, decodeURIComponent(key.split(":")[2]));
+  if (k === "work") return workHTML(id);
+  return playableHTML(key);
+}
+
+// ----- the work page -----
+const workPlaying = w => loaded() && P.key.startsWith("rec:") && RECS[P.key.slice(4)].work === w;
+function workHTML(w) {
+  const W = WORKS[w], pg = pageOf("work:" + w);
+  pg.order ||= ordered(w);
+  const lens = pg.order.map(o => recTotal(o.id)), lo = Math.min(...lens), hi = Math.max(...lens);
+  const len = Math.round(lo / 60) === Math.round(hi / 60) ? mins(lo) : `${mins(lo).replace(" min", "")} to ${mins(hi)}`;
+  const nm = W.mv ? W.mv.length : CREATION.length, on = workPlaying(w);
+  return `<h1 class="pt">${esc(W.title)}</h1><div class="sub">${link("comp:" + W.comp, dispName(W.comp))}</div>
+    <div class="meta">${esc(W.genre)} · ${nm} ${W.untagged ? "tracks" : nm === 1 ? "movement" : "movements"} · ${len}</div>
+    ${W.sum ? `<div class="sum" id="sum-${w}"><p>${esc(W.sum)}</p><button class="more" data-a="more">More</button><div class="cred">Wikipedia · sample text for the prototype</div></div>` : ""}
+    <div class="acts">${on ? `<button class="btn pri" data-a="pp">${S.playing ? "❚❚ Pause" : "▶ Resume"}</button>` : `<button class="btn pri" data-a="playwork" data-w="${w}">▶ Play</button>`}<button class="btn" data-a="favwork" data-w="${w}">${FAV_WORK.has(w) ? `${FERMATA} Favourite` : "Favourite"}</button></div>
+    <div class="sh"><span>${pg.order.length} ${pg.order.length === 1 ? "recording" : "recordings"}</span><button data-a="edit" data-w="${w}">${pg.editing ? "Done" : "Edit"}</button></div>
+    <div class="list" data-recs="${w}">${recRows(w)}</div>
+    <div class="foot">Favourites come first, in your order. Then recordings with a favourite performer or from a favourite album. Then the newest. The first one plays when you play the work.</div>`;
+}
+function stateText(id) {
+  const out = [];
+  const q = S.queue.indexOf("rec:" + id); if (q === 0) out.push("Next"); else if (q > 0) out.push("In queue");
+  const d = S.dl[id]; if (d != null) out.push(d >= 1 ? "Offline" : `↓ ${Math.floor(d * 100)}%`);
+  return out.join("\n");
+}
+// Full rows: the conductor, every soloist and ensemble on its own line, then year, album and label.
+function recRows(w) {
+  const pg = pageOf("work:" + w);
+  return pg.order.map(({ id, why }) => {
+    const r = RECS[id], p = people(id), a = ALBUMS[r.album], fav = (FAV[w] || []).includes(id), now = loaded() && P.key === "rec:" + id, lead = p.cond || (p.solo[0] || p.ens[0])[1];
+    const whyNow = fav ? `${FERMATA} Favourite` : why === "Favourite" ? "" : esc(why);
+    const body = `<div class="l1">${esc(lead)}</div>${p.solo.filter(s => s[1] !== lead).map(s => `<div class="l2">${esc(s[1])}${s[0] === "artist" ? "" : ` <span style="color:var(--label2)">· ${s[0]}</span>`}</div>`).join("")}${p.ens.filter(e => e[1] !== lead).map(e => `<div class="l2">${esc(e[1])}</div>`).join("")}<div class="l3">${r.year} · ${esc(a.title)} · ${esc(a.label)}</div>`;
+    // The recording that plays keeps its place; its row is tinted and its slot pauses and resumes.
+    const slot = pg.editing ? (fav ? `<span class="slot hd" data-h="${id}">≡</span>` : `<span class="slot"></span>`)
+      : now ? `<span class="slot go" data-a="pp">${S.playing ? "❚❚" : "▶"}</span>` : `<span class="slot">›</span>`;
+    return `<div class="rr ${now ? "now" : ""} ${pg.editing && !fav ? "dim" : ""}" data-rec="${id}" data-w="${w}" data-fav="${fav ? 1 : 0}">
+      <div class="ra L"><button class="d1" data-sw="dl">${S.dl[id] != null ? "Remove\ndownload" : "Download"}</button><button class="f1" data-sw="fav">${fav ? "Remove\nfavourite" : "Favourite"}</button></div>
+      <div class="ra R"><button class="q1" data-sw="next">Play next</button><button class="q2" data-sw="queue">Queue</button></div>
+      <div class="fg"><div class="cv" style="width:64px;height:64px">${cover(r.album)}</div><div class="mn">${body}${whyNow ? `<div class="why">${whyNow}</div>` : ""}${now ? `<div class="why">♫ Plays</div>` : ""}</div><div class="side"><span class="st" data-st="${id}">${stateText(id)}</span>${slot}</div></div></div>`;
+  }).join("");
+}
+
+// ----- recording and album pages; on the player page, the music continues below -----
+function factRows(pairs) { return pairs.map(([k, v, key]) => key ? `<button class="fact" data-link="${key}"><span class="k">${esc(cap(k))}</span><span class="v">${esc(v)}</span></button>` : `<div class="fact"><span class="k">${esc(cap(k))}</span><span class="v">${esc(v)}</span></div>`).join(""); }
+function playableHTML(key) {
+  const [k, id] = key.split(":"), player = isPlayerPage(key), items = itemsOf(key), total = items.reduce((a, x) => a + x.d, 0);
+  const albumId = albumOfKey(key), a = ALBUMS[albumId];
+  const btn = player ? `<button class="btn pri" data-a="pp">${S.playing ? "❚❚ Pause" : S.ended ? "▶ Play again" : "▶ Resume"}</button>` : `<button class="btn pri" data-a="playkey" data-k="${key}">▶ Play</button>`;
+  let head;
+  if (k === "rec") {
+    const r = RECS[id], w = WORKS[r.work], fav = (FAV[r.work] || []).includes(id);
+    const shared = [r.cond && ["conductor", r.cond, perfKey(r.cond)], ...commonOf(id).map(([role, n]) => [role, n, perfKey(n)]), ["album", a.title, "album:" + albumId]].filter(Boolean);
+    head = `<h2>${link("work:" + r.work, w.title, "")}</h2>${link("comp:" + w.comp, dispName(w.comp), "c lk")}<div class="facts">${factRows(shared)}</div>
+      <div class="meta">${esc(a.label)} · ${r.year} · ${items.length} ${w.untagged ? "tracks" : "movements"} · ${fmt(total)}</div>${w.untagged ? `<div class="stub">This album has no work tags, so Klassik treats the whole album as one work.</div>` : ""}
+      <div class="acts">${btn}<button class="btn" data-a="favrec" data-r="${id}">${fav ? `${FERMATA} Favourite` : "Favourite"}</button><button class="btn" data-a="dl" data-r="${id}">${S.dl[id] == null ? "Download" : S.dl[id] >= 1 ? "Offline" : "Downloading"}</button></div>`;
+  } else {
+    head = `<h2>${esc(a.title)}</h2><div class="meta">${esc(a.label)} · ${a.year} · ${items.length} tracks · ${fmt(total)}</div>
+      <div class="acts">${btn}<button class="btn" data-a="favalb" data-al="${id}">${FAV_ALB.has(id) ? `${FERMATA} Favourite` : "Favourite"}</button></div>`;
+  }
+  let out = `<div class="hero"><div class="art">${cover(albumId)}</div>${head}</div><div data-rows="${key}">${rowsHTML(key)}</div>`;
+  if (player) out += nextRow() + (S.ended ? `<div class="endq">You reached the end of the queue.</div>` : "");
+  return out;
+}
+// The next queue item, so the listener sees what comes. A tap opens its page; it does not play.
+function nextRow() {
+  if (!S.queue.length) return "";
+  const id = S.queue[0].slice(4), r = RECS[id], w = WORKS[r.work], c = COMP[w.comp], more = S.queue.length > 1 ? ` · then ${S.queue.length - 1} more` : "";
+  return `<button class="nx" data-link="rec:${id}"><div class="cv">${cover(r.album)}</div><div class="m"><div class="lab">Next${more}</div><div class="t">${esc(w.title)}</div><div class="s">${esc([surname(c.name, c.sort), r.cond].filter(Boolean).join(" · "))} · ${fmt(recTotal(id))}</div></div><span class="chev">›</span></button>`;
+}
+function rowsHTML(key) {
+  const items = itemsOf(key), now = isPlayerPage(key) ? cur() : null, pg = pageOf(key), album = key.startsWith("album:");
+  let out = "", lastRec = null;
+  for (const x of items) {
+    if (album && x.rec !== lastRec) {
+      if (lastRec) out += `</div>`;
+      const r = RECS[x.rec], w = WORKS[r.work];
+      out += `<div class="grp">${link("work:" + r.work, w.title, "gt")}<div class="gs">${link("comp:" + w.comp, dispName(w.comp))}${r.cond ? " · " + link(perfKey(r.cond), r.cond) : ""}</div></div><div class="list rows">`;
+      lastRec = x.rec;
+    } else if (!album && x.i === 0) out += `<div class="list rows">`;
+    const isCur = now && x.i === now.i, open = isCur || pg.open.has(x.i);
+    const slot = isCur ? `<span class="slot"></span>` : open ? `<span class="slot go" data-a="playfrom" data-k="${key}" data-i="${x.i}">▶</span>` : `<span class="slot">›</span>`;
+    const ex = extra(x).map(([role, n]) => [role, n, perfKey(n)]);
+    const player = isCur ? `<div class="seek"><div class="tr"><i></i></div></div><div class="times tnum"><span class="el"></span><span class="rm"></span></div><div class="ctl"><button data-a="prev">⏮</button><button data-a="back">↺</button><button class="pp" data-a="pp"></button><button data-a="fwd">↻</button><button data-a="next">⏭</button></div>` : "";
+    out += `<div class="row ${isCur ? "cur" : ""} ${open ? "open" : ""}" data-i="${x.i}"><button class="rh" data-row="${x.i}" data-k="${key}"><span class="main"><div class="t">${esc(x.t)}<span class="d tnum">${fmt(x.d)}</span></div></span>${slot}</button><div class="rb">${factRows(ex)}${player}</div></div>`;
+  }
+  return out + `</div>`;
+}
+
+// ---------- the stack ----------
+const stack = [];
+function makePage(key) {
+  const el = document.createElement("section"); el.className = "pg"; el.dataset.key = key;
+  el.innerHTML = `<div class="scroll"></div>`;
+  el.querySelector(".scroll").addEventListener("scroll", () => { if (Date.now() > progUntil) touched(); navState(); arrow(); }, { passive: true });
+  $("#nav").appendChild(el); return el;
+}
+// Wash: the player takes its tint from the cover of what plays. A cover without colour falls back to Klassik's tint, so the player never looks like a page.
+function wash(el) {
+  const al = P ? albumOfKey(P.key) : null, a = al && ALBUMS[al];
+  el.style.setProperty("--h", a && !a.mono ? hueOf(a.title + a.label) : 12);
+}
+// Re-render a page and keep the first row on screen where it was: changes happen in place.
+function paint(entry) {
+  if (entry.swapping) return;
+  const sc = entry.el.querySelector(".scroll"), top = sc.scrollTop;
+  const first = [...sc.querySelectorAll("[data-rows] .row, .nx")].find(r => r.getBoundingClientRect().bottom > sc.getBoundingClientRect().top + 100);
+  const sel = first && (first.classList.contains("nx") ? null : `[data-rows="${first.closest("[data-rows]").dataset.rows}"] .row[data-i="${first.dataset.i}"]`), before = first && first.getBoundingClientRect().top;
+  sc.innerHTML = `<div class="pgc">${pageHTML(entry.key)}</div>`; sc.scrollTop = entry.reset ? 0 : top;
+  if (entry.reset) { entry.reset = false; return finishPaint(entry); }
+  if (sel) { const now = sc.querySelector(sel); if (now) { progUntil = Date.now() + 80; sc.scrollTop += now.getBoundingClientRect().top - before; } }
+  finishPaint(entry);
+}
+function finishPaint(entry) { const pl = isPlayerPage(entry.key); entry.el.classList.toggle("player-look", pl); if (pl) wash(entry.el); }
+function go(key) {
+  const at = stack.findIndex(e => e.key === key);
+  if (at >= 0) { while (stack.length - 1 > at) pop(true); layout(); return; } // a link to a page in the stack jumps back to it
+  const e = { key, el: makePage(key) }; paint(e); stack.push(e);
+  e.el.style.transform = "translateX(100%)"; requestAnimationFrame(() => requestAnimationFrame(layout));
+}
+function pop(quick) { const e = stack.pop(); e.el.style.transform = "translateX(100%)"; setTimeout(() => e.el.remove(), quick ? 0 : 400); }
+function layout() {
+  stack.forEach((e, i) => { const d = stack.length - 1 - i; e.el.style.transform = d === 0 ? "none" : "translateX(-30%)"; e.el.style.visibility = d > 1 ? "hidden" : "visible"; e.el.style.zIndex = i; });
+  const top = stack.at(-1), prev = stack.at(-2);
+  $("#back").style.visibility = prev ? "visible" : "hidden"; $("#back span").textContent = prev ? titleOf(prev.key) : "";
+  $("#nt").textContent = titleOf(top.key); navState(); onPlayer();
+}
+// The mini player never sits on top of the player page. The timeline stays.
+function onPlayer() {
+  // Like a record at its end: on the player page it stays and stops; anywhere else the mini player goes away.
+  if (S.ended && !S.gone && !isPlayerPage(stack.at(-1).key)) { S.gone = true; stack.forEach(e => paint(e)); }
+  document.body.classList.toggle("onplayer", isPlayerPage(stack.at(-1).key) || !!stack.at(-1).swapping); document.body.classList.toggle("gone", !!S.gone); arrowKey = ""; arrow();
+}
+function navState() { const sc = stack.at(-1).el.querySelector(".scroll"), solid = sc.scrollTop > 40; $("#navbar").classList.toggle("solid", solid); $("#navbg").classList.toggle("solid", solid); }
+$("#back").onclick = () => { if (stack.length > 1) { pop(); layout(); } };
+const topScroll = () => stack.at(-1).el.querySelector(".scroll");
+
+// The mini player is a link to the player page: it jumps back to it when it is in the stack, else it pushes it.
+$("#mini").onclick = e => { if (e.target.closest("[data-a]")) return; go(P.key); requestAnimationFrame(() => placeNow(false)); };
+
+// ---------- mini player (locked: movement, work, people) ----------
+let miniKey = "";
+function renderMini() {
+  const x = cur(), key = P.key + x.i + S.playing; if (key === miniKey) return; miniKey = key;
+  const r = RECS[x.rec], w = WORKS[r.work], c = COMP[w.comp], by = [surname(c.name, c.sort), r.cond || (people(x.rec).solo[0] || [])[1]].filter(Boolean).join(" · ");
+  $("#mini").innerHTML = `<div class="art">${cover(r.album)}</div><div class="txt"><div class="mq mv"><span>${esc(x.t)}</span></div><div class="wk ell">${esc(w.title)}</div><div class="by ell">${esc(by)}</div></div><button class="pp" data-a="pp" aria-label="Play or pause">${S.playing ? "❚❚" : "▶"}</button>`;
+  requestAnimationFrame(() => document.querySelectorAll("#mini .mq").forEach(m => { const over = m.firstElementChild.scrollWidth - 32 - m.clientWidth; m.classList.toggle("run", over > 0); if (over > 0) { m.style.setProperty("--shift", -(over + 8) + "px"); m.style.setProperty("--dur", Math.max(8, over / 18 + 5) + "s"); } }));
+}
+
+// ---------- live rows ----------
+let lastCur = null;
+function repaintLive() {
+  stack.forEach(e => { if (/^(rec|album|work|comp|perf|genre):/.test(e.key)) paint(e); }); onPlayer();
+  lastCur = cur(); miniKey = ""; renderMini(); tick(true);
+}
+function moved() { if (cur() !== lastCur) repaintLive(); tick(true); }
+function tick(force) {
+  if (cur() !== lastCur && !force) { repaintLive(); return; }
+  const x = cur(), f = (T - x.start) / x.d;
+  document.querySelectorAll(".row.cur .tr i").forEach(i => i.style.width = f * 100 + "%");
+  document.querySelectorAll(".row.cur .el").forEach(e => e.textContent = fmt(T - x.start));
+  document.querySelectorAll(".row.cur .rm").forEach(e => e.textContent = "−" + fmt(x.d - (T - x.start)));
+  document.querySelectorAll(".row.cur .pp").forEach(b => b.textContent = S.playing ? "❚❚" : "▶");
+  if (G) $("#pcr").setAttribute("height", G.y(T));
+}
+// The next item replaces the player page in place. It never adds a page to the stack.
+function advance(dir = 1) {
+  const from = P.key;
+  if (dir > 0) { if (!S.queue.length) { stopAtEnd(); return; } S.history.push(from); setPlaying(S.queue.shift(), 0); }
+  else { if (!S.history.length) { T = 0; moved(); return; } S.queue.unshift(from); setPlaying(S.history.pop(), 0); }
+  drawBar(); lastCur = cur(); miniKey = ""; renderMini();
+  const e = stack.find(x => x.key === from); if (e) e.swapping = true;
+  stack.forEach(x => { if (x !== e) paint(x); });
+  if (e) swap(e, dir); else tick(true);
+}
+function swap(e, dir) {
+  const sc = e.el.querySelector(".scroll"), box = sc.querySelector(".pgc"), nx = sc.querySelector(".nx");
+  const done = () => { e.swapping = false; e.key = P.key; e.reset = true; paint(e); layout(); lastCur = cur(); tick(true); };
+  if (S.swap === "rise" && dir > 0 && nx) {
+    // The queued row rises to the top and becomes the new page; the old content leaves upwards.
+    const dy = nx.getBoundingClientRect().top - sc.getBoundingClientRect().top - 96;
+    box.style.transition = "transform .8s cubic-bezier(.4,0,.2,1)"; box.style.transform = `translateY(${-dy}px)`;
+    [...box.children].forEach(c => { if (c !== nx) { c.style.transition = "opacity .5s"; c.style.opacity = "0"; } });
+    setTimeout(() => { done(); const h = sc.querySelector(".hero"); h && h.classList.add("grow"); }, 820);
+  } else {
+    box.style.transition = "opacity .35s"; box.style.opacity = "0";
+    setTimeout(() => { done(); const b = sc.querySelector(".pgc"); b.style.opacity = "0"; requestAnimationFrame(() => { b.style.transition = "opacity .45s"; b.style.opacity = "1"; }); }, 360);
+  }
+}
+function stopAtEnd() {
+  T = P.total - .01; S.playing = false; S.ended = true; miniKey = ""; renderMini();
+  stack.forEach(e => paint(e)); onPlayer(); tick(true);
+}
+// ---------- calm following (ADR 0014) ----------
+const IDLE = 8000;
+let lastTouch = Date.now(), progUntil = 0, arrowKey = "";
+const touched = () => lastTouch = Date.now();
+["touchstart", "pointerdown", "wheel"].forEach(ev => addEventListener(ev, touched, { passive: true, capture: true }));
+function where() { if (!isPlayerPage(stack.at(-1).key)) return 0; const sc = topScroll(), r = sc.querySelector(".row.cur"); if (!r) return 0; const c = sc.getBoundingClientRect(), a = r.getBoundingClientRect(), top = c.top + 100, bot = c.bottom - 150;
+  const vis = Math.min(a.bottom, bot) - Math.max(a.top, top); return vis > Math.min(60, a.height * .5) ? 0 : a.bottom < top + 30 ? -1 : 1; }
+function placeNow(smooth) {
+  if (!isPlayerPage(stack.at(-1).key)) return;
+  const sc = topScroll(), r = sc.querySelector(".row.cur"); if (!r || S.ended) return;
+  const ref = r.previousElementSibling || r, target = sc.scrollTop + ref.getBoundingClientRect().top - sc.getBoundingClientRect().top - 110;
+  if (Math.abs(target - sc.scrollTop) < 4) return;
+  progUntil = Date.now() + (smooth ? 900 : 80); sc.scrollTo({ top: Math.max(0, target), behavior: smooth ? "smooth" : "auto" });
+}
+function arrow() { const w = where(), key = w + "" + (P && cur().i) + stack.length; if (key === arrowKey) return; arrowKey = key; const a = $("#arrow"); a.className = "glass"; if (w) { a.classList.add(w < 0 ? "up" : "down"); a.textContent = w < 0 ? "↑" : "↓"; } }
+$("#arrow").onclick = () => placeNow(true);
+
+// ---------- taps ----------
+let suppressUntil = 0;
+document.addEventListener("click", e => {
+  if (e.target.closest("#sw")) return;
+  if (Date.now() < suppressUntil) { e.preventDefault(); e.stopPropagation(); return; }
+  if (openSwipe && !e.target.closest(".ra")) { closeSwipe(); e.preventDefault(); e.stopPropagation(); return; }
+  const sw = e.target.closest("[data-sw]"); if (sw) { e.stopPropagation(); swipeAct(sw.closest(".rr").dataset.rec, sw.dataset.sw); return; }
+  const ln = e.target.closest("[data-link]"); if (ln) { e.stopPropagation(); closeOverlays(); go(ln.dataset.link); return; }
+  const a = e.target.closest("[data-a]"); if (a) { e.stopPropagation(); if (!peopleAct(a.dataset.a, a.dataset, a)) act(a.dataset.a, a.dataset); return; }
+  const rr = e.target.closest(".rr .fg");
+  if (rr) { const row = rr.closest(".rr"); if (pageOf("work:" + row.dataset.w).editing) return; go("rec:" + row.dataset.rec); return; }
+  const rh = e.target.closest(".rh[data-row]");
+  if (rh) { const i = +rh.dataset.row, key = rh.dataset.k; if (rh.closest(".row.cur")) return;
+    const pg = pageOf(key); pg.open.has(i) ? pg.open.delete(i) : pg.open.add(i); const box = rh.closest("[data-rows]"), before = rh.getBoundingClientRect().top; box.innerHTML = rowsHTML(key);
+    const sc = box.closest(".scroll"), now = box.querySelector(`.row[data-i="${i}"]`); sc.scrollTop += now.getBoundingClientRect().top - before; tick(true); }
+}, true);
+function paintList(w) { document.querySelectorAll(`[data-recs="${w}"]`).forEach(b => b.innerHTML = recRows(w)); }
+function startPlay(key, at) {
+  // Play replaces the queue (ADR 0006).
+  S.queue = []; S.history = []; S.ended = S.gone = false; setPlaying(key, at); lastCur = null; miniKey = "";
+  stack.forEach(e => paint(e)); drawBar(); repaintLive(); layout();
+}
+function act(a, d) {
+  if (a === "more") { const s = document.getElementById("sum-" + stack.at(-1).key.slice(5)); s && s.classList.toggle("open"); return; }
+  if (a === "pp") { if (S.ended) { S.ended = false; T = 0; S.playing = false; lastCur = null; repaintLive(); } S.playing = !S.playing; miniKey = ""; renderMini(); document.querySelectorAll('.btn[data-a="pp"]').forEach(b => b.textContent = S.playing ? "❚❚ Pause" : "▶ Resume"); document.querySelectorAll('.rr .slot[data-a="pp"]').forEach(b => b.textContent = S.playing ? "❚❚" : "▶"); tick(true); return; }
+  if (a === "playkey") { startPlay(d.k, 0); return; }
+  // A movement of what already plays only moves the position; the queue stays.
+  if (a === "playfrom") { pageOf(d.k).open.delete(+d.i); if (d.k === P.key && !S.ended) { T = P.items[+d.i].start; S.playing = true; moved(); return; } startPlay(d.k, +d.i); return; }
+  if (a === "playwork") { const id = pageOf("work:" + d.w).order[0].id; startPlay("rec:" + id, 0); if (S.workPlay === "open") go("rec:" + id); return; }
+  if (a === "favwork") { FAV_WORK.has(d.w) ? FAV_WORK.delete(d.w) : FAV_WORK.add(d.w); paint(stack.at(-1)); return; }
+  if (a === "favrec") { toggleFav(d.r); paint(stack.at(-1)); return; }
+  if (a === "favalb") { FAV_ALB.has(d.al) ? FAV_ALB.delete(d.al) : FAV_ALB.add(d.al); paint(stack.at(-1)); return; }
+  if (a === "dl") { if (S.dl[d.r] == null) S.dl[d.r] = 0; paint(stack.at(-1)); return; }
+  if (a === "edit") { const pg = pageOf("work:" + d.w); pg.editing = !pg.editing; paint(stack.at(-1)); return; }
+  const c = cur();
+  if (a === "back") T = Math.max(0, T - 15);
+  if (a === "fwd") T = Math.min(P.total - 1, T + 15);
+  // Next on the last movement goes on to the next queue item.
+  if (a === "prev") T = T - c.start > 3 || !c.i ? c.start : P.items[c.i - 1].start;
+  if (a === "next") { if (c.i < P.items.length - 1) T = P.items[c.i + 1].start; else { advance(1); return; } }
+  moved();
+}
+function toggleFav(id) { const w = RECS[id].work, f = FAV[w] ||= []; const i = f.indexOf(id); i >= 0 ? f.splice(i, 1) : f.push(id); }
+document.addEventListener("pointerdown", e => {
+  const sk = e.target.closest(".seek"); if (!sk) return; const x = cur(); sk.setPointerCapture(e.pointerId);
+  const set = ev => { const r = sk.getBoundingClientRect(); T = x.start + Math.min(.999, Math.max(0, (ev.clientX - r.left) / r.width)) * x.d; tick(true); };
+  set(e); sk.onpointermove = set; sk.onpointerup = () => sk.onpointermove = null;
+});
+
+// ---------- the timeline (locked) ----------
+let G = null;
+function drawBar() {
+  const el = $("#bar"), H = el.clientHeight, n = P.items.length, gap = n > 12 ? 2 : 4, min = 3;
+  let fixed = new Set(), k = 0; const avail = H - gap * (n - 1);
+  for (let it = 0; it < 6; it++) { const free = P.items.filter(x => !fixed.has(x.i)).reduce((a, x) => a + x.d, 0); k = (avail - min * fixed.size) / free; let ch = false; for (const x of P.items) if (!fixed.has(x.i) && x.d * k < min) { fixed.add(x.i); ch = true; } if (!ch) break; }
+  let y = 0; const segs = P.items.map(x => { const h = fixed.has(x.i) ? min : x.d * k; const s = { y, h }; y += h + gap; return s; });
+  G = { y(t) { const x = P.items.findLast(x => t >= x.start) || P.items[0], s = segs[x.i]; return s.y + Math.min(1, (t - x.start) / x.d) * s.h; },
+    t(py) { for (const x of P.items) { const s = segs[x.i]; if (py < s.y + s.h + gap / 2 || x.i === n - 1) return x.start + Math.min(1, Math.max(0, (py - s.y) / s.h)) * x.d; } return 0; } };
+  const w = el.clientWidth, lx = w - 14;
+  el.innerHTML = `<svg viewBox="0 0 ${w} ${H}" preserveAspectRatio="none"><defs><clipPath id="pc"><rect id="pcr" x="0" y="0" width="${w}" height="0"/></clipPath></defs>`
+    + `<g fill="var(--track)">${segs.map(s => `<rect x="${lx}" y="${s.y}" width="4" height="${s.h}"/>`).join("")}</g>`
+    + `<g fill="var(--tint)" clip-path="url(#pc)">${segs.map(s => `<rect x="${lx}" y="${s.y}" width="4" height="${s.h}"/>`).join("")}</g></svg>`;
+}
+(() => {
+  const el = $("#bar"); let on = false, mode = null, t = 0, x0 = 0, y0 = 0;
+  const at = e => { const r = el.getBoundingClientRect(); t = G.t(e.clientY - r.top); const x = P.items.findLast(x => t >= x.start) || P.items[0], b = $("#bubble");
+    b.style.display = "block"; b.style.top = Math.max(60, Math.min(innerHeight - 140, e.clientY - 30)) + "px";
+    b.innerHTML = `<b class="tnum">${fmt(t - x.start)}</b> of ${fmt(x.d)}<br>${esc(x.t)}`; $("#pcr").setAttribute("height", G.y(t)); };
+  el.onpointerdown = e => { on = true; mode = null; x0 = e.clientX; y0 = e.clientY; el.setPointerCapture(e.pointerId); };
+  el.onpointermove = e => { if (!on) return; const dx = Math.abs(e.clientX - x0), dy = Math.abs(e.clientY - y0); if (!mode && (dx > 8 || dy > 8)) mode = dy > dx * 1.5 ? "scrub" : "ignore"; if (mode === "scrub") at(e); };
+  el.onpointerup = el.onpointercancel = e => {
+    if (!on) return; on = false; $("#bubble").style.display = "none";
+    if (e.type === "pointerup" && mode === "scrub") { T = t; moved(); }
+    else if (e.type === "pointerup" && !mode) { const r = el.getBoundingClientRect(), x = P.items.findLast(x => G.t(e.clientY - r.top) >= x.start) || P.items[0]; T = x.start; S.playing = true; moved(); }
+    $("#pcr").setAttribute("height", G.y(T)); mode = null;
+  };
+})();
+
+
+// ---------- swipe actions: the row's label changes in place, no toast ----------
+let openSwipe = null;
+function closeSwipe() { if (openSwipe) { openSwipe.querySelector(".fg").style.transform = ""; openSwipe = null; } }
+function swipeAct(id, what) {
+  const k = "rec:" + id;
+  if (what === "next") { S.queue = [k, ...S.queue.filter(x => x !== k)]; }
+  if (what === "queue") { if (!S.queue.includes(k)) S.queue.push(k); }
+  if (what === "dl") { S.dl[id] == null ? S.dl[id] = 0 : delete S.dl[id]; }
+  if (what === "fav") toggleFav(id); // the row stays where it is; the order changes the next time the page opens
+  navigator.vibrate && navigator.vibrate(10);
+  const row = openSwipe; closeSwipe();
+  setTimeout(() => { const w = RECS[id].work; if (what === "fav" || what === "dl") paintList(w); else row && (row.querySelector(".st").textContent = stateText(id)); }, 260);
+}
+// Long press on a favourite, or the handle in Edit, lifts the row to reorder it.
+let G2 = null, lpTimer = 0, dragRow = null;
+document.addEventListener("pointerdown", e => {
+  const fg = e.target.closest(".rr .fg"); if (!fg || openSwipe) return;
+  const row = fg.closest(".rr"), pg = pageOf("work:" + row.dataset.w);
+  G2 = { x: e.clientX, y: e.clientY, row, fg, mode: null, id: e.pointerId, dx: 0 };
+  if (row.dataset.fav === "1" && (pg.editing ? e.target.closest(".hd") : true)) {
+    const lift = () => { if (!G2) return; G2.mode = "drag"; dragRow = row; row.classList.add("lifted"); fg.classList.add("drag"); navigator.vibrate && navigator.vibrate(15); };
+    if (pg.editing) lift(); else lpTimer = setTimeout(lift, 450);
+  }
+});
+document.addEventListener("pointermove", e => {
+  if (!G2) return; const dx = e.clientX - G2.x, dy = e.clientY - G2.y;
+  if (G2.mode === "drag") { G2.row.style.transform = `translateY(${dy}px)`; return; }
+  if (!G2.mode && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) { clearTimeout(lpTimer); G2.mode = Math.abs(dx) > Math.abs(dy) * 1.5 && !pageOf("work:" + G2.row.dataset.w).editing ? "swipe" : "none"; if (G2.mode === "swipe") G2.fg.classList.add("drag"); }
+  if (G2.mode === "swipe") { G2.dx = Math.max(-168, Math.min(168, dx)); G2.fg.style.transform = `translateX(${G2.dx}px)`; }
+});
+const endPointer = e => {
+  clearTimeout(lpTimer); if (!G2) return; const g = G2; G2 = null;
+  if (g.mode === "swipe") { g.fg.classList.remove("drag"); suppressUntil = Date.now() + 300;
+    if (Math.abs(g.dx) > 60) { g.fg.style.transform = `translateX(${g.dx > 0 ? 168 : -168}px)`; openSwipe = g.row; } else g.fg.style.transform = ""; }
+  if (g.mode === "drag") { suppressUntil = Date.now() + 300; const w = g.row.dataset.w, pg = pageOf("work:" + w), favs = [...g.row.parentNode.querySelectorAll('.rr[data-fav="1"]')];
+    const y = e.clientY, others = favs.filter(r => r !== g.row), idx = others.filter(r => { const b = r.getBoundingClientRect(); return b.top + b.height / 2 < y; }).length;
+    const ids = others.map(r => r.dataset.rec); ids.splice(idx, 0, g.row.dataset.rec);
+    FAV[w] = ids; pg.order = ordered(w); g.row.style.transform = ""; dragRow = null; paintList(w); }
+};
+document.addEventListener("pointerup", endPointer); document.addEventListener("pointercancel", endPointer);
+document.addEventListener("touchmove", e => { if (dragRow || (G2 && G2.mode === "swipe")) e.preventDefault(); }, { passive: false });
+
+
+// ---------- per frame ----------
+let t0 = performance.now(), slow = 0;
+function frame(now) {
+  const dt = Math.min(.1, (now - t0) / 1000); t0 = now;
+  if (S.playing && !S.ended) { T += dt; if (T >= P.total) advance(1); }
+  for (const id in S.dl) if (S.dl[id] < 1) S.dl[id] = Math.min(1, S.dl[id] + dt / 12);
+  if (now - slow > 250) { slow = now; tick(); arrow(); document.querySelectorAll(".st[data-st]").forEach(s => { const t = stateText(s.dataset.st); if (s.textContent !== t) s.textContent = t; });
+    if (Date.now() - lastTouch > IDLE) placeNow(true); }
+  requestAnimationFrame(frame);
+}
+
+// ---------- switches ----------
+const VTXT = {
+  c: { A: "Composer A, Inline: the bio on the page. More shows the whole lead on every composer page.",
+       B: "Composer B, Tabs: Works and About.",
+       C: "Composer C, Sheet: works first. About opens a sheet with the whole picture." },
+  g: { A: "Genres A, Chips: genres filter the works. Several chips join with or.",
+       B: "Genres B, Sections: one section per genre. A work shows in each of its genres.",
+       C: "Genres C, To Search: one list of works. A genre row opens Search with the composer and the genre." },
+  p: { A: "Performer A, By composer: recordings under each composer.",
+       B: "Performer B, By work: recordings under each work, then who they play with.",
+       C: "Performer C, Albums: the albums they are on, newest first." },
+  w: { page: "Picture: as wide as the page.", screen: "Picture: as wide as the screen. It slides under the timeline." } };
+function pills() { $("#cvl").textContent = "Comp " + S.cv; $("#gvl").textContent = "Genre " + S.gv; $("#pvl").textContent = "Perf " + S.pv; $("#wvl").textContent = S.wv === "screen" ? "Screen" : "Page"; document.body.classList.toggle("wide", S.wv === "screen"); }
+document.querySelectorAll("[data-sv]").forEach(b => b.onclick = () => {
+  const k = b.dataset.sv, v = k + "v";
+  S[v] = k === "w" ? (S.wv === "screen" ? "page" : "screen") : "ABC"[("ABC".indexOf(S[v]) + 1) % 3];
+  history.replaceState(null, "", "?" + new URLSearchParams({ c: S.cv, g: S.gv, p: S.pv, w: S.wv })); pills(); closeOverlays(); repaintPeople(); toast(VTXT[k][S[v]]);
+});
+let tt = 0;
+function toast(s) { const t = $("#toast"); t.textContent = s; t.classList.add("on"); clearTimeout(tt); tt = setTimeout(() => t.classList.remove("on"), 2600); }
+addEventListener("resize", () => { drawBar(); tick(true); });
+
+// Start: Kleiber's Fifth plays after Die Schöpfung, and Harnoncourt's Sixth is next. The listener is on the Fifth's work page.
+S.history = ["rec:ja09"]; S.queue = ["rec:ha90b"]; setPlaying("rec:k74", 1); T += 40;
+pills();
+for (const k of ["lib", "comp:lvb"]) { const e = { key: k, el: makePage(k) }; stack.push(e); paint(e); }
+layout(); renderMini(); drawBar(); repaintLive(); requestAnimationFrame(frame);
+toast(VTXT.c[S.cv]);
+</script>
+</body>
+</html>

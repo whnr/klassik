@@ -102,14 +102,18 @@ final class GaplessTestPlayer {
                     status = "Track \(number + 1) has a different audio format. Stopped scheduling."
                     return
                 }
-                // Without a completion handler, Swift picks the async variant, which waits for the end of playback.
-                node.scheduleSegment(
-                    file, startingFrame: range.lowerBound, frameCount: AVAudioFrameCount(range.count), at: nil,
-                    completionHandler: nil)
+                schedule(file, on: node, range: range)
                 status = "Playing · \(number + 1) of \(songs.count) tracks scheduled"
             }
         } catch {
             if !Task.isCancelled { status = error.localizedDescription }
         }
+    }
+
+    // Schedule without waiting so the next track can download during playback.
+    private func schedule(_ file: AVAudioFile, on node: AVAudioPlayerNode, range: Range<Int64>) {
+        node.scheduleSegment(
+            file, startingFrame: range.lowerBound, frameCount: AVAudioFrameCount(range.count), at: nil,
+            completionHandler: nil)
     }
 }

@@ -1,0 +1,630 @@
+<!doctype html>
+<!--
+  PROTOTYPE, throw away. Map ticket sz-rs30.1.74.6, round 4. A function sample, not the future UI.
+  Decided in the grilling of 2026-11-03: two levels (all composers, then one composer); it opens on the composer of what plays,
+  with that work marked; a sideways scrub moves between composers; contemporaries are composers with held works inside the
+  focus composer's active years, 10 years either side; active years start at Wikidata P2031 and are bright, childhood dim;
+  a composer whose works do not fit shows one row a year; undated works are one row; the card plays or opens a work.
+  Question: chart or list, or both. ?variant=A|B|C.
+  A Chart: the composer level as a chart with a label column.
+  B Year list: a list of years with the composer's works, and one row of contemporaries' works for each year (the control).
+  C Chart and list: a narrow chart that navigates a list of works.
+  Data: real composers, life dates, well-known works and P2031 values from Wikidata. Chopin's large catalogue is generated:
+  its titles and years are sample data, and about a third has no date on purpose. No audio, no cover art.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="robots" content="noindex, nofollow">
+<title>Chronology, round 4</title>
+<style>
+:root {
+  --bg: #f2f2f7; --card: #fff; --label: #000; --label2: rgba(60,60,67,.6); --label3: rgba(60,60,67,.3);
+  --sep: rgba(60,60,67,.18); --tint: #b5482f; --tintSoft: rgba(181,72,47,.1); --fill: rgba(118,118,128,.14); --track: rgba(118,118,128,.32);
+  --glass: rgba(250,250,252,.82); --glassLine: rgba(0,0,0,.08); --band: rgba(118,118,128,.07);
+  --barW: 26px; --lineX: 12px; --edgeTop: calc(env(safe-area-inset-top) + 52px);
+  --bot: calc(env(safe-area-inset-bottom) + 12px); --tabH: 56px; --miniH: 76px; --navH: 40px; --stH: 22px;
+  --top: calc(env(safe-area-inset-top) + 48px);
+}
+@media (prefers-color-scheme: dark) { :root {
+  --bg: #000; --card: #1c1c1e; --label: #fff; --label2: rgba(235,235,245,.6); --label3: rgba(235,235,245,.3);
+  --sep: rgba(84,84,88,.6); --tint: #ff7a5c; --tintSoft: rgba(255,122,92,.14); --fill: rgba(118,118,128,.24); --track: rgba(118,118,128,.5);
+  --glass: rgba(40,40,44,.82); --glassLine: rgba(255,255,255,.1); --band: rgba(118,118,128,.12);
+} }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--label); font: 17px/1.3 -apple-system, system-ui, sans-serif; -webkit-user-select: none; user-select: none; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; touch-action: manipulation; text-align: left; }
+.glass { background: var(--glass); backdrop-filter: blur(24px) saturate(1.8); -webkit-backdrop-filter: blur(24px) saturate(1.8); border: .5px solid var(--glassLine); }
+.ell { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* ---------- the place: title, state line, drawing area ---------- */
+#navbg { position: fixed; top: 0; left: 0; right: var(--barW); height: calc(var(--top) + var(--navH) + var(--stH)); z-index: 4; border-width: 0 0 .5px; }
+#navbar { position: fixed; top: var(--top); left: 0; right: var(--barW); height: var(--navH); z-index: 4; display: flex; align-items: center; padding: 0 10px 0 16px; gap: 8px; }
+#nt { flex: 1; font-weight: 700; font-size: 22px; }
+#zoom { display: none; gap: 6px; }
+body.vA #zoom { display: flex; }
+#zoom button { width: 36px; height: 32px; border-radius: 16px; background: var(--fill); color: var(--tint); font-size: 20px; display: grid; place-items: center; }
+#state { position: fixed; top: calc(var(--top) + var(--navH)); left: 16px; right: calc(var(--barW) + 8px); height: var(--stH); z-index: 4; font-size: 13px; color: var(--label2); }
+#state .cr { color: var(--tint); }
+#state .cr.here { color: var(--label); font-weight: 600; }
+#state .sepc { color: var(--label3); margin: 0 4px; }
+.area { position: fixed; top: calc(var(--top) + var(--navH) + var(--stH)); left: 0; right: var(--barW); bottom: calc(var(--bot) + var(--tabH) + var(--miniH) + 16px); }
+#cv { pointer-events: none; z-index: 1; }
+#area { z-index: 2; overflow: hidden; touch-action: none; }
+#spacer { width: 1px; }
+
+/* ---------- the year list (B, and the right side of C) ---------- */
+#list { position: fixed; top: calc(var(--top) + var(--navH) + var(--stH)); left: 0; right: var(--barW); bottom: calc(var(--bot) + var(--tabH) + var(--miniH) + 16px); z-index: 2; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; display: none; padding: 0 8px 40px 12px; transition: opacity .2s; }
+body.l2.vB #list, body.l2.vC #list { display: block; }
+body.vC #list { left: 36%; padding-left: 4px; }
+#list.fade { opacity: .25; transition: none; }
+#list .lhead { padding: 6px 4px 4px; font-size: 13px; color: var(--label2); display: flex; flex-direction: column; }
+#list .lhead b { font-size: 17px; color: var(--label); }
+#list section { margin-top: 4px; }
+#list .yh { position: sticky; top: 0; z-index: 1; background: var(--bg); font-size: 13px; font-weight: 600; color: var(--label2); padding: 6px 4px 3px; }
+#list .wr, #list .also { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 40px; padding: 8px 10px; background: var(--card); font-size: 15px; position: relative; }
+#list section > button:first-of-type { border-top-left-radius: 10px; border-top-right-radius: 10px; }
+#list section > button:last-child { border-bottom-left-radius: 10px; border-bottom-right-radius: 10px; }
+#list section > button + button::before { content: ""; position: absolute; top: 0; left: 10px; right: 0; border-top: .5px solid var(--sep); }
+#list .wr .t { flex: 1; min-width: 0; } #list .wr .s { color: var(--label2); }
+#list .wr.now { color: var(--tint); font-weight: 600; } #list .pl { color: var(--tint); font-size: 12px; }
+#list .also { color: var(--label2); font-size: 13px; } #list .also .ell { flex: 1; min-width: 0; } #list .also .n { font-size: 12px; color: var(--label3); }
+#list .wr.more { color: var(--tint); } #list .chev { color: var(--label3); }
+#list button:active { background: var(--fill); }
+#tip { position: fixed; top: calc(var(--top) + var(--navH) + var(--stH) + 6px); z-index: 6; background: var(--label); color: var(--bg); font-size: 14px; font-weight: 600; padding: 6px 10px; border-radius: 10px; display: none; pointer-events: none; white-space: nowrap; }
+#tip.on { display: block; }
+
+/* ---------- the selection card ---------- */
+#card { position: fixed; left: 12px; right: calc(var(--barW) + 8px); bottom: calc(var(--bot) + var(--tabH) + var(--miniH) + 22px); z-index: 3; border-radius: 18px; padding: 12px 14px 12px; max-height: 36vh; overflow-y: auto; box-shadow: 0 8px 30px rgba(0,0,0,.16); display: none; }
+#card.on { display: block; }
+#card .x { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 15px; background: var(--fill); color: var(--label2); display: grid; place-items: center; font-size: 14px; }
+#card .ct { font-size: 17px; font-weight: 600; padding-right: 34px; }
+#card .cs { font-size: 14px; color: var(--label2); margin-top: 2px; }
+#card .cs b { color: var(--tint); font-weight: 400; }
+#card .acts { display: flex; gap: 8px; margin-top: 10px; }
+.btn { height: 38px; padding: 0 16px; border-radius: 19px; background: var(--fill); color: var(--tint); font-size: 15px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.btn.pri { background: var(--tint); color: #fff; }
+#card .nums { display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: 6px; margin-top: 10px; }
+#card .nums button { height: 36px; border-radius: 10px; background: var(--card); color: var(--tint); text-align: center; font-size: 15px; font-variant-numeric: tabular-nums; }
+#card .nums button:active { background: var(--fill); }
+#card .rows { margin-top: 8px; background: var(--card); border-radius: 12px; overflow: hidden; }
+.pr { display: flex; gap: 10px; align-items: center; width: 100%; padding: 10px 12px; position: relative; font-size: 15px; }
+.pr + .pr::before { content: ""; position: absolute; top: 0; left: 12px; right: 0; border-top: .5px solid var(--sep); }
+.pr .m { flex: 1; min-width: 0; } .pr .s { font-size: 13px; color: var(--label2); } .pr .chev { color: var(--label3); }
+.pr:active { background: var(--fill); }
+
+/* ---------- the work page (stub: ADR 0015 decides it) ---------- */
+#page { position: fixed; top: 0; left: 0; bottom: 0; right: var(--barW); z-index: 5; background: var(--bg); transform: translateX(105%); transition: transform .35s cubic-bezier(.2,.8,.2,1); box-shadow: -6px 0 24px rgba(0,0,0,.1); }
+#page.on { transform: none; }
+#page .hd { position: absolute; top: var(--top); left: 0; right: 0; height: 44px; display: flex; align-items: center; padding: 0 8px; z-index: 2; }
+#page .back { color: var(--tint); display: flex; align-items: center; gap: 2px; height: 44px; padding: 0 6px; }
+#page .back b { font-size: 26px; font-weight: 400; line-height: 1; margin-top: -3px; }
+#page .scroll { position: absolute; inset: 0; overflow-y: auto; padding: calc(var(--top) + 50px) 16px calc(var(--bot) + var(--tabH) + var(--miniH) + 40px); }
+#page h1 { font-size: 28px; line-height: 1.15; margin: 0 0 4px; }
+#page .c { color: var(--tint); font-size: 17px; }
+#page .meta { font-size: 14px; color: var(--label2); margin-top: 4px; }
+#page .sh { font-size: 13px; text-transform: uppercase; color: var(--label2); margin: 22px 0 6px 12px; }
+#page .list { background: var(--card); border-radius: 12px; overflow: hidden; }
+#page .stub { font-size: 13px; color: var(--label2); background: var(--fill); border-radius: 10px; padding: 8px 12px; margin-top: 16px; }
+
+/* ---------- tabs, mini player, timeline (locked, ADR 0014 and 0015; static here) ---------- */
+#tabs { position: fixed; left: 16px; right: calc(var(--barW) + 6px); bottom: var(--bot); height: var(--tabH); display: flex; gap: 8px; z-index: 6; }
+#tabs .cap { flex: 1; border-radius: 28px; display: flex; justify-content: space-around; align-items: center; font-size: 11px; color: var(--label2); }
+#tabs .cap span { display: flex; flex-direction: column; align-items: center; gap: 1px; } #tabs .cap b { font-size: 20px; font-weight: 400; }
+#tabs .cap .on { color: var(--tint); }
+#tabs .circ { width: var(--tabH); border-radius: 28px; display: grid; place-items: center; font-size: 22px; color: var(--label2); flex: none; }
+#mini { position: fixed; left: 16px; right: var(--lineX); bottom: calc(var(--bot) + var(--tabH) + 8px); height: var(--miniH); z-index: 7;
+  background: var(--card); border-radius: 18px 0 0 18px; box-shadow: 0 4px 18px rgba(0,0,0,.14); display: flex; align-items: center; gap: 10px; padding: 0 10px 0 8px; }
+#mini .art { width: 58px; height: 58px; border-radius: 8px; flex: none; background: linear-gradient(135deg, #8a5a44, #d9a066); }
+#mini .txt { flex: 1; min-width: 0; line-height: 1.22; }
+#mini .mv { font-size: 15px; font-weight: 600; } #mini .by, #mini .wk { font-size: 13px; color: var(--label2); }
+#mini .pp { width: 42px; height: 42px; border-radius: 21px; display: grid; place-items: center; font-size: 18px; flex: none; }
+#bar { position: fixed; right: 0; width: var(--barW); top: var(--edgeTop); bottom: calc(var(--bot) + var(--tabH) + 8px); z-index: 7; display: flex; flex-direction: column; gap: 3px; padding: 0 9px 0 11px; }
+#bar i { display: block; background: var(--track); border-radius: 2px; }
+#bar i.p { background: var(--tint); }
+#bar i.h { background: linear-gradient(var(--tint) 40%, var(--track) 40%); }
+
+/* prototype switches */
+#sw { position: fixed; top: calc(env(safe-area-inset-top) + 6px); left: 6px; right: 6px; z-index: 30; display: flex; gap: 5px; justify-content: center; }
+#sw .p { display: flex; align-items: center; background: #111; color: #fff; border-radius: 18px; height: 34px; box-shadow: 0 2px 10px rgba(0,0,0,.35); }
+#sw .p button, #sw .p a { color: #fff; height: 34px; padding: 0 9px; font-size: 13px; white-space: nowrap; display: flex; align-items: center; text-decoration: none; }
+#sw .p button.arr { font-size: 18px; padding: 0 10px; }
+#toast { position: fixed; top: calc(env(safe-area-inset-top) + 46px); left: 50%; transform: translateX(-50%); z-index: 29; background: rgba(17,17,17,.88); color: #fff; font-size: 13px; padding: 7px 12px; border-radius: 12px; opacity: 0; transition: opacity .25s; pointer-events: none; max-width: 90%; text-align: center; }
+#toast.on { opacity: 1; }
+</style>
+</head>
+<body>
+<div id="navbg" class="glass"></div>
+<div id="navbar"><div id="nt">Chronology</div></div>
+<div id="state" class="ell"></div>
+<canvas id="cv" class="area"></canvas>
+<div id="area" class="area"><div id="spacer"></div></div>
+<div id="list"></div>
+<div id="tip"></div>
+<div id="card" class="glass"></div>
+<div id="page"><div class="hd"><button class="back"><b>‹</b>Chronology</button></div><div class="scroll"></div></div>
+<div id="tabs"><div class="cap glass"><span><b>♪</b>Library</span><span class="on"><b>◷</b>Chronology</span><span><b>⚙︎</b>Settings</span></div><div class="circ glass">⌕</div></div>
+<div id="mini"><div class="art"></div><div class="txt"><div class="mv ell">II. Andante</div><div class="wk ell">Symphony No. 94 “Surprise”</div><div class="by ell">Haydn · Adam Fischer</div></div><div class="pp">❚❚</div></div>
+<div id="bar" aria-label="Timeline"><i class="p" style="flex:8"></i><i class="h" style="flex:6"></i><i style="flex:4"></i><i style="flex:5"></i></div>
+<div id="sw"><div class="p"><button class="arr" id="prev">‹</button><button id="vname"></button><button class="arr" id="next">›</button></div><div class="p"><a href="?" id="reset" aria-label="Reset">↺</a></div></div>
+<div id="toast"></div>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const Q = new URLSearchParams(location.search);
+const VARIANTS = { A: "Chart", B: "Year list", C: "Chart and list" };
+const V = VARIANTS[Q.get("variant")] ? Q.get("variant") : "A";
+document.body.classList.add("v" + V);
+
+// ---------- sample library: real composers and dates, generated holdings ----------
+// [surname, full name, born, died or null, works]. A work is [title, year or null, set size, last year].
+// A null year is an undated work: some are removed on purpose.
+const RAW = [
+  ["Hildegard", "Hildegard von Bingen", 1098, 1179, [["Ordo Virtutum", 1151], ["Symphonia armonie celestium revelationum", null]]],
+  ["Monteverdi", "Claudio Monteverdi", 1567, 1643, [["L'Orfeo", 1607], ["Vespro della Beata Vergine", 1610], ["Il ritorno d'Ulisse in patria", 1640], ["L'incoronazione di Poppea", 1643]]],
+  ["Purcell", "Henry Purcell", 1659, 1695, [["Dido and Aeneas", 1689], ["King Arthur", 1691], ["The Fairy-Queen", 1692], ["Music for the Funeral of Queen Mary", 1695]]],
+  ["Vivaldi", "Antonio Vivaldi", 1678, 1741, [["L'estro armonico, Op. 3", 1711, 12], ["Stabat Mater, RV 621", 1712], ["Gloria, RV 589", 1715], ["Juditha triumphans", 1716], ["The Four Seasons, Op. 8 Nos. 1–4", 1720, 4], ["Lute Concerto in D major, RV 93", null]]],
+  ["Bach", "Johann Sebastian Bach", 1685, 1750, [["Toccata and Fugue in D minor, BWV 565", null], ["Cello Suites, BWV 1007–1012", 1720, 6], ["Brandenburg Concertos", 1721, 6], ["The Well-Tempered Clavier, Book I", 1722, 24], ["St John Passion", 1724], ["St Matthew Passion", 1727], ["Goldberg Variations", 1741], ["Mass in B minor", 1749]]],
+  ["Handel", "George Frideric Handel", 1685, 1759, [["Water Music", 1717], ["Giulio Cesare", 1724], ["Zadok the Priest", 1727], ["Messiah", 1741], ["Music for the Royal Fireworks", 1749]]],
+  ["Haydn", "Joseph Haydn", 1732, 1809, [["Symphony No. 45 “Farewell”", 1772], ["Symphony No. 94 “Surprise”", 1791], ["Symphony No. 104 “London”", 1795], ["Trumpet Concerto", 1796], ["String Quartets, Op. 76", 1797, 6], ["Die Schöpfung", 1798]]],
+  ["Mozart", "Wolfgang Amadeus Mozart", 1756, 1791, [["Sinfonia concertante, K. 364", 1779], ["Piano Concerto No. 21, K. 467", 1785], ["Le nozze di Figaro", 1786], ["Don Giovanni", 1787], ["Eine kleine Nachtmusik", 1787], ["Symphony No. 40, K. 550", 1788], ["Symphony No. 41 “Jupiter”", 1788], ["Clarinet Concerto, K. 622", 1791], ["Die Zauberflöte", 1791], ["Requiem, K. 626", 1791]]],
+  ["Beethoven", "Ludwig van Beethoven", 1770, 1827, [["Piano Sonatas, Op. 2", 1795, 3], ["Piano Sonata No. 14 “Moonlight”", 1801], ["Symphony No. 3 “Eroica”", 1804], ["Violin Concerto, Op. 61", 1806], ["Symphony No. 5, Op. 67", 1808], ["Symphony No. 6 “Pastoral”", 1808], ["Piano Concerto No. 5 “Emperor”", 1809], ["Missa solemnis", 1823], ["Symphony No. 9, Op. 125", 1824], ["String Quartet No. 14, Op. 131", 1826]]],
+  ["Schubert", "Franz Schubert", 1797, 1828, [["Erlkönig", 1815], ["Piano Quintet “Trout”", 1819], ["Symphony No. 8 “Unfinished”", 1822], ["Die schöne Müllerin", 1823], ["Symphony No. 9 “Great”", 1826], ["Winterreise", 1827], ["Impromptus, D. 899", 1827, 4], ["String Quintet, D. 956", 1828]]],
+  ["Mendelssohn", "Felix Mendelssohn", 1809, 1847, [["Octet, Op. 20", 1825], ["A Midsummer Night's Dream, Overture", 1826], ["The Hebrides", 1830], ["Symphony No. 4 “Italian”", 1833], ["Violin Concerto in E minor", 1844], ["Elijah", 1846]]],
+  ["Chopin", "Frédéric Chopin", 1810, 1849, "CHOPIN"],
+  ["Schumann", "Robert Schumann", 1810, 1856, [["Carnaval", 1835], ["Kinderszenen", 1838], ["Kreisleriana", 1838], ["Dichterliebe", 1840], ["Piano Concerto", 1845], ["Symphony No. 3 “Rhenish”", 1850]]],
+  ["Liszt", "Franz Liszt", 1811, 1886, [["Hungarian Rhapsodies", 1846, 19, 1885], ["Piano Sonata in B minor", 1853], ["Les préludes", 1854], ["A Faust Symphony", 1857], ["Liebestraum No. 3", null]]],
+  ["Wagner", "Richard Wagner", 1813, 1883, [["Der fliegende Holländer", 1843], ["Tannhäuser", 1845], ["Tristan und Isolde", 1859], ["Die Meistersinger von Nürnberg", 1867], ["Siegfried Idyll", 1870], ["Götterdämmerung", 1874], ["Parsifal", 1882]]],
+  ["Verdi", "Giuseppe Verdi", 1813, 1901, [["Nabucco", 1842], ["Rigoletto", 1851], ["La traviata", 1853], ["Aida", 1871], ["Messa da Requiem", 1874], ["Otello", 1887], ["Falstaff", 1893]]],
+  ["Brahms", "Johannes Brahms", 1833, 1897, [["Piano Concerto No. 1", 1858], ["Ein deutsches Requiem", 1868], ["Hungarian Dances", 1869, 21], ["Symphony No. 1", 1876], ["Violin Concerto", 1878], ["Symphony No. 4", 1885], ["Clarinet Quintet", 1891]]],
+  ["Tchaikovsky", "Pyotr Ilyich Tchaikovsky", 1840, 1893, [["Romeo and Juliet", 1870], ["Piano Concerto No. 1", 1875], ["Swan Lake", 1876], ["Violin Concerto", 1878], ["Eugene Onegin", 1878], ["The Nutcracker", 1892], ["Symphony No. 6 “Pathétique”", 1893]]],
+  ["Dvořák", "Antonín Dvořák", 1841, 1904, [["Slavonic Dances, Op. 46", 1878, 8], ["Symphony No. 9 “From the New World”", 1893], ["String Quartet No. 12 “American”", 1893], ["Cello Concerto", 1895], ["Rusalka", 1901]]],
+  ["Mahler", "Gustav Mahler", 1860, 1911, [["Symphony No. 1", 1888], ["Symphony No. 2 “Resurrection”", 1894], ["Symphony No. 5", 1902], ["Kindertotenlieder", 1904], ["Das Lied von der Erde", 1909], ["Symphony No. 9", 1909]]],
+  ["Debussy", "Claude Debussy", 1862, 1918, [["Suite bergamasque", 1890], ["String Quartet", 1893], ["Prélude à l'après-midi d'un faune", 1894], ["La mer", 1905], ["Préludes, Book I", 1910, 12], ["Jeux", 1913]]],
+  ["Strauss", "Richard Strauss", 1864, 1949, [["Don Juan", 1888], ["Also sprach Zarathustra", 1896], ["Salome", 1905], ["Der Rosenkavalier", 1910], ["Metamorphosen", 1945], ["Vier letzte Lieder", 1948]]],
+  ["Rachmaninoff", "Sergei Rachmaninoff", 1873, 1943, [["Piano Concerto No. 2", 1901], ["Piano Concerto No. 3", 1909], ["All-Night Vigil", 1915], ["Rhapsody on a Theme of Paganini", 1934], ["Symphonic Dances", 1940]]],
+  ["Ravel", "Maurice Ravel", 1875, 1937, [["String Quartet", 1903], ["Daphnis et Chloé", 1912], ["Le tombeau de Couperin", 1917], ["Boléro", 1928], ["Piano Concerto in G", 1931]]],
+  ["Bartók", "Béla Bartók", 1881, 1945, [["Bluebeard's Castle", 1911], ["Music for Strings, Percussion and Celesta", 1936], ["Concerto for Orchestra", 1943]]],
+  ["Stravinsky", "Igor Stravinsky", 1882, 1971, [["The Firebird", 1910], ["Petrushka", 1911], ["The Rite of Spring", 1913], ["Symphony of Psalms", 1930], ["Agon", 1957]]],
+  ["Shostakovich", "Dmitri Shostakovich", 1906, 1975, [["Symphony No. 5", 1937], ["Symphony No. 7 “Leningrad”", 1941], ["24 Preludes and Fugues, Op. 87", 1951, 24], ["Symphony No. 10", 1953], ["String Quartet No. 8", 1960]]],
+  ["Messiaen", "Olivier Messiaen", 1908, 1992, [["Quatuor pour la fin du temps", 1941], ["Turangalîla-Symphonie", 1948], ["Des canyons aux étoiles…", 1974]]],
+  ["Britten", "Benjamin Britten", 1913, 1976, [["Peter Grimes", 1945], ["The Young Person's Guide to the Orchestra", 1946], ["War Requiem", 1962]]],
+  ["Pärt", "Arvo Pärt", 1935, null, [["Tabula rasa", 1977], ["Fratres", 1977], ["Spiegel im Spiegel", 1978], ["Te Deum", 1985]]],
+  ["Reich", "Steve Reich", 1936, null, [["Drumming", 1971], ["Music for 18 Musicians", 1976], ["Different Trains", 1988]]],
+  ["Glass", "Philip Glass", 1937, null, [["Einstein on the Beach", 1976], ["Glassworks", 1982], ["Violin Concerto No. 1", 1987]]],
+];
+let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+// Wikidata P2031, work period (start), as fetched on 2026-11-03. A missing value means no shading.
+const WS = { Monteverdi: 1582, Purcell: 1679, Vivaldi: 1685, Bach: 1710, Handel: 1702, Haydn: 1740, Mozart: 1761, Beethoven: 1782, Schubert: 1810, Mendelssohn: 1826, Chopin: 1817, Schumann: 1830, Liszt: 1830, Wagner: 1832, Verdi: 1830, Brahms: 1843, Tchaikovsky: 1859, Debussy: 1884, Rachmaninoff: 1892, Shostakovich: 1919, Britten: 1937, Reich: 1963, Glass: 1964 };
+// Chopin as a full library holds him: about 230 works, a third without a date. Generated sample data.
+function chopinCatalogue() {
+  const keys = ["C major", "A minor", "G major", "E minor", "D major", "B minor", "F major", "D minor", "B-flat major", "G minor", "E-flat major", "C minor", "A-flat major", "F minor", "C-sharp minor", "F-sharp minor", "B major", "G-sharp minor", "D-flat major", "B-flat minor"];
+  const k = () => keys[Math.floor(rnd() * keys.length)], yr = (a, b) => a + Math.floor(rnd() * (b - a + 1));
+  const out = [["Nocturne in E-flat major, Op. 9 No. 2", 1831], ["Études, Op. 10", 1829, 12, 1832], ["Études, Op. 25", 1835, 12, 1837], ["Préludes, Op. 28", 1839, 24], ["Piano Concerto No. 1", 1830], ["Piano Concerto No. 2", 1830],
+    ["Ballade No. 1", 1835], ["Ballade No. 2", 1839], ["Ballade No. 3", 1841], ["Ballade No. 4", 1842], ["Scherzo No. 1", 1832], ["Scherzo No. 2", 1837], ["Scherzo No. 3", 1839], ["Scherzo No. 4", 1842],
+    ["Piano Sonata No. 1", 1828], ["Piano Sonata No. 2", 1839], ["Piano Sonata No. 3", 1844], ["Cello Sonata", 1846], ["Piano Trio", 1829], ["Fantaisie in F minor", 1841], ["Barcarolle", 1846], ["Berceuse", 1844], ["Polonaise-Fantaisie", 1846]];
+  const many = [["Mazurka", 62, 1825, 1849, .4], ["Nocturne", 20, 1827, 1846, .3], ["Waltz", 19, 1824, 1848, .4], ["Polonaise", 16, 1817, 1846, .25], ["Song", 24, 1829, 1847, .45], ["Impromptu", 4, 1834, 1842, .1],
+    ["Rondo", 4, 1825, 1833, .3], ["Variations", 6, 1824, 1837, .4], ["Écossaise", 3, 1826, 1830, .6], ["Contredanse", 2, 1827, 1829, .7], ["Album leaf", 28, 1827, 1848, .7], ["Fugue", 2, 1841, 1842, .6], ["March", 2, 1826, 1837, .7], ["Galop", 2, 1846, 1847, .6], ["Nouvelle étude", 3, 1839, 1839, .2], ["Cantabile", 2, 1834, 1834, .6]];
+  for (const [name, n, a, b, pu] of many) for (let i = 1; i <= n; i++) out.push([`${name} No. ${i} in ${k()}`, rnd() < pu ? null : yr(a, b)]);
+  return out;
+}
+const NOW = 2026;
+// The periods of ADR 0011. A composer belongs to the period of the year they turned 35, or of their death if it came first.
+const PERIODS = [["Early Music", null, 1600], ["Baroque", 1600, 1750], ["Classical", 1750, 1820], ["Romantic", 1820, 1910], ["Modern", 1910, 1975], ["Contemporary", 1975, null]]
+  .map(([name, start, end], i) => ({ i, name, start, end }));
+const periodOfYear = y => PERIODS.findLast(p => (p.start ?? -1e9) <= y);
+const COMPS = RAW.map(([n, full, b, d, ws], i) => {
+  if (ws === "CHOPIN") ws = chopinCatalogue();
+  const c = { i, n, full, b, d, end: d ?? NOW };
+  c.works = ws.map(([t, y, set, y2], j) => ({ id: `${i}-${j}`, t, y, set: set || 0, y2: y2 || y, c, rec: 1 + Math.floor(rnd() * 4) }));
+  c.dated = c.works.filter(w => w.y != null).sort((a, b) => a.y - b.y);
+  c.undated = c.works.filter(w => w.y == null);
+  c.period = periodOfYear(Math.min(b + 35, c.end));
+  return c;
+});
+const NWORKS = COMPS.reduce((s, c) => s + c.works.length, 0);
+
+// ---------- the year axis: the empty centuries after Hildegard fold into a short gap ----------
+const Y0 = 1090, F0 = 1185, F1 = 1560, FOLD = 14, YEND = 2030;
+const U = y => y <= F0 ? y - Y0 : y < F1 ? (F0 - Y0) + (y - F0) * FOLD / (F1 - F0) : (F0 - Y0) + FOLD + (y - F1);
+const Yr = u => { const a = F0 - Y0; return u <= a ? u + Y0 : u < a + FOLD ? F0 + (u - a) * (F1 - F0) / FOLD : F1 + (u - a - FOLD); };
+const UT = U(YEND);
+
+// Packed lanes: a composer reuses the lane of one who died before they were born.
+const laneEnd = [];
+for (const c of COMPS) {
+  let l = laneEnd.findIndex(e => e + 3 < c.b);
+  if (l < 0) { l = laneEnd.length; laneEnd.push(0); }
+  laneEnd[l] = c.end + (c.undated.length ? 6 : 0); c.lane = l;
+}
+const NL = laneEnd.length;
+
+// ---------- drawing basics ----------
+const cv = $("#cv"), area = $("#area"), spacer = $("#spacer");
+let ctx = cv.getContext("2d"), W = 0, H = 0, dpr = 1, K = {}, hits = [];
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function readColors() { for (const n of ["label", "label2", "label3", "sep", "tint", "tintSoft", "fill", "card", "bg", "band", "track"]) K[n] = css("--" + n); }
+function sizeCanvas() {
+  const r = area.getBoundingClientRect(); W = r.width; H = r.height; dpr = devicePixelRatio || 1;
+  // A canvas is a replaced element: without an explicit CSS size it shows at its pixel size, three times too big on an iPhone.
+  cv.style.width = W + "px"; cv.style.height = H + "px";
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+const FONT = "-apple-system, system-ui, sans-serif";
+const font = (g, px, w = 400) => g.font = `${w} ${px}px ${FONT}`;
+function fit(g, s, max) {
+  if (max <= 8) return "";
+  if (g.measureText(s).width <= max) return s;
+  let lo = 0, hi = s.length;
+  while (lo < hi) { const m = (lo + hi + 1) >> 1; if (g.measureText(s.slice(0, m) + "…").width <= max) lo = m; else hi = m - 1; }
+  return lo ? s.slice(0, lo) + "…" : "";
+}
+function line(g, x1, y1, x2, y2, col, w = 1, dash) { g.strokeStyle = col; g.lineWidth = w; g.setLineDash(dash || []); g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); g.setLineDash([]); }
+function dot(g, x, y, r, col) { g.fillStyle = col; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); }
+function ring(g, x, y, r, col, w = 1.5) { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); g.arc(x, y, r, 0, 7); g.stroke(); }
+function rrect(g, x, y, w, h, r, col) { g.fillStyle = col; g.beginPath(); g.roundRect(x, y, w, h, r); g.fill(); }
+function vtext(g, s, x, y, col, px, w = 400) { // reads top to bottom, right of x
+  g.save(); g.translate(x, y); g.rotate(Math.PI / 2); font(g, px, w); g.fillStyle = col; g.textBaseline = "bottom"; g.textAlign = "left"; g.fillText(s, 0, 0); g.restore();
+}
+function text(g, s, x, y, col, px, w = 400, align = "left", base = "middle") { font(g, px, w); g.fillStyle = col; g.textAlign = align; g.textBaseline = base; g.fillText(s, x, y); }
+const yearsOf = w => w.y == null ? "No date" : w.y2 !== w.y ? `${w.y}–${w.y2}` : `${w.y}`;
+const lifeOf = c => c.d ? `${c.b}–${c.d}` : `born ${c.b}`;
+function stepFor(pxPerYear, min = 26) { for (const s of [1, 2, 5, 10, 25, 50, 100]) if (s * pxPerYear >= min) return s; return 200; }
+// Labels in a column keep their order and never overlap; a pushed label gets a leader line.
+function stack(items, gap, top, bottom) {
+  let last = -1e9; for (const it of items) { it.ly = Math.max(it.y, last + gap); last = it.ly; }
+  let lim = bottom; for (let i = items.length - 1; i >= 0; i--) { if (items[i].ly > lim) items[i].ly = lim; lim = items[i].ly - gap; }
+  for (const it of items) it.ly = Math.max(it.ly, top);
+}
+function hitAt(x, y) {
+  // Named labels win over dots, dots over lines; the last drawn wins among equals.
+  for (let i = hits.length - 1; i >= 0; i--) { const h = hits[i]; if (h.p && x >= h.x0 && x <= h.x1 && y >= h.y0 && y <= h.y1) return h; }
+  let best = null, bd = 1e9;
+  for (const h of hits) {
+    if (h.r != null) { const d = Math.hypot(h.x - x, h.y - y); if (d < h.r + 12 && d < bd) { bd = d; best = h; } }
+  }
+  if (best) return best;
+  for (let i = hits.length - 1; i >= 0; i--) { const h = hits[i]; if (h.r == null && x >= h.x0 && x <= h.x1 && y >= h.y0 && y <= h.y1) return h; }
+  return null;
+}
+// One work dot: a set carries its size beside it, an undated group is a ring with its count.
+function workDot(g, x, y, w, col, r = 4) {
+  dot(g, x, y, r, col);
+  if (w.set) text(g, String(w.set), x + r + 2, y, col, 9, 600);
+}
+function undatedRing(g, x, y, c, col, r = 4) { ring(g, x, y, r - .5, col); text(g, String(c.undated.length), x + r + 2, y, col, 9, 600); }
+
+// ---------- card, work page, toast ----------
+const card = $("#card");
+let selected = null; // { kind: "work"|"composer"|"undated", obj }
+function select(kind, obj) {
+  selected = kind ? { kind, obj } : null;
+  if (!kind) { card.classList.remove("on"); return redraw(); }
+  const rows = ws => `<div class="rows">${ws.map(w => `<button class="pr" data-work="${w.id}"><span class="m ell">${PLAY.w === w ? "▶︎ " : ""}${esc(w.t)}${w.c !== Cz.c ? `<span class="s"> · ${esc(w.c.n)}</span>` : ""}</span><span class="chev">›</span></button>`).join("")}</div>`;
+  let h = `<button class="x" data-close aria-label="Close">✕</button>`;
+  if (kind === "work") {
+    h += `<div class="ct">${esc(obj.t)}</div><div class="cs">${esc(obj.c.n)} · <b>${yearsOf(obj)}</b>${obj.set ? ` · a set of ${obj.set} works` : ""} · ${obj.rec} recording${obj.rec > 1 ? "s" : ""}</div>
+      <div class="acts"><button class="btn pri" data-play="${obj.id}">${PLAY.w === obj ? "Plays" : "▶︎ Play"}</button><button class="btn" data-open="${obj.id}">Open Work</button>${obj.c !== Cz.c && Cz.lvl === 2 ? `<button class="btn" data-goto="${obj.c.i}">${esc(obj.c.n)}</button>` : ""}</div>`;
+  } else if (kind === "bin") {
+    h += `<div class="ct">${esc(Cz.c.n)} · ${obj.yr}</div><div class="cs">${obj.ws.length} works</div>` + rows(obj.ws);
+  } else if (kind === "also") {
+    h += `<div class="ct">${obj.yr}: also composed</div><div class="cs">Works of other composers in your library</div>` + rows(obj.ws);
+  } else if (kind === "undated") {
+    h += `<div class="ct">${esc(obj.n)}: ${obj.undated.length} works without a date</div><div class="cs">They join the line once a date is known.</div>` + rows(obj.undated);
+  }
+  card.innerHTML = h; card.classList.add("on"); card.scrollTop = 0; redraw();
+}
+const workById = id => { const [ci, wi] = id.split("-").map(Number); return COMPS[ci].works[wi]; };
+card.addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.close != null) return select(null);
+  if (b.dataset.play) return play(workById(b.dataset.play));
+  if (b.dataset.open) return openWork(workById(b.dataset.open));
+  if (b.dataset.work) return select("work", workById(b.dataset.work));
+  if (b.dataset.goto) return glideTo(COMPS[+b.dataset.goto]);
+});
+function openWork(w, k) {
+  const t = k ? `${w.t} No. ${k}` : w.t;
+  const recs = Array.from({ length: w.rec }, (_, i) => 1958 + Math.floor(((w.id.length * 13 + i * 17 + (k || 0) * 5) % 60)));
+  $("#page .scroll").innerHTML = `<h1>${esc(t)}</h1><div class="c">${esc(w.c.full)}</div>
+    <div class="meta">${w.y == null ? "No composition date" : "Composed " + yearsOf(w)}${k ? ` · from ${esc(w.t)}` : ""}</div>
+    <div class="sh">Recordings</div><div class="list">${recs.sort().map((y, i) => `<div class="pr"><span class="m"><div>Sample recording ${i + 1}</div><div class="s">${y}</div></span></div>`).join("")}</div>
+    <div class="stub">A stub. The work page is decided in ADR 0015. Back returns to the Chronology as you left it.</div>`;
+  $("#page").classList.add("on");
+}
+$("#page .back").onclick = () => $("#page").classList.remove("on");
+let toastT; function toast(s) { const t = $("#toast"); t.textContent = s; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 2200); }
+$("#mini").onclick = () => toast("The mini player links to the player page (ADR 0015).");
+
+const state = $("#state");
+let raf = 0; function redraw() { if (!raf) raf = requestAnimationFrame(() => { raf = 0; draw(); }); }
+
+// =====================================================================
+// Two levels: an overview of every composer, then one composer.
+// It opens on the composer of what plays, with that work marked.
+// =====================================================================
+const RXC = 46;
+const chopin = COMPS.find(c => c.n === "Chopin");
+const PLAY = { w: chopin.works.find(w => w.t.startsWith("Nocturne in E-flat major, Op. 9 No. 2")) };
+const Cz = { lvl: 2, c: chopin, anim: null };
+function renderMini() { const w = PLAY.w; $("#mini .mv").textContent = w.t; $("#mini .wk").textContent = w.c.full; $("#mini .by").textContent = "Sample recording"; }
+function play(w) { PLAY.w = w; renderMini(); toast("Plays the reference recording."); select(null); if (V !== "A") buildList(true); redraw(); }
+
+// Active years start at Wikidata P2031 (work period start). Without it there is no shading.
+const activeStart = c => WS[c.n] ?? null;
+// Contemporaries: composers with held works inside the focus composer's active years, 10 years either side.
+// Without P2031 the window is the life, without a buffer (Flo rejected life ±10; his rule here is not final).
+function workWindow(c) { const s = activeStart(c); return s != null ? [s - 10, c.end + 10] : [c.b, c.end]; }
+function contemporaries(c) { const [a, b] = workWindow(c); return COMPS.filter(o => o !== c && o.dated.some(w => w.y >= a && w.y <= b)); }
+function staircase(c) { return [c, ...contemporaries(c)].sort((a, b) => a.b - b.b || a.i - b.i); }
+
+// ---------- the overview: every composer as a line, periods as bands ----------
+function drawOverview(g) {
+  const s = (H - 8) / UT, y = u => 4 + u * s, lw = (W - RXC - 6) / NL, lx = l => RXC + (l + .5) * lw;
+  for (const p of PERIODS) {
+    const ya = y(U(p.start ?? Y0)), yb = y(U(p.end ?? YEND));
+    if (p.i % 2) { g.fillStyle = K.band; g.fillRect(0, ya, W, yb - ya); }
+    font(g, 10, 600); const t = p.name.toUpperCase(), tw = g.measureText(t).width;
+    if (yb - ya > tw + 6) vtext(g, t, 3, ya + 3, K.label3, 10, 600);
+  }
+  for (const yr of [1100, 1600, 1700, 1800, 1900, 2000]) { const py = y(U(yr)); text(g, String(yr), RXC - 6, py, K.label2, 10, 400, "right"); }
+  const fa = y(U(F0)), fb = y(U(F1)); line(g, RXC - 4, fa, W, fa, K.sep, 1, [3, 3]); line(g, RXC - 4, fb, W, fb, K.sep, 1, [3, 3]);
+  for (const c of COMPS) {
+    const x = lx(c.lane), y1 = y(U(c.b)), y2 = y(U(c.end)), ws = activeStart(c), isPlay = PLAY.w.c === c;
+    if (ws != null) { line(g, x, y1, x, y(U(ws)), K.label3, 1.2); line(g, x, y(U(ws)), x, y2, isPlay ? K.tint : K.label2, 2); }
+    else line(g, x, y1, x, y2, isPlay ? K.tint : K.label3, 2);
+    for (const w of c.dated) dot(g, x, y(U(w.y)), 1.8, isPlay ? K.tint : K.label2);
+    font(g, 10, 600); const nw = g.measureText(c.n).width;
+    if (y2 - y1 > nw + 6) vtext(g, c.n, x + 3, y1 + 2, isPlay ? K.tint : K.label2, 10, 600);
+    hits.push({ x0: x - Math.max(10, lw / 2), x1: x + Math.max(10, lw / 2), y0: y1 - 6, y1: y2 + 6, kind: "comp", obj: c });
+  }
+}
+
+// ---------- the composer chart (A, and the narrow column of C) ----------
+const undH = c => c.undated.length ? 34 : 0;
+const chartBox = () => V === "C" ? { x0: 40, x1: Math.round(W * .36) - 8, labels: false, rx: 36 } : { x0: RXC + 12, x1: Math.round(W * .42) - 2, labels: true, rx: RXC };
+function sceneFor(c) {
+  const b = chartBox(), s = { lo: c.b - 2, hi: c.end + 2, und: undH(c), cols: new Map() };
+  const all = staircase(c), step = Math.min(18, (b.x1 - b.x0) / Math.max(1, all.length - 1));
+  all.forEach((o, k) => s.cols.set(o, { x: b.x0 + k * step, a: 1, f: o === c ? 1 : 0 }));
+  return s;
+}
+function mixScene(A, B, e) {
+  const s = { lo: A.lo + (B.lo - A.lo) * e, hi: A.hi + (B.hi - A.hi) * e, und: A.und + (B.und - A.und) * e, cols: new Map() };
+  for (const o of new Set([...A.cols.keys(), ...B.cols.keys()])) {
+    const p = A.cols.get(o), q = B.cols.get(o), pa = p || { ...q, a: 0, f: 0 }, qa = q || { ...p, a: 0, f: 0 };
+    s.cols.set(o, { x: pa.x + (qa.x - pa.x) * e, a: pa.a + (qa.a - pa.a) * e, f: pa.f + (qa.f - pa.f) * e });
+  }
+  return s;
+}
+const L2 = { scene: null, anim: null, hl: null, band: null };
+// The focus composer's works as label rows: one row a work while they fit, else one row a year or a span of years.
+function rowsFor(c, y, top, bottom) {
+  const fitN = Math.max(4, Math.floor((bottom - top) / 19));
+  if (c.dated.length <= fitN) return c.dated.map(w => ({ ws: [w], y: y(w.y), label: w.t + (w.set ? ` · ${w.set}` : ""), yr: String(w.y) }));
+  for (const span of [1, 2, 5, 10]) {
+    const bins = new Map();
+    for (const w of c.dated) { const k = Math.floor(w.y / span) * span; if (!bins.has(k)) bins.set(k, []); bins.get(k).push(w); }
+    if (bins.size <= fitN || span === 10) return [...bins].map(([k, ws]) => ws.length === 1 ? { ws, y: y(ws[0].y), label: ws[0].t + (ws[0].set ? ` · ${ws[0].set}` : ""), yr: String(ws[0].y) } : { ws, y: y(k + (span - 1) / 2), label: `${ws.length} works`, yr: span === 1 ? String(k) : `${k}–${String(k + span - 1).slice(-2)}`, bin: true });
+  }
+}
+function drawChart(g) {
+  const S = L2.scene, B = chartBox(), focus = Cz.c, top = 12, sc = (H - top - 8 - S.und) / (S.hi - S.lo), y = yr => top + (yr - S.lo) * sc;
+  // ruler; the focus composer's birth and death take the place of nearby years
+  const marks = [focus.b, focus.d].filter(Boolean), st = stepFor(sc, 30);
+  for (let yr = Math.ceil(S.lo / st) * st; yr <= S.hi; yr += st) { const py = y(yr); line(g, B.rx - 5, py, B.rx - 1, py, K.label3); if (marks.every(m => Math.abs(y(m) - py) > 12)) text(g, String(yr), B.rx - 7, py, K.label2, 10, 400, "right"); }
+  for (const m of marks) { const py = y(m); line(g, B.rx - 6, py, B.rx - 1, py, K.tint, 1.5); text(g, String(m), B.rx - 8, py, K.tint, 11, 600, "right"); }
+  // C: the years the list shows
+  if (L2.band) { const [a, b] = L2.band; g.fillStyle = K.tintSoft; g.fillRect(B.rx, y(a) - 3, B.x1 + 8 - B.rx, y(b + 1) - y(a) + 3); }
+  const cols = [...S.cols].sort((a, b) => (a[0] === L2.hl) - (b[0] === L2.hl) || a[1].f - b[1].f);
+  for (const [o, v] of cols) {
+    if (v.a < .02) continue;
+    const y1 = y(Math.max(S.lo, o.b)), y2 = y(Math.min(S.hi, o.end)); if (y2 - y1 < 2) continue;
+    const hl = o === L2.hl, ws = activeStart(o), yw = ws != null ? Math.max(y1, Math.min(y2, y(ws))) : y1;
+    g.globalAlpha = v.a;
+    const base = hl ? K.label2 : K.label3, col = v.f > .02 ? mixCol(base, K.tint, v.f) : base, w = (hl ? 2.5 : 1.3) + 1.7 * v.f;
+    // childhood dim and thin, active years bright
+    if (yw > y1) { g.globalAlpha = v.a * .45; line(g, v.x, y1, v.x, yw, col, Math.max(1, w * .5)); g.globalAlpha = v.a; }
+    line(g, v.x, yw, v.x, y2, col, w);
+    if (!o.d && o.end <= S.hi) for (let k = 0; k < 3; k++) dot(g, v.x, y2 + 5 + k * 5, 1, K.label3);
+    for (const wk of o.dated) { if (wk.y < S.lo || wk.y > S.hi) continue; const now = PLAY.w === wk; dot(g, v.x, y(wk.y), (hl ? 3 : 2.2) + 2.3 * v.f, now ? K.tint : v.f > .02 ? mixCol(K.label2, K.tint, v.f) : hl ? K.label : K.label2); if (now) ring(g, v.x, y(wk.y), 8, K.tint); }
+    g.globalAlpha = 1;
+  }
+  const fv = S.cols.get(focus); L2.fx = fv ? fv.x : 0; L2.y = y; L2.inv = py => S.lo + (py - top) / sc;
+  if (!B.labels) return;
+  // A: the label column of the focus; the old names leave before the new ones arrive
+  for (const [o, v] of cols) {
+    const la = Math.max(0, 2 * v.f - 1) * v.a; if (la < .02) continue;
+    g.globalAlpha = la;
+    const y2 = y(Math.min(S.hi, o.end)), lx = Math.round(W * .42) + 16;
+    const items = rowsFor(o, y, top, y2); stack(items, 19, top - 4, y2 + 4);
+    for (const it of items) {
+      const now = it.ws.includes(PLAY.w), sel = selected && (selected.obj === it.ws[0] || selected.obj === it);
+      line(g, v.x + 5, it.y, lx - 4, it.ly, K.sep, .8);
+      font(g, 11); g.fillStyle = now ? K.tint : K.label2; g.textAlign = "left"; g.textBaseline = "middle"; g.fillText(it.yr, lx, it.ly);
+      const yw = Math.max(g.measureText("0000").width, g.measureText(it.yr).width) + 6;
+      font(g, 14, now ? 600 : 400); text(g, fit(g, it.label + (it.bin && now ? " · ▶︎ plays" : ""), W - lx - yw - 4), lx + yw, it.ly, now ? K.tint : it.bin ? K.label : K.label, 14, now ? 600 : 400);
+      if (v.f > .5) hits.push({ p: 1, x0: lx - 6, x1: W, y0: it.ly - 9.5, y1: it.ly + 9.5, kind: it.bin ? "bin" : "work", obj: it.bin ? it : it.ws[0], dy: it.y });
+      if (sel) ring(g, v.x, it.y, 8, K.tint);
+    }
+    if (o.undated.length && o.end <= S.hi) {
+      const uy = y2 + 22; ring(g, v.x, uy, 4, K.tint); font(g, 14);
+      text(g, `${o.undated.length} without a date ›`, lx, uy, K.tint, 14);
+      if (v.f > .5) hits.push({ p: 1, x0: lx - 6, x1: W, y0: uy - 10, y1: uy + 10, kind: "undated", obj: o, dy: uy });
+    }
+    g.globalAlpha = 1;
+  }
+}
+// A tap in the chart finds the focus composer's row nearest in height: on the row, on its dot, or beside the focus line.
+function chartTap(x, y) {
+  const rows = hits.filter(h => h.p);
+  const row = rows.find(h => x >= h.x0 && y >= h.y0 && y <= h.y1);
+  if (row) return select(row.kind, row.obj);
+  if (Math.abs(x - L2.fx) < 28) {
+    let best = null; for (const h of rows) if (Math.abs(h.dy - y) < 16 && (!best || Math.abs(h.dy - y) < Math.abs(best.dy - y))) best = h;
+    if (best) return select(best.kind, best.obj);
+  }
+  select(null);
+}
+
+// ---------- the year list (B, and the right side of C) ----------
+const list = $("#list");
+function listYears(c) {
+  const by = new Map(), add = (y, k, w) => { if (!by.has(y)) by.set(y, { own: [], also: [] }); by.get(y)[k].push(w); };
+  for (const w of c.dated) add(w.y, "own", w);
+  if (V === "B") for (const o of contemporaries(c)) for (const w of o.dated) if (w.y >= c.b && w.y <= c.end) add(w.y, "also", w);
+  return [...by].sort((a, b) => a[0] - b[0]);
+}
+function buildList(keep) {
+  const c = Cz.c, prevYear = keep ? topYear() : null;
+  let h = `<div class="lhead"><b>${esc(c.full)}</b><span>${lifeOf(c)}${activeStart(c) != null ? ` · active from ${activeStart(c)}` : ""} · ${c.works.length} works</span></div>`;
+  for (const [yr, { own, also }] of listYears(c)) {
+    h += `<section data-y="${yr}"><div class="yh">${yr}</div>`;
+    for (const w of own) h += `<button class="wr${PLAY.w === w ? " now" : ""}" data-work="${w.id}"><span class="t">${esc(w.t)}${w.set ? `<span class="s"> · ${w.set}</span>` : ""}</span>${PLAY.w === w ? `<span class="pl">▶︎</span>` : ""}</button>`;
+    if (also.length) h += `<button class="also" data-also="${yr}"><span class="ell">Also: ${also.map(w => `${esc(w.c.n)} · ${esc(w.t)}`).join(", ")}</span><span class="n">${also.length}</span></button>`;
+    h += `</section>`;
+  }
+  if (c.undated.length) h += `<section data-y="9999"><div class="yh">Without a date</div><button class="wr more" data-undated><span class="t">${c.undated.length} works without a date</span><span class="chev">›</span></button></section>`;
+  list.innerHTML = h;
+  if (keep && prevYear != null) scrollToYear(prevYear, false);
+  else scrollToYear(PLAY.w.c === c && PLAY.w.y ? PLAY.w.y : c.dated[0]?.y ?? 0, false);
+  listBand();
+}
+function scrollToYear(yr, smooth) {
+  const secs = [...list.querySelectorAll("section")], s = secs.find(e => +e.dataset.y >= yr) || secs.at(-1);
+  if (s) list.scrollTo({ top: s.offsetTop - list.querySelector(".lhead").offsetHeight * 0 - 2, behavior: smooth ? "smooth" : "instant" });
+}
+function topYear() { for (const s of list.querySelectorAll("section")) if (s.offsetTop + s.offsetHeight > list.scrollTop + 4) return +s.dataset.y; return null; }
+function listBand() {
+  if (V !== "C") return;
+  const secs = [...list.querySelectorAll("section")].filter(s => +s.dataset.y < 9999), t = list.scrollTop, b = t + list.clientHeight;
+  const vis = secs.filter(s => s.offsetTop + s.offsetHeight > t && s.offsetTop < b).map(s => +s.dataset.y);
+  L2.band = vis.length ? [vis[0], vis.at(-1)] : null; redraw();
+}
+list.addEventListener("scroll", listBand, { passive: true });
+list.addEventListener("click", e => {
+  if (scrub.used) { scrub.used = false; return; }
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.work) return select("work", workById(b.dataset.work));
+  if (b.dataset.also) { const yr = +b.dataset.also; return select("also", { yr, ws: listYears(Cz.c).find(([y]) => y === yr)[1].also }); }
+  if (b.dataset.undated != null) return select("undated", Cz.c);
+});
+
+// ---------- moving between composers: a scrub across the width ----------
+// The whole width maps onto the composers in birth order, so each gets a finger's width although the lines stand close.
+const scrub = { on: false, used: false };
+const tip = $("#tip");
+function scrubAt(clientX) {
+  const all = staircase(Cz.c), r = area.getBoundingClientRect(), k = Math.floor((clientX - r.left - 20) / (r.width - 40) * all.length);
+  const o = all[Math.max(0, Math.min(all.length - 1, k))];
+  if (o !== L2.hl) { L2.hl = o; redraw(); }
+  tip.textContent = `${o.n} · ${lifeOf(o)}`; tip.classList.add("on");
+  tip.style.left = Math.max(8, Math.min(r.right - tip.offsetWidth - 8, clientX - tip.offsetWidth / 2)) + "px";
+}
+function scrubEnd() {
+  tip.classList.remove("on"); const o = L2.hl; L2.hl = null; scrub.on = false;
+  if (o && o !== Cz.c) glideTo(o); else redraw();
+}
+function glideTo(c) {
+  select(null);
+  Cz.c = c; crumbs();
+  if (V !== "B") { const from = L2.scene, to = sceneFor(c), t0 = performance.now(); L2.anim = t => { const k = Math.min(1, (t - t0) / 420), e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; L2.scene = mixScene(from, to, e); draw(); if (k < 1) requestAnimationFrame(L2.anim); else L2.anim = null; }; requestAnimationFrame(L2.anim); }
+  if (V !== "A") { list.classList.add("fade"); buildList(true); requestAnimationFrame(() => list.classList.remove("fade")); }
+}
+
+// ---------- levels ----------
+function crumbs() {
+  const hint = Cz.lvl === 0 ? "tap a composer" : V === "A" ? "tap a work · drag sideways for another composer" : V === "B" ? "drag sideways for another composer" : "tap the chart to move the list · drag sideways for another composer";
+  state.innerHTML = `<span class="cr${Cz.lvl === 0 ? " here" : ""}" data-l="0">All composers</span>` + (Cz.lvl ? `<span class="sepc">›</span><span class="cr here">${esc(Cz.c.n)}</span>` : "") + `<span class="sepc">·</span>${hint}`;
+}
+state.addEventListener("click", e => { const s = e.target.closest(".cr"); if (s && s.dataset.l === "0" && Cz.lvl) goLevel(0, null, W / 2, H / 3, -1); });
+// A level change zooms the old picture away and the new one in, around the tapped point.
+const off = document.createElement("canvas"), offB = document.createElement("canvas");
+function goLevel(lvl, c, ax, ay, dir) {
+  select(null);
+  off.width = cv.width; off.height = cv.height; off.getContext("2d").drawImage(cv, 0, 0);
+  Cz.lvl = lvl; if (c) Cz.c = c; crumbs(); enterLevel();
+  offB.width = cv.width; offB.height = cv.height; const gb = offB.getContext("2d"); gb.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawLevel(gb);
+  const t0 = performance.now();
+  Cz.anim = t => {
+    const k = Math.min(1, (t - t0) / 340), e = 1 - Math.pow(1 - k, 3);
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
+    const so = dir > 0 ? 1 + .6 * e : 1 - .3 * e, sn = dir > 0 ? .7 + .3 * e : 1.5 - .5 * e, X = ax * dpr, Y = ay * dpr;
+    ctx.globalAlpha = 1 - e; ctx.setTransform(so, 0, 0, so, X - X * so, Y - Y * so); ctx.drawImage(off, 0, 0);
+    ctx.globalAlpha = e; ctx.setTransform(sn, 0, 0, sn, X - X * sn, Y - Y * sn); ctx.drawImage(offB, 0, 0);
+    ctx.restore();
+    if (k < 1) requestAnimationFrame(Cz.anim); else { Cz.anim = null; draw(); }
+  };
+  requestAnimationFrame(Cz.anim);
+}
+function enterLevel() {
+  document.body.classList.toggle("l2", Cz.lvl === 2);
+  if (Cz.lvl === 2) { L2.scene = sceneFor(Cz.c); if (V !== "A") buildList(false); }
+}
+function drawLevel(g) {
+  g.clearRect(0, 0, W, H); hits = [];
+  if (Cz.lvl === 0) drawOverview(g); else if (V !== "B") drawChart(g);
+}
+function draw() { if (!W || Cz.anim) return; drawLevel(ctx); }
+function areaTap(x, y) {
+  if (Cz.lvl === 0) { const h = hitAt(x, y); if (h) goLevel(2, h.obj, x, y, 1); return; }
+  if (V === "A") return chartTap(x, y);
+  // C: a tap on the chart moves the list to that year
+  if (V === "C") scrollToYear(Math.round(L2.inv(y)), true);
+}
+
+// ---------- gestures: a tap, a sideways scrub, and in C a vertical drag on the chart ----------
+let down = null, tap = null;
+function onDown(e, where) {
+  down = { x: e.clientX, y: e.clientY, t: performance.now(), where, mode: null, id: e.pointerId };
+}
+function onMove(e) {
+  if (!down || e.pointerId !== down.id) return;
+  const dx = e.clientX - down.x, dy = e.clientY - down.y;
+  if (!down.mode && Math.hypot(dx, dy) > 8) {
+    down.mode = Cz.lvl === 2 && Math.abs(dx) > Math.abs(dy) ? "scrub" : down.where === "area" && V === "C" && Cz.lvl === 2 ? "nav" : "move";
+    if (down.mode === "scrub") { scrub.on = true; scrub.used = down.where === "list"; try { e.target.setPointerCapture(e.pointerId); } catch {} }
+  }
+  if (down.mode === "scrub") scrubAt(e.clientX);
+  if (down.mode === "nav") { const r = area.getBoundingClientRect(); scrollToYear(Math.round(L2.inv(e.clientY - r.top)), false); }
+}
+function onUp(e) {
+  if (!down || e.pointerId !== down.id) return;
+  const d = down; down = null;
+  if (d.mode === "scrub") return scrubEnd();
+  tap = !d.mode && performance.now() - d.t < 600 ? d : null;
+}
+area.addEventListener("pointerdown", e => onDown(e, "area"));
+list.addEventListener("pointerdown", e => onDown(e, "list"));
+for (const el of [area, list]) { el.addEventListener("pointermove", onMove); el.addEventListener("pointerup", onUp); el.addEventListener("pointercancel", () => { down = null; if (scrub.on) scrubEnd(); }); }
+// A tap acts on click, after the browser has placed it. A card that opens under the finger cannot catch the same tap.
+area.addEventListener("click", () => { const d = tap; tap = null; if (!d) return; const r = area.getBoundingClientRect(); areaTap(d.x - r.left, d.y - r.top); });
+document.addEventListener("gesturestart", e => e.preventDefault());
+
+// Two colours mixed on the canvas: both are CSS colours, so draw through a 1-pixel canvas once per pair.
+const mixCache = new Map(), mixCv = document.createElement("canvas"); mixCv.width = mixCv.height = 1;
+const mixG = mixCv.getContext("2d", { willReadFrequently: true });
+function rgba(c) { mixG.clearRect(0, 0, 1, 1); mixG.fillStyle = c; mixG.fillRect(0, 0, 1, 1); return mixG.getImageData(0, 0, 1, 1).data; }
+function mixCol(a, b, t) {
+  const k = a + b; if (!mixCache.has(k)) mixCache.set(k, [rgba(a), rgba(b)]);
+  const [p, q] = mixCache.get(k), m = i => p[i] + (q[i] - p[i]) * t;
+  return `rgba(${m(0) | 0},${m(1) | 0},${m(2) | 0},${(m(3) / 255).toFixed(3)})`;
+}
+
+const keys = Object.keys(VARIANTS);
+function goVariant(d) { const i = (keys.indexOf(V) + d + keys.length) % keys.length; location.search = "?variant=" + keys[i]; }
+$("#vname").textContent = `${V} · ${VARIANTS[V]}`;
+$("#prev").onclick = () => goVariant(-1); $("#next").onclick = () => goVariant(1);
+$("#reset").href = "?variant=" + V;
+document.addEventListener("keydown", e => { if (e.key === "ArrowLeft") goVariant(-1); if (e.key === "ArrowRight") goVariant(1); });
+
+function boot() { readColors(); sizeCanvas(); spacer.style.height = "0"; renderMini(); crumbs(); enterLevel(); draw(); }
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { readColors(); mixCache.clear(); draw(); });
+addEventListener("resize", () => { sizeCanvas(); if (Cz.lvl === 2) L2.scene = sceneFor(Cz.c); draw(); });
+boot();
+</script>
+</body>
+</html>

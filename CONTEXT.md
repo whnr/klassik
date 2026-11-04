@@ -37,8 +37,16 @@ The place that holds the listener's own collection: composers, playlists and fav
 _Avoid_: Home, Browse
 
 **Chronology**:
-The view that places composers and their works by year.
+The place that shows one composer's works by year, among the composers of their time. Its overview shows all composers.
 _Avoid_: Timeline, History
+
+**Active years**:
+The years from a composer's work period start in Wikidata until their death. Before them, the Chronology draws the line dim.
+_Avoid_: Career, working life
+
+**Contemporary**:
+A composer with works in the library inside the active years of the composer in focus, 10 years before and after.
+_Avoid_: Neighbour, peer
 
 **Page**:
 A view about one thing, such as a composer, work, recording, album or performer. A link pushes it onto the stack of the current place.

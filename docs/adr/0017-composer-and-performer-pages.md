@@ -17,7 +17,8 @@ Every composer and performer name on the work, recording and album pages is a li
 - The Works tab lists the works A to Z. Works that share a grouping fold into one row that opens in place.
 - Genre chips above the list filter the works. Several chips join with "or". A genre that every work carries does not show. Klassik reads genres as plain labels and gives no meaning to their order.
 - The Albums tab shows the performer's albums as covers, newest first. On the album page, each work opens its recording page.
-- A tag that gives only a surname, such as "Strauss", gets no facts until the listener picks the composer from the Wikidata matches. The listener can choose again or pick "None of these".
+- A composer tag that gives only a surname, such as "Strauss", is matched through its works: the Wikidata composer of the tagged works decides. Only when the works do not decide does the page ask the listener to pick from the Wikidata matches. The listener can choose again or pick "None of these".
+- When the works of one surname tag belong to different composers, the page tells the listener to retag them with full names. Klassik does not split the tag.
 - The favourite mark sits right after the title on every page: composer, performer, work, recording and album. It is filled when set and an outline when not. It replaces the Favourite buttons.
 
 ## Consequences

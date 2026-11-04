@@ -74,6 +74,26 @@ struct WorkIndexTests {
         #expect(WorkIndex.album([]) == nil)
     }
 
+    @Test(arguments: [false, true])
+    func albumPerformersMatchDirectAndRecordingWalks(visitRecordingFirst: Bool) throws {
+        var brahms = Self.song("b", album: "Romantic Encores", track: 1, work: "Op. 98")
+        brahms.artist = "Sine Wave Chamber Orchestra • Carl Fixture"
+        var mozart = Self.song("m", album: "Romantic Encores", track: 2, work: "K. 467")
+        mozart.artist = "Daniel Keys • Sine Wave Chamber Orchestra • Carl Fixture"
+
+        // Sync responses can return the recital's tracks in either order.
+        for tracks in [[brahms, mozart], [mozart, brahms]] {
+            if visitRecordingFirst {
+                let index = WorkIndex(songs: tracks)
+                let recording = try #require(index.composers.first?.works.first?.defaultRecording)
+                #expect(!recording.songs.isEmpty)
+            }
+            let album = try #require(WorkIndex.album(tracks))
+            #expect(album.recording.performers == brahms.artist)
+            #expect(album.recording.songs.map(\.id) == ["b", "m"])
+        }
+    }
+
     /// Only a recording with every track starred is the reference. The reference plays when the work plays.
     @Test func starredRecordingIsTheReference() throws {
         var first = Self.song("k1", album: "Kleiber", track: 1, work: "Op. 67", year: 1975)

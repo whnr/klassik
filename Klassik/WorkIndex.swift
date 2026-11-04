@@ -157,7 +157,9 @@ struct WorkIndex: Sendable {
         guard let first = tracks.first else { return nil }
         var whole = Self.recording(id: "album|\(first.albumKey)", tracks)
         whole.isAlbum = true
-        whole.performers = first.artist ?? whole.performers
+        // Album metadata follows disc and track order, independent of the sync response order.
+        let albumFirst = whole.songs[0]
+        whole.performers = albumFirst.artist ?? whole.performers
         let work = Work(
             id: whole.id, title: whole.album.isEmpty ? first.title : whole.album,
             composer: first.composerName, isTagged: false, recordings: [whole])

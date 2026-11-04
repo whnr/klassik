@@ -165,7 +165,6 @@ struct AlbumsView: View {
     private struct Row: Identifiable {
         var id: String
         var name: String
-        var artist: String?
         var item: Player.Item
     }
 
@@ -174,7 +173,7 @@ struct AlbumsView: View {
             .compactMap { key, tracks in
                 WorkIndex.album(tracks).map { album in
                     Row(
-                        id: key, name: album.work.title, artist: tracks[0].artist,
+                        id: key, name: album.work.title,
                         item: Player.Item(work: album.work, recording: album.recording))
                 }
             }
@@ -194,7 +193,9 @@ struct AlbumsView: View {
                         OfflineHint(isOffline: model.tracks.isOffline(row.item.recording))
                     }
                     Text(
-                        [row.artist, "\(row.item.recording.songs.count) tracks"].compactMap(\.self).joined(
+                        [row.item.recording.performers, "\(row.item.recording.songs.count) tracks"].filter {
+                            !$0.isEmpty
+                        }.joined(
                             separator: " · ")
                     )
                     .font(.subheadline)

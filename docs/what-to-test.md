@@ -3,7 +3,6 @@ Klassik 0.10.4
 Album rows show all performers in track order and keep their names stable.
 Playback recovers after system interruptions and preserves the queue.
 The comparison engine downloads movements during playback.
-Contributor documentation explains CI, release preparation, and review requirements.
 
 Known problems
 - Recovery can repeat audio since the last position checkpoint, which targets 250 ms.
@@ -26,5 +25,3 @@ On-device checks
 12. Seek during a call, then end the call. Expect playback at that position when iOS permits. (sz-5sbe)
 13. Queue another recording. Pause at the final movement's end, then press Play. Expect the queued recording with sound. Repeat without a queue. Expect stopped playback without silent playing controls. (sz-5sbe)
 14. Play three uncached movements on a slow connection. Let movement one finish while movement two downloads. Expect movement two selected. Press Next during the wait. Expect movement three to play. (sz-5sbe)
-15. On your phone, read the README testing instructions. Expect pull requests to trigger CI, with documentation changes excluded. (sz-fj48, PR #1)
-16. On your phone, read the release and PR rules. Expect separate release version changes, numbered device checks, and fresh Codex review. (sz-yrk1, PR #6)

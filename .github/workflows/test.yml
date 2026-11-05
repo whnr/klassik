@@ -4,10 +4,10 @@ name: Test
 # request, because the walk takes most of the time: a line "[ui]" or "[ui: browse,settings]" in the newest commit
 # message, or the "ui" input of a run by hand. After a walk, screens-diff compares each screenshot with the newest
 # green walk on ci.
-# main fast-forwards to a green commit of ci, so a push to main starts no macOS run. testflight.yml refuses a commit that has no green run of this workflow.
+# TestFlight needs a green run for the exact merge commit on main.
 on:
   push:
-    branches: [ci]
+    branches: [ci, main]
   pull_request:
     paths-ignore: ["**.md", "LICENSE", "docs/**"]
   workflow_dispatch:

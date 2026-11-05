@@ -10,7 +10,7 @@ How to build a UX prototype that the tester tests on a phone. The search ticket 
 
 ## Build
 
-- Branch `prototypes`, worktree `../klassik-prototypes`, one folder for each question: `prototypes/<name>/index.html`.
+- Use a worker branch and worktree. Use one folder for each question: `prototypes/<name>/index.html`.
 - One self-contained HTML file. Vanilla JavaScript, no dependencies, no network.
 - Generated data from a fixed seed. Use the owner's library tags only when the owner requests them. Never audio, cover art or a credential.
 - Build at least three variants that differ in structure, not in colour. Switch with `?variant=` and a pill at the top of the screen. The bottom belongs to the iOS search field. Add a reset link.
@@ -30,7 +30,7 @@ How to build a UX prototype that the tester tests on a phone. The search ticket 
 
 - Default: copy the file to `whnr:/var/www/virtual/whnr/html/klassik/<name>-<8 random hex>/index.html`. The owner opens `https://whnr.uber.space/klassik/<name>-<hex>/`. The random suffix keeps it unlisted: link it nowhere except to the owner. Touch nothing else in that web root. Delete the folder after the owner's verdict.
 - At home, if the owner asks: in `prototypes/`, run `python3 -m http.server 8765 --bind 0.0.0.0`. The owner opens `http://<laptop LAN address>:8765/<name>/` on a phone.
-- Commit each round on `prototypes`. Do not push that branch until the owner says.
+- Commit each round on the worker branch and open a PR. Follow the review rules in `AGENTS.md`.
 
 ## Record
 

@@ -21,3 +21,4 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0015](0015-player-page.md) | The player is the page of what plays | 2026-11-03 |
 | [0016](0016-chronology.md) | The Chronology: a chart of one composer among their contemporaries | 2026-11-04 |
 | [0017](0017-composer-and-performer-pages.md) | Composer and performer pages | 2026-11-04 |
+| [0018](0018-stack-and-back.md) | The system back stack, with the name of the page behind | 2026-11-04 |

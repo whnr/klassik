@@ -52,6 +52,10 @@ _Avoid_: Neighbour, peer
 A view about one thing, such as a composer, work, recording, album or performer. A link pushes it onto the stack of the current place.
 _Avoid_: Screen, detail view
 
+**Stack**:
+The pages a listener opened in one place, in order. Back leaves the top page. A link to a page already in the stack goes back to it.
+_Avoid_: History, trail, breadcrumbs
+
 **Work page**:
 The page of one work: its composer and its recordings, each with its own cover. The work page has no cover of its own.
 _Avoid_: Work screen

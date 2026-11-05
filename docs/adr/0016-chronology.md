@@ -24,5 +24,5 @@ Flo rejected a long list. Round 1 tried lanes, a lens and levels; levels came cl
 - The view needs composer life dates (P569, P570) and P2031 from one Wikidata call for each composer, and a composition year for each work (outside data, sz-rs30.1.75).
 - The code type `Timeline` draws the Chronology. CONTEXT.md gives "timeline" to the player bar, so the tracer renames it.
 - The tracer removes the year field with the number pad (digest T05) and the midpoint placement of undated works.
-- Not decided: the contemporary window for a composer without P2031. Flo rejected the life ±10 years. The prototype uses the life without a buffer.
+- Without P2031, the contemporary window is the composer's whole life, without a buffer. Flo rejected the life ±10 years.
 - Works that the library lacks can come from Wikidata later, as an option that is off by default.

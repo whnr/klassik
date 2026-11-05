@@ -24,3 +24,4 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0018](0018-stack-and-back.md) | The system back stack, with the name of the page behind | 2026-11-04 |
 | [0019](0019-performer-facts.md) | Performer facts from Wikidata | 2026-11-04 |
 | [0020](0020-set-and-condition.md) | Set means works; a search row is a condition | 2026-11-04 |
+| [0021](0021-design-tokens.md) | Design tokens in the repository | 2026-11-05 |

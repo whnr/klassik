@@ -9,7 +9,7 @@ Rules for coding agents in this repository.
 - Write a decision into its bead when Flo makes it.
 - Build in tracer bullets. Each slice reaches Flo's phone through TestFlight. Flo tests it before the next slice lands.
 - After the pipeline works, put several beads into one push. Make one push per round of feedback.
-- Push to branch `ci`. When `test.yml` is green there, fast-forward `main` to the same commit, so `main` holds only green commits. Pull requests open later; `CONTRIBUTING.md` applies then.
+- Push worker branches and open pull requests. Flo merges them. Wait for a green Test run on `main` before TestFlight.
 
 ## App rules
 
@@ -25,7 +25,7 @@ Rules for coding agents in this repository.
 - `project.yml` defines the project. XcodeGen generates `Klassik.xcodeproj`; do not commit it.
 - `scripts/test.sh` generates the project and runs the unit tests on an iPhone simulator.
 - `scripts/lint.sh` checks the Swift layout against `.swift-format` (Swift 6.2 `swift format`). Run it before you push. `swift format --in-place --recursive Klassik KlassikTests KlassikUITests` fixes most findings.
-- `.github/workflows/test.yml` runs `scripts/lint.sh` on Linux, then the unit, library sync and gapless tests on `macos-26` against the fixture Navidrome. It runs on a push to branch `ci`, on pull requests, or by hand. A push to `main` starts no macOS run. It uploads the screenshots as artifact `screens`.
+- `.github/workflows/test.yml` runs `scripts/lint.sh` on Linux, then unit, library sync and gapless tests on `macos-26` against fixture Navidrome. It runs on pushes to `ci` and `main`, on pull requests, or by hand. It uploads the screenshots as artifact `screens`.
 - The UI walk and its screenshots are expensive. Run them only for a UI change. Put a line `[ui]` in the newest commit message of the push to walk all areas. Put `[ui: browse,settings]` to walk only those areas, the test names in `ScreensTests` without `test`. On a run by hand, set input `ui` to `all` or to the areas. A release needs a green test run, not the UI walk.
 - After a UI walk, job `screens-diff` compares each screenshot with the newest green walk on `ci`. Download artifact `screens-diff` through the GitHub REST API and read `diff.md`. Look at the `-diff.png` of each new or large screen. Look at a small screen only if the push changed it.
 - The job summary of `test` gives the time of each phase: project, simulator, build, boot (the wait after the build), test, export.

@@ -1,17 +1,30 @@
 # Issue tracker: beads (Schaltzentrale ledger)
 
-Issues live as beads in the Schaltzentrale ledger. Use the `sz` MCP. There are no local files and no GitHub Issues.
+Issues live as beads in the Schaltzentrale ledger. Use `sz bd` on the Schaltzentrale box. There are no local files and no GitHub Issues.
 
-The ledger is private. Only Flo and his agents can read it. This works while Flo is the only contributor. Before the repository takes outside contributors, the project needs a tracker they can reach.
+The ledger is private. Only the owner and authorized agents can read it. This works while the owner is the only contributor. Before the repository takes outside contributors, the project needs a tracker they can reach.
+
+## Codex sessions
+
+- Read Schaltzentrale's `AGENTS.md` “Codex sessions” section first.
+- Start with `sz help` and `sz whoami`. Stop unless identity is `codex` via `unix:sz-codex`.
+- Use `sz bd` for ledger calls and `--actor codex` on every write.
+- Use the launcher's `SZ_SESSION` for the session reference.
+- Add `Codex-Session: <SZ_SESSION>` and `Co-Authored-By: Codex <noreply@openai.com>` trailers to every commit.
+- Post questions, blockers, PR URLs, checks, and `READY TO SHIP` with the head SHA on the bead.
+- The launcher reports worker exits. Never post to its inbox yourself.
 
 ## Conventions
 
 - Scope: epic `sz-rs30.1`, label `repo:klassik`. Every new bead is a child of `sz-rs30.1` or of one of its epics.
-- Seat `code`. Pass `--actor code` on every write. Pass `session` on every call.
+- Seat `code`. Codex workers use ledger actor `codex`; other coding agents use `code`.
+- Pass `--actor` on every write. Set `SZ_SESSION`; `sz` supplies the session reference.
 - Issue type: `--type` (epic, task, feature, bug). Never `type:*` labels.
 - Hierarchy: `parent-child` links. Ordering: `blocks` links.
 - Do not remove `repo:*`, `phase:*`, `blocked:*`, `needs-flo`, `ready-to-ship`, `pain-points`, `idea`, `in-discovery` or `shaped`.
-- Run `bd prime` after every context clear.
+- Run `sz bd prime` after every context clear.
+
+The examples below use actor `code`. Codex workers substitute `codex`.
 
 ## When a skill says "publish to the issue tracker"
 

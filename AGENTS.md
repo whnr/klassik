@@ -4,12 +4,12 @@ Rules for coding agents in this repository.
 
 ## Work tracking
 
-- Work lives in beads, in the Schaltzentrale ledger, under the epic `sz-rs30.1` with label `repo:klassik`. Reach the ledger through the `sz` connector. Use seat `code` and pass `--actor code` on every write.
-- Every request, idea or aside from Flo becomes a bead under `sz-rs30.1`. Nothing lives only in chat.
-- Write a decision into its bead when Flo makes it.
-- Build in tracer bullets. Each slice reaches Flo's phone through TestFlight. Flo tests it before the next slice lands.
+- Work lives in beads, in the Schaltzentrale ledger, under the epic `sz-rs30.1` with label `repo:klassik`. Use seat `code`. Follow [ledger access](docs/agents/issue-tracker.md) for identity and actor rules.
+- Every request, idea or aside from the owner becomes a bead under `sz-rs30.1`. Nothing lives only in chat.
+- Write a decision into its bead when the owner makes it.
+- Build in tracer bullets. Each slice reaches the tester's phone through TestFlight. The tester checks it before the next slice lands.
 - After the pipeline works, put several beads into one push. Make one push per round of feedback.
-- Push worker branches and open pull requests. Flo merges them. Wait for a green Test run on `main` before TestFlight.
+- Send feature, fix, and release work through pull requests. Never promote `ci` directly to `main`.
 
 ## App rules
 
@@ -25,12 +25,19 @@ Rules for coding agents in this repository.
 - `project.yml` defines the project. XcodeGen generates `Klassik.xcodeproj`; do not commit it.
 - `scripts/test.sh` generates the project and runs the unit tests on an iPhone simulator.
 - `scripts/lint.sh` checks the Swift layout against `.swift-format` (Swift 6.2 `swift format`). Run it before you push. `swift format --in-place --recursive Klassik KlassikTests KlassikUITests` fixes most findings.
-- `.github/workflows/test.yml` runs `scripts/lint.sh` on Linux, then unit, library sync and gapless tests on `macos-26` against fixture Navidrome. It runs on pushes to `ci` and `main`, on pull requests, or by hand. It uploads the screenshots as artifact `screens`.
+- `.github/workflows/test.yml` runs `scripts/lint.sh` on Linux, then unit, library sync and gapless tests on `macos-26` against fixture Navidrome. It runs on `main` and `ci` pushes, pull requests except documentation-only changes, and manual requests. It uploads the screenshots as artifact `screens`.
 - The UI walk and its screenshots are expensive. Run them only for a UI change. Put a line `[ui]` in the newest commit message of the push to walk all areas. Put `[ui: browse,settings]` to walk only those areas, the test names in `ScreensTests` without `test`. On a run by hand, set input `ui` to `all` or to the areas. A release needs a green test run, not the UI walk.
 - After a UI walk, job `screens-diff` compares each screenshot with the newest green walk on `ci`. Download artifact `screens-diff` through the GitHub REST API and read `diff.md`. Look at the `-diff.png` of each new or large screen. Look at a small screen only if the push changed it.
 - The job summary of `test` gives the time of each phase: project, simulator, build, boot (the wait after the build), test, export.
-- `.github/workflows/testflight.yml` runs by hand. It refuses a commit without a green run of `test.yml`. It archives without signing, signs at export with the App Store Connect API key, and uploads with `altool`. A daily run uploads again when the newest build is 85 days old, because TestFlight builds expire after 90 days.
-- Every TestFlight build has a "What to Test" text. Write it in `docs/what-to-test.md` before you release. The first line is `Klassik X.Y.Z`, the same version as in `project.yml`. Then list what changed for the listener and the known problems. Include one numbered on-device check per change since the last TestFlight build, with the expected result and bead ID. At most 4000 characters. The TestFlight workflow stops before the macOS job if the version does not match, and `scripts/testflight_notes.py` sets the text on the build when the upload ends.
+- `.github/workflows/testflight.yml` runs by hand. It requires a successful `test.yml` run for the exact commit SHA, including the merge commit on `main`. It archives without signing, signs at export with the App Store Connect API key, and uploads with `altool`. A daily run uploads again when the newest build is 85 days old, because TestFlight builds expire after 90 days.
+- Write each build's “What to Test” in `docs/what-to-test.md`, with at most 4000 characters.
+- Start with `Klassik X.Y.Z`, matching `MARKETING_VERSION` in `project.yml`.
+- Include only numbered checks that testers perform in the installed app. Give each check an expected result and bead ID.
+- Cover each app change since the last TestFlight build. Keep development instructions and process notes in PR descriptions or documentation.
+- `scripts/testflight_notes.py --check` rejects version mismatches, excess length, and unambiguous development terms.
+- `.github/workflows/testflight-notes.yml` runs this narrow backstop and its tests on every PR and `main` push.
+- The fresh Codex release review is the semantic gate. It checks that every instruction tests installed-app behavior.
+- `testflight.yml` validates notes before its macOS job. `scripts/testflight_notes.py` sets them after upload.
 - `.github/workflows/testflight-feedback.yml` runs by hand. It checks the API key secrets (`scripts/asc_check.py`), then prints TestFlight feedback and crash logs and uploads the feedback screenshots.
 - Versions follow semantic versioning: `MARKETING_VERSION` in `project.yml` is MAJOR.MINOR.PATCH. In a release PR, increase MINOR for a batch with features and PATCH for a batch with only fixes. 1.0.0 is the first App Store release. The build number is the TestFlight run number. The TestFlight workflow tags each uploaded version as `vX.Y.Z`.
 - Repository secrets: `APPLE_TEAM_ID`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` (the text of the `.p8` key). Bundle ID: `de.whnr.klassik`.
@@ -39,23 +46,29 @@ Rules for coding agents in this repository.
 ## Releases and TestFlight
 
 - Fix PRs never change the app version.
-- `Klassik release` means one PR that bumps `MARKETING_VERSION` and adds TestFlight “What to Test” text.
-- Flo merges the release PR and starts the TestFlight workflow.
-- Every TestFlight build includes a clear test plan in “What to Test”.
-- Include one numbered on-device check per change since the last TestFlight build, with the expected result.
+- `Klassik release` means one PR that bumps `MARKETING_VERSION` and adds installed-app checks in “What to Test”.
+- A fresh Codex review must approve the exact PR head before an agent merges it.
+- Any head change requires a new review. Check the approved SHA against the current head before merging.
+- The release agent merges the approved release PR, then waits for successful Test on the exact `main` merge commit.
+- The release agent starts TestFlight on that commit and watches all jobs, including notes publication.
+- Read annotations and logs. Fix failures through another reviewed PR, or report the blocker on the bead.
+- Report the build, run URL, and result on the bead. The owner only installs the build and tests the app.
 
 ## Pull requests
 
-- End every PR body with `## Test plan`: numbered on-device checks, one per change, with expected results.
+- Push worker branches and open PRs. Never push `main` directly.
+- A fresh Codex review must approve the current PR head. A review comment must identify that SHA and its verdict.
+- Agents merge approved PRs only within their assigned scope. A worker assigned to stop for review must stop.
+- End every PR body with `## Test plan`: numbered on-device checks, one per app change, with expected results.
+- For process-only changes, state the installed-app regression check and explain the process validation before the test plan.
 - Copy the same test plan to the bead.
-- A fresh Codex review must comment on the PR before Flo merges.
 
 ## Writing
 
 - Comments state WHY, or a CONSTRAINT that the code cannot show. Never history: no "previously", "changed from", "now uses", "fixed bug where", no dates, no ticket stories. Git keeps the history.
 - Commit subject: what the commit does, imperative, 50 characters or fewer. Body: why, and what it affects. No file lists, no test lists, no story of the diff. The agent that wrote the code writes the message, in the same session.
 - If you do not know why, ask one question. Do not guess.
-- A decision that a comment or a commit body cannot hold goes into an architecture decision record in [`docs/adr/`](docs/adr/). Write it when Flo makes the decision, and link it from the commit body. A changed decision gets a new record.
+- A decision that a comment or a commit body cannot hold goes into an architecture decision record in [`docs/adr/`](docs/adr/). Write it when the owner makes the decision, and link it from the commit body. A changed decision gets a new record.
 - Prose (documentation, comments, commit bodies, bead text) follows ASD-STE100 Simplified Technical English: sentences of 20 words or fewer (25 for descriptions), active voice, one meaning for each word, no hedging.
 - Generated text is never longer than the thing it explains.
 
@@ -63,7 +76,7 @@ Rules for coding agents in this repository.
 
 ### Issue tracker
 
-Beads in the Schaltzentrale ledger, reached only through the `sz` MCP. See `docs/agents/issue-tracker.md`.
+Beads in the Schaltzentrale ledger, reached through `sz`. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
@@ -71,7 +84,7 @@ Beads labels. Two are new (`needs-triage`, `needs-info`); three already exist. S
 
 ### Prototypes
 
-HTML prototypes that Flo tests on his phone: three variants or more, judged as a flow. See `docs/agents/prototyping.md`.
+HTML prototypes that the tester tests on a phone: three variants or more, judged as a flow. See `docs/agents/prototyping.md`.
 
 ### Domain docs
 

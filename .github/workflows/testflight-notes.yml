@@ -1,0 +1,16 @@
+name: TestFlight notes
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  notes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - run: python3 -m unittest discover -s scripts -p test_testflight_notes.py
+      - run: python3 scripts/testflight_notes.py --check

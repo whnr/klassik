@@ -82,11 +82,15 @@ _Avoid_: Category, period, form
 
 **Search term**:
 One value that the listener adds to a search: a genre, composer, conductor or performer. A genre value carries no facet, because the app does not know which value is the period.
-_Avoid_: Rule, condition, filter, token, criterion
+_Avoid_: Rule, filter, token, criterion
+
+**Condition**:
+One row of a search. Its search terms join with "or". The conditions of a search join with "and", and each condition shows how many recordings remain.
+_Avoid_: Set, group, clause, step
 
 **Set**:
-One row of a search. Its search terms join with "or". The sets of a search join with "and", and each set shows how many recordings remain.
-_Avoid_: Group, clause, step
+Works that share a GROUPING tag, such as Etudes, Op. 10. A set folds into one row that opens in place.
+_Avoid_: Group, cycle, collection
 
 **Scope**:
 The kind of search term that the search lists: all kinds, genres, composers, conductors or performers. A scope with an empty field lists every search term of that kind.

@@ -23,3 +23,4 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0017](0017-composer-and-performer-pages.md) | Composer and performer pages | 2026-11-04 |
 | [0018](0018-stack-and-back.md) | The system back stack, with the name of the page behind | 2026-11-04 |
 | [0019](0019-performer-facts.md) | Performer facts from Wikidata | 2026-11-04 |
+| [0020](0020-set-and-condition.md) | Set means works; a search row is a condition | 2026-11-04 |

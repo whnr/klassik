@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Chronology</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="specimen.css">
+<script src="specimen.js"></script>
+</head>
+<body>
+<style>
+  .scroll { overflow: hidden; }
+  .chrono-head { padding: var(--space-xs) calc(var(--space-l) + var(--size-timeline) + var(--space-s)) 0 var(--space-l); min-height: 64px; }
+  .chrono-head h1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chart { position: absolute; overflow: hidden; left: 0; right: calc(var(--size-timeline) + var(--space-s)); touch-action: pan-y; }
+  .chart > * { position: absolute; transition-property: left, top, width, height, opacity;
+    transition-duration: var(--motion-transition-glide-duration); transition-timing-function: var(--motion-transition-glide-easing); }
+  @media (prefers-reduced-motion: reduce) { .chart > * { transition-property: opacity; } }
+  .band { left: 0; right: 0; background: var(--color-fill-quiet); }
+  .band.odd { background: transparent; }
+  .band-label { left: var(--space-l); color: var(--color-text-tertiary); }
+  .tick { color: var(--color-text-tertiary); width: 36px; text-align: right; transform: translateY(-50%); }
+  .line { width: 2px; margin-left: -1px; border-radius: 1px; background: var(--color-text-tertiary); }
+  .line.focus { width: 4px; margin-left: -2px; background: var(--color-tint); }
+  .line.dim { opacity: 0.35; }
+  .dot { width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px; border-radius: 50%; background: var(--color-text-tertiary); }
+  .dot.focus { width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; background: var(--color-tint); box-shadow: 0 0 0 2px var(--color-background-grouped); }
+  .dot.marked { width: 15px; height: 15px; margin: -7.5px 0 0 -7.5px; background: var(--color-background-grouped); box-shadow: inset 0 0 0 4px var(--color-tint); }
+  .wrow { display: flex; gap: var(--space-s); align-items: baseline; white-space: nowrap; overflow: hidden; padding: 0 var(--space-xs);
+    border-radius: var(--radius-s); transform: translateY(-50%); }
+  .wrow:active { background: var(--color-fill-quiet); }
+  .wrow .y { flex: none; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
+  .wrow .n { overflow: hidden; text-overflow: ellipsis; }
+  .wrow.marked .n { color: var(--color-tint); }
+  .pick-label { position: fixed; z-index: 45; padding: var(--space-xs) var(--space-s); border-radius: var(--radius-s); pointer-events: none;
+    background: var(--color-background-elevated); box-shadow: 0 2px 10px rgb(0 0 0 / 0.18); transform: translate(-50%, -100%); opacity: 0;
+    transition: opacity var(--motion-transition-inPlace-duration) var(--motion-transition-inPlace-easing); }
+  .pick-label.on { opacity: 1; }
+  .card-actions { display: flex; gap: var(--space-m); padding: var(--space-m) var(--space-l) 0; }
+</style>
+<script>
+K.start(() => {
+  const { el, href, M } = K;
+  const PERIODS = [["Renaissance", 1400, 1600], ["Baroque", 1600, 1750], ["Classical", 1750, 1820], ["Romantic", 1820, 1910], ["Modern", 1910, 2030]];
+  const composers = [...M.composers.values()].filter((c) => c.facts && c.facts.born).sort((a, b) => a.facts.born - b.facts.born || a.name.localeCompare(b.name));
+  const byName = new Map(composers.map((c) => [c.name, c]));
+  const playingWork = () => { const r = K.current() && K.current().recording; const s = K.song(); return r ? r.workRef : s && s.works && s.works[0] ? M.works.get(`${s.displayComposer}|${s.works[0].name}`) : null; };
+
+  // ADR 0016: opens on the composer of what plays; with nothing playing, where the listener left it.
+  const opening = playingWork() && byName.get(playingWork().composer) ? playingWork().composer : (K.store("chronology") || "Frédéric Chopin");
+  let state = { level: K.params.get("level") === "overview" ? "overview" : "composer", focus: byName.get(K.params.get("composer")) || byName.get(opening) || composers[0] };
+
+  const overviewBtn = { label: "All", onClick: () => { state.level = state.level === "overview" ? "composer" : "overview"; draw(); } };
+  const { scroll, nav } = K.page({ tab: "chronology", title: "Chronology", actions: [overviewBtn] });
+  const head = el("div", { class: "chrono-head" }, el("h1", { class: "t-title2" }), el("div", { class: "t-subheadline secondary" }));
+  const chart = el("div", { class: "chart" });
+  const pick = el("div", { class: "pick-label t-footnote" });
+  scroll.append(head, chart);
+  document.body.append(pick);
+
+  const css = (name) => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name)) || 0;
+  const rowHeight = () => css("--type-footnote-size") * css("--type-footnote-line-height") + 8;
+
+  function geometry() {
+    const top = head.offsetTop + head.offsetHeight + css("--space-s");
+    const mini = document.querySelector(".mini") || document.querySelector(".tabbar");
+    const bottom = (mini ? mini.getBoundingClientRect().top : innerHeight) - scroll.getBoundingClientRect().top - css("--space-s");
+    chart.style.top = top + "px";
+    chart.style.height = Math.max(200, bottom - top) + "px";
+    return { W: chart.clientWidth, H: Math.max(200, bottom - top) };
+  }
+
+  function contemporaries(focus) {
+    const f = focus.facts, from = f.activeFrom ? f.activeFrom - 10 : f.born, to = f.activeFrom ? (f.died || 2030) + 10 : f.died || 2030;
+    return composers.filter((c) => c !== focus && [...c.works].some((w) => w.year && w.year >= from && w.year <= to) || c !== focus && !f.activeFrom && c.facts.born <= to && (c.facts.died || 2030) >= from && [...c.works].some((w) => w.year))
+      .filter((c, i, all) => all.indexOf(c) === i);
+  }
+
+  function specs() {
+    const { W, H } = geometry();
+    const out = [];
+    const gutter = 44;
+    if (state.level === "overview") {
+      const y0 = composers[0].facts.born - 10, y1 = Math.max(...composers.map((c) => c.facts.died || 2025)) + 5;
+      const Y = (y) => ((y - y0) / (y1 - y0)) * H;
+      PERIODS.forEach(([name, a, b], i) => {
+        if (b < y0 || a > y1) return;
+        const t = Y(Math.max(a, y0)), h = Y(Math.min(b, y1)) - t;
+        out.push({ key: "band:" + name, cls: "band" + (i % 2 ? " odd" : ""), s: { top: t, height: h } });
+        out.push({ key: "bandl:" + name, cls: "band-label t-caption2", text: name, s: { top: t + 4 } });
+      });
+      const x = (i) => gutter + 40 + (i + 0.5) * ((W - gutter - 40) / composers.length);
+      composers.forEach((c, i) => out.push({ key: "line:" + c.name, cls: "line", s: { left: x(i), top: Y(c.facts.born), height: Y(c.facts.died || 2025) - Y(c.facts.born) } }));
+      state.hit = composers.map((c, i) => ({ c, x: x(i) }));
+      head.firstChild.textContent = "All composers";
+      head.lastChild.textContent = `${composers.length} composers · ${y0 + 10}–${y1 - 5}`;
+      return out;
+    }
+    const focus = state.focus, f = focus.facts;
+    const y0 = f.born, y1 = f.died || 2025;
+    const rh = rowHeight();
+    const span = H - rh * 1.5;
+    const Y = (y) => rh / 2 + ((y - y0) / (y1 - y0)) * (span - rh / 2);
+    for (let y = Math.ceil(y0 / 10) * 10; y <= y1; y += 10) out.push({ key: "tick:" + y, cls: "tick t-caption2 nums", text: String(y), s: { left: 0, top: Y(y) } });
+    const lanesRight = gutter + (W - gutter) * 0.42;
+    const people = [...contemporaries(focus), focus].sort((a, b) => a.facts.born - b.facts.born);
+    const lx = (i) => gutter + 8 + (i + 0.5) * ((lanesRight - gutter - 8) / people.length);
+    people.forEach((c, i) => {
+      const isFocus = c === focus, x = lx(i), born = c.facts.born, died = c.facts.died || 2025;
+      if (isFocus && c.facts.activeFrom) {
+        out.push({ key: "line:" + c.name, cls: "line focus dim", s: { left: x, top: Y(born), height: Y(c.facts.activeFrom) - Y(born) } });
+        out.push({ key: "linea:" + c.name, cls: "line focus", s: { left: x, top: Y(c.facts.activeFrom), height: Y(died) - Y(c.facts.activeFrom) } });
+      } else out.push({ key: "line:" + c.name, cls: "line" + (isFocus ? " focus" : ""), s: { left: x, top: Y(born), height: Y(died) - Y(born) } });
+      for (const w of c.works) if (w.year) out.push({ key: "dot:" + w.id, cls: "dot" + (isFocus ? " focus" : "") + (playingWork() === w ? " marked" : ""), s: { left: x, top: Y(w.year) }, work: isFocus ? w : null });
+      if (isFocus) state.focusX = x;
+    });
+    // Rows: one per year while they fit; else one row stands for a span of years, with a count.
+    const dated = [...focus.works].filter((w) => w.year).sort((a, b) => a.year - b.year || a.name.localeCompare(b.name));
+    const years = [...new Set(dated.map((w) => w.year))];
+    const bins = [];
+    for (const y of years) {
+      const works = dated.filter((w) => w.year === y);
+      const last = bins.at(-1);
+      if (last && Y(y) < last.bottom) { last.to = y; last.works.push(...works); last.bottom = Math.max(last.bottom, last.y + rh); continue; }
+      const top = last ? Math.max(Y(y), last.bottom) : Y(y);
+      bins.push({ from: y, to: y, works: [...works], y: top, bottom: top + rh });
+    }
+    const rx = lanesRight + 8;
+    bins.forEach((b) => {
+      const one = b.works.length === 1;
+      const yr = b.from === b.to ? String(b.from) : `${b.from}–${String(b.to).slice(b.from.toString().slice(0, 2) === b.to.toString().slice(0, 2) ? 2 : 0)}`;
+      out.push({ key: "row:" + b.from, cls: "wrow t-footnote" + (b.works.includes(playingWork()) ? " marked" : ""), html: [yr, one ? b.works[0].name : `${b.works.length} works`],
+        s: { left: rx, top: Y((b.from + b.to) / 2) < b.y ? b.y + rh / 2 : Y((b.from + b.to) / 2), width: W - rx }, works: b.works });
+    });
+    const undated = [...focus.works].filter((w) => !w.year);
+    if (undated.length) out.push({ key: "row:undated", cls: "wrow t-footnote", html: ["No date", `${undated.length} ${undated.length === 1 ? "work" : "works"}`], s: { left: rx, top: span + rh, width: W - rx }, works: undated });
+    head.firstChild.textContent = focus.name;
+    const desc = [f.died ? `${f.born}–${f.died}` : `born ${f.born}`, `${focus.works.size} ${focus.works.size === 1 ? "work" : "works"}`, f.activeFrom ? `active from ${f.activeFrom}` : null].filter(Boolean);
+    head.lastChild.textContent = desc.join(" · ");
+    K.store("chronology", focus.name);
+    return out;
+  }
+
+  const live = new Map();
+  function draw() {
+    nav.querySelector(".actions button").textContent = state.level === "overview" ? "Composer" : "All";
+    const next = specs();
+    const keys = new Set(next.map((s) => s.key));
+    for (const [key, node] of live) if (!keys.has(key)) { node.style.opacity = 0; live.delete(key); setTimeout(() => node.remove(), 450); }
+    for (const s of next) {
+      let node = live.get(s.key);
+      const fresh = !node;
+      if (fresh) { node = el("div"); live.set(s.key, node); chart.append(node); node.style.opacity = 0; }
+      node.className = s.cls;
+      if (s.text != null) node.textContent = s.text;
+      if (s.html) node.replaceChildren(el("span", { class: "y" }, s.html[0]), el("span", { class: "n" }, s.html[1]));
+      node._spec = s;
+      const apply = () => { for (const [k, v] of Object.entries(s.s)) node.style[k] = v + "px"; node.style.opacity = ""; };
+      fresh ? (apply(), node.style.opacity = 0, requestAnimationFrame(() => (node.style.opacity = ""))) : apply();
+    }
+  }
+
+  function openWork(w) {
+    const body = el("div", {},
+      el("div", { class: "section" }, el("div", { class: "t-subheadline secondary" }, [w.composer, w.year || "No date", `${w.recordings.length} ${w.recordings.length === 1 ? "recording" : "recordings"}`].join(" · "))),
+      el("div", { class: "card-actions" },
+        el("button", { class: "capsule filled t-headline", onclick: () => { const r = K.orderedRecordings(w)[0]; K.playItem(K.resolveItem(["recording", r.album.id, r.work])); close(); draw(); } }, "Play"),
+        el("a", { class: "capsule t-headline", href: href("work.html", { work: w.id, back: "Chronology" }) }, "Open Work")));
+    const close = K.sheet(w.name, body);
+  }
+
+  function listWorks(title, works) {
+    const close = K.sheet(title, el("div", { class: "section" }, el("div", { class: "list" }, ...works.map((w) =>
+      el("button", { class: "row", onclick: () => { close(); setTimeout(() => openWork(w), 300); } },
+        el("div", { class: "main" }, el("div", { class: "t-body" }, w.name), el("div", { class: "t-footnote secondary" }, w.year || "No date")), el("span", { html: K.ICON.chevron }))))));
+  }
+
+  // Gestures: a sideways drag anywhere picks a composer by birth order; a tap only picks a work of the focus composer.
+  let g = null;
+  chart.addEventListener("pointerdown", (e) => { g = { x: e.clientX, y: e.clientY, side: false, t: e.target }; });
+  chart.addEventListener("pointermove", (e) => {
+    if (!g) return;
+    if (!g.side && Math.abs(e.clientX - g.x) > 10 && Math.abs(e.clientX - g.x) > Math.abs(e.clientY - g.y)) { g.side = true; chart.setPointerCapture(e.pointerId); }
+    if (!g.side) return;
+    const r = chart.getBoundingClientRect();
+    const i = Math.min(composers.length - 1, Math.max(0, Math.floor(((e.clientX - r.left) / r.width) * composers.length)));
+    pick.textContent = composers[i].name;
+    pick.style.left = Math.min(innerWidth - 90, Math.max(90, e.clientX)) + "px";
+    pick.style.top = e.clientY - 28 + "px";
+    pick.classList.add("on");
+    if (state.focus !== composers[i] || state.level !== "composer") { state = { level: "composer", focus: composers[i] }; draw(); }
+  });
+  const end = (e) => {
+    if (!g) return;
+    const tap = !g.side && Math.abs(e.clientX - g.x) < 10 && Math.abs(e.clientY - g.y) < 10 && e.type === "pointerup";
+    pick.classList.remove("on");
+    if (tap) onTap(e);
+    g = null;
+  };
+  chart.addEventListener("pointerup", end);
+  chart.addEventListener("pointercancel", end);
+
+  function onTap(e) {
+    const r = chart.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+    if (state.level === "overview") {
+      const near = state.hit.reduce((a, b) => (Math.abs(b.x - x) < Math.abs(a.x - x) ? b : a));
+      state = { level: "composer", focus: near.c };
+      return draw();
+    }
+    const row = e.target.closest(".wrow");
+    if (row) { const w = row._spec.works; return w.length === 1 ? openWork(w[0]) : listWorks(row.textContent.replace(/(\d)(\d+ works)/, "$1 · $2"), w); }
+    const dot = e.target.closest(".dot");
+    if (dot && dot._spec.work) return openWork(dot._spec.work);
+    if (Math.abs(x - state.focusX) < 22) {
+      const near = [...live.values()].filter((n) => n._spec.work).sort((a, b) => Math.abs(parseFloat(a.style.top) - y) - Math.abs(parseFloat(b.style.top) - y))[0];
+      if (near && Math.abs(parseFloat(near.style.top) - y) < 24) openWork(near._spec.work);
+    }
+  }
+
+  addEventListener("resize", draw);
+  K.onPlay(() => { const w = playingWork(); if (w !== draw.last) { draw.last = w; draw(); } });
+  draw.last = playingWork();
+  requestAnimationFrame(() => requestAnimationFrame(draw));
+});
+</script>
+</body>
+</html>

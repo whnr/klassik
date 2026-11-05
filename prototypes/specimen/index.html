@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Klassik specimen</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="specimen.css">
+<script src="specimen.js"></script>
+</head>
+<body>
+<script>
+K.start(() => {
+  const { el, href, ICON } = K;
+  const { scroll } = K.page({ tab: "library", title: "Library" });
+  const row = (title, sub, path, extra) => el("a", { class: "row", href: href(path, extra) },
+    el("div", { class: "main" }, el("div", { class: "t-body" }, title), sub && el("div", { class: "t-subheadline secondary" }, sub)),
+    el("span", { html: ICON.chevron }));
+  scroll.append(
+    el("div", { class: "page-head" }, el("h1", { class: "t-largeTitle" }, "Specimen"),
+      el("p", { class: "t-subheadline secondary meta" }, "Four screens and a token sheet in Klassik's decided tokens. The pill at the top belongs to the specimen.")),
+    el("section", { class: "section" }, el("div", { class: "section-head t-footnote" }, "Screens"),
+      el("div", { class: "list" },
+        row("Work page", "Symphony No. 5, Beethoven", "work.html", { back: "Library" }),
+        row("Player", "The page of what plays", "player.html", { back: "Library" }),
+        row("Chronology", "One composer among their contemporaries", "chronology.html"),
+        row("Search", "Conditions of search terms", "search.html"))),
+    el("section", { class: "section" }, el("div", { class: "section-head t-footnote" }, "Values"),
+      el("div", { class: "list" }, row("Token sheet", "Colour, type, spacing, radius, motion", "tokens.html"))),
+    el("section", { class: "section" }, el("div", { class: "section-head t-footnote" }, "More work pages"),
+      el("div", { class: "list" },
+        ...["Ludwig van Beethoven|Symphony No. 9 in D minor, Op. 125", "Wolfgang Amadeus Mozart|Requiem in D minor, K. 626",
+            "Antonín Dvořák|Symphony No. 9 in E minor, Op. 95", "Frédéric Chopin|Étude in E major, Op. 10 No. 3",
+            "Johann Sebastian Bach|Matthäus-Passion, BWV 244"]
+          .filter((id) => K.M.works.has(id)).map((id) => { const w = K.M.works.get(id); return row(w.name, w.composer, "work.html", { work: id, back: "Library" }); }))),
+    el("p", { class: "section-foot t-footnote" }, "Covers: public-domain paintings from Wikimedia Commons. Data: Navidrome 0.64.2 responses and Wikidata."));
+});
+</script>
+</body>
+</html>

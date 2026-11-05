@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Search</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="specimen.css">
+<script src="specimen.js"></script>
+</head>
+<body>
+<style>
+  .tabbar.search-bar { flex-direction: column; gap: var(--space-s); }
+  .scopes { display: flex; gap: var(--space-xs); overflow-x: auto; scrollbar-width: none; padding: 2px; }
+  .scopes::-webkit-scrollbar { display: none; }
+  .scopes .chip.on { background: var(--color-text-primary); color: var(--color-background-page); }
+  .field-row { display: flex; gap: var(--space-s); align-items: center; }
+  .field { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--space-s); min-height: 48px; padding: 0 var(--space-l); border-radius: var(--radius-full); }
+  .field svg { width: 18px; height: 18px; flex: none; color: var(--color-text-secondary); }
+  .field input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font-size: max(16px, var(--type-body-size)); }
+  .field input::placeholder { color: var(--color-text-secondary); }
+  .field .clear { color: var(--color-text-secondary); padding: var(--space-xs); }
+  .home { flex: none; width: 48px; height: 48px; border-radius: var(--radius-full); display: grid; place-items: center; }
+  .home svg { width: 22px; height: 22px; }
+  .cond { flex-wrap: wrap; }
+  .cond .terms { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: var(--space-xs); align-items: center; }
+  .cond .or-word { color: var(--color-text-secondary); }
+  .cond .chip { gap: var(--space-xs); }
+  .cond .chip .x { color: var(--color-text-tertiary); }
+  .cond.target { box-shadow: inset 3px 0 0 var(--color-tint); }
+  .and-word { padding: var(--space-xs) var(--space-l); color: var(--color-text-secondary); }
+  .or-pill { min-height: 30px; padding: 0 var(--space-m); border-radius: var(--radius-full); background: var(--color-fill-quiet); color: var(--color-tint); white-space: nowrap; }
+  .sort { color: var(--color-tint); }
+</style>
+<script>
+K.start(() => {
+  const { el, href, ICON, M } = K;
+  const KINDS = { genre: "Genres", composer: "Composers", conductor: "Conductors", performer: "Performers" };
+  const KIND_ONE = { genre: "Genre", composer: "Composer", conductor: "Conductor", performer: "Performer" };
+
+  // The index: every recording with its search terms, read from the songs (not a flat performer string).
+  const recs = [...M.recordings.values()].map((r) => {
+    const terms = new Set(r.genres.map((g) => "genre:" + g));
+    for (const s of r.songs) for (const c of s.contributors || []) terms.add(`${c.role === "composer" ? "composer" : c.role === "conductor" ? "conductor" : "performer"}:${c.artist.name}`);
+    if (r.composer) terms.add("composer:" + r.composer);
+    r.performers.filter((p) => p.role === "artist").forEach((p) => terms.add("performer:" + p.name));
+    return { r, terms };
+  });
+  const allTerms = new Map();
+  for (const { terms } of recs) for (const t of terms) allTerms.set(t, (allTerms.get(t) || 0) + 1);
+
+  let conds = K.store("search") || [["genre:Piano"], ["composer:Frédéric Chopin", "composer:Johannes Brahms"]];
+  let scope = "all", sort = "most", target = null;
+  const matches = (rec, list) => list.every((c) => c.some((t) => rec.terms.has(t)));
+  const remain = (list) => recs.filter((x) => matches(x, list));
+  const count = (list) => remain(list).length;
+
+  const { scroll } = K.page({ tab: "search", title: "Search" });
+  const content = el("div");
+  scroll.append(el("div", { class: "page-head" }, el("h1", { class: "t-largeTitle" }, "Search")), content);
+
+  // iOS 26: on the Search tab the tab bar folds into one button and the field takes its place.
+  const bar = document.querySelector(".tabbar");
+  bar.classList.add("search-bar");
+  const input = el("input", { type: "search", enterkeyhint: "search", autocomplete: "off", autocorrect: "off", spellcheck: "false" });
+  const clear = el("button", { class: "clear t-body", "aria-label": "Clear", onclick: () => { input.value = ""; render(); input.focus(); } }, "✕");
+  const scopes = el("div", { class: "scopes" }, ...["all", ...Object.keys(KINDS)].map((k) =>
+    el("button", { class: "chip glass t-subheadline", "data-k": k, onclick: () => { scope = scope === k && k !== "all" ? "all" : k; render(); } }, k === "all" ? "All" : KINDS[k])));
+  bar.replaceChildren(scopes, el("div", { class: "field-row" },
+    el("a", { class: "home glass", href: href("index.html"), "aria-label": "Library", html: ICON.library }),
+    el("label", { class: "field glass" }, el("span", { html: ICON.search }), input, clear)));
+  input.addEventListener("input", render);
+  K.layoutChrome();
+
+  // Only the content scrolls; the bar rides on top of the keyboard.
+  if (window.visualViewport) {
+    const ride = () => { bar.style.transform = `translateY(${-(innerHeight - visualViewport.height - visualViewport.offsetTop)}px)`; };
+    visualViewport.addEventListener("resize", ride);
+    visualViewport.addEventListener("scroll", ride);
+  }
+
+  const label = (t) => t.slice(t.indexOf(":") + 1);
+  const kind = (t) => t.slice(0, t.indexOf(":"));
+  const save = () => K.store("search", conds);
+
+  function conditionList() {
+    if (!conds.length) return null;
+    const rows = [];
+    conds.forEach((c, i) => {
+      if (i) rows.push(el("div", { class: "and-word t-footnote" }, "and"));
+      const terms = el("div", { class: "terms" });
+      c.forEach((t, j) => {
+        if (j) terms.append(el("span", { class: "or-word t-footnote" }, "or"));
+        terms.append(el("button", { class: "chip t-subheadline", "aria-label": "Remove " + label(t), onclick: () => { c.splice(j, 1); conds = conds.filter((x) => x.length); target = null; save(); render(); } },
+          label(t), el("span", { class: "x" }, "✕")));
+      });
+      const n = count(conds.slice(0, i + 1));
+      rows.push(el("div", { class: "list" }, el("div", { class: "row cond" + (target === i ? " target" : "") }, terms,
+        el("div", { class: "trail" },
+          el("span", { class: "t-subheadline nums" }, `${n}`),
+          el("button", { class: "or-pill t-footnote", onclick: () => { target = target === i ? null : i; render(); input.focus(); } }, target === i ? "or with…" : "or …")))));
+    });
+    return el("section", { class: "section" }, el("div", { class: "section-head t-footnote" }, el("span", {}, "CONDITIONS"), el("span", {}, `${count(conds)} recordings`)), ...rows);
+  }
+
+  function suggestions() {
+    const q = input.value.trim().toLowerCase();
+    const used = new Set(conds.flat());
+    let list = [...allTerms.keys()].filter((t) => !used.has(t) && (scope === "all" || kind(t) === scope) && (!q || label(t).toLowerCase().includes(q)));
+    const andCount = (t) => count([...conds, [t]]);
+    const into = target != null ? target : conds.length - 1;
+    const orCount = (t) => count(conds.map((c, i) => (i === into ? [...c, t] : c)));
+    list = list.map((t) => ({ t, n: andCount(t) })).filter((x) => x.n > 0 || conds.length);
+    list.sort(sort === "most" ? (a, b) => b.n - a.n || label(a.t).localeCompare(label(b.t)) : (a, b) => label(a.t).localeCompare(label(b.t)));
+    const head = el("div", { class: "section-head t-footnote" },
+      el("span", {}, `${scope === "all" ? "SEARCH TERMS" : KINDS[scope].toUpperCase()} · ${list.length}`),
+      el("button", { class: "sort t-footnote", onclick: () => { sort = sort === "most" ? "az" : "most"; render(); } }, sort === "most" ? "Most" : "A–Z"));
+    const rows = list.slice(0, 80).map(({ t, n }) => el("div", { class: "row" },
+      el("button", { class: "main", style: "text-align:left", onclick: () => { if (target != null) conds[target].push(t); else conds.push([t]); target = null; input.value = ""; save(); render(); } },
+        el("div", { class: "t-body" }, label(t)), scope === "all" ? el("div", { class: "t-footnote secondary" }, KIND_ONE[kind(t)]) : null),
+      el("div", { class: "trail" }, el("span", { class: "t-subheadline nums" }, String(n)),
+        conds.length ? el("button", { class: "or-pill t-footnote nums", onclick: () => { conds[into].push(t); target = null; input.value = ""; save(); render(); } }, `or · ${orCount(t)}`) : null)));
+    return el("section", { class: "section" }, head, el("div", { class: "list" }, ...rows),
+      list.length > 80 ? el("div", { class: "section-foot t-footnote" }, `${list.length - 80} more. Type to narrow.`) : null);
+  }
+
+  function results() {
+    const list = remain(conds).sort((a, b) => (a.r.work || "").localeCompare(b.r.work || ""));
+    return el("section", { class: "section" }, el("div", { class: "section-head t-footnote" }, el("span", {}, "RECORDINGS"), el("span", {}, String(list.length))),
+      el("div", { class: "list" }, ...list.slice(0, 60).map(({ r }) =>
+        el("a", { class: "row", href: href("player.html", { recording: r.id, back: "Search" }), style: "--sep-inset: calc(var(--space-l) + var(--size-coverRow) + var(--space-m))" },
+          K.coverImage(r.album),
+          el("div", { class: "main" }, el("div", { class: "t-body" }, r.work || r.album.name),
+            el("div", { class: "t-subheadline secondary" }, [r.composer, r.performers.slice(0, 2).map((p) => p.name).join(", ")].filter(Boolean).join(" · "))),
+          el("span", { html: ICON.chevron })))));
+  }
+
+  function render() {
+    scopes.querySelectorAll(".chip").forEach((c) => c.classList.toggle("on", c.dataset.k === scope));
+    input.placeholder = target != null ? `or with ${label(conds[target][0])}…` : "Genre, composer, performer";
+    clear.style.visibility = input.value ? "visible" : "hidden";
+    const picking = input.value || scope !== "all" || document.activeElement === input || target != null;
+    content.replaceChildren(...[conditionList(), picking || !conds.length ? suggestions() : results()].filter(Boolean));
+  }
+  input.addEventListener("focus", render);
+  input.addEventListener("blur", () => setTimeout(render, 150));
+  render();
+});
+</script>
+</body>
+</html>

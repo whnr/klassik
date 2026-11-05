@@ -18,3 +18,7 @@ python3 make_data.py "<library>/Classical" <work dir>
 ```
 
 It needs ffmpeg, mutagen and network access. It links the chosen folders into a throwaway Navidrome, so no audio is copied. It writes the weak set as silent MP3 files. It drops file paths, server URLs and the embedded covers. Each painting is the one nearest to the composition year of the album's works. `paintings.rq` is the Wikidata query for the paintings.
+
+## Chronology
+
+`chronology.json` is the outside data that the Chronology needs: composer birth, death and work period start (P569, P570, P2031), and a year for each work (P571). It comes from Wikidata (CC0), through the MusicBrainz work ID or, for Chopin, the catalogue number. A work without a date has `null`. `python3 make_chronology.py` writes it again; it needs network access.

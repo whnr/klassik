@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Work page</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="specimen.css">
+<script src="specimen.js"></script>
+</head>
+<body>
+<script>
+K.start(() => {
+  const { el, href, ICON, M } = K;
+  const id = K.params.get("work") || "Ludwig van Beethoven|Symphony No. 5 in C minor, Op. 67";
+  const work = M.works.get(id);
+  const { scroll } = K.page({ tab: "library", title: work.name, back: { label: work.composer.split(" ").pop(), href: "index.html" } });
+
+  const head = el("div", { class: "page-head" });
+  const workFav = "work:" + work.id;
+  const title = el("h1", { class: "t-title1" }, work.name);
+  const mark = el("button", { "aria-label": "Favourite work", onclick: () => { K.toggleFavourite(workFav); mark.replaceChildren(K.fermata(K.isFavourite(workFav))); } }, K.fermata(K.isFavourite(workFav)));
+  title.append(mark);
+  head.append(title, el("div", { class: "meta t-subheadline" },
+    el("a", { class: "link", href: href("index.html") }, work.composer),
+    el("span", { class: "secondary" }, work.year ? ` · ${work.year}` : ""),
+    work.grouping ? el("div", { class: "secondary" }, work.grouping) : null));
+
+  const playBtn = el("button", { class: "capsule filled t-headline", html: ICON.play.replace("<svg", '<svg width="14" height="14"') + "<span>Play</span>" });
+  playBtn.addEventListener("click", () => {
+    const rec = K.orderedRecordings(work)[0];
+    K.playItem(K.resolveItem(["recording", rec.album.id, rec.work]));
+  });
+  const buttons = el("div", { class: "button-row" }, playBtn);
+
+  const listBox = el("div", { class: "list" });
+  const section = el("section", { class: "section" },
+    el("div", { class: "section-head t-footnote" }, el("span", {}, "RECORDINGS"), el("span", {}, String(work.recordings.length))), listBox);
+
+  function people(r) {
+    const lead = r.performers.slice(0, 3).map((p) => p.name).join(", ");
+    return lead + (r.performers.length > 3 ? ` +${r.performers.length - 3}` : "");
+  }
+
+  function render() {
+    const playing = K.current() && K.current().recording;
+    listBox.replaceChildren(...K.orderedRecordings(work).map((r, i) => {
+      const isPlaying = playing && playing.id === r.id;
+      const recFav = "rec:" + r.id;
+      const slot = isPlaying
+        ? el("button", { class: "round quiet", "aria-label": K.P.paused ? "Resume" : "Pause", html: K.P.paused ? ICON.play : ICON.pause, onclick: (e) => { e.preventDefault(); K.togglePause(); } })
+        : el("span", { html: ICON.chevron });
+      return el("a", { class: "row" + (isPlaying ? " playing" : ""), href: href("player.html", { recording: r.id, back: work.name.split(",")[0] }), style: "--sep-inset: calc(var(--space-l) + var(--size-coverRow) + var(--space-m))" },
+        K.coverImage(r.album),
+        el("div", { class: "main" },
+          el("div", { class: "t-body" }, people(r), K.isFavourite(recFav) ? K.fermata(true) : null),
+          el("div", { class: "t-subheadline secondary" }, [r.year, r.album.name].filter(Boolean).join(" · ")),
+          el("div", { class: "t-footnote secondary nums" }, `${K.time(r.duration)} · ${r.songs.length} ${r.songs.length === 1 ? "track" : "movements"}`),
+          i === 0 ? el("div", { class: "t-footnote tint" }, "Plays first") : null),
+        el("div", { class: "trail" }, slot));
+    }));
+  }
+  K.onPlay(() => { const now = (K.current() && K.current().id) + K.P.paused; if (now !== render.last) { render.last = now; render(); } });
+  render();
+
+  scroll.append(head, buttons, section,
+    el("p", { class: "section-foot t-footnote", style: "margin: var(--space-s) calc(var(--space-l) + var(--size-timeline) + var(--space-s)) 0 var(--space-l)" },
+      "Favourite recordings come first, in your order. Then the newest."));
+});
+</script>
+</body>
+</html>

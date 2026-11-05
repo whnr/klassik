@@ -1,6 +1,6 @@
 # 0011. Composition dates from MusicBrainz and Wikidata
 
-Date: 2026-10-19. Scope by Flo (bead sz-rs30.1.7); the rules below by code. Bead: sz-rs30.1.7.
+Date: 2026-10-19. Scope by Flo (bead sz-rs30.1.7); the rules below by code. Bead: sz-rs30.1.7. The timeline rules are replaced by [0016](0016-chronology.md).
 
 ## Context
 

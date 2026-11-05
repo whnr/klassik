@@ -22,6 +22,8 @@ class NotesTests(unittest.TestCase):
             "Read README for setup.",
             "Clone the repository.",
             "Check both repositories.",
+            "Clone the repo. Expect a local checkout.",
+            "Clone both repos.",
             "Push the release branch.",
             "Compare the branches.",
             "Approve the pull request.",
@@ -49,7 +51,7 @@ class NotesTests(unittest.TestCase):
                 self.assertEqual(validate(notes, "0.10.4"), notes)
 
     def test_words_containing_development_terms_pass(self):
-        notes = "Klassik 0.10.4\n\n1. Search for Circle and Branching. Expect matching recordings."
+        notes = "Klassik 0.10.4\n\n1. Search for Circle, Branching, and Reposition. Expect matching recordings."
         self.assertEqual(validate(notes, "0.10.4"), notes)
 
     def test_published_app_checks_pass(self):

@@ -10,7 +10,7 @@ import json, os, pathlib, re, sys, time, urllib.error, urllib.parse, urllib.requ
 # This backstop detects development terms; the release review checks app meaning.
 DEVELOPMENT_TERMS = re.compile(
     r"\b(?:CI|workflows?|GitHub|tokens?|secrets?|AGENTS\.md|README|"
-    r"repositories|repository|branches|branch|pull\s+requests?|Xcode)\b",
+    r"repositories|repository|repos?|branches|branch|pull\s+requests?|Xcode)\b",
     re.IGNORECASE,
 )
 

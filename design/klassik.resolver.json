@@ -1,0 +1,22 @@
+{
+  "$schema": "https://www.designtokens.org/schemas/2025.10/resolver.json",
+  "version": "2025.10",
+  "name": "Klassik",
+  "description": "Klassik's decided design values. The base file holds light colours and every other value; each theme file overrides colours only.",
+  "sets": {
+    "base": { "sources": [{ "$ref": "klassik.tokens.json" }] }
+  },
+  "modifiers": {
+    "theme": {
+      "description": "Appearance and contrast, as iOS sets them.",
+      "contexts": {
+        "light": [],
+        "lightHighContrast": [{ "$ref": "light-high-contrast.tokens.json" }],
+        "dark": [{ "$ref": "dark.tokens.json" }],
+        "darkHighContrast": [{ "$ref": "dark.tokens.json" }, { "$ref": "dark-high-contrast.tokens.json" }]
+      },
+      "default": "light"
+    }
+  },
+  "resolutionOrder": [{ "$ref": "#/sets/base" }, { "$ref": "#/modifiers/theme" }]
+}

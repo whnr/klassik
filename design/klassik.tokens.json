@@ -1,0 +1,618 @@
+{
+  "$description": "Klassik design tokens, DTCG 2025.10. Decided values only (ADR 0021). Neutral iOS system values until a look ticket decides.",
+  "color": {
+    "$type": "color",
+    "background": {
+      "page": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "hex": "#FFFFFF"
+        },
+        "$description": "Plain page. iOS systemBackground."
+      },
+      "grouped": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.949,
+            0.949,
+            0.9686
+          ],
+          "hex": "#F2F2F7"
+        },
+        "$description": "Behind inset lists. iOS systemGroupedBackground."
+      },
+      "row": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "hex": "#FFFFFF"
+        },
+        "$description": "A row of an inset list. iOS secondarySystemGroupedBackground."
+      },
+      "elevated": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "hex": "#FFFFFF"
+        },
+        "$description": "A card above the page, such as the mini player. iOS tertiarySystemBackground."
+      }
+    },
+    "text": {
+      "primary": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "hex": "#000000"
+        },
+        "$description": "iOS label."
+      },
+      "secondary": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.2353,
+            0.2353,
+            0.2627
+          ],
+          "hex": "#3C3C43",
+          "alpha": 0.6
+        },
+        "$description": "iOS secondaryLabel."
+      },
+      "tertiary": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.2353,
+            0.2353,
+            0.2627
+          ],
+          "hex": "#3C3C43",
+          "alpha": 0.3
+        },
+        "$description": "iOS tertiaryLabel."
+      }
+    },
+    "separator": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.2353,
+          0.2353,
+          0.2627
+        ],
+        "hex": "#3C3C43",
+        "alpha": 0.29
+      },
+      "$description": "iOS separator."
+    },
+    "fill": {
+      "standard": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.4706,
+            0.4706,
+            0.502
+          ],
+          "hex": "#787880",
+          "alpha": 0.2
+        },
+        "$description": "Controls and the unplayed timeline. iOS systemFill."
+      },
+      "quiet": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.4627,
+            0.4627,
+            0.502
+          ],
+          "hex": "#767680",
+          "alpha": 0.12
+        },
+        "$description": "Search field and chips. iOS tertiarySystemFill."
+      }
+    },
+    "tint": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.0,
+          0.4784,
+          1.0
+        ],
+        "hex": "#007AFF"
+      },
+      "$description": "Klassik's tint: links, controls, the played timeline, the wash of a cover without colour. iOS systemBlue."
+    },
+    "favourite": {
+      "$value": "{color.tint}",
+      "$description": "The fermata of a favourite."
+    },
+    "timeline": {
+      "played": {
+        "$value": "{color.tint}",
+        "$description": "The played part of the timeline."
+      },
+      "unplayed": {
+        "$value": "{color.fill.standard}",
+        "$description": "The part of the timeline still to play."
+      }
+    }
+  },
+  "font": {
+    "family": {
+      "$type": "fontFamily",
+      "text": {
+        "$value": [
+          "-apple-system",
+          "system-ui",
+          "sans-serif"
+        ],
+        "$description": "The system face. In SwiftUI, a text style without a custom font."
+      }
+    }
+  },
+  "type": {
+    "$type": "typography",
+    "largeTitle": {
+      "$value": {
+        "fontFamily": "{font.family.text}",
+        "fontSize": {
+          "value": 34,
+          "unit": "px"
+        },
+        "fontWeight": 400,
+        "lineHeight": 1.2059,
+        "letterSpacing": {
+          "value": 0,
+          "unit": "px"
+        }
+      },
+      "$extensions": {
+        "de.whnr.klassik": {
+          "textStyle": "largeTitle"
+        }
+      }
+    },
+    "title1": {
+      "$value": {
+        "fontFamily": "{font.family.text}",
+        "fontSize": {
+          "value": 28,
+          "unit": "px"
+        },
+        "fontWeight": 400,
+        "lineHeight": 1.2143,
+        "letterSpacing": {
+          "value": 0,
+          "unit": "px"
+        }
+      },
+      "$extensions": {
+        "de.whnr.klassik": {
+          "textStyle": "title"
+        }
+      }
+    },
+    "title2": {
+      "$value": {
+        "fontFamily": "{font.family.text}",
+        "fontSize": {
+          "value": 22,
+          "unit": "px"
+        },
+        "fontWeight": 400,
+        "lineHeight": 1.2727,
+        "letterSpacing": {
+          "value": 0,
+          "unit": "px"
+        }
+      },
+      "$extensions": {
+        "de.whnr.klassik": {
+          "textStyle": "title2"
+        }
+      }
+    },
+    "title3": {
+      "$value": {
+        "fontFamily": "{font.family.text}",
+        "fontSize": {
+          "value": 20,
+          "unit": "px"
+        },
+        "fontWeight": 400,
+        "lineHeight": 1.25,
+        "letterSpacing": {
+          "value": 0,
+          "unit": "px"
+        }
+      },
+      "$extensions": {
+        "de.whnr.klassik": {
+          "textStyle": "title3"
+        }
+      }
+    },
+    "headline": {
+      "$value": {
+        "fontFamily": "{font.family.text}",
+        "fontSize": {
+          "value": 17,
+          "unit": "px"
+        },
+        "fontWeight": 600,
+        "lineHeight": 1.2941,
+        "letterSpacing": {
+          "value": 0,
+          "unit": "px"
+        }
+      },
+      "$extensions": {
+        "de.whnr.klassik": {
+          "textStyle": "headline"
+        }
+      }
+    },
+    "body": {
+      "$value": {
+        "fontFamily": "{font.family.text}",
+        "fontSize": {
+          "value": 17,
+          "unit": "px"
+        },
+        "fontWeight": 400,
+        "lineHeight": 1.2941,
+        "letterSpacing": {
+          "value": 0,
+          "unit": "px"
+        }
+      },
+      "$extensions": {
+        "de.whnr.klassik": {
+          "textStyle": "body"
+        }
+      }
+    },
+    "callout": {
+      "$value": {
+        "fontFamily": "{font.family.text}",
+        "fontSize": {
+          "value": 16,
+          "unit": "px"
+        },
+        "fontWeight": 400,
+        "lineHeight": 1.3125,
+        "letterSpacing": {
+          "value": 0,
+          "unit": "px"
+        }
+      },
+      "$extensions": {
+        "de.whnr.klassik": {
+          "textStyle": "callout"
+        }
+      }
+    },
+    "subheadline": {
+      "$value": {
+        "fontFamily": "{font.family.text}",
+        "fontSize": {
+          "value": 15,
+          "unit": "px"
+        },
+        "fontWeight": 400,
+        "lineHeight": 1.3333,
+        "letterSpacing": {
+          "value": 0,
+          "unit": "px"
+        }
+      },
+      "$extensions": {
+        "de.whnr.klassik": {
+          "textStyle": "subheadline"
+        }
+      }
+    },
+    "footnote": {
+      "$value": {
+        "fontFamily": "{font.family.text}",
+        "fontSize": {
+          "value": 13,
+          "unit": "px"
+        },
+        "fontWeight": 400,
+        "lineHeight": 1.3846,
+        "letterSpacing": {
+          "value": 0,
+          "unit": "px"
+        }
+      },
+      "$extensions": {
+        "de.whnr.klassik": {
+          "textStyle": "footnote"
+        }
+      }
+    },
+    "caption1": {
+      "$value": {
+        "fontFamily": "{font.family.text}",
+        "fontSize": {
+          "value": 12,
+          "unit": "px"
+        },
+        "fontWeight": 400,
+        "lineHeight": 1.3333,
+        "letterSpacing": {
+          "value": 0,
+          "unit": "px"
+        }
+      },
+      "$extensions": {
+        "de.whnr.klassik": {
+          "textStyle": "caption"
+        }
+      }
+    },
+    "caption2": {
+      "$value": {
+        "fontFamily": "{font.family.text}",
+        "fontSize": {
+          "value": 11,
+          "unit": "px"
+        },
+        "fontWeight": 400,
+        "lineHeight": 1.1818,
+        "letterSpacing": {
+          "value": 0,
+          "unit": "px"
+        }
+      },
+      "$extensions": {
+        "de.whnr.klassik": {
+          "textStyle": "caption2"
+        }
+      }
+    }
+  },
+  "space": {
+    "$type": "dimension",
+    "$description": "Spacing steps. In SwiftUI, ScaledMetric.",
+    "xxs": {
+      "$value": {
+        "value": 2,
+        "unit": "px"
+      }
+    },
+    "xs": {
+      "$value": {
+        "value": 4,
+        "unit": "px"
+      }
+    },
+    "s": {
+      "$value": {
+        "value": 8,
+        "unit": "px"
+      }
+    },
+    "m": {
+      "$value": {
+        "value": 12,
+        "unit": "px"
+      }
+    },
+    "l": {
+      "$value": {
+        "value": 16,
+        "unit": "px"
+      }
+    },
+    "xl": {
+      "$value": {
+        "value": 20,
+        "unit": "px"
+      }
+    },
+    "xxl": {
+      "$value": {
+        "value": 24,
+        "unit": "px"
+      }
+    },
+    "xxxl": {
+      "$value": {
+        "value": 32,
+        "unit": "px"
+      }
+    }
+  },
+  "radius": {
+    "$type": "dimension",
+    "s": {
+      "$value": {
+        "value": 6,
+        "unit": "px"
+      },
+      "$description": "Chips and small covers."
+    },
+    "m": {
+      "$value": {
+        "value": 10,
+        "unit": "px"
+      },
+      "$description": "Inset list sections and cards."
+    },
+    "l": {
+      "$value": {
+        "value": 16,
+        "unit": "px"
+      },
+      "$description": "Large covers and the mini player."
+    },
+    "full": {
+      "$value": {
+        "value": 999,
+        "unit": "px"
+      },
+      "$description": "Round controls and capsules."
+    }
+  },
+  "size": {
+    "$type": "dimension",
+    "hitTarget": {
+      "$value": {
+        "value": 44,
+        "unit": "px"
+      },
+      "$description": "The smallest tap area."
+    },
+    "timeline": {
+      "$value": {
+        "value": 8,
+        "unit": "px"
+      },
+      "$description": "Width of the timeline bar."
+    },
+    "coverRow": {
+      "$value": {
+        "value": 56,
+        "unit": "px"
+      },
+      "$description": "A cover in a recording row."
+    },
+    "coverPage": {
+      "$value": {
+        "value": 240,
+        "unit": "px"
+      },
+      "$description": "The cover of a recording or album page."
+    },
+    "miniPlayer": {
+      "$value": {
+        "value": 64,
+        "unit": "px"
+      },
+      "$description": "Height of the mini player."
+    }
+  },
+  "motion": {
+    "duration": {
+      "$type": "duration",
+      "quick": {
+        "$value": {
+          "value": 150,
+          "unit": "ms"
+        }
+      },
+      "standard": {
+        "$value": {
+          "value": 250,
+          "unit": "ms"
+        }
+      },
+      "slow": {
+        "$value": {
+          "value": 400,
+          "unit": "ms"
+        }
+      }
+    },
+    "easing": {
+      "$type": "cubicBezier",
+      "standard": {
+        "$value": [
+          0.25,
+          0.1,
+          0.25,
+          1
+        ]
+      },
+      "out": {
+        "$value": [
+          0,
+          0,
+          0.58,
+          1
+        ]
+      },
+      "inOut": {
+        "$value": [
+          0.42,
+          0,
+          0.58,
+          1
+        ]
+      }
+    },
+    "transition": {
+      "$type": "transition",
+      "$description": "Reduce Motion replaces each with a cross-fade of motion.duration.quick.",
+      "inPlace": {
+        "$value": {
+          "duration": "{motion.duration.quick}",
+          "delay": {
+            "value": 0,
+            "unit": "ms"
+          },
+          "timingFunction": "{motion.easing.out}"
+        },
+        "$description": "A value that changes in place: a count, a label, a tint."
+      },
+      "open": {
+        "$value": {
+          "duration": "{motion.duration.standard}",
+          "delay": {
+            "value": 0,
+            "unit": "ms"
+          },
+          "timingFunction": "{motion.easing.inOut}"
+        },
+        "$description": "A row that opens in place."
+      },
+      "rise": {
+        "$value": {
+          "duration": "{motion.duration.slow}",
+          "delay": {
+            "value": 0,
+            "unit": "ms"
+          },
+          "timingFunction": "{motion.easing.inOut}"
+        },
+        "$description": "The next queue item rises into the player."
+      },
+      "glide": {
+        "$value": {
+          "duration": "{motion.duration.slow}",
+          "delay": {
+            "value": 0,
+            "unit": "ms"
+          },
+          "timingFunction": "{motion.easing.standard}"
+        },
+        "$description": "The Chronology glides to another composer."
+      }
+    }
+  }
+}

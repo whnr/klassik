@@ -1,0 +1,149 @@
+{
+  "$description": "Dark appearance. Colours only.",
+  "color": {
+    "$type": "color",
+    "background": {
+      "page": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "hex": "#000000"
+        },
+        "$description": "Plain page. iOS systemBackground."
+      },
+      "grouped": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "hex": "#000000"
+        },
+        "$description": "Behind inset lists. iOS systemGroupedBackground."
+      },
+      "row": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.1098,
+            0.1098,
+            0.1176
+          ],
+          "hex": "#1C1C1E"
+        },
+        "$description": "A row of an inset list. iOS secondarySystemGroupedBackground."
+      },
+      "elevated": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.1725,
+            0.1725,
+            0.1804
+          ],
+          "hex": "#2C2C2E"
+        },
+        "$description": "A card above the page, such as the mini player. iOS tertiarySystemBackground."
+      }
+    },
+    "text": {
+      "primary": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "hex": "#FFFFFF"
+        },
+        "$description": "iOS label."
+      },
+      "secondary": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.9216,
+            0.9216,
+            0.9608
+          ],
+          "hex": "#EBEBF5",
+          "alpha": 0.6
+        },
+        "$description": "iOS secondaryLabel."
+      },
+      "tertiary": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.9216,
+            0.9216,
+            0.9608
+          ],
+          "hex": "#EBEBF5",
+          "alpha": 0.3
+        },
+        "$description": "iOS tertiaryLabel."
+      }
+    },
+    "separator": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.3294,
+          0.3294,
+          0.3451
+        ],
+        "hex": "#545458",
+        "alpha": 0.6
+      },
+      "$description": "iOS separator."
+    },
+    "fill": {
+      "standard": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.4706,
+            0.4706,
+            0.502
+          ],
+          "hex": "#787880",
+          "alpha": 0.36
+        },
+        "$description": "Controls and the unplayed timeline. iOS systemFill."
+      },
+      "quiet": {
+        "$value": {
+          "colorSpace": "srgb",
+          "components": [
+            0.4627,
+            0.4627,
+            0.502
+          ],
+          "hex": "#767680",
+          "alpha": 0.24
+        },
+        "$description": "Search field and chips. iOS tertiarySystemFill."
+      }
+    },
+    "tint": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.0392,
+          0.5176,
+          1.0
+        ],
+        "hex": "#0A84FF"
+      },
+      "$description": "Klassik's tint: links, controls, the played timeline, the wash of a cover without colour. iOS systemBlue."
+    }
+  }
+}

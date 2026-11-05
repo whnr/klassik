@@ -4,3 +4,4 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 swift format lint --strict --recursive --parallel Klassik KlassikTests KlassikUITests
+python3 scripts/tokens.py --check

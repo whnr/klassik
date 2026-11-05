@@ -1,0 +1,18 @@
+{
+  "$description": "Dark appearance, Increase Contrast. Only colours whose system colour has its own high-contrast value.",
+  "color": {
+    "$type": "color",
+    "tint": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.251,
+          0.6118,
+          1.0
+        ],
+        "hex": "#409CFF"
+      },
+      "$description": "iOS systemBlue, high contrast."
+    }
+  }
+}

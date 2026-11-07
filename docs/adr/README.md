@@ -27,3 +27,4 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0021](0021-design-tokens.md) | Design tokens in the repository | 2026-11-05 |
 | [0022](0022-chronology-taps.md) | Chronology taps open pages | 2026-11-07 |
 | [0023](0023-no-title-in-the-bar.md) | No title in the navigation bar | 2026-11-07 |
+| [0024](0024-album-work-headings.md) | Work headings on an album page only for whole works | 2026-11-07 |

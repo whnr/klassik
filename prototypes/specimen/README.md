@@ -8,7 +8,7 @@ The design specimen of map sz-rs30.1.83 (ticket sz-rs30.1.83.4). Every look tick
 - `work.html`: a work page with recording rows. `?work=<composer>|<work>` picks another work.
 - `player.html`: the page of what plays, with the cover wash, the timeline and the open movement. `?recording=<id>` or `?album=<id>` shows another page; Play turns it into the player in place.
 - `chronology.html`: one composer among the contemporaries, and the overview (`?level=overview`).
-- `search.html`: conditions of search terms, scopes and the field at the bottom.
+- `search.html`: the field finds works, names and albums; filters on demand. Round 3 of sz-rs30.1.83.7 shows three places for the filters: `?variant=search-sheet`, `search-panel`, `search-chips`.
 - `person.html`: a composer or performer page with the screen-wide picture (ADR 0017, 0019). `?name=<artist name>`.
 - `tokens.html`: the token sheet. Every colour in the four themes side by side, contrast on rows, the type scale at each Dynamic Type size, spacing, radius, size and each animation alone. The Settings tab opens it.
 

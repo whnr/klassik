@@ -10,36 +10,110 @@
 <script src="specimen.js"></script>
 </head>
 <body>
+<!--
+  Search round 3 (sz-rs30.1.83.7). One question: where do the filters open?
+  ?variant=search-sheet (A, default), search-panel (B), search-chips (C).
+  Locked in all three: the field finds works, people and albums in sections; the mini player is a cover pill in the bottom row.
+-->
 <style>
-  .tabbar.search-bar { flex-direction: column; gap: var(--space-s); }
-  .scopes { display: flex; gap: var(--space-xs); overflow-x: auto; scrollbar-width: none; padding: 2px; }
-  .scopes::-webkit-scrollbar { display: none; }
-  .scopes .chip.on { background: var(--color-text-primary); color: var(--color-background-page); }
-  .field-row { display: flex; gap: var(--space-s); align-items: center; }
-  .field { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--space-s); min-height: 48px; padding: 0 var(--space-l); border-radius: var(--radius-full); }
+  .specimen-bar { max-width: calc(100vw - 12px); overflow-x: auto; scrollbar-width: none; }
+  .tabbar.search-bar { position: fixed; top: auto; transition: none; }
+  .search-bar .row1 { display: flex; gap: var(--space-s); align-items: center; width: 100%; }
+  .roundglass { flex: none; width: 48px; height: 48px; border-radius: var(--radius-full); display: grid; place-items: center; position: relative; color: var(--color-text-primary); }
+  .roundglass svg { width: 22px; height: 22px; }
+  .roundglass.on { color: var(--color-tint); }
+  .pill { overflow: hidden; padding: 0; }
+  .pill img, .pill .cover { width: 48px; height: 48px; border-radius: var(--radius-full); }
+  .badge { position: absolute; top: -3px; right: -3px; min-width: 19px; height: 19px; padding: 0 5px; border-radius: 10px; background: var(--color-tint); color: #fff; font: 600 12px/19px -apple-system, system-ui, sans-serif; text-align: center; }
+  .field { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--space-s); min-height: 48px; padding: 0 var(--space-m) 0 var(--space-l); border-radius: var(--radius-full); }
   .field svg { width: 18px; height: 18px; flex: none; color: var(--color-text-secondary); }
   .field input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font-size: max(16px, var(--type-body-size)); }
   .field input::placeholder { color: var(--color-text-secondary); }
-  .field .clear { color: var(--color-text-secondary); padding: var(--space-xs); }
-  .home { flex: none; width: 48px; height: 48px; border-radius: var(--radius-full); display: grid; place-items: center; }
-  .home svg { width: 22px; height: 22px; }
+  .field input::-webkit-search-cancel-button, .narrow input::-webkit-search-cancel-button { display: none; }
+  .clear { color: var(--color-text-secondary); padding: var(--space-xs); visibility: hidden; }
+  .search-bar.typing .fold { display: none; }
+
+  .hint { padding: var(--space-xl) calc(var(--space-l) + var(--size-timeline) + var(--space-s)) 0 var(--space-xl); color: var(--color-text-secondary); }
+  .nomatch { padding: var(--space-l) var(--space-l) 0; color: var(--color-text-secondary); }
+
+  /* Conditions, shared by the three variants. */
   .cond { flex-wrap: wrap; }
   .cond .terms { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: var(--space-xs); align-items: center; }
-  .cond .or-word { color: var(--color-text-secondary); }
   .cond .chip { gap: var(--space-xs); }
   .cond .chip .x { color: var(--color-text-tertiary); }
-  .cond.target { box-shadow: inset 3px 0 0 var(--color-tint); }
+  .cond.marked { box-shadow: inset 3px 0 0 var(--color-tint); background: color-mix(in srgb, var(--color-tint) 8%, var(--color-background-row)); }
+  .orbtn { min-height: 30px; padding: 0 var(--space-m); border-radius: var(--radius-full); background: var(--color-fill-quiet); color: var(--color-tint); white-space: nowrap; }
+  .orbtn.on { background: var(--color-tint); color: #fff; }
   .and-word { padding: var(--space-xs) var(--space-l); color: var(--color-text-secondary); }
-  .or-pill { min-height: 30px; padding: 0 var(--space-m); border-radius: var(--radius-full); background: var(--color-fill-quiet); color: var(--color-tint); white-space: nowrap; }
-  .sort { color: var(--color-tint); }
+  .seg { display: flex; padding: 2px; border-radius: 9px; background: var(--color-fill-quiet); margin: var(--space-m) 0 var(--space-s); }
+  .seg button { flex: 1; min-height: 30px; border-radius: 7px; white-space: nowrap; padding: 0 2px; }
+  .seg button.on { background: var(--color-background-row); box-shadow: 0 1px 3px rgb(0 0 0 / 0.12); font-weight: 600; }
+  .narrow { display: flex; align-items: center; gap: var(--space-s); min-height: 36px; padding: 0 var(--space-m); border-radius: 10px; background: var(--color-fill-quiet); margin-bottom: var(--space-s); }
+  .narrow svg { width: 15px; height: 15px; flex: none; color: var(--color-text-secondary); }
+  .narrow input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font-size: 16px; }
+  .narrow input::placeholder { color: var(--color-text-secondary); }
+  .term .what { color: var(--color-tint); white-space: nowrap; }
+  .term .what.on { color: var(--color-text-secondary); }
+
+  /* A: a sheet at the medium detent; the results stay live above it. */
+  .fsheet { position: fixed; z-index: 61; left: var(--space-xs); right: var(--space-xs); bottom: var(--space-xs); height: 58vh;
+    display: flex; flex-direction: column; border-radius: 30px; background: var(--color-background-grouped);
+    transform: translateY(110%); transition: transform var(--motion-transition-open-duration) var(--motion-transition-open-easing); box-shadow: 0 -2px 24px rgb(0 0 0 / 0.2); }
+  .fsheet.on { transform: none; }
+  .fsheet .grabber { width: 36px; height: 5px; border-radius: 3px; background: var(--color-fill-standard); margin: var(--space-xs) auto 0; flex: none; }
+  .fsheet .head { display: flex; align-items: baseline; gap: var(--space-s); padding: var(--space-s) var(--space-l) var(--space-xs); flex: none; }
+  .fsheet .head h2 { flex: 1; }
+  .fsheet .body { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 0 var(--space-l) var(--space-xl); }
+
+  /* B: a panel that unfolds above the results; its term list scrolls inside a box. */
+  .panel .box { max-height: calc(5.5 * var(--size-hitTarget)); overflow-y: auto; overscroll-behavior: contain; }
+
+  /* C: condition chips under the title; each chip opens its page. */
+  .chiprow { display: flex; gap: var(--space-xs); flex-wrap: wrap; padding: var(--space-s) calc(var(--space-l) + var(--size-timeline) + var(--space-s)) 0 var(--space-l); }
+  .chiprow .chip { gap: var(--space-xs); max-width: 100%; }
+  .chiprow .chip span { overflow: hidden; text-overflow: ellipsis; }
+  .chiprow .chip.add { background: transparent; color: var(--color-tint); box-shadow: inset 0 0 0 1px var(--color-fill-standard); }
+  .chiprow .and { align-self: center; color: var(--color-text-secondary); }
+  .pushed { position: fixed; inset: 0; z-index: 36; background: var(--color-background-grouped); display: flex; flex-direction: column;
+    transform: translateX(100%); transition: transform var(--motion-transition-open-duration) var(--motion-transition-open-easing); }
+  .pushed.on { transform: none; }
+  .pushed .scroll { padding-bottom: 40px; }
+  .pushed .fixed { padding: 0 calc(var(--space-l) + var(--size-timeline) + var(--space-s)) 0 var(--space-l); }
 </style>
 <script>
 K.start(() => {
   const { el, href, ICON, M } = K;
+  const V = { "search-panel": "panel", "search-chips": "chips" }[K.params.get("variant")] || "sheet";
   const KINDS = { genre: "Genres", composer: "Composers", conductor: "Conductors", performer: "Performers" };
-  const KIND_ONE = { genre: "Genre", composer: "Composer", conductor: "Conductor", performer: "Performer" };
+  const ONE = { genre: "Genre", composer: "Composer", conductor: "Conductor", performer: "Performer" };
+  const FUNNEL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M7 12h10M10 17h4"/></svg>';
 
-  // The index: every recording with its search terms, read from the songs (not a flat performer string).
+  // ---------- Matching: diacritics fold away; "Op. 67" meets "op67", "K. 626" meets "KV 626". ----------
+  const fold = (s) => (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
+    .replace(/ø/g, "o").replace(/ł/g, "l").replace(/ß/g, "ss").replace(/æ/g, "ae").replace(/[^a-z0-9]+/g, " ").trim();
+  const CATALOGUE = /^(op|k|kv|bwv|d|hob|rv|hwv|kk|swv|wq|sz|l)$/;
+  function words(s) {
+    const w = fold(s).split(" ").filter(Boolean);
+    const out = new Set(w);
+    for (let i = 0; i + 1 < w.length; i++) if (CATALOGUE.test(w[i]) && /^\d/.test(w[i + 1])) {
+      out.add(w[i] + w[i + 1]);
+      if (w[i] === "k") out.add("kv" + w[i + 1]);
+      if (w[i] === "kv") out.add("k" + w[i + 1]);
+    }
+    return [...out];
+  }
+  function queryTokens(q) {
+    const w = fold(q).split(" ").filter(Boolean);
+    const out = [];
+    for (let i = 0; i < w.length; i++) {
+      if (CATALOGUE.test(w[i]) && w[i + 1] && /^\d/.test(w[i + 1])) { out.push(w[i] + w[i + 1]); i++; }
+      else out.push(w[i]);
+    }
+    return out;
+  }
+  const matches = (tokens, hay) => tokens.every((t) => hay.some((h) => h.startsWith(t)));
+
+  // ---------- The index: every recording with its search terms, read from the songs. ----------
   const recs = [...M.recordings.values()].map((r) => {
     const terms = new Set(r.genres.map((g) => "genre:" + g));
     for (const s of r.songs) for (const c of s.contributors || []) terms.add(`${c.role === "composer" ? "composer" : c.role === "conductor" ? "conductor" : "performer"}:${c.artist.name}`);
@@ -50,104 +124,314 @@ K.start(() => {
   const allTerms = new Map();
   for (const { terms } of recs) for (const t of terms) allTerms.set(t, (allTerms.get(t) || 0) + 1);
   // A genre that every recording carries filters nothing, so the picker hides it (as on the composer page, ADR 0017).
-  for (const [t, n] of allTerms) if (t.startsWith("genre:") && n === recs.length) allTerms.delete(t);
+  // Weak tags leave some recordings without a genre, so the test counts only the recordings that carry one.
+  const withGenre = recs.filter((x) => x.r.genres.length).length;
+  for (const [t, n] of allTerms) if (t.startsWith("genre:") && n === withGenre) allTerms.delete(t);
+  const label = (t) => t.slice(t.indexOf(":") + 1);
+  const kindOf = (t) => t.slice(0, t.indexOf(":"));
 
-  let conds = K.store("search") || [["genre:Piano"], ["composer:Frédéric Chopin", "composer:Johannes Brahms"]];
-  let scope = "all", sort = "most", target = null;
-  const matches = (rec, list) => list.every((c) => c.some((t) => rec.terms.has(t)));
-  const remain = (list) => recs.filter((x) => matches(x, list));
-  const count = (list) => remain(list).length;
+  const works = [...M.works.values()].map((w) => ({ w, hay: words(w.name + " " + w.composer + " " + (w.grouping || "")), title: fold(w.name) }));
+  const people = new Map();
+  for (const { r, terms } of recs) for (const t of terms) {
+    const k = kindOf(t);
+    if (k === "genre") continue;
+    const name = label(t);
+    if (!people.has(name)) people.set(name, { name, roles: new Set(), recs: new Set(), hay: words(name) });
+    people.get(name).roles.add(k);
+    people.get(name).recs.add(r);
+  }
+  const albums = [...M.albums.values()].map((a) => ({ a, hay: words([a.name, a.artist, a.displayArtist, ...a.song.map((s) => s.title)].join(" ")) }));
 
+  // ---------- State. The query and the conditions stay when the filters hide. ----------
+  let query = K.store("search3.q") || "";
+  let conds = K.store("search3.conds") || [];
+  let open = K.store("search3.open") || false;
+  let marked = null, kind = "composer", narrowQ = "";
+  const save = () => { K.store("search3.q", query); K.store("search3.conds", conds); K.store("search3.open", open); };
+  const passes = (x, list) => list.every((c) => c.some((t) => x.terms.has(t)));
+  const count = (list) => recs.filter((x) => passes(x, list)).length;
+
+  // ---------- Page and the bottom row ----------
   const { scroll } = K.page({ tab: "search", title: "Search" });
-  const content = el("div");
-  scroll.append(el("div", { class: "page-head" }, el("h1", { class: "t-largeTitle" }, "Search")), content);
-
-  // iOS 26: on the Search tab the tab bar folds into one button and the field takes its place.
+  // The mini player card leaves this page: a cover pill in the bottom row stands for it (sz-rs30.1.83.9 decides the pill).
+  document.querySelectorAll(".mini").forEach((m) => (m.style.display = "none"));
   const bar = document.querySelector(".tabbar");
   bar.classList.add("search-bar");
-  const input = el("input", { type: "search", enterkeyhint: "search", autocomplete: "off", autocorrect: "off", spellcheck: "false" });
-  const clear = el("button", { class: "clear t-body", "aria-label": "Clear", onclick: () => { input.value = ""; render(); input.focus(); } }, "✕");
-  const scopes = el("div", { class: "scopes" }, ...["all", ...Object.keys(KINDS)].map((k) =>
-    el("button", { class: "chip glass t-subheadline", "data-k": k, onclick: () => { scope = scope === k && k !== "all" ? "all" : k; render(); } }, k === "all" ? "All" : KINDS[k])));
-  bar.replaceChildren(scopes, el("div", { class: "field-row" },
-    el("a", { class: "home glass", href: href("index.html"), "aria-label": "Library", html: ICON.library }),
-    el("label", { class: "field glass" }, el("span", { html: ICON.search }), input, clear)));
-  input.addEventListener("input", render);
-  K.layoutChrome();
+  const input = el("input", { type: "search", enterkeyhint: "search", autocomplete: "off", autocorrect: "off", spellcheck: "false", placeholder: "Work or name" });
+  input.value = query;
+  const clear = el("button", { class: "clear t-body", "aria-label": "Clear", onclick: () => { input.value = ""; query = ""; save(); update(); input.focus(); } }, "✕");
+  const badge = el("span", { class: "badge" });
+  const filtersBtn = el("button", { class: "roundglass glass", "aria-label": "Filters", html: FUNNEL, onclick: () => setOpen(!open) });
+  filtersBtn.append(badge);
+  const cur = K.current();
+  const pill = cur ? el("a", { class: "roundglass glass pill fold", href: href("player.html", { back: "Search" }), "aria-label": "Now playing" }, K.coverImage(cur.album)) : null;
+  bar.replaceChildren(el("div", { class: "row1" },
+    el("a", { class: "roundglass glass fold", href: href("index.html"), "aria-label": "Library", html: ICON.library }),
+    el("label", { class: "field glass" }, el("span", { html: ICON.search }), input, clear),
+    filtersBtn, pill));
+  input.addEventListener("input", () => { query = input.value; save(); update(); });
+  input.addEventListener("focus", () => bar.classList.add("typing"));
+  input.addEventListener("blur", () => bar.classList.remove("typing"));
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.blur(); });
 
-  // Only the content scrolls; the bar rides on top of the keyboard.
-  if (window.visualViewport) {
-    const ride = () => { bar.style.transform = `translateY(${-(innerHeight - visualViewport.height - visualViewport.offsetTop)}px)`; };
-    visualViewport.addEventListener("resize", ride);
-    visualViewport.addEventListener("scroll", ride);
+  // ---------- The keyboard: only the content scrolls; the bar and the sheet ride on the keyboard. ----------
+  const riders = [];
+  const restBottom = parseFloat(getComputedStyle(bar).bottom) || 8;
+  function ride() {
+    if (scrollY || document.documentElement.scrollTop) scrollTo(0, 0);
+    const vv = window.visualViewport;
+    const kb = vv ? Math.max(0, innerHeight - vv.height - vv.offsetTop) : 0;
+    const up = kb > 40;
+    bar.style.bottom = up ? kb + 8 + "px" : "";
+    riders.forEach((r) => r(kb, up));
+    scroll.style.setProperty("--bottom-space", (up ? kb + 8 : restBottom) + bar.offsetHeight + 24 + "px");
   }
+  // iOS sends the viewport events late, so the bar follows each frame while the keyboard moves.
+  let until = 0;
+  function follow() { until = performance.now() + 900; const step = () => { ride(); if (performance.now() < until) requestAnimationFrame(step); }; step(); }
+  if (window.visualViewport) { visualViewport.addEventListener("resize", follow); visualViewport.addEventListener("scroll", ride); }
+  addEventListener("scroll", ride);
+  document.addEventListener("focusin", follow);
+  document.addEventListener("focusout", follow);
 
-  const label = (t) => t.slice(t.indexOf(":") + 1);
-  const kind = (t) => t.slice(0, t.indexOf(":"));
-  const save = () => K.store("search", conds);
-
-  function conditionList() {
-    if (!conds.length) return null;
-    const rows = [];
+  // ---------- Shared pieces of the filters ----------
+  function chip(t, ci) {
+    return el("button", { class: "chip t-subheadline", "aria-label": "Remove " + label(t), onclick: (e) => { e.stopPropagation(); removeTerm(ci, t); } },
+      label(t), el("span", { class: "x" }, "✕"));
+  }
+  function removeTerm(ci, t) {
+    conds[ci] = conds[ci].filter((x) => x !== t);
+    if (!conds[ci].length) { conds.splice(ci, 1); if (marked === ci) marked = null; else if (marked > ci) marked--; }
+    save(); update();
+  }
+  // One row per condition. In A and B a tap marks it, so the next term joins it with "or".
+  function condRows(markable) {
+    const out = [];
     conds.forEach((c, i) => {
-      if (i) rows.push(el("div", { class: "and-word t-footnote" }, "and"));
+      if (i) out.push(el("div", { class: "and-word t-footnote" }, "and"));
       const terms = el("div", { class: "terms" });
-      c.forEach((t, j) => {
-        if (j) terms.append(el("span", { class: "or-word t-footnote" }, "or"));
-        terms.append(el("button", { class: "chip t-subheadline", "aria-label": "Remove " + label(t), onclick: () => { c.splice(j, 1); conds = conds.filter((x) => x.length); target = null; save(); render(); } },
-          label(t), el("span", { class: "x" }, "✕")));
-      });
-      const n = count(conds.slice(0, i + 1));
-      rows.push(el("div", { class: "list" }, el("div", { class: "row cond" + (target === i ? " target" : "") }, terms,
-        el("div", { class: "trail" },
-          el("span", { class: "t-subheadline nums" }, `${n}`),
-          el("button", { class: "or-pill t-footnote", onclick: () => { target = target === i ? null : i; render(); input.focus(); } }, target === i ? "or with…" : "or …")))));
+      c.forEach((t, j) => { if (j) terms.append(el("span", { class: "t-footnote secondary" }, "or")); terms.append(chip(t, i)); });
+      out.push(el("div", { class: "list" }, el("div", {
+        class: "row cond" + (marked === i ? " marked" : ""), role: markable ? "button" : null,
+        onclick: markable ? () => { marked = marked === i ? null : i; update(); } : null },
+        terms, el("div", { class: "trail" }, el("span", { class: "t-subheadline nums" }, String(count(conds.slice(0, i + 1)))),
+          markable ? el("button", { class: "orbtn t-footnote" + (marked === i ? " on" : ""), onclick: (e) => { e.stopPropagation(); marked = marked === i ? null : i; update(); } }, marked === i ? "or ✓" : "or +") : null))));
     });
-    return el("section", { class: "section" }, el("div", { class: "section-head t-footnote" }, el("span", {}, "CONDITIONS"), el("span", {}, `${count(conds)} recordings`)), ...rows);
+    return out;
+  }
+  function markNote() {
+    if (!conds.length) return "Pick a term to start a condition.";
+    return marked != null ? 'A tap adds the term with "or" to the marked condition.'
+      : 'A tap adds a new condition with "and". "or +" on a condition adds the next term to it with "or".';
+  }
+  // What a tap on a term does, and how many recordings remain after it.
+  function termAction(t, into) {
+    if (into != null && conds[into].includes(t)) return { word: "✓", n: count(conds), run: () => removeTerm(into, t), on: true };
+    if (into != null) return { word: "or", n: count(conds.map((c, i) => (i === into ? [...c, t] : c))), run: () => { conds[into].push(t); save(); update(); } };
+    return { word: conds.length ? "and" : "", n: count([...conds, [t]]), run: () => { conds.push([t]); marked = null; save(); update(); } };
+  }
+  function termRows(into) {
+    const used = new Set(conds.filter((_, i) => i !== into).flat());
+    const q = queryTokens(narrowQ);
+    const list = [...allTerms.keys()].filter((t) => kindOf(t) === kind && !used.has(t) && (!q.length || matches(q, words(label(t)))))
+      .map((t) => ({ t, a: termAction(t, into) })).filter((x) => x.a.n > 0 || x.a.on)
+      .sort((x, y) => (Number(!!y.a.on) - Number(!!x.a.on)) || y.a.n - x.a.n || label(x.t).localeCompare(label(y.t)));
+    if (!list.length) return [el("div", { class: "row t-subheadline secondary" }, "No term of this kind is left.")];
+    return list.map(({ t, a }) => el("button", { class: "row term", onclick: a.run },
+      el("div", { class: "main t-body" }, label(t)),
+      el("div", { class: "trail" }, el("span", { class: "what t-subheadline nums" + (a.on ? " on" : "") }, `${a.word} ${a.n}`.trim()))));
+  }
+  function kindSeg(onChange) {
+    const seg = el("div", { class: "seg" });
+    seg.draw = () => seg.replaceChildren(...Object.keys(KINDS).map((k) => el("button", { class: "t-footnote" + (k === kind ? " on" : ""), onclick: () => { kind = k; seg.draw(); onChange(); } }, KINDS[k])));
+    seg.draw();
+    return seg;
+  }
+  function narrowField(onChange) {
+    const i = el("input", { type: "search", enterkeyhint: "done", autocomplete: "off", autocorrect: "off", spellcheck: "false" });
+    const setPh = () => (i.placeholder = "Find in " + KINDS[kind].toLowerCase());
+    setPh();
+    i.addEventListener("input", () => { narrowQ = i.value; onChange(); });
+    i.addEventListener("keydown", (e) => { if (e.key === "Enter") i.blur(); });
+    const box = el("label", { class: "narrow" }, el("span", { html: ICON.search }), i);
+    box.reset = () => { i.value = ""; narrowQ = ""; setPh(); };
+    return box;
   }
 
-  function suggestions() {
-    const q = input.value.trim().toLowerCase();
-    const used = new Set(conds.flat());
-    let list = [...allTerms.keys()].filter((t) => !used.has(t) && (scope === "all" || kind(t) === scope) && (!q || label(t).toLowerCase().includes(q)));
-    const andCount = (t) => count([...conds, [t]]);
-    const into = target != null ? target : conds.length - 1;
-    const orCount = (t) => count(conds.map((c, i) => (i === into ? [...c, t] : c)));
-    list = list.map((t) => ({ t, n: andCount(t) })).filter((x) => x.n > 0 || conds.length);
-    list.sort(sort === "most" ? (a, b) => b.n - a.n || label(a.t).localeCompare(label(b.t)) : (a, b) => label(a.t).localeCompare(label(b.t)));
-    const head = el("div", { class: "section-head t-footnote" },
-      el("span", {}, `${scope === "all" ? "SEARCH TERMS" : KINDS[scope].toUpperCase()} · ${list.length}`),
-      el("button", { class: "sort t-footnote", onclick: () => { sort = sort === "most" ? "az" : "most"; render(); } }, sort === "most" ? "Most" : "A–Z"));
-    const rows = list.slice(0, 80).map(({ t, n }) => el("div", { class: "row" },
-      el("button", { class: "main", style: "text-align:left", onclick: () => { if (target != null) conds[target].push(t); else conds.push([t]); target = null; input.value = ""; save(); render(); } },
-        el("div", { class: "t-body" }, label(t)), scope === "all" ? el("div", { class: "t-footnote secondary" }, KIND_ONE[kind(t)]) : null),
-      el("div", { class: "trail" }, el("span", { class: "t-subheadline nums" }, String(n)),
-        conds.length ? el("button", { class: "or-pill t-footnote nums", onclick: () => { conds[into].push(t); target = null; input.value = ""; save(); render(); } }, `or · ${orCount(t)}`) : null)));
-    return el("section", { class: "section" }, head, el("div", { class: "list" }, ...rows),
-      list.length > 80 ? el("div", { class: "section-foot t-footnote" }, `${list.length - 80} more. Type to narrow.`) : null);
-  }
+  // ---------- Results: sections by kind; the conditions narrow every section. ----------
+  const head = el("div", { class: "page-head" }, el("h1", { class: "t-largeTitle" }, "Search"));
+  const filterArea = el("div");
+  const resultsBox = el("div");
+  scroll.append(head, filterArea, resultsBox);
 
+  function section(title, n, rows, inset) {
+    return el("section", { class: "section" },
+      el("div", { class: "section-head t-footnote" }, el("span", {}, title), el("span", {}, String(n))),
+      el("div", { class: "list", style: inset ? `--sep-inset: ${inset}` : null }, ...rows));
+  }
+  const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
   function results() {
-    const list = remain(conds).sort((a, b) => (a.r.work || "").localeCompare(b.r.work || ""));
-    return el("section", { class: "section" }, el("div", { class: "section-head t-footnote" }, el("span", {}, "RECORDINGS"), el("span", {}, String(list.length))),
-      el("div", { class: "list" }, ...list.slice(0, 60).map(({ r }) =>
-        el("a", { class: "row", href: href("player.html", { recording: r.id, back: "Search" }), style: "--sep-inset: calc(var(--space-l) + var(--size-coverRow) + var(--space-m))" },
-          K.coverImage(r.album),
-          el("div", { class: "main" }, el("div", { class: "t-body" }, r.work || r.album.name),
-            el("div", { class: "t-subheadline secondary" }, [r.composer, r.performers.slice(0, 2).map((p) => p.name).join(", ")].filter(Boolean).join(" · "))),
+    const tokens = queryTokens(query);
+    if (!tokens.length && !conds.length) {
+      return [el("div", { class: "hint t-subheadline" }, "Type a work, a catalogue number such as Op. 67 or K. 626, or a name. The filters narrow what you find.")];
+    }
+    const ok = new Set(recs.filter((x) => passes(x, conds)).map((x) => x.r));
+    const out = [];
+    // A title that starts with the text comes first, then a title that holds it, then a match on the composer only.
+    const rank = (x) => (!tokens.length ? 0 : x.title.startsWith(tokens[0]) ? 0 : matches(tokens, words(x.w.name)) ? 1 : 2);
+    const wl = works.filter((x) => !tokens.length || matches(tokens, x.hay)).map((x) => ({ ...x, n: x.w.recordings.filter((r) => ok.has(r)).length, score: rank(x) }));
+    const shown = wl.filter((x) => x.n > 0).sort((a, b) => a.score - b.score || a.w.name.localeCompare(b.w.name, undefined, { numeric: true }));
+    const hidden = wl.length - shown.length;
+    if (shown.length) out.push(section("WORKS", shown.length, shown.map(({ w, n }) =>
+      el("a", { class: "row", href: href("work.html", { work: w.id, back: "Search" }) },
+        el("div", { class: "main" }, el("div", { class: "t-body" }, w.name),
+          el("div", { class: "t-subheadline secondary" }, `${w.composer} · ${conds.length ? `${n} of ${plural(w.recordings.length, "recording")}` : plural(n, "recording")}`)),
+        el("span", { html: ICON.chevron })))));
+    if (tokens.length) {
+      const pl = [...people.values()].filter((p) => matches(tokens, p.hay)).map((p) => ({ p, n: [...p.recs].filter((r) => ok.has(r)).length })).filter((x) => x.n > 0)
+        .sort((a, b) => b.n - a.n || a.p.name.localeCompare(b.p.name));
+      if (pl.length) out.push(section("COMPOSERS AND PERFORMERS", pl.length, pl.map(({ p, n }) =>
+        el("a", { class: "row", href: K.personHref(p.name, { back: "Search" }) },
+          el("div", { class: "main" }, el("div", { class: "t-body" }, p.name),
+            el("div", { class: "t-subheadline secondary" }, `${[...p.roles].map((k) => ONE[k]).join(", ")} · ${plural(n, "recording")}`)),
           el("span", { html: ICON.chevron })))));
+    }
+    const al = albums.filter((x) => !tokens.length || matches(tokens, x.hay))
+      .map((x) => ({ ...x, n: x.a.recordings.filter((r) => ok.has(r)).length })).filter((x) => x.n > 0)
+      .sort((a, b) => a.a.name.localeCompare(b.a.name));
+    if (al.length) out.push(section("ALBUMS", al.length, al.map(({ a }) =>
+      el("a", { class: "row", href: href("player.html", { album: a.id, back: "Search" }) },
+        K.coverImage(a),
+        el("div", { class: "main" }, el("div", { class: "t-body" }, a.name),
+          el("div", { class: "t-subheadline secondary" }, [a.displayArtist || a.artist, a.year].filter(Boolean).join(" · "))),
+        el("span", { html: ICON.chevron }))), "calc(var(--space-l) + var(--size-coverRow) + var(--space-m))"));
+    if (!out.length) out.push(el("div", { class: "nomatch t-subheadline" }, "No work, name or album matches."));
+    if (hidden > 0 && conds.length) out.push(el("div", { class: "hint t-footnote", style: "padding-top: var(--space-l)" },
+      `The filters hide ${plural(hidden, "more work")} that match the text.`));
+    return out;
   }
 
-  function render() {
-    scopes.querySelectorAll(".chip").forEach((c) => c.classList.toggle("on", c.dataset.k === scope));
-    input.placeholder = target != null ? `or with ${label(conds[target][0])}…` : "Genre, composer, performer";
-    clear.style.visibility = input.value ? "visible" : "hidden";
-    const picking = input.value || scope !== "all" || document.activeElement === input || target != null;
-    content.replaceChildren(...[conditionList(), picking || !conds.length ? suggestions() : results()].filter(Boolean));
+  // ---------- A: the sheet ----------
+  let sheetParts = null;
+  function buildSheet() {
+    const total = el("span", { class: "t-subheadline secondary nums" });
+    const condsBox = el("div");
+    const note = el("div", { class: "section-foot t-footnote" });
+    const list = el("div", { class: "list" });
+    const redraw = () => list.replaceChildren(...termRows(marked));
+    const narrow = narrowField(redraw);
+    const seg = kindSeg(() => { narrow.reset(); redraw(); });
+    const box = el("div", { class: "fsheet", role: "dialog", "aria-label": "Filters" },
+      el("div", { class: "grabber" }),
+      el("div", { class: "head" }, el("h2", { class: "t-headline" }, "Filters"), total, el("button", { class: "t-body tint", onclick: () => setOpen(false) }, "Done")),
+      el("div", { class: "body" }, condsBox, note, seg, narrow, list));
+    document.body.append(box);
+    riders.push((kb, up) => {
+      box.style.bottom = up ? kb + 8 + "px" : "";
+      box.style.height = up ? Math.min(visualViewport.height - 70, innerHeight * 0.58) + "px" : "";
+    });
+    sheetParts = { box, draw: () => {
+      total.textContent = conds.length ? plural(count(conds), "recording") : "";
+      condsBox.replaceChildren(...condRows(true)); note.textContent = markNote(); redraw();
+    } };
   }
-  input.addEventListener("focus", render);
-  input.addEventListener("blur", () => setTimeout(render, 150));
-  render();
+
+  // ---------- B: the panel above the results ----------
+  let panelParts = null;
+  function buildPanel() {
+    const condsBox = el("div");
+    const note = el("div", { class: "section-foot t-footnote" });
+    const list = el("div", { class: "list box" });
+    const redraw = () => list.replaceChildren(...termRows(marked));
+    const narrow = narrowField(redraw);
+    const seg = kindSeg(() => { narrow.reset(); redraw(); });
+    const total = el("span", { class: "nums" });
+    const panel = el("section", { class: "section panel" },
+      el("div", { class: "section-head t-footnote" }, el("span", {}, "FILTERS"), total), condsBox, note, seg, narrow, list);
+    panelParts = { panel, draw: () => {
+      total.textContent = conds.length ? plural(count(conds), "recording") : "";
+      condsBox.replaceChildren(...condRows(true)); note.textContent = markNote(); redraw();
+    } };
+  }
+
+  // ---------- C: chips under the title; a chip pushes the page of its condition ----------
+  let chipParts = null;
+  function buildChips() {
+    const row = el("div", { class: "chiprow" });
+    const page = el("div", { class: "pushed" });
+    const nav = el("header", { class: "nav" }, el("button", { class: "back", html: ICON.back + '<span class="t-body">Search</span>', onclick: () => pop() }), el("span"));
+    const pscroll = el("main", { class: "scroll" });
+    const title = el("h1", { class: "t-largeTitle" });
+    const sub = el("div", { class: "meta t-subheadline secondary" });
+    const list = el("div", { class: "list" });
+    let into = null;
+    const redraw = () => list.replaceChildren(...termRows(into));
+    const narrow = narrowField(redraw);
+    const seg = kindSeg(() => { narrow.reset(); redraw(); });
+    pscroll.append(el("div", { class: "page-head" }, title, sub), el("div", { class: "fixed" }, seg, narrow), el("section", { class: "section", style: "margin-top: var(--space-s)" }, list));
+    page.append(nav, pscroll);
+    document.body.append(page);
+    function push(i) {
+      into = i;
+      if (i != null) kind = kindOf(conds[i][0]);
+      narrow.reset(); seg.draw();
+      drawPage();
+      pscroll.scrollTop = 0;
+      page.classList.add("on");
+    }
+    function pop() { page.classList.remove("on"); into = null; if (document.activeElement) document.activeElement.blur(); update(); }
+    function drawPage() {
+      if (into != null && !conds[into]) into = null;
+      title.textContent = into != null ? "Condition" : "Add a condition";
+      sub.textContent = into != null ? `${conds[into].map(label).join(" or ")} · ${plural(count(conds), "recording")}. A tap adds a term with "or".`
+        : conds.length ? `A tap adds the term with "and".` : "Pick a term to start.";
+      redraw();
+    }
+    chipParts = { row, draw: () => {
+      const out = [];
+      conds.forEach((c, i) => {
+        if (i) out.push(el("span", { class: "and t-footnote" }, "and"));
+        out.push(el("button", { class: "chip on t-subheadline", onclick: () => push(i) },
+          el("span", {}, c.map(label).join(" or ")), el("span", { class: "nums", style: "opacity: 0.75" }, String(count(conds.slice(0, i + 1))))));
+      });
+      out.push(el("button", { class: "chip add t-subheadline", onclick: () => push(null) }, conds.length ? "+ and" : "+ Add a filter"));
+      row.replaceChildren(...out);
+      if (page.classList.contains("on")) drawPage();
+    } };
+  }
+
+  function setOpen(v) {
+    open = v; save();
+    if (V === "sheet") {
+      if (!sheetParts) buildSheet();
+      sheetParts.box.classList.toggle("on", open);
+      if (!open && document.activeElement) document.activeElement.blur();
+    }
+    update();
+  }
+
+  // Moving a node blurs its field, so the filter area changes only when its content changes.
+  function show(node) { if (filterArea.firstChild !== node) filterArea.replaceChildren(...(node ? [node] : [])); }
+
+  function update() {
+    clear.style.visibility = input.value ? "visible" : "hidden";
+    badge.textContent = String(conds.length);
+    badge.style.display = conds.length && !open ? "" : "none";
+    filtersBtn.classList.toggle("on", open);
+    if (V === "sheet" && sheetParts) sheetParts.draw();
+    if (V === "panel") { if (!panelParts) buildPanel(); show(open ? panelParts.panel : null); if (open) panelParts.draw(); }
+    if (V === "chips") { if (!chipParts) buildChips(); show(open ? chipParts.row : null); chipParts.draw(); }
+    resultsBox.replaceChildren(...results());
+  }
+
+  // Specimen only: a reset for the search state.
+  const sbar = document.querySelector(".specimen-bar");
+  if (sbar) sbar.append(el("button", { onclick: () => { ["q", "conds", "open"].forEach((k) => K.store("search3." + k, null)); location.reload(); } }, "Reset"));
+
+  if (V === "sheet" && open) { buildSheet(); requestAnimationFrame(() => sheetParts.box.classList.add("on")); }
+  update();
+  K.layoutChrome();
+  follow();
 });
 </script>
 </body>

@@ -9,6 +9,7 @@ The design specimen of map sz-rs30.1.83 (ticket sz-rs30.1.83.4). Every look tick
 - `player.html`: the page of what plays, with the cover wash, the timeline and the open movement. `?recording=<id>` or `?album=<id>` shows another page; Play turns it into the player in place.
 - `chronology.html`: one composer among the contemporaries, and the overview (`?level=overview`).
 - `search.html`: conditions of search terms, scopes and the field at the bottom.
+- `person.html`: a composer or performer page with the screen-wide picture (ADR 0017, 0019). `?name=<artist name>`.
 - `tokens.html`: the token sheet. Every colour in the four themes side by side, contrast on rows, the type scale at each Dynamic Type size, spacing, radius, size and each animation alone. The Settings tab opens it.
 
 The flows follow ADR 0013 to 0020. Nothing comes from the UX prototypes.
@@ -35,7 +36,7 @@ A look ticket adds its variants to `variants/variants.json`:
 
 ## Data
 
-`data/specimen.json` holds the Navidrome responses (see `data/README.md`). `data/chronology.json` holds composer dates and work years from Wikidata, because the server gives none. `python3 data/make_chronology.py` writes it again.
+`data/specimen.json` holds the Navidrome responses (see `data/README.md`). `data/chronology.json` holds composer dates and work years from Wikidata, because the server gives none. `data/people.json` holds the Wikidata facts, Commons picture and Wikipedia lead of each composer and performer. `make_chronology.py` and `make_people.py` in `data/` write them again. The specimen cannot detect faces, so every Wikidata picture shows.
 
 ## Run
 

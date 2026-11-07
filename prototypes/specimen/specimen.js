@@ -75,12 +75,21 @@ const K = (() => {
   // ---------- Data model ----------
   const M = { albums: new Map(), recordings: new Map(), works: new Map(), composers: new Map(), artists: new Map(), covers: {}, chronology: null };
 
+  // The title as tagged. Under its work, the work name in front repeats the heading, so it goes; nothing is added.
   function movementTitle(song, work) {
-    const mv = song.movements && song.movements[0];
-    if (mv) return `${ROMAN[mv.number - 1] || mv.number}. ${mv.name}`;
     if (work && song.title.startsWith(work + ": ")) return song.title.slice(work.length + 2);
     return song.title;
   }
+
+  // A title with the favourite mark glued to its last word, so the mark never wraps alone.
+  function titled(text, mark) {
+    const cut = text.lastIndexOf(" ");
+    const frag = document.createDocumentFragment();
+    frag.append(text.slice(0, cut + 1), el("span", { style: "white-space: nowrap" }, text.slice(cut + 1), mark));
+    return frag;
+  }
+
+  const personHref = (name, extra = {}) => href("person.html", { name, ...extra });
 
   function performersOf(songs, album) {
     const seen = new Map();
@@ -163,14 +172,15 @@ const K = (() => {
   };
   const P = { queue: [], item: 0, index: 0, pos: 0, paused: false, listeners: new Set() };
 
-  function resolveItem([kind, id, work]) {
+  function resolveItem(spec) {
+    const [kind, id, work] = spec;
     if (kind === "album") {
       const album = M.albums.get(id);
-      return { kind, id: "album:" + id, title: album.name, album, songs: album.song, recordings: album.recordings };
+      return { spec, kind, id: "album:" + id, title: album.name, album, songs: album.song, recordings: album.recordings };
     }
     let rec = null;
     for (const r of M.recordings.values()) if (r.work === work && (!id || r.album.id === id)) { rec = r; break; }
-    return { kind, id: "rec:" + rec.id, title: rec.work, album: rec.album, songs: rec.songs, recordings: [rec], recording: rec };
+    return { spec, kind, id: "rec:" + rec.id, title: rec.work, album: rec.album, songs: rec.songs, recordings: [rec], recording: rec };
   }
 
   function startPlayback() {
@@ -178,7 +188,10 @@ const K = (() => {
     const q = QUEUES[name] || QUEUES.recording;
     P.queue = q.items.map(resolveItem);
     const saved = store("play");
-    if (saved && saved.name === name) Object.assign(P, { item: saved.item, index: saved.index, pos: saved.pos + (saved.paused ? 0 : (Date.now() - saved.at) / 1000), paused: saved.paused });
+    if (saved && saved.name === name) {
+      if (saved.queue) P.queue = saved.queue.map(resolveItem);
+      Object.assign(P, { item: saved.item, index: saved.index, pos: saved.pos + (saved.paused ? 0 : (Date.now() - saved.at) / 1000), paused: saved.paused });
+    }
     else Object.assign(P, { item: 0, index: q.start[0], pos: q.start[1], paused: false });
     P.name = name;
     normalise();
@@ -186,7 +199,7 @@ const K = (() => {
     addEventListener("pagehide", save);
   }
 
-  function save() { store("play", { name: P.name, item: P.item, index: P.index, pos: P.pos, paused: P.paused, at: Date.now() }); }
+  function save() { store("play", { name: P.name, queue: P.queue.map((q) => q.spec), item: P.item, index: P.index, pos: P.pos, paused: P.paused, at: Date.now() }); }
   const current = () => P.queue[P.item] || null;
   const song = () => (current() ? current().songs[P.index] : null);
 
@@ -340,11 +353,11 @@ const K = (() => {
   function page({ tab = "library", title = "", back = null, plain = false, player = false, actions = [], tabs = true }) {
     const app = el("div", { class: "app" + (plain ? " plain" : "") });
     const backLabel = params.get("back") || (back && back.label);
+    // ADR 0023: the bar shows no title, so the back button names the page behind in full.
     const nav = el("header", { class: "nav" },
       backLabel
         ? el("button", { class: "back", onclick: () => (history.length > 1 && document.referrer ? history.back() : (location.href = href(back ? back.href : "index.html"))), html: ICON.back + `<span class="t-body"></span>` })
         : el("span"),
-      el("div", { class: "title t-headline" }, title),
       el("div", { class: "actions" }, ...actions.map((a) => el("button", { class: "t-body", onclick: a.onClick }, a.label))));
     if (backLabel) nav.querySelector(".back span").textContent = backLabel;
     const scroll = el("main", { class: "scroll" });
@@ -509,8 +522,9 @@ const K = (() => {
     applyLook();
     matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyLook);
     const variants = await loadVariant();
-    const [data, chronology] = await Promise.all([fetch("data/specimen.json").then((r) => r.json()), fetch("data/chronology.json").then((r) => r.json())]);
+    const [data, chronology, people] = await Promise.all(["specimen", "chronology", "people"].map((n) => fetch(`data/${n}.json`).then((r) => r.json())));
     build(data, chronology);
+    M.people = people.people;
     startPlayback();
     controls(variants);
     render();
@@ -519,6 +533,6 @@ const K = (() => {
   return {
     start, page, el, ICON, href, params, store, fermata, time, sheet, cover, coverImage, coverColour, surname,
     M, P, current, song, seek, playItem, togglePause, onPlay, resolveItem, movementTitle,
-    isFavourite, toggleFavourite, orderedRecordings, layoutChrome, emit, becomePlayer, performersOf, ROMAN,
+    isFavourite, toggleFavourite, orderedRecordings, layoutChrome, emit, becomePlayer, performersOf, ROMAN, titled, personHref,
   };
 })();

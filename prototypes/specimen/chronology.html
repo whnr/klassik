@@ -25,6 +25,9 @@
   .line { width: 2px; margin-left: -1px; border-radius: 1px; background: var(--color-text-tertiary); }
   .line.focus { width: 4px; margin-left: -2px; background: var(--color-tint); }
   .line.dim { opacity: 0.35; }
+  .line.playing { width: 4px; margin-left: -2px; background: var(--color-tint); }
+  .line.last { width: 3px; margin-left: -1.5px; background: var(--color-text-secondary); }
+  .chrono-head h1 a { color: inherit; }
   .dot { width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px; border-radius: 50%; background: var(--color-text-tertiary); }
   .dot.focus { width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; background: var(--color-tint); box-shadow: 0 0 0 2px var(--color-background-grouped); }
   .dot.marked { width: 15px; height: 15px; margin: -7.5px 0 0 -7.5px; background: var(--color-background-grouped); box-shadow: inset 0 0 0 4px var(--color-tint); }
@@ -92,9 +95,11 @@ K.start(() => {
         out.push({ key: "bandl:" + name, cls: "band-label t-caption2", text: name, s: { top: t + 4 } });
       });
       const x = (i) => gutter + 40 + (i + 0.5) * ((W - gutter - 40) / composers.length);
-      composers.forEach((c, i) => out.push({ key: "line:" + c.name, cls: "line", s: { left: x(i), top: Y(c.facts.born), height: Y(c.facts.died || 2025) - Y(c.facts.born) } }));
+      // ADR 0022: the overview marks the composer of what plays and the composer last opened.
+      const playing = playingWork() && playingWork().composer, last = K.store("chronology");
+      composers.forEach((c, i) => out.push({ key: "line:" + c.name, cls: "line" + (c.name === playing ? " playing" : c.name === last ? " last" : ""), s: { left: x(i), top: Y(c.facts.born), height: Y(c.facts.died || 2025) - Y(c.facts.born) } }));
       state.hit = composers.map((c, i) => ({ c, x: x(i) }));
-      head.firstChild.textContent = "All composers";
+      head.firstChild.replaceChildren("All composers");
       head.lastChild.textContent = `${composers.length} composers · ${y0 + 10}–${y1 - 5}`;
       return out;
     }
@@ -136,7 +141,7 @@ K.start(() => {
     });
     const undated = [...focus.works].filter((w) => !w.year);
     if (undated.length) out.push({ key: "row:undated", cls: "wrow t-footnote", html: ["No date", `${undated.length} ${undated.length === 1 ? "work" : "works"}`], s: { left: rx, top: span + rh, width: W - rx }, works: undated });
-    head.firstChild.textContent = focus.name;
+    head.firstChild.replaceChildren(el("a", { href: K.personHref(focus.name, { back: "Chronology" }) }, focus.name));
     const desc = [f.died ? `${f.born}–${f.died}` : `born ${f.born}`, `${focus.works.size} ${focus.works.size === 1 ? "work" : "works"}`, f.activeFrom ? `active from ${f.activeFrom}` : null].filter(Boolean);
     head.lastChild.textContent = desc.join(" · ");
     K.store("chronology", focus.name);
@@ -162,18 +167,12 @@ K.start(() => {
     }
   }
 
-  function openWork(w) {
-    const body = el("div", {},
-      el("div", { class: "section" }, el("div", { class: "t-subheadline secondary" }, [w.composer, w.year || "No date", `${w.recordings.length} ${w.recordings.length === 1 ? "recording" : "recordings"}`].join(" · "))),
-      el("div", { class: "card-actions" },
-        el("button", { class: "capsule filled t-headline", onclick: () => { const r = K.orderedRecordings(w)[0]; K.playItem(K.resolveItem(["recording", r.album.id, r.work])); close(); draw(); } }, "Play"),
-        el("a", { class: "capsule t-headline", href: href("work.html", { work: w.id, back: "Chronology" }) }, "Open Work")));
-    const close = K.sheet(w.name, body);
-  }
+  // ADR 0022: a work opens its work page.
+  function openWork(w) { location.href = href("work.html", { work: w.id, back: "Chronology" }); }
 
   function listWorks(title, works) {
     const close = K.sheet(title, el("div", { class: "section" }, el("div", { class: "list" }, ...works.map((w) =>
-      el("button", { class: "row", onclick: () => { close(); setTimeout(() => openWork(w), 300); } },
+      el("button", { class: "row", onclick: () => { close(); openWork(w); } },
         el("div", { class: "main" }, el("div", { class: "t-body" }, w.name), el("div", { class: "t-footnote secondary" }, w.year || "No date")), el("span", { html: K.ICON.chevron }))))));
   }
 
@@ -190,12 +189,13 @@ K.start(() => {
     pick.style.left = Math.min(innerWidth - 90, Math.max(90, e.clientX)) + "px";
     pick.style.top = e.clientY - 28 + "px";
     pick.classList.add("on");
-    if (state.focus !== composers[i] || state.level !== "composer") { state = { level: "composer", focus: composers[i] }; draw(); }
+    g.pick = composers[i];
   });
   const end = (e) => {
     if (!g) return;
     const tap = !g.side && Math.abs(e.clientX - g.x) < 10 && Math.abs(e.clientY - g.y) < 10 && e.type === "pointerup";
     pick.classList.remove("on");
+    if (g.side && g.pick && e.type === "pointerup") { state = { level: "composer", focus: g.pick }; draw(); }
     if (tap) onTap(e);
     g = null;
   };

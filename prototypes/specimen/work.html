@@ -15,15 +15,14 @@ K.start(() => {
   const { el, href, ICON, M } = K;
   const id = K.params.get("work") || "Ludwig van Beethoven|Symphony No. 5 in C minor, Op. 67";
   const work = M.works.get(id);
-  const { scroll } = K.page({ tab: "library", title: work.name, back: { label: work.composer.split(" ").pop(), href: "index.html" } });
+  const { scroll } = K.page({ tab: "library", title: work.name, back: { label: work.composer, href: "index.html" } });
 
   const head = el("div", { class: "page-head" });
   const workFav = "work:" + work.id;
-  const title = el("h1", { class: "t-title1" }, work.name);
   const mark = el("button", { "aria-label": "Favourite work", onclick: () => { K.toggleFavourite(workFav); mark.replaceChildren(K.fermata(K.isFavourite(workFav))); } }, K.fermata(K.isFavourite(workFav)));
-  title.append(mark);
+  const title = el("h1", { class: "t-title1" }, K.titled(work.name, mark));
   head.append(title, el("div", { class: "meta t-subheadline" },
-    el("a", { class: "link", href: href("index.html") }, work.composer),
+    el("a", { class: "link", href: K.personHref(work.composer, { back: work.name }) }, work.composer),
     el("span", { class: "secondary" }, work.year ? ` · ${work.year}` : ""),
     work.grouping ? el("div", { class: "secondary" }, work.grouping) : null));
 
@@ -51,10 +50,10 @@ K.start(() => {
       const slot = isPlaying
         ? el("button", { class: "round quiet", "aria-label": K.P.paused ? "Resume" : "Pause", html: K.P.paused ? ICON.play : ICON.pause, onclick: (e) => { e.preventDefault(); K.togglePause(); } })
         : el("span", { html: ICON.chevron });
-      return el("a", { class: "row" + (isPlaying ? " playing" : ""), href: href("player.html", { recording: r.id, back: work.name.split(",")[0] }), style: "--sep-inset: calc(var(--space-l) + var(--size-coverRow) + var(--space-m))" },
+      return el("a", { class: "row" + (isPlaying ? " playing" : ""), href: href("player.html", { recording: r.id, back: work.name }), style: "--sep-inset: calc(var(--space-l) + var(--size-coverRow) + var(--space-m))" },
         K.coverImage(r.album),
         el("div", { class: "main" },
-          el("div", { class: "t-body" }, people(r), K.isFavourite(recFav) ? K.fermata(true) : null),
+          el("div", { class: "t-body" }, K.isFavourite(recFav) ? K.titled(people(r), K.fermata(true)) : people(r)),
           el("div", { class: "t-subheadline secondary" }, [r.year, r.album.name].filter(Boolean).join(" · ")),
           el("div", { class: "t-footnote secondary nums" }, `${K.time(r.duration)} · ${r.songs.length} ${r.songs.length === 1 ? "track" : "movements"}`),
           i === 0 ? el("div", { class: "t-footnote tint" }, "Plays first") : null),

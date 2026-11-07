@@ -55,7 +55,7 @@ input { font: inherit; color: inherit; }
   position: absolute; z-index: 20; top: 0; left: 0; right: 0;
   padding: calc(max(env(safe-area-inset-top), 6px) + 34px) calc(var(--space-l) + var(--size-timeline)) 0 var(--space-xs);
   height: calc(max(env(safe-area-inset-top), 6px) + 34px + var(--size-hitTarget));
-  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, auto) minmax(0, 1fr); align-items: center;
+  display: flex; justify-content: space-between; align-items: center; gap: var(--space-s);
   transition: background-color var(--motion-transition-inPlace-duration) var(--motion-transition-inPlace-easing);
 }
 .nav.scrolled {
@@ -64,18 +64,15 @@ input { font: inherit; color: inherit; }
   box-shadow: 0 0.5px 0 var(--color-separator);
 }
 .app.plain .nav.scrolled { background: color-mix(in srgb, var(--color-background-page) 78%, transparent); }
+/* The player keeps its wash under the bar when the page scrolls. */
+.app.is-player .nav.scrolled { background: color-mix(in srgb, var(--wash-colour) 82%, transparent); }
 .nav .back {
-  justify-self: start; display: flex; align-items: center; gap: 2px; min-height: var(--size-hitTarget);
-  padding: 0 var(--space-s) 0 var(--space-xs); color: var(--color-tint); max-width: 100%; overflow: hidden;
+  flex: 0 1 auto; min-width: 0; display: flex; align-items: center; gap: 2px; min-height: var(--size-hitTarget);
+  padding: 0 var(--space-s) 0 var(--space-xs); color: var(--color-tint); overflow: hidden;
 }
 .nav .back span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .nav .back svg { flex: none; width: 13px; height: 21px; }
-.nav .title {
-  opacity: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 36vw;
-  transition: opacity var(--motion-transition-inPlace-duration) var(--motion-transition-inPlace-easing);
-}
-.nav.scrolled .title { opacity: 1; }
-.nav .actions { justify-self: end; display: flex; gap: var(--space-xs); }
+.nav .actions { flex: none; display: flex; gap: var(--space-xs); margin-left: auto; }
 .nav .actions button { min-height: var(--size-hitTarget); padding: 0 var(--space-s); color: var(--color-tint); }
 
 .scroll {
@@ -123,6 +120,8 @@ input { font: inherit; color: inherit; }
 }
 .round.quiet { background: var(--color-fill-quiet); color: var(--color-tint); }
 .round svg { width: 14px; height: 14px; }
+/* A round button inside a row must not make the row taller than its text. */
+.row .round { margin: -6px 0; }
 
 .fermata { display: inline-block; width: 0.95em; height: 0.62em; vertical-align: 0.05em; margin-left: 0.2em; }
 .fermata.small { width: 15px; height: 10px; margin: 0; vertical-align: middle; }

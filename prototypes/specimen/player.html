@@ -62,7 +62,7 @@ K.start(() => {
   async function applyWash() {
     app.classList.toggle("is-player", playingHere());
     const rgb = await K.coverColour(item.album);
-    wash.style.setProperty("--wash-colour", rgb
+    app.style.setProperty("--wash-colour", rgb
       ? `color-mix(in srgb, rgb(${rgb.join(" ")}) 35%, var(--color-background-grouped))`
       : "color-mix(in srgb, var(--color-tint) 18%, var(--color-background-grouped))");
   }
@@ -78,14 +78,17 @@ K.start(() => {
     const img = K.coverImage(item.album, "big", 960);
     if (img.tagName === "IMG") img.classList.remove("cover");
     const fav = (item.recording ? "rec:" : "album:") + (item.recording ? item.recording.id : item.album.id);
-    const title = el("h1", { class: "t-title2" }, item.title);
     const mark = el("button", { "aria-label": "Favourite", onclick: () => { K.toggleFavourite(fav); mark.replaceChildren(K.fermata(K.isFavourite(fav))); } }, K.fermata(K.isFavourite(fav)));
-    title.append(mark);
+    const title = el("h1", { class: "t-title2" }, K.titled(item.title, mark));
     const people = el("div", { class: "people t-subheadline" });
-    shared().forEach((p, i) => { if (i) people.append(", "); people.append(p.id ? el("a", { href: href("index.html") }, p.name) : p.name); });
+    shared().forEach((p, i) => { if (i) people.append(", "); people.append(p.id ? el("a", { href: K.personHref(p.name, { back: item.title }) }, p.name) : p.name); });
     box.append(img, title);
-    if (item.recording) box.append(el("a", { class: "t-subheadline link", href: href("work.html", { work: item.recording.workRef.id, back: item.title.split(",")[0] }) }, item.recording.composer));
-    box.append(people, el("div", { class: "t-footnote secondary" }, [item.album.name, item.album.year, K.time(item.songs.reduce((t, s) => t + s.duration, 0))].filter(Boolean).join(" · ")));
+    if (item.recording && item.recording.composer) box.append(el("a", { class: "t-subheadline link", href: K.personHref(item.recording.composer, { back: item.title }) }, item.recording.composer));
+    box.append(people);
+    const facts = el("div", { class: "t-footnote secondary" });
+    if (item.kind === "recording") facts.append(el("a", { class: "link", href: href("player.html", { album: item.album.id, back: item.title }) }, item.album.name), " · ");
+    facts.append([item.album.year, K.time(item.songs.reduce((t, s) => t + s.duration, 0))].filter(Boolean).join(" · "));
+    box.append(facts);
     if (!playingHere()) {
       const play = el("button", { class: "capsule filled t-headline", style: "flex: none; width: 60%; margin-top: var(--space-m)", html: ICON.play.replace("<svg", '<svg width="14" height="14"') + "<span>Play</span>" });
       play.addEventListener("click", () => { K.playItem(item); K.becomePlayer(); render(); });
@@ -168,7 +171,6 @@ K.start(() => {
     setTimeout(() => {
       item = K.current();
       open.clear();
-      nav.querySelector(".title").textContent = item.title;
       body.classList.remove("rise-out");
       scroll.scrollTop = 0;
       render();
@@ -196,7 +198,7 @@ K.start(() => {
       : null;
     const ended = !K.current() && K.P.queue.length ? el("p", { class: "section-foot t-subheadline" }, "The queue has ended.") : null;
     tick.parts = null;
-    body.replaceChildren(hero(), ...sections, tail, ended);
+    body.replaceChildren(...[hero(), ...sections, tail, ended].filter(Boolean));
   }
 
   let last = "";

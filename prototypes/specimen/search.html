@@ -49,6 +49,8 @@ K.start(() => {
   });
   const allTerms = new Map();
   for (const { terms } of recs) for (const t of terms) allTerms.set(t, (allTerms.get(t) || 0) + 1);
+  // A genre that every recording carries filters nothing, so the picker hides it (as on the composer page, ADR 0017).
+  for (const [t, n] of allTerms) if (t.startsWith("genre:") && n === recs.length) allTerms.delete(t);
 
   let conds = K.store("search") || [["genre:Piano"], ["composer:Frédéric Chopin", "composer:Johannes Brahms"]];
   let scope = "all", sort = "most", target = null;

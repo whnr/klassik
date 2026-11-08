@@ -1,0 +1,45 @@
+/* Type baseline of round 13 (sz-rs30.1.83.5, Flo 2026-11-08): Wittgenstein 500 for page titles and section headings, SF for the rest,
+   one 4:3 ratio for type sizes and the three spacing roles, lining proportional figures, plain lists on content pages.
+   Generated from tokens.css: every Dynamic Type size keeps its own body size, and the ratio scales from it. */
+@font-face { font-family: 'K Wittgenstein'; src: url("../fonts/Wittgenstein.ttf") format("truetype"); font-weight: 400 900; font-display: swap; }
+:root { --k-disp: 'K Wittgenstein', serif; }
+:root[data-type-size="xSmall"] { --type-largeTitle-size: 33.16px; --type-title1-size: 24.88px; --type-title2-size: 21.55px; --type-title3-size: 18.66px; --type-headline-size: 14.00px; --type-body-size: 14.00px; --type-callout-size: 13.03px; --type-subheadline-size: 12.13px; --type-footnote-size: 10.50px; --type-caption1-size: 9.77px; --type-caption2-size: 9.10px; --k-gin: 4.43px; --k-ggr: 18.66px; --k-gsec: 33.16px; }
+:root[data-type-size="small"] { --type-largeTitle-size: 35.53px; --type-title1-size: 26.65px; --type-title2-size: 23.09px; --type-title3-size: 20.00px; --type-headline-size: 15.00px; --type-body-size: 15.00px; --type-callout-size: 13.96px; --type-subheadline-size: 12.99px; --type-footnote-size: 11.25px; --type-caption1-size: 10.47px; --type-caption2-size: 9.75px; --k-gin: 4.75px; --k-ggr: 20.00px; --k-gsec: 35.53px; }
+:root[data-type-size="medium"] { --type-largeTitle-size: 37.90px; --type-title1-size: 28.43px; --type-title2-size: 24.62px; --type-title3-size: 21.33px; --type-headline-size: 16.00px; --type-body-size: 16.00px; --type-callout-size: 14.89px; --type-subheadline-size: 13.86px; --type-footnote-size: 12.00px; --type-caption1-size: 11.17px; --type-caption2-size: 10.40px; --k-gin: 5.07px; --k-ggr: 21.33px; --k-gsec: 37.90px; }
+:root[data-type-size="large"] { --type-largeTitle-size: 40.27px; --type-title1-size: 30.21px; --type-title2-size: 26.16px; --type-title3-size: 22.66px; --type-headline-size: 17.00px; --type-body-size: 17.00px; --type-callout-size: 15.82px; --type-subheadline-size: 14.72px; --type-footnote-size: 12.75px; --type-caption1-size: 11.87px; --type-caption2-size: 11.05px; --k-gin: 5.38px; --k-ggr: 22.66px; --k-gsec: 40.27px; }
+:root[data-type-size="xLarge"] { --type-largeTitle-size: 45.00px; --type-title1-size: 33.76px; --type-title2-size: 29.24px; --type-title3-size: 25.33px; --type-headline-size: 19.00px; --type-body-size: 19.00px; --type-callout-size: 17.68px; --type-subheadline-size: 16.46px; --type-footnote-size: 14.25px; --type-caption1-size: 13.27px; --type-caption2-size: 12.35px; --k-gin: 6.02px; --k-ggr: 25.33px; --k-gsec: 45.00px; }
+:root[data-type-size="xxLarge"] { --type-largeTitle-size: 49.74px; --type-title1-size: 37.31px; --type-title2-size: 32.32px; --type-title3-size: 27.99px; --type-headline-size: 21.00px; --type-body-size: 21.00px; --type-callout-size: 19.54px; --type-subheadline-size: 18.19px; --type-footnote-size: 15.75px; --type-caption1-size: 14.66px; --type-caption2-size: 13.65px; --k-gin: 6.65px; --k-ggr: 27.99px; --k-gsec: 49.74px; }
+:root[data-type-size="xxxLarge"] { --type-largeTitle-size: 54.48px; --type-title1-size: 40.87px; --type-title2-size: 35.40px; --type-title3-size: 30.66px; --type-headline-size: 23.00px; --type-body-size: 23.00px; --type-callout-size: 21.41px; --type-subheadline-size: 19.92px; --type-footnote-size: 17.25px; --type-caption1-size: 16.06px; --type-caption2-size: 14.94px; --k-gin: 7.28px; --k-ggr: 30.66px; --k-gsec: 54.48px; }
+:root[data-type-size="AX1"] { --type-largeTitle-size: 66.32px; --type-title1-size: 49.75px; --type-title2-size: 43.09px; --type-title3-size: 37.32px; --type-headline-size: 28.00px; --type-body-size: 28.00px; --type-callout-size: 26.06px; --type-subheadline-size: 24.25px; --type-footnote-size: 21.01px; --type-caption1-size: 19.55px; --type-caption2-size: 18.19px; --k-gin: 8.87px; --k-ggr: 37.32px; --k-gsec: 66.32px; }
+:root[data-type-size="AX2"] { --type-largeTitle-size: 78.16px; --type-title1-size: 58.64px; --type-title2-size: 50.79px; --type-title3-size: 43.99px; --type-headline-size: 33.00px; --type-body-size: 33.00px; --type-callout-size: 30.71px; --type-subheadline-size: 28.58px; --type-footnote-size: 24.76px; --type-caption1-size: 23.04px; --type-caption2-size: 21.44px; --k-gin: 10.45px; --k-ggr: 43.99px; --k-gsec: 78.16px; }
+:root[data-type-size="AX3"] { --type-largeTitle-size: 94.74px; --type-title1-size: 71.08px; --type-title2-size: 61.56px; --type-title3-size: 53.32px; --type-headline-size: 40.00px; --type-body-size: 40.00px; --type-callout-size: 37.23px; --type-subheadline-size: 34.65px; --type-footnote-size: 30.01px; --type-caption1-size: 27.93px; --type-caption2-size: 25.99px; --k-gin: 12.67px; --k-ggr: 53.32px; --k-gsec: 94.74px; }
+:root[data-type-size="AX4"] { --type-largeTitle-size: 111.32px; --type-title1-size: 83.51px; --type-title2-size: 72.33px; --type-title3-size: 62.65px; --type-headline-size: 47.00px; --type-body-size: 47.00px; --type-callout-size: 43.74px; --type-subheadline-size: 40.71px; --type-footnote-size: 35.26px; --type-caption1-size: 32.81px; --type-caption2-size: 30.54px; --k-gin: 14.89px; --k-ggr: 62.65px; --k-gsec: 111.32px; }
+:root[data-type-size="AX5"] { --type-largeTitle-size: 125.54px; --type-title1-size: 94.18px; --type-title2-size: 81.57px; --type-title3-size: 70.65px; --type-headline-size: 53.00px; --type-body-size: 53.00px; --type-callout-size: 49.33px; --type-subheadline-size: 45.91px; --type-footnote-size: 39.76px; --type-caption1-size: 37.00px; --type-caption2-size: 34.44px; --k-gin: 16.79px; --k-ggr: 70.65px; --k-gsec: 125.54px; }
+
+/* Figures: lining and proportional everywhere, durations included. */
+body, .nums { font-variant-numeric: lining-nums proportional-nums; }
+
+/* The display face has two sizes: the page title and the section heading. */
+h1[class] { font-family: var(--k-disp); font-weight: 500; font-size: var(--type-title1-size); line-height: 1.15; letter-spacing: 0; }
+.section-head { font-family: var(--k-disp); font-weight: 500; font-size: var(--type-title3-size); line-height: 1.2; color: var(--color-text-primary); padding-bottom: var(--k-gin); }
+.section-head .secondary, .section-head > span + span { font-family: var(--type-body-family); font-size: var(--type-subheadline-size); font-weight: 400; color: var(--color-text-secondary); align-self: baseline; }
+
+/* Spacing roles: tight inside a group, generous between groups and sections. */
+.page-head .meta { margin-top: var(--k-gin); }
+.section { margin-top: var(--k-gsec); }
+.row { padding-top: calc(var(--k-ggr) / 2); padding-bottom: calc(var(--k-ggr) / 2); }
+.row .main > * + * { margin-top: var(--k-gin); }
+
+/* The album and the year of a page header are as large as its performers. */
+.hero .t-footnote { font-size: var(--type-subheadline-size); line-height: var(--type-subheadline-line-height); }
+
+/* Plain lists on content pages; Settings (the token sheet) keeps inset grouped lists. */
+:root:not([data-page="tokens"]) .app { background: var(--color-background-page); }
+:root:not([data-page="tokens"]) .nav { --edge-colour: var(--color-background-page); }
+:root:not([data-page="tokens"]) .list { background: transparent; border-radius: 0; overflow: visible; }
+:root:not([data-page="tokens"]) .section-head, :root:not([data-page="tokens"]) .section-foot { padding-left: 0; padding-right: 0; }
+:root:not([data-page="tokens"]) .section .row { padding-left: 0; padding-right: 0; }
+:root:not([data-page="tokens"]) .row + .row::before, :root:not([data-page="tokens"]) .row-block + .row-block::before { left: 0; }
+
+/* The playing row needs no bold title: the bar and the open row already mark it (Flo, 2026-11-08). */
+.track .main .t-headline { font-weight: var(--type-body-weight); }

@@ -1,1 +1,7 @@
-{}
+{
+ "type-13": {
+  "label": "Type round 13",
+  "css": "type-13.css",
+  "js": "type-13.js"
+ }
+}

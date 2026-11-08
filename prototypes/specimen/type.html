@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Type sheet</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="tokens.css?v=30">
-<link rel="stylesheet" href="specimen.css?v=30">
-<script src="specimen.js?v=30"></script>
+<link rel="stylesheet" href="tokens.css?v=32">
+<link rel="stylesheet" href="specimen.css?v=32">
+<script src="specimen.js?v=32"></script>
 </head>
 <body>
 <style>
@@ -282,7 +282,7 @@ K.start(() => {
       const block = el("div", { class: "row-block track" });
       const isPlaying = i === playing, closedWithContent = i === 2;
       block.append(el("div", { class: "row" },
-        el("div", { class: "main" }, el("div", { class: isPlaying ? "t-headline" : "t-body" }, title)),
+        el("div", { class: "main" }, el("div", { class: "t-body" }, title)),
         el("div", { class: "trail t-subheadline nums" }, K.time(s.duration), closedWithContent ? chevron(false) : null, el("span", { class: "slot" }, isPlaying ? null : faint()))));
       if (isPlaying) {
         const d = s.duration;
@@ -312,7 +312,7 @@ K.start(() => {
         el("div", { class: "disp", style: "font-size: var(--type-title2-size)" }, K.titled(glue(work.name), K.fermata(false))),
         el("div", { class: "t-subheadline" }, el("span", { class: "link" }, work.composer)),
         el("div", { class: "t-subheadline" }, ...rec.performers.flatMap((p, n) => [n ? ", " : null, el("span", { class: "link" }, p.name)]).filter(Boolean)),
-        el("div", { class: "t-footnote secondary nums" }, el("span", { class: "link" }, rec.album.name), glue(` · ${[year, K.time(rec.duration)].filter(Boolean).join(" · ")}`))),
+        el("div", { class: "t-subheadline secondary nums" }, el("span", { class: "link" }, rec.album.name), glue(` · ${[year, K.time(rec.duration)].filter(Boolean).join(" · ")}`))),
       el("div", { class: "list" }, ...playerRows(rec, work)));
   }
 

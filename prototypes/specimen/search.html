@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Search</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="tokens.css?v=22">
-<link rel="stylesheet" href="specimen.css?v=22">
-<script src="specimen.js?v=22"></script>
+<link rel="stylesheet" href="tokens.css?v=23">
+<link rel="stylesheet" href="specimen.css?v=23">
+<script src="specimen.js?v=23"></script>
 </head>
 <body>
 <!--
@@ -144,7 +144,20 @@ K.start(() => {
   const nav = performance.getEntriesByType("navigation")[0];
   if (!nav || nav.type === "navigate") { query = ""; conds = []; open = false; save(); K.store("search.session", null); }
   const passes = (x, list) => list.every((c) => c.some((t) => x.terms.has(t)));
-  const count = (list) => recs.filter((x) => passes(x, list)).length;
+  // The filters count only what the text already found: the recordings of matching works, people and albums.
+  let foundKey = null, foundSet = null;
+  function found() {
+    const tokens = queryTokens(query);
+    if (!tokens.length) return null;
+    if (foundKey === query) return foundSet;
+    const set = new Set();
+    works.filter((x) => matches(tokens, x.hay)).forEach((x) => x.w.recordings.forEach((r) => set.add(r)));
+    people.forEach((p) => { if (matches(tokens, p.hay)) p.recs.forEach((r) => set.add(r)); });
+    albums.filter((x) => matches(tokens, x.hay)).forEach((x) => x.a.recordings.forEach((r) => set.add(r)));
+    foundKey = query; foundSet = set;
+    return set;
+  }
+  const count = (list) => { const f = found(); return recs.filter((x) => (!f || f.has(x.r)) && passes(x, list)).length; };
 
   // ---------- Page, field and tab bar ----------
   // Search is a tab, yet it keeps a back arrow to the page it was opened from (Flo, round 8).
@@ -355,7 +368,7 @@ K.start(() => {
       box.style.height = up ? Math.min(visualViewport.height - 70, innerHeight * 0.58) + "px" : "";
     });
     sheetParts = { box, draw: () => {
-      total.textContent = conds.length ? plural(count(conds), "recording") : "";
+      total.textContent = conds.length || query.trim() ? plural(count(conds), "recording") : "";
       condsBox.replaceChildren(...condRows(true)); note.textContent = markNote(); redraw();
     } };
   }

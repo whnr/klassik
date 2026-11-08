@@ -1,17 +1,18 @@
 {
-  "mini-side": {
-    "label": "Mini A: pill, side by side",
-    "css": "mini.css",
-    "js": "mini.js"
+  "search-top": {
+    "label": "Search A: field on top",
+    "page": "search"
   },
-  "mini-tabs": {
-    "label": "Mini B: pause in the tabs",
-    "css": "mini.css",
-    "js": "mini.js"
+  "search-prominent": {
+    "label": "Search B: field on the keyboard",
+    "page": "search"
   },
-  "mini-card": {
-    "label": "Mini C: card + pause",
-    "css": "mini.css",
-    "js": "mini.js"
+  "search-stack": {
+    "label": "Search C: field above the tabs",
+    "page": "search"
+  },
+  "search-nav": {
+    "label": "Search D: field in the bar",
+    "page": "search"
   }
 }

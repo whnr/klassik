@@ -316,6 +316,9 @@ const K = (() => {
     try { variants = await (await fetch("variants/variants.json", { cache: "no-store" })).json(); } catch { /* none yet */ }
     const name = params.get("variant");
     const v = name && variants[name];
+    // The decided mini player loads before any variant, so a variant can still replace it through K.setMini.
+    document.head.append(el("link", { rel: "stylesheet", href: "pill.css?v=" + STAMP }));
+    await new Promise((ok) => document.head.append(el("script", { src: "pill.js?v=" + STAMP, onload: ok, onerror: ok })));
     if (v) {
       if (v.css) document.head.append(el("link", { rel: "stylesheet", href: "variants/" + v.css + "?v=" + STAMP }));
       if (v.js) await new Promise((ok) => document.head.append(el("script", { src: "variants/" + v.js + "?v=" + STAMP, onload: ok, onerror: ok })));
@@ -361,7 +364,7 @@ const K = (() => {
     const t = (id, name, path) => el("a", { href: href(path), class: tab === id ? "on" : null, html: ICON[id] + `<span class="t-caption2">${name}</span>` });
     return el("nav", { class: "tabbar" },
       el("div", { class: "tabs glass" }, t("library", "Library", "index.html"), t("chronology", "Chronology", "chronology.html"), t("settings", "Settings", "tokens.html")),
-      el("a", { href: href("search.html"), class: "tab-search glass" + (tab === "search" ? " on" : ""), "aria-label": "Search", html: ICON.search }));
+      el("a", { href: href("search.html", { from: tab === "search" ? params.get("from") : tab }), class: "tab-search glass" + (tab === "search" ? " on" : ""), "aria-label": "Search", html: ICON.search }));
   }
 
   function page({ tab = "library", title = "", back = null, plain = false, player = false, actions = [], tabs = true }) {

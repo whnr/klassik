@@ -8,11 +8,15 @@ The design specimen of map sz-rs30.1.83 (ticket sz-rs30.1.83.4). Every look tick
 - `work.html`: a work page with recording rows. `?work=<composer>|<work>` picks another work.
 - `player.html`: the page of what plays, with the cover wash, the timeline and the open movement. A tap opens a movement row: the performers that differ from the whole page (ADR 0014) and its notes, the play button in place of the chevron. An album page heads its tracks by work only when a work has two movements on consecutive tracks (ADR 0024). `?recording=<id>` or `?album=<id>` shows another page; Play turns it into the player in place. Movement rows follow sz-rs30.1.83.8: a faint play button at the end of every row; a row with notes or with names that differ from the header opens under a trailing disclosure chevron. The header shows what every track shares, the composer included. After a quiet spell the view brings the playing row back (ADR 0014). A scrub on the timeline holds the rows still until the finger lifts. A row that does not play has no bar. A note is written in the playing row: one tap starts it at the playing time and opens the text field; "End here" is optional and makes a span. The first pill button puts the timeline on the right or the left edge (`?side=`), on every page.
 - `chronology.html`: one composer among the contemporaries, and the overview (`?level=overview`).
-- `search.html`: the field finds works, names and albums; filters on demand. The filters open in a sheet (ADR 0025).
+- `search.html`: the field finds works, names and albums; filters on demand. The filters open in a sheet (ADR 0025). Round 8 (sz-rs30.1.83.13) shows four places for the field: `search-top` (A, under the large title), `search-prominent` (B, the default: the bottom row of ADR 0025), `search-stack` (C, above the tab bar) and `search-nav` (D, in place of the bar). `?from=` names the tab that B's first button returns to.
 - `person.html`: a composer or performer page with the screen-wide picture (ADR 0017, 0019). `?name=<artist name>`.
 - `tokens.html`: the token sheet. Every colour in the four themes side by side, contrast on rows, the type scale at each Dynamic Type size, spacing, radius, size and each animation alone. The Settings tab opens it.
 
 The flows follow ADR 0013 to 0020. Nothing comes from the UX prototypes.
+
+## Mini player
+
+`pill.css` and `pill.js` draw the mini player of ADR 0028 on every page. They load before any variant, so a variant can still replace the mini player through `K.setMini`.
 
 ## Specimen controls
 

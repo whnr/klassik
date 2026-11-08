@@ -5,15 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Search</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="tokens.css?v=15">
-<link rel="stylesheet" href="specimen.css?v=15">
-<script src="specimen.js?v=15"></script>
+<link rel="stylesheet" href="tokens.css?v=16">
+<link rel="stylesheet" href="specimen.css?v=16">
+<script src="specimen.js?v=16"></script>
 </head>
 <body>
 <!--
-  Search round 3 (sz-rs30.1.83.7). One question: where do the filters open?
-  ?variant=search-sheet (A, default), search-panel (B), search-chips (C).
-  Locked in all three: the field finds works, people and albums in sections; the mini player is a cover pill in the bottom row.
+  Search round 8 (sz-rs30.1.83.13). One question: where do the field and the Filters button sit, now that the mini player is a pill in the tab row (ADR 0028)?
+  ?variant=search-top (A), search-prominent (B, the default: ADR 0025 with the round 7 faults fixed), search-stack (C), search-nav (D).
+  Locked in all four: the field finds works, people and albums in sections; filters open in the sheet of ADR 0025.
 -->
 <style>
   .specimen-bar { max-width: calc(100vw - 12px); overflow-x: auto; scrollbar-width: none; }
@@ -65,25 +65,26 @@
   .fsheet .head h2 { flex: 1; }
   .fsheet .body { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 0 var(--space-l) var(--space-xl); }
 
-  /* B: a panel that unfolds above the results; its term list scrolls inside a box. */
-  .panel .box { max-height: calc(5.5 * var(--size-hitTarget)); overflow-y: auto; overscroll-behavior: contain; }
-
-  /* C: condition chips under the title; each chip opens its page. */
-  .chiprow { display: flex; gap: var(--space-xs); flex-wrap: wrap; padding: var(--space-s) var(--pad-right) 0 var(--pad-left); }
-  .chiprow .chip { gap: var(--space-xs); max-width: 100%; }
-  .chiprow .chip span { overflow: hidden; text-overflow: ellipsis; }
-  .chiprow .chip.add { background: transparent; color: var(--color-tint); box-shadow: inset 0 0 0 1px var(--color-fill-standard); }
-  .chiprow .and { align-self: center; color: var(--color-text-secondary); }
-  .pushed { position: fixed; inset: 0; z-index: 36; background: var(--color-background-grouped); display: flex; flex-direction: column;
-    transform: translateX(100%); transition: transform var(--motion-transition-open-duration) var(--motion-transition-open-easing); }
-  .pushed.on { transform: none; }
-  .pushed .scroll { padding-bottom: 40px; }
-  .pushed .fixed { padding: 0 var(--pad-right) 0 var(--pad-left); }
+  /* The layouts of round 8. A row on the field's side is as tall as the tab bar (B, C); a field at the top is a system inline field (A, D). */
+  .layout-prominent .roundglass, .layout-prominent .field, .layout-stack .roundglass, .layout-stack .field { min-height: 56px; height: 56px; }
+  .layout-prominent .roundglass, .layout-stack .roundglass { width: 56px; }
+  .fieldrow { display: flex; gap: var(--space-s); align-items: center; }
+  /* A fixed row, not a sticky one: browsers measure a sticky offset differently inside a padded scroller. */
+  .layout-top .fieldrow, .layout-nav .fieldrow { position: fixed; z-index: 25; left: 0; right: 0; top: calc(max(env(safe-area-inset-top), 6px) + var(--pill-space, 34px));
+    padding: var(--space-xs) var(--pad-right) var(--space-s) var(--pad-left); background: var(--color-background-grouped); }
+  .layout-top .fieldrow.pinned::before, .layout-nav .fieldrow::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: 120px; background: inherit; }
+  .fieldspace { height: 52px; }
+  .layout-top .fieldrow .field, .layout-nav .fieldrow .field { min-height: 40px; height: 40px; border-radius: 12px; background: var(--color-fill-quiet); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding-left: var(--space-m); }
+  .layout-top .fieldrow .roundglass, .layout-nav .fieldrow .roundglass { width: 40px; height: 40px; background: var(--color-fill-quiet); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .layout-nav .nav, .layout-top .nav { display: none; }
+  .layout-stack .fieldrow { position: fixed; z-index: 31; left: var(--pad-left); right: var(--pad-right); }
+  .layout-stack .scroll { padding-bottom: calc(var(--bottom-space, 180px) + 64px); }
+  body.typing.layout-stack .tabbar { visibility: hidden; }
 </style>
 <script>
 K.start(() => {
   const { el, href, ICON, M } = K;
-  const V = { "search-panel": "panel", "search-chips": "chips" }[K.params.get("variant")] || "sheet";
+  const L = { "search-top": "top", "search-stack": "stack", "search-nav": "nav" }[K.params.get("variant")] || "prominent";
   const KINDS = { genre: "Genres", composer: "Composers", conductor: "Conductors", performer: "Performers" };
   const ONE = { genre: "Genre", composer: "Composer", conductor: "Conductor", performer: "Performer" };
   const FUNNEL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M7 12h10M10 17h4"/></svg>';
@@ -151,50 +152,59 @@ K.start(() => {
   const passes = (x, list) => list.every((c) => c.some((t) => x.terms.has(t)));
   const count = (list) => recs.filter((x) => passes(x, list)).length;
 
-  // ---------- Page and the bottom row ----------
+  // ---------- Page, field and tab bar ----------
   const { scroll } = K.page({ tab: "search", title: "Search" });
-  // The mini player variant decides what the bottom row carries (sz-rs30.1.83.9).
-  const mini = K.searchItems();
-  if (mini.hideCard) document.querySelectorAll(".mini").forEach((m) => (m.style.display = "none"));
-  const bar = document.querySelector(".tabbar");
-  bar.classList.add("search-bar");
+  document.body.classList.add("layout-" + L);
+  const tabbar = document.querySelector(".tabbar");
   const input = el("input", { type: "search", enterkeyhint: "search", autocomplete: "off", autocorrect: "off", spellcheck: "false", placeholder: "Work or name" });
   input.value = query;
   const clear = el("button", { class: "clear t-body", "aria-label": "Clear", onclick: () => { input.value = ""; query = ""; save(); update(); input.focus(); } }, "✕");
   const badge = el("span", { class: "badge" });
   const filtersBtn = el("button", { class: "roundglass glass", "aria-label": "Filters", html: FUNNEL, onclick: () => setOpen(!open) });
   filtersBtn.append(badge);
-  bar.replaceChildren(el("div", { class: "row1" },
-    el("a", { class: "roundglass glass fold", href: href("index.html"), "aria-label": "Library", html: ICON.library }),
-    ...mini.lead,
-    el("label", { class: "field glass" }, el("span", { html: ICON.search }), input, clear),
-    filtersBtn, ...mini.trail));
+  const field = el("label", { class: "field glass" }, el("span", { html: ICON.search }), input, clear);
+  // The row that rides on the keyboard: B and C only. A and D keep the field at the top, so the keyboard moves nothing.
+  let rider = null;
+  if (L === "prominent") {
+    // iOS collapses the other tabs into one button that shows the tab the listener came from.
+    const from = { library: ["library", "index.html", "Library"], chronology: ["chronology", "chronology.html", "Chronology"], settings: ["settings", "tokens.html", "Settings"] }[K.params.get("from")] || ["library", "index.html", "Library"];
+    tabbar.classList.add("search-bar");
+    tabbar.replaceChildren(el("div", { class: "row1" },
+      el("a", { class: "roundglass glass fold", href: href(from[1]), "aria-label": from[2], html: ICON[from[0]] }), field, filtersBtn));
+    rider = tabbar;
+  } else {
+    const row = el("div", { class: "fieldrow" }, field, filtersBtn);
+    document.body.append(row);
+    if (L === "stack") rider = row;
+  }
   input.addEventListener("input", () => { query = input.value; save(); update(); });
-  input.addEventListener("focus", () => { bar.classList.add("typing"); document.body.classList.add("typing"); });
-  input.addEventListener("blur", () => { bar.classList.remove("typing"); document.body.classList.remove("typing"); });
+  input.addEventListener("focus", () => { tabbar.classList.add("typing"); document.body.classList.add("typing"); });
+  input.addEventListener("blur", () => { tabbar.classList.remove("typing"); document.body.classList.remove("typing"); });
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.blur(); });
 
-  // ---------- The keyboard: only the content scrolls; the bar and the sheet ride on the keyboard. ----------
+  // ---------- The keyboard: only the content scrolls; a bottom field and the sheet ride on the keyboard. ----------
   const riders = [];
-  const restBottom = parseFloat(getComputedStyle(bar).bottom) || 8;
+  const gapPx = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--space-s")) || 8;
+  // C rests on top of the tab bar; B is the tab bar.
+  const restBottom = () => (L === "stack" ? innerHeight - tabbar.getBoundingClientRect().top + gapPx() : parseFloat(getComputedStyle(tabbar).bottom) || 8);
   function ride() {
     if (scrollY || document.documentElement.scrollTop) scrollTo(0, 0);
     const vv = window.visualViewport;
     const kb = vv ? Math.max(0, innerHeight - vv.height - vv.offsetTop) : 0;
     const up = kb > 40;
-    bar.style.bottom = up ? kb + 8 + "px" : "";
+    if (rider) rider.style.bottom = up ? kb + 8 + "px" : L === "stack" ? restBottom() + "px" : "";
     riders.forEach((r) => r(kb, up));
     K.layoutChrome();
-    scroll.style.setProperty("--bottom-space", (up ? kb + 8 : restBottom) + bar.offsetHeight + 24 + "px");
+    if (L === "prominent") scroll.style.setProperty("--bottom-space", (up ? kb + 8 : restBottom()) + tabbar.offsetHeight + 24 + "px");
   }
-  // iOS sends the viewport events late, so the bar follows each frame while the keyboard moves.
+  // iOS sends the viewport events late, so the riders follow each frame while the keyboard moves.
   let until = 0;
   function follow() { until = performance.now() + 900; const step = () => { ride(); if (performance.now() < until) requestAnimationFrame(step); }; step(); }
   if (window.visualViewport) { visualViewport.addEventListener("resize", follow); visualViewport.addEventListener("scroll", ride); }
   addEventListener("scroll", ride);
+  addEventListener("resize", follow);
   document.addEventListener("focusin", follow);
   document.addEventListener("focusout", follow);
-
   // ---------- Shared pieces of the filters ----------
   function chip(t, ci) {
     return el("button", { class: "chip t-subheadline", "aria-label": "Remove " + label(t), onclick: (e) => { e.stopPropagation(); removeTerm(ci, t); } },
@@ -261,9 +271,26 @@ K.start(() => {
 
   // ---------- Results: sections by kind; the conditions narrow every section. ----------
   const head = el("div", { class: "page-head" }, el("h1", { class: "t-largeTitle" }, "Search"));
-  const filterArea = el("div");
   const resultsBox = el("div");
-  scroll.append(head, filterArea, resultsBox);
+  // A: the large title scrolls away and the field stays under the bar. D: no title, the field is the bar.
+  const space = el("div", { class: "fieldspace" });
+  if (L === "nav") scroll.append(resultsBox);
+  else if (L === "prominent" || L === "stack") scroll.append(head, resultsBox);
+  else {
+    scroll.append(head, space, resultsBox);
+    const row = document.querySelector(".fieldrow");
+    // The field follows the title up and stops where the bar would be.
+    const pin = () => { row.style.top = ""; const bar = row.getBoundingClientRect().top; const top = space.getBoundingClientRect().top; row.style.top = Math.max(bar, top) + "px"; row.classList.toggle("pinned", top <= bar); };
+    scroll.addEventListener("scroll", pin, { passive: true });
+    addEventListener("resize", pin);
+    // The specimen pill and the title settle after the first frame.
+    const settle = new ResizeObserver(pin);
+    settle.observe(head);
+    settle.observe(document.querySelector(".specimen-bar") || head);
+    requestAnimationFrame(pin);
+  }
+  // D: the field takes the place of the bar, so the content starts below it.
+  if (L === "nav") scroll.style.paddingTop = "calc(max(env(safe-area-inset-top), 6px) + var(--pill-space, 34px) + 52px)";
 
   function section(title, n, rows, inset) {
     return el("section", { class: "section" },
@@ -337,91 +364,21 @@ K.start(() => {
     } };
   }
 
-  // ---------- B: the panel above the results ----------
-  let panelParts = null;
-  function buildPanel() {
-    const condsBox = el("div");
-    const note = el("div", { class: "section-foot t-footnote" });
-    const list = el("div", { class: "list box" });
-    const redraw = () => list.replaceChildren(...termRows(marked));
-    const narrow = narrowField(redraw);
-    const seg = kindSeg(() => { narrow.reset(); redraw(); });
-    const total = el("span", { class: "nums" });
-    const panel = el("section", { class: "section panel" },
-      el("div", { class: "section-head t-footnote" }, el("span", {}, "FILTERS"), total), condsBox, note, seg, narrow, list);
-    panelParts = { panel, draw: () => {
-      total.textContent = conds.length ? plural(count(conds), "recording") : "";
-      condsBox.replaceChildren(...condRows(true)); note.textContent = markNote(); redraw();
-    } };
-  }
-
-  // ---------- C: chips under the title; a chip pushes the page of its condition ----------
-  let chipParts = null;
-  function buildChips() {
-    const row = el("div", { class: "chiprow" });
-    const page = el("div", { class: "pushed" });
-    const nav = el("header", { class: "nav" }, el("button", { class: "back", html: ICON.back + '<span class="t-body">Search</span>', onclick: () => pop() }), el("span"));
-    const pscroll = el("main", { class: "scroll" });
-    const title = el("h1", { class: "t-largeTitle" });
-    const sub = el("div", { class: "meta t-subheadline secondary" });
-    const list = el("div", { class: "list" });
-    let into = null;
-    const redraw = () => list.replaceChildren(...termRows(into));
-    const narrow = narrowField(redraw);
-    const seg = kindSeg(() => { narrow.reset(); redraw(); });
-    pscroll.append(el("div", { class: "page-head" }, title, sub), el("div", { class: "fixed" }, seg, narrow), el("section", { class: "section", style: "margin-top: var(--space-s)" }, list));
-    page.append(nav, pscroll);
-    document.body.append(page);
-    function push(i) {
-      into = i;
-      if (i != null) kind = kindOf(conds[i][0]);
-      narrow.reset(); seg.draw();
-      drawPage();
-      pscroll.scrollTop = 0;
-      page.classList.add("on");
-    }
-    function pop() { page.classList.remove("on"); into = null; if (document.activeElement) document.activeElement.blur(); update(); }
-    function drawPage() {
-      if (into != null && !conds[into]) into = null;
-      title.textContent = into != null ? "Condition" : "Add a condition";
-      sub.textContent = into != null ? `${conds[into].map(label).join(" or ")} · ${plural(count(conds), "recording")}. A tap adds a term with "or".`
-        : conds.length ? `A tap adds the term with "and".` : "Pick a term to start.";
-      redraw();
-    }
-    chipParts = { row, draw: () => {
-      const out = [];
-      conds.forEach((c, i) => {
-        if (i) out.push(el("span", { class: "and t-footnote" }, "and"));
-        out.push(el("button", { class: "chip on t-subheadline", onclick: () => push(i) },
-          el("span", {}, c.map(label).join(" or ")), el("span", { class: "nums", style: "opacity: 0.75" }, String(count(conds.slice(0, i + 1))))));
-      });
-      out.push(el("button", { class: "chip add t-subheadline", onclick: () => push(null) }, conds.length ? "+ and" : "+ Add a filter"));
-      row.replaceChildren(...out);
-      if (page.classList.contains("on")) drawPage();
-    } };
-  }
-
   function setOpen(v) {
     open = v; save();
-    if (V === "sheet") {
-      if (!sheetParts) buildSheet();
-      sheetParts.box.classList.toggle("on", open);
-      if (!open && document.activeElement) document.activeElement.blur();
-    }
+    if (!sheetParts) buildSheet();
+    sheetParts.box.classList.toggle("on", open);
+    if (!open && document.activeElement) document.activeElement.blur();
     update();
   }
 
-  // Moving a node blurs its field, so the filter area changes only when its content changes.
-  function show(node) { if (filterArea.firstChild !== node) filterArea.replaceChildren(...(node ? [node] : [])); }
 
   function update() {
     clear.style.visibility = input.value ? "visible" : "hidden";
     badge.textContent = String(conds.length);
     badge.style.display = conds.length && !open ? "" : "none";
     filtersBtn.classList.toggle("on", open);
-    if (V === "sheet" && sheetParts) sheetParts.draw();
-    if (V === "panel") { if (!panelParts) buildPanel(); show(open ? panelParts.panel : null); if (open) panelParts.draw(); }
-    if (V === "chips") { if (!chipParts) buildChips(); show(open ? chipParts.row : null); chipParts.draw(); }
+    if (sheetParts) sheetParts.draw();
     resultsBox.replaceChildren(...results());
   }
 
@@ -429,7 +386,7 @@ K.start(() => {
   const sbar = document.querySelector(".specimen-bar");
   if (sbar) sbar.append(el("button", { onclick: () => { ["q", "conds", "open"].forEach((k) => K.store("search3." + k, null)); location.reload(); } }, "Reset"));
 
-  if (V === "sheet" && open) { buildSheet(); requestAnimationFrame(() => sheetParts.box.classList.add("on")); }
+  if (open) { buildSheet(); requestAnimationFrame(() => sheetParts.box.classList.add("on")); }
   update();
   K.layoutChrome();
   follow();

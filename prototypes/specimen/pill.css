@@ -1,4 +1,4 @@
-/* Mini player round (sz-rs30.1.83.9). The edge pill grows out of the timeline: a flat face on the timeline's side. */
+/* The mini player of ADR 0028. The pill grows out of the timeline: a flat face on the timeline's side. */
 .edge-pill {
   position: fixed; z-index: 41; right: 0; bottom: max(env(safe-area-inset-bottom), var(--space-s));
   display: flex; gap: var(--space-xs); padding: var(--space-xs);
@@ -18,18 +18,11 @@
 /* Album art is square; only the play/pause button is round. */
 .edge-pill .cover-link { border-radius: var(--radius-s); }
 .edge-pill .cover, .edge-pill img { width: 48px; height: 48px; border-radius: var(--radius-s); pointer-events: none; }
-.edge-pill .pp svg, .tabs .pp svg, .roundglass.pp svg { width: 20px; height: 20px; }
-.edge-pill .pp:active, .tabs .pp:active { background: var(--color-fill-quiet); }
+.edge-pill .pp svg { width: 20px; height: 20px; }
+.edge-pill .pp:active { background: var(--color-fill-quiet); }
 
 /* The tab bar leaves room for the pill on the timeline's side. */
 :root.has-edge-pill .tabbar { right: calc(var(--edge-pill-width) + var(--space-s)); }
 :root.has-edge-pill[data-side="left"] .tabbar { right: var(--space-l); left: calc(var(--edge-pill-width) + var(--space-s)); }
 body.typing .edge-pill { display: none; }
 :root.has-edge-pill body.typing .tabbar { right: var(--space-l); left: var(--space-l); }
-
-/* Play/pause in the middle of the tab capsule. */
-.tabs .pp { flex: none; width: 48px; align-self: center; height: 48px; border-radius: var(--radius-full); display: grid; place-items: center; color: var(--color-tint); }
-
-/* The card with a pause button, the baseline. */
-.mini .pp { flex: none; width: var(--size-hitTarget); height: var(--size-hitTarget); border-radius: var(--radius-full); display: grid; place-items: center; color: var(--color-text-primary); }
-.mini .pp svg { width: 20px; height: 20px; }

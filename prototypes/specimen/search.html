@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Search</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="tokens.css?v=21">
-<link rel="stylesheet" href="specimen.css?v=21">
-<script src="specimen.js?v=21"></script>
+<link rel="stylesheet" href="tokens.css?v=22">
+<link rel="stylesheet" href="specimen.css?v=22">
+<script src="specimen.js?v=22"></script>
 </head>
 <body>
 <!--
@@ -140,6 +140,9 @@ K.start(() => {
   let open = K.store("search3.open") || false;
   let marked = null, kind = "composer", narrowQ = "", clearNarrow = () => {};
   const save = () => { K.store("search3.q", query); K.store("search3.conds", conds); K.store("search3.open", open); };
+  // Back from a result keeps the search. Any other arrival (a tab, a link) starts fresh: leaving the page already put the search into Recent.
+  const nav = performance.getEntriesByType("navigation")[0];
+  if (!nav || nav.type === "navigate") { query = ""; conds = []; open = false; save(); K.store("search.session", null); }
   const passes = (x, list) => list.every((c) => c.some((t) => x.terms.has(t)));
   const count = (list) => recs.filter((x) => passes(x, list)).length;
 

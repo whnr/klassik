@@ -11,16 +11,24 @@
 </head>
 <body>
 <style>
-  .pic { display: block; width: 100%; position: relative; height: min(118vw, 470px); margin-top: calc(-1 * (max(env(safe-area-inset-top), 6px) + 34px + var(--size-hitTarget))); overflow: hidden; }
+  /* The fade starts above the name, so the name always reads on the fading bottom of the picture. */
+  .hero { position: relative; margin-top: calc(-1 * (max(env(safe-area-inset-top), 6px) + 34px + var(--size-hitTarget))); --fade: calc(var(--title-h, 80px) + 96px); }
+  .pic { display: block; width: 100%; position: relative; height: max(min(118vw, 470px), calc(var(--fade) + 220px)); overflow: hidden; }
   .pic img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 22%; display: block;
-    -webkit-mask-image: linear-gradient(to bottom, #000 62%, transparent 100%); mask-image: linear-gradient(to bottom, #000 62%, transparent 100%); }
-  .pic .blur { position: absolute; inset: auto 0 0 0; height: 34%; -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
-    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 70%); mask-image: linear-gradient(to bottom, transparent, #000 70%); }
-  .person-head { position: relative; }
-  .has-pic .nav:not(.scrolled) .back { margin-left: var(--space-xs); padding-right: var(--space-m); border-radius: var(--radius-full);
+    -webkit-mask-image: linear-gradient(to top, transparent 0, rgb(0 0 0 / 0.25) calc(var(--title-h, 80px) * 0.6), #000 var(--fade));
+    mask-image: linear-gradient(to top, transparent 0, rgb(0 0 0 / 0.25) calc(var(--title-h, 80px) * 0.6), #000 var(--fade)); }
+  .pic .blur { position: absolute; inset: auto 0 0 0; height: var(--fade); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+    -webkit-mask-image: linear-gradient(to top, #000 50%, transparent); mask-image: linear-gradient(to top, #000 50%, transparent); }
+  .hero .page-head { position: absolute; left: 0; right: 0; bottom: 0; padding-bottom: 0; pointer-events: none; }
+  .hero .page-head button { pointer-events: auto; }
+  .no-pic .hero { margin-top: 0; }
+  .no-pic .hero .page-head { position: relative; }
+  .person-meta { padding: var(--space-xxs) calc(var(--space-l) + var(--size-timeline) + var(--space-s)) 0 var(--space-l); }
+  .has-pic .nav .back { margin-left: var(--space-xs); padding-right: var(--space-m); border-radius: var(--radius-full);
     background: color-mix(in srgb, var(--color-background-elevated) 72%, transparent);
     -webkit-backdrop-filter: blur(24px) saturate(1.8); backdrop-filter: blur(24px) saturate(1.8);
     box-shadow: 0 0 0 0.5px var(--color-separator), 0 2px 10px rgb(0 0 0 / 0.18); }
+
   .segmented { display: flex; margin: var(--space-l) calc(var(--space-l) + var(--size-timeline) + var(--space-s)) 0 var(--space-l); padding: 2px; border-radius: var(--radius-m); background: var(--color-fill-quiet); }
   .segmented button { flex: 1; min-height: 32px; border-radius: calc(var(--radius-m) - 2px); }
   .segmented button.on { background: var(--color-background-row); box-shadow: 0 1px 3px rgb(0 0 0 / 0.12); }
@@ -41,12 +49,14 @@ K.start(() => {
 
   // ADR 0019: only a picture with a person shows; the specimen cannot detect faces, so every P18 picture shows.
   const pic = facts.picture;
+  const hero = el("div", { class: "hero" });
+  scroll.append(hero);
   if (pic) {
     const box = el("button", { class: "pic", "aria-label": "Show the whole picture", onclick: () =>
       K.sheet(name, el("div", { class: "full" }, el("img", { src: pic.url, alt: "" }),
         el("p", { class: "section-foot t-footnote" }, `${pic.author}. ${pic.licence}. `, el("a", { class: "link", href: pic.page }, "File page")))) },
       el("img", { src: pic.url, alt: "", crossorigin: "anonymous" }), el("div", { class: "blur" }));
-    scroll.append(box);
+    hero.append(box);
     app.classList.add("has-pic");
   } else app.classList.add("no-pic");
 
@@ -58,8 +68,10 @@ K.start(() => {
   const line = [desc || [...roles].join(", ") || (composer ? "composer" : null), years].filter(Boolean).join(" · ");
   const fav = (kind === "composer" ? "composer:" : "performer:") + name;
   const mark = el("button", { "aria-label": "Favourite", onclick: () => { K.toggleFavourite(fav); mark.replaceChildren(K.fermata(K.isFavourite(fav))); } }, K.fermata(K.isFavourite(fav)));
-  const head = el("div", { class: "page-head person-head" }, el("h1", { class: "t-largeTitle" }, K.titled(name, mark)), el("div", { class: "meta t-subheadline secondary" }, line));
-  scroll.append(head);
+  const head = el("div", { class: "page-head person-head" }, el("h1", { class: "t-largeTitle" }, K.titled(name, mark)));
+  hero.append(head);
+  new ResizeObserver(() => hero.style.setProperty("--title-h", head.offsetHeight + "px")).observe(head);
+  scroll.append(el("div", { class: "person-meta t-subheadline secondary" }, line));
   if (composer && composer.facts) scroll.append(el("div", { class: "button-row" }, el("a", { class: "capsule t-headline", href: href("chronology.html", { composer: name }) }, "Chronology")));
 
   const tabs = kind === "composer" ? ["Works", "About"] : ["Albums", "About"];

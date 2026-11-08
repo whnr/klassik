@@ -26,6 +26,7 @@
   .track .open-body { padding: 0 var(--space-l) var(--space-m); display: grid; gap: var(--space-s); }
   .track .slot { flex: none; width: 32px; display: flex; justify-content: flex-end; align-items: center; }
   .track .open-body .people-rows { display: grid; gap: var(--space-xxs); }
+  .track .open-body:empty { display: none; }
   .track .notes { display: grid; gap: var(--space-xs); }
   .track .note { display: flex; gap: var(--space-s); text-align: left; }
   .track .note .at { flex: none; color: var(--color-tint); }
@@ -39,7 +40,6 @@
   .mv-controls button { width: var(--size-hitTarget); height: var(--size-hitTarget); display: grid; place-items: center; color: var(--color-text-primary); }
   .mv-controls svg { width: 22px; height: 22px; }
   .mv-controls .main-btn svg { width: 30px; height: 30px; }
-  .people-rows .p { display: flex; justify-content: space-between; gap: var(--space-s); }
   .rise-out { transform: translateY(-40px); opacity: 0; transition: transform var(--motion-transition-rise-duration) var(--motion-transition-rise-easing), opacity var(--motion-transition-rise-duration) var(--motion-transition-rise-easing); }
   .rise-in { animation: rise var(--motion-transition-rise-duration) var(--motion-transition-rise-easing); }
   @keyframes rise { from { transform: translateY(120px); opacity: 0; } to { transform: none; opacity: 1; } }
@@ -117,12 +117,13 @@ K.start(() => {
     return block;
   }
 
-  // Every performer of this movement with a role, then its notes. Names are never cut: the detail is the point.
+  // ADR 0014: only the performers that differ from the whole page, one row each as "name, role". Never cut.
   function performerRows(s) {
-    const list = K.performersOf([s], item.album);
+    const sharedNames = new Set(shared().map((p) => p.name));
+    const list = K.performersOf([s], item.album).filter((p) => !sharedNames.has(p.name));
     return list.length ? el("div", { class: "people-rows" }, ...list.map((p) =>
-      el("div", { class: "p t-subheadline" }, p.id ? el("a", { class: "link", href: K.personHref(p.name, { back: item.title }) }, p.name) : el("span", {}, p.name),
-        el("span", { class: "secondary" }, p.subRole || p.role)))) : null;
+      el("div", { class: "t-subheadline" }, p.id ? el("a", { class: "link", href: K.personHref(p.name, { back: item.title }) }, p.name) : p.name,
+        el("span", { class: "secondary" }, ", " + (p.subRole || p.role))))) : null;
   }
 
   // A note shows inline, its time as a prefix. A tap on a note plays from its time.
@@ -135,8 +136,7 @@ K.start(() => {
   function details(s, i) {
     const box = el("div", { class: "open-body" });
     const notes = NOTES[`${item.album.id}|${i}`] || [];
-    const parts = [performerRows(s), noteRows(s, i, notes)].filter(Boolean);
-    box.append(...(parts.length ? parts : [el("div", { class: "t-subheadline secondary" }, "No performers in the tags of this track.")]));
+    box.append(...[performerRows(s), noteRows(s, i, notes)].filter(Boolean));
     return box;
   }
 

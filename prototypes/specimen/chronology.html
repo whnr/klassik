@@ -23,14 +23,14 @@
   .band-label { left: var(--space-l); color: var(--color-text-tertiary); }
   .tick { color: var(--color-text-tertiary); width: 36px; text-align: right; transform: translateY(-50%); }
   .line { width: 2px; margin-left: -1px; border-radius: 1px; background: var(--color-text-tertiary); }
-  .line.focus { width: 4px; margin-left: -2px; background: var(--color-tint); }
+  .line.focus, .line.last { width: 4px; margin-left: -2px; background: var(--color-text-primary); }
   .line.dim { opacity: 0.35; }
   .line.playing { width: 4px; margin-left: -2px; background: var(--color-tint); }
-  .line.last { width: 3px; margin-left: -1.5px; background: var(--color-text-secondary); }
   .line.picked { width: 6px; margin-left: -3px; opacity: 1; background: var(--color-text-primary); transition-duration: 0s; }
   .chrono-head h1 a { color: inherit; }
   .dot { width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px; border-radius: 50%; background: var(--color-text-tertiary); }
-  .dot.focus { width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; background: var(--color-tint); box-shadow: 0 0 0 2px var(--color-background-grouped); }
+  .dot.focus { width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; background: var(--color-text-primary); box-shadow: 0 0 0 2px var(--color-background-grouped); }
+  .dot.playing { background: var(--color-tint); }
   .dot.marked { width: 15px; height: 15px; margin: -7.5px 0 0 -7.5px; background: var(--color-background-grouped); box-shadow: inset 0 0 0 4px var(--color-tint); }
   .wrow { display: flex; gap: var(--space-s); align-items: baseline; white-space: nowrap; overflow: hidden; padding: 0 var(--space-xs);
     border-radius: var(--radius-s); transform: translateY(-50%); }
@@ -77,9 +77,10 @@ K.start(() => {
   }
 
   function contemporaries(focus) {
-    const f = focus.facts, from = f.activeFrom ? f.activeFrom - 10 : f.born, to = f.activeFrom ? (f.died || 2030) + 10 : f.died || 2030;
-    return composers.filter((c) => c !== focus && [...c.works].some((w) => w.year && w.year >= from && w.year <= to) || c !== focus && !f.activeFrom && c.facts.born <= to && (c.facts.died || 2030) >= from && [...c.works].some((w) => w.year))
-      .filter((c, i, all) => all.indexOf(c) === i);
+    // A dated work counts by its year. An undated work counts when its composer's active years overlap the window.
+    const f = focus.facts, from = (f.activeFrom || f.born) - 10, to = (f.died || 2030) + 10;
+    const overlaps = (c) => (c.facts.activeFrom || c.facts.born) <= to && (c.facts.died || 2030) >= from;
+    return composers.filter((c) => c !== focus && [...c.works].some((w) => (w.year ? w.year >= from && w.year <= to : overlaps(c))));
   }
 
   function specs() {
@@ -114,13 +115,15 @@ K.start(() => {
     const lanesRight = gutter + (W - gutter) * 0.42;
     const people = [...contemporaries(focus), focus].sort((a, b) => a.facts.born - b.facts.born);
     const lx = (i) => gutter + 8 + (i + 0.5) * ((lanesRight - gutter - 8) / people.length);
+    const playingName = playingWork() && playingWork().composer;
     people.forEach((c, i) => {
       const isFocus = c === focus, x = lx(i), born = c.facts.born, died = c.facts.died || 2025;
+      const mark = c.name === playingName ? " playing" : isFocus ? " focus" : "";
       if (isFocus && c.facts.activeFrom) {
-        out.push({ key: "line:" + c.name, cls: "line focus dim", s: { left: x, top: Y(born), height: Y(c.facts.activeFrom) - Y(born) } });
-        out.push({ key: "linea:" + c.name, cls: "line focus", s: { left: x, top: Y(c.facts.activeFrom), height: Y(died) - Y(c.facts.activeFrom) } });
-      } else out.push({ key: "line:" + c.name, cls: "line" + (isFocus ? " focus" : ""), s: { left: x, top: Y(born), height: Y(died) - Y(born) } });
-      for (const w of c.works) if (w.year) out.push({ key: "dot:" + w.id, cls: "dot" + (isFocus ? " focus" : "") + (playingWork() === w ? " marked" : ""), s: { left: x, top: Y(w.year) }, work: isFocus ? w : null });
+        out.push({ key: "line:" + c.name, cls: "line dim" + mark, s: { left: x, top: Y(born), height: Y(c.facts.activeFrom) - Y(born) } });
+        out.push({ key: "linea:" + c.name, cls: "line" + mark, s: { left: x, top: Y(c.facts.activeFrom), height: Y(died) - Y(c.facts.activeFrom) } });
+      } else out.push({ key: "line:" + c.name, cls: "line" + mark, s: { left: x, top: Y(born), height: Y(died) - Y(born) } });
+      for (const w of c.works) if (w.year) out.push({ key: "dot:" + w.id, cls: "dot" + (isFocus ? " focus" : "") + (c.name === playingName ? " playing" : "") + (playingWork() === w ? " marked" : ""), s: { left: x, top: Y(w.year) }, work: isFocus ? w : null });
       if (isFocus) state.focusX = x;
     });
     state.lanes = people.map((c, i) => ({ c, x: lx(i) }));

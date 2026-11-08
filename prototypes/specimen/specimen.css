@@ -58,14 +58,18 @@ input { font: inherit; color: inherit; }
   display: flex; justify-content: space-between; align-items: center; gap: var(--space-s);
   transition: background-color var(--motion-transition-inPlace-duration) var(--motion-transition-inPlace-easing);
 }
-.nav.scrolled {
-  background: color-mix(in srgb, var(--color-background-grouped) 78%, transparent);
-  -webkit-backdrop-filter: blur(20px) saturate(1.6); backdrop-filter: blur(20px) saturate(1.6);
-  box-shadow: 0 0.5px 0 var(--color-separator);
+/* The soft scroll edge of iOS 26: content under the bar blurs and fades out, with no line and no solid fill. */
+.nav::before {
+  content: ""; position: absolute; z-index: -1; inset: 0 0 -24px 0; pointer-events: none; opacity: 0;
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--edge-colour, var(--color-background-grouped)) 55%, transparent), transparent);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  -webkit-mask-image: linear-gradient(to bottom, #000 45%, transparent); mask-image: linear-gradient(to bottom, #000 45%, transparent);
+  transition: opacity var(--motion-transition-inPlace-duration) var(--motion-transition-inPlace-easing);
 }
-.app.plain .nav.scrolled { background: color-mix(in srgb, var(--color-background-page) 78%, transparent); }
+.nav.scrolled::before { opacity: 1; }
+.app.plain .nav { --edge-colour: var(--color-background-page); }
 /* The player keeps its wash under the bar when the page scrolls. */
-.app.is-player .nav.scrolled { background: color-mix(in srgb, var(--wash-colour) 82%, transparent); }
+.app.is-player .nav { --edge-colour: var(--wash-colour); }
 .nav .back {
   flex: 0 1 auto; min-width: 0; display: flex; align-items: center; gap: 2px; min-height: var(--size-hitTarget);
   padding: 0 var(--space-s) 0 var(--space-xs); color: var(--color-tint); overflow: hidden;

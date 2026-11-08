@@ -19,7 +19,7 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0013](0013-favourites.md) | Favourites and the recording order | 2026-10-31 |
 | [0014](0014-player.md) | The player: rows beside one timeline (partly replaced by 0015) | 2026-11-02 |
 | [0015](0015-player-page.md) | The player is the page of what plays | 2026-11-03 |
-| [0016](0016-chronology.md) | The Chronology: a chart of one composer among their contemporaries (partly replaced by 0022) | 2026-11-04 |
+| [0016](0016-chronology.md) | The Chronology: a chart of one composer among their contemporaries (partly replaced by 0022 and 0026) | 2026-11-04 |
 | [0017](0017-composer-and-performer-pages.md) | Composer and performer pages | 2026-11-04 |
 | [0018](0018-stack-and-back.md) | The system back stack, with the name of the page behind | 2026-11-04 |
 | [0019](0019-performer-facts.md) | Performer facts from Wikidata | 2026-11-04 |
@@ -29,3 +29,4 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0023](0023-no-title-in-the-bar.md) | No title in the navigation bar | 2026-11-07 |
 | [0024](0024-album-work-headings.md) | Work headings on an album page only for whole works | 2026-11-07 |
 | [0025](0025-search-field-and-filter-sheet.md) | The search field finds; filters open in a sheet | 2026-11-07 |
+| [0026](0026-contemporaries-by-active-years.md) | Contemporaries by overlapping active years | 2026-11-07 |

@@ -45,7 +45,7 @@ The years from a composer's work period start in Wikidata until their death. Bef
 _Avoid_: Career, working life
 
 **Contemporary**:
-A composer with works in the library inside the active years of the composer in focus, 10 years before and after.
+A composer in the library whose active years overlap those of the composer in focus, 10 years before and after (ADR 0026).
 _Avoid_: Neighbour, peer
 
 **Page**:

@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Type sheet</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="tokens.css?v=24">
-<link rel="stylesheet" href="specimen.css?v=24">
-<script src="specimen.js?v=24"></script>
+<link rel="stylesheet" href="tokens.css?v=25">
+<link rel="stylesheet" href="specimen.css?v=25">
+<script src="specimen.js?v=25"></script>
 </head>
 <body>
 <style>
@@ -35,6 +35,14 @@
   .ctx .page-head .meta { margin-top: var(--g-in); }
   .ctx .section { margin-top: var(--g-sec); }
   .ctx .section-head { font: 600 var(--type-title3-size)/1.25 var(--type-body-family); color: var(--color-text-primary); padding-bottom: var(--g-in); text-transform: none; }
+  .ctx .section-head.disp { font-family: var(--disp-family); font-weight: var(--disp-weight); font-size: var(--type-title3-size); line-height: var(--disp-lh); letter-spacing: var(--disp-track); }
+  /* The text face replaces SF inside the context view and the text cards only; the specimen chrome stays SF, as iOS chrome would. */
+  .ctx, .tcard { --type-largeTitle-family: var(--text-family); --type-title1-family: var(--text-family); --type-title2-family: var(--text-family); --type-title3-family: var(--text-family);
+    --type-headline-family: var(--text-family); --type-body-family: var(--text-family); --type-callout-family: var(--text-family); --type-subheadline-family: var(--text-family);
+    --type-footnote-family: var(--text-family); --type-caption1-family: var(--text-family); --type-caption2-family: var(--text-family); }
+  /* Durations and years align in columns: tabular and lining, whatever the face defaults to. */
+  .ctx .nums, .tcard .nums { font-variant-numeric: tabular-nums lining-nums; }
+  .wall h2 { margin-top: var(--g-sec); }
   .ctx .row { padding-top: calc(var(--g-between) / 2); padding-bottom: calc(var(--g-between) / 2); align-items: flex-start; }
   .ctx .row .main > * + * { margin-top: var(--g-in); }
   .ctx .lead { display: flex; gap: var(--space-s); align-items: baseline; }
@@ -45,8 +53,8 @@
   .ctx.plain .section-head { padding-left: var(--pad-left); padding-right: var(--pad-right); }
   .ctx.plain .row { padding-left: var(--pad-left); padding-right: var(--pad-right); }
   .ctx.plain .row + .row::before { left: var(--sep-plain, var(--pad-left)); right: 0; }
-  .facepick { display: flex; gap: var(--space-s); align-items: center; padding: var(--space-s) var(--pad-right) 0 var(--pad-left); }
-  .facepick select { flex: 1; min-width: 0; height: 32px; border-radius: 8px; border: 0; padding: 0 8px; background: var(--color-fill-quiet); -webkit-appearance: none; appearance: none; }
+  .facepick { display: flex; flex-wrap: wrap; gap: var(--space-s); align-items: center; padding: var(--space-s) var(--pad-right) 0 var(--pad-left); }
+  .facepick select { flex: 1 1 40%; min-width: 0; height: 32px; border-radius: 8px; border: 0; padding: 0 8px; background: var(--color-fill-quiet); -webkit-appearance: none; appearance: none; }
 
   /* The scale table. */
   .scale-t { width: calc(100% - var(--pad-left) - var(--pad-right)); margin: var(--g-between) var(--pad-right) 0 var(--pad-left); border-collapse: collapse; font-variant-numeric: tabular-nums; }
@@ -96,13 +104,27 @@ const FACES = [
   { id: "junicode", name: "Junicode 2", family: "'Junicode', serif", face: "https://cdn.jsdelivr.net/gh/psb1558/Junicode-font@v2.226/webfiles/JunicodeVF-Roman.woff2", meta: "OFL · 2026 · scholarly Garamond · 1 MB" },
   { id: "ysabeau", name: "Ysabeau", family: "'Ysabeau', sans-serif", css: GF("Ysabeau:wght@1..1000"), meta: "OFL · 2023 · humanist sans, the foil" },
 ];
+// Text faces in place of SF, for rows, names and facts. All OFL 1.1; each has tabular figures (fontTools, 2026-11-08).
+const TEXT = [
+  { id: "sf", name: "SF Pro", family: "-apple-system, system-ui, sans-serif", meta: "System · Dynamic Type tracking built in" },
+  { id: "ysabeau", name: "Ysabeau", family: "'Ysabeau', sans-serif", meta: "Humanist on a Garamond skeleton · small caps" },
+  { id: "alegreya", name: "Alegreya Sans", family: "'Alegreya Sans', sans-serif", css: GF("Alegreya+Sans:wght@300;400;500;700"), meta: "Humanist, calligraphic · small caps · static weights" },
+  { id: "source", name: "Source Sans 3", family: "'Source Sans 3', sans-serif", css: GF("Source+Sans+3:wght@200..900"), meta: "Humanist · Adobe · pairs with Source Serif" },
+  { id: "atkinson", name: "Atkinson Hyperlegible Next", family: "'Atkinson Hyperlegible Next', sans-serif", css: GF("Atkinson+Hyperlegible+Next:wght@200..800"), meta: "2025 · made for low vision" },
+  { id: "instrument", name: "Instrument Sans", family: "'Instrument Sans', sans-serif", css: GF("Instrument+Sans:wght@400..700"), meta: "2023 · neo-grotesque, a width axis" },
+  { id: "inter", name: "Inter", family: "'Inter', sans-serif", css: GF("Inter:opsz,wght@14..32,100..900"), meta: "opsz · close to SF" },
+  { id: "plex", name: "IBM Plex Sans", family: "'IBM Plex Sans', sans-serif", css: GF("IBM+Plex+Sans:wght@100..700"), meta: "Grotesque with a technical edge" },
+  { id: "hanken", name: "Hanken Grotesk", family: "'Hanken Grotesk', sans-serif", css: GF("Hanken+Grotesk:wght@100..900"), meta: "Quiet grotesque" },
+  { id: "figtree", name: "Figtree", family: "'Figtree', sans-serif", css: GF("Figtree:wght@300..900"), meta: "Geometric, friendly" },
+  { id: "public", name: "Public Sans", family: "'Public Sans', sans-serif", css: GF("Public+Sans:wght@100..900"), meta: "Neutral, government UI" },
+];
 // Steps of each text style on the ratio, body at 0. Half and quarter steps keep the iOS order of sizes.
 const STEPS = [["largeTitle", 3, 34], ["title1", 2, 28], ["title2", 1.5, 22], ["title3", 1, 20], ["headline", 0, 17], ["body", 0, 17],
   ["callout", -0.25, 16], ["subheadline", -0.5, 15], ["footnote", -1, 13], ["caption1", -1.25, 12], ["caption2", -1.5, 11]];
-const DEFAULTS = { face: "ny", stars: "", ratio: Math.sqrt(PHI).toFixed(3), pstep: "2", weight: "400", track: "0", lh: "1.15",
-  reach: "works", list: "plain", couple: "1", sratio: Math.sqrt(PHI).toFixed(3), gin: "-4", ggr: "1", gsec: "3", view: "wall", work: "Antonín Dvořák|Symphony No. 9 in E minor, Op. 95" };
+const DEFAULTS = { face: "ny", text: "sf", stars: "ny,corm,witt,piazzolla", ratio: Math.sqrt(PHI).toFixed(3), pstep: "2", weight: "400", track: "0", lh: "1.15",
+  heads: "display", list: "plain", couple: "1", sratio: Math.sqrt(PHI).toFixed(3), gin: "-4", ggr: "1", gsec: "3", view: "wall", work: "Antonín Dvořák|Symphony No. 9 in E minor, Op. 95" };
 
-for (const f of FACES) {
+for (const f of [...FACES, ...TEXT]) {
   if (f.css) document.head.append(Object.assign(document.createElement("link"), { rel: "stylesheet", href: f.css }));
   if (f.face) document.head.append(Object.assign(document.createElement("style"), { textContent: `@font-face { font-family: 'Junicode'; src: url(${f.face}) format('woff2'); font-weight: 300 700; font-display: swap; }` }));
 }
@@ -143,6 +165,7 @@ K.start(() => {
     const v = values(), root = document.documentElement.style, f = faceOf(S.face);
     for (const [n] of STEPS) root.setProperty(`--type-${n}-size`, v.sizes[n].toFixed(2) + "px");
     root.setProperty("--disp-family", f.family);
+    root.setProperty("--text-family", (TEXT.find((t) => t.id === S.text) || TEXT[0]).family);
     root.setProperty("--disp-weight", S.weight);
     root.setProperty("--disp-track", S.track + "em");
     root.setProperty("--disp-lh", S.lh);
@@ -178,8 +201,18 @@ K.start(() => {
           el("div", { class: "disp page" }, K.titled(SAMPLE.title, K.fermata(true))),
           el("div", { class: "disp rowsize" }, SAMPLE.row),
           el("div", { class: "disp rowsize" }, SAMPLE.german),
+          el("div", { class: "disp", style: "font-size: var(--type-title3-size)" }, "Recordings"),
           el("div", { class: "disp rowsize secondary" }, SAMPLE.names));
-      }));
+      }),
+      el("h2", { class: "t-title2" }, "Text faces"),
+      el("p", { class: "t-footnote secondary" }, "In place of SF for names, facts and rows. Tap a name to open it in context."),
+      ...TEXT.map((t) => el("div", { class: "card tcard" + (S.text === t.id ? " cur" : ""), style: `--text-family: ${t.family}` },
+        el("div", { class: "top" }, el("button", { class: "name t-headline", style: "text-align:left", onclick: () => { S.text = t.id; S.view = "ctx"; save(); render(); } }, t.name, el("span", { class: "open t-footnote" }, "  ›"))),
+        el("div", { class: "t-caption1 secondary", style: "font-family: -apple-system, system-ui, sans-serif" }, t.meta),
+        el("div", { class: "t-headline" }, "Karel Ančerl, Wiener Symphoniker"),
+        el("div", { class: "t-subheadline" }, "Ádám Fischer, Mariss Jansons, Jiří Bělohlávek, Krystian Zimerman"),
+        el("div", { class: "t-footnote secondary nums" }, "Symphony No. 9; Vltava · 37:22 · 41:58 · 1958"),
+        el("div", { class: "t-body" }, "III. Scherzo. Molto vivace – Poco sostenuto"))));
   }
 
   // Q9 of the grilling: the conductor or soloist and the ensemble lead; every other name follows, all shown.
@@ -191,10 +224,12 @@ K.start(() => {
 
   function ctx() {
     const pool = facePool();
-    const workTitle = (cls, text, mark) => el("div", { class: S.reach === "works" || cls.includes("page") ? "disp " + cls : cls.includes("page") ? "t-title1" : "t-body" }, mark ? K.titled(text, mark) : text);
+    const workTitle = (cls, text, mark) => el("div", { class: cls === "page" ? "disp page" : "t-body" }, mark ? K.titled(text, mark) : text);
     const pick = el("div", { class: "facepick" },
       el("select", { class: "t-body", "aria-label": "Face", onchange: (e) => { S.face = e.target.value; save(); render(); } },
         ...pool.map((f) => el("option", { value: f.id, selected: f.id === S.face }, f.name))),
+      el("select", { class: "t-body", "aria-label": "Text face", onchange: (e) => { S.text = e.target.value; save(); render(); } },
+        ...TEXT.map((t) => el("option", { value: t.id, selected: t.id === S.text }, t.name))),
       el("select", { class: "t-body", "aria-label": "Work", onchange: (e) => { S.work = e.target.value; save(); render(); } },
         ...[...M.works.values()].filter((w) => w.recordings.length > 1).map((w) => el("option", { value: w.id, selected: w.id === S.work }, w.name))));
     const work = M.works.get(S.work) || [...M.works.values()].find((w) => w.recordings.length > 1);
@@ -221,24 +256,23 @@ K.start(() => {
     const movRows = recs[0].songs.map((s, i) => el("div", { class: "row" },
       el("div", { class: "main t-body" }, K.movementTitle(s, work.name)),
       el("div", { class: "trail t-body nums" }, K.time(s.duration))));
-    const section = (title, rows) => el("section", { class: "section" }, el("div", { class: "section-head" }, title), el("div", { class: "list" }, ...rows));
+    const section = (title, rows) => el("section", { class: "section" }, el("div", { class: "section-head" + (S.heads === "display" ? " disp" : "") }, title), el("div", { class: "list" }, ...rows));
     return el("div", { class: "ctx " + S.list }, pick, head,
       el("div", { class: "button-row" }, el("button", { class: "capsule filled t-headline" }, "Play")),
       section(`Recordings · ${recs.length}`, recRows),
       section("Movements", movRows),
       section("Works by Frédéric Chopin", workRows),
-      el("p", { class: "t-footnote secondary", style: "padding: var(--g-between) var(--pad-right) var(--g-sec) var(--pad-left)" },
-        S.reach === "works" ? "Reach: the display face marks every work title." : "Reach: the display face sets page titles only; rows stay in SF."));
+      el("div", { style: "height: var(--g-sec)" }));
   }
 
   function tokensOut(v) {
     const f = faceOf(S.face);
     const px = (n) => ({ value: +(n / v.dt).toFixed(2), unit: "px" });
     const out = {
-      font: { family: { display: { $value: f.family.split(",").map((s) => s.trim().replace(/'/g, "")) } } },
+      font: { family: { display: { $value: f.family.split(",").map((s) => s.trim().replace(/'/g, "")) }, text: { $value: (TEXT.find((t) => t.id === S.text) || TEXT[0]).family.split(",").map((s) => s.trim().replace(/'/g, "")) } } },
       ratio: { type: +v.r.toFixed(4), space: +v.rs.toFixed(4) },
       type: Object.fromEntries(STEPS.map(([n, s]) => [n, { fontSize: px(v.sizes[n]), step: s }])),
-      display: { page: { fontSize: px(v.page), step: num("pstep") }, fontWeight: +S.weight, letterSpacing: { value: +S.track, unit: "em" }, lineHeight: +S.lh, reach: S.reach },
+      display: { page: { fontSize: px(v.page), step: num("pstep") }, fontWeight: +S.weight, letterSpacing: { value: +S.track, unit: "em" }, lineHeight: +S.lh, headings: S.heads },
       space: { inGroup: px(v.gin), betweenGroups: px(v.ggr), betweenSections: px(v.gsec) },
       list: S.list,
     };
@@ -303,7 +337,7 @@ K.start(() => {
     const spacing = el("div", { class: S.couple === "1" ? "dim" : null }, slider("Space ratio", "sratio", 1.05, 1.7, 0.001, (x) => (+x).toFixed(3)), chips("sratio"));
     const pt = (n) => (n / v.dt).toFixed(1);
     tune.replaceChildren(
-      el("div", { class: "hd" }, el("strong", {}, faceOf(S.face).name),
+      el("div", { class: "hd" }, el("strong", {}, faceOf(S.face).name + " + " + (TEXT.find((t) => t.id === S.text) || TEXT[0]).name),
         el("span", {}, el("button", { class: "tb", onclick: () => { for (const k in DEFAULTS) if (!["stars", "view", "face", "work"].includes(k)) S[k] = DEFAULTS[k]; save(); render(); } }, "Reset"),
           el("button", { class: "tb", onclick: () => tune.classList.remove("on") }, "Done"))),
       el("h3", {}, "Scale"),
@@ -313,7 +347,7 @@ K.start(() => {
       slider("Weight", "weight", 300, 700, 10),
       slider("Tracking", "track", -0.04, 0.04, 0.002, (x) => (+x).toFixed(3)),
       slider("Line height", "lh", 0.95, 1.6, 0.01, (x) => (+x).toFixed(2)),
-      el("div", { class: "ctl" }, el("span", {}, "Reach"), toggle("reach", [["works", "Every work title"], ["titles", "Page titles"]])),
+      el("div", { class: "ctl" }, el("span", {}, "Headings"), toggle("heads", [["display", "Display face"], ["sf", "Text face"]])),
       el("h3", {}, "Spacing"),
       el("div", { class: "ctl" }, el("span", {}, "Ratio"), toggle("couple", [["1", "Same as type"], ["0", "Own ratio"]])),
       spacing,

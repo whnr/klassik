@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Player</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="tokens.css?v=10">
-<link rel="stylesheet" href="specimen.css?v=10">
-<script src="specimen.js?v=10"></script>
+<link rel="stylesheet" href="tokens.css?v=11">
+<link rel="stylesheet" href="specimen.css?v=11">
+<script src="specimen.js?v=11"></script>
 </head>
 <body>
 <style>
@@ -33,7 +33,7 @@
   .bar-box { display: grid; gap: var(--space-xs); }
   .mv-bar { position: relative; height: 6px; border-radius: var(--radius-full); background: var(--color-fill-standard); touch-action: none; }
   /* The bar is 6 px tall; its touch area is the 44 px of a system slider. */
-  .mv-bar::after { content: ""; position: absolute; left: 0; right: 0; top: -19px; bottom: -19px; }
+  .mv-bar::after { touch-action: none; content: ""; position: absolute; left: 0; right: 0; top: -19px; bottom: -19px; }
   .mv-bar .fill { position: absolute; inset: 0 auto 0 0; border-radius: var(--radius-full); background: var(--color-tint); }
   .mv-bar .note-dot { position: absolute; top: -9px; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: var(--color-text-secondary); }
   .mv-bar .note-span { position: absolute; top: -8px; height: 4px; border-radius: 2px; background: var(--color-text-secondary); }
@@ -48,9 +48,13 @@
   .track .eq { display: flex; gap: 2px; align-items: flex-end; height: 14px; color: var(--color-tint); }
   .track .eq i { width: 3px; background: currentColor; border-radius: 1px; }
   .track .eq i:nth-child(1) { height: 60%; } .track .eq i:nth-child(2) { height: 100%; } .track .eq i:nth-child(3) { height: 40%; }
-  .track .row[aria-expanded="true"] .main > div { font-weight: 600; }
   .add-note { justify-self: start; color: var(--color-tint); }
-  .note-edit { display: flex; gap: var(--space-s); align-items: baseline; }
+  .note-edit { display: grid; gap: var(--space-xs); }
+  .note-line { display: flex; gap: var(--space-s); align-items: baseline; }
+  .note-actions { display: flex; gap: var(--space-l); justify-content: flex-end; }
+  .save-note { color: var(--color-tint); }
+  .disclose { display: inline-block; width: 7px; height: 12px; margin-left: 0.4em; vertical-align: 0.05em; color: var(--color-text-tertiary); transition: transform var(--motion-transition-inPlace-duration) var(--motion-transition-inPlace-easing); }
+  [aria-expanded="true"] .disclose { transform: rotate(90deg); }
   .note-edit .at { flex: none; color: var(--color-tint); }
   .end-note { flex: none; color: var(--color-tint); }
   .note-input { flex: 1 1 0; width: 0; min-width: 0; border: 0; border-bottom: 1px solid var(--color-separator); background: none; color: var(--color-text-primary); padding: var(--space-xxs) 0; outline: none; }
@@ -140,7 +144,9 @@ K.start(() => {
   // Every variant keeps the row head one height whether open or not, so a tapped row never moves.
   function trackRow(s, i, work) {
     const isPlaying = playingHere() && K.P.index === i;
-    const isOpen = isPlaying || (V !== "c" && V !== "d" && open.has(i));
+    // A row opens only when it holds something: performers that differ from the page, or notes.
+    const opens = !isPlaying && V !== "d" && hasContent(s, i);
+    const isOpen = isPlaying || (opens && V !== "c" && open.has(i));
     const block = el("div", { class: "row-block track" });
     // Rows B keeps the play button on the edge away from the timeline, so a tap on it never lands on a scrub.
     const front = V === "b" && document.documentElement.dataset.side !== "left";
@@ -149,13 +155,16 @@ K.start(() => {
     const tap = () => {
       if (isPlaying) return;
       if (V === "d") return playFrom(i);
+      if (!opens) return;
       if (V === "c") return card(s, i, work);
       open.has(i) ? open.delete(i) : open.add(i);
       render();
     };
-    const head = el("button", { class: "row", "aria-expanded": V === "a" || V === "b" ? (isOpen ? "true" : "false") : null, onclick: tap },
+    const title = K.movementTitle(s, work);
+    const chevron = opens ? el("span", { class: "disclose", html: ICON.chevron.replace('class="chevron" ', "") }) : null;
+    const head = el(opens || V === "d" ? "button" : "div", { class: "row", "aria-expanded": opens && V !== "c" ? (isOpen ? "true" : "false") : null, onclick: tap },
       lead,
-      el("div", { class: "main" }, el("div", { class: isPlaying ? "t-headline" : "t-body" }, K.movementTitle(s, work))),
+      el("div", { class: "main" }, el("div", { class: isPlaying ? "t-headline" : "t-body" }, chevron ? K.titled(title, chevron) : title)),
       el("div", { class: "trail t-subheadline nums" }, K.time(s.duration), trail));
     block.append(head);
     if (isPlaying) block.append(openBody(s, i));
@@ -195,33 +204,40 @@ K.start(() => {
       const when = el("span", { class: "at nums t-subheadline" });
       const show = () => (when.textContent = K.time(editing.at) + (editing.span ? `–${K.time(editing.at + editing.span)}` : ""));
       show();
-      const input = el("input", { class: "note-input t-body", placeholder: "Write the note", enterkeyhint: "done" });
-      input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.blur(); });
-      input.addEventListener("blur", () => {
+      const input = el("input", { class: "note-input t-body", placeholder: "Write the note", enterkeyhint: "done", value: editing.text });
+      input.addEventListener("input", () => (editing.text = input.value));
+      const save = () => {
         const n = editing; editing = null;
-        const key = `${item.album.id}|${n.i}`;
-        NOTES[key] = [...(NOTES[key] || []), { at: n.at, span: n.span || undefined, text: input.value.trim() || "Note" }].sort((a, b) => a.at - b.at);
-        K.store("notes", NOTES);
+        if (n.text.trim()) {
+          const key = `${item.album.id}|${n.i}`;
+          NOTES[key] = [...(NOTES[key] || []), { at: n.at, span: n.span || undefined, text: n.text.trim() }].sort((a, b) => a.at - b.at);
+          K.store("notes", NOTES);
+        }
         render();
-      });
-      // The end is set on pointerdown, which does not take focus, so the field stays open.
-      const end = el("button", { class: "end-note t-subheadline", onpointerdown: (e) => {
-        e.preventDefault();
+      };
+      input.addEventListener("keydown", (e) => { if (e.key === "Enter") save(); });
+      // The note stays open without the keyboard, so the listener can scrub to find the end.
+      const end = el("button", { class: "end-note t-subheadline", onclick: () => {
         // An end before the start swaps the two, so a scrub back still gives a span.
         if (K.P.index === i) {
           const now = Math.floor(K.P.pos), a = Math.min(now, editing.at), b = Math.max(now, editing.at);
           editing.at = a; editing.span = b - a;
         }
-        show(); input.focus();
+        show();
       } }, "End here");
-      return el("div", { class: "note-edit" }, when, input, end);
+      return el("div", { class: "note-edit" }, el("div", { class: "note-line" }, when, input),
+        el("div", { class: "note-actions" }, end, el("button", { class: "end-note t-subheadline", onclick: () => { editing = null; render(); } }, "Cancel"), el("button", { class: "save-note t-headline", onclick: save }, "Save")));
     }
     return el("button", { class: "add-note t-subheadline", onclick: () => {
-      editing = { i, at: Math.floor(K.P.pos), span: 0 };
+      editing = { i, at: Math.floor(K.P.pos), span: 0, text: "" };
       render();
       // iOS opens the keyboard only for a focus inside the tap itself.
       body.querySelector(".note-input").focus();
     } }, "Add a note here");
+  }
+
+  function hasContent(s, i) {
+    return Boolean(performerRows(s) || notesOf(i).length);
   }
 
   // A row that does not play shows what it holds, with no bar: a bar belongs to the playing movement only.
@@ -330,7 +346,10 @@ K.start(() => {
       : null;
     const ended = !K.current() && K.P.queue.length ? el("p", { class: "section-foot t-subheadline" }, "The queue has ended.") : null;
     tick.parts = null;
-    body.replaceChildren(...[hero(), ...sections, tail, ended].filter(Boolean));
+    // The hero is built once per item and state, so a tap on a row never reloads the cover.
+    const heroKey = item.id + "|" + playingHere();
+    if (heroKey !== render.heroKey) { render.heroKey = heroKey; render.hero = hero(); }
+    body.replaceChildren(...[render.hero, ...sections, tail, ended].filter(Boolean));
     showState();
   }
 

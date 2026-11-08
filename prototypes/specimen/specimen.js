@@ -16,8 +16,9 @@ const K = (() => {
     } catch { return null; }
   }
 
+  // Settings come from the link only, so a page opened without parameters shows the defaults. Links carry them on.
   function setting(name, fallback) {
-    return params.get(name) || store(name) || fallback;
+    return params.get(name) || fallback;
   }
 
   function href(path, extra = {}) {

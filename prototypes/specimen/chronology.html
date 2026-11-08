@@ -77,10 +77,9 @@ K.start(() => {
   }
 
   function contemporaries(focus) {
-    // A dated work counts by its year. An undated work counts when its composer's active years overlap the window.
-    const f = focus.facts, from = (f.activeFrom || f.born) - 10, to = (f.died || 2030) + 10;
-    const overlaps = (c) => (c.facts.activeFrom || c.facts.born) <= to && (c.facts.died || 2030) >= from;
-    return composers.filter((c) => c !== focus && [...c.works].some((w) => (w.year ? w.year >= from && w.year <= to : overlaps(c))));
+    // ADR 0026: a contemporary's active years overlap the focus window. Work dates do not decide.
+    const f = focus.facts, from = f.activeFrom ? f.activeFrom - 10 : f.born, to = f.activeFrom ? (f.died || 2030) + 10 : f.died || 2030;
+    return composers.filter((c) => c !== focus && (c.facts.activeFrom || c.facts.born) <= to && (c.facts.died || 2030) >= from);
   }
 
   function specs() {

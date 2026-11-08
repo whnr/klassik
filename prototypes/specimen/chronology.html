@@ -112,7 +112,8 @@ K.start(() => {
     const Y = (y) => rh / 2 + ((y - y0) / (y1 - y0)) * (span - rh / 2);
     for (let y = Math.ceil(y0 / 10) * 10; y <= y1; y += 10) out.push({ key: "tick:" + y, cls: "tick t-caption2 nums", text: String(y), s: { left: 0, top: Y(y) } });
     const lanesRight = gutter + (W - gutter) * 0.42;
-    const people = [...contemporaries(focus), focus].sort((a, b) => a.facts.born - b.facts.born);
+    // Lanes keep the overview's order (birth year, then name), so a composer never changes places with the focus.
+    const people = [...contemporaries(focus), focus].sort((a, b) => composers.indexOf(a) - composers.indexOf(b));
     const lx = (i) => gutter + 8 + (i + 0.5) * ((lanesRight - gutter - 8) / people.length);
     const playingName = playingWork() && playingWork().composer;
     people.forEach((c, i) => {
@@ -164,6 +165,7 @@ K.start(() => {
       const fresh = !node;
       if (fresh) { node = el("div"); live.set(s.key, node); chart.append(node); node.style.opacity = 0; }
       node.className = s.cls;
+      node.dataset.key = s.key;
       if (s.text != null) node.textContent = s.text;
       if (s.html) node.replaceChildren(el("span", { class: "y" }, s.html[0]), el("span", { class: "n" }, s.html[1]));
       node._spec = s;

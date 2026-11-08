@@ -1,6 +1,6 @@
 # 0012. Look up works composer by composer
 
-Date: 2026-10-19. Decided by Flo ("batch lookup now"). Bead: sz-rs30.1.64. Changes the lookup order of [0011](0011-enrichment.md); its matching rules stay.
+Date: 2026-10-19. Decided by Flo ("batch lookup now"). Bead: sz-rs30.1.64. Replaces the lookup order of [0011](0011-enrichment.md). Its matching rules stay.
 
 ## Context
 

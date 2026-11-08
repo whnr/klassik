@@ -1,6 +1,6 @@
 # 0014. The player: rows beside one timeline
 
-Date: 2026-11-02. Decided by Flo after seven prototype rounds. Bead: sz-rs30.1.74.7. Changes the player part of sz-rs30.1.74.4: the player is no longer a sheet, and the mini player is no longer the plain tab accessory.
+Date: 2026-11-02. Decided by Flo after seven prototype rounds. Bead: sz-rs30.1.74.7. Changes the player part of sz-rs30.1.74.4: the player is no longer a sheet, and the mini player is no longer the plain tab accessory. The player that slides in on top, and the mini player that opens it, are replaced by [0015](0015-player-page.md). The row and note rules are replaced by [0027](0027-player-rows.md).
 
 ## Context
 

@@ -28,3 +28,4 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0022](0022-chronology-taps.md) | Chronology taps open pages | 2026-11-07 |
 | [0023](0023-no-title-in-the-bar.md) | No title in the navigation bar | 2026-11-07 |
 | [0024](0024-album-work-headings.md) | Work headings on an album page only for whole works | 2026-11-07 |
+| [0025](0025-search-field-and-filter-sheet.md) | The search field finds; filters open in a sheet | 2026-11-07 |

@@ -93,7 +93,7 @@ Works that share a GROUPING tag, such as Etudes, Op. 10. A set folds into one ro
 _Avoid_: Group, cycle, collection
 
 **Scope**:
-The kind of search term that the search lists: all kinds, genres, composers, conductors or performers. A scope with an empty field lists every search term of that kind.
+The kind of search term that the filter sheet lists: genres, composers, conductors or performers. A scope with an empty field lists every search term of that kind.
 _Avoid_: Facet, category, tab
 
 **Timeline**:

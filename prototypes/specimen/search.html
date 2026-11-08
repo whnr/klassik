@@ -5,14 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Search</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="tokens.css?v=17">
-<link rel="stylesheet" href="specimen.css?v=17">
-<script src="specimen.js?v=17"></script>
+<link rel="stylesheet" href="tokens.css?v=18">
+<link rel="stylesheet" href="specimen.css?v=18">
+<script src="specimen.js?v=18"></script>
 </head>
 <body>
 <!--
   Search round 9 (sz-rs30.1.83.13), Flo's verdict on round 8: the field and Filters at the top, a back arrow,
-  recent searches on the empty page, no suggestions. The x in the field clears the text. The filters open in the sheet of ADR 0025.
+  recent searches on the empty page, no suggestions. The x in the field clears the text; the x pill beside Filters clears the text and the conditions. The filters open in the sheet of ADR 0025.
 -->
 <style>
   .specimen-bar { max-width: calc(100vw - 12px); overflow-x: auto; scrollbar-width: none; }
@@ -66,6 +66,8 @@
   .fieldrow .roundglass { width: 40px; height: 40px; background: var(--color-fill-quiet); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
   .search-page .nav { background: var(--color-background-grouped); }
   .search-page .scroll { padding-top: calc(max(env(safe-area-inset-top), 6px) + var(--pill-space, 34px) + var(--size-hitTarget) + 48px); }
+  .fieldrow .reset svg { width: 18px; height: 18px; }
+  .fieldrow .reset:disabled { color: var(--color-text-tertiary); cursor: default; }
   .recent .row { width: 100%; text-align: left; }
   .recent .row svg { width: 16px; height: 16px; flex: none; color: var(--color-text-secondary); }
   .section-head button { color: var(--color-tint); text-transform: none; font: inherit; }
@@ -153,8 +155,13 @@ K.start(() => {
   const filtersBtn = el("button", { class: "roundglass", "aria-label": "Filters", html: FUNNEL,
     onpointerdown: (e) => e.preventDefault(), onclick: () => { input.blur(); setOpen(!open); } });
   filtersBtn.append(badge);
+  // The x pill clears the text and every condition. It stays in place when there is nothing to clear, so the field never changes width.
+  const resetBtn = el("button", { class: "roundglass reset", "aria-label": "Clear search and filters",
+    html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M7 7l10 10M17 7 7 17"/></svg>',
+    onpointerdown: (e) => e.preventDefault(),
+    onclick: () => { input.value = ""; query = ""; conds = []; marked = null; save(); update(); } });
   const field = el("label", { class: "field" }, el("span", { html: ICON.search }), input, clear);
-  document.body.append(el("div", { class: "fieldrow" }, field, filtersBtn));
+  document.body.append(el("div", { class: "fieldrow" }, field, filtersBtn, resetBtn));
   input.addEventListener("input", () => { query = input.value; save(); update(); });
   input.addEventListener("focus", () => document.body.classList.add("typing"));
   input.addEventListener("blur", () => document.body.classList.remove("typing"));
@@ -344,6 +351,7 @@ K.start(() => {
 
   function update() {
     clear.style.visibility = input.value ? "visible" : "hidden";
+    resetBtn.disabled = !query && !conds.length;
     badge.textContent = String(conds.length);
     badge.style.display = conds.length && !open ? "" : "none";
     filtersBtn.classList.toggle("on", open);

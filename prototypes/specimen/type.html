@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Type sheet</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="tokens.css?v=26">
-<link rel="stylesheet" href="specimen.css?v=26">
-<script src="specimen.js?v=26"></script>
+<link rel="stylesheet" href="tokens.css?v=27">
+<link rel="stylesheet" href="specimen.css?v=27">
+<script src="specimen.js?v=27"></script>
 </head>
 <body>
 <style>
@@ -81,6 +81,11 @@
   .ctx .mv-controls .main-btn svg { width: 30px; height: 30px; }
   .ctx .add-note { justify-self: start; color: var(--color-tint); }
 
+  .ctx .player-page { border-top: 0.5px solid var(--color-separator); padding-top: var(--g-sec); }
+  .ctx .hero { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--g-in); padding: 0 var(--pad-right) var(--g-between) var(--pad-left); }
+  .ctx .hero .big { width: var(--size-coverPage); height: var(--size-coverPage); border-radius: var(--radius-l); object-fit: cover; box-shadow: 0 6px 24px rgb(0 0 0 / 0.22); margin-bottom: var(--g-in); }
+  .ctx .hero .link { color: var(--color-tint); }
+
   /* The scale table. */
   .scale-t { width: calc(100% - var(--pad-left) - var(--pad-right)); margin: var(--g-between) var(--pad-right) 0 var(--pad-left); border-collapse: collapse; font-variant-numeric: tabular-nums; }
   .scale-t td, .scale-t th { padding: 6px 4px 6px 0; border-bottom: 0.5px solid var(--color-separator); text-align: left; vertical-align: baseline; }
@@ -144,13 +149,20 @@ const TEXT = [
   { id: "hanken", name: "Hanken Grotesk", family: "'K Hanken Grotesk', sans-serif", file: "HankenGrotesk.ttf", meta: "Quiet grotesque · no old-style figures" },
   { id: "figtree", name: "Figtree", family: "'K Figtree', sans-serif", file: "Figtree.ttf", meta: "Geometric, friendly · no old-style figures" },
 ];
+// A number stays on the line of its word: "4 movements", "Op. 61", "No. 1", "BWV 1050".
+const NB = "\u00a0";
+const glue = (text) => String(text)
+  .replace(/\b(Op|No|Nr|Nos|BWV|KV|K|D|Hob|RV|WoO|HWV|Sz|BB|TrV|S|L)\.? (?=[0-9IVXL])/g, (m) => m.slice(0, -1) + NB)
+  .replace(/(\d) (?=[A-Za-zÀ-ž])/g, "$1" + NB);
+const count = (n, one, many) => `${n}${NB}${n === 1 ? one : many}`;
 // Figures: a face without old-style figures shows lining ones whatever the choice.
 const FIGS = { onum: "oldstyle-nums proportional-nums", "onum tnum": "oldstyle-nums tabular-nums", "lnum tnum": "lining-nums tabular-nums", lnum: "lining-nums proportional-nums" };
 // Steps of each text style on the ratio, body at 0. Half and quarter steps keep the iOS order of sizes.
 const STEPS = [["largeTitle", 3, 34], ["title1", 2, 28], ["title2", 1.5, 22], ["title3", 1, 20], ["headline", 0, 17], ["body", 0, 17],
   ["callout", -0.25, 16], ["subheadline", -0.5, 15], ["footnote", -1, 13], ["caption1", -1.25, 12], ["caption2", -1.5, 11]];
-const DEFAULTS = { face: "ny", text: "sf", stars: "ny,corm,witt,piazzolla", ratio: Math.sqrt(PHI).toFixed(3), pstep: "2", weight: "400", track: "0", lh: "1.15",
-  heads: "display", fig: "onum", list: "plain", couple: "1", sratio: Math.sqrt(PHI).toFixed(3), gin: "-4", ggr: "1", gsec: "3", view: "wall", work: "Antonín Dvořák|Symphony No. 9 in E minor, Op. 95" };
+// Flo's setup from round 12 is the starting point: Wittgenstein 500, ratio 1.2, page title step 3, spacing 4:3 on its own.
+const DEFAULTS = { face: "witt", text: "sf", stars: "ny,corm,witt,piazzolla", ratio: "1.2", pstep: "3", weight: "500", track: "0", lh: "1.15",
+  heads: "display", fig: "onum", list: "plain", couple: "0", sratio: "1.333", gin: "-4", ggr: "1", gsec: "3", view: "ctx", work: "Felix Mendelssohn|A Midsummer Night's Dream, Op. 61" };
 
 const local = (family, file, weight) => `@font-face { font-family: '${family}'; src: url("fonts/${file}") format("truetype"); font-weight: ${weight}; font-display: swap; }`;
 for (const f of [...FACES, ...TEXT]) {
@@ -265,7 +277,7 @@ K.start(() => {
     const playing = Math.min(1, songs.length - 1), at = Math.min(252, songs[playing].duration * 0.34);
     const notes = [{ at: 130, text: "Horns and woodwinds, then the cor anglais" }, { at: 340, span: 40, text: "The theme comes back, quieter" }];
     return songs.map((s, i) => {
-      const title = K.movementTitle(s, work.name);
+      const title = glue(K.movementTitle(s, work.name));
       const block = el("div", { class: "row-block track" });
       const isPlaying = i === playing, closedWithContent = i === 2;
       block.append(el("div", { class: "row" },
@@ -288,6 +300,21 @@ K.start(() => {
     });
   }
 
+  // ADR 0027: the header shows what every track shares; the rows show only what differs.
+  function playerPage(rec, work) {
+    const img = K.coverImage(rec.album, "big", 960);
+    img.classList.remove("cover");
+    const years = [...new Set(rec.songs.map((s) => s.year).filter(Boolean))];
+    const year = years.length === 1 ? `Recorded${NB}${years[0]}` : rec.album.year;
+    return el("section", { class: "section player-page" },
+      el("div", { class: "hero" }, img,
+        el("div", { class: "disp", style: "font-size: var(--type-title2-size)" }, K.titled(glue(work.name), K.fermata(false))),
+        el("div", { class: "t-subheadline" }, el("span", { class: "link" }, work.composer)),
+        el("div", { class: "t-subheadline" }, ...rec.performers.flatMap((p, n) => [n ? ", " : null, el("span", { class: "link" }, p.name)]).filter(Boolean)),
+        el("div", { class: "t-footnote secondary nums" }, el("span", { class: "link" }, rec.album.name), glue(` · ${[year, K.time(rec.duration)].filter(Boolean).join(" · ")}`))),
+      el("div", { class: "list" }, ...playerRows(rec, work)));
+  }
+
   function ctx() {
     const pool = facePool();
     const workTitle = (cls, text, mark) => el("div", { class: cls === "page" ? "disp page" : "t-body" }, mark ? K.titled(text, mark) : text);
@@ -297,11 +324,11 @@ K.start(() => {
       el("select", { class: "t-body", "aria-label": "Text face", onchange: (e) => { S.text = e.target.value; save(); render(); } },
         ...TEXT.map((t) => el("option", { value: t.id, selected: t.id === S.text }, t.name))),
       el("select", { class: "t-body", "aria-label": "Work", onchange: (e) => { S.work = e.target.value; save(); render(); } },
-        ...[...M.works.values()].filter((w) => w.recordings.length > 1).map((w) => el("option", { value: w.id, selected: w.id === S.work }, w.name))));
-    const work = M.works.get(S.work) || [...M.works.values()].find((w) => w.recordings.length > 1);
+        ...[...M.works.values()].filter((w) => w.recordings.length > 1 || w.id === DEFAULTS.work).map((w) => el("option", { value: w.id, selected: w.id === S.work }, w.name))));
+    const work = M.works.get(S.work) || M.works.get(DEFAULTS.work);
     const recs = K.orderedRecordings(work);
     const head = el("div", { class: "page-head" },
-      workTitle("page", work.name, K.fermata(true)),
+      workTitle("page", glue(work.name), K.fermata(true)),
       el("div", { class: "meta t-subheadline" }, el("span", { class: "link" }, work.composer), el("span", { class: "secondary nums" }, work.year ? ` · ${work.year}` : "")));
     const plainInset = "calc(var(--pad-left) + var(--size-coverRow) + var(--space-m))";
     const recRows = recs.map((r) => {
@@ -311,19 +338,19 @@ K.start(() => {
         el("div", { class: "main" },
           el("div", { class: "lead" }, el("div", { class: "t-headline" }, lead.map((p) => p.name).join(", ")), el("div", { class: "t-body secondary nums" }, r.year || "")),
           rest.length ? el("div", { class: "t-subheadline" }, rest.map((p) => p.name).join(", ")) : null,
-          el("div", { class: "t-footnote secondary nums" }, `${r.album.name} · ${K.time(r.duration)} · ${r.songs.length} movements`)),
+          el("div", { class: "t-footnote secondary nums" }, glue(`${r.album.name} · ${K.time(r.duration)} · ${count(r.songs.length, "movement", "movements")}`))),
         el("div", { class: "trail", html: K.ICON.chevron }));
     });
     const composer = M.composers.get("Frédéric Chopin");
     const works = [...composer.works].slice(0, 8);
     const workRows = works.map((w) => el("div", { class: "row" },
-      el("div", { class: "main" }, workTitle("rowsize", w.name), el("div", { class: "t-footnote secondary nums" }, [w.year, `${w.recordings.length} recording${w.recordings.length === 1 ? "" : "s"}`].filter(Boolean).join(" · "))),
+      el("div", { class: "main" }, workTitle("rowsize", glue(w.name)), el("div", { class: "t-footnote secondary nums" }, [w.year, count(w.recordings.length, "recording", "recordings")].filter(Boolean).join(" · "))),
       el("div", { class: "trail", html: K.ICON.chevron })));
     const section = (title, rows) => el("section", { class: "section" }, el("div", { class: "section-head" + (S.heads === "display" ? " disp" : "") }, title), el("div", { class: "list" }, ...rows));
     return el("div", { class: "ctx " + S.list }, pick, head,
       el("div", { class: "button-row" }, el("button", { class: "capsule filled t-headline" }, "Play")),
       section(`Recordings · ${recs.length}`, recRows),
-      section("Player · " + recs[0].performers.map((p) => p.name).join(", "), playerRows(recs[0], work)),
+      playerPage(recs[0], work),
       section("Works by Frédéric Chopin", workRows),
       el("div", { style: "height: var(--g-sec)" }));
   }

@@ -4,7 +4,7 @@
 
 const K = (() => {
   const params = new URLSearchParams(location.search);
-  const CARRIED = ["variant", "theme", "contrast", "size", "playing", "scroll", "side"];
+  const CARRIED = ["variant", "theme", "contrast", "size", "playing", "side"];
   const SIZES = ["xSmall", "small", "medium", "large", "xLarge", "xxLarge", "xxxLarge", "AX1", "AX2", "AX3", "AX4", "AX5"];
   const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI"];
   const ENSEMBLE = new Set(["Orchestra", "Choir", "Ensemble", "Trio", "Quartet"]);
@@ -344,6 +344,8 @@ const K = (() => {
     const sides = { right: "Timeline ⇥", left: "⇤ Timeline" };
     bar.prepend(el("button", { class: "on", "aria-label": "Timeline edge", onclick: () => { setParam("side", setting("side", "right") === "right" ? "left" : "right"); location.reload(); } }, sides[setting("side", "right")]));
     document.body.append(bar);
+    // Safari can show the first option of a select built before it joined the page; set each value once it is there.
+    bar.querySelectorAll("select").forEach((s) => { const on = s.querySelector("option[selected]"); if (on) s.value = on.value; });
     // The pill wraps on a narrow screen instead of scrolling; the app frame starts below its real height.
     new ResizeObserver(() => { document.documentElement.style.setProperty("--pill-space", bar.offsetHeight + 2 + "px"); layoutChrome(); }).observe(bar);
   }
@@ -496,7 +498,7 @@ const K = (() => {
       chrome.scrubLabel.style.top = y + "px";
       chrome.scrubLabel.classList.add("on");
     };
-    tl.addEventListener("pointerdown", (e) => { start = { x: e.clientX, y: e.clientY, scrub: false }; tl.setPointerCapture(e.pointerId); });
+    tl.addEventListener("pointerdown", (e) => { e.preventDefault(); start = { x: e.clientX, y: e.clientY, scrub: false }; tl.setPointerCapture(e.pointerId); });
     tl.addEventListener("pointermove", (e) => {
       if (!start) return;
       if (!start.scrub && Math.abs(e.clientY - start.y) > 8 && Math.abs(e.clientY - start.y) > Math.abs(e.clientX - start.x)) start.scrub = true;

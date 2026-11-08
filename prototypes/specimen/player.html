@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Player</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="tokens.css?v=8">
-<link rel="stylesheet" href="specimen.css?v=8">
-<script src="specimen.js?v=8"></script>
+<link rel="stylesheet" href="tokens.css?v=10">
+<link rel="stylesheet" href="specimen.css?v=10">
+<script src="specimen.js?v=10"></script>
 </head>
 <body>
 <style>
@@ -32,6 +32,8 @@
   .note .at { flex: none; color: var(--color-tint); }
   .bar-box { display: grid; gap: var(--space-xs); }
   .mv-bar { position: relative; height: 6px; border-radius: var(--radius-full); background: var(--color-fill-standard); touch-action: none; }
+  /* The bar is 6 px tall; its touch area is the 44 px of a system slider. */
+  .mv-bar::after { content: ""; position: absolute; left: 0; right: 0; top: -19px; bottom: -19px; }
   .mv-bar .fill { position: absolute; inset: 0 auto 0 0; border-radius: var(--radius-full); background: var(--color-tint); }
   .mv-bar .note-dot { position: absolute; top: -9px; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: var(--color-text-secondary); }
   .mv-bar .note-span { position: absolute; top: -8px; height: 4px; border-radius: 2px; background: var(--color-text-secondary); }
@@ -47,8 +49,6 @@
   .track .eq i { width: 3px; background: currentColor; border-radius: 1px; }
   .track .eq i:nth-child(1) { height: 60%; } .track .eq i:nth-child(2) { height: 100%; } .track .eq i:nth-child(3) { height: 40%; }
   .track .row[aria-expanded="true"] .main > div { font-weight: 600; }
-  .facts { display: flex; flex-wrap: wrap; }
-  .facts span + span::before { content: " · "; white-space: pre; }
   .add-note { justify-self: start; color: var(--color-tint); }
   .note-edit { display: flex; gap: var(--space-s); align-items: baseline; }
   .note-edit .at { flex: none; color: var(--color-tint); }
@@ -57,9 +57,6 @@
   .always { padding: 0 var(--space-l) var(--space-s); display: grid; gap: var(--space-xxs); margin-top: calc(-1 * var(--space-xs)); }
   .sheet .card { padding: 0 var(--space-l); display: grid; gap: var(--space-m); }
   .sheet .card .open-body { padding: 0; }
-  .now-btn { position: fixed; z-index: 42; left: 50%; transform: translateX(-50%); display: none; flex: none; width: auto; min-height: 36px;
-    box-shadow: 0 2px 12px rgb(0 0 0 / 0.18); }
-  .now-btn.on { display: flex; }
   .state-line { position: fixed; z-index: 49; left: 50%; transform: translateX(-50%); top: calc(max(env(safe-area-inset-top), 6px) + var(--pill-space, 34px) + var(--size-hitTarget) + 2px);
     font: 500 10px/1.3 -apple-system, system-ui, sans-serif; color: var(--color-text-secondary); max-width: calc(100vw - 16px); width: max-content; text-align: center; pointer-events: none;
     background: color-mix(in srgb, var(--color-background-elevated) 80%, transparent); padding: 1px 8px; border-radius: 8px; }
@@ -74,7 +71,6 @@ K.start(() => {
   const NOTES = K.store("notes") || { "640qawSbxRzx7BX6z3M2wM|1": [{ at: 92, text: "The cellos and violas take the theme." }, { at: 300, span: 40, text: "Brass fanfare in C major." }] };
   const notesOf = (i) => NOTES[`${item.album.id}|${i}`] || [];
   const V = { "rows-b": "b", "rows-c": "c", "rows-d": "d" }[K.params.get("variant")] || "a";
-  const SCROLL = K.params.get("scroll") || K.store("scroll") || "button";
   const TAP = { a: "opens the row", b: "opens the row", c: "opens a card", d: "plays" }[V];
   const PLAY = V === "b" ? (document.documentElement.dataset.side === "left" ? "play at end" : "play in front") : V === "d" ? "" : "play at end";
 
@@ -120,7 +116,10 @@ K.start(() => {
     box.append(people);
     const facts = el("div", { class: "t-footnote secondary" });
     if (item.kind === "recording") facts.append(el("a", { class: "link", href: href("player.html", { album: item.album.id, back: item.title }) }, item.album.name), " · ");
-    facts.append([item.album.year, K.time(item.songs.reduce((t, s) => t + s.duration, 0))].filter(Boolean).join(" · "));
+    // A recording shows the year its tracks carry; the album year of a box set can belong to another recording on it.
+    const years = [...new Set(item.songs.map((s) => s.year).filter(Boolean))];
+    const year = item.kind === "recording" && years.length === 1 ? `Recorded ${years[0]}` : item.album.year;
+    facts.append([year, K.time(item.songs.reduce((t, s) => t + s.duration, 0))].filter(Boolean).join(" · "));
     box.append(facts);
     if (!playingHere()) {
       const play = el("button", { class: "capsule filled t-headline", style: "flex: none; width: 60%; margin-top: var(--space-m)", html: ICON.play.replace("<svg", '<svg width="14" height="14"') + "<span>Play</span>" });
@@ -181,14 +180,6 @@ K.start(() => {
         el("span", { class: "at nums" }, K.time(n.at) + (n.span ? `–${K.time(n.at + n.span)}` : "")), el("span", {}, n.text)))) : null;
   }
 
-  // The movement as a whole: its place in the work and on the album, from the tags.
-  function facts(s) {
-    const m = s.movements && s.movements[0];
-    const discs = new Set(item.album.song.map((x) => x.discNumber)).size;
-    const parts = [m && m.count ? `Movement ${m.number} of ${m.count}` : null, `Track ${s.track}` + (discs > 1 ? ` · Disc ${s.discNumber}` : ""), s.year ? `Recorded ${s.year}` : null];
-    return el("div", { class: "facts t-footnote secondary" }, ...parts.filter(Boolean).map((t) => el("span", {}, t)));
-  }
-
   function noteMark(n, s) {
     const mark = el("div", { class: n.span ? "note-span" : "note-dot" });
     mark.style.left = (n.at / s.duration) * 100 + "%";
@@ -213,9 +204,14 @@ K.start(() => {
         K.store("notes", NOTES);
         render();
       });
-      // A pointerdown that does not take focus keeps the field open while the end is set.
-      const end = el("button", { class: "end-note t-subheadline", onpointerdown: (e) => e.preventDefault(), onclick: () => {
-        if (K.P.index === i) editing.span = Math.max(0, Math.floor(K.P.pos) - editing.at);
+      // The end is set on pointerdown, which does not take focus, so the field stays open.
+      const end = el("button", { class: "end-note t-subheadline", onpointerdown: (e) => {
+        e.preventDefault();
+        // An end before the start swaps the two, so a scrub back still gives a span.
+        if (K.P.index === i) {
+          const now = Math.floor(K.P.pos), a = Math.min(now, editing.at), b = Math.max(now, editing.at);
+          editing.at = a; editing.span = b - a;
+        }
         show(); input.focus();
       } }, "End here");
       return el("div", { class: "note-edit" }, when, input, end);
@@ -231,7 +227,7 @@ K.start(() => {
   // A row that does not play shows what it holds, with no bar: a bar belongs to the playing movement only.
   function details(s, i) {
     const box = el("div", { class: "open-body" });
-    box.append(...[performerRows(s), noteRows(s, i, notesOf(i)), facts(s)].filter(Boolean));
+    box.append(...[performerRows(s), noteRows(s, i, notesOf(i))].filter(Boolean));
     return box;
   }
 
@@ -260,6 +256,8 @@ K.start(() => {
     const notes = notesOf(i);
     for (const n of notes) bar.append(noteMark(n, s));
     bar.addEventListener("pointerdown", (e) => {
+      // A scrub must not take focus, so an open note field stays open while the listener finds the end.
+      e.preventDefault();
       bar.setPointerCapture(e.pointerId);
       const move = (ev) => { const r = bar.getBoundingClientRect(); K.seek(i, Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width)) * s.duration); };
       move(e);
@@ -275,7 +273,6 @@ K.start(() => {
     box.append(el("div", { class: "bar-box" }, bar, times), controls);
     const noteList = noteRows(s, i, notes);
     if (noteList) box.append(noteList);
-    if (V !== "d") box.append(facts(s));
     box.append(noteControl(s, i));
     tick.parts = { fill: bar.firstChild, now: times.firstChild, left: times.lastChild, pause, s };
     tick();
@@ -342,7 +339,7 @@ K.start(() => {
   document.body.append(stateLine);
   function showState() {
     const s = playingHere() ? item.songs[K.P.index] : null;
-    stateLine.textContent = [`Rows ${V.toUpperCase()}: tap ${TAP}`, PLAY, `timeline ${document.documentElement.dataset.side}`, `open ${open.size}`, s ? `playing ${K.P.index + 1}/${item.songs.length} ${K.time(K.P.pos)}` : "not playing", `scroll: ${SCROLL}`].filter(Boolean).join(" · ");
+    stateLine.textContent = [`Rows ${V.toUpperCase()}: tap ${TAP}`, PLAY, `timeline ${document.documentElement.dataset.side}`, `open ${open.size}`, s ? `playing ${K.P.index + 1}/${item.songs.length} ${K.time(K.P.pos)}` : "not playing"].filter(Boolean).join(" · ");
   }
 
   function wholeWork(songs) {
@@ -351,60 +348,25 @@ K.start(() => {
   }
 
   let last = "";
-  let lastIndex = K.P.index;
   K.onPlay(() => {
     if (K.P.scrubbing || editing) { tick(); return showState(); }
     const now = [K.current() && K.current().id, K.P.index, K.P.paused].join("|");
-    if (now !== last) {
-      const moved = playingHere() && K.P.index !== lastIndex;
-      const wasVisible = moved && rowVisible(lastIndex);
-      last = now; lastIndex = K.P.index; render();
-      if (moved && SCROLL === "change" && wasVisible && Date.now() - quiet > 8000) toPlaying();
-    } else { tick(); showState(); }
+    if (now !== last) { last = now; render(); } else { tick(); showState(); }
   });
   last = [K.current() && K.current().id, K.P.index, K.P.paused].join("|");
   render();
 
-  // Three answers to "did the page just go down?", set with ?scroll=: quiet (ADR 0014), button, change.
+  // ADR 0014, confirmed by Flo for sz-rs30.1.83.8: after a quiet spell without touches, the view brings the playing row back.
   var quiet = Date.now();
   ["touchstart", "pointerdown", "wheel"].forEach((t) => scroll.addEventListener(t, () => (quiet = Date.now()), { passive: true }));
   const rowAt = (i) => body.querySelectorAll(".track")[i];
-  function rowVisible(i) {
-    const row = rowAt(i);
-    if (!row) return false;
-    const r = row.getBoundingClientRect(), v = scroll.getBoundingClientRect();
-    return r.bottom > v.top + 80 && r.top < v.bottom - 120;
-  }
-  function toPlaying() {
-    const row = rowAt(K.P.index);
-    if (!row) return;
-    const prev = rowAt(K.P.index - 1);
-    const target = (prev || row).getBoundingClientRect().top - scroll.getBoundingClientRect().top + scroll.scrollTop - 120;
-    scroll.scrollTo({ top: target, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-  }
-  const nowBtn = el("button", { class: "capsule glass now-btn t-subheadline", onclick: () => { toPlaying(); } }, "Now playing");
-  document.body.append(nowBtn);
-  function placeNowBtn() {
-    const bar = document.querySelector(".tabbar");
-    nowBtn.style.bottom = (bar ? innerHeight - bar.getBoundingClientRect().top : 16) + 12 + "px";
-    const show = SCROLL === "button" && playingHere() && !rowVisible(K.P.index);
-    nowBtn.classList.toggle("on", show);
-    if (show) nowBtn.textContent = rowAt(K.P.index).getBoundingClientRect().top < scroll.getBoundingClientRect().top ? "↑ Now playing" : "↓ Now playing";
-  }
-  scroll.addEventListener("scroll", placeNowBtn, { passive: true });
   setInterval(() => {
-    placeNowBtn();
-    if (SCROLL !== "quiet" || K.P.scrubbing || !playingHere() || Date.now() - quiet < 8000) return;
+    if (K.P.scrubbing || editing || !playingHere() || Date.now() - quiet < 8000) return;
     const row = rowAt(K.P.index), prev = rowAt(K.P.index - 1);
     if (!row) return;
     const target = (prev || row).getBoundingClientRect().top - scroll.getBoundingClientRect().top + scroll.scrollTop - 120;
-    if (Math.abs(scroll.scrollTop - target) > 40) toPlaying();
+    if (Math.abs(scroll.scrollTop - target) > 40) scroll.scrollTo({ top: target, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   }, 1000);
-
-  // Specimen only: the scroll answer is a page control next to the variant.
-  const bar = document.querySelector(".specimen-bar");
-  if (bar) bar.insertBefore(el("select", { "aria-label": "Auto-scroll", onchange: (e) => { K.store("scroll", e.target.value); const p = new URLSearchParams(location.search); p.set("scroll", e.target.value); location.search = p.toString(); } },
-    ...[["quiet", "⇣ after quiet"], ["button", "⇣ button"], ["change", "⇣ on change"]].map(([v, l]) => el("option", { value: v, selected: SCROLL === v }, l))), bar.children[2]);
 });
 </script>
 </body>

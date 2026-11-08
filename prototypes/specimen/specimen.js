@@ -361,10 +361,12 @@ const K = (() => {
   let chrome = {};
 
   function tabbar(tab) {
-    const t = (id, name, path) => el("a", { href: href(path), class: tab === id ? "on" : null, html: ICON[id] + `<span class="t-caption2">${name}</span>` });
+    // Chronology, Settings and Search keep a back arrow to the page they were opened from (Flo, 2026-11-08). Library is the root.
+    const backTo = (id) => (id === "library" ? {} : { back: tab === id ? params.get("back") : chrome.title || null });
+    const t = (id, name, path) => el("a", { href: href(path, backTo(id)), class: tab === id ? "on" : null, html: ICON[id] + `<span class="t-caption2">${name}</span>` });
     return el("nav", { class: "tabbar" },
       el("div", { class: "tabs glass" }, t("library", "Library", "index.html"), t("chronology", "Chronology", "chronology.html"), t("settings", "Settings", "tokens.html")),
-      el("a", { href: href("search.html", { back: tab === "search" ? params.get("back") : chrome.title || null }), class: "tab-search glass" + (tab === "search" ? " on" : ""), "aria-label": "Search", html: ICON.search }));
+      el("a", { href: href("search.html", backTo("search")), class: "tab-search glass" + (tab === "search" ? " on" : ""), "aria-label": "Search", html: ICON.search }));
   }
 
   function page({ tab = "library", title = "", back = null, plain = false, player = false, actions = [], tabs = true }) {

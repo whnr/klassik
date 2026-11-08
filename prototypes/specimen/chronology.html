@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Chronology</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="tokens.css?v=20">
-<link rel="stylesheet" href="specimen.css?v=20">
-<script src="specimen.js?v=20"></script>
+<link rel="stylesheet" href="tokens.css?v=21">
+<link rel="stylesheet" href="specimen.css?v=21">
+<script src="specimen.js?v=21"></script>
 </head>
 <body>
 <style>
@@ -58,7 +58,7 @@ K.start(() => {
   let state = { level: K.params.get("level") === "overview" ? "overview" : "composer", focus: byName.get(K.params.get("composer")) || byName.get(opening) || composers[0] };
 
   const overviewBtn = { label: "All", onClick: () => { state.level = state.level === "overview" ? "composer" : "overview"; draw(); } };
-  const { scroll, nav } = K.page({ tab: "chronology", title: "Chronology", actions: [overviewBtn] });
+  const { scroll, nav } = K.page({ tab: "chronology", title: "Chronology", back: { label: "Library", href: "index.html" }, actions: [overviewBtn] });
   const head = el("div", { class: "chrono-head" }, el("h1", { class: "t-title2" }), el("div", { class: "t-subheadline secondary" }));
   const chart = el("div", { class: "chart" });
   const pick = el("div", { class: "pick-label t-footnote" });

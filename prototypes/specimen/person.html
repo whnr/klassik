@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Person</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="tokens.css?v=20">
-<link rel="stylesheet" href="specimen.css?v=20">
-<script src="specimen.js?v=20"></script>
+<link rel="stylesheet" href="tokens.css?v=21">
+<link rel="stylesheet" href="specimen.css?v=21">
+<script src="specimen.js?v=21"></script>
 </head>
 <body>
 <style>
@@ -73,7 +73,7 @@ K.start(() => {
   const head = el("div", { class: "page-head person-head" }, el("h1", { class: "t-largeTitle" }, K.titled(name, mark)), el("div", { class: "meta t-subheadline secondary" }, line));
   hero.append(head);
   new ResizeObserver(() => hero.style.setProperty("--title-h", head.offsetHeight + "px")).observe(head);
-  if (composer && composer.facts) scroll.append(el("div", { class: "button-row" }, el("a", { class: "capsule t-headline", href: href("chronology.html", { composer: name }) }, "Chronology")));
+  if (composer && composer.facts) scroll.append(el("div", { class: "button-row" }, el("a", { class: "capsule t-headline", href: href("chronology.html", { composer: name, back: name }) }, "Chronology")));
 
   const tabs = kind === "composer" ? ["Works", "About"] : ["Albums", "About"];
   let tab = tabs[0];

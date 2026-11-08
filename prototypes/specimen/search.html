@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Search</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="tokens.css?v=18">
-<link rel="stylesheet" href="specimen.css?v=18">
-<script src="specimen.js?v=18"></script>
+<link rel="stylesheet" href="tokens.css?v=19">
+<link rel="stylesheet" href="specimen.css?v=19">
+<script src="specimen.js?v=19"></script>
 </head>
 <body>
 <!--
@@ -167,14 +167,18 @@ K.start(() => {
   input.addEventListener("blur", () => document.body.classList.remove("typing"));
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") { remember(query); input.blur(); } });
 
-  // ---------- Recent searches: newest first, on this device only ----------
-  let recent = K.store("search.recent") || [];
+  // ---------- Recent searches: newest first, on this device only. Each keeps its filters. ----------
+  const asRecent = (r) => (typeof r === "string" ? { q: r, conds: [] } : r);
+  let recent = (K.store("search.recent") || []).map(asRecent);
+  const recentKey = (r) => r.q.trim().toLowerCase() + "|" + JSON.stringify(r.conds);
   function remember(q) {
-    q = (q || "").trim();
-    if (!q) return;
-    recent = [q, ...recent.filter((r) => r.toLowerCase() !== q.toLowerCase())].slice(0, 20);
+    const entry = { q: (q || "").trim(), conds: conds.map((c) => [...c]) };
+    if (!entry.q && !entry.conds.length) return;
+    recent = [entry, ...recent.filter((r) => recentKey(r) !== recentKey(entry))].slice(0, 20);
     K.store("search.recent", recent);
   }
+  // The filters read as they work: terms of one condition joined with "or", conditions with "and".
+  const filterLine = (list) => list.map((c) => c.map((t) => `${ONE[kindOf(t)]} ${label(t)}`).join(" or ")).join(" and ");
   // Opening a result keeps the query that found it.
   scroll.addEventListener("click", (e) => { if (e.target.closest("a.row")) remember(query); });
 
@@ -275,8 +279,12 @@ K.start(() => {
       return [el("section", { class: "section recent" },
         el("div", { class: "section-head t-footnote" }, el("span", {}, "RECENT"),
           el("button", { onclick: () => { recent = []; K.store("search.recent", recent); update(); } }, "Clear")),
-        el("div", { class: "list" }, ...recent.map((q) => el("button", { class: "row", onclick: () => { input.value = q; query = q; remember(q); save(); update(); } },
-          el("span", { html: ICON.search }), el("div", { class: "main t-body" }, q)))))];
+        el("div", { class: "list" }, ...recent.map((r) => el("button", { class: "row", onclick: () => {
+            input.value = r.q; query = r.q; conds = r.conds.map((c) => [...c]); marked = null; remember(r.q); save(); update(); } },
+          el("span", { html: r.conds.length && !r.q ? FUNNEL : ICON.search }),
+          el("div", { class: "main" },
+            r.q ? el("div", { class: "t-body" }, r.q) : null,
+            r.conds.length ? el("div", { class: r.q ? "t-subheadline secondary" : "t-body" }, filterLine(r.conds)) : null)))))];
     }
     const ok = new Set(recs.filter((x) => passes(x, conds)).map((x) => x.r));
     const out = [];

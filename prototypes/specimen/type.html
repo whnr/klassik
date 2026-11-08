@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Type sheet</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="tokens.css?v=28">
-<link rel="stylesheet" href="specimen.css?v=28">
-<script src="specimen.js?v=28"></script>
+<link rel="stylesheet" href="tokens.css?v=29">
+<link rel="stylesheet" href="specimen.css?v=29">
+<script src="specimen.js?v=29"></script>
 </head>
 <body>
 <style>
@@ -35,7 +35,7 @@
   .ctx .page-head .meta { margin-top: var(--g-in); }
   .ctx .section { margin-top: var(--g-sec); }
   .ctx .section-head { font: 600 var(--type-title3-size)/1.25 var(--type-body-family); color: var(--color-text-primary); padding-bottom: var(--g-in); text-transform: none; }
-  .ctx .section-head.disp { font-family: var(--disp-family); font-weight: var(--disp-weight); font-size: var(--type-title3-size); line-height: var(--disp-lh); letter-spacing: var(--disp-track); }
+  .ctx .section-head.disp { font-family: var(--disp-family); font-weight: var(--disp-weight); font-size: var(--disp-head); line-height: var(--disp-lh); letter-spacing: var(--disp-track); }
   /* The text face replaces SF inside the context view and the text cards only; the specimen chrome stays SF, as iOS chrome would. */
   .ctx, .tcard { --type-largeTitle-family: var(--text-family); --type-title1-family: var(--text-family); --type-title2-family: var(--text-family); --type-title3-family: var(--text-family);
     --type-headline-family: var(--text-family); --type-body-family: var(--text-family); --type-callout-family: var(--text-family); --type-subheadline-family: var(--text-family);
@@ -160,8 +160,8 @@ const FIGS = { onum: "oldstyle-nums proportional-nums", "onum tnum": "oldstyle-n
 // Steps of each text style on the ratio, body at 0. Half and quarter steps keep the iOS order of sizes.
 const STEPS = [["largeTitle", 3, 34], ["title1", 2, 28], ["title2", 1.5, 22], ["title3", 1, 20], ["headline", 0, 17], ["body", 0, 17],
   ["callout", -0.25, 16], ["subheadline", -0.5, 15], ["footnote", -1, 13], ["caption1", -1.25, 12], ["caption2", -1.5, 11]];
-// Flo's setup from round 12 is the starting point: Wittgenstein 500, ratio 1.2, page title step 3, spacing 4:3 on its own.
-const DEFAULTS = { face: "witt", text: "sf", stars: "ny,corm,witt,piazzolla", ratio: "1.2", pstep: "3", weight: "500", track: "0", lh: "1.15",
+// Flo's baseline (2026-11-08): Wittgenstein 500, ratio 4:3, page title step 2, lining figures; headings one step larger than title3.
+const DEFAULTS = { face: "witt", text: "sf", stars: "ny,corm,witt,piazzolla", ratio: "1.333", pstep: "2", hstep: "1.5", weight: "500", track: "0", lh: "1.15",
   heads: "display", fig: "lnum", list: "plain", couple: "0", sratio: "1.333", gin: "-4", ggr: "1", gsec: "3", view: "ctx", work: "Felix Mendelssohn|A Midsummer Night's Dream, Op. 61" };
 
 const local = (family, file, weight) => `@font-face { font-family: '${family}'; src: url("fonts/${file}") format("truetype"); font-weight: ${weight}; font-display: swap; }`;
@@ -215,6 +215,7 @@ K.start(() => {
     root.setProperty("--disp-track", S.track + "em");
     root.setProperty("--disp-lh", S.lh);
     root.setProperty("--disp-page", v.page.toFixed(2) + "px");
+    root.setProperty("--disp-head", (17 * Math.pow(v.r, num("hstep")) * v.dt).toFixed(2) + "px");
     root.setProperty("--g-in", v.gin.toFixed(2) + "px");
     root.setProperty("--g-between", v.ggr.toFixed(2) + "px");
     root.setProperty("--g-sec", v.gsec.toFixed(2) + "px");
@@ -246,7 +247,7 @@ K.start(() => {
           el("div", { class: "disp page" }, K.titled(SAMPLE.title, K.fermata(true))),
           el("div", { class: "disp rowsize" }, SAMPLE.row),
           el("div", { class: "disp rowsize" }, SAMPLE.german),
-          el("div", { class: "disp", style: "font-size: var(--type-title3-size)" }, "Recordings"),
+          el("div", { class: "disp", style: "font-size: var(--disp-head)" }, "Recordings"),
           el("div", { class: "disp rowsize secondary" }, SAMPLE.names));
       }),
       el("h2", { class: "t-title2" }, "Text faces"),
@@ -362,7 +363,7 @@ K.start(() => {
       font: { family: { display: { $value: f.family.split(",").map((s) => s.trim().replace(/'/g, "")) }, text: { $value: (TEXT.find((t) => t.id === S.text) || TEXT[0]).family.split(",").map((s) => s.trim().replace(/'/g, "")) } } },
       ratio: { type: +v.r.toFixed(4), space: +v.rs.toFixed(4) },
       type: Object.fromEntries(STEPS.map(([n, s]) => [n, { fontSize: px(v.sizes[n]), step: s }])),
-      display: { page: { fontSize: px(v.page), step: num("pstep") }, fontWeight: +S.weight, letterSpacing: { value: +S.track, unit: "em" }, lineHeight: +S.lh, headings: S.heads, figures: FIGS[S.fig] },
+      display: { page: { fontSize: px(v.page), step: num("pstep") }, heading: { fontSize: px(17 * Math.pow(v.r, num("hstep")) * v.dt), step: num("hstep") }, fontWeight: +S.weight, letterSpacing: { value: +S.track, unit: "em" }, lineHeight: +S.lh, headings: S.heads, figures: FIGS[S.fig] },
       space: { inGroup: px(v.gin), betweenGroups: px(v.ggr), betweenSections: px(v.gsec) },
       list: S.list,
     };
@@ -433,6 +434,7 @@ K.start(() => {
       el("h3", {}, "Scale"),
       slider("Ratio", "ratio", 1.05, 1.7, 0.001, (x) => (+x).toFixed(3)), chips("ratio"),
       slider("Page title step", "pstep", 1, 4, 0.25, (x) => `${x} · ${pt(17 * Math.pow(num("ratio"), x) * v.dt)}`),
+      slider("Heading step", "hstep", 0.5, 3, 0.25, (x) => `${x} · ${pt(17 * Math.pow(num("ratio"), x) * v.dt)}`),
       el("h3", {}, "Display face"),
       slider("Weight", "weight", 300, 700, 10),
       slider("Tracking", "track", -0.04, 0.04, 0.002, (x) => (+x).toFixed(3)),

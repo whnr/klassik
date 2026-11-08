@@ -321,10 +321,12 @@ const K = (() => {
 
   function controls(variants) {
     const bar = el("div", { class: "specimen-bar", "aria-label": "Specimen controls" });
-    const names = Object.keys(variants);
+    // A variant names its page; a look variant without a page shows everywhere. Other pages show no menu.
+    const here = location.pathname.split("/").pop().replace(".html", "") || "index";
+    const names = Object.keys(variants).filter((n) => !variants[n].page || variants[n].page === here);
     if (names.length) {
       const sel = el("select", { "aria-label": "Variant", onchange: (e) => { setParam("variant", e.target.value); location.reload(); } },
-        el("option", { value: "" }, "system"), ...names.map((n) => el("option", { value: n, selected: params.get("variant") === n }, variants[n].label || n)));
+        el("option", { value: "" }, "decided"), ...names.map((n) => el("option", { value: n, selected: params.get("variant") === n }, variants[n].label || n)));
       bar.append(sel);
     }
     const themes = ["auto", "light", "dark"];
@@ -342,6 +344,8 @@ const K = (() => {
     const sides = { right: "Timeline ⇥", left: "⇤ Timeline" };
     bar.prepend(el("button", { class: "on", "aria-label": "Timeline edge", onclick: () => { setParam("side", setting("side", "right") === "right" ? "left" : "right"); location.reload(); } }, sides[setting("side", "right")]));
     document.body.append(bar);
+    // The pill wraps on a narrow screen instead of scrolling; the app frame starts below its real height.
+    new ResizeObserver(() => { document.documentElement.style.setProperty("--pill-space", bar.offsetHeight + 2 + "px"); layoutChrome(); }).observe(bar);
   }
 
   // ---------- App chrome ----------

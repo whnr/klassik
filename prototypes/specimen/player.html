@@ -57,7 +57,7 @@
   .now-btn { position: fixed; z-index: 42; left: 50%; transform: translateX(-50%); display: none; flex: none; width: auto; min-height: 36px;
     box-shadow: 0 2px 12px rgb(0 0 0 / 0.18); }
   .now-btn.on { display: flex; }
-  .state-line { position: fixed; z-index: 49; left: 50%; transform: translateX(-50%); top: calc(max(env(safe-area-inset-top), 6px) + 34px + var(--size-hitTarget) + 2px);
+  .state-line { position: fixed; z-index: 49; left: 50%; transform: translateX(-50%); top: calc(max(env(safe-area-inset-top), 6px) + var(--pill-space, 34px) + var(--size-hitTarget) + 2px);
     font: 500 10px/1.3 -apple-system, system-ui, sans-serif; color: var(--color-text-secondary); max-width: calc(100vw - 16px); width: max-content; text-align: center; pointer-events: none;
     background: color-mix(in srgb, var(--color-background-elevated) 80%, transparent); padding: 1px 8px; border-radius: 8px; }
   .rise-out { transform: translateY(-40px); opacity: 0; transition: transform var(--motion-transition-rise-duration) var(--motion-transition-rise-easing), opacity var(--motion-transition-rise-duration) var(--motion-transition-rise-easing); }

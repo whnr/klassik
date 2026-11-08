@@ -8,7 +8,7 @@ The design specimen of map sz-rs30.1.83 (ticket sz-rs30.1.83.4). Every look tick
 - `work.html`: a work page with recording rows. `?work=<composer>|<work>` picks another work.
 - `player.html`: the page of what plays, with the cover wash, the timeline and the open movement. A tap opens a movement row: the performers that differ from the whole page (ADR 0014) and its notes, the play button in place of the chevron. An album page heads its tracks by work only when a work has two movements on consecutive tracks (ADR 0024). `?recording=<id>` or `?album=<id>` shows another page; Play turns it into the player in place. Round 6 of sz-rs30.1.83.8 shows four answers for the movement rows: `?variant=rows-a` (faint play at the end, a tap opens the row), `rows-b` (faint play on the edge away from the timeline), `rows-c` (a tap opens a card in a sheet), `rows-d` (always open, a tap plays). `?scroll=quiet|button|change` sets the auto-scroll. A scrub on the timeline holds the rows still until the finger lifts. The first pill button puts the timeline on the right or the left edge (`?side=`), on every page.
 - `chronology.html`: one composer among the contemporaries, and the overview (`?level=overview`).
-- `search.html`: the field finds works, names and albums; filters on demand. Round 3 of sz-rs30.1.83.7 shows three places for the filters: `?variant=search-sheet`, `search-panel`, `search-chips`.
+- `search.html`: the field finds works, names and albums; filters on demand. The filters open in a sheet (ADR 0025).
 - `person.html`: a composer or performer page with the screen-wide picture (ADR 0017, 0019). `?name=<artist name>`.
 - `tokens.html`: the token sheet. Every colour in the four themes side by side, contrast on rows, the type scale at each Dynamic Type size, spacing, radius, size and each animation alone. The Settings tab opens it.
 
@@ -29,10 +29,10 @@ The pill at the top belongs to the specimen, not to the app. It sets the variant
 A look ticket adds its variants to `variants/variants.json`:
 
 ```json
-{ "a": { "label": "A serif", "css": "a.css", "js": "a.js" } }
+{ "a": { "label": "A serif", "css": "a.css", "js": "a.js", "page": "player" } }
 ```
 
-`?variant=a` loads `variants/a.css` after the frame and `variants/a.js` before the page renders. A variant overrides tokens, such as `:root { --type-body-family: ...; }` and `[data-theme="dark"] { --color-tint: ...; }`. It may add rules for a drawn view. When Flo decides, the winning values go into `design/klassik.tokens.json` on `main`, and `tokens.css` here is refreshed.
+`page` limits the variant menu to that page; without it the variant shows on every page. The empty choice, "decided", shows the decided tokens only. `?variant=a` loads `variants/a.css` after the frame and `variants/a.js` before the page renders. A variant overrides tokens, such as `:root { --type-body-family: ...; }` and `[data-theme="dark"] { --color-tint: ...; }`. It may add rules for a drawn view. When Flo decides, the winning values go into `design/klassik.tokens.json` on `main`, and `tokens.css` here is refreshed.
 
 ## Data
 

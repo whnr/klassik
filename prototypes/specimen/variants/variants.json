@@ -1,9 +1,6 @@
 {
-  "search-sheet": { "label": "Search A · sheet" },
-  "search-panel": { "label": "Search B · panel" },
-  "search-chips": { "label": "Search C · chips" },
-  "rows-a": { "label": "Rows A · play at end" },
-  "rows-b": { "label": "Rows B · play away from timeline" },
-  "rows-c": { "label": "Rows C · card sheet" },
-  "rows-d": { "label": "Rows D · always open" }
+  "rows-a": { "label": "Rows A · play at end", "page": "player" },
+  "rows-b": { "label": "Rows B · play away from timeline", "page": "player" },
+  "rows-c": { "label": "Rows C · card sheet", "page": "player" },
+  "rows-d": { "label": "Rows D · always open", "page": "player" }
 }

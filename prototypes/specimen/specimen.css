@@ -36,9 +36,9 @@ input { font: inherit; color: inherit; }
 
 /* Specimen controls: a pill at the top that belongs to the specimen, not to the app. */
 .specimen-bar {
-  max-width: calc(100vw - 12px); overflow-x: auto;
+  max-width: calc(100vw - 12px); width: max-content; flex-wrap: wrap; justify-content: center;
   position: fixed; z-index: 50; top: max(env(safe-area-inset-top), 6px); left: 50%; transform: translateX(-50%);
-  display: flex; gap: 2px; padding: 3px; border-radius: var(--radius-full);
+  display: flex; gap: 2px; padding: 3px; border-radius: 16px;
   background: var(--color-background-elevated); box-shadow: 0 1px 6px rgb(0 0 0 / 0.18);
   font: 500 12px/1 -apple-system, system-ui, sans-serif; color: var(--color-text-primary); white-space: nowrap;
 }
@@ -63,8 +63,8 @@ input { font: inherit; color: inherit; }
 .app.plain { background: var(--color-background-page); }
 .nav {
   position: absolute; z-index: 20; top: 0; left: 0; right: 0;
-  padding: calc(max(env(safe-area-inset-top), 6px) + 34px) calc(var(--space-l) + var(--size-timeline)) 0 var(--space-xs);
-  height: calc(max(env(safe-area-inset-top), 6px) + 34px + var(--size-hitTarget));
+  padding: calc(max(env(safe-area-inset-top), 6px) + var(--pill-space, 34px)) calc(var(--space-l) + var(--size-timeline)) 0 var(--space-xs);
+  height: calc(max(env(safe-area-inset-top), 6px) + var(--pill-space, 34px) + var(--size-hitTarget));
   display: flex; justify-content: space-between; align-items: center; gap: var(--space-s);
   transition: background-color var(--motion-transition-inPlace-duration) var(--motion-transition-inPlace-easing);
 }
@@ -91,7 +91,7 @@ input { font: inherit; color: inherit; }
 
 .scroll {
   flex: 1; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
-  padding: calc(max(env(safe-area-inset-top), 6px) + 34px + var(--size-hitTarget)) 0 var(--bottom-space, 180px);
+  padding: calc(max(env(safe-area-inset-top), 6px) + var(--pill-space, 34px) + var(--size-hitTarget)) 0 var(--bottom-space, 180px);
 }
 .page-head { padding: var(--space-xs) var(--pad-right) var(--space-s) var(--pad-left); }
 .page-head h1 { overflow-wrap: anywhere; }
@@ -171,7 +171,7 @@ input { font: inherit; color: inherit; }
 /* Timeline and mini player: drawn by hand (ADR 0014). Only neutral values until their look ticket. */
 .timeline {
   position: fixed; z-index: 40; right: 0; width: var(--size-hitTarget);
-  top: calc(max(env(safe-area-inset-top), 6px) + 34px); touch-action: none;
+  top: calc(max(env(safe-area-inset-top), 6px) + var(--pill-space, 34px)); touch-action: none;
 }
 .timeline .bar { position: absolute; top: 0; bottom: 0; right: 0; width: var(--size-timeline); }
 .timeline .seg { position: absolute; left: 0; right: 0; background: var(--color-timeline-unplayed); overflow: hidden; }

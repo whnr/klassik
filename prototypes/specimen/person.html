@@ -12,7 +12,7 @@
 <body>
 <style>
   /* The fade starts above the name, so the name always reads on the fading bottom of the picture. */
-  .hero { position: relative; margin-top: calc(-1 * (max(env(safe-area-inset-top), 6px) + 34px + var(--size-hitTarget))); --fade: calc(var(--title-h, 80px) + 96px); }
+  .hero { position: relative; margin-top: calc(-1 * (max(env(safe-area-inset-top), 6px) + var(--pill-space, 34px) + var(--size-hitTarget))); --fade: calc(var(--title-h, 80px) + 96px); }
   .pic { display: block; width: 100%; position: relative; height: max(min(118vw, 470px), calc(var(--fade) + 220px)); overflow: hidden; }
   .pic img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 22%; display: block;
     -webkit-mask-image: linear-gradient(to top, transparent 0, rgb(0 0 0 / 0.25) calc(var(--title-h, 80px) * 0.6), #000 var(--fade));

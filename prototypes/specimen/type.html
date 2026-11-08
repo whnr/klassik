@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Type sheet</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="tokens.css?v=25">
-<link rel="stylesheet" href="specimen.css?v=25">
-<script src="specimen.js?v=25"></script>
+<link rel="stylesheet" href="tokens.css?v=26">
+<link rel="stylesheet" href="specimen.css?v=26">
+<script src="specimen.js?v=26"></script>
 </head>
 <body>
 <style>
@@ -41,7 +41,7 @@
     --type-headline-family: var(--text-family); --type-body-family: var(--text-family); --type-callout-family: var(--text-family); --type-subheadline-family: var(--text-family);
     --type-footnote-family: var(--text-family); --type-caption1-family: var(--text-family); --type-caption2-family: var(--text-family); }
   /* Durations and years align in columns: tabular and lining, whatever the face defaults to. */
-  .ctx .nums, .tcard .nums { font-variant-numeric: tabular-nums lining-nums; }
+  .ctx, .tcard, .card .disp, .ctx .nums, .tcard .nums { font-variant-numeric: var(--fig); }
   .wall h2 { margin-top: var(--g-sec); }
   .ctx .row { padding-top: calc(var(--g-between) / 2); padding-bottom: calc(var(--g-between) / 2); align-items: flex-start; }
   .ctx .row .main > * + * { margin-top: var(--g-in); }
@@ -55,6 +55,31 @@
   .ctx.plain .row + .row::before { left: var(--sep-plain, var(--pad-left)); right: 0; }
   .facepick { display: flex; flex-wrap: wrap; gap: var(--space-s); align-items: center; padding: var(--space-s) var(--pad-right) 0 var(--pad-left); }
   .facepick select { flex: 1 1 40%; min-width: 0; height: 32px; border-radius: 8px; border: 0; padding: 0 8px; background: var(--color-fill-quiet); -webkit-appearance: none; appearance: none; }
+
+  /* The player rows of ADR 0027, drawn static: one played, one playing and open, one closed with content, one plain. */
+  .ctx .track .row { align-items: center; }
+  .ctx .track .slot { flex: none; width: 32px; display: flex; justify-content: flex-end; align-items: center; }
+  .ctx .round { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; }
+  .ctx .round svg { width: 14px; height: 14px; }
+  .ctx .round.faint { background: var(--color-fill-quiet); color: var(--color-text-secondary); }
+  .ctx .disclose { flex: none; display: inline-flex; width: 12px; justify-content: center; color: var(--color-tint); }
+  .ctx .disclose svg { width: 7px; height: 12px; }
+  .ctx .disclose.down { transform: rotate(90deg); }
+  .ctx .open-body { padding: 0 var(--pad-right) calc(var(--g-between) / 2) var(--pad-left); display: grid; gap: var(--g-in); }
+  .ctx.inset .open-body { padding-left: var(--space-l); padding-right: var(--space-l); }
+  .ctx .people-rows, .ctx .notes { display: grid; gap: var(--g-in); }
+  .ctx .note { display: flex; gap: var(--space-s); text-align: left; }
+  .ctx .note .at { flex: none; color: var(--color-tint); }
+  .ctx .mv-bar { position: relative; height: 6px; margin-top: var(--space-s); border-radius: var(--radius-full); background: var(--color-fill-standard); }
+  .ctx .mv-bar .fill { position: absolute; inset: 0 auto 0 0; border-radius: var(--radius-full); background: var(--color-tint); }
+  .ctx .mv-bar .note-dot { position: absolute; top: -9px; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: var(--color-text-secondary); }
+  .ctx .mv-bar .note-span { position: absolute; top: -8px; height: 4px; border-radius: 2px; background: var(--color-text-secondary); }
+  .ctx .mv-times { display: flex; justify-content: space-between; }
+  .ctx .mv-controls { display: flex; justify-content: center; gap: var(--space-xxl); align-items: center; }
+  .ctx .mv-controls button { width: var(--size-hitTarget); height: var(--size-hitTarget); display: grid; place-items: center; }
+  .ctx .mv-controls svg { width: 22px; height: 22px; }
+  .ctx .mv-controls .main-btn svg { width: 30px; height: 30px; }
+  .ctx .add-note { justify-self: start; color: var(--color-tint); }
 
   /* The scale table. */
   .scale-t { width: calc(100% - var(--pad-left) - var(--pad-right)); margin: var(--g-between) var(--pad-right) 0 var(--pad-left); border-collapse: collapse; font-variant-numeric: tabular-nums; }
@@ -89,42 +114,49 @@ const FACES = [
   { id: "ny", name: "New York", family: "ui-serif, 'New York', serif", meta: "System serif · opsz · free · Safari only, elsewhere a fallback" },
   { id: "source", name: "Source Serif 4", family: "'Source Serif 4', serif", css: GF("Source+Serif+4:opsz,wght@8..60,200..900"), meta: "OFL · opsz 8–60 · tabular · Adobe 2021" },
   { id: "ebg", name: "EB Garamond", family: "'EB Garamond', serif", css: GF("EB+Garamond:wght@400..800"), meta: "OFL · Garamond revival · tabular" },
-  { id: "corm", name: "Cormorant Garamond", family: "'Cormorant Garamond', serif", css: GF("Cormorant+Garamond:wght@300;400;500;600;700"), meta: "OFL · display Garamond · thin at row size" },
+  { id: "corm", name: "Cormorant Garamond", family: "'K Cormorant Garamond', serif", file: "CormorantGaramond.ttf", meta: "OFL · display Garamond · old-style figures" },
   { id: "news", name: "Newsreader", family: "'Newsreader', serif", css: GF("Newsreader:opsz,wght@6..72,200..800"), meta: "OFL · opsz 6–72 · Production Type 2020" },
   { id: "hedvig", name: "Hedvig Letters Serif", family: "'Hedvig Letters Serif', serif", css: GF("Hedvig+Letters+Serif:opsz@12..24"), meta: "OFL · 2023 · opsz 12–24 · 400 only · no tabular" },
-  { id: "witt", name: "Wittgenstein", family: "'Wittgenstein', serif", css: GF("Wittgenstein:wght@400..900"), meta: "OFL · 2024 · classical book face · tabular" },
+  { id: "witt", name: "Wittgenstein", family: "'K Wittgenstein', serif", file: "Wittgenstein.ttf", meta: "OFL · 2024 · classical book face · old-style figures" },
   { id: "ancizar", name: "Ancizar Serif", family: "'Ancizar Serif', serif", css: GF("Ancizar+Serif:wght@300..900"), meta: "OFL · 2025 · humanist · tabular · small caps" },
   { id: "playfair", name: "Playfair 2.0", family: "'Playfair', serif", css: GF("Playfair:opsz,wght@5..1200,300..900"), meta: "OFL · 2023 · opsz 5–1200 · 1.8 MB" },
   { id: "bodoni", name: "Bodoni Moda", family: "'Bodoni Moda', serif", css: GF("Bodoni+Moda:opsz,wght@6..96,400..900"), meta: "OFL · Didone · opsz 6–96" },
-  { id: "piazzolla", name: "Piazzolla", family: "'Piazzolla', serif", css: GF("Piazzolla:opsz,wght@8..30,100..900"), meta: "OFL · sharp old style · opsz 8–30" },
+  { id: "piazzolla", name: "Piazzolla", family: "'K Piazzolla', serif", file: "Piazzolla.ttf", meta: "OFL · sharp old style · opsz 8–30 · old-style figures" },
   { id: "literata", name: "Literata", family: "'Literata', serif", css: GF("Literata:opsz,wght@7..72,200..900"), meta: "OFL · book serif · opsz 7–72" },
   { id: "brygada", name: "Brygada 1918", family: "'Brygada 1918', serif", css: GF("Brygada+1918:wght@400..700"), meta: "OFL · 2021 · Polish old style revival" },
   { id: "poltawski", name: "Poltawski Nowy", family: "'Poltawski Nowy', serif", css: GF("Poltawski+Nowy:wght@400..700"), meta: "OFL · 2023 · Antykwa revival (1928)" },
   { id: "ibarra", name: "Ibarra Real Nova", family: "'Ibarra Real Nova', serif", css: GF("Ibarra+Real+Nova:wght@400..700"), meta: "OFL · Spanish Baroque (1780) · no tabular" },
   { id: "junicode", name: "Junicode 2", family: "'Junicode', serif", face: "https://cdn.jsdelivr.net/gh/psb1558/Junicode-font@v2.226/webfiles/JunicodeVF-Roman.woff2", meta: "OFL · 2026 · scholarly Garamond · 1 MB" },
-  { id: "ysabeau", name: "Ysabeau", family: "'Ysabeau', sans-serif", css: GF("Ysabeau:wght@1..1000"), meta: "OFL · 2023 · humanist sans, the foil" },
+  { id: "ysabeau", name: "Ysabeau", family: "'K Ysabeau', sans-serif", file: "Ysabeau.ttf", meta: "OFL · 2023 · humanist sans, the foil" },
 ];
-// Text faces in place of SF, for rows, names and facts. All OFL 1.1; each has tabular figures (fontTools, 2026-11-08).
+// Text faces in place of SF, for rows, names and facts. All OFL 1.1, checked with fontTools. Full files, because the
+// Google Fonts web files drop old-style figures.
 const TEXT = [
-  { id: "sf", name: "SF Pro", family: "-apple-system, system-ui, sans-serif", meta: "System · Dynamic Type tracking built in" },
-  { id: "ysabeau", name: "Ysabeau", family: "'Ysabeau', sans-serif", meta: "Humanist on a Garamond skeleton · small caps" },
-  { id: "alegreya", name: "Alegreya Sans", family: "'Alegreya Sans', sans-serif", css: GF("Alegreya+Sans:wght@300;400;500;700"), meta: "Humanist, calligraphic · small caps · static weights" },
-  { id: "source", name: "Source Sans 3", family: "'Source Sans 3', sans-serif", css: GF("Source+Sans+3:wght@200..900"), meta: "Humanist · Adobe · pairs with Source Serif" },
-  { id: "atkinson", name: "Atkinson Hyperlegible Next", family: "'Atkinson Hyperlegible Next', sans-serif", css: GF("Atkinson+Hyperlegible+Next:wght@200..800"), meta: "2025 · made for low vision" },
-  { id: "instrument", name: "Instrument Sans", family: "'Instrument Sans', sans-serif", css: GF("Instrument+Sans:wght@400..700"), meta: "2023 · neo-grotesque, a width axis" },
-  { id: "inter", name: "Inter", family: "'Inter', sans-serif", css: GF("Inter:opsz,wght@14..32,100..900"), meta: "opsz · close to SF" },
-  { id: "plex", name: "IBM Plex Sans", family: "'IBM Plex Sans', sans-serif", css: GF("IBM+Plex+Sans:wght@100..700"), meta: "Grotesque with a technical edge" },
-  { id: "hanken", name: "Hanken Grotesk", family: "'Hanken Grotesk', sans-serif", css: GF("Hanken+Grotesk:wght@100..900"), meta: "Quiet grotesque" },
-  { id: "figtree", name: "Figtree", family: "'Figtree', sans-serif", css: GF("Figtree:wght@300..900"), meta: "Geometric, friendly" },
-  { id: "public", name: "Public Sans", family: "'Public Sans', sans-serif", css: GF("Public+Sans:wght@100..900"), meta: "Neutral, government UI" },
+  { id: "sf", name: "SF Pro", family: "-apple-system, system-ui, sans-serif", meta: "System · no old-style figures" },
+  { id: "ysabeau", name: "Ysabeau", family: "'K Ysabeau', sans-serif", meta: "Humanist on a Garamond skeleton · old-style figures" },
+  { id: "alegreya", name: "Alegreya Sans", family: "'K Alegreya Sans', sans-serif", files: [["AlegreyaSans-Regular.ttf", 400], ["AlegreyaSans-Medium.ttf", 500], ["AlegreyaSans-Bold.ttf", 700]], meta: "Humanist, calligraphic · old-style figures" },
+  { id: "source", name: "Source Sans 3", family: "'K Source Sans 3', sans-serif", file: "SourceSans3.ttf", meta: "Humanist · Adobe · old-style figures, not tabular" },
+  { id: "plex", name: "IBM Plex Sans", family: "'K IBM Plex Sans', sans-serif", file: "IBMPlexSans.ttf", meta: "Grotesque, technical edge · old-style figures, not tabular" },
+  { id: "public", name: "Public Sans", family: "'K Public Sans', sans-serif", file: "PublicSans.ttf", meta: "Neutral · old-style figures" },
+  { id: "atkinson", name: "Atkinson Hyperlegible Next", family: "'K Atkinson Hyperlegible Next', sans-serif", file: "AtkinsonHyperlegibleNext.ttf", meta: "2025 · made for low vision · no old-style figures" },
+  { id: "instrument", name: "Instrument Sans", family: "'K Instrument Sans', sans-serif", file: "InstrumentSans.ttf", meta: "2023 · neo-grotesque · no old-style figures" },
+  { id: "inter", name: "Inter", family: "'K Inter', sans-serif", file: "Inter.ttf", meta: "opsz · close to SF · no old-style figures" },
+  { id: "hanken", name: "Hanken Grotesk", family: "'K Hanken Grotesk', sans-serif", file: "HankenGrotesk.ttf", meta: "Quiet grotesque · no old-style figures" },
+  { id: "figtree", name: "Figtree", family: "'K Figtree', sans-serif", file: "Figtree.ttf", meta: "Geometric, friendly · no old-style figures" },
 ];
+// Figures: a face without old-style figures shows lining ones whatever the choice.
+const FIGS = { onum: "oldstyle-nums proportional-nums", "onum tnum": "oldstyle-nums tabular-nums", "lnum tnum": "lining-nums tabular-nums", lnum: "lining-nums proportional-nums" };
 // Steps of each text style on the ratio, body at 0. Half and quarter steps keep the iOS order of sizes.
 const STEPS = [["largeTitle", 3, 34], ["title1", 2, 28], ["title2", 1.5, 22], ["title3", 1, 20], ["headline", 0, 17], ["body", 0, 17],
   ["callout", -0.25, 16], ["subheadline", -0.5, 15], ["footnote", -1, 13], ["caption1", -1.25, 12], ["caption2", -1.5, 11]];
 const DEFAULTS = { face: "ny", text: "sf", stars: "ny,corm,witt,piazzolla", ratio: Math.sqrt(PHI).toFixed(3), pstep: "2", weight: "400", track: "0", lh: "1.15",
-  heads: "display", list: "plain", couple: "1", sratio: Math.sqrt(PHI).toFixed(3), gin: "-4", ggr: "1", gsec: "3", view: "wall", work: "Antonín Dvořák|Symphony No. 9 in E minor, Op. 95" };
+  heads: "display", fig: "onum", list: "plain", couple: "1", sratio: Math.sqrt(PHI).toFixed(3), gin: "-4", ggr: "1", gsec: "3", view: "wall", work: "Antonín Dvořák|Symphony No. 9 in E minor, Op. 95" };
 
+const local = (family, file, weight) => `@font-face { font-family: '${family}'; src: url("fonts/${file}") format("truetype"); font-weight: ${weight}; font-display: swap; }`;
 for (const f of [...FACES, ...TEXT]) {
+  const fam = f.family.split(",")[0].replace(/'/g, "");
+  if (f.file) document.head.append(Object.assign(document.createElement("style"), { textContent: local(fam, f.file, "100 1000") }));
+  if (f.files) document.head.append(Object.assign(document.createElement("style"), { textContent: f.files.map(([file, w]) => local(fam, file, w)).join("\n") }));
   if (f.css) document.head.append(Object.assign(document.createElement("link"), { rel: "stylesheet", href: f.css }));
   if (f.face) document.head.append(Object.assign(document.createElement("style"), { textContent: `@font-face { font-family: 'Junicode'; src: url(${f.face}) format('woff2'); font-weight: 300 700; font-display: swap; }` }));
 }
@@ -165,6 +197,7 @@ K.start(() => {
     const v = values(), root = document.documentElement.style, f = faceOf(S.face);
     for (const [n] of STEPS) root.setProperty(`--type-${n}-size`, v.sizes[n].toFixed(2) + "px");
     root.setProperty("--disp-family", f.family);
+    root.setProperty("--fig", FIGS[S.fig] || FIGS.onum);
     root.setProperty("--text-family", (TEXT.find((t) => t.id === S.text) || TEXT[0]).family);
     root.setProperty("--disp-weight", S.weight);
     root.setProperty("--disp-track", S.track + "em");
@@ -222,6 +255,39 @@ K.start(() => {
     return { lead: first, rest: r.performers.filter((p) => !first.includes(p)) };
   }
 
+  // A static player: the second movement plays and is open, with a note span, a note and a name that differs from the header.
+  // "N.N." is the concert-programme mark for an unnamed player; the specimen data credits no soloist per track.
+  function playerRows(rec, work) {
+    const I = K.ICON;
+    const faint = () => el("span", { class: "round faint", html: I.play });
+    const chevron = (down) => el("span", { class: "disclose" + (down ? " down" : ""), html: I.chevron.replace('class="chevron" ', "") });
+    const songs = rec.songs.slice(0, 4);
+    const playing = Math.min(1, songs.length - 1), at = Math.min(252, songs[playing].duration * 0.34);
+    const notes = [{ at: 130, text: "Horns and woodwinds, then the cor anglais" }, { at: 340, span: 40, text: "The theme comes back, quieter" }];
+    return songs.map((s, i) => {
+      const title = K.movementTitle(s, work.name);
+      const block = el("div", { class: "row-block track" });
+      const isPlaying = i === playing, closedWithContent = i === 2;
+      block.append(el("div", { class: "row" },
+        el("div", { class: "main" }, el("div", { class: isPlaying ? "t-headline" : "t-body" }, title)),
+        el("div", { class: "trail t-subheadline nums" }, K.time(s.duration), closedWithContent ? chevron(false) : null, el("span", { class: "slot" }, isPlaying ? null : faint()))));
+      if (isPlaying) {
+        const d = s.duration;
+        const bar = el("div", { class: "mv-bar" }, el("div", { class: "fill", style: `width: ${(at / d) * 100}%` }),
+          ...notes.map((n) => el("div", { class: n.span ? "note-span" : "note-dot", style: `left: ${(n.at / d) * 100}%` + (n.span ? `; width: ${(n.span / d) * 100}%` : "") })));
+        block.append(el("div", { class: "open-body" },
+          el("div", { class: "people-rows" }, el("div", { class: "t-subheadline" }, el("span", { class: "link" }, "N.N."), el("span", { class: "secondary" }, ", cor anglais"))),
+          bar,
+          el("div", { class: "mv-times t-caption1 secondary nums" }, el("span", {}, K.time(at)), el("span", {}, "−" + K.time(d - at))),
+          el("div", { class: "mv-controls" }, el("button", { html: I.prev }), el("button", { class: "main-btn", html: I.pause }), el("button", { html: I.next })),
+          el("div", { class: "notes" }, ...notes.map((n) => el("div", { class: "note t-subheadline" },
+            el("span", { class: "at nums" }, K.time(n.at) + (n.span ? `–${K.time(n.at + n.span)}` : "")), el("span", {}, n.text)))),
+          el("button", { class: "add-note t-subheadline" }, "Add a note here")));
+      }
+      return block;
+    });
+  }
+
   function ctx() {
     const pool = facePool();
     const workTitle = (cls, text, mark) => el("div", { class: cls === "page" ? "disp page" : "t-body" }, mark ? K.titled(text, mark) : text);
@@ -253,14 +319,11 @@ K.start(() => {
     const workRows = works.map((w) => el("div", { class: "row" },
       el("div", { class: "main" }, workTitle("rowsize", w.name), el("div", { class: "t-footnote secondary nums" }, [w.year, `${w.recordings.length} recording${w.recordings.length === 1 ? "" : "s"}`].filter(Boolean).join(" · "))),
       el("div", { class: "trail", html: K.ICON.chevron })));
-    const movRows = recs[0].songs.map((s, i) => el("div", { class: "row" },
-      el("div", { class: "main t-body" }, K.movementTitle(s, work.name)),
-      el("div", { class: "trail t-body nums" }, K.time(s.duration))));
     const section = (title, rows) => el("section", { class: "section" }, el("div", { class: "section-head" + (S.heads === "display" ? " disp" : "") }, title), el("div", { class: "list" }, ...rows));
     return el("div", { class: "ctx " + S.list }, pick, head,
       el("div", { class: "button-row" }, el("button", { class: "capsule filled t-headline" }, "Play")),
       section(`Recordings · ${recs.length}`, recRows),
-      section("Movements", movRows),
+      section("Player · " + recs[0].performers.map((p) => p.name).join(", "), playerRows(recs[0], work)),
       section("Works by Frédéric Chopin", workRows),
       el("div", { style: "height: var(--g-sec)" }));
   }
@@ -272,7 +335,7 @@ K.start(() => {
       font: { family: { display: { $value: f.family.split(",").map((s) => s.trim().replace(/'/g, "")) }, text: { $value: (TEXT.find((t) => t.id === S.text) || TEXT[0]).family.split(",").map((s) => s.trim().replace(/'/g, "")) } } },
       ratio: { type: +v.r.toFixed(4), space: +v.rs.toFixed(4) },
       type: Object.fromEntries(STEPS.map(([n, s]) => [n, { fontSize: px(v.sizes[n]), step: s }])),
-      display: { page: { fontSize: px(v.page), step: num("pstep") }, fontWeight: +S.weight, letterSpacing: { value: +S.track, unit: "em" }, lineHeight: +S.lh, headings: S.heads },
+      display: { page: { fontSize: px(v.page), step: num("pstep") }, fontWeight: +S.weight, letterSpacing: { value: +S.track, unit: "em" }, lineHeight: +S.lh, headings: S.heads, figures: FIGS[S.fig] },
       space: { inGroup: px(v.gin), betweenGroups: px(v.ggr), betweenSections: px(v.gsec) },
       list: S.list,
     };
@@ -347,6 +410,7 @@ K.start(() => {
       slider("Weight", "weight", 300, 700, 10),
       slider("Tracking", "track", -0.04, 0.04, 0.002, (x) => (+x).toFixed(3)),
       slider("Line height", "lh", 0.95, 1.6, 0.01, (x) => (+x).toFixed(2)),
+      el("div", { class: "ctl" }, el("span", {}, "Figures"), toggle("fig", [["onum", "Old-style"], ["onum tnum", "Old-style tabular"], ["lnum", "Lining"], ["lnum tnum", "Lining tabular"]])),
       el("div", { class: "ctl" }, el("span", {}, "Headings"), toggle("heads", [["display", "Display face"], ["sf", "Text face"]])),
       el("h3", {}, "Spacing"),
       el("div", { class: "ctl" }, el("span", {}, "Ratio"), toggle("couple", [["1", "Same as type"], ["0", "Own ratio"]])),

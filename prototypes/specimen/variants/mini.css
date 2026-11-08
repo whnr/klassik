@@ -11,13 +11,13 @@
   padding-right: var(--space-xs); padding-left: calc(var(--size-timeline) + var(--space-xs));
   box-shadow: inset var(--size-timeline) 0 0 var(--color-timeline-unplayed), 0 0 0 0.5px var(--color-separator), 0 4px 18px rgb(0 0 0 / 0.12);
 }
-.edge-pill.stacked { flex-direction: column; }
-[data-side="left"] .edge-pill.stacked { flex-direction: column; }
 .edge-pill > * {
   flex: none; width: 48px; height: 48px; border-radius: var(--radius-full); display: grid; place-items: center;
   color: var(--color-text-primary); overflow: hidden; -webkit-touch-callout: none;
 }
-.edge-pill .cover, .edge-pill img { width: 48px; height: 48px; border-radius: var(--radius-full); pointer-events: none; }
+/* Album art is square; only the play/pause button is round. */
+.edge-pill .cover-link { border-radius: var(--radius-s); }
+.edge-pill .cover, .edge-pill img { width: 48px; height: 48px; border-radius: var(--radius-s); pointer-events: none; }
 .edge-pill .pp svg, .tabs .pp svg, .roundglass.pp svg { width: 20px; height: 20px; }
 .edge-pill .pp:active, .tabs .pp:active { background: var(--color-fill-quiet); }
 

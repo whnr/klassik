@@ -1,6 +1,5 @@
 // Mini player round (sz-rs30.1.83.9). Flo's goal: vertical space. Four answers to "how does what plays sit at the bottom?"
 // mini-side: a pill out of the timeline in the tab row, play/pause and cover side by side.
-// mini-stack: the same pill standing on the timeline's edge, play/pause above the cover.
 // mini-tabs: play/pause in the middle of the tab capsule, the cover alone out of the timeline.
 // mini-card: the card of ADR 0014 with a pause button, as the baseline.
 "use strict";
@@ -32,7 +31,7 @@
     return;
   }
 
-  const shapes = { "mini-side": "side", "mini-stack": "stacked", "mini-tabs": "tabs" };
+  const shapes = { "mini-side": "side", "mini-tabs": "tabs" };
   const shape = shapes[name];
   if (!shape) return;
 
@@ -51,7 +50,7 @@
       const withCover = !chrome.player;
       const withPP = shape !== "tabs";
       if (!withCover && !withPP) return;
-      pill = el("div", { class: "edge-pill glass" + (shape === "stacked" ? " stacked" : "") });
+      pill = el("div", { class: "edge-pill glass" });
       if (withPP) pill.append(ppButton(""));
       if (withCover) pill.append(el("a", { class: "cover-link", href: playerHref(), "aria-label": "Open what plays" }, K.coverImage(K.current().album)));
       document.body.append(pill);

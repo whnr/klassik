@@ -4,6 +4,8 @@
 
 const K = (() => {
   const params = new URLSearchParams(location.search);
+  // Variant files carry the stamp of specimen.js, so Safari loads new copies with it.
+  const STAMP = document.currentScript ? new URL(document.currentScript.src).searchParams.get("v") || "" : "";
   const CARRIED = ["variant", "theme", "contrast", "size", "playing", "side"];
   const SIZES = ["xSmall", "small", "medium", "large", "xLarge", "xxLarge", "xxxLarge", "AX1", "AX2", "AX3", "AX4", "AX5"];
   const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI"];
@@ -314,8 +316,8 @@ const K = (() => {
     const name = params.get("variant");
     const v = name && variants[name];
     if (v) {
-      if (v.css) document.head.append(el("link", { rel: "stylesheet", href: "variants/" + v.css }));
-      if (v.js) await new Promise((ok) => document.head.append(el("script", { src: "variants/" + v.js, onload: ok, onerror: ok })));
+      if (v.css) document.head.append(el("link", { rel: "stylesheet", href: "variants/" + v.css + "?v=" + STAMP }));
+      if (v.js) await new Promise((ok) => document.head.append(el("script", { src: "variants/" + v.js + "?v=" + STAMP, onload: ok, onerror: ok })));
     }
     return variants;
   }

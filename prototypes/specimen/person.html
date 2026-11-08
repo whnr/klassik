@@ -18,12 +18,13 @@
     -webkit-mask-image: linear-gradient(to top, transparent 0, rgb(0 0 0 / 0.25) calc(var(--title-h, 80px) * 0.6), #000 var(--fade));
     mask-image: linear-gradient(to top, transparent 0, rgb(0 0 0 / 0.25) calc(var(--title-h, 80px) * 0.6), #000 var(--fade)); }
   .pic .blur { position: absolute; inset: auto 0 0 0; height: var(--fade); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
-    -webkit-mask-image: linear-gradient(to top, #000 50%, transparent); mask-image: linear-gradient(to top, #000 50%, transparent); }
+    -webkit-mask-image: linear-gradient(to top, transparent, #000 40%, transparent); mask-image: linear-gradient(to top, transparent, #000 40%, transparent); }
+  /* Some room under the description, so the block does not touch the content below. */
+  .hero .page-head { padding-bottom: var(--space-xs); }
   .hero .page-head { position: absolute; left: 0; right: 0; bottom: 0; padding-bottom: 0; pointer-events: none; }
   .hero .page-head button { pointer-events: auto; }
   .no-pic .hero { margin-top: 0; }
   .no-pic .hero .page-head { position: relative; }
-  .person-meta { padding: var(--space-xxs) calc(var(--space-l) + var(--size-timeline) + var(--space-s)) 0 var(--space-l); }
   .has-pic .nav .back { margin-left: var(--space-xs); padding-right: var(--space-m); border-radius: var(--radius-full);
     background: color-mix(in srgb, var(--color-background-elevated) 72%, transparent);
     -webkit-backdrop-filter: blur(24px) saturate(1.8); backdrop-filter: blur(24px) saturate(1.8);
@@ -68,10 +69,10 @@ K.start(() => {
   const line = [desc || [...roles].join(", ") || (composer ? "composer" : null), years].filter(Boolean).join(" · ");
   const fav = (kind === "composer" ? "composer:" : "performer:") + name;
   const mark = el("button", { "aria-label": "Favourite", onclick: () => { K.toggleFavourite(fav); mark.replaceChildren(K.fermata(K.isFavourite(fav))); } }, K.fermata(K.isFavourite(fav)));
-  const head = el("div", { class: "page-head person-head" }, el("h1", { class: "t-largeTitle" }, K.titled(name, mark)));
+  // The name and its description line form one block on the picture; the block ends where the fade ends.
+  const head = el("div", { class: "page-head person-head" }, el("h1", { class: "t-largeTitle" }, K.titled(name, mark)), el("div", { class: "meta t-subheadline secondary" }, line));
   hero.append(head);
   new ResizeObserver(() => hero.style.setProperty("--title-h", head.offsetHeight + "px")).observe(head);
-  scroll.append(el("div", { class: "person-meta t-subheadline secondary" }, line));
   if (composer && composer.facts) scroll.append(el("div", { class: "button-row" }, el("a", { class: "capsule t-headline", href: href("chronology.html", { composer: name }) }, "Chronology")));
 
   const tabs = kind === "composer" ? ["Works", "About"] : ["Albums", "About"];

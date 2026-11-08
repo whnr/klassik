@@ -27,6 +27,7 @@
   .line.dim { opacity: 0.35; }
   .line.playing { width: 4px; margin-left: -2px; background: var(--color-tint); }
   .line.last { width: 3px; margin-left: -1.5px; background: var(--color-text-secondary); }
+  .line.picked { width: 6px; margin-left: -3px; opacity: 1; background: var(--color-text-primary); transition-duration: 0s; }
   .chrono-head h1 a { color: inherit; }
   .dot { width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px; border-radius: 50%; background: var(--color-text-tertiary); }
   .dot.focus { width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; background: var(--color-tint); box-shadow: 0 0 0 2px var(--color-background-grouped); }
@@ -99,6 +100,7 @@ K.start(() => {
       const playing = playingWork() && playingWork().composer, last = K.store("chronology");
       composers.forEach((c, i) => out.push({ key: "line:" + c.name, cls: "line" + (c.name === playing ? " playing" : c.name === last ? " last" : ""), s: { left: x(i), top: Y(c.facts.born), height: Y(c.facts.died || 2025) - Y(c.facts.born) } }));
       state.hit = composers.map((c, i) => ({ c, x: x(i) }));
+      state.lanes = state.hit;
       head.firstChild.replaceChildren("All composers");
       head.lastChild.textContent = `${composers.length} composers · ${y0 + 10}–${y1 - 5}`;
       return out;
@@ -121,6 +123,7 @@ K.start(() => {
       for (const w of c.works) if (w.year) out.push({ key: "dot:" + w.id, cls: "dot" + (isFocus ? " focus" : "") + (playingWork() === w ? " marked" : ""), s: { left: x, top: Y(w.year) }, work: isFocus ? w : null });
       if (isFocus) state.focusX = x;
     });
+    state.lanes = people.map((c, i) => ({ c, x: lx(i) }));
     // Rows: one per year while they fit; else one row stands for a span of years, with a count.
     const dated = [...focus.works].filter((w) => w.year).sort((a, b) => a.year - b.year || a.name.localeCompare(b.name));
     const years = [...new Set(dated.map((w) => w.year))];
@@ -176,25 +179,33 @@ K.start(() => {
         el("div", { class: "main" }, el("div", { class: "t-body" }, w.name), el("div", { class: "t-footnote secondary" }, w.year || "No date")), el("span", { html: K.ICON.chevron }))))));
   }
 
-  // Gestures: a sideways drag anywhere picks a composer by birth order; a tap only picks a work of the focus composer.
+  // Gestures, ADR 0022: a sideways drag scrubs across the lines on the screen, in order; the chart width maps onto them.
+  // The line under the finger is highlighted and the chart stays until release. A tap picks a work of the focus composer.
   let g = null;
   chart.addEventListener("pointerdown", (e) => { g = { x: e.clientX, y: e.clientY, side: false, t: e.target }; });
   chart.addEventListener("pointermove", (e) => {
     if (!g) return;
     if (!g.side && Math.abs(e.clientX - g.x) > 10 && Math.abs(e.clientX - g.x) > Math.abs(e.clientY - g.y)) { g.side = true; chart.setPointerCapture(e.pointerId); }
     if (!g.side) return;
-    const r = chart.getBoundingClientRect();
-    const i = Math.min(composers.length - 1, Math.max(0, Math.floor(((e.clientX - r.left) / r.width) * composers.length)));
-    pick.textContent = composers[i].name;
+    const r = chart.getBoundingClientRect(), lanes = state.lanes;
+    const i = Math.min(lanes.length - 1, Math.max(0, Math.floor(((e.clientX - r.left) / r.width) * lanes.length)));
+    const c = lanes[i].c;
+    pick.textContent = c.name;
     pick.style.left = Math.min(innerWidth - 90, Math.max(90, e.clientX)) + "px";
     pick.style.top = e.clientY - 28 + "px";
     pick.classList.add("on");
-    g.pick = composers[i];
+    if (g.pick !== c) { highlight(g.pick, false); highlight(c, true); }
+    g.pick = c;
   });
+  function highlight(c, on) {
+    if (!c) return;
+    for (const k of ["line:", "linea:"]) { const n = live.get(k + c.name); if (n) n.classList.toggle("picked", on); }
+  }
   const end = (e) => {
     if (!g) return;
     const tap = !g.side && Math.abs(e.clientX - g.x) < 10 && Math.abs(e.clientY - g.y) < 10 && e.type === "pointerup";
     pick.classList.remove("on");
+    highlight(g.pick, false);
     if (g.side && g.pick && e.type === "pointerup") { state = { level: "composer", focus: g.pick }; draw(); }
     if (tap) onTap(e);
     g = null;

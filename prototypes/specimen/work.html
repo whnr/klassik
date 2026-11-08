@@ -37,10 +37,8 @@ K.start(() => {
   const section = el("section", { class: "section" },
     el("div", { class: "section-head t-footnote" }, el("span", {}, "RECORDINGS"), el("span", {}, String(work.recordings.length))), listBox);
 
-  function people(r) {
-    const lead = r.performers.slice(0, 3).map((p) => p.name).join(", ");
-    return lead + (r.performers.length > 3 ? ` +${r.performers.length - 3}` : "");
-  }
+  // Every name shows; the row grows instead.
+  const people = (r) => r.performers.map((p) => p.name).join(", ");
 
   function render() {
     const playing = K.current() && K.current().recording;

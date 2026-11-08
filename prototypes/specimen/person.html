@@ -16,8 +16,11 @@
     -webkit-mask-image: linear-gradient(to bottom, #000 62%, transparent 100%); mask-image: linear-gradient(to bottom, #000 62%, transparent 100%); }
   .pic .blur { position: absolute; inset: auto 0 0 0; height: 34%; -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
     -webkit-mask-image: linear-gradient(to bottom, transparent, #000 70%); mask-image: linear-gradient(to bottom, transparent, #000 70%); }
-  .person-head { position: relative; margin-top: -72px; }
-  .no-pic .person-head { margin-top: 0; }
+  .person-head { position: relative; }
+  .has-pic .nav:not(.scrolled) .back { margin-left: var(--space-xs); padding-right: var(--space-m); border-radius: var(--radius-full);
+    background: color-mix(in srgb, var(--color-background-elevated) 72%, transparent);
+    -webkit-backdrop-filter: blur(24px) saturate(1.8); backdrop-filter: blur(24px) saturate(1.8);
+    box-shadow: 0 0 0 0.5px var(--color-separator), 0 2px 10px rgb(0 0 0 / 0.18); }
   .segmented { display: flex; margin: var(--space-l) calc(var(--space-l) + var(--size-timeline) + var(--space-s)) 0 var(--space-l); padding: 2px; border-radius: var(--radius-m); background: var(--color-fill-quiet); }
   .segmented button { flex: 1; min-height: 32px; border-radius: calc(var(--radius-m) - 2px); }
   .segmented button.on { background: var(--color-background-row); box-shadow: 0 1px 3px rgb(0 0 0 / 0.12); }
@@ -44,6 +47,7 @@ K.start(() => {
         el("p", { class: "section-foot t-footnote" }, `${pic.author}. ${pic.licence}. `, el("a", { class: "link", href: pic.page }, "File page")))) },
       el("img", { src: pic.url, alt: "", crossorigin: "anonymous" }), el("div", { class: "blur" }));
     scroll.append(box);
+    app.classList.add("has-pic");
   } else app.classList.add("no-pic");
 
   // ADR 0017: the Wikidata description without years, then the years; tag roles only without a description.

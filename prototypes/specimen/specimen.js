@@ -4,7 +4,7 @@
 
 const K = (() => {
   const params = new URLSearchParams(location.search);
-  const CARRIED = ["variant", "theme", "contrast", "size", "playing"];
+  const CARRIED = ["variant", "theme", "contrast", "size", "playing", "scroll"];
   const SIZES = ["xSmall", "small", "medium", "large", "xLarge", "xxLarge", "xxxLarge", "AX1", "AX2", "AX3", "AX4", "AX5"];
   const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI"];
   const ENSEMBLE = new Set(["Orchestra", "Choir", "Ensemble", "Trio", "Quartet"]);
@@ -492,7 +492,8 @@ const K = (() => {
     tl.addEventListener("pointermove", (e) => {
       if (!start) return;
       if (!start.scrub && Math.abs(e.clientY - start.y) > 8 && Math.abs(e.clientY - start.y) > Math.abs(e.clientX - start.x)) start.scrub = true;
-      if (start.scrub) { const t = at(e.clientY); show(e.clientY, t); seek(t.index, t.pos); }
+      // P.scrubbing tells the player page to hold its rows still until the finger lifts.
+      if (start.scrub) { const t = at(e.clientY); show(e.clientY, t); P.scrubbing = true; seek(t.index, t.pos); }
     });
     const end = (e) => {
       if (!start) return;
@@ -500,6 +501,7 @@ const K = (() => {
       if (!start.scrub && !sideways && e.type === "pointerup") seek(at(e.clientY).index, 0);
       chrome.scrubLabel.classList.remove("on");
       start = null;
+      if (P.scrubbing) { P.scrubbing = false; emit(); }
     };
     tl.addEventListener("pointerup", end);
     tl.addEventListener("pointercancel", end);

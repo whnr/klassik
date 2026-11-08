@@ -23,13 +23,13 @@
   .hero .big.none { box-shadow: none; }
   .hero .big.none svg { width: 64px; height: 64px; }
   .hero .people a { color: var(--color-tint); }
-  .track .open-body { padding: 0 var(--space-l) var(--space-m); display: grid; gap: var(--space-s); }
+  .open-body { padding: 0 var(--space-l) var(--space-m); display: grid; gap: var(--space-s); }
   .track .slot { flex: none; width: 32px; display: flex; justify-content: flex-end; align-items: center; }
-  .track .open-body .people-rows { display: grid; gap: var(--space-xxs); }
-  .track .open-body:empty { display: none; }
-  .track .notes { display: grid; gap: var(--space-xs); }
-  .track .note { display: flex; gap: var(--space-s); text-align: left; }
-  .track .note .at { flex: none; color: var(--color-tint); }
+  .open-body .people-rows { display: grid; gap: var(--space-xxs); }
+  .open-body:empty { display: none; }
+  .notes { display: grid; gap: var(--space-xs); }
+  .note { display: flex; gap: var(--space-s); text-align: left; }
+  .note .at { flex: none; color: var(--color-tint); }
   .bar-box { display: grid; gap: var(--space-xs); }
   .mv-bar { position: relative; height: 6px; border-radius: var(--radius-full); background: var(--color-fill-standard); touch-action: none; }
   .mv-bar .fill { position: absolute; inset: 0 auto 0 0; border-radius: var(--radius-full); background: var(--color-tint); }
@@ -40,6 +40,27 @@
   .mv-controls button { width: var(--size-hitTarget); height: var(--size-hitTarget); display: grid; place-items: center; color: var(--color-text-primary); }
   .mv-controls svg { width: 22px; height: 22px; }
   .mv-controls .main-btn svg { width: 30px; height: 30px; }
+  /* Player rows, round 6 of sz-rs30.1.83.8: ?variant=rows-a (default), rows-b, rows-c, rows-d. */
+  .round.faint { background: var(--color-fill-quiet); color: var(--color-text-secondary); }
+  .track .lead { flex: none; width: 32px; display: flex; justify-content: center; align-items: center; margin-right: calc(-1 * var(--space-xs)); }
+  .track .eq { display: flex; gap: 2px; align-items: flex-end; height: 14px; color: var(--color-tint); }
+  .track .eq i { width: 3px; background: currentColor; border-radius: 1px; }
+  .track .eq i:nth-child(1) { height: 60%; } .track .eq i:nth-child(2) { height: 100%; } .track .eq i:nth-child(3) { height: 40%; }
+  .track .row[aria-expanded="true"] .main > div { font-weight: 600; }
+  .facts { display: flex; flex-wrap: wrap; }
+  .facts span + span::before { content: " · "; white-space: pre; }
+  .specimen-bar { max-width: calc(100vw - 12px); overflow-x: auto; }
+  .add-note { justify-self: start; color: var(--color-tint); }
+  .preview-bar { cursor: pointer; }
+  .always { padding: 0 var(--space-l) var(--space-s); display: grid; gap: var(--space-xxs); margin-top: calc(-1 * var(--space-xs)); }
+  .sheet .card { padding: 0 var(--space-l); display: grid; gap: var(--space-m); }
+  .sheet .card .open-body { padding: 0; }
+  .now-btn { position: fixed; z-index: 42; left: 50%; transform: translateX(-50%); display: none; flex: none; width: auto; min-height: 36px;
+    box-shadow: 0 2px 12px rgb(0 0 0 / 0.18); }
+  .now-btn.on { display: flex; }
+  .state-line { position: fixed; z-index: 49; left: 50%; transform: translateX(-50%); top: calc(max(env(safe-area-inset-top), 6px) + 34px + var(--size-hitTarget) + 2px);
+    font: 500 10px/1.3 -apple-system, system-ui, sans-serif; color: var(--color-text-secondary); white-space: nowrap; pointer-events: none;
+    background: color-mix(in srgb, var(--color-background-elevated) 80%, transparent); padding: 1px 8px; border-radius: 8px; }
   .rise-out { transform: translateY(-40px); opacity: 0; transition: transform var(--motion-transition-rise-duration) var(--motion-transition-rise-easing), opacity var(--motion-transition-rise-duration) var(--motion-transition-rise-easing); }
   .rise-in { animation: rise var(--motion-transition-rise-duration) var(--motion-transition-rise-easing); }
   @keyframes rise { from { transform: translateY(120px); opacity: 0; } to { transform: none; opacity: 1; } }
@@ -48,7 +69,11 @@
 <script>
 K.start(() => {
   const { el, href, ICON, M } = K;
-  const NOTES = { "640qawSbxRzx7BX6z3M2wM|1": [{ at: 92, text: "The cellos and violas take the theme." }, { at: 300, span: 40, text: "Brass fanfare in C major." }] };
+  const NOTES = K.store("notes") || { "640qawSbxRzx7BX6z3M2wM|1": [{ at: 92, text: "The cellos and violas take the theme." }, { at: 300, span: 40, text: "Brass fanfare in C major." }] };
+  const notesOf = (i) => NOTES[`${item.album.id}|${i}`] || [];
+  const V = { "rows-b": "b", "rows-c": "c", "rows-d": "d" }[K.params.get("variant")] || "a";
+  const SCROLL = K.params.get("scroll") || K.store("scroll") || "button";
+  const TAP = { a: "opens the row", b: "opens the row", c: "opens a card", d: "plays" }[V];
 
   function pageItem() {
     if (K.params.get("recording")) { const r = M.recordings.get(K.params.get("recording")); return K.resolveItem(["recording", r.album.id, r.work]); }
@@ -102,18 +127,36 @@ K.start(() => {
     return box;
   }
 
+  function playFrom(i, pos = 0) {
+    if (!playingHere()) { K.playItem(item, i); K.becomePlayer(); }
+    K.seek(i, pos); K.P.paused = false; open.clear(); render();
+  }
+
+  const faintPlay = (i) => el("button", { class: "round faint", "aria-label": "Play from here", html: ICON.play, onclick: (e) => { e.stopPropagation(); playFrom(i); } });
+  const eq = () => el("span", { class: "eq", "aria-label": "Playing" }, el("i"), el("i"), el("i"));
+
+  // Every variant keeps the row head one height whether open or not, so a tapped row never moves.
   function trackRow(s, i, work) {
     const isPlaying = playingHere() && K.P.index === i;
-    const isOpen = isPlaying || open.has(i);
+    const isOpen = isPlaying || (V !== "c" && V !== "d" && open.has(i));
     const block = el("div", { class: "row-block track" });
-    const trail = isOpen && !isPlaying
-      ? el("button", { class: "round", "aria-label": "Play from here", html: ICON.play, onclick: (e) => { e.stopPropagation(); if (!playingHere()) { K.playItem(item, i); K.becomePlayer(); } else K.seek(i); open.clear(); render(); } })
-      : isPlaying ? null : el("span", { html: ICON.chevron });
-    const head = el("button", { class: "row", "aria-expanded": isOpen ? "true" : "false", onclick: () => { if (isPlaying) return; open.has(i) ? open.delete(i) : open.add(i); render(); } },
+    const lead = V === "b" ? el("span", { class: "lead" }, isPlaying ? eq() : faintPlay(i)) : null;
+    const trail = V === "b" ? null : el("span", { class: "slot" }, isPlaying ? null : faintPlay(i));
+    const tap = () => {
+      if (isPlaying) return;
+      if (V === "d") return playFrom(i);
+      if (V === "c") return card(s, i, work);
+      open.has(i) ? open.delete(i) : open.add(i);
+      render();
+    };
+    const head = el("button", { class: "row", "aria-expanded": V === "a" || V === "b" ? (isOpen ? "true" : "false") : null, onclick: tap },
+      lead,
       el("div", { class: "main" }, el("div", { class: isPlaying ? "t-headline" : "t-body" }, K.movementTitle(s, work))),
-      el("div", { class: "trail t-subheadline nums" }, K.time(s.duration), el("span", { class: "slot" }, trail)));
+      el("div", { class: "trail t-subheadline nums" }, K.time(s.duration), trail));
     block.append(head);
-    if (isOpen) block.append(isPlaying ? openBody(s, i) : details(s, i));
+    if (isPlaying) block.append(openBody(s, i));
+    else if (isOpen) block.append(details(s, i));
+    else if (V === "d") { const always = alwaysBody(s, i); if (always) block.append(always); }
     return block;
   }
 
@@ -129,15 +172,67 @@ K.start(() => {
   // A note shows inline, its time as a prefix. A tap on a note plays from its time.
   function noteRows(s, i, notes) {
     return notes.length ? el("div", { class: "notes" }, ...notes.map((n) =>
-      el("button", { class: "note t-subheadline", onclick: () => { if (!playingHere()) { K.playItem(item, i); K.becomePlayer(); } K.seek(i, n.at); K.P.paused = false; open.clear(); render(); } },
+      el("button", { class: "note t-subheadline", onclick: (e) => { e.stopPropagation(); playFrom(i, n.at); } },
         el("span", { class: "at nums" }, K.time(n.at) + (n.span ? `–${K.time(n.at + n.span)}` : "")), el("span", {}, n.text)))) : null;
   }
 
-  function details(s, i) {
+  // The movement as a whole: its place in the work and on the album, from the tags.
+  function facts(s) {
+    const m = s.movements && s.movements[0];
+    const discs = new Set(item.album.song.map((x) => x.discNumber)).size;
+    const parts = [m && m.count ? `Movement ${m.number} of ${m.count}` : null, `Track ${s.track}` + (discs > 1 ? ` · Disc ${s.discNumber}` : ""), s.year ? `Recorded ${s.year}` : null];
+    return el("div", { class: "facts t-footnote secondary" }, ...parts.filter(Boolean).map((t) => el("span", {}, t)));
+  }
+
+  // The movement's bar before it plays: where its notes sit. A tap on it plays from there.
+  function previewBar(s, i) {
+    const bar = el("div", { class: "mv-bar preview-bar", role: "button", "aria-label": "Play from a point" });
+    for (const n of notesOf(i)) bar.append(noteMark(n, s));
+    bar.addEventListener("click", (e) => { const r = bar.getBoundingClientRect(); playFrom(i, Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) * s.duration); });
+    return el("div", { class: "bar-box" }, bar, el("div", { class: "mv-times t-caption1 secondary nums" }, el("span", {}, "0:00"), el("span", {}, K.time(s.duration))));
+  }
+
+  function noteMark(n, s) {
+    const mark = el("div", { class: n.span ? "note-span" : "note-dot" });
+    mark.style.left = (n.at / s.duration) * 100 + "%";
+    if (n.span) mark.style.width = (n.span / s.duration) * 100 + "%";
+    return mark;
+  }
+
+  // Specimen only: a native prompt stands in for the note editor. The note goes at the playing position, or at 0:00.
+  function addNote(s, i, after) {
+    return el("button", { class: "add-note t-subheadline", onclick: () => {
+      const at = playingHere() && K.P.index === i ? Math.floor(K.P.pos) : 0;
+      const text = prompt(`Note at ${K.time(at)}`);
+      if (!text) return;
+      const key = `${item.album.id}|${i}`;
+      NOTES[key] = [...(NOTES[key] || []), { at, text }].sort((a, b) => a.at - b.at);
+      K.store("notes", NOTES);
+      after ? after() : render();
+    } }, "Add a note");
+  }
+
+  function details(s, i, after) {
     const box = el("div", { class: "open-body" });
-    const notes = NOTES[`${item.album.id}|${i}`] || [];
-    box.append(...[performerRows(s), noteRows(s, i, notes)].filter(Boolean));
+    box.append(...[performerRows(s), previewBar(s, i), noteRows(s, i, notesOf(i)), facts(s), addNote(s, i, after)].filter(Boolean));
     return box;
+  }
+
+  // Rows D: what differs from the page shows under every title, with nothing to open.
+  function alwaysBody(s, i) {
+    const parts = [performerRows(s), noteRows(s, i, notesOf(i))].filter(Boolean);
+    return parts.length ? el("div", { class: "always" }, ...parts) : null;
+  }
+
+  // Rows C: the movement opens as a card in a sheet; the list below stays as it is.
+  function card(s, i, work) {
+    const body = el("div", { class: "card" });
+    const fill = () => body.replaceChildren(
+      el("button", { class: "capsule filled t-headline", html: ICON.play.replace("<svg", '<svg width="14" height="14"') + "<span>Play from here</span>", onclick: () => { close(); playFrom(i); } }),
+      details(s, i, fill));
+    fill();
+    const close = K.sheet(K.movementTitle(s, work), body);
+    body.querySelectorAll(".note, .preview-bar").forEach((n) => n.addEventListener("click", () => close()));
   }
 
   function openBody(s, i) {
@@ -145,13 +240,8 @@ K.start(() => {
     const people = performerRows(s);
     if (people) box.append(people);
     const bar = el("div", { class: "mv-bar", role: "slider", "aria-label": "Position in movement" }, el("div", { class: "fill" }));
-    const notes = NOTES[`${item.album.id}|${i}`] || [];
-    for (const n of notes) {
-      const mark = el("div", { class: n.span ? "note-span" : "note-dot" });
-      mark.style.left = (n.at / s.duration) * 100 + "%";
-      if (n.span) mark.style.width = (n.span / s.duration) * 100 + "%";
-      bar.append(mark);
-    }
+    const notes = notesOf(i);
+    for (const n of notes) bar.append(noteMark(n, s));
     bar.addEventListener("pointerdown", (e) => {
       bar.setPointerCapture(e.pointerId);
       const move = (ev) => { const r = bar.getBoundingClientRect(); K.seek(i, Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width)) * s.duration); };
@@ -168,6 +258,8 @@ K.start(() => {
     box.append(el("div", { class: "bar-box" }, bar, times), controls);
     const noteList = noteRows(s, i, notes);
     if (noteList) box.append(noteList);
+    if (V !== "d") box.append(facts(s));
+    box.append(addNote(s, i));
     tick.parts = { fill: bar.firstChild, now: times.firstChild, left: times.lastChild, pause, s };
     tick();
     return box;
@@ -225,6 +317,15 @@ K.start(() => {
     const ended = !K.current() && K.P.queue.length ? el("p", { class: "section-foot t-subheadline" }, "The queue has ended.") : null;
     tick.parts = null;
     body.replaceChildren(...[hero(), ...sections, tail, ended].filter(Boolean));
+    showState();
+  }
+
+  // Specimen only: what a tap does and what the page holds, after every change.
+  const stateLine = el("div", { class: "state-line" });
+  document.body.append(stateLine);
+  function showState() {
+    const s = playingHere() ? item.songs[K.P.index] : null;
+    stateLine.textContent = [`Rows ${V.toUpperCase()}: tap ${TAP}`, `open ${open.size}`, s ? `playing ${K.P.index + 1}/${item.songs.length} ${K.time(K.P.pos)}` : "not playing", `scroll: ${SCROLL}`].join(" · ");
   }
 
   function wholeWork(songs) {
@@ -233,25 +334,60 @@ K.start(() => {
   }
 
   let last = "";
+  let lastIndex = K.P.index;
   K.onPlay(() => {
+    if (K.P.scrubbing) return showState();
     const now = [K.current() && K.current().id, K.P.index, K.P.paused].join("|");
-    if (now !== last) { last = now; render(); } else tick();
+    if (now !== last) {
+      const moved = playingHere() && K.P.index !== lastIndex;
+      const wasVisible = moved && rowVisible(lastIndex);
+      last = now; lastIndex = K.P.index; render();
+      if (moved && SCROLL === "change" && wasVisible && Date.now() - quiet > 8000) toPlaying();
+    } else { tick(); showState(); }
   });
   last = [K.current() && K.current().id, K.P.index, K.P.paused].join("|");
   render();
 
-  // ADR 0014: the view scrolls by itself only after a quiet spell without touches.
-  let quiet = Date.now();
+  // Three answers to "did the page just go down?", set with ?scroll=: quiet (ADR 0014), button, change.
+  var quiet = Date.now();
   ["touchstart", "pointerdown", "wheel"].forEach((t) => scroll.addEventListener(t, () => (quiet = Date.now()), { passive: true }));
-  setInterval(() => {
-    if (!playingHere() || Date.now() - quiet < 8000) return;
-    const rows = body.querySelectorAll(".track");
-    const row = rows[K.P.index];
+  const rowAt = (i) => body.querySelectorAll(".track")[i];
+  function rowVisible(i) {
+    const row = rowAt(i);
+    if (!row) return false;
+    const r = row.getBoundingClientRect(), v = scroll.getBoundingClientRect();
+    return r.bottom > v.top + 80 && r.top < v.bottom - 120;
+  }
+  function toPlaying() {
+    const row = rowAt(K.P.index);
     if (!row) return;
-    const prev = rows[K.P.index - 1];
+    const prev = rowAt(K.P.index - 1);
     const target = (prev || row).getBoundingClientRect().top - scroll.getBoundingClientRect().top + scroll.scrollTop - 120;
-    if (Math.abs(scroll.scrollTop - target) > 40) scroll.scrollTo({ top: target, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    scroll.scrollTo({ top: target, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  }
+  const nowBtn = el("button", { class: "capsule glass now-btn t-subheadline", onclick: () => { toPlaying(); } }, "Now playing");
+  document.body.append(nowBtn);
+  function placeNowBtn() {
+    const bar = document.querySelector(".tabbar");
+    nowBtn.style.bottom = (bar ? innerHeight - bar.getBoundingClientRect().top : 16) + 12 + "px";
+    const show = SCROLL === "button" && playingHere() && !rowVisible(K.P.index);
+    nowBtn.classList.toggle("on", show);
+    if (show) nowBtn.textContent = rowAt(K.P.index).getBoundingClientRect().top < scroll.getBoundingClientRect().top ? "↑ Now playing" : "↓ Now playing";
+  }
+  scroll.addEventListener("scroll", placeNowBtn, { passive: true });
+  setInterval(() => {
+    placeNowBtn();
+    if (SCROLL !== "quiet" || K.P.scrubbing || !playingHere() || Date.now() - quiet < 8000) return;
+    const row = rowAt(K.P.index), prev = rowAt(K.P.index - 1);
+    if (!row) return;
+    const target = (prev || row).getBoundingClientRect().top - scroll.getBoundingClientRect().top + scroll.scrollTop - 120;
+    if (Math.abs(scroll.scrollTop - target) > 40) toPlaying();
   }, 1000);
+
+  // Specimen only: the scroll answer is a page control next to the variant.
+  const bar = document.querySelector(".specimen-bar");
+  if (bar) bar.insertBefore(el("select", { "aria-label": "Auto-scroll", onchange: (e) => { K.store("scroll", e.target.value); const p = new URLSearchParams(location.search); p.set("scroll", e.target.value); location.search = p.toString(); } },
+    ...[["quiet", "⇣ after quiet"], ["button", "⇣ button"], ["change", "⇣ on change"]].map(([v, l]) => el("option", { value: v, selected: SCROLL === v }, l))), bar.children[1]);
 });
 </script>
 </body>

@@ -4,23 +4,24 @@
 
 :root {
   --font-family-text: -apple-system, system-ui, sans-serif;
+  --font-family-display: "Wittgenstein", serif;
   --type-largeTitle-family: -apple-system, system-ui, sans-serif;
-  --type-largeTitle-size: 34px;
+  --type-largeTitle-size: 40.3px;
   --type-largeTitle-weight: 400;
   --type-largeTitle-line-height: 1.2059;
   --type-largeTitle-letter-spacing: 0px;
   --type-title1-family: -apple-system, system-ui, sans-serif;
-  --type-title1-size: 28px;
+  --type-title1-size: 30.22px;
   --type-title1-weight: 400;
   --type-title1-line-height: 1.2143;
   --type-title1-letter-spacing: 0px;
   --type-title2-family: -apple-system, system-ui, sans-serif;
-  --type-title2-size: 22px;
+  --type-title2-size: 26.17px;
   --type-title2-weight: 400;
   --type-title2-line-height: 1.2727;
   --type-title2-letter-spacing: 0px;
   --type-title3-family: -apple-system, system-ui, sans-serif;
-  --type-title3-size: 20px;
+  --type-title3-size: 22.67px;
   --type-title3-weight: 400;
   --type-title3-line-height: 1.25;
   --type-title3-letter-spacing: 0px;
@@ -35,30 +36,40 @@
   --type-body-line-height: 1.2941;
   --type-body-letter-spacing: 0px;
   --type-callout-family: -apple-system, system-ui, sans-serif;
-  --type-callout-size: 16px;
+  --type-callout-size: 15.82px;
   --type-callout-weight: 400;
   --type-callout-line-height: 1.3125;
   --type-callout-letter-spacing: 0px;
   --type-subheadline-family: -apple-system, system-ui, sans-serif;
-  --type-subheadline-size: 15px;
+  --type-subheadline-size: 14.72px;
   --type-subheadline-weight: 400;
   --type-subheadline-line-height: 1.3333;
   --type-subheadline-letter-spacing: 0px;
   --type-footnote-family: -apple-system, system-ui, sans-serif;
-  --type-footnote-size: 13px;
+  --type-footnote-size: 12.75px;
   --type-footnote-weight: 400;
   --type-footnote-line-height: 1.3846;
   --type-footnote-letter-spacing: 0px;
   --type-caption1-family: -apple-system, system-ui, sans-serif;
-  --type-caption1-size: 12px;
+  --type-caption1-size: 11.87px;
   --type-caption1-weight: 400;
   --type-caption1-line-height: 1.3333;
   --type-caption1-letter-spacing: 0px;
   --type-caption2-family: -apple-system, system-ui, sans-serif;
-  --type-caption2-size: 11px;
+  --type-caption2-size: 11.04px;
   --type-caption2-weight: 400;
   --type-caption2-line-height: 1.1818;
   --type-caption2-letter-spacing: 0px;
+  --type-pageTitle-family: "Wittgenstein", serif;
+  --type-pageTitle-size: 30.22px;
+  --type-pageTitle-weight: 500;
+  --type-pageTitle-line-height: 1.15;
+  --type-pageTitle-letter-spacing: 0px;
+  --type-sectionHeading-family: "Wittgenstein", serif;
+  --type-sectionHeading-size: 22.67px;
+  --type-sectionHeading-weight: 500;
+  --type-sectionHeading-line-height: 1.2;
+  --type-sectionHeading-letter-spacing: 0px;
   --space-xxs: 2px;
   --space-xs: 4px;
   --space-s: 8px;
@@ -67,6 +78,9 @@
   --space-xl: 20px;
   --space-xxl: 24px;
   --space-xxxl: 32px;
+  --space-inGroup: 5.38px;
+  --space-betweenGroups: 22.67px;
+  --space-betweenSections: 40.3px;
   --radius-s: 6px;
   --radius-m: 10px;
   --radius-l: 16px;
@@ -190,169 +204,193 @@
 }
 
 [data-type-size="xSmall"] {
-  --type-largeTitle-size: 31px;
-  --type-title1-size: 25px;
-  --type-title2-size: 19px;
-  --type-title3-size: 17px;
+  --type-largeTitle-size: 36.74px;
+  --type-title1-size: 26.98px;
+  --type-title2-size: 22.6px;
+  --type-title3-size: 19.27px;
   --type-headline-size: 14px;
   --type-body-size: 14px;
-  --type-callout-size: 13px;
-  --type-subheadline-size: 12px;
-  --type-footnote-size: 12px;
-  --type-caption1-size: 11px;
-  --type-caption2-size: 11px;
+  --type-callout-size: 12.85px;
+  --type-subheadline-size: 11.78px;
+  --type-footnote-size: 11.77px;
+  --type-caption1-size: 10.88px;
+  --type-caption2-size: 11.04px;
+  --type-pageTitle-size: 26.98px;
+  --type-sectionHeading-size: 19.27px;
 }
 
 [data-type-size="small"] {
-  --type-largeTitle-size: 32px;
-  --type-title1-size: 26px;
-  --type-title2-size: 20px;
-  --type-title3-size: 18px;
+  --type-largeTitle-size: 37.93px;
+  --type-title1-size: 28.06px;
+  --type-title2-size: 23.79px;
+  --type-title3-size: 20.4px;
   --type-headline-size: 15px;
   --type-body-size: 15px;
-  --type-callout-size: 14px;
-  --type-subheadline-size: 13px;
-  --type-footnote-size: 12px;
-  --type-caption1-size: 11px;
-  --type-caption2-size: 11px;
+  --type-callout-size: 13.84px;
+  --type-subheadline-size: 12.76px;
+  --type-footnote-size: 11.77px;
+  --type-caption1-size: 10.88px;
+  --type-caption2-size: 11.04px;
+  --type-pageTitle-size: 28.06px;
+  --type-sectionHeading-size: 20.4px;
 }
 
 [data-type-size="medium"] {
-  --type-largeTitle-size: 33px;
-  --type-title1-size: 27px;
-  --type-title2-size: 21px;
-  --type-title3-size: 19px;
+  --type-largeTitle-size: 39.11px;
+  --type-title1-size: 29.14px;
+  --type-title2-size: 24.98px;
+  --type-title3-size: 21.54px;
   --type-headline-size: 16px;
   --type-body-size: 16px;
-  --type-callout-size: 15px;
-  --type-subheadline-size: 14px;
-  --type-footnote-size: 12px;
-  --type-caption1-size: 11px;
-  --type-caption2-size: 11px;
+  --type-callout-size: 14.83px;
+  --type-subheadline-size: 13.74px;
+  --type-footnote-size: 11.77px;
+  --type-caption1-size: 10.88px;
+  --type-caption2-size: 11.04px;
+  --type-pageTitle-size: 29.14px;
+  --type-sectionHeading-size: 21.54px;
 }
 
 [data-type-size="large"] {
-  --type-largeTitle-size: 34px;
-  --type-title1-size: 28px;
-  --type-title2-size: 22px;
-  --type-title3-size: 20px;
+  --type-largeTitle-size: 40.3px;
+  --type-title1-size: 30.22px;
+  --type-title2-size: 26.17px;
+  --type-title3-size: 22.67px;
   --type-headline-size: 17px;
   --type-body-size: 17px;
-  --type-callout-size: 16px;
-  --type-subheadline-size: 15px;
-  --type-footnote-size: 13px;
-  --type-caption1-size: 12px;
-  --type-caption2-size: 11px;
+  --type-callout-size: 15.82px;
+  --type-subheadline-size: 14.72px;
+  --type-footnote-size: 12.75px;
+  --type-caption1-size: 11.87px;
+  --type-caption2-size: 11.04px;
+  --type-pageTitle-size: 30.22px;
+  --type-sectionHeading-size: 22.67px;
 }
 
 [data-type-size="xLarge"] {
-  --type-largeTitle-size: 36px;
-  --type-title1-size: 30px;
-  --type-title2-size: 24px;
-  --type-title3-size: 22px;
+  --type-largeTitle-size: 42.67px;
+  --type-title1-size: 32.38px;
+  --type-title2-size: 28.55px;
+  --type-title3-size: 24.94px;
   --type-headline-size: 19px;
   --type-body-size: 19px;
-  --type-callout-size: 18px;
-  --type-subheadline-size: 17px;
-  --type-footnote-size: 15px;
-  --type-caption1-size: 14px;
-  --type-caption2-size: 13px;
+  --type-callout-size: 17.8px;
+  --type-subheadline-size: 16.68px;
+  --type-footnote-size: 14.71px;
+  --type-caption1-size: 13.85px;
+  --type-caption2-size: 13.05px;
+  --type-pageTitle-size: 32.38px;
+  --type-sectionHeading-size: 24.94px;
 }
 
 [data-type-size="xxLarge"] {
-  --type-largeTitle-size: 38px;
-  --type-title1-size: 32px;
-  --type-title2-size: 26px;
-  --type-title3-size: 24px;
+  --type-largeTitle-size: 45.04px;
+  --type-title1-size: 34.54px;
+  --type-title2-size: 30.93px;
+  --type-title3-size: 27.2px;
   --type-headline-size: 21px;
   --type-body-size: 21px;
-  --type-callout-size: 20px;
-  --type-subheadline-size: 19px;
-  --type-footnote-size: 17px;
-  --type-caption1-size: 16px;
-  --type-caption2-size: 15px;
+  --type-callout-size: 19.77px;
+  --type-subheadline-size: 18.65px;
+  --type-footnote-size: 16.67px;
+  --type-caption1-size: 15.83px;
+  --type-caption2-size: 15.05px;
+  --type-pageTitle-size: 34.54px;
+  --type-sectionHeading-size: 27.2px;
 }
 
 [data-type-size="xxxLarge"] {
-  --type-largeTitle-size: 40px;
-  --type-title1-size: 34px;
-  --type-title2-size: 28px;
-  --type-title3-size: 26px;
+  --type-largeTitle-size: 47.41px;
+  --type-title1-size: 36.7px;
+  --type-title2-size: 33.31px;
+  --type-title3-size: 29.47px;
   --type-headline-size: 23px;
   --type-body-size: 23px;
-  --type-callout-size: 22px;
-  --type-subheadline-size: 21px;
-  --type-footnote-size: 19px;
-  --type-caption1-size: 18px;
-  --type-caption2-size: 17px;
+  --type-callout-size: 21.75px;
+  --type-subheadline-size: 20.61px;
+  --type-footnote-size: 18.63px;
+  --type-caption1-size: 17.8px;
+  --type-caption2-size: 17.06px;
+  --type-pageTitle-size: 36.7px;
+  --type-sectionHeading-size: 29.47px;
 }
 
 [data-type-size="AX1"] {
-  --type-largeTitle-size: 44px;
-  --type-title1-size: 38px;
-  --type-title2-size: 34px;
-  --type-title3-size: 31px;
+  --type-largeTitle-size: 52.15px;
+  --type-title1-size: 41.01px;
+  --type-title2-size: 40.44px;
+  --type-title3-size: 35.14px;
   --type-headline-size: 28px;
   --type-body-size: 28px;
-  --type-callout-size: 26px;
-  --type-subheadline-size: 25px;
-  --type-footnote-size: 23px;
-  --type-caption1-size: 22px;
-  --type-caption2-size: 20px;
+  --type-callout-size: 25.71px;
+  --type-subheadline-size: 24.53px;
+  --type-footnote-size: 22.56px;
+  --type-caption1-size: 21.76px;
+  --type-caption2-size: 20.07px;
+  --type-pageTitle-size: 41.01px;
+  --type-sectionHeading-size: 35.14px;
 }
 
 [data-type-size="AX2"] {
-  --type-largeTitle-size: 48px;
-  --type-title1-size: 43px;
-  --type-title2-size: 39px;
-  --type-title3-size: 37px;
+  --type-largeTitle-size: 56.89px;
+  --type-title1-size: 46.41px;
+  --type-title2-size: 46.39px;
+  --type-title3-size: 41.94px;
   --type-headline-size: 33px;
   --type-body-size: 33px;
-  --type-callout-size: 32px;
-  --type-subheadline-size: 30px;
-  --type-footnote-size: 27px;
-  --type-caption1-size: 26px;
-  --type-caption2-size: 24px;
+  --type-callout-size: 31.64px;
+  --type-subheadline-size: 29.44px;
+  --type-footnote-size: 26.48px;
+  --type-caption1-size: 25.72px;
+  --type-caption2-size: 24.09px;
+  --type-pageTitle-size: 46.41px;
+  --type-sectionHeading-size: 41.94px;
 }
 
 [data-type-size="AX3"] {
-  --type-largeTitle-size: 52px;
-  --type-title1-size: 48px;
-  --type-title2-size: 44px;
-  --type-title3-size: 43px;
+  --type-largeTitle-size: 61.64px;
+  --type-title1-size: 51.81px;
+  --type-title2-size: 52.34px;
+  --type-title3-size: 48.74px;
   --type-headline-size: 40px;
   --type-body-size: 40px;
-  --type-callout-size: 38px;
-  --type-subheadline-size: 36px;
-  --type-footnote-size: 33px;
-  --type-caption1-size: 32px;
-  --type-caption2-size: 29px;
+  --type-callout-size: 37.57px;
+  --type-subheadline-size: 35.33px;
+  --type-footnote-size: 32.37px;
+  --type-caption1-size: 31.65px;
+  --type-caption2-size: 29.11px;
+  --type-pageTitle-size: 51.81px;
+  --type-sectionHeading-size: 48.74px;
 }
 
 [data-type-size="AX4"] {
-  --type-largeTitle-size: 56px;
-  --type-title1-size: 53px;
-  --type-title2-size: 50px;
-  --type-title3-size: 49px;
+  --type-largeTitle-size: 66.38px;
+  --type-title1-size: 57.2px;
+  --type-title2-size: 59.48px;
+  --type-title3-size: 55.54px;
   --type-headline-size: 47px;
   --type-body-size: 47px;
-  --type-callout-size: 44px;
-  --type-subheadline-size: 42px;
-  --type-footnote-size: 38px;
-  --type-caption1-size: 37px;
-  --type-caption2-size: 34px;
+  --type-callout-size: 43.51px;
+  --type-subheadline-size: 41.22px;
+  --type-footnote-size: 37.27px;
+  --type-caption1-size: 36.6px;
+  --type-caption2-size: 34.12px;
+  --type-pageTitle-size: 57.2px;
+  --type-sectionHeading-size: 55.54px;
 }
 
 [data-type-size="AX5"] {
-  --type-largeTitle-size: 60px;
-  --type-title1-size: 58px;
-  --type-title2-size: 56px;
-  --type-title3-size: 55px;
+  --type-largeTitle-size: 71.12px;
+  --type-title1-size: 62.6px;
+  --type-title2-size: 66.61px;
+  --type-title3-size: 62.34px;
   --type-headline-size: 53px;
   --type-body-size: 53px;
-  --type-callout-size: 50px;
-  --type-subheadline-size: 49px;
-  --type-footnote-size: 44px;
-  --type-caption1-size: 43px;
-  --type-caption2-size: 41px;
+  --type-callout-size: 49.44px;
+  --type-subheadline-size: 48.09px;
+  --type-footnote-size: 43.15px;
+  --type-caption1-size: 42.53px;
+  --type-caption2-size: 41.15px;
+  --type-pageTitle-size: 62.6px;
+  --type-sectionHeading-size: 62.34px;
 }

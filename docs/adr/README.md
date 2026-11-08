@@ -40,3 +40,4 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0027](0027-player-rows.md) | Player rows: play at the end, open only what differs | 2026-11-08 |
 | [0028](0028-mini-player-pill.md) | The mini player is a pill at the end of the timeline | 2026-11-08 |
 | [0029](0029-search-at-the-top.md) | Search at the top, with a back arrow and recent searches | 2026-11-08 |
+| [0030](0030-type-and-spacing.md) | Type and spacing from one ratio | 2026-11-08 |

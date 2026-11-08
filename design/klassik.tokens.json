@@ -1,5 +1,5 @@
 {
-  "$description": "Klassik design tokens, DTCG 2025.10. Decided values only (ADR 0021). Neutral iOS system values until a look ticket decides.",
+  "$description": "Klassik design tokens, DTCG 2025.10. Decided values only (ADR 0021). Type and spacing follow ADR 0030; colour, radius, size and motion stay at neutral iOS system values until a look ticket decides.",
   "color": {
     "$type": "color",
     "background": {
@@ -170,6 +170,13 @@
           "sans-serif"
         ],
         "$description": "The system face. In SwiftUI, a text style without a custom font."
+      },
+      "display": {
+        "$value": [
+          "Wittgenstein",
+          "serif"
+        ],
+        "$description": "Page titles and section headings only. Bundled with the app under the SIL Open Font License 1.1."
       }
     }
   },
@@ -179,7 +186,7 @@
       "$value": {
         "fontFamily": "{font.family.text}",
         "fontSize": {
-          "value": 34,
+          "value": 40.3,
           "unit": "px"
         },
         "fontWeight": 400,
@@ -191,7 +198,8 @@
       },
       "$extensions": {
         "de.whnr.klassik": {
-          "textStyle": "largeTitle"
+          "textStyle": "largeTitle",
+          "step": 3
         }
       }
     },
@@ -199,7 +207,7 @@
       "$value": {
         "fontFamily": "{font.family.text}",
         "fontSize": {
-          "value": 28,
+          "value": 30.22,
           "unit": "px"
         },
         "fontWeight": 400,
@@ -211,7 +219,8 @@
       },
       "$extensions": {
         "de.whnr.klassik": {
-          "textStyle": "title"
+          "textStyle": "title",
+          "step": 2
         }
       }
     },
@@ -219,7 +228,7 @@
       "$value": {
         "fontFamily": "{font.family.text}",
         "fontSize": {
-          "value": 22,
+          "value": 26.17,
           "unit": "px"
         },
         "fontWeight": 400,
@@ -231,7 +240,8 @@
       },
       "$extensions": {
         "de.whnr.klassik": {
-          "textStyle": "title2"
+          "textStyle": "title2",
+          "step": 1.5
         }
       }
     },
@@ -239,7 +249,7 @@
       "$value": {
         "fontFamily": "{font.family.text}",
         "fontSize": {
-          "value": 20,
+          "value": 22.67,
           "unit": "px"
         },
         "fontWeight": 400,
@@ -251,7 +261,8 @@
       },
       "$extensions": {
         "de.whnr.klassik": {
-          "textStyle": "title3"
+          "textStyle": "title3",
+          "step": 1
         }
       }
     },
@@ -259,7 +270,7 @@
       "$value": {
         "fontFamily": "{font.family.text}",
         "fontSize": {
-          "value": 17,
+          "value": 17.0,
           "unit": "px"
         },
         "fontWeight": 600,
@@ -271,7 +282,8 @@
       },
       "$extensions": {
         "de.whnr.klassik": {
-          "textStyle": "headline"
+          "textStyle": "headline",
+          "step": 0
         }
       }
     },
@@ -279,7 +291,7 @@
       "$value": {
         "fontFamily": "{font.family.text}",
         "fontSize": {
-          "value": 17,
+          "value": 17.0,
           "unit": "px"
         },
         "fontWeight": 400,
@@ -291,7 +303,8 @@
       },
       "$extensions": {
         "de.whnr.klassik": {
-          "textStyle": "body"
+          "textStyle": "body",
+          "step": 0
         }
       }
     },
@@ -299,7 +312,7 @@
       "$value": {
         "fontFamily": "{font.family.text}",
         "fontSize": {
-          "value": 16,
+          "value": 15.82,
           "unit": "px"
         },
         "fontWeight": 400,
@@ -311,7 +324,8 @@
       },
       "$extensions": {
         "de.whnr.klassik": {
-          "textStyle": "callout"
+          "textStyle": "callout",
+          "step": -0.25
         }
       }
     },
@@ -319,7 +333,7 @@
       "$value": {
         "fontFamily": "{font.family.text}",
         "fontSize": {
-          "value": 15,
+          "value": 14.72,
           "unit": "px"
         },
         "fontWeight": 400,
@@ -331,7 +345,8 @@
       },
       "$extensions": {
         "de.whnr.klassik": {
-          "textStyle": "subheadline"
+          "textStyle": "subheadline",
+          "step": -0.5
         }
       }
     },
@@ -339,7 +354,7 @@
       "$value": {
         "fontFamily": "{font.family.text}",
         "fontSize": {
-          "value": 13,
+          "value": 12.75,
           "unit": "px"
         },
         "fontWeight": 400,
@@ -351,7 +366,8 @@
       },
       "$extensions": {
         "de.whnr.klassik": {
-          "textStyle": "footnote"
+          "textStyle": "footnote",
+          "step": -1
         }
       }
     },
@@ -359,7 +375,7 @@
       "$value": {
         "fontFamily": "{font.family.text}",
         "fontSize": {
-          "value": 12,
+          "value": 11.87,
           "unit": "px"
         },
         "fontWeight": 400,
@@ -371,7 +387,8 @@
       },
       "$extensions": {
         "de.whnr.klassik": {
-          "textStyle": "caption"
+          "textStyle": "caption",
+          "step": -1.25
         }
       }
     },
@@ -379,7 +396,7 @@
       "$value": {
         "fontFamily": "{font.family.text}",
         "fontSize": {
-          "value": 11,
+          "value": 11.04,
           "unit": "px"
         },
         "fontWeight": 400,
@@ -391,14 +408,70 @@
       },
       "$extensions": {
         "de.whnr.klassik": {
-          "textStyle": "caption2"
+          "textStyle": "caption2",
+          "step": -1.5
+        }
+      }
+    },
+    "$description": "One ratio drives every size: body 17 pt times 4:3 to the power of the step. Figures are lining and proportional everywhere.",
+    "$extensions": {
+      "de.whnr.klassik": {
+        "ratio": 1.3333,
+        "body": 17,
+        "figures": [
+          "lnum",
+          "pnum"
+        ]
+      }
+    },
+    "pageTitle": {
+      "$value": {
+        "fontFamily": "{font.family.display}",
+        "fontSize": {
+          "value": 30.22,
+          "unit": "px"
+        },
+        "fontWeight": 500,
+        "lineHeight": 1.15,
+        "letterSpacing": {
+          "value": 0,
+          "unit": "px"
+        }
+      },
+      "$description": "The title at the top of a content page.",
+      "$extensions": {
+        "de.whnr.klassik": {
+          "textStyle": "title",
+          "step": 2
+        }
+      }
+    },
+    "sectionHeading": {
+      "$value": {
+        "fontFamily": "{font.family.display}",
+        "fontSize": {
+          "value": 22.67,
+          "unit": "px"
+        },
+        "fontWeight": 500,
+        "lineHeight": 1.2,
+        "letterSpacing": {
+          "value": 0,
+          "unit": "px"
+        }
+      },
+      "$description": "A section heading of a content page, in sentence case. Settings and sheets keep the system header.",
+      "$extensions": {
+        "de.whnr.klassik": {
+          "textStyle": "title3",
+          "step": 1
         }
       }
     }
   },
   "space": {
     "$type": "dimension",
-    "$description": "Spacing steps. In SwiftUI, ScaledMetric.",
+    "$description": "Spacing. In SwiftUI, ScaledMetric. The roles follow the type ratio (ADR 0030). The steps are system insets and paddings.",
     "xxs": {
       "$value": {
         "value": 2,
@@ -445,6 +518,47 @@
       "$value": {
         "value": 32,
         "unit": "px"
+      }
+    },
+    "$extensions": {
+      "de.whnr.klassik": {
+        "ratio": 1.3333
+      }
+    },
+    "inGroup": {
+      "$value": {
+        "value": 5.38,
+        "unit": "px"
+      },
+      "$description": "Between the lines of one group, such as the lines of a row.",
+      "$extensions": {
+        "de.whnr.klassik": {
+          "step": -4
+        }
+      }
+    },
+    "betweenGroups": {
+      "$value": {
+        "value": 22.67,
+        "unit": "px"
+      },
+      "$description": "Between groups inside a section. A row takes half above and half below.",
+      "$extensions": {
+        "de.whnr.klassik": {
+          "step": 1
+        }
+      }
+    },
+    "betweenSections": {
+      "$value": {
+        "value": 40.3,
+        "unit": "px"
+      },
+      "$description": "Between the sections of a page.",
+      "$extensions": {
+        "de.whnr.klassik": {
+          "step": 3
+        }
       }
     }
   },

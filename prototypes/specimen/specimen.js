@@ -4,7 +4,7 @@
 
 const K = (() => {
   const params = new URLSearchParams(location.search);
-  const CARRIED = ["variant", "theme", "contrast", "size", "playing", "scroll"];
+  const CARRIED = ["variant", "theme", "contrast", "size", "playing", "scroll", "side"];
   const SIZES = ["xSmall", "small", "medium", "large", "xLarge", "xxLarge", "xxxLarge", "AX1", "AX2", "AX3", "AX4", "AX5"];
   const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI"];
   const ENSEMBLE = new Set(["Orchestra", "Choir", "Ensemble", "Trio", "Quartet"]);
@@ -298,6 +298,7 @@ const K = (() => {
     const contrast = setting("contrast", "auto");
     root.dataset.contrast = contrast === "high" || (contrast === "auto" && matchMedia("(prefers-contrast: more)").matches) ? "high" : "normal";
     root.dataset.typeSize = setting("size", "large");
+    root.dataset.side = setting("side", "right");
   }
 
   function setParam(name, value) {
@@ -337,6 +338,9 @@ const K = (() => {
     const playing = el("select", { "aria-label": "What plays", onchange: (e) => { setParam("playing", e.target.value); store("play", null); location.reload(); } },
       ...Object.entries(QUEUES).map(([k, q]) => el("option", { value: k, selected: setting("playing", "recording") === k }, "▶ " + q.label)));
     bar.append(theme, contrast, size, playing);
+    // The timeline edge is a listener option on every page; it leads the pill so a narrow screen never hides it.
+    const sides = { right: "Timeline ⇥", left: "⇤ Timeline" };
+    bar.prepend(el("button", { class: "on", "aria-label": "Timeline edge", onclick: () => { setParam("side", setting("side", "right") === "right" ? "left" : "right"); location.reload(); } }, sides[setting("side", "right")]));
     document.body.append(bar);
   }
 

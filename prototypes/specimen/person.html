@@ -30,10 +30,10 @@
     -webkit-backdrop-filter: blur(24px) saturate(1.8); backdrop-filter: blur(24px) saturate(1.8);
     box-shadow: 0 0 0 0.5px var(--color-separator), 0 2px 10px rgb(0 0 0 / 0.18); }
 
-  .segmented { display: flex; margin: var(--space-l) calc(var(--space-l) + var(--size-timeline) + var(--space-s)) 0 var(--space-l); padding: 2px; border-radius: var(--radius-m); background: var(--color-fill-quiet); }
+  .segmented { display: flex; margin: var(--space-l) var(--pad-right) 0 var(--pad-left); padding: 2px; border-radius: var(--radius-m); background: var(--color-fill-quiet); }
   .segmented button { flex: 1; min-height: 32px; border-radius: calc(var(--radius-m) - 2px); }
   .segmented button.on { background: var(--color-background-row); box-shadow: 0 1px 3px rgb(0 0 0 / 0.12); }
-  .chips { display: flex; gap: var(--space-xs); overflow-x: auto; scrollbar-width: none; padding: var(--space-m) calc(var(--space-l) + var(--size-timeline) + var(--space-s)) 0 var(--space-l); }
+  .chips { display: flex; gap: var(--space-xs); overflow-x: auto; scrollbar-width: none; padding: var(--space-m) var(--pad-right) 0 var(--pad-left); }
   .albums { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-l) var(--space-m); }
   .albums img, .albums .none { width: 100%; aspect-ratio: 1; height: auto; border-radius: var(--radius-m); }
   .bio { padding: var(--space-m) var(--space-l); white-space: pre-line; user-select: text; -webkit-user-select: text; }

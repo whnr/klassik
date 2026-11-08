@@ -12,9 +12,10 @@
 <body>
 <style>
   .scroll { overflow: hidden; }
-  .chrono-head { padding: var(--space-xs) calc(var(--space-l) + var(--size-timeline) + var(--space-s)) 0 var(--space-l); min-height: 64px; }
+  .chrono-head { padding: var(--space-xs) var(--pad-right) 0 var(--pad-left); min-height: 64px; }
   .chrono-head h1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .chart { position: absolute; overflow: hidden; left: 0; right: calc(var(--size-timeline) + var(--space-s)); touch-action: pan-y; }
+  [data-side="left"] .chart { left: calc(var(--size-timeline) + var(--space-s)); right: 0; }
   .chart > * { position: absolute; transition-property: left, top, width, height, opacity;
     transition-duration: var(--motion-transition-glide-duration); transition-timing-function: var(--motion-transition-glide-easing); }
   @media (prefers-reduced-motion: reduce) { .chart > * { transition-property: opacity; } }

@@ -36,6 +36,7 @@ input { font: inherit; color: inherit; }
 
 /* Specimen controls: a pill at the top that belongs to the specimen, not to the app. */
 .specimen-bar {
+  max-width: calc(100vw - 12px); overflow-x: auto;
   position: fixed; z-index: 50; top: max(env(safe-area-inset-top), 6px); left: 50%; transform: translateX(-50%);
   display: flex; gap: 2px; padding: 3px; border-radius: var(--radius-full);
   background: var(--color-background-elevated); box-shadow: 0 1px 6px rgb(0 0 0 / 0.18);
@@ -47,6 +48,15 @@ input { font: inherit; color: inherit; }
 }
 .specimen-bar button:active, .specimen-bar select:active { background: var(--color-fill-quiet); }
 .specimen-bar .on { background: var(--color-fill-quiet); }
+
+/* The listener puts the timeline on the right or the left edge (ADR 0014). Content keeps clear of it. */
+:root { --pad-left: var(--space-l); --pad-right: calc(var(--space-l) + var(--size-timeline) + var(--space-s)); }
+:root[data-side="left"] { --pad-left: calc(var(--space-l) + var(--size-timeline) + var(--space-s)); --pad-right: var(--space-l); }
+[data-side="left"] .nav { padding-left: calc(var(--size-timeline) + var(--space-xs)); padding-right: var(--space-l); }
+[data-side="left"] .timeline { right: auto; left: 0; }
+[data-side="left"] .timeline .bar { right: auto; left: 0; }
+[data-side="left"] .scrub-label { right: auto; left: calc(var(--size-hitTarget) + var(--space-xs)); }
+[data-side="left"] .mini { right: var(--space-l); left: var(--size-timeline); border-radius: 0 var(--radius-l) var(--radius-l) 0; }
 
 /* App frame. */
 .app { position: fixed; inset: 0; display: flex; flex-direction: column; background: var(--color-background-grouped); }
@@ -83,12 +93,12 @@ input { font: inherit; color: inherit; }
   flex: 1; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
   padding: calc(max(env(safe-area-inset-top), 6px) + 34px + var(--size-hitTarget)) 0 var(--bottom-space, 180px);
 }
-.page-head { padding: var(--space-xs) calc(var(--space-l) + var(--size-timeline) + var(--space-s)) var(--space-s) var(--space-l); }
+.page-head { padding: var(--space-xs) var(--pad-right) var(--space-s) var(--pad-left); }
 .page-head h1 { overflow-wrap: anywhere; }
 .page-head .meta { margin-top: var(--space-xxs); }
 
 /* Inset grouped list. */
-.section { margin: var(--space-xl) calc(var(--space-l) + var(--size-timeline) + var(--space-s)) 0 var(--space-l); }
+.section { margin: var(--space-xl) var(--pad-right) 0 var(--pad-left); }
 .section-head { padding: 0 var(--space-l) var(--space-xs); color: var(--color-text-secondary); display: flex; justify-content: space-between; gap: var(--space-s); }
 .section-foot { padding: var(--space-xs) var(--space-l) 0; color: var(--color-text-secondary); }
 .list { background: var(--color-background-row); border-radius: var(--radius-m); overflow: hidden; }
@@ -110,7 +120,7 @@ input { font: inherit; color: inherit; }
 .row.playing { background: color-mix(in srgb, var(--color-tint) 12%, var(--color-background-row)); }
 .link { color: var(--color-tint); }
 
-.button-row { display: flex; gap: var(--space-m); padding: var(--space-m) calc(var(--space-l) + var(--size-timeline) + var(--space-s)) 0 var(--space-l); }
+.button-row { display: flex; gap: var(--space-m); padding: var(--space-m) var(--pad-right) 0 var(--pad-left); }
 .capsule {
   flex: 1; min-height: var(--size-hitTarget); border-radius: var(--radius-full); padding: 0 var(--space-l);
   display: flex; align-items: center; justify-content: center; gap: var(--space-s);
@@ -203,4 +213,4 @@ input { font: inherit; color: inherit; }
 .sheet .sheet-head { display: flex; align-items: center; gap: var(--space-s); padding: var(--space-s) var(--space-l); }
 .sheet .sheet-head h2 { flex: 1; }
 .sheet .sheet-body { overflow-y: auto; padding-bottom: var(--space-xl); }
-.sheet .section { margin-right: var(--space-l); }
+.sheet .section { margin-right: var(--space-l); margin-left: var(--space-l); }

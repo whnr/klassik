@@ -33,7 +33,7 @@
   .clear { color: var(--color-text-secondary); padding: var(--space-xs); visibility: hidden; }
   .search-bar.typing .fold { display: none; }
 
-  .hint { padding: var(--space-xl) calc(var(--space-l) + var(--size-timeline) + var(--space-s)) 0 var(--space-xl); color: var(--color-text-secondary); }
+  .hint { padding: var(--space-xl) var(--pad-right) 0 var(--space-xl); color: var(--color-text-secondary); }
   .nomatch { padding: var(--space-l) var(--space-l) 0; color: var(--color-text-secondary); }
 
   /* Conditions, shared by the three variants. */
@@ -69,7 +69,7 @@
   .panel .box { max-height: calc(5.5 * var(--size-hitTarget)); overflow-y: auto; overscroll-behavior: contain; }
 
   /* C: condition chips under the title; each chip opens its page. */
-  .chiprow { display: flex; gap: var(--space-xs); flex-wrap: wrap; padding: var(--space-s) calc(var(--space-l) + var(--size-timeline) + var(--space-s)) 0 var(--space-l); }
+  .chiprow { display: flex; gap: var(--space-xs); flex-wrap: wrap; padding: var(--space-s) var(--pad-right) 0 var(--pad-left); }
   .chiprow .chip { gap: var(--space-xs); max-width: 100%; }
   .chiprow .chip span { overflow: hidden; text-overflow: ellipsis; }
   .chiprow .chip.add { background: transparent; color: var(--color-tint); box-shadow: inset 0 0 0 1px var(--color-fill-standard); }
@@ -78,7 +78,7 @@
     transform: translateX(100%); transition: transform var(--motion-transition-open-duration) var(--motion-transition-open-easing); }
   .pushed.on { transform: none; }
   .pushed .scroll { padding-bottom: 40px; }
-  .pushed .fixed { padding: 0 calc(var(--space-l) + var(--size-timeline) + var(--space-s)) 0 var(--space-l); }
+  .pushed .fixed { padding: 0 var(--pad-right) 0 var(--pad-left); }
 </style>
 <script>
 K.start(() => {

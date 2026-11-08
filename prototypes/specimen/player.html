@@ -17,7 +17,7 @@
   .is-player .wash { opacity: 1; }
   .page-body { position: relative; }
   .hero { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--space-xs);
-    padding: var(--space-s) calc(var(--space-l) + var(--size-timeline) + var(--space-s)) 0 var(--space-l); }
+    padding: var(--space-s) var(--pad-right) 0 var(--pad-left); }
   .hero .big { width: var(--size-coverPage); height: var(--size-coverPage); border-radius: var(--radius-l); object-fit: cover;
     box-shadow: 0 6px 24px rgb(0 0 0 / 0.22); margin-bottom: var(--space-m); }
   .hero .big.none { box-shadow: none; }
@@ -49,7 +49,6 @@
   .track .row[aria-expanded="true"] .main > div { font-weight: 600; }
   .facts { display: flex; flex-wrap: wrap; }
   .facts span + span::before { content: " · "; white-space: pre; }
-  .specimen-bar { max-width: calc(100vw - 12px); overflow-x: auto; }
   .add-note { justify-self: start; color: var(--color-tint); }
   .preview-bar { cursor: pointer; }
   .always { padding: 0 var(--space-l) var(--space-s); display: grid; gap: var(--space-xxs); margin-top: calc(-1 * var(--space-xs)); }
@@ -59,7 +58,7 @@
     box-shadow: 0 2px 12px rgb(0 0 0 / 0.18); }
   .now-btn.on { display: flex; }
   .state-line { position: fixed; z-index: 49; left: 50%; transform: translateX(-50%); top: calc(max(env(safe-area-inset-top), 6px) + 34px + var(--size-hitTarget) + 2px);
-    font: 500 10px/1.3 -apple-system, system-ui, sans-serif; color: var(--color-text-secondary); white-space: nowrap; pointer-events: none;
+    font: 500 10px/1.3 -apple-system, system-ui, sans-serif; color: var(--color-text-secondary); max-width: calc(100vw - 16px); width: max-content; text-align: center; pointer-events: none;
     background: color-mix(in srgb, var(--color-background-elevated) 80%, transparent); padding: 1px 8px; border-radius: 8px; }
   .rise-out { transform: translateY(-40px); opacity: 0; transition: transform var(--motion-transition-rise-duration) var(--motion-transition-rise-easing), opacity var(--motion-transition-rise-duration) var(--motion-transition-rise-easing); }
   .rise-in { animation: rise var(--motion-transition-rise-duration) var(--motion-transition-rise-easing); }
@@ -74,6 +73,7 @@ K.start(() => {
   const V = { "rows-b": "b", "rows-c": "c", "rows-d": "d" }[K.params.get("variant")] || "a";
   const SCROLL = K.params.get("scroll") || K.store("scroll") || "button";
   const TAP = { a: "opens the row", b: "opens the row", c: "opens a card", d: "plays" }[V];
+  const PLAY = V === "b" ? (document.documentElement.dataset.side === "left" ? "play at end" : "play in front") : V === "d" ? "" : "play at end";
 
   function pageItem() {
     if (K.params.get("recording")) { const r = M.recordings.get(K.params.get("recording")); return K.resolveItem(["recording", r.album.id, r.work]); }
@@ -140,8 +140,10 @@ K.start(() => {
     const isPlaying = playingHere() && K.P.index === i;
     const isOpen = isPlaying || (V !== "c" && V !== "d" && open.has(i));
     const block = el("div", { class: "row-block track" });
-    const lead = V === "b" ? el("span", { class: "lead" }, isPlaying ? eq() : faintPlay(i)) : null;
-    const trail = V === "b" ? null : el("span", { class: "slot" }, isPlaying ? null : faintPlay(i));
+    // Rows B keeps the play button on the edge away from the timeline, so a tap on it never lands on a scrub.
+    const front = V === "b" && document.documentElement.dataset.side !== "left";
+    const lead = front ? el("span", { class: "lead" }, isPlaying ? eq() : faintPlay(i)) : null;
+    const trail = front ? null : el("span", { class: "slot" }, isPlaying ? (V === "b" ? eq() : null) : faintPlay(i));
     const tap = () => {
       if (isPlaying) return;
       if (V === "d") return playFrom(i);
@@ -325,7 +327,7 @@ K.start(() => {
   document.body.append(stateLine);
   function showState() {
     const s = playingHere() ? item.songs[K.P.index] : null;
-    stateLine.textContent = [`Rows ${V.toUpperCase()}: tap ${TAP}`, `open ${open.size}`, s ? `playing ${K.P.index + 1}/${item.songs.length} ${K.time(K.P.pos)}` : "not playing", `scroll: ${SCROLL}`].join(" · ");
+    stateLine.textContent = [`Rows ${V.toUpperCase()}: tap ${TAP}`, PLAY, `timeline ${document.documentElement.dataset.side}`, `open ${open.size}`, s ? `playing ${K.P.index + 1}/${item.songs.length} ${K.time(K.P.pos)}` : "not playing", `scroll: ${SCROLL}`].filter(Boolean).join(" · ");
   }
 
   function wholeWork(songs) {
@@ -387,7 +389,7 @@ K.start(() => {
   // Specimen only: the scroll answer is a page control next to the variant.
   const bar = document.querySelector(".specimen-bar");
   if (bar) bar.insertBefore(el("select", { "aria-label": "Auto-scroll", onchange: (e) => { K.store("scroll", e.target.value); const p = new URLSearchParams(location.search); p.set("scroll", e.target.value); location.search = p.toString(); } },
-    ...[["quiet", "⇣ after quiet"], ["button", "⇣ button"], ["change", "⇣ on change"]].map(([v, l]) => el("option", { value: v, selected: SCROLL === v }, l))), bar.children[1]);
+    ...[["quiet", "⇣ after quiet"], ["button", "⇣ button"], ["change", "⇣ on change"]].map(([v, l]) => el("option", { value: v, selected: SCROLL === v }, l))), bar.children[2]);
 });
 </script>
 </body>

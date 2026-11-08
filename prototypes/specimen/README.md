@@ -6,7 +6,7 @@ The design specimen of map sz-rs30.1.83 (ticket sz-rs30.1.83.4). Every look tick
 
 - `index.html`: the Library place, with links to every page.
 - `work.html`: a work page with recording rows. `?work=<composer>|<work>` picks another work.
-- `player.html`: the page of what plays, with the cover wash, the timeline and the open movement. A tap opens a movement row: the performers that differ from the whole page (ADR 0014) and its notes, the play button in place of the chevron. An album page heads its tracks by work only when a work has two movements on consecutive tracks (ADR 0024). `?recording=<id>` or `?album=<id>` shows another page; Play turns it into the player in place. Round 6 of sz-rs30.1.83.8 shows four answers for the movement rows: `?variant=rows-a` (faint play at the end, a tap opens the row), `rows-b` (faint play on the edge away from the timeline), `rows-c` (a tap opens a card in a sheet), `rows-d` (always open, a tap plays). `?scroll=quiet|button|change` sets the auto-scroll. A scrub on the timeline holds the rows still until the finger lifts. The first pill button puts the timeline on the right or the left edge (`?side=`), on every page.
+- `player.html`: the page of what plays, with the cover wash, the timeline and the open movement. A tap opens a movement row: the performers that differ from the whole page (ADR 0014) and its notes, the play button in place of the chevron. An album page heads its tracks by work only when a work has two movements on consecutive tracks (ADR 0024). `?recording=<id>` or `?album=<id>` shows another page; Play turns it into the player in place. Round 6 of sz-rs30.1.83.8 shows four answers for the movement rows: `?variant=rows-a` (faint play at the end, a tap opens the row), `rows-b` (faint play on the edge away from the timeline), `rows-c` (a tap opens a card in a sheet), `rows-d` (always open, a tap plays). `?scroll=quiet|button|change` sets the auto-scroll. A scrub on the timeline holds the rows still until the finger lifts. A row that does not play has no bar. A note is written in the playing row: one tap starts it at the playing time and opens the text field; "End here" is optional and makes a span. The first pill button puts the timeline on the right or the left edge (`?side=`), on every page.
 - `chronology.html`: one composer among the contemporaries, and the overview (`?level=overview`).
 - `search.html`: the field finds works, names and albums; filters on demand. The filters open in a sheet (ADR 0025).
 - `person.html`: a composer or performer page with the screen-wide picture (ADR 0017, 0019). `?name=<artist name>`.
@@ -22,7 +22,7 @@ The pill at the top belongs to the specimen, not to the app. It sets the variant
 
 - `tokens.css` is a copy of `design/tokens.css` on `main`, which `scripts/tokens.py` writes. Refresh it with `git -C <repo> show main:design/tokens.css > tokens.css`.
 - `specimen.css` and every page read tokens only. A fixed value in them is chrome that iOS fixes, such as the tab label size.
-- Favourites, listening notes and the queue are specimen state in the session. The favourite mark is the fermata of ADR 0017.
+- Favourites, listening notes and the queue are specimen state in the session. Close the tab to reset them. The favourite mark is the fermata of ADR 0017.
 
 ## Variants
 

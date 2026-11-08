@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Player</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="tokens.css?v=7">
-<link rel="stylesheet" href="specimen.css?v=7">
-<script src="specimen.js?v=7"></script>
+<link rel="stylesheet" href="tokens.css?v=8">
+<link rel="stylesheet" href="specimen.css?v=8">
+<script src="specimen.js?v=8"></script>
 </head>
 <body>
 <style>
@@ -50,7 +50,10 @@
   .facts { display: flex; flex-wrap: wrap; }
   .facts span + span::before { content: " · "; white-space: pre; }
   .add-note { justify-self: start; color: var(--color-tint); }
-  .preview-bar { cursor: pointer; }
+  .note-edit { display: flex; gap: var(--space-s); align-items: baseline; }
+  .note-edit .at { flex: none; color: var(--color-tint); }
+  .end-note { flex: none; color: var(--color-tint); }
+  .note-input { flex: 1 1 0; width: 0; min-width: 0; border: 0; border-bottom: 1px solid var(--color-separator); background: none; color: var(--color-text-primary); padding: var(--space-xxs) 0; outline: none; }
   .always { padding: 0 var(--space-l) var(--space-s); display: grid; gap: var(--space-xxs); margin-top: calc(-1 * var(--space-xs)); }
   .sheet .card { padding: 0 var(--space-l); display: grid; gap: var(--space-m); }
   .sheet .card .open-body { padding: 0; }
@@ -186,14 +189,6 @@ K.start(() => {
     return el("div", { class: "facts t-footnote secondary" }, ...parts.filter(Boolean).map((t) => el("span", {}, t)));
   }
 
-  // The movement's bar before it plays: where its notes sit. A tap on it plays from there.
-  function previewBar(s, i) {
-    const bar = el("div", { class: "mv-bar preview-bar", role: "button", "aria-label": "Play from a point" });
-    for (const n of notesOf(i)) bar.append(noteMark(n, s));
-    bar.addEventListener("click", (e) => { const r = bar.getBoundingClientRect(); playFrom(i, Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) * s.duration); });
-    return el("div", { class: "bar-box" }, bar, el("div", { class: "mv-times t-caption1 secondary nums" }, el("span", {}, "0:00"), el("span", {}, K.time(s.duration))));
-  }
-
   function noteMark(n, s) {
     const mark = el("div", { class: n.span ? "note-span" : "note-dot" });
     mark.style.left = (n.at / s.duration) * 100 + "%";
@@ -201,22 +196,42 @@ K.start(() => {
     return mark;
   }
 
-  // Specimen only: a native prompt stands in for the note editor. The note goes at the playing position, or at 0:00.
-  function addNote(s, i, after) {
+  // A note is written while its movement plays. One tap starts it at the playing time and opens the text field.
+  // "End here" is optional and turns the note into a span. Return or a tap elsewhere saves it.
+  let editing = null;
+  function noteControl(s, i) {
+    if (editing && editing.i === i) {
+      const when = el("span", { class: "at nums t-subheadline" });
+      const show = () => (when.textContent = K.time(editing.at) + (editing.span ? `–${K.time(editing.at + editing.span)}` : ""));
+      show();
+      const input = el("input", { class: "note-input t-body", placeholder: "Write the note", enterkeyhint: "done" });
+      input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.blur(); });
+      input.addEventListener("blur", () => {
+        const n = editing; editing = null;
+        const key = `${item.album.id}|${n.i}`;
+        NOTES[key] = [...(NOTES[key] || []), { at: n.at, span: n.span || undefined, text: input.value.trim() || "Note" }].sort((a, b) => a.at - b.at);
+        K.store("notes", NOTES);
+        render();
+      });
+      // A pointerdown that does not take focus keeps the field open while the end is set.
+      const end = el("button", { class: "end-note t-subheadline", onpointerdown: (e) => e.preventDefault(), onclick: () => {
+        if (K.P.index === i) editing.span = Math.max(0, Math.floor(K.P.pos) - editing.at);
+        show(); input.focus();
+      } }, "End here");
+      return el("div", { class: "note-edit" }, when, input, end);
+    }
     return el("button", { class: "add-note t-subheadline", onclick: () => {
-      const at = playingHere() && K.P.index === i ? Math.floor(K.P.pos) : 0;
-      const text = prompt(`Note at ${K.time(at)}`);
-      if (!text) return;
-      const key = `${item.album.id}|${i}`;
-      NOTES[key] = [...(NOTES[key] || []), { at, text }].sort((a, b) => a.at - b.at);
-      K.store("notes", NOTES);
-      after ? after() : render();
-    } }, "Add a note");
+      editing = { i, at: Math.floor(K.P.pos), span: 0 };
+      render();
+      // iOS opens the keyboard only for a focus inside the tap itself.
+      body.querySelector(".note-input").focus();
+    } }, "Add a note here");
   }
 
-  function details(s, i, after) {
+  // A row that does not play shows what it holds, with no bar: a bar belongs to the playing movement only.
+  function details(s, i) {
     const box = el("div", { class: "open-body" });
-    box.append(...[performerRows(s), previewBar(s, i), noteRows(s, i, notesOf(i)), facts(s), addNote(s, i, after)].filter(Boolean));
+    box.append(...[performerRows(s), noteRows(s, i, notesOf(i)), facts(s)].filter(Boolean));
     return box;
   }
 
@@ -231,10 +246,10 @@ K.start(() => {
     const body = el("div", { class: "card" });
     const fill = () => body.replaceChildren(
       el("button", { class: "capsule filled t-headline", html: ICON.play.replace("<svg", '<svg width="14" height="14"') + "<span>Play from here</span>", onclick: () => { close(); playFrom(i); } }),
-      details(s, i, fill));
+      details(s, i));
     fill();
     const close = K.sheet(K.movementTitle(s, work), body);
-    body.querySelectorAll(".note, .preview-bar").forEach((n) => n.addEventListener("click", () => close()));
+    body.querySelectorAll(".note").forEach((n) => n.addEventListener("click", () => close()));
   }
 
   function openBody(s, i) {
@@ -261,7 +276,7 @@ K.start(() => {
     const noteList = noteRows(s, i, notes);
     if (noteList) box.append(noteList);
     if (V !== "d") box.append(facts(s));
-    box.append(addNote(s, i));
+    box.append(noteControl(s, i));
     tick.parts = { fill: bar.firstChild, now: times.firstChild, left: times.lastChild, pause, s };
     tick();
     return box;
@@ -338,7 +353,7 @@ K.start(() => {
   let last = "";
   let lastIndex = K.P.index;
   K.onPlay(() => {
-    if (K.P.scrubbing) return showState();
+    if (K.P.scrubbing || editing) { tick(); return showState(); }
     const now = [K.current() && K.current().id, K.P.index, K.P.paused].join("|");
     if (now !== last) {
       const moved = playingHere() && K.P.index !== lastIndex;

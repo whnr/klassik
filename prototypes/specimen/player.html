@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Player</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="tokens.css?v=11">
-<link rel="stylesheet" href="specimen.css?v=11">
-<script src="specimen.js?v=11"></script>
+<link rel="stylesheet" href="tokens.css?v=12">
+<link rel="stylesheet" href="specimen.css?v=12">
+<script src="specimen.js?v=12"></script>
 </head>
 <body>
 <style>
@@ -53,7 +53,8 @@
   .note-line { display: flex; gap: var(--space-s); align-items: baseline; }
   .note-actions { display: flex; gap: var(--space-l); justify-content: flex-end; }
   .save-note { color: var(--color-tint); }
-  .disclose { display: inline-block; width: 7px; height: 12px; margin-left: 0.4em; vertical-align: 0.05em; color: var(--color-text-tertiary); transition: transform var(--motion-transition-inPlace-duration) var(--motion-transition-inPlace-easing); }
+  .disclose { flex: none; display: inline-flex; width: 12px; height: 12px; justify-content: center; color: var(--color-tint); transition: transform var(--motion-transition-inPlace-duration) var(--motion-transition-inPlace-easing); }
+  .disclose svg { width: 7px; height: 12px; }
   [aria-expanded="true"] .disclose { transform: rotate(90deg); }
   .note-edit .at { flex: none; color: var(--color-tint); }
   .end-note { flex: none; color: var(--color-tint); }
@@ -106,6 +107,12 @@ K.start(() => {
       .filter((p) => !p.id || sets.every((s) => s.has(p.id)));
   }
 
+  // The header shows what every track shares; an opened row shows only what differs for that track.
+  function sharedComposers() {
+    const per = item.songs.map((s) => (s.contributors || []).filter((c) => c.role === "composer").map((c) => c.artist.name));
+    return [...new Set(per.flat())].filter((name) => per.every((list) => list.includes(name)));
+  }
+
   function hero() {
     const box = el("div", { class: "hero" });
     const img = K.coverImage(item.album, "big", 960);
@@ -116,7 +123,8 @@ K.start(() => {
     const people = el("div", { class: "people t-subheadline" });
     shared().forEach((p, i) => { if (i) people.append(", "); people.append(p.id ? el("a", { href: K.personHref(p.name, { back: item.title }) }, p.name) : p.name); });
     box.append(img, title);
-    if (item.recording && item.recording.composer) box.append(el("a", { class: "t-subheadline link", href: K.personHref(item.recording.composer, { back: item.title }) }, item.recording.composer));
+    const composers = sharedComposers();
+    if (composers.length) box.append(el("div", { class: "t-subheadline" }, ...composers.flatMap((c, n) => [n ? ", " : null, el("a", { class: "link", href: K.personHref(c, { back: item.title }) }, c)]).filter(Boolean)));
     box.append(people);
     const facts = el("div", { class: "t-footnote secondary" });
     if (item.kind === "recording") facts.append(el("a", { class: "link", href: href("player.html", { album: item.album.id, back: item.title }) }, item.album.name), " · ");
@@ -161,11 +169,12 @@ K.start(() => {
       render();
     };
     const title = K.movementTitle(s, work);
-    const chevron = opens ? el("span", { class: "disclose", html: ICON.chevron.replace('class="chevron" ', "") }) : null;
+    // The disclosure chevron of a SwiftUI DisclosureGroup in a List: trailing, tinted, it turns down when the row opens.
+    const chevron = opens && V !== "c" ? el("span", { class: "disclose", "aria-hidden": "true", html: ICON.chevron.replace('class="chevron" ', "") }) : null;
     const head = el(opens || V === "d" ? "button" : "div", { class: "row", "aria-expanded": opens && V !== "c" ? (isOpen ? "true" : "false") : null, onclick: tap },
       lead,
-      el("div", { class: "main" }, el("div", { class: isPlaying ? "t-headline" : "t-body" }, chevron ? K.titled(title, chevron) : title)),
-      el("div", { class: "trail t-subheadline nums" }, K.time(s.duration), trail));
+      el("div", { class: "main" }, el("div", { class: isPlaying ? "t-headline" : "t-body" }, title)),
+      el("div", { class: "trail t-subheadline nums" }, K.time(s.duration), chevron, trail));
     block.append(head);
     if (isPlaying) block.append(openBody(s, i));
     else if (isOpen) block.append(details(s, i));
@@ -176,7 +185,10 @@ K.start(() => {
   // ADR 0014: only the performers that differ from the whole page, one row each as "name, role". Never cut.
   function performerRows(s) {
     const sharedNames = new Set(shared().map((p) => p.name));
-    const list = K.performersOf([s], item.album).filter((p) => !sharedNames.has(p.name));
+    const sharedComposerNames = new Set(sharedComposers());
+    const composers = (s.contributors || []).filter((c) => c.role === "composer" && !sharedComposerNames.has(c.artist.name))
+      .map((c) => ({ id: c.artist.id, name: c.artist.name, role: "composer", subRole: null }));
+    const list = [...composers, ...K.performersOf([s], item.album).filter((p) => !sharedNames.has(p.name))];
     return list.length ? el("div", { class: "people-rows" }, ...list.map((p) =>
       el("div", { class: "t-subheadline" }, p.id ? el("a", { class: "link", href: K.personHref(p.name, { back: item.title }) }, p.name) : p.name,
         el("span", { class: "secondary" }, ", " + (p.subRole || p.role))))) : null;

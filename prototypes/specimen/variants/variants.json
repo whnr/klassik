@@ -1,6 +1,1 @@
-{
-  "rows-a": { "label": "Rows A · play at end", "page": "player" },
-  "rows-b": { "label": "Rows B · play away from timeline", "page": "player" },
-  "rows-c": { "label": "Rows C · card sheet", "page": "player" },
-  "rows-d": { "label": "Rows D · always open", "page": "player" }
-}
+{}

@@ -220,7 +220,8 @@ const K = (() => {
   }
 
   function emit() { save(); P.listeners.forEach((f) => f()); }
-  function seek(index, pos = 0) { P.index = index; P.pos = pos; normalise(); emit(); }
+  // A seek lands at most on the last second of its movement; the end itself would end the queue item.
+  function seek(index, pos = 0) { P.index = index; P.pos = Math.min(pos, current().songs[index].duration - 1); normalise(); emit(); }
   function playItem(item, index = 0) { P.queue = [item, ...P.queue.filter((q) => q.id !== item.id).slice(0, 1)]; P.item = 0; P.paused = false; seek(index); }
   function togglePause() { P.paused = !P.paused; emit(); }
   function onPlay(f) { P.listeners.add(f); }

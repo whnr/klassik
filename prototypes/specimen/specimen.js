@@ -390,13 +390,7 @@ const K = (() => {
     document.body.append(tl, label);
     chrome.timeline = tl;
     chrome.scrubLabel = label;
-    if (!chrome.player) {
-      const mini = el("a", { class: "mini glass", href: href("player.html", { back: chrome.title || null }) },
-        el("span", { class: "mini-cover" }),
-        el("div", { class: "lines" }, el("div", { class: "marquee t-subheadline" }, el("span")), el("div", { class: "t-footnote secondary w" }), el("div", { class: "t-footnote secondary p" })));
-      document.body.append(mini);
-      chrome.mini = mini;
-    }
+    MINI.build();
     timelineGestures(tl);
     addEventListener("resize", layoutChrome);
     onPlay(updatePlayingChrome);
@@ -406,52 +400,84 @@ const K = (() => {
   // Play on a recording or album page turns that page into the player in place (ADR 0015).
   function becomePlayer() {
     chrome.player = true;
-    if (chrome.mini) { chrome.mini.remove(); chrome.mini = null; }
+    MINI.remove();
     if (!chrome.timeline) buildPlayingChrome();
+    else MINI.build();
     layoutChrome();
   }
 
   function layoutChrome() {
     const tabTop = chrome.tabbar ? chrome.tabbar.getBoundingClientRect().top : innerHeight - 8;
     const gap = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--space-s")) || 8;
-    let bottom = tabTop - gap;
-    if (chrome.mini) {
-      chrome.mini.style.bottom = innerHeight - bottom + "px";
-    }
-    if (chrome.timeline) chrome.timeline.style.height = Math.max(40, bottom - chrome.timeline.getBoundingClientRect().top) + "px";
-    const miniH = chrome.mini ? chrome.mini.offsetHeight + gap : 0;
-    if (chrome.app) chrome.app.querySelector(".scroll").style.setProperty("--bottom-space", innerHeight - tabTop + miniH + 32 + "px");
+    const room = MINI.place(tabTop - gap, gap);
+    if (chrome.timeline) chrome.timeline.style.height = Math.max(40, room.timelineBottom - chrome.timeline.getBoundingClientRect().top) + "px";
+    if (chrome.app) chrome.app.querySelector(".scroll").style.setProperty("--bottom-space", innerHeight - tabTop + room.reserve + 32 + "px");
     drawTimeline();
   }
 
-  let lastMini = "";
   function updatePlayingChrome() {
     drawTimelineProgress();
-    if (!chrome.mini) return;
-    const item = current(), s = song();
-    if (!item) { chrome.mini.remove(); chrome.timeline.remove(); return; }
-    const key = item.id + "|" + P.index;
-    if (key === lastMini) return;
-    lastMini = key;
-    const slot = chrome.mini.querySelector(".mini-cover");
-    slot.replaceChildren(coverImage(item.album));
-    const work = s.works && s.works[0] ? s.works[0].name : item.title;
-    const m = chrome.mini.querySelector(".marquee");
-    const text = movementTitle(s, work);
-    m.firstChild.textContent = text;
-    m.classList.remove("run");
-    requestAnimationFrame(() => {
-      if (m.scrollWidth > m.clientWidth + 1) {
-        m.firstChild.textContent = text;
-        m.append(m.firstChild.cloneNode(true));
-        m.classList.add("run");
-        m.style.setProperty("--marquee-time", Math.max(8, text.length / 4) + "s");
-      }
-      while (m.children.length > 2) m.lastChild.remove();
-    });
-    chrome.mini.querySelector(".w").textContent = work;
-    chrome.mini.querySelector(".p").textContent = peopleLine(item, s);
+    if (!current()) {
+      // ADR 0015: at the end of the queue the player page stays; elsewhere the mini player and the timeline go.
+      if (!chrome.player) { MINI.remove(); if (chrome.timeline) chrome.timeline.remove(); }
+      return;
+    }
+    MINI.update();
   }
+
+  // ---------- Mini player ----------
+  // The card of ADR 0014. A mini player variant (sz-rs30.1.83.9) replaces any of these steps through K.setMini.
+  let lastMini = "";
+  const cardMini = {
+    build() {
+      if (chrome.player || chrome.mini) return;
+      const mini = el("a", { class: "mini glass", href: href("player.html", { back: chrome.title || null }) },
+        el("span", { class: "mini-cover" }),
+        el("div", { class: "lines" }, el("div", { class: "marquee t-subheadline" }, el("span")), el("div", { class: "t-footnote secondary w" }), el("div", { class: "t-footnote secondary p" })));
+      document.body.append(mini);
+      chrome.mini = mini;
+      lastMini = "";
+    },
+    remove() { if (chrome.mini) { chrome.mini.remove(); chrome.mini = null; } },
+    // Gets the bottom edge free above the tab bar; returns where the timeline ends and the room the content keeps free.
+    place(bottom, gap) {
+      if (!chrome.mini) return { timelineBottom: bottom, reserve: 0 };
+      chrome.mini.style.bottom = innerHeight - bottom + "px";
+      return { timelineBottom: bottom, reserve: chrome.mini.offsetHeight + gap };
+    },
+    update() {
+      if (!chrome.mini) return;
+      const item = current(), s = song();
+      const key = item.id + "|" + P.index;
+      if (key === lastMini) return;
+      lastMini = key;
+      chrome.mini.querySelector(".mini-cover").replaceChildren(coverImage(item.album));
+      const work = s.works && s.works[0] ? s.works[0].name : item.title;
+      const m = chrome.mini.querySelector(".marquee");
+      const text = movementTitle(s, work);
+      m.firstChild.textContent = text;
+      m.classList.remove("run");
+      requestAnimationFrame(() => {
+        if (m.scrollWidth > m.clientWidth + 1) {
+          m.firstChild.textContent = text;
+          m.append(m.firstChild.cloneNode(true));
+          m.classList.add("run");
+          m.style.setProperty("--marquee-time", Math.max(8, text.length / 4) + "s");
+        }
+        while (m.children.length > 2) m.lastChild.remove();
+      });
+      chrome.mini.querySelector(".w").textContent = work;
+      chrome.mini.querySelector(".p").textContent = peopleLine(item, s);
+    },
+    // The Search page's bottom row: what goes before the field and after the Filters button.
+    searchItems() {
+      const cur = current();
+      const pill = cur ? el("a", { class: "roundglass glass pill fold", href: href("player.html", { back: "Search" }), "aria-label": "Now playing" }, coverImage(cur.album)) : null;
+      return { lead: [], trail: [pill], hideCard: true };
+    },
+  };
+  let MINI = cardMini;
+  function setMini(provider) { MINI = { ...cardMini, ...provider }; }
 
   function segments() {
     const item = current();
@@ -547,5 +573,6 @@ const K = (() => {
     start, page, el, ICON, href, params, store, fermata, time, sheet, cover, coverImage, coverColour, surname,
     M, P, current, song, seek, playItem, togglePause, onPlay, resolveItem, movementTitle,
     isFavourite, toggleFavourite, orderedRecordings, layoutChrome, emit, becomePlayer, performersOf, ROMAN, titled, personHref,
+    setMini, cardMini, chrome, peopleLine, searchItems: () => MINI.searchItems(),
   };
 })();

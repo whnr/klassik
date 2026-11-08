@@ -1,1 +1,6 @@
-{}
+{
+  "mini-side": { "label": "Mini A: pill, side by side", "css": "mini.css", "js": "mini.js" },
+  "mini-stack": { "label": "Mini B: pill, stacked", "css": "mini.css", "js": "mini.js" },
+  "mini-tabs": { "label": "Mini C: pause in the tabs", "css": "mini.css", "js": "mini.js" },
+  "mini-card": { "label": "Mini D: card + pause", "css": "mini.css", "js": "mini.js" }
+}

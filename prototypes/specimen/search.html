@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Search</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="tokens.css?v=12">
-<link rel="stylesheet" href="specimen.css?v=12">
-<script src="specimen.js?v=12"></script>
+<link rel="stylesheet" href="tokens.css?v=13">
+<link rel="stylesheet" href="specimen.css?v=13">
+<script src="specimen.js?v=13"></script>
 </head>
 <body>
 <!--
@@ -153,8 +153,9 @@ K.start(() => {
 
   // ---------- Page and the bottom row ----------
   const { scroll } = K.page({ tab: "search", title: "Search" });
-  // The mini player card leaves this page: a cover pill in the bottom row stands for it (sz-rs30.1.83.9 decides the pill).
-  document.querySelectorAll(".mini").forEach((m) => (m.style.display = "none"));
+  // The mini player variant decides what the bottom row carries (sz-rs30.1.83.9).
+  const mini = K.searchItems();
+  if (mini.hideCard) document.querySelectorAll(".mini").forEach((m) => (m.style.display = "none"));
   const bar = document.querySelector(".tabbar");
   bar.classList.add("search-bar");
   const input = el("input", { type: "search", enterkeyhint: "search", autocomplete: "off", autocorrect: "off", spellcheck: "false", placeholder: "Work or name" });
@@ -163,15 +164,14 @@ K.start(() => {
   const badge = el("span", { class: "badge" });
   const filtersBtn = el("button", { class: "roundglass glass", "aria-label": "Filters", html: FUNNEL, onclick: () => setOpen(!open) });
   filtersBtn.append(badge);
-  const cur = K.current();
-  const pill = cur ? el("a", { class: "roundglass glass pill fold", href: href("player.html", { back: "Search" }), "aria-label": "Now playing" }, K.coverImage(cur.album)) : null;
   bar.replaceChildren(el("div", { class: "row1" },
     el("a", { class: "roundglass glass fold", href: href("index.html"), "aria-label": "Library", html: ICON.library }),
+    ...mini.lead,
     el("label", { class: "field glass" }, el("span", { html: ICON.search }), input, clear),
-    filtersBtn, pill));
+    filtersBtn, ...mini.trail));
   input.addEventListener("input", () => { query = input.value; save(); update(); });
-  input.addEventListener("focus", () => bar.classList.add("typing"));
-  input.addEventListener("blur", () => bar.classList.remove("typing"));
+  input.addEventListener("focus", () => { bar.classList.add("typing"); document.body.classList.add("typing"); });
+  input.addEventListener("blur", () => { bar.classList.remove("typing"); document.body.classList.remove("typing"); });
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.blur(); });
 
   // ---------- The keyboard: only the content scrolls; the bar and the sheet ride on the keyboard. ----------
@@ -184,6 +184,7 @@ K.start(() => {
     const up = kb > 40;
     bar.style.bottom = up ? kb + 8 + "px" : "";
     riders.forEach((r) => r(kb, up));
+    K.layoutChrome();
     scroll.style.setProperty("--bottom-space", (up ? kb + 8 : restBottom) + bar.offsetHeight + 24 + "px");
   }
   // iOS sends the viewport events late, so the bar follows each frame while the keyboard moves.

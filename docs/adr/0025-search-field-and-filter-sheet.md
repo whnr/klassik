@@ -1,6 +1,6 @@
 # 0025. The search field finds; filters open in a sheet
 
-Date: 2026-11-07. Decided by Flo after the third specimen round. Beads: sz-rs30.1.83.7, sz-rs30.1.95.
+Date: 2026-11-07. Decided by Flo after the third specimen round. Beads: sz-rs30.1.83.7, sz-rs30.1.95. The bottom row is replaced by [0029](0029-search-at-the-top.md).
 
 ## Context
 

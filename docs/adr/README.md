@@ -28,14 +28,15 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0015](0015-player-page.md) | The player is the page of what plays (partly replaced by 0028) | 2026-11-03 |
 | [0016](0016-chronology.md) | The Chronology: a chart of one composer among their contemporaries (partly replaced by 0022 and 0026) | 2026-11-04 |
 | [0017](0017-composer-and-performer-pages.md) | Composer and performer pages (partly replaced by 0020) | 2026-11-04 |
-| [0018](0018-stack-and-back.md) | The system back stack, with the name of the page behind | 2026-11-04 |
+| [0018](0018-stack-and-back.md) | The system back stack, with the name of the page behind (partly replaced by 0029) | 2026-11-04 |
 | [0019](0019-performer-facts.md) | Performer facts from Wikidata | 2026-11-04 |
 | [0020](0020-set-and-condition.md) | Set means works; a search row is a condition | 2026-11-04 |
 | [0021](0021-design-tokens.md) | Design tokens in the repository | 2026-11-05 |
 | [0022](0022-chronology-taps.md) | Chronology taps open pages | 2026-11-07 |
 | [0023](0023-no-title-in-the-bar.md) | No title in the navigation bar | 2026-11-07 |
 | [0024](0024-album-work-headings.md) | Work headings on an album page only for whole works | 2026-11-07 |
-| [0025](0025-search-field-and-filter-sheet.md) | The search field finds; filters open in a sheet | 2026-11-07 |
+| [0025](0025-search-field-and-filter-sheet.md) | The search field finds; filters open in a sheet (partly replaced by 0029) | 2026-11-07 |
 | [0026](0026-contemporaries-by-active-years.md) | Contemporaries by overlapping active years | 2026-11-07 |
 | [0027](0027-player-rows.md) | Player rows: play at the end, open only what differs | 2026-11-08 |
 | [0028](0028-mini-player-pill.md) | The mini player is a pill at the end of the timeline | 2026-11-08 |
+| [0029](0029-search-at-the-top.md) | Search at the top, with a back arrow and recent searches | 2026-11-08 |

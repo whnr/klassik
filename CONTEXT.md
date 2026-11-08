@@ -88,6 +88,14 @@ _Avoid_: Rule, filter, token, criterion
 One row of a search. Its search terms join with "or". The conditions of a search join with "and", and each condition shows how many recordings remain.
 _Avoid_: Set, group, clause, step
 
+**Recent search**:
+A search that the listener made, kept on the device with its text and its conditions. The empty Search page lists them, newest first.
+_Avoid_: History, suggestion, saved search
+
+**Search session**:
+The time from the first text or condition until the x pill clears the search. One search session is one recent search.
+_Avoid_: Query, visit
+
 **Set**:
 Works that share a GROUPING tag, such as Etudes, Op. 10. A set folds into one row that opens in place.
 _Avoid_: Group, cycle, collection

@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Type sheet</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="tokens.css?v=27">
-<link rel="stylesheet" href="specimen.css?v=27">
-<script src="specimen.js?v=27"></script>
+<link rel="stylesheet" href="tokens.css?v=28">
+<link rel="stylesheet" href="specimen.css?v=28">
+<script src="specimen.js?v=28"></script>
 </head>
 <body>
 <style>
@@ -155,14 +155,14 @@ const glue = (text) => String(text)
   .replace(/\b(Op|No|Nr|Nos|BWV|KV|K|D|Hob|RV|WoO|HWV|Sz|BB|TrV|S|L)\.? (?=[0-9IVXL])/g, (m) => m.slice(0, -1) + NB)
   .replace(/(\d) (?=[A-Za-zÀ-ž])/g, "$1" + NB);
 const count = (n, one, many) => `${n}${NB}${n === 1 ? one : many}`;
-// Figures: a face without old-style figures shows lining ones whatever the choice.
+// Figures: Flo picked lining, proportional figures (2026-11-08). A face without old-style figures shows lining ones whatever the choice.
 const FIGS = { onum: "oldstyle-nums proportional-nums", "onum tnum": "oldstyle-nums tabular-nums", "lnum tnum": "lining-nums tabular-nums", lnum: "lining-nums proportional-nums" };
 // Steps of each text style on the ratio, body at 0. Half and quarter steps keep the iOS order of sizes.
 const STEPS = [["largeTitle", 3, 34], ["title1", 2, 28], ["title2", 1.5, 22], ["title3", 1, 20], ["headline", 0, 17], ["body", 0, 17],
   ["callout", -0.25, 16], ["subheadline", -0.5, 15], ["footnote", -1, 13], ["caption1", -1.25, 12], ["caption2", -1.5, 11]];
 // Flo's setup from round 12 is the starting point: Wittgenstein 500, ratio 1.2, page title step 3, spacing 4:3 on its own.
 const DEFAULTS = { face: "witt", text: "sf", stars: "ny,corm,witt,piazzolla", ratio: "1.2", pstep: "3", weight: "500", track: "0", lh: "1.15",
-  heads: "display", fig: "onum", list: "plain", couple: "0", sratio: "1.333", gin: "-4", ggr: "1", gsec: "3", view: "ctx", work: "Felix Mendelssohn|A Midsummer Night's Dream, Op. 61" };
+  heads: "display", fig: "lnum", list: "plain", couple: "0", sratio: "1.333", gin: "-4", ggr: "1", gsec: "3", view: "ctx", work: "Felix Mendelssohn|A Midsummer Night's Dream, Op. 61" };
 
 const local = (family, file, weight) => `@font-face { font-family: '${family}'; src: url("fonts/${file}") format("truetype"); font-weight: ${weight}; font-display: swap; }`;
 for (const f of [...FACES, ...TEXT]) {

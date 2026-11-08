@@ -101,7 +101,7 @@ The bar on the screen edge that shows the whole work or album that plays, one se
 _Avoid_: Rail, edge bar, progress bar
 
 **Mini player**:
-The card that shows what plays, in every place: movement, work and people. It joins the timeline, and a tap opens the player.
+The pill at the end of the timeline, in the tab bar row: play/pause and the square cover. The cover opens the player.
 _Avoid_: Now playing bar
 
 **Player**:

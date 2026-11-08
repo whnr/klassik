@@ -1,6 +1,6 @@
 # 0015. The player is the page of what plays
 
-Date: 2026-11-03. Decided by Flo after three prototype rounds. Bead: sz-rs30.1.74.10. Replaces the parts of [0014](0014-player.md) where the player slides in on top and the mini player opens it.
+Date: 2026-11-03. Decided by Flo after three prototype rounds. Bead: sz-rs30.1.74.10. Replaces the parts of [0014](0014-player.md) where the player slides in on top and the mini player opens it. The mini player on the player page is replaced by [0028](0028-mini-player-pill.md).
 
 ## Context
 

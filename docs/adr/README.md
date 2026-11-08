@@ -17,7 +17,7 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0011](0011-enrichment.md) | Composition dates from MusicBrainz and Wikidata (timeline rules replaced by 0016) | 2026-10-19 |
 | [0012](0012-composer-lists.md) | Look up works composer by composer | 2026-10-19 |
 | [0013](0013-favourites.md) | Favourites and the recording order | 2026-10-31 |
-| [0014](0014-player.md) | The player: rows beside one timeline (partly replaced by 0015) | 2026-11-02 |
+| [0014](0014-player.md) | The player: rows beside one timeline (partly replaced by 0015 and 0027) | 2026-11-02 |
 | [0015](0015-player-page.md) | The player is the page of what plays | 2026-11-03 |
 | [0016](0016-chronology.md) | The Chronology: a chart of one composer among their contemporaries (partly replaced by 0022 and 0026) | 2026-11-04 |
 | [0017](0017-composer-and-performer-pages.md) | Composer and performer pages | 2026-11-04 |
@@ -30,3 +30,4 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0024](0024-album-work-headings.md) | Work headings on an album page only for whole works | 2026-11-07 |
 | [0025](0025-search-field-and-filter-sheet.md) | The search field finds; filters open in a sheet | 2026-11-07 |
 | [0026](0026-contemporaries-by-active-years.md) | Contemporaries by overlapping active years | 2026-11-07 |
+| [0027](0027-player-rows.md) | Player rows: play at the end, open only what differs | 2026-11-08 |

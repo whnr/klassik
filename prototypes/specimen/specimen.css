@@ -36,8 +36,8 @@ input { font: inherit; color: inherit; }
 
 /* Specimen controls: a pill at the top that belongs to the specimen, not to the app. */
 .specimen-bar {
-  max-width: calc(100vw - 12px); width: max-content; flex-wrap: wrap; justify-content: center;
-  position: fixed; z-index: 50; top: max(env(safe-area-inset-top), 6px); left: 50%; transform: translateX(-50%);
+  flex-wrap: wrap; justify-content: center;
+  position: fixed; z-index: 50; top: max(env(safe-area-inset-top), 6px); left: 6px; right: 6px;
   display: flex; gap: 2px; padding: 3px; border-radius: 16px;
   background: var(--color-background-elevated); box-shadow: 0 1px 6px rgb(0 0 0 / 0.18);
   font: 500 12px/1 -apple-system, system-ui, sans-serif; color: var(--color-text-primary); white-space: nowrap;

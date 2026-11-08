@@ -40,4 +40,7 @@ A look ticket adds its variants to `variants/variants.json`:
 
 ## Run
 
+The server sends no cache header, so Safari keeps old copies. Raise the `?v=` stamp on the `tokens.css`, `specimen.css` and `specimen.js` links in every page before a deploy.
+
+
 In `prototypes/`, run `python3 -m http.server 8765 --bind 0.0.0.0` and open `http://<laptop>:8765/specimen/`. The covers load from Wikimedia Commons, so the phone needs network access.

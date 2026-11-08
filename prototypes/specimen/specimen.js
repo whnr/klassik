@@ -309,7 +309,7 @@ const K = (() => {
 
   async function loadVariant() {
     let variants = {};
-    try { variants = await (await fetch("variants/variants.json")).json(); } catch { /* none yet */ }
+    try { variants = await (await fetch("variants/variants.json", { cache: "no-store" })).json(); } catch { /* none yet */ }
     const name = params.get("variant");
     const v = name && variants[name];
     if (v) {

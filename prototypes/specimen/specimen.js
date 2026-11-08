@@ -364,7 +364,7 @@ const K = (() => {
     const t = (id, name, path) => el("a", { href: href(path), class: tab === id ? "on" : null, html: ICON[id] + `<span class="t-caption2">${name}</span>` });
     return el("nav", { class: "tabbar" },
       el("div", { class: "tabs glass" }, t("library", "Library", "index.html"), t("chronology", "Chronology", "chronology.html"), t("settings", "Settings", "tokens.html")),
-      el("a", { href: href("search.html", { from: tab === "search" ? params.get("from") : tab }), class: "tab-search glass" + (tab === "search" ? " on" : ""), "aria-label": "Search", html: ICON.search }));
+      el("a", { href: href("search.html", { back: tab === "search" ? params.get("back") : chrome.title || null }), class: "tab-search glass" + (tab === "search" ? " on" : ""), "aria-label": "Search", html: ICON.search }));
   }
 
   function page({ tab = "library", title = "", back = null, plain = false, player = false, actions = [], tabs = true }) {
@@ -379,19 +379,40 @@ const K = (() => {
     if (backLabel) nav.querySelector(".back span").textContent = backLabel;
     const scroll = el("main", { class: "scroll" });
     scroll.addEventListener("scroll", () => nav.classList.toggle("scrolled", scroll.scrollTop > 8), { passive: true });
+    indicator(scroll);
     app.append(nav, scroll);
     document.body.append(app);
-    if (tabs) { chrome.tabbar = tabbar(tab); document.body.append(chrome.tabbar); }
     chrome.player = player;
     chrome.app = app;
     chrome.title = title;
+    if (tabs) { chrome.tabbar = tabbar(tab); document.body.append(chrome.tabbar); }
     buildPlayingChrome();
     return { app, nav, scroll };
+  }
+
+  // Drawn by hand so it can keep clear of the timeline; it shows while the page moves, as on iOS.
+  function indicator(scroll) {
+    const bar = el("div", { class: "scroll-indicator" });
+    document.body.append(bar);
+    let hide = 0;
+    const draw = () => {
+      const r = scroll.getBoundingClientRect();
+      const top = r.top + (parseFloat(getComputedStyle(scroll).paddingTop) || 0) - 40;
+      const view = r.bottom - top - 8;
+      if (scroll.scrollHeight <= scroll.clientHeight + 1) return;
+      const h = Math.max(36, view * (scroll.clientHeight / scroll.scrollHeight));
+      const y = top + (view - h) * (scroll.scrollTop / (scroll.scrollHeight - scroll.clientHeight));
+      bar.style.top = y + "px"; bar.style.height = h + "px";
+      bar.classList.add("on");
+      clearTimeout(hide); hide = setTimeout(() => bar.classList.remove("on"), 700);
+    };
+    scroll.addEventListener("scroll", draw, { passive: true });
   }
 
   function buildPlayingChrome() {
     if (!current()) return;
     const tl = el("div", { class: "timeline", role: "slider", "aria-label": "Timeline" }, el("div", { class: "bar" }));
+    document.documentElement.classList.add("has-timeline");
     const label = el("div", { class: "scrub-label t-footnote" });
     document.body.append(tl, label);
     chrome.timeline = tl;
@@ -425,7 +446,7 @@ const K = (() => {
     drawTimelineProgress();
     if (!current()) {
       // ADR 0015: at the end of the queue the player page stays; elsewhere the mini player and the timeline go.
-      if (!chrome.player) { MINI.remove(); if (chrome.timeline) chrome.timeline.remove(); }
+      if (!chrome.player) { MINI.remove(); if (chrome.timeline) chrome.timeline.remove(); document.documentElement.classList.remove("has-timeline"); }
       return;
     }
     MINI.update();

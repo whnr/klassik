@@ -5,25 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Search</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="tokens.css?v=16">
-<link rel="stylesheet" href="specimen.css?v=16">
-<script src="specimen.js?v=16"></script>
+<link rel="stylesheet" href="tokens.css?v=17">
+<link rel="stylesheet" href="specimen.css?v=17">
+<script src="specimen.js?v=17"></script>
 </head>
 <body>
 <!--
-  Search round 8 (sz-rs30.1.83.13). One question: where do the field and the Filters button sit, now that the mini player is a pill in the tab row (ADR 0028)?
-  ?variant=search-top (A), search-prominent (B, the default: ADR 0025 with the round 7 faults fixed), search-stack (C), search-nav (D).
-  Locked in all four: the field finds works, people and albums in sections; filters open in the sheet of ADR 0025.
+  Search round 9 (sz-rs30.1.83.13), Flo's verdict on round 8: the field and Filters at the top, a back arrow,
+  recent searches on the empty page, no suggestions. The x in the field clears the text. The filters open in the sheet of ADR 0025.
 -->
 <style>
   .specimen-bar { max-width: calc(100vw - 12px); overflow-x: auto; scrollbar-width: none; }
-  .tabbar.search-bar { position: fixed; top: auto; transition: none; }
-  .search-bar .row1 { display: flex; gap: var(--space-s); align-items: center; width: 100%; }
   .roundglass { flex: none; width: 48px; height: 48px; border-radius: var(--radius-full); display: grid; place-items: center; position: relative; color: var(--color-text-primary); }
   .roundglass svg { width: 22px; height: 22px; }
   .roundglass.on { color: var(--color-tint); }
-  .pill { overflow: hidden; padding: 0; }
-  .pill img, .pill .cover { width: 48px; height: 48px; border-radius: var(--radius-full); }
   .badge { position: absolute; top: -3px; right: -3px; min-width: 19px; height: 19px; padding: 0 5px; border-radius: 10px; background: var(--color-tint); color: #fff; font: 600 12px/19px -apple-system, system-ui, sans-serif; text-align: center; }
   .field { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--space-s); min-height: 48px; padding: 0 var(--space-m) 0 var(--space-l); border-radius: var(--radius-full); }
   .field svg { width: 18px; height: 18px; flex: none; color: var(--color-text-secondary); }
@@ -31,7 +26,6 @@
   .field input::placeholder { color: var(--color-text-secondary); }
   .field input::-webkit-search-cancel-button, .narrow input::-webkit-search-cancel-button { display: none; }
   .clear { color: var(--color-text-secondary); padding: var(--space-xs); visibility: hidden; }
-  .search-bar.typing .fold { display: none; }
 
   .hint { padding: var(--space-xl) var(--pad-right) 0 var(--space-xl); color: var(--color-text-secondary); }
   .nomatch { padding: var(--space-l) var(--space-l) 0; color: var(--color-text-secondary); }
@@ -65,21 +59,16 @@
   .fsheet .head h2 { flex: 1; }
   .fsheet .body { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 0 var(--space-l) var(--space-xl); }
 
-  /* The layouts of round 8. A row on the field's side is as tall as the tab bar (B, C); a field at the top is a system inline field (A, D). */
-  .layout-prominent .roundglass, .layout-prominent .field, .layout-stack .roundglass, .layout-stack .field { min-height: 56px; height: 56px; }
-  .layout-prominent .roundglass, .layout-stack .roundglass { width: 56px; }
-  .fieldrow { display: flex; gap: var(--space-s); align-items: center; }
-  /* A fixed row, not a sticky one: browsers measure a sticky offset differently inside a padded scroller. */
-  .layout-top .fieldrow, .layout-nav .fieldrow { position: fixed; z-index: 25; left: 0; right: 0; top: calc(max(env(safe-area-inset-top), 6px) + var(--pill-space, 34px));
-    padding: var(--space-xs) var(--pad-right) var(--space-s) var(--pad-left); background: var(--color-background-grouped); }
-  .layout-top .fieldrow.pinned::before, .layout-nav .fieldrow::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: 120px; background: inherit; }
-  .fieldspace { height: 52px; }
-  .layout-top .fieldrow .field, .layout-nav .fieldrow .field { min-height: 40px; height: 40px; border-radius: 12px; background: var(--color-fill-quiet); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding-left: var(--space-m); }
-  .layout-top .fieldrow .roundglass, .layout-nav .fieldrow .roundglass { width: 40px; height: 40px; background: var(--color-fill-quiet); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
-  .layout-nav .nav, .layout-top .nav { display: none; }
-  .layout-stack .fieldrow { position: fixed; z-index: 31; left: var(--pad-left); right: var(--pad-right); }
-  .layout-stack .scroll { padding-bottom: calc(var(--bottom-space, 180px) + 64px); }
-  body.typing.layout-stack .tabbar { visibility: hidden; }
+  /* The field row sits under the bar and stays there: a system inline field. Only the content scrolls. */
+  .fieldrow { position: fixed; z-index: 25; left: 0; right: 0; top: calc(max(env(safe-area-inset-top), 6px) + var(--pill-space, 34px) + var(--size-hitTarget));
+    display: flex; gap: var(--space-s); align-items: center; padding: 0 var(--pad-right) var(--space-s) var(--pad-left); background: var(--color-background-grouped); }
+  .fieldrow .field { min-height: 40px; height: 40px; border-radius: 12px; background: var(--color-fill-quiet); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding-left: var(--space-m); }
+  .fieldrow .roundglass { width: 40px; height: 40px; background: var(--color-fill-quiet); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .search-page .nav { background: var(--color-background-grouped); }
+  .search-page .scroll { padding-top: calc(max(env(safe-area-inset-top), 6px) + var(--pill-space, 34px) + var(--size-hitTarget) + 48px); }
+  .recent .row { width: 100%; text-align: left; }
+  .recent .row svg { width: 16px; height: 16px; flex: none; color: var(--color-text-secondary); }
+  .section-head button { color: var(--color-tint); text-transform: none; font: inherit; }
 </style>
 <script>
 K.start(() => {
@@ -153,56 +142,49 @@ K.start(() => {
   const count = (list) => recs.filter((x) => passes(x, list)).length;
 
   // ---------- Page, field and tab bar ----------
-  const { scroll } = K.page({ tab: "search", title: "Search" });
-  document.body.classList.add("layout-" + L);
-  const tabbar = document.querySelector(".tabbar");
+  // Search is a tab, yet it keeps a back arrow to the page it was opened from (Flo, round 8).
+  const { scroll } = K.page({ tab: "search", title: "Search", back: { label: "Library", href: "index.html" } });
+  document.body.classList.add("search-page");
   const input = el("input", { type: "search", enterkeyhint: "search", autocomplete: "off", autocorrect: "off", spellcheck: "false", placeholder: "Work or name" });
   input.value = query;
   const clear = el("button", { class: "clear t-body", "aria-label": "Clear", onclick: () => { input.value = ""; query = ""; save(); update(); input.focus(); } }, "✕");
   const badge = el("span", { class: "badge" });
-  const filtersBtn = el("button", { class: "roundglass glass", "aria-label": "Filters", html: FUNNEL, onclick: () => setOpen(!open) });
+  // The keyboard goes down at the moment the sheet comes up; the sheet never rides on a closing keyboard.
+  const filtersBtn = el("button", { class: "roundglass", "aria-label": "Filters", html: FUNNEL,
+    onpointerdown: (e) => e.preventDefault(), onclick: () => { input.blur(); setOpen(!open); } });
   filtersBtn.append(badge);
-  const field = el("label", { class: "field glass" }, el("span", { html: ICON.search }), input, clear);
-  // The row that rides on the keyboard: B and C only. A and D keep the field at the top, so the keyboard moves nothing.
-  let rider = null;
-  if (L === "prominent") {
-    // iOS collapses the other tabs into one button that shows the tab the listener came from.
-    const from = { library: ["library", "index.html", "Library"], chronology: ["chronology", "chronology.html", "Chronology"], settings: ["settings", "tokens.html", "Settings"] }[K.params.get("from")] || ["library", "index.html", "Library"];
-    tabbar.classList.add("search-bar");
-    tabbar.replaceChildren(el("div", { class: "row1" },
-      el("a", { class: "roundglass glass fold", href: href(from[1]), "aria-label": from[2], html: ICON[from[0]] }), field, filtersBtn));
-    rider = tabbar;
-  } else {
-    const row = el("div", { class: "fieldrow" }, field, filtersBtn);
-    document.body.append(row);
-    if (L === "stack") rider = row;
-  }
+  const field = el("label", { class: "field" }, el("span", { html: ICON.search }), input, clear);
+  document.body.append(el("div", { class: "fieldrow" }, field, filtersBtn));
   input.addEventListener("input", () => { query = input.value; save(); update(); });
-  input.addEventListener("focus", () => { tabbar.classList.add("typing"); document.body.classList.add("typing"); });
-  input.addEventListener("blur", () => { tabbar.classList.remove("typing"); document.body.classList.remove("typing"); });
-  input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.blur(); });
+  input.addEventListener("focus", () => document.body.classList.add("typing"));
+  input.addEventListener("blur", () => document.body.classList.remove("typing"));
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") { remember(query); input.blur(); } });
 
-  // ---------- The keyboard: only the content scrolls; a bottom field and the sheet ride on the keyboard. ----------
+  // ---------- Recent searches: newest first, on this device only ----------
+  let recent = K.store("search.recent") || [];
+  function remember(q) {
+    q = (q || "").trim();
+    if (!q) return;
+    recent = [q, ...recent.filter((r) => r.toLowerCase() !== q.toLowerCase())].slice(0, 20);
+    K.store("search.recent", recent);
+  }
+  // Opening a result keeps the query that found it.
+  scroll.addEventListener("click", (e) => { if (e.target.closest("a.row")) remember(query); });
+
+  // ---------- The keyboard: only the content scrolls. The sheet rides on the keyboard only for its own field. ----------
   const riders = [];
-  const gapPx = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--space-s")) || 8;
-  // C rests on top of the tab bar; B is the tab bar.
-  const restBottom = () => (L === "stack" ? innerHeight - tabbar.getBoundingClientRect().top + gapPx() : parseFloat(getComputedStyle(tabbar).bottom) || 8);
   function ride() {
     if (scrollY || document.documentElement.scrollTop) scrollTo(0, 0);
     const vv = window.visualViewport;
     const kb = vv ? Math.max(0, innerHeight - vv.height - vv.offsetTop) : 0;
-    const up = kb > 40;
-    if (rider) rider.style.bottom = up ? kb + 8 + "px" : L === "stack" ? restBottom() + "px" : "";
-    riders.forEach((r) => r(kb, up));
+    riders.forEach((r) => r(kb, kb > 40));
     K.layoutChrome();
-    if (L === "prominent") scroll.style.setProperty("--bottom-space", (up ? kb + 8 : restBottom()) + tabbar.offsetHeight + 24 + "px");
   }
   // iOS sends the viewport events late, so the riders follow each frame while the keyboard moves.
   let until = 0;
   function follow() { until = performance.now() + 900; const step = () => { ride(); if (performance.now() < until) requestAnimationFrame(step); }; step(); }
   if (window.visualViewport) { visualViewport.addEventListener("resize", follow); visualViewport.addEventListener("scroll", ride); }
   addEventListener("scroll", ride);
-  addEventListener("resize", follow);
   document.addEventListener("focusin", follow);
   document.addEventListener("focusout", follow);
   // ---------- Shared pieces of the filters ----------
@@ -270,27 +252,8 @@ K.start(() => {
   }
 
   // ---------- Results: sections by kind; the conditions narrow every section. ----------
-  const head = el("div", { class: "page-head" }, el("h1", { class: "t-largeTitle" }, "Search"));
   const resultsBox = el("div");
-  // A: the large title scrolls away and the field stays under the bar. D: no title, the field is the bar.
-  const space = el("div", { class: "fieldspace" });
-  if (L === "nav") scroll.append(resultsBox);
-  else if (L === "prominent" || L === "stack") scroll.append(head, resultsBox);
-  else {
-    scroll.append(head, space, resultsBox);
-    const row = document.querySelector(".fieldrow");
-    // The field follows the title up and stops where the bar would be.
-    const pin = () => { row.style.top = ""; const bar = row.getBoundingClientRect().top; const top = space.getBoundingClientRect().top; row.style.top = Math.max(bar, top) + "px"; row.classList.toggle("pinned", top <= bar); };
-    scroll.addEventListener("scroll", pin, { passive: true });
-    addEventListener("resize", pin);
-    // The specimen pill and the title settle after the first frame.
-    const settle = new ResizeObserver(pin);
-    settle.observe(head);
-    settle.observe(document.querySelector(".specimen-bar") || head);
-    requestAnimationFrame(pin);
-  }
-  // D: the field takes the place of the bar, so the content starts below it.
-  if (L === "nav") scroll.style.paddingTop = "calc(max(env(safe-area-inset-top), 6px) + var(--pill-space, 34px) + 52px)";
+  scroll.append(resultsBox);
 
   function section(title, n, rows, inset) {
     return el("section", { class: "section" },
@@ -301,7 +264,12 @@ K.start(() => {
   function results() {
     const tokens = queryTokens(query);
     if (!tokens.length && !conds.length) {
-      return [el("div", { class: "hint t-subheadline" }, "Type a work, a catalogue number such as Op. 67 or K. 626, or a name. The filters narrow what you find.")];
+      if (!recent.length) return [el("div", { class: "hint t-subheadline" }, "Type a work, a catalogue number such as Op. 67 or K. 626, or a name.")];
+      return [el("section", { class: "section recent" },
+        el("div", { class: "section-head t-footnote" }, el("span", {}, "RECENT"),
+          el("button", { onclick: () => { recent = []; K.store("search.recent", recent); update(); } }, "Clear")),
+        el("div", { class: "list" }, ...recent.map((q) => el("button", { class: "row", onclick: () => { input.value = q; query = q; remember(q); save(); update(); } },
+          el("span", { html: ICON.search }), el("div", { class: "main t-body" }, q)))))];
     }
     const ok = new Set(recs.filter((x) => passes(x, conds)).map((x) => x.r));
     const out = [];
@@ -355,6 +323,7 @@ K.start(() => {
       el("div", { class: "body" }, condsBox, note, seg, narrow, list));
     document.body.append(box);
     riders.push((kb, up) => {
+      up = up && box.contains(document.activeElement);
       box.style.bottom = up ? kb + 8 + "px" : "";
       box.style.height = up ? Math.min(visualViewport.height - 70, innerHeight * 0.58) + "px" : "";
     });

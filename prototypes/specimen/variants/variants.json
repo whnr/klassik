@@ -1,18 +1,1 @@
-{
-  "search-top": {
-    "label": "Search A: field on top",
-    "page": "search"
-  },
-  "search-prominent": {
-    "label": "Search B: field on the keyboard",
-    "page": "search"
-  },
-  "search-stack": {
-    "label": "Search C: field above the tabs",
-    "page": "search"
-  },
-  "search-nav": {
-    "label": "Search D: field in the bar",
-    "page": "search"
-  }
-}
+{}

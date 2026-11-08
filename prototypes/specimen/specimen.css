@@ -93,6 +93,15 @@ input { font: inherit; color: inherit; }
   flex: 1; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
   padding: calc(max(env(safe-area-inset-top), 6px) + var(--pill-space, 34px) + var(--size-hitTarget)) 0 var(--bottom-space, 180px);
 }
+/* The page scroll indicator runs beside the timeline, never on it, as SwiftUI's contentMargins for scrollIndicators does. */
+.scroll { scrollbar-width: none; }
+.scroll::-webkit-scrollbar { display: none; }
+.scroll-indicator {
+  position: fixed; z-index: 39; right: var(--indicator-inset, 3px); width: 3px; border-radius: 2px;
+  background: var(--color-text-tertiary); opacity: 0; pointer-events: none; transition: opacity 0.4s;
+}
+.scroll-indicator.on { opacity: 1; transition: opacity 0.1s; }
+:root.has-timeline:not([data-side="left"]) { --indicator-inset: calc(var(--size-timeline) + 3px); }
 .page-head { padding: var(--space-xs) var(--pad-right) var(--space-s) var(--pad-left); }
 .page-head h1 { overflow-wrap: anywhere; }
 .page-head .meta { margin-top: var(--space-xxs); }

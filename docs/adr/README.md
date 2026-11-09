@@ -42,4 +42,5 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0029](0029-search-at-the-top.md) | Search at the top, with a back arrow and recent searches | 2026-11-08 |
 | [0030](0030-type-and-spacing.md) | Type and spacing from one ratio | 2026-11-08 |
 | [0031](0031-no-separator-glyph.md) | No separator glyph: prose, words and role lines | 2026-11-09 |
-| [0032](0032-fermata-mark.md) | The fermata: one solid drawing, grey when not set | 2026-11-08 |
+| [0032](0032-fermata-mark.md) | The fermata: one solid drawing, grey when not set (partly replaced by 0033) | 2026-11-08 |
+| [0033](0033-engraved-fermata.md) | The engraved fermata, strong when set and quiet when not | 2026-11-09 |

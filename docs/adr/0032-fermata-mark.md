@@ -1,6 +1,6 @@
 # 0032. The fermata: one solid drawing, grey when not set
 
-Date: 2026-11-08. Decided by Flo after two fermata rounds on the phone. Bead: sz-rs30.1.83.18. Replaces the outline rule of [0017](0017-composer-and-performer-pages.md). Settles the drawing that [0030](0030-type-and-spacing.md) left open.
+Date: 2026-11-08. Decided by Flo after two fermata rounds on the phone. Bead: sz-rs30.1.83.18. Replaces the outline rule of [0017](0017-composer-and-performer-pages.md). Settles the drawing that [0030](0030-type-and-spacing.md) left open. The drawing and the not-set colour are replaced by [0033](0033-engraved-fermata.md).
 
 ## Context
 

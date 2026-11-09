@@ -57,11 +57,25 @@ const KF = (() => {
 
   function pick() {
     const p = (window.K && K.store("fermata")) || {};
-    return { shape: p.shape || "lunette", style: p.style || "grey" };
+    return { shape: p.shape || "now", style: p.style || "grey", height: p.height || 0 };
+  }
+
+  // A height in em sizes the mark to the arc alone, feet on the baseline, so it scales with the text beside it.
+  function sized(shapeId, on, height) {
+    const shape = SHAPES.find((s) => s.id === shapeId) || SHAPES[0];
+    const fill = on ? "var(--color-favourite, var(--color-tint))" : "var(--color-text-secondary)";
+    const span = document.createElement("span");
+    span.className = "fermata sized";
+    span.style.cssText = `width:${(height * 2).toFixed(3)}em;height:${height}em;vertical-align:0;margin-left:0.25em`;
+    span.setAttribute("role", "img");
+    span.setAttribute("aria-label", on ? "Favourite" : "Not a favourite");
+    span.innerHTML = `<svg viewBox="1.5 4 21 10.5" width="100%" height="100%" style="display:block"><path d="${shape.d}" fill-rule="${shape.rule || "evenodd"}" fill="${fill}"/></svg>`;
+    return span;
   }
 
   function mark(on, small = false, shapeId, styleId) {
     const p = pick();
+    if (p.height && !small && !shapeId) return sized(p.shape, on, p.height);
     const span = document.createElement("span");
     span.className = "fermata" + (small ? " small" : "");
     span.setAttribute("role", "img");
@@ -71,5 +85,5 @@ const KF = (() => {
   }
 
   if (window.K) K.fermata = (on, small) => mark(on, small);
-  return { SHAPES, STYLES, svg, mark, pick };
+  return { SHAPES, STYLES, svg, mark, sized, pick };
 })();

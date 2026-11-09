@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fermata sizes</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="tokens.css?v=35">
+<link rel="stylesheet" href="specimen.css?v=35">
+<script src="specimen.js?v=35"></script>
+<script src="variants/fermata.js?v=35"></script>
+</head>
+<body>
+<style>
+  .use { margin-left: auto; color: var(--color-tint); }
+  .use.on { color: var(--color-text-secondary); }
+  .ref { display: flex; align-items: baseline; gap: var(--space-l); font-size: 64px; line-height: 1.1; margin-top: var(--space-xs); }
+  .ref .fermata.sized { margin-left: 0; }
+  .sample { margin-top: var(--space-s); }
+  .sample button { text-align: left; color: inherit; padding: 0; }
+  .pagetitle { font: var(--type-pageTitle-weight) var(--type-pageTitle-size)/var(--type-pageTitle-line-height) var(--type-pageTitle-family); margin-top: var(--space-xs); }
+  .fermata.pop { animation: pop 260ms ease-out; }
+  @keyframes pop { 40% { transform: scale(1.25); } }
+  @media (prefers-reduced-motion: reduce) { .fermata.pop { animation: none; } }
+</style>
+<script>
+K.start(() => {
+  const { el, href } = K;
+  const { scroll } = K.page({ tab: "library", title: "Fermata sizes", back: { label: "Library", href: "index.html" } });
+  // Heights of the arc in em. SF Pro has an x-height near 0.53 em and a cap height near 0.70 em.
+  const STEPS = [
+    { h: 0.41, name: "Now", note: "Today's size." },
+    { h: 0.5, name: "Step 1", note: "Just under the x-height." },
+    { h: 0.57, name: "Step 2", note: "A little over the x-height." },
+    { h: 0.64, name: "Step 3", note: "Most of a capital." },
+    { h: 0.71, name: "Capital O", note: "The height of a capital O." },
+  ];
+  const fav = new Set(K.store("fermataSizes") || ["0.5", "0.64"]);
+  const list = el("div");
+  const foot = el("p", { class: "t-footnote secondary", style: "margin: var(--space-xl) var(--pad-right) var(--space-xl) var(--pad-left)" });
+
+  scroll.append(
+    el("div", { class: "page-head" }, el("h1", { class: "t-largeTitle" }, "Fermata sizes"),
+      el("p", { class: "t-subheadline secondary meta" }, "The current drawing, grey when not set, from today's size up to a capital O. The big O beside each pair shows the cap height. Tap a sample line to set or clear it.")),
+    list, foot);
+
+  function render(popped) {
+    const pick = K.store("fermata") || {};
+    list.replaceChildren(...STEPS.map((s) => {
+      const key = String(s.h);
+      const on = fav.has(key);
+      const mark = (isOn) => KF.sized("now", isOn, s.h);
+      const inline = mark(on);
+      if (popped === key) inline.classList.add("pop");
+      const isPick = pick.height === s.h;
+      return el("section", { class: "section" },
+        el("div", { class: "section-head t-footnote", style: "display:flex;align-items:baseline" },
+          el("span", {}, s.name),
+          el("button", { class: "use t-footnote" + (isPick ? " on" : ""), onclick: () => { K.store("fermata", { shape: "now", style: "grey", height: s.h }); render(); } },
+            isPick ? "On all pages" : "Use on all pages")),
+        el("div", { class: "list" }, el("div", { class: "row" }, el("div", { class: "main" },
+          el("div", { class: "t-subheadline secondary" }, s.note, " ", s.h.toFixed(2), " em."),
+          el("div", { class: "ref" }, el("span", { class: "o" }, "O"), mark(true), mark(false)),
+          el("div", { class: "sample" }, el("button", { class: "t-body", "aria-pressed": on, onclick: () => { on ? fav.delete(key) : fav.add(key); K.store("fermataSizes", [...fav]); render(key); } },
+            K.titled("String Quartet in F major, Op. 135", inline))),
+          el("div", { class: "t-headline", style: "margin-top: var(--space-xs)" }, K.titled("Wiener Philharmoniker", mark(false))),
+          el("div", { class: "pagetitle" }, K.titled("Symphony No. 5", mark(true)))))));
+    }));
+    const cur = STEPS.find((s) => s.h === pick.height);
+    foot.replaceChildren(cur ? `On all pages: ${cur.name}. ` : "No size on all pages yet. ",
+      el("a", { class: "tint", href: href("work.html", { variant: "fermata", back: "Fermata sizes" }) }, "Open a work page with it"), " (variant “fermata”).");
+  }
+  render();
+});
+</script>
+</body>
+</html>

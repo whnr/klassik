@@ -1,0 +1,161 @@
+/* PROTOTYPE, round 21, sz-rs30.1.83.19.1: Oxblood with a gold fermata. Written by palette.py. */
+
+:root[data-paper="faint"][data-theme="light"][data-contrast="normal"],
+:root[data-paper="faint"] [data-theme="light"][data-contrast="normal"] {
+  --color-background-page: #f9f5ee;
+  --color-background-row: #f9f5ee;
+  --color-background-grouped: #efebe3;
+  --color-background-elevated: #fcf9f5;
+  --color-text-primary: #281f1e;
+  --color-text-secondary: #736362;
+  --color-text-tertiary: #a39796;
+  --color-separator: #d6ccca;
+  --color-fill-standard: #e0dbd0;
+  --color-fill-quiet: #ebe6dd;
+  --color-tint: #933331;
+  --color-accent-fill: #7c2524;
+  --color-on-accent: #f9f5ee;
+  --color-timeline-unplayed: #d0cbc0;
+  --color-favourite: #ab7d1b;
+  --color-timeline-played: #933331;
+}
+
+:root[data-paper="faint"][data-theme="light"][data-contrast="high"],
+:root[data-paper="faint"] [data-theme="light"][data-contrast="high"] {
+  --color-background-page: #f8f5f1;
+  --color-background-row: #f8f5f1;
+  --color-background-grouped: #eeebe6;
+  --color-background-elevated: #fbfaf7;
+  --color-text-primary: #180f0e;
+  --color-text-secondary: #5a4c4a;
+  --color-text-tertiary: #7a6e6d;
+  --color-separator: #bcb2b1;
+  --color-fill-standard: #dfdbd3;
+  --color-fill-quiet: #eae6e0;
+  --color-tint: #802021;
+  --color-accent-fill: #691214;
+  --color-on-accent: #f8f5f1;
+  --color-timeline-unplayed: #b9b4ac;
+  --color-favourite: #946901;
+  --color-timeline-played: #802021;
+}
+
+:root[data-paper="middle"][data-theme="light"][data-contrast="normal"],
+:root[data-paper="middle"] [data-theme="light"][data-contrast="normal"] {
+  --color-background-page: #faf3e5;
+  --color-background-row: #faf3e5;
+  --color-background-grouped: #f1e9d8;
+  --color-background-elevated: #fcf7ed;
+  --color-text-primary: #281f1e;
+  --color-text-secondary: #726261;
+  --color-text-tertiary: #a29594;
+  --color-separator: #d4cac8;
+  --color-fill-standard: #e1d9c8;
+  --color-fill-quiet: #ece4d5;
+  --color-tint: #913230;
+  --color-accent-fill: #7c2524;
+  --color-on-accent: #faf3e5;
+  --color-timeline-unplayed: #d0c8b8;
+  --color-favourite: #aa7b19;
+  --color-timeline-played: #913230;
+}
+
+:root[data-paper="middle"][data-theme="light"][data-contrast="high"],
+:root[data-paper="middle"] [data-theme="light"][data-contrast="high"] {
+  --color-background-page: #f7f3eb;
+  --color-background-row: #f7f3eb;
+  --color-background-grouped: #eee9df;
+  --color-background-elevated: #faf7f2;
+  --color-text-primary: #180f0e;
+  --color-text-secondary: #594b49;
+  --color-text-tertiary: #796d6b;
+  --color-separator: #bbb0af;
+  --color-fill-standard: #ded9cd;
+  --color-fill-quiet: #e9e4da;
+  --color-tint: #7e1f20;
+  --color-accent-fill: #691214;
+  --color-on-accent: #f7f3eb;
+  --color-timeline-unplayed: #b8b2a7;
+  --color-favourite: #926800;
+  --color-timeline-played: #7e1f20;
+}
+
+:root[data-paper="creamy"][data-theme="light"][data-contrast="normal"],
+:root[data-paper="creamy"] [data-theme="light"][data-contrast="normal"] {
+  --color-background-page: #fbf0d9;
+  --color-background-row: #fbf0d9;
+  --color-background-grouped: #f3e6cb;
+  --color-background-elevated: #fcf4e5;
+  --color-text-primary: #281f1e;
+  --color-text-secondary: #706160;
+  --color-text-tertiary: #a09392;
+  --color-separator: #d2c7c6;
+  --color-fill-standard: #e1d6be;
+  --color-fill-quiet: #ece1ca;
+  --color-tint: #90302f;
+  --color-accent-fill: #7c2524;
+  --color-on-accent: #fbf0d9;
+  --color-timeline-unplayed: #d1c5af;
+  --color-favourite: #a87a16;
+  --color-timeline-played: #90302f;
+}
+
+:root[data-paper="creamy"][data-theme="light"][data-contrast="high"],
+:root[data-paper="creamy"] [data-theme="light"][data-contrast="high"] {
+  --color-background-page: #f7f0e3;
+  --color-background-row: #f7f0e3;
+  --color-background-grouped: #eee6d6;
+  --color-background-elevated: #f9f5eb;
+  --color-text-primary: #180f0e;
+  --color-text-secondary: #584948;
+  --color-text-tertiary: #776b6a;
+  --color-separator: #b8aead;
+  --color-fill-standard: #ded6c6;
+  --color-fill-quiet: #e9e2d3;
+  --color-tint: #7c1d1e;
+  --color-accent-fill: #691214;
+  --color-on-accent: #f7f0e3;
+  --color-timeline-unplayed: #b7b0a0;
+  --color-favourite: #916601;
+  --color-timeline-played: #7c1d1e;
+}
+
+:root[data-theme="dark"][data-contrast="normal"],
+:root [data-theme="dark"][data-contrast="normal"] {
+  --color-background-page: #16100f;
+  --color-background-grouped: #16100f;
+  --color-background-row: #1f1918;
+  --color-background-elevated: #26201f;
+  --color-text-primary: #d0cabc;
+  --color-text-secondary: #979185;
+  --color-text-tertiary: #5f5c54;
+  --color-separator: #332c2b;
+  --color-fill-standard: #302625;
+  --color-fill-quiet: #251d1c;
+  --color-tint: #c58983;
+  --color-accent-fill: #6b1f1e;
+  --color-timeline-unplayed: #3b302f;
+  --color-on-accent: #d0cabc;
+  --color-favourite: #a37f28;
+  --color-timeline-played: #c58983;
+}
+
+:root[data-theme="dark"][data-contrast="high"],
+:root [data-theme="dark"][data-contrast="high"] {
+  --color-background-page: #100c0c;
+  --color-background-grouped: #100c0c;
+  --color-background-row: #1f1918;
+  --color-background-elevated: #26201f;
+  --color-text-primary: #e8e2d4;
+  --color-text-secondary: #aba69a;
+  --color-text-tertiary: #7d7a72;
+  --color-separator: #484040;
+  --color-fill-standard: #302625;
+  --color-fill-quiet: #251d1c;
+  --color-tint: #e0a19b;
+  --color-accent-fill: #6b1f1e;
+  --color-timeline-unplayed: #4b3f3e;
+  --color-on-accent: #e8e2d4;
+  --color-favourite: #bb9744;
+  --color-timeline-played: #e0a19b;
+}

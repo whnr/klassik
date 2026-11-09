@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Type sheet</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="tokens.css?v=36">
-<link rel="stylesheet" href="specimen.css?v=36">
-<script src="specimen.js?v=36"></script>
+<link rel="stylesheet" href="tokens.css?v=37">
+<link rel="stylesheet" href="specimen.css?v=37">
+<script src="specimen.js?v=37"></script>
 </head>
 <body>
 <style>
@@ -104,7 +104,7 @@
   .tune input[type=range] { width: 100%; accent-color: var(--color-tint); }
   .tune .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 6px 104px; }
   .tune .chips button, .tune .tog button { height: 28px; padding: 0 10px; border-radius: 14px; background: var(--color-fill-quiet); }
-  .tune .chips button.on, .tune .tog button.on { background: var(--color-tint); color: #fff; }
+  .tune .chips button.on, .tune .tog button.on { background: var(--color-accent-fill, var(--color-tint)); color: var(--color-on-accent, #fff); }
   .tune .tog { display: flex; gap: 6px; flex-wrap: wrap; grid-column: 2 / 4; }
   .tune h3 { font: 600 13px/1 -apple-system, system-ui, sans-serif; color: var(--color-text-secondary); margin: 12px 0 4px; }
   .tune .dim { opacity: 0.35; pointer-events: none; }

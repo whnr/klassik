@@ -8,7 +8,7 @@ const K = (() => {
   document.documentElement.dataset.page = location.pathname.split("/").pop().replace(".html", "") || "index";
   // Variant files carry the stamp of specimen.js, so Safari loads new copies with it.
   const STAMP = document.currentScript ? new URL(document.currentScript.src).searchParams.get("v") || "" : "";
-  const CARRIED = ["variant", "theme", "contrast", "size", "playing", "side", "edge"];
+  const CARRIED = ["variant", "theme", "paper", "contrast", "size", "playing", "side", "edge"];
   const SIZES = ["xSmall", "small", "medium", "large", "xLarge", "xxLarge", "xxxLarge", "AX1", "AX2", "AX3", "AX4", "AX5"];
   const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI"];
   const ENSEMBLE = new Set(["Orchestra", "Choir", "Ensemble", "Trio", "Quartet"]);
@@ -357,6 +357,7 @@ const K = (() => {
     const root = document.documentElement;
     // Only the switch sets the room, so each variant is judged in the room that Flo picks.
     root.dataset.theme = setting("theme", "light") === "dark" ? "dark" : "light";
+    root.dataset.paper = setting("paper", "middle");
     root.dataset.contrast = setting("contrast", "normal") === "high" ? "high" : "normal";
     root.dataset.typeSize = setting("size", "large");
     root.dataset.side = setting("side", "right");
@@ -403,7 +404,10 @@ const K = (() => {
       ...SIZES.map((s) => el("option", { value: s, selected: setting("size", "large") === s }, "Aa " + s)));
     const playing = el("select", { "aria-label": "What plays", onchange: (e) => { setParam("playing", e.target.value); store("play", null); location.reload(); } },
       ...Object.entries(QUEUES).map(([k, q]) => el("option", { value: k, selected: setting("playing", "recording") === k }, "▶ " + q.label)));
-    bar.append(theme, contrast, size, playing);
+    // Paper warmth of the colour variants (sz-rs30.1.83.19.1); the decided tokens ignore it.
+    const paper = el("select", { "aria-label": "Paper", onchange: (e) => { setParam("paper", e.target.value); applyLook(); } },
+      ...["faint", "middle", "creamy"].map((p) => el("option", { value: p, selected: setting("paper", "middle") === p }, "Paper " + p)));
+    bar.append(theme, paper, contrast, size, playing);
     // The timeline edge is a listener option on every page; it leads the pill so a narrow screen never hides it.
     const sides = { right: "Timeline ⇥", left: "⇤ Timeline" };
     bar.prepend(el("button", { class: "on", "aria-label": "Timeline edge", onclick: () => { setParam("side", setting("side", "right") === "right" ? "left" : "right"); location.reload(); } }, sides[setting("side", "right")]));

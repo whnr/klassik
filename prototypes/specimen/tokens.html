@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Token sheet</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="tokens.css?v=36">
-<link rel="stylesheet" href="specimen.css?v=36">
-<script src="specimen.js?v=36"></script>
+<link rel="stylesheet" href="tokens.css?v=37">
+<link rel="stylesheet" href="specimen.css?v=37">
+<script src="specimen.js?v=37"></script>
 </head>
 <body>
 <style>
@@ -17,6 +17,13 @@
     background-size: 10px 10px; background-position: 0 0, 5px 5px; }
   .swatch > div { position: absolute; inset: 0; }
   .col-head { text-align: center; }
+  .swipe { padding-right: 0; gap: 0; }
+  .swipe .act { flex: none; width: 84px; align-self: stretch; display: grid; place-items: center; align-content: center; gap: 2px; margin: calc(-1 * var(--space-betweenGroups) / 2) 0; }
+  .swipe .fav { background: var(--color-accent-fill, var(--color-tint)); color: var(--color-on-accent, #fff); }
+  .swipe .fav .fermata svg path { fill: currentColor; }
+  .swipe .del { background: var(--system-red); color: #fff; }
+  [data-theme="light"] { --system-red: #ff3b30; } [data-theme="light"][data-contrast="high"] { --system-red: #d70015; }
+  [data-theme="dark"] { --system-red: #ff453a; } [data-theme="dark"][data-contrast="high"] { --system-red: #ff6961; }
   .col-head.fail { color: var(--color-text-primary); font-weight: 700; text-decoration: underline; }
   .name { overflow-wrap: anywhere; }
   .sizes { display: flex; gap: var(--space-xs); overflow-x: auto; padding: 0 var(--space-l) var(--space-s); scrollbar-width: none; }
@@ -90,7 +97,8 @@ K.start(() => {
       el("div", { class: "name t-footnote" }, `${fg.slice(8)} on ${bg.slice(8).replace("background-", "")}`),
       ...THEMES.map(([t, c]) => { const r = ratio(fg, t, c, bg); const v = verdict(r, text);
         return el("div", { class: "col-head t-caption1 nums" + (v === "fail" ? " fail" : "") }, r.toFixed(1), el("br"), v); })));
-  const contrastRows = BACKS.flatMap((bg) => TEXTS.map((fg) => pairRow(fg, bg, true)));
+  const contrastRows = BACKS.flatMap((bg) => TEXTS.map((fg) => pairRow(fg, bg, true)))
+    .concat(props.has("--color-on-accent") ? [pairRow("--color-on-accent", "--color-accent-fill", true)] : []);
   const markRows = ["--color-background-page", "--color-background-row", "--color-timeline-unplayed"].filter((n) => props.has(n))
     .flatMap((bg) => MARKS.filter((fg) => bg !== "--color-timeline-unplayed" || fg === "--color-timeline-played").map((fg) => pairRow(fg, bg, false)));
 
@@ -154,6 +162,11 @@ K.start(() => {
     section("FAVOURITE MARK", null, el("div", { class: "list" },
       el("div", { class: "row" }, el("div", { class: "main t-body" }, "Set ", K.fermata(true), "   Not set ", K.fermata(false))),
       el("div", { class: "row" }, el("div", { class: "main t-title1" }, "Title ", K.fermata(true))))),
+    section("SWIPE", "A row with its swipe open. Delete stays system red.", el("div", { class: "list" },
+      el("div", { class: "row swipe" },
+        el("div", { class: "main t-body", style: "min-width:0;overflow:hidden;white-space:nowrap" }, "Symphony No. 5 in C minor"),
+        el("div", { class: "act fav t-footnote" }, K.fermata(true), "Favourite"),
+        el("div", { class: "act del t-footnote" }, "Delete")))),
     section("TYPE", "Points at each Dynamic Type size. Weight and line height stay.", sizeChips, scaleBox, el("div", { class: "list", style: "margin-top: var(--space-s); padding: var(--space-s)" }, grid)),
     section("SPACING", "Scales with text size in the app (ScaledMetric).", el("div", { class: "list" }, ...dimRows("--space-", (n) => el("div", { class: "space-bar", style: `width: var(${n})` })))),
     section("RADIUS", null, el("div", { class: "list" }, ...dimRows("--radius-", (n) => el("div", { class: "radius-box", style: `border-radius: var(${n})` })))),

@@ -52,3 +52,7 @@ The server sends no cache header, so Safari keeps old copies. Raise the `?v=` st
 
 
 In `prototypes/`, run `python3 -m http.server 8765 --bind 0.0.0.0` and open `http://<laptop>:8765/specimen/`. The covers load from Wikimedia Commons, so the phone needs network access.
+
+## Colour variants (round 21)
+
+`variants/palette.py` writes `variants/palette-*.css` for the palette ticket sz-rs30.1.83.19.1. Each colour starts in OKLCH. Its lightness comes from its WCAG target on its background; chroma drops until it fits sRGB. Run `python3 variants/palette.py` to rewrite the files and print WCAG and APCA values. The light values depend on the Paper control in the pill (faint, middle, creamy). `--color-accent-fill` and `--color-on-accent` colour filled buttons and chips; the decided tokens fall back to the tint and white.

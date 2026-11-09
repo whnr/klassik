@@ -35,6 +35,8 @@ const K = (() => {
 
   function el(tag, attrs = {}, ...children) {
     const node = document.createElement(tag);
+    // Safari fetches an image as soon as src is set: crossorigin must come first, or a canvas cannot read it.
+    if ("crossorigin" in attrs) node.setAttribute("crossorigin", attrs.crossorigin);
     for (const [k, v] of Object.entries(attrs)) {
       if (v == null || v === false) continue;
       if (k.startsWith("on")) node.addEventListener(k.slice(2), v);

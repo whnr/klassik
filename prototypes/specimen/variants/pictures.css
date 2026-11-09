@@ -7,17 +7,22 @@
   width: calc(var(--size-timeline) + 3px); background: var(--color-background-page);
 }
 
-/* B: the name stays on the picture, as in Apple Music Classical, but a scrim of hall colour sits under it.
-   pictures.js measures the picture under the text and sets the scrim just strong enough for AA.
+/* B: the name stays on the picture, as in Apple Music Classical, but a blur and a scrim of hall colour sit under it.
+   The blur averages a small bright patch away; pictures.js measures the blurred picture under the text and sets
+   the scrim just strong enough for AA.
    The text block takes the dark room's tokens, so the favourite mark and the facts line read on the scrim. */
 :root[data-look="pic-scrim"] .hero .pic img { -webkit-mask-image: none; mask-image: none; }
-:root[data-look="pic-scrim"] .hero .pic .blur { display: none; }
+:root[data-look="pic-scrim"] .hero .pic .blur { height: calc(var(--title-h, 80px) + 60px); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+  -webkit-mask-image: linear-gradient(to top, #000 calc(var(--title-h, 80px) + 12px), transparent);
+  mask-image: linear-gradient(to top, #000 calc(var(--title-h, 80px) + 12px), transparent); }
 :root[data-look="pic-scrim"] .hero .pic::after {
   content: ""; position: absolute; inset: auto 0 0 0; height: calc(var(--title-h, 80px) + 140px); pointer-events: none;
   background: linear-gradient(to top, rgb(var(--scrim-rgb, 22 16 17) / var(--scrim-a, 0.6)) 0,
     rgb(var(--scrim-rgb, 22 16 17) / var(--scrim-a, 0.6)) calc(var(--title-h, 80px) + 12px), transparent);
 }
 :root[data-look="pic-scrim"] .hero .person-head { padding-bottom: var(--space-m); color: var(--color-text-primary); }
+/* Both lines in paper colour: grey secondary text would need a near-black scrim to reach 4.5:1 on any picture. */
+:root[data-look="pic-scrim"] .hero .person-head :is(h1, .meta) { color: #faf3e5; }
 :root[data-look="pic-scrim"] .has-pic .hero + * { margin-top: var(--space-l); }
 /* The bar gets a keyline of page colour and a soft dark edge: one of the two always stands apart from the picture. */
 :root[data-look="pic-scrim"] .timeline .seg { box-shadow: 0 0 0 1px var(--color-background-page); }
@@ -35,3 +40,7 @@
 :root[data-look="pic-plate"] .hero .page-head { position: relative; padding-top: var(--space-m); }
 :root[data-look="pic-plate"] .has-pic .nav .back { margin-left: 0; padding-right: var(--space-s); background: none; box-shadow: none;
   -webkit-backdrop-filter: none; backdrop-filter: none; }
+
+/* Specimen only: the measured scrim, so Flo can tell a measurement from a fallback. */
+.scrim-tag { position: absolute; right: calc(var(--size-timeline) + var(--space-s)); bottom: calc(var(--title-h, 80px) + var(--space-l)); z-index: 2;
+  font: 500 10px/1.3 -apple-system, system-ui, sans-serif; color: rgb(255 255 255 / 0.7); pointer-events: none; }

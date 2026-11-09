@@ -1,4 +1,4 @@
-/* PROTOTYPE, round 21, sz-rs30.1.83.19.1: Plum. Written by palette.py. */
+/* PROTOTYPE, round 22, sz-rs30.1.83.19.1: Plum. Written by palette.py. */
 
 :root[data-paper="faint"][data-theme="light"][data-contrast="normal"],
 :root[data-paper="faint"] [data-theme="light"][data-contrast="normal"] {
@@ -10,14 +10,19 @@
   --color-text-secondary: #71636a;
   --color-text-tertiary: #a1979c;
   --color-separator: #d5cbd0;
-  --color-fill-standard: #e0dbd0;
-  --color-fill-quiet: #ebe6dd;
   --color-tint: #813b66;
   --color-accent-fill: #66294e;
   --color-on-accent: #f9f5ee;
   --color-timeline-unplayed: #d0cbc0;
-  --color-favourite: #813b66;
   --color-timeline-played: #813b66;
+  --color-favourite: #c03b92;
+  --color-favourite-off: #928e86;
+  --color-fill-standard: #3c302829;
+  --color-fill-quiet: #3c302814;
+  --color-swipe-playNext: #716eb0;
+  --color-swipe-addToQueue: #a16834;
+  --color-swipe-download: #058096;
+  --color-swipe-reference: #c54096;
 }
 
 :root[data-paper="faint"][data-theme="light"][data-contrast="high"],
@@ -30,14 +35,19 @@
   --color-text-secondary: #584c52;
   --color-text-tertiary: #786e74;
   --color-separator: #bbb2b6;
-  --color-fill-standard: #dfdbd3;
-  --color-fill-quiet: #eae6e0;
   --color-tint: #6f2a55;
   --color-accent-fill: #54183e;
   --color-on-accent: #f8f5f1;
   --color-timeline-unplayed: #b9b4ac;
-  --color-favourite: #6f2a55;
   --color-timeline-played: #6f2a55;
+  --color-favourite: #9d1172;
+  --color-favourite-off: #747069;
+  --color-fill-standard: #3c302829;
+  --color-fill-quiet: #3c302814;
+  --color-swipe-playNext: #565190;
+  --color-swipe-addToQueue: #834b14;
+  --color-swipe-download: #006274;
+  --color-swipe-reference: #a31b78;
 }
 
 :root[data-paper="middle"][data-theme="light"][data-contrast="normal"],
@@ -50,14 +60,19 @@
   --color-text-secondary: #706269;
   --color-text-tertiary: #a0959b;
   --color-separator: #d3c9ce;
-  --color-fill-standard: #e1d9c8;
-  --color-fill-quiet: #ece4d5;
   --color-tint: #803a65;
   --color-accent-fill: #66294e;
   --color-on-accent: #faf3e5;
   --color-timeline-unplayed: #d0c8b8;
-  --color-favourite: #803a65;
   --color-timeline-played: #803a65;
+  --color-favourite: #bf3a90;
+  --color-favourite-off: #908d85;
+  --color-fill-standard: #3c302829;
+  --color-fill-quiet: #3c302814;
+  --color-swipe-playNext: #716eb0;
+  --color-swipe-addToQueue: #a16834;
+  --color-swipe-download: #058096;
+  --color-swipe-reference: #c54096;
 }
 
 :root[data-paper="middle"][data-theme="light"][data-contrast="high"],
@@ -70,14 +85,19 @@
   --color-text-secondary: #574a51;
   --color-text-tertiary: #776d72;
   --color-separator: #b9b0b5;
-  --color-fill-standard: #ded9cd;
-  --color-fill-quiet: #e9e4da;
   --color-tint: #6e2954;
   --color-accent-fill: #54183e;
   --color-on-accent: #f7f3eb;
   --color-timeline-unplayed: #b8b2a7;
-  --color-favourite: #6e2954;
   --color-timeline-played: #6e2954;
+  --color-favourite: #9b0e71;
+  --color-favourite-off: #736f68;
+  --color-fill-standard: #3c302829;
+  --color-fill-quiet: #3c302814;
+  --color-swipe-playNext: #565190;
+  --color-swipe-addToQueue: #834b14;
+  --color-swipe-download: #006274;
+  --color-swipe-reference: #a31b78;
 }
 
 :root[data-paper="creamy"][data-theme="light"][data-contrast="normal"],
@@ -90,14 +110,19 @@
   --color-text-secondary: #6e6167;
   --color-text-tertiary: #9e9399;
   --color-separator: #d0c7cc;
-  --color-fill-standard: #e1d6be;
-  --color-fill-quiet: #ece1ca;
   --color-tint: #7e3963;
   --color-accent-fill: #66294e;
   --color-on-accent: #fbf0d9;
   --color-timeline-unplayed: #d1c5af;
-  --color-favourite: #7e3963;
   --color-timeline-played: #7e3963;
+  --color-favourite: #bd388f;
+  --color-favourite-off: #8f8b83;
+  --color-fill-standard: #3c302829;
+  --color-fill-quiet: #3c302814;
+  --color-swipe-playNext: #716eb0;
+  --color-swipe-addToQueue: #a16834;
+  --color-swipe-download: #058096;
+  --color-swipe-reference: #c54096;
 }
 
 :root[data-paper="creamy"][data-theme="light"][data-contrast="high"],
@@ -110,14 +135,19 @@
   --color-text-secondary: #564950;
   --color-text-tertiary: #766b71;
   --color-separator: #b6adb2;
-  --color-fill-standard: #ded6c6;
-  --color-fill-quiet: #e9e2d3;
   --color-tint: #6c2752;
   --color-accent-fill: #54183e;
   --color-on-accent: #f7f0e3;
   --color-timeline-unplayed: #b7b0a0;
-  --color-favourite: #6c2752;
   --color-timeline-played: #6c2752;
+  --color-favourite: #990a6f;
+  --color-favourite-off: #716d66;
+  --color-fill-standard: #3c302829;
+  --color-fill-quiet: #3c302814;
+  --color-swipe-playNext: #565190;
+  --color-swipe-addToQueue: #834b14;
+  --color-swipe-download: #006274;
+  --color-swipe-reference: #a31b78;
 }
 
 :root[data-theme="dark"][data-contrast="normal"],
@@ -130,14 +160,19 @@
   --color-text-secondary: #979185;
   --color-text-tertiary: #5f5c54;
   --color-separator: #322c2f;
-  --color-fill-standard: #2e262a;
-  --color-fill-quiet: #241d21;
-  --color-tint: #bb8aa5;
+  --color-tint: #c982aa;
   --color-accent-fill: #572142;
   --color-timeline-unplayed: #393035;
   --color-on-accent: #d0cabc;
-  --color-favourite: #bb8aa5;
-  --color-timeline-played: #bb8aa5;
+  --color-timeline-played: #c982aa;
+  --color-favourite: #ee67ba;
+  --color-favourite-off: #665f63;
+  --color-fill-standard: #f0e6d833;
+  --color-fill-quiet: #f0e6d81c;
+  --color-swipe-playNext: #716eb0;
+  --color-swipe-addToQueue: #a16834;
+  --color-swipe-download: #058096;
+  --color-swipe-reference: #c54096;
 }
 
 :root[data-theme="dark"][data-contrast="high"],
@@ -150,12 +185,17 @@
   --color-text-secondary: #aba69a;
   --color-text-tertiary: #7d7a72;
   --color-separator: #474044;
-  --color-fill-standard: #2e262a;
-  --color-fill-quiet: #241d21;
-  --color-tint: #d5a2bd;
+  --color-tint: #e39bc3;
   --color-accent-fill: #572142;
   --color-timeline-unplayed: #493f44;
   --color-on-accent: #e8e2d4;
-  --color-favourite: #d5a2bd;
-  --color-timeline-played: #d5a2bd;
+  --color-timeline-played: #e39bc3;
+  --color-favourite: #ff89cf;
+  --color-favourite-off: #80787c;
+  --color-fill-standard: #f0e6d833;
+  --color-fill-quiet: #f0e6d81c;
+  --color-swipe-playNext: #565190;
+  --color-swipe-addToQueue: #834b14;
+  --color-swipe-download: #006274;
+  --color-swipe-reference: #a31b78;
 }

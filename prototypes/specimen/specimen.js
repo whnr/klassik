@@ -8,7 +8,7 @@ const K = (() => {
   document.documentElement.dataset.page = location.pathname.split("/").pop().replace(".html", "") || "index";
   // Variant files carry the stamp of specimen.js, so Safari loads new copies with it.
   const STAMP = document.currentScript ? new URL(document.currentScript.src).searchParams.get("v") || "" : "";
-  const CARRIED = ["variant", "theme", "paper", "contrast", "size", "playing", "side", "edge"];
+  const CARRIED = ["variant", "fermata", "theme", "paper", "contrast", "size", "playing", "side", "edge"];
   const SIZES = ["xSmall", "small", "medium", "large", "xLarge", "xxLarge", "xxxLarge", "AX1", "AX2", "AX3", "AX4", "AX5"];
   const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI"];
   const ENSEMBLE = new Set(["Orchestra", "Choir", "Ensemble", "Trio", "Quartet"]);
@@ -59,12 +59,24 @@ const K = (() => {
     note: '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M9 17.5a3 3 0 1 1-2-2.8V5l11-2v11.5a3 3 0 1 1-2-2.8V6.3L9 7.6z"/></svg>',
   };
 
-  // The favourite mark of ADR 0032: one solid fermata, tint when set and secondary grey when not.
+  // The favourite mark. ADR 0032 draws the solid 2:1 arc; ?fermata= shows the engraved drafts of
+  // sz-rs30.1.83.23: the stroke swells at the top and thins to the feet, the dot is larger.
+  const ENGRAVED = { a: { w: 17, t: 2.6, e: 0.7, r: 2.4 }, b: { w: 16, t: 3.0, e: 0.85, r: 2.6 }, c: { w: 18, t: 2.3, e: 0.6, r: 2.3 } };
+  function fermataShape(kind) {
+    const f = ENGRAVED[kind];
+    if (!f) return { box: "1.5 4 21 10.5", ratio: 2,
+      d: "M1.5 14.5A10.5 10.5 0 0 1 22.5 14.5H20.6A8.6 7.2 0 0 0 3.4 14.5Z M14.1 12.4A2.1 2.1 0 1 1 9.9 12.4A2.1 2.1 0 1 1 14.1 12.4Z" };
+    const rx = f.w / 2, ri = rx - f.e, ry = 10.5, yi = ry - f.t, cy = 14.3 - f.r;
+    const d = `M0 14.5A${rx} ${ry} 0 0 1 ${f.w} 14.5H${f.w - f.e}A${ri} ${yi} 0 0 0 ${f.e} 14.5Z ` +
+      `M${rx + f.r} ${cy}A${f.r} ${f.r} 0 1 1 ${rx - f.r} ${cy}A${f.r} ${f.r} 0 1 1 ${rx + f.r} ${cy}Z`;
+    return { box: `0 4 ${f.w} 10.5`, ratio: f.w / 10.5, d };
+  }
   function fermata(on, small = false) {
-    const shape = "M1.5 14.5A10.5 10.5 0 0 1 22.5 14.5H20.6A8.6 7.2 0 0 0 3.4 14.5Z M14.1 12.4A2.1 2.1 0 1 1 9.9 12.4A2.1 2.1 0 1 1 14.1 12.4Z";
-    const colour = on ? "var(--color-favourite)" : "var(--color-text-secondary)";
-    const span = el("span", { class: "fermata" + (small ? " small" : ""), role: "img", "aria-label": on ? "Favourite" : "Not a favourite" });
-    span.innerHTML = `<svg viewBox="1.5 4 21 10.5" width="100%" height="100%"><path d="${shape}" fill="${colour}"/></svg>`;
+    const shape = fermataShape(setting("fermata", ""));
+    const colour = on ? "var(--color-favourite)" : "var(--color-favourite-off, var(--color-text-secondary))";
+    const span = el("span", { class: "fermata" + (small ? " small" : ""), role: "img", "aria-label": on ? "Favourite" : "Not a favourite",
+      style: `width: ${small ? 10 * shape.ratio + "px" : 0.64 * shape.ratio + "em"}` });
+    span.innerHTML = `<svg viewBox="${shape.box}" width="100%" height="100%"><path d="${shape.d}" fill="${colour}"/></svg>`;
     return span;
   }
 
@@ -407,7 +419,10 @@ const K = (() => {
     // Paper warmth of the colour variants (sz-rs30.1.83.19.1); the decided tokens ignore it.
     const paper = el("select", { "aria-label": "Paper", onchange: (e) => { setParam("paper", e.target.value); applyLook(); } },
       ...["faint", "middle", "creamy"].map((p) => el("option", { value: p, selected: setting("paper", "middle") === p }, "Paper " + p)));
-    bar.append(theme, paper, contrast, size, playing);
+    const shapes = { "": "Fermata 0032", a: "Fermata A", b: "Fermata B", c: "Fermata C" };
+    const shape = el("select", { "aria-label": "Fermata", onchange: (e) => { setParam("fermata", e.target.value); location.reload(); } },
+      ...Object.entries(shapes).map(([k, l]) => el("option", { value: k, selected: setting("fermata", "") === k }, l)));
+    bar.append(theme, paper, contrast, size, playing, shape);
     // The timeline edge is a listener option on every page; it leads the pill so a narrow screen never hides it.
     const sides = { right: "Timeline ⇥", left: "⇤ Timeline" };
     bar.prepend(el("button", { class: "on", "aria-label": "Timeline edge", onclick: () => { setParam("side", setting("side", "right") === "right" ? "left" : "right"); location.reload(); } }, sides[setting("side", "right")]));

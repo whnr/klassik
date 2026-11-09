@@ -1,4 +1,4 @@
-"""Prototype for sz-rs30.1.83.19.1, round 21: writes one CSS file per accent family.
+"""Prototype for sz-rs30.1.83.19.1, round 22: writes one CSS file per accent family.
 
 Throwaway. Each colour starts as OKLCH. Lightness is solved from its WCAG target on the
 background it sits on, then the colour is gamut-mapped by lowering chroma at fixed L and hue.
@@ -86,11 +86,15 @@ def solve(C, h, bg, target, darker):
 # ---------- the families ----------
 # h: accent hue. Day text is a deep jewel; night text is its lighter, quieter twin.
 FAMILIES = {
-    "oxblood": dict(label="Oxblood", h=25, dayC=0.13, nightC=0.075, fillL=0.40, fillC=0.12),
-    "green": dict(label="Bottle green", h=160, dayC=0.09, nightC=0.065, fillL=0.40, fillC=0.08),
-    "bronze": dict(label="Bronze and brass", h=70, dayC=0.10, nightC=0.09, fillL=0.45, fillC=0.09),
-    "plum": dict(label="Plum", h=345, dayC=0.11, nightC=0.07, fillL=0.38, fillC=0.10),
+    "oxblood": dict(label="Oxblood", h=25, dayC=0.13, nightC=0.11, fillL=0.40, fillC=0.12),
+    "claret": dict(label="Claret", h=6, dayC=0.13, nightC=0.11, fillL=0.38, fillC=0.12),
+    "green": dict(label="Bottle green", h=160, dayC=0.09, nightC=0.09, fillL=0.40, fillC=0.08),
+    "plum": dict(label="Plum", h=345, dayC=0.11, nightC=0.10, fillL=0.38, fillC=0.10),
 }
+# Swipe preview (sz-rs30.1.83.19.6): one hue per action, the same lightness and chroma, white labels.
+# Reference takes the favourite's hue, because it marks the favourite recording.
+SWIPES = {"swipe-playNext": 285, "swipe-addToQueue": 60, "swipe-download": 215}
+SWIPE_C = 0.10
 PAPERS = {"faint": (0.972, 0.010), "middle": (0.966, 0.020), "creamy": (0.958, 0.032)}
 PAPER_H = 85
 HALL_L, HALL_C = 0.18, 0.010
@@ -111,14 +115,11 @@ def light(fam, paper, high):
         "text-secondary": solve(0.02, nh, page, 7.5 if high else 5.2, True),
         "text-tertiary": solve(0.015, nh, page, 4.5 if high else 2.6, True),
         "separator": hexof(L - (0.2 if high else 0.12), 0.012, nh),
-        "fill-standard": hexof(L - 0.08, C * 0.9 + 0.006, PAPER_H),
-        "fill-quiet": hexof(L - 0.045, C * 0.9 + 0.004, PAPER_H),
         "tint": solve(fam["dayC"], nh, page, 9 if high else 7, True),
         "accent-fill": hexof(fam["fillL"] - (0.06 if high else 0), fam["fillC"], nh),
         "on-accent": page,
         "timeline-unplayed": hexof(L - (0.2 if high else 0.13), C * 0.8 + 0.008, PAPER_H),
     }
-    out["favourite"] = out["tint"]
     out["timeline-played"] = out["tint"]
     return out
 
@@ -135,26 +136,30 @@ def dark(fam, high):
         "text-secondary": solve(0.018, PAPER_H, page, 8 if high else 6, False),
         "text-tertiary": solve(0.012, PAPER_H, page, 4.5 if high else 2.8, False),
         "separator": hexof(HALL_L + (0.2 if high else 0.12), HALL_C, nh),
-        "fill-standard": hexof(HALL_L + 0.1, HALL_C + 0.004, nh),
-        "fill-quiet": hexof(HALL_L + 0.06, HALL_C + 0.002, nh),
         "tint": solve(fam["nightC"], nh, page, 9 if high else 6.5, False),
         "accent-fill": hexof(fam["fillL"] - 0.04, fam["fillC"] * 0.9, nh),
         "timeline-unplayed": hexof(HALL_L + (0.2 if high else 0.14), HALL_C + 0.006, nh),
     }
     out["on-accent"] = out["text-primary"]
-    out["favourite"] = out["tint"]
     out["timeline-played"] = out["tint"]
     return out
 
 
-def gold(sets):
-    """The antique-gold fermata: ochre by day, old gold at night."""
-    for (theme, _, high), values in sets.items():
-        bg = values["background-page"]
-        if theme == "light":
-            values["favourite"] = solve(0.12, 80, bg, 4.5 if high else 3.4, True)
-        else:
-            values["favourite"] = solve(0.11, 85, bg, 7 if high else 5, False)
+def marks(values, fam, theme, high):
+    """The strong favourite, its quiet off state, translucent fills and the swipe preview."""
+    bg, nh, day = values["background-page"], fam["h"], theme == "light"
+    # The favourite is the accent at its strongest chroma that still clears its target.
+    values["favourite"] = solve(0.19, nh, bg, (7 if high else 4.5) if day else (9 if high else 6.5), day)
+    # Not set: a quiet neutral at the 3:1 floor for a control (4.5 in Increase Contrast).
+    values["favourite-off"] = solve(0.012, PAPER_H if day else nh, bg, 4.5 if high else 3.0, day)
+    # Fills are overlays: the Chronology draws its era bands over the composer lines.
+    ink = (0x3c, 0x30, 0x28) if day else (0xf0, 0xe6, 0xd8)
+    for name, a in (("fill-standard", 0.16 if day else 0.2), ("fill-quiet", 0.08 if day else 0.11)):
+        values[name] = "#%02x%02x%02x%02x" % (*ink, round(a * 255))
+    target = 7 if high else 4.6
+    for name, h in SWIPES.items():
+        values[name] = solve(SWIPE_C, h, "#ffffff", target, True)
+    values["swipe-reference"] = solve(0.19, nh, "#ffffff", target, True)
 
 
 def block(selectors, values):
@@ -162,16 +167,16 @@ def block(selectors, values):
     return ",\n".join(selectors) + " {\n" + body + "\n}\n"
 
 
-def build(name, fam, with_gold=False):
+def build(name, fam):
     sets = {}
     for paper in PAPERS:
         for high in (False, True):
             sets[("light", paper, high)] = light(fam, paper, high)
     for high in (False, True):
         sets[("dark", None, high)] = dark(fam, high)
-    if with_gold:
-        gold(sets)
-    css = [f"/* PROTOTYPE, round 21, sz-rs30.1.83.19.1: {fam['label']}{' with a gold fermata' if with_gold else ''}. Written by palette.py. */\n"]
+    for (theme, _, high), values in sets.items():
+        marks(values, fam, theme, high)
+    css = [f"/* PROTOTYPE, round 22, sz-rs30.1.83.19.1: {fam['label']}. Written by palette.py. */\n"]
     for (theme, paper, high), values in sets.items():
         c = "high" if high else "normal"
         if theme == "light":
@@ -190,7 +195,7 @@ def report(name, sets):
             continue
         bg = v["background-page"]
         pairs = [("text", v["text-primary"], bg), ("2nd", v["text-secondary"], bg), ("tint", v["tint"], bg),
-                 ("fav", v["favourite"], bg), ("label", v["on-accent"], v["accent-fill"]),
+                 ("fav", v["favourite"], bg), ("off", v["favourite-off"], bg), ("label", v["on-accent"], v["accent-fill"]),
                  ("played/unpl", v["timeline-played"], v["timeline-unplayed"]), ("fill/page", v["accent-fill"], bg)]
         row = "  ".join(f"{n} {wcag(a, b):4.1f}/{abs(apca(a, b)):3.0f}" for n, a, b in pairs)
         print(f"  {theme:5} {'HC' if high else '  '} page {bg} tint {v['tint']}  {row}")
@@ -199,4 +204,3 @@ def report(name, sets):
 if __name__ == "__main__":
     for name, fam in FAMILIES.items():
         report(name, build(name, fam))
-    report("oxblood-gold", build("oxblood-gold", FAMILIES["oxblood"], with_gold=True))

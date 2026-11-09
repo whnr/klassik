@@ -1,8 +1,7 @@
 {
   "fermata": { "label": "Fermata board pick", "js": "fermata.js" },
   "oxblood": { "label": "Oxblood", "css": "palette-oxblood.css" },
+  "claret": { "label": "Claret", "css": "palette-claret.css" },
   "green": { "label": "Bottle green", "css": "palette-green.css" },
-  "bronze": { "label": "Bronze and brass", "css": "palette-bronze.css" },
-  "plum": { "label": "Plum", "css": "palette-plum.css" },
-  "oxblood-gold": { "label": "Oxblood, gold fermata", "css": "palette-oxblood-gold.css" }
+  "plum": { "label": "Plum", "css": "palette-plum.css" }
 }

@@ -141,34 +141,27 @@ const K = (() => {
     if (groups.has(null)) out.push({ label: null, list: groups.get(null) });
     return out;
   }
-  const roleForm = () => document.documentElement.dataset.roles || "a";
   const accessibilitySize = () => /^AX/.test(document.documentElement.dataset.typeSize || "");
-  // where: "header" or "row". Form a: label before names; b: label above names; c: label after names;
-  // e: small capitals before names; f: b in the header, a in rows. At AX sizes a and f stand stacked.
-  function roleBlock(people, { where = "header", link = (p) => p.name, extra = [] } = {}) {
+  // One line per role: the small-cap label before its names, tied by a no-break space (sz-rs30.1.83.16).
+  // At accessibility sizes the label stands above its names, so a long label never takes half a line.
+  function roleBlock(people, { link = (p) => p.name, extra = [] } = {}) {
     // ?edge=sort shows every name in the sort form some libraries tag ("Kubelík, Rafael").
     if (params.get("edge") === "sort") people = people.map((p) => ({ ...p, name: sortForm(p.name) }));
-    let form = roleForm();
-    if (form === "f") form = where === "header" ? "b" : "a";
-    if (form === "a" && accessibilitySize()) form = "b";
-    const lines = [];
-    const line = (label, nameNodes, plural) => {
-      const lab = label ? el("span", { class: "label" + (form === "e" ? " caps" : "") }, form === "c" && plural ? pluralLabel(label) : label) : null;
+    const stacked = accessibilitySize();
+    const line = (label, nameNodes) => {
       const names = el("span", { class: "names" }, ...nameNodes);
-      if (!lab) return el("div", { class: "role" }, names);
-      if (form === "b") return el("div", { class: "role stacked" }, lab, names);
-      if (form === "c") return el("div", { class: "role" }, names, NB + " ", lab);
-      return el("div", { class: "role" }, lab, NB + " ", names);
+      if (!label) return el("div", { class: "role" }, names);
+      const lab = el("span", { class: "label" }, label);
+      return stacked ? el("div", { class: "role stacked" }, lab, names) : el("div", { class: "role" }, lab, NB + " ", names);
     };
     const nodes = (list) => list.flatMap((p, i) => [i ? (i === list.length - 1 ? " and " : ", ") : null, link(p)]).filter(Boolean);
+    const lines = [];
     for (const g of [...roleGroups(people), ...extra]) {
       // A name that holds a comma (a sort form) would make a comma list unreadable: each name of its role takes a line.
-      if (g.list.length > 1 && g.list.some((p) => p.name.includes(","))) {
-        if (form === "b") lines.push(el("div", { class: "role stacked" }, el("span", { class: "label" }, g.label), ...g.list.map((p) => el("span", { class: "names" }, link(p)))));
-        else g.list.forEach((p) => lines.push(line(g.label, [link(p)], false)));
-      } else lines.push(line(g.label, nodes(g.list).map((n) => n), g.list.length > 1));
+      if (g.list.length > 1 && g.list.some((p) => p.name.includes(","))) g.list.forEach((p) => lines.push(line(g.label, [link(p)])));
+      else lines.push(line(g.label, nodes(g.list)));
     }
-    return lines.length ? el("div", { class: "roles roles-" + form }, ...lines) : null;
+    return lines.length ? el("div", { class: "roles" }, ...lines) : null;
   }
   function sortForm(name) {
     const artist = [...M.artists.values()].find((a) => a.name === name);
@@ -177,8 +170,6 @@ const K = (() => {
     return words.length > 1 && !ENSEMBLE_WORDS.test(name) ? `${words.at(-1)}, ${words.slice(0, -1).join(" ")}` : name;
   }
   const ENSEMBLE_WORDS = /orchest|choir|chor|ensemble|quartet|trio|philharm|consort|academy|sinfonia|kammer|soloists|singers|players|band|baroque|musica|collegium|concert/i;
-  // Form c needs plurals; free tags make them unreliable, which the variant shows as it is.
-  function pluralLabel(label) { return /s$/.test(label) ? label : label + "s"; }
 
   function build(data, chronology) {
     M.covers = data.covers;
@@ -623,7 +614,10 @@ const K = (() => {
       const s = current().songs[t.index];
       // Two lines, the movement above its time: no separator.
       chrome.scrubLabel.replaceChildren(el("span", {}, movementTitle(s, s.works && s.works[0] && s.works[0].name)), el("span", { class: "at nums" }, time(t.pos)));
-      chrome.scrubLabel.style.top = y + "px";
+      // The label follows the finger but stays whole on screen: from the top of the timeline down to the tab bar.
+      const half = chrome.scrubLabel.offsetHeight / 2, top = Math.max(8, chrome.timeline.getBoundingClientRect().top);
+      const floor = (chrome.tabbar ? chrome.tabbar.getBoundingClientRect().top : innerHeight) - 8;
+      chrome.scrubLabel.style.top = Math.min(Math.max(y, top + half), floor - half) + "px";
       chrome.scrubLabel.classList.add("on");
     };
     tl.addEventListener("pointerdown", (e) => { e.preventDefault(); start = { x: e.clientX, y: e.clientY, scrub: false }; tl.setPointerCapture(e.pointerId); });

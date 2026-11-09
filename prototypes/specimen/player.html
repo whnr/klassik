@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Player</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="tokens.css?v=33">
-<link rel="stylesheet" href="specimen.css?v=33">
-<script src="specimen.js?v=33"></script>
+<link rel="stylesheet" href="tokens.css?v=34">
+<link rel="stylesheet" href="specimen.css?v=34">
+<script src="specimen.js?v=34"></script>
 </head>
 <body>
 <style>
@@ -32,6 +32,8 @@
   .note { display: flex; gap: var(--space-s); text-align: left; }
   .note .at { flex: none; color: var(--color-tint); }
   .bar-box { display: grid; gap: var(--space-xs); }
+  /* The names above the bar keep the gap between groups, so the note marks on the bar never touch them. */
+  .open-body .people-rows + .bar-box { margin-top: var(--space-betweenGroups); }
   .mv-bar { position: relative; height: 6px; border-radius: var(--radius-full); background: var(--color-fill-standard); touch-action: none; }
   /* The bar is 6 px tall; its touch area is the 44 px of a system slider. */
   .mv-bar::after { touch-action: none; content: ""; position: absolute; left: 0; right: 0; top: -19px; bottom: -19px; }
@@ -127,7 +129,7 @@ K.start(() => {
     // One line per role, the album as one more labelled line (sz-rs30.1.83.16).
     const albumLine = item.kind === "recording"
       ? [{ label: "album", list: [{ name: item.album.name, album: true }] }] : [];
-    const roles = K.roleBlock(shared(), { where: "header", extra: albumLine,
+    const roles = K.roleBlock(shared(), { extra: albumLine,
       link: (p) => p.album ? el("a", { class: "link", href: href("player.html", { album: item.album.id, back: item.title }) }, p.name)
         : p.id ? el("a", { href: K.personHref(p.name, { back: item.title }) }, p.name) : p.name });
     if (roles) { roles.classList.add("t-subheadline"); box.append(roles); }
@@ -194,7 +196,7 @@ K.start(() => {
     const composers = (s.contributors || []).filter((c) => c.role === "composer" && !sharedComposerNames.has(c.artist.name))
       .map((c) => ({ id: c.artist.id, name: c.artist.name, role: "composer", subRole: null }));
     const list = [...composers, ...K.performersOf([s], item.album).filter((p) => !sharedNames.has(p.name))];
-    const block = list.length ? K.roleBlock(list, { where: "row",
+    const block = list.length ? K.roleBlock(list, {
       link: (p) => p.id ? el("a", { class: "link", href: K.personHref(p.name, { back: item.title }) }, p.name) : p.name }) : null;
     if (block) block.classList.add("people-rows", "t-subheadline");
     return block;

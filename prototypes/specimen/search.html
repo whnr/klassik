@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Search</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="tokens.css?v=33">
-<link rel="stylesheet" href="specimen.css?v=33">
-<script src="specimen.js?v=33"></script>
+<link rel="stylesheet" href="tokens.css?v=34">
+<link rel="stylesheet" href="specimen.css?v=34">
+<script src="specimen.js?v=34"></script>
 </head>
 <body>
 <!--
@@ -196,7 +196,7 @@ K.start(() => {
     const entry = { id: session || Math.random().toString(36).slice(2), q: query.trim(), conds: conds.map((c) => [...c]) };
     if (!entry.q && !entry.conds.length) return;
     session = entry.id;
-    recent = [entry, ...recent.filter((r) => r.id !== entry.id && recentKey(r) !== recentKey(entry))].slice(0, 20);
+    recent = [entry, ...recent.filter((r) => r.id !== entry.id && recentKey(r) !== recentKey(entry))].slice(0, 42);
     K.store("search.recent", recent);
     K.store("search.session", session);
   }

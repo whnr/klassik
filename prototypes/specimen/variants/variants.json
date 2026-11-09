@@ -1,6 +1,1 @@
-{
- "roles-a": { "label": "A: label before names", "js": "roles-a.js" },
- "roles-c": { "label": "C: label after names", "js": "roles-c.js" },
- "roles-e": { "label": "E: small capitals", "js": "roles-e.js" },
- "roles-f": { "label": "F: stacked header, inline rows", "js": "roles-f.js" }
-}
+{}

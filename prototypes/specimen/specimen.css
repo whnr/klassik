@@ -247,11 +247,10 @@ h1[class] { font: var(--type-pageTitle-weight) var(--type-pageTitle-size)/var(--
 :root:not([data-page="tokens"]) .row + .row::before, :root:not([data-page="tokens"]) .row-block + .row-block::before { left: 0; }
 .track .main .t-headline { font-weight: var(--type-body-weight); }
 
-/* Role lines (sz-rs30.1.83.16): one line per role, a small-cap label, no separator glyph. The form comes from data-roles. */
+/* Role lines (sz-rs30.1.83.16): one line per role, a small-cap label, no separator glyph. */
 .roles { display: grid; gap: var(--space-inGroup); }
 .hero .roles { justify-items: center; text-align: center; }
 .role .label { color: var(--color-text-secondary); font-variant-caps: all-small-caps; letter-spacing: 0.06em; }
-.role .label.caps { font-variant-caps: normal; text-transform: uppercase; font-size: var(--type-caption1-size); font-weight: 600; letter-spacing: 0.08em; }
 .role.stacked .label { display: block; font-size: var(--type-footnote-size); letter-spacing: 0.08em; }
 .role.stacked .names { display: block; }
 .scrub-label .at { display: block; color: var(--color-text-secondary); }

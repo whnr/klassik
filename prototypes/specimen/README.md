@@ -16,7 +16,7 @@ The flows follow ADR 0013 to 0020. Nothing comes from the UX prototypes.
 
 ## Words and role lines
 
-The pages carry no middle dot (sz-rs30.1.83.16). Facts read as prose: "Recorded in 1972 on Dvořák Symphonies. 42 minutes, 4 movements." Durations round to the minute. Counts stand in words; a section heading takes its count in lighter parentheses, "Recordings (23)". Names in one role join with commas and "and". `K.roleBlock` sets names one line per role behind a small-cap label; `data-roles` picks the form, and the variants `roles-a`, `roles-c`, `roles-e` and `roles-f` switch it. `?edge=sort` shows every personal name in sort form ("Kubelík, Rafael").
+The pages carry no middle dot (sz-rs30.1.83.16). Facts read as prose: "Recorded in 1972 on Dvořák Symphonies. 42 minutes, 4 movements." Durations round to the minute. Counts stand in words; a section heading takes its count in lighter parentheses, "Recordings (23)". Names in one role join with commas and "and". `K.roleBlock` sets names one line per role behind a small-cap label; at accessibility sizes the label stands above its names. `?edge=sort` shows every personal name in sort form ("Kubelík, Rafael").
 
 ## Mini player
 

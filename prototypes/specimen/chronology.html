@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Chronology</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="tokens.css?v=32">
-<link rel="stylesheet" href="specimen.css?v=32">
-<script src="specimen.js?v=32"></script>
+<link rel="stylesheet" href="tokens.css?v=33">
+<link rel="stylesheet" href="specimen.css?v=33">
+<script src="specimen.js?v=33"></script>
 </head>
 <body>
 <style>
@@ -103,7 +103,7 @@ K.start(() => {
       state.hit = composers.map((c, i) => ({ c, x: x(i) }));
       state.lanes = state.hit;
       head.firstChild.replaceChildren("All composers");
-      head.lastChild.textContent = `${composers.length} composers · ${y0 + 10}–${y1 - 5}`;
+      head.lastChild.textContent = `${K.count(composers.length, "composer")}, ${y0 + 10}–${y1 - 5}`;
       return out;
     }
     const focus = state.focus, f = focus.facts;
@@ -149,8 +149,8 @@ K.start(() => {
     const undated = [...focus.works].filter((w) => !w.year);
     if (undated.length) out.push({ key: "row:undated", cls: "wrow t-footnote", html: ["No date", `${undated.length} ${undated.length === 1 ? "work" : "works"}`], s: { left: rx, top: span + rh, width: W - rx }, works: undated });
     head.firstChild.replaceChildren(el("a", { href: K.personHref(focus.name, { back: "Chronology" }) }, focus.name));
-    const desc = [f.died ? `${f.born}–${f.died}` : `born ${f.born}`, `${focus.works.size} ${focus.works.size === 1 ? "work" : "works"}`, f.activeFrom ? `active from ${f.activeFrom}` : null].filter(Boolean);
-    head.lastChild.textContent = desc.join(" · ");
+    const desc = [f.died ? `${f.born}–${f.died}` : `born ${f.born}`, K.count(focus.works.size, "work"), f.activeFrom ? `active from ${f.activeFrom}` : null].filter(Boolean);
+    head.lastChild.textContent = desc.join(", ");
     K.store("chronology", focus.name);
     return out;
   }
@@ -226,7 +226,7 @@ K.start(() => {
       return draw();
     }
     const row = e.target.closest(".wrow");
-    if (row) { const w = row._spec.works; return w.length === 1 ? openWork(w[0]) : listWorks(row.textContent.replace(/(\d)(\d+ works)/, "$1 · $2"), w); }
+    if (row) { const w = row._spec.works; return w.length === 1 ? openWork(w[0]) : listWorks(row.textContent.replace(/(\d)(\d+\s?works?)/, "$1, $2"), w); }
     const dot = e.target.closest(".dot");
     if (dot && dot._spec.work) return openWork(dot._spec.work);
     if (Math.abs(x - state.focusX) < 22) {

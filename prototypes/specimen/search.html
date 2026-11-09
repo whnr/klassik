@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Search</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="tokens.css?v=32">
-<link rel="stylesheet" href="specimen.css?v=32">
-<script src="specimen.js?v=32"></script>
+<link rel="stylesheet" href="tokens.css?v=33">
+<link rel="stylesheet" href="specimen.css?v=33">
+<script src="specimen.js?v=33"></script>
 </head>
 <body>
 <!--
@@ -128,8 +128,10 @@ K.start(() => {
     const k = kindOf(t);
     if (k === "genre") continue;
     const name = label(t);
-    if (!people.has(name)) people.set(name, { name, roles: new Set(), recs: new Set(), hay: words(name) });
+    if (!people.has(name)) people.set(name, { name, roles: new Set(), recs: new Set(), byRole: new Map(), hay: words(name) });
     people.get(name).roles.add(k);
+    if (!people.get(name).byRole.has(k)) people.get(name).byRole.set(k, new Set());
+    people.get(name).byRole.get(k).add(r);
     people.get(name).recs.add(r);
   }
   const albums = [...M.albums.values()].map((a) => ({ a, hay: words([a.name, a.artist, a.displayArtist, ...a.song.map((s) => s.title)].join(" ")) }));
@@ -292,16 +294,27 @@ K.start(() => {
 
   function section(title, n, rows, inset) {
     return el("section", { class: "section" },
-      el("div", { class: "section-head t-footnote" }, el("span", {}, title), el("span", {}, String(n))),
+      el("div", { class: "section-head t-footnote" }, el("span", {}, title), el("span", { class: "count" }, `(${n})`)),
       el("div", { class: "list", style: inset ? `--sep-inset: ${inset}` : null }, ...rows));
   }
-  const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  const plural = (n, word) => K.count(n, word);
+  // Each role has its own count: a composer has works, a conductor or performer has recordings.
+  // The biggest comes first: "Conductor on 212 recordings, composer of 30 works and performer on 3 recordings".
+  function roleCounts(p) {
+    const parts = [...p.byRole].map(([k, set]) => {
+      const mine = [...set].filter((r) => ok.has(r));
+      if (k === "composer") { const n = new Set(mine.map((r) => (r.workRef ? r.workRef.id : r.work))).size; return { n, text: `composer of ${plural(n, "work")}` }; }
+      return { n: mine.length, text: `${ONE[k].toLowerCase()} on ${plural(mine.length, "recording")}` };
+    }).filter((x) => x.n > 0).sort((a, b) => b.n - a.n);
+    return K.joinNames(parts.map((x) => x.text)).replace(/^./, (c) => c.toUpperCase());
+  }
+  let ok = new Set();
   function results() {
     const tokens = queryTokens(query);
     if (!tokens.length && !conds.length) {
       if (!recent.length) return [el("div", { class: "hint t-subheadline" }, "Type a work, a catalogue number such as Op. 67 or K. 626, or a name.")];
       return [el("section", { class: "section recent" },
-        el("div", { class: "section-head t-footnote" }, el("span", {}, "RECENT"),
+        el("div", { class: "section-head t-footnote" }, el("span", {}, "Recent"),
           el("button", { onclick: () => { recent = []; K.store("search.recent", recent); update(); } }, "Clear")),
         el("div", { class: "list" }, ...recent.map((r) => el("button", { class: "row", onclick: () => {
             input.value = r.q; query = r.q; conds = r.conds.map((c) => [...c]); marked = null; session = r.id; commit(); save(); update(); } },
@@ -310,35 +323,35 @@ K.start(() => {
             r.q ? el("div", { class: "t-body" }, r.q) : null,
             r.conds.length ? el("div", { class: r.q ? "t-subheadline secondary" : "t-body" }, filterLine(r.conds)) : null)))))];
     }
-    const ok = new Set(recs.filter((x) => passes(x, conds)).map((x) => x.r));
+    ok = new Set(recs.filter((x) => passes(x, conds)).map((x) => x.r));
     const out = [];
     // A title that starts with the text comes first, then a title that holds it, then a match on the composer only.
     const rank = (x) => (!tokens.length ? 0 : x.title.startsWith(tokens[0]) ? 0 : matches(tokens, words(x.w.name)) ? 1 : 2);
     const wl = works.filter((x) => !tokens.length || matches(tokens, x.hay)).map((x) => ({ ...x, n: x.w.recordings.filter((r) => ok.has(r)).length, score: rank(x) }));
     const shown = wl.filter((x) => x.n > 0).sort((a, b) => a.score - b.score || a.w.name.localeCompare(b.w.name, undefined, { numeric: true }));
     const hidden = wl.length - shown.length;
-    if (shown.length) out.push(section("WORKS", shown.length, shown.map(({ w, n }) =>
+    if (shown.length) out.push(section("Works", shown.length, shown.map(({ w, n }) =>
       el("a", { class: "row", href: href("work.html", { work: w.id, back: "Search" }) },
         el("div", { class: "main" }, el("div", { class: "t-body" }, w.name),
-          el("div", { class: "t-subheadline secondary" }, `${w.composer} · ${conds.length ? `${n} of ${plural(w.recordings.length, "recording")}` : plural(n, "recording")}`)),
+          el("div", { class: "t-subheadline secondary" }, `${w.composer}, ${conds.length ? `${n} of ${plural(w.recordings.length, "recording")} match` : plural(n, "recording")}`)),
         el("span", { html: ICON.chevron })))));
     if (tokens.length) {
       const pl = [...people.values()].filter((p) => matches(tokens, p.hay)).map((p) => ({ p, n: [...p.recs].filter((r) => ok.has(r)).length })).filter((x) => x.n > 0)
         .sort((a, b) => b.n - a.n || a.p.name.localeCompare(b.p.name));
-      if (pl.length) out.push(section("COMPOSERS AND PERFORMERS", pl.length, pl.map(({ p, n }) =>
+      if (pl.length) out.push(section("Composers and performers", pl.length, pl.map(({ p, n }) =>
         el("a", { class: "row", href: K.personHref(p.name, { back: "Search" }) },
           el("div", { class: "main" }, el("div", { class: "t-body" }, p.name),
-            el("div", { class: "t-subheadline secondary" }, `${[...p.roles].map((k) => ONE[k]).join(", ")} · ${plural(n, "recording")}`)),
+            el("div", { class: "t-subheadline secondary" }, roleCounts(p))),
           el("span", { html: ICON.chevron })))));
     }
     const al = albums.filter((x) => !tokens.length || matches(tokens, x.hay))
       .map((x) => ({ ...x, n: x.a.recordings.filter((r) => ok.has(r)).length })).filter((x) => x.n > 0)
       .sort((a, b) => a.a.name.localeCompare(b.a.name));
-    if (al.length) out.push(section("ALBUMS", al.length, al.map(({ a }) =>
+    if (al.length) out.push(section("Albums", al.length, al.map(({ a }) =>
       el("a", { class: "row", href: href("player.html", { album: a.id, back: "Search" }) },
         K.coverImage(a),
         el("div", { class: "main" }, el("div", { class: "t-body" }, a.name),
-          el("div", { class: "t-subheadline secondary" }, [a.displayArtist || a.artist, a.year].filter(Boolean).join(" · "))),
+          el("div", { class: "t-subheadline secondary" }, [a.displayArtist || a.artist, a.year].filter(Boolean).join(", "))),
         el("span", { html: ICON.chevron }))), "calc(var(--space-l) + var(--size-coverRow) + var(--space-m))"));
     if (!out.length) out.push(el("div", { class: "nomatch t-subheadline" }, "No work, name or album matches."));
     if (hidden > 0 && conds.length) out.push(el("div", { class: "hint t-footnote", style: "padding-top: var(--space-l)" },

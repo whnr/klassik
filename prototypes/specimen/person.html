@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Person</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="tokens.css?v=32">
-<link rel="stylesheet" href="specimen.css?v=32">
-<script src="specimen.js?v=32"></script>
+<link rel="stylesheet" href="tokens.css?v=33">
+<link rel="stylesheet" href="specimen.css?v=33">
+<script src="specimen.js?v=33"></script>
 </head>
 <body>
 <style>
@@ -66,7 +66,7 @@ K.start(() => {
   const desc = (facts.description || "").replace(/\s*\(\d{3,4}\s*[-–]\s*\d{0,4}\)\s*$/, "");
   const roles = new Set();
   for (const r of M.recordings.values()) for (const p of r.performers) if (p.name === name) roles.add(p.subRole || p.role);
-  const line = [desc || [...roles].join(", ") || (composer ? "composer" : null), years].filter(Boolean).join(" · ");
+  const line = [desc || (roles.size ? K.joinNames([...roles].map((r) => r.toLowerCase())).replace(/^./, (c) => c.toUpperCase()) : null) || (composer ? "composer" : null), years].filter(Boolean).join(", ");
   const fav = (kind === "composer" ? "composer:" : "performer:") + name;
   const mark = el("button", { "aria-label": "Favourite", onclick: () => { K.toggleFavourite(fav); mark.replaceChildren(K.fermata(K.isFavourite(fav))); } }, K.fermata(K.isFavourite(fav)));
   // The name and its description line form one block on the picture; the block ends where the fade ends.
@@ -89,7 +89,7 @@ K.start(() => {
   function workRow(w, inset) {
     return el("a", { class: "row", href: href("work.html", { work: w.id, back: name }), style: inset ? "padding-left: calc(var(--space-l) * 2)" : null },
       el("div", { class: "main" }, el("div", { class: "t-body" }, K.isFavourite("work:" + w.id) ? K.titled(w.name, K.fermata(true)) : w.name),
-        el("div", { class: "t-footnote secondary" }, [w.year, `${w.recordings.length} ${w.recordings.length === 1 ? "recording" : "recordings"}`].filter(Boolean).join(" · "))),
+        el("div", { class: "t-footnote secondary" }, [w.year ? `Composed${K.NB}${w.year}` : null, K.count(w.recordings.length, "recording")].filter(Boolean).join(", "))),
       el("span", { html: K.ICON.chevron }));
   }
   function worksTab() {
@@ -108,7 +108,7 @@ K.start(() => {
     }
     return [
       allGenres.length ? el("div", { class: "chips" }, ...allGenres.map((g) => el("button", { class: "chip t-subheadline" + (picked.has(g) ? " on" : ""), onclick: () => { picked.has(g) ? picked.delete(g) : picked.add(g); render(); } }, g))) : null,
-      el("section", { class: "section" }, el("div", { class: "section-head t-footnote" }, el("span", {}, "WORKS"), el("span", {}, String(shown.length))), el("div", { class: "list" }, ...rows)),
+      el("section", { class: "section" }, el("div", { class: "section-head t-footnote" }, el("span", {}, "Works"), el("span", { class: "count" }, `(${shown.length})`)), el("div", { class: "list" }, ...rows)),
     ];
   }
 
@@ -132,7 +132,7 @@ K.start(() => {
     return [
       facts.bio ? el("section", { class: "section" }, el("div", { class: "list" }, el("p", { class: "bio t-body" }, facts.bio))) : el("p", { class: "section-foot t-subheadline" }, "Wikidata has nothing on this name. The page shows the tags only."),
       el("section", { class: "section" }, el("div", { class: "list" }, fact("Born", facts.born), fact("Died", facts.died), fact("Roles in your library", [...roles].join(", ")))),
-      credits.length ? el("section", { class: "section" }, el("div", { class: "section-head t-footnote" }, "CREDITS"), el("div", { class: "list" }, ...credits)) : null,
+      credits.length ? el("section", { class: "section" }, el("div", { class: "section-head t-footnote" }, "Credits"), el("div", { class: "list" }, ...credits)) : null,
     ];
   }
 

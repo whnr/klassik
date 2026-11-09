@@ -4,9 +4,11 @@
 
 const K = (() => {
   const params = new URLSearchParams(location.search);
+  // The page name lets the CSS keep inset grouped lists in Settings (the token sheet) only.
+  document.documentElement.dataset.page = location.pathname.split("/").pop().replace(".html", "") || "index";
   // Variant files carry the stamp of specimen.js, so Safari loads new copies with it.
   const STAMP = document.currentScript ? new URL(document.currentScript.src).searchParams.get("v") || "" : "";
-  const CARRIED = ["variant", "theme", "contrast", "size", "playing", "side"];
+  const CARRIED = ["variant", "theme", "contrast", "size", "playing", "side", "edge"];
   const SIZES = ["xSmall", "small", "medium", "large", "xLarge", "xxLarge", "xxxLarge", "AX1", "AX2", "AX3", "AX4", "AX5"];
   const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI"];
   const ENSEMBLE = new Set(["Orchestra", "Choir", "Ensemble", "Trio", "Quartet"]);
@@ -108,6 +110,75 @@ const K = (() => {
     const rank = (p) => (p.role === "conductor" ? 0 : p.role === "artist" ? 1 : ENSEMBLE.has(p.subRole) ? 3 : 2);
     return list.sort((a, b) => rank(a) - rank(b));
   }
+
+  // ---------- Words (sz-rs30.1.83.16): prose and plain words carry facts; no separator glyph ----------
+  const NB = " ";
+  // A number never wraps away from its word: "4 movements", "1 movement".
+  function count(n, one, many = one + "s") { return `${n}${NB}${n === 1 ? one : many}`; }
+  // Rounded to the minute, never under one: 41:58 is "42 minutes"; an hour and more reads "1 hour 14 minutes".
+  function duration(seconds) {
+    const m = Math.max(1, Math.round(seconds / 60)), h = Math.floor(m / 60), r = m % 60;
+    return h ? [count(h, "hour"), r ? count(r, "minute") : null].filter(Boolean).join(" ") : count(m, "minute");
+  }
+  const LIST = new Intl.ListFormat("en-GB", { style: "long", type: "conjunction" });
+  const joinNames = (names) => LIST.format(names);
+
+  // The label of a role, in lowercase: CSS sets it as small caps.
+  function roleLabel(p) {
+    if (p.role === "artist") return null;
+    if (p.role === "performer") return (p.subRole || "performer").toLowerCase();
+    return p.role.toLowerCase();
+  }
+  // One line per role, in the order of the list; names without a role go last, unlabelled.
+  function roleGroups(people) {
+    const groups = new Map();
+    for (const p of people) {
+      const label = roleLabel(p);
+      if (!groups.has(label)) groups.set(label, []);
+      groups.get(label).push(p);
+    }
+    const out = [...groups].filter(([l]) => l !== null).map(([label, list]) => ({ label, list }));
+    if (groups.has(null)) out.push({ label: null, list: groups.get(null) });
+    return out;
+  }
+  const roleForm = () => document.documentElement.dataset.roles || "a";
+  const accessibilitySize = () => /^AX/.test(document.documentElement.dataset.typeSize || "");
+  // where: "header" or "row". Form a: label before names; b: label above names; c: label after names;
+  // e: small capitals before names; f: b in the header, a in rows. At AX sizes a and f stand stacked.
+  function roleBlock(people, { where = "header", link = (p) => p.name, extra = [] } = {}) {
+    // ?edge=sort shows every name in the sort form some libraries tag ("Kubelík, Rafael").
+    if (params.get("edge") === "sort") people = people.map((p) => ({ ...p, name: sortForm(p.name) }));
+    let form = roleForm();
+    if (form === "f") form = where === "header" ? "b" : "a";
+    if (form === "a" && accessibilitySize()) form = "b";
+    const lines = [];
+    const line = (label, nameNodes, plural) => {
+      const lab = label ? el("span", { class: "label" + (form === "e" ? " caps" : "") }, form === "c" && plural ? pluralLabel(label) : label) : null;
+      const names = el("span", { class: "names" }, ...nameNodes);
+      if (!lab) return el("div", { class: "role" }, names);
+      if (form === "b") return el("div", { class: "role stacked" }, lab, names);
+      if (form === "c") return el("div", { class: "role" }, names, NB + " ", lab);
+      return el("div", { class: "role" }, lab, NB + " ", names);
+    };
+    const nodes = (list) => list.flatMap((p, i) => [i ? (i === list.length - 1 ? " and " : ", ") : null, link(p)]).filter(Boolean);
+    for (const g of [...roleGroups(people), ...extra]) {
+      // A name that holds a comma (a sort form) would make a comma list unreadable: each name of its role takes a line.
+      if (g.list.length > 1 && g.list.some((p) => p.name.includes(","))) {
+        if (form === "b") lines.push(el("div", { class: "role stacked" }, el("span", { class: "label" }, g.label), ...g.list.map((p) => el("span", { class: "names" }, link(p)))));
+        else g.list.forEach((p) => lines.push(line(g.label, [link(p)], false)));
+      } else lines.push(line(g.label, nodes(g.list).map((n) => n), g.list.length > 1));
+    }
+    return lines.length ? el("div", { class: "roles roles-" + form }, ...lines) : null;
+  }
+  function sortForm(name) {
+    const artist = [...M.artists.values()].find((a) => a.name === name);
+    if (artist && artist.sortName && artist.sortName.includes(",")) return artist.sortName;
+    const words = name.split(" ");
+    return words.length > 1 && !ENSEMBLE_WORDS.test(name) ? `${words.at(-1)}, ${words.slice(0, -1).join(" ")}` : name;
+  }
+  const ENSEMBLE_WORDS = /orchest|choir|chor|ensemble|quartet|trio|philharm|consort|academy|sinfonia|kammer|soloists|singers|players|band|baroque|musica|collegium|concert/i;
+  // Form c needs plurals; free tags make them unreliable, which the variant shows as it is.
+  function pluralLabel(label) { return /s$/.test(label) ? label : label + "s"; }
 
   function build(data, chronology) {
     M.covers = data.covers;
@@ -290,7 +361,7 @@ const K = (() => {
     const conductor = (s.contributors || []).find((c) => c.role === "conductor");
     const lead = conductor || (s.contributors || []).find((c) => c.role === "performer");
     const names = [composer && surname(composer), lead && surname(lead.artist.name)].filter(Boolean);
-    return names.length ? names.join(" · ") : item.album.displayArtist;
+    return names.length ? joinNames(names) : item.album.displayArtist;
   }
 
   // ---------- Specimen controls ----------
@@ -550,7 +621,8 @@ const K = (() => {
     };
     const show = (y, t) => {
       const s = current().songs[t.index];
-      chrome.scrubLabel.textContent = `${movementTitle(s, s.works && s.works[0] && s.works[0].name)} · ${time(t.pos)}`;
+      // Two lines, the movement above its time: no separator.
+      chrome.scrubLabel.replaceChildren(el("span", {}, movementTitle(s, s.works && s.works[0] && s.works[0].name)), el("span", { class: "at nums" }, time(t.pos)));
       chrome.scrubLabel.style.top = y + "px";
       chrome.scrubLabel.classList.add("on");
     };
@@ -602,6 +674,6 @@ const K = (() => {
     start, page, el, ICON, href, params, store, fermata, time, sheet, cover, coverImage, coverColour, surname,
     M, P, current, song, seek, playItem, togglePause, onPlay, resolveItem, movementTitle,
     isFavourite, toggleFavourite, orderedRecordings, layoutChrome, emit, becomePlayer, performersOf, ROMAN, titled, personHref,
-    setMini, cardMini, chrome, peopleLine, searchItems: () => MINI.searchItems(),
+    setMini, cardMini, chrome, peopleLine, count, duration, joinNames, roleBlock, NB, searchItems: () => MINI.searchItems(),
   };
 })();

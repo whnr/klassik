@@ -223,3 +223,36 @@ input { font: inherit; color: inherit; }
 .sheet .sheet-head h2 { flex: 1; }
 .sheet .sheet-body { overflow-y: auto; padding-bottom: var(--space-xl); }
 .sheet .section { margin-right: var(--space-l); margin-left: var(--space-l); }
+
+/* Decided type and spacing (ADR 0030): Wittgenstein 500 for page titles and section headings, SF for the rest,
+   one 4:3 ratio for sizes and the three spacing roles, lining proportional figures, plain lists on content pages. */
+@font-face { font-family: "Wittgenstein"; src: url("fonts/Wittgenstein.ttf") format("truetype"); font-weight: 400 900; font-display: swap; }
+body, .nums { font-variant-numeric: lining-nums proportional-nums; }
+h1[class] { font: var(--type-pageTitle-weight) var(--type-pageTitle-size)/var(--type-pageTitle-line-height) var(--type-pageTitle-family); letter-spacing: var(--type-pageTitle-letter-spacing); }
+.section-head { font: var(--type-sectionHeading-weight) var(--type-sectionHeading-size)/var(--type-sectionHeading-line-height) var(--type-sectionHeading-family);
+  color: var(--color-text-primary); text-transform: none; letter-spacing: 0; padding-bottom: var(--space-inGroup); justify-content: flex-start; }
+/* A heading count stands in parentheses, a step lighter than its label: "Recordings (23)". */
+.section-head .count { color: var(--color-text-secondary); }
+.section-head { gap: 0.3em; }
+.page-head .meta { margin-top: var(--space-inGroup); }
+.section { margin-top: var(--space-betweenSections); }
+.row { padding-top: calc(var(--space-betweenGroups) / 2); padding-bottom: calc(var(--space-betweenGroups) / 2); }
+.row .main > * + * { margin-top: var(--space-inGroup); }
+.hero .t-footnote { font-size: var(--type-subheadline-size); line-height: var(--type-subheadline-line-height); }
+:root:not([data-page="tokens"]) .app { background: var(--color-background-page); }
+:root:not([data-page="tokens"]) .nav { --edge-colour: var(--color-background-page); }
+:root:not([data-page="tokens"]) .list { background: transparent; border-radius: 0; overflow: visible; }
+:root:not([data-page="tokens"]) .section-head, :root:not([data-page="tokens"]) .section-foot { padding-left: 0; padding-right: 0; }
+:root:not([data-page="tokens"]) .section .row { padding-left: 0; padding-right: 0; }
+:root:not([data-page="tokens"]) .row + .row::before, :root:not([data-page="tokens"]) .row-block + .row-block::before { left: 0; }
+.track .main .t-headline { font-weight: var(--type-body-weight); }
+
+/* Role lines (sz-rs30.1.83.16): one line per role, a small-cap label, no separator glyph. The form comes from data-roles. */
+.roles { display: grid; gap: var(--space-inGroup); }
+.hero .roles { justify-items: center; text-align: center; }
+.role .label { color: var(--color-text-secondary); font-variant-caps: all-small-caps; letter-spacing: 0.06em; }
+.role .label.caps { font-variant-caps: normal; text-transform: uppercase; font-size: var(--type-caption1-size); font-weight: 600; letter-spacing: 0.08em; }
+.role.stacked .label { display: block; font-size: var(--type-footnote-size); letter-spacing: 0.08em; }
+.role.stacked .names { display: block; }
+.scrub-label .at { display: block; color: var(--color-text-secondary); }
+.section-head button { margin-left: auto; }

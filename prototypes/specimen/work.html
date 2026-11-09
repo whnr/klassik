@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Work page</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="tokens.css?v=32">
-<link rel="stylesheet" href="specimen.css?v=32">
-<script src="specimen.js?v=32"></script>
+<link rel="stylesheet" href="tokens.css?v=33">
+<link rel="stylesheet" href="specimen.css?v=33">
+<script src="specimen.js?v=33"></script>
 </head>
 <body>
 <script>
@@ -23,7 +23,7 @@ K.start(() => {
   const title = el("h1", { class: "t-title1" }, K.titled(work.name, mark));
   head.append(title, el("div", { class: "meta t-subheadline" },
     el("a", { class: "link", href: K.personHref(work.composer, { back: work.name }) }, work.composer),
-    el("span", { class: "secondary" }, work.year ? ` · ${work.year}` : ""),
+    el("span", { class: "secondary" }, work.year ? `, composed${K.NB}${work.year}` : ""),
     work.grouping ? el("div", { class: "secondary" }, work.grouping) : null));
 
   const playBtn = el("button", { class: "capsule filled t-headline", html: ICON.play.replace("<svg", '<svg width="14" height="14"') + "<span>Play</span>" });
@@ -35,10 +35,17 @@ K.start(() => {
 
   const listBox = el("div", { class: "list" });
   const section = el("section", { class: "section" },
-    el("div", { class: "section-head t-footnote" }, el("span", {}, "RECORDINGS"), el("span", {}, String(work.recordings.length))), listBox);
+    el("div", { class: "section-head t-footnote" }, el("span", {}, "Recordings"), el("span", { class: "count" }, `(${work.recordings.length})`)), listBox);
 
-  // Every name shows; the row grows instead.
-  const people = (r) => r.performers.map((p) => p.name).join(", ");
+  // Every name shows; the row grows instead. The principal performers lead (conductor and soloists); the ensembles follow.
+  const ENSEMBLE = new Set(["Orchestra", "Choir", "Ensemble", "Trio", "Quartet"]);
+  const isEnsemble = (p) => ENSEMBLE.has(p.subRole);
+  const lead = (r) => (r.performers.some((p) => !isEnsemble(p)) ? r.performers.filter((p) => !isEnsemble(p)) : r.performers);
+  const others = (r) => r.performers.filter((p) => !lead(r).includes(p));
+  const people = (r) => K.joinNames(lead(r).map((p) => p.name));
+  // Facts as prose (sz-rs30.1.83.16): "Recorded in 1972 on Dvořák Symphonies. 42 minutes, 4 movements."
+  const facts = (r) => [r.year ? `Recorded in ${r.year} on ${r.album.name}.` : `On ${r.album.name}.`,
+    r.songs.length > 1 ? `${K.duration(r.duration)}, ${K.count(r.songs.length, "movement")}.` : `${K.duration(r.duration)}.`].join(" ");
 
   function render() {
     const playing = K.current() && K.current().recording;
@@ -52,8 +59,8 @@ K.start(() => {
         K.coverImage(r.album),
         el("div", { class: "main" },
           el("div", { class: "t-body" }, K.isFavourite(recFav) ? K.titled(people(r), K.fermata(true)) : people(r)),
-          el("div", { class: "t-subheadline secondary" }, [r.year, r.album.name].filter(Boolean).join(" · ")),
-          el("div", { class: "t-footnote secondary nums" }, `${K.time(r.duration)} · ${r.songs.length} ${r.songs.length === 1 ? "track" : "movements"}`),
+          others(r).length ? el("div", { class: "t-subheadline" }, K.joinNames(others(r).map((p) => p.name))) : null,
+          el("div", { class: "t-subheadline secondary" }, facts(r)),
           i === 0 ? el("div", { class: "t-footnote tint" }, "Plays first") : null),
         el("div", { class: "trail" }, slot));
     }));

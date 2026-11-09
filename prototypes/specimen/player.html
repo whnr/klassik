@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Player</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="tokens.css?v=32">
-<link rel="stylesheet" href="specimen.css?v=32">
-<script src="specimen.js?v=32"></script>
+<link rel="stylesheet" href="tokens.css?v=33">
+<link rel="stylesheet" href="specimen.css?v=33">
+<script src="specimen.js?v=33"></script>
 </head>
 <body>
 <style>
@@ -22,10 +22,11 @@
     box-shadow: 0 6px 24px rgb(0 0 0 / 0.22); margin-bottom: var(--space-m); }
   .hero .big.none { box-shadow: none; }
   .hero .big.none svg { width: 64px; height: 64px; }
-  .hero .people a { color: var(--color-tint); }
+  .hero .roles a { color: var(--color-tint); }
+  .hero .facts { margin-top: var(--space-inGroup); }
   .open-body { padding: 0 var(--space-l) var(--space-m); display: grid; gap: var(--space-s); }
   .track .slot { flex: none; width: 32px; display: flex; justify-content: flex-end; align-items: center; }
-  .open-body .people-rows { display: grid; gap: var(--space-xxs); }
+  .open-body .people-rows { gap: var(--space-inGroup); }
   .open-body:empty { display: none; }
   .notes { display: grid; gap: var(--space-xs); }
   .note { display: flex; gap: var(--space-s); text-align: left; }
@@ -120,19 +121,23 @@ K.start(() => {
     const fav = (item.recording ? "rec:" : "album:") + (item.recording ? item.recording.id : item.album.id);
     const mark = el("button", { "aria-label": "Favourite", onclick: () => { K.toggleFavourite(fav); mark.replaceChildren(K.fermata(K.isFavourite(fav))); } }, K.fermata(K.isFavourite(fav)));
     const title = el("h1", { class: "t-title2" }, K.titled(item.title, mark));
-    const people = el("div", { class: "people t-subheadline" });
-    shared().forEach((p, i) => { if (i) people.append(", "); people.append(p.id ? el("a", { href: K.personHref(p.name, { back: item.title }) }, p.name) : p.name); });
     box.append(img, title);
     const composers = sharedComposers();
-    if (composers.length) box.append(el("div", { class: "t-subheadline" }, ...composers.flatMap((c, n) => [n ? ", " : null, el("a", { class: "link", href: K.personHref(c, { back: item.title }) }, c)]).filter(Boolean)));
-    box.append(people);
-    const facts = el("div", { class: "t-footnote secondary" });
-    if (item.kind === "recording") facts.append(el("a", { class: "link", href: href("player.html", { album: item.album.id, back: item.title }) }, item.album.name), " · ");
+    if (composers.length) box.append(el("div", { class: "t-subheadline" }, ...composers.flatMap((c, n) => [n ? (n === composers.length - 1 ? " and " : ", ") : null, el("a", { class: "link", href: K.personHref(c, { back: item.title }) }, c)]).filter(Boolean)));
+    // One line per role, the album as one more labelled line (sz-rs30.1.83.16).
+    const albumLine = item.kind === "recording"
+      ? [{ label: "album", list: [{ name: item.album.name, album: true }] }] : [];
+    const roles = K.roleBlock(shared(), { where: "header", extra: albumLine,
+      link: (p) => p.album ? el("a", { class: "link", href: href("player.html", { album: item.album.id, back: item.title }) }, p.name)
+        : p.id ? el("a", { href: K.personHref(p.name, { back: item.title }) }, p.name) : p.name });
+    if (roles) { roles.classList.add("t-subheadline"); box.append(roles); }
     // A recording shows the year its tracks carry; the album year of a box set can belong to another recording on it.
     const years = [...new Set(item.songs.map((s) => s.year).filter(Boolean))];
-    const year = item.kind === "recording" && years.length === 1 ? `Recorded ${years[0]}` : item.album.year;
-    facts.append([year, K.time(item.songs.reduce((t, s) => t + s.duration, 0))].filter(Boolean).join(" · "));
-    box.append(facts);
+    const year = item.kind === "recording" ? (years.length === 1 ? years[0] : null) : item.album.year;
+    const total = item.songs.reduce((t, s) => t + s.duration, 0);
+    const n = item.songs.length;
+    const amount = item.kind === "recording" ? (n > 1 ? `${K.duration(total)}, ${K.count(n, "movement")}.` : `${K.duration(total)}.`) : `${K.duration(total)}, ${K.count(n, "track")}.`;
+    box.append(el("div", { class: "t-subheadline secondary facts" }, [year ? `Recorded in ${year}.` : null, amount].filter(Boolean).join(" ")));
     if (!playingHere()) {
       const play = el("button", { class: "capsule filled t-headline", style: "flex: none; width: 60%; margin-top: var(--space-m)", html: ICON.play.replace("<svg", '<svg width="14" height="14"') + "<span>Play</span>" });
       play.addEventListener("click", () => { K.playItem(item); K.becomePlayer(); render(); });
@@ -182,16 +187,17 @@ K.start(() => {
     return block;
   }
 
-  // ADR 0014: only the performers that differ from the whole page, one row each as "name, role". Never cut.
+  // ADR 0014: only the performers that differ from the whole page, one line per role. Never cut.
   function performerRows(s) {
     const sharedNames = new Set(shared().map((p) => p.name));
     const sharedComposerNames = new Set(sharedComposers());
     const composers = (s.contributors || []).filter((c) => c.role === "composer" && !sharedComposerNames.has(c.artist.name))
       .map((c) => ({ id: c.artist.id, name: c.artist.name, role: "composer", subRole: null }));
     const list = [...composers, ...K.performersOf([s], item.album).filter((p) => !sharedNames.has(p.name))];
-    return list.length ? el("div", { class: "people-rows" }, ...list.map((p) =>
-      el("div", { class: "t-subheadline" }, p.id ? el("a", { class: "link", href: K.personHref(p.name, { back: item.title }) }, p.name) : p.name,
-        el("span", { class: "secondary" }, ", " + (p.subRole || p.role))))) : null;
+    const block = list.length ? K.roleBlock(list, { where: "row",
+      link: (p) => p.id ? el("a", { class: "link", href: K.personHref(p.name, { back: item.title }) }, p.name) : p.name }) : null;
+    if (block) block.classList.add("people-rows", "t-subheadline");
+    return block;
   }
 
   // A note shows inline, its time as a prefix. A tap on a note plays from its time.
@@ -355,7 +361,7 @@ K.start(() => {
     }
     const nextItem = playingHere() ? K.P.queue[K.P.item + 1] : null;
     const tail = playingHere()
-      ? el("section", { class: "section" }, el("div", { class: "section-head t-footnote" }, "NEXT"),
+      ? el("section", { class: "section" }, el("div", { class: "section-head t-footnote" }, "Next"),
           el("div", { class: "list" }, nextItem
             ? el("div", { class: "row", style: "--sep-inset: 0" }, K.coverImage(nextItem.album), el("div", { class: "main" }, el("div", { class: "t-body" }, nextItem.title), el("div", { class: "t-subheadline secondary" }, nextItem.album.name)))
             : el("div", { class: "row t-body secondary" }, "The queue ends here.")))

@@ -146,8 +146,10 @@ input { font: inherit; color: inherit; }
 /* A round button inside a row must not make the row taller than its text. */
 .row .round { margin: -6px 0; }
 
-.fermata { display: inline-block; width: 0.95em; height: 0.62em; vertical-align: 0.05em; margin-left: 0.2em; }
-.fermata.small { width: 15px; height: 10px; margin: 0; vertical-align: middle; }
+/* ADR 0032: the arc is 0.64 em high and twice as wide, feet on the baseline. */
+.fermata { display: inline-block; width: 1.28em; height: 0.64em; vertical-align: 0; margin-left: 0.25em; }
+.fermata svg { display: block; }
+.fermata.small { width: 20px; height: 10px; margin: 0; vertical-align: middle; }
 .chip {
   display: inline-flex; align-items: center; min-height: 30px; padding: 0 var(--space-m); border-radius: var(--radius-full);
   background: var(--color-fill-quiet); color: var(--color-text-primary); white-space: nowrap;

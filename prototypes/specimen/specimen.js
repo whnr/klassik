@@ -59,15 +59,12 @@ const K = (() => {
     note: '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M9 17.5a3 3 0 1 1-2-2.8V5l11-2v11.5a3 3 0 1 1-2-2.8V6.3L9 7.6z"/></svg>',
   };
 
-  // The favourite mark of ADR 0017: a fermata, filled when set and an outline when not.
+  // The favourite mark of ADR 0032: one solid fermata, tint when set and secondary grey when not.
   function fermata(on, small = false) {
-    const shape = "M1.5 14.5A10.5 10.5 0 0 1 22.5 14.5H20.6A8.6 7.2 0 0 0 3.4 14.5Z";
-    const colour = on ? "var(--color-favourite)" : "var(--color-text-tertiary)";
-    const body = on
-      ? `<path d="${shape}" fill="${colour}"/><circle cx="12" cy="12.4" r="2.1" fill="${colour}"/>`
-      : `<path d="${shape}" fill="none" stroke="${colour}" stroke-width="1.1"/><circle cx="12" cy="12.4" r="1.6" fill="none" stroke="${colour}" stroke-width="1.1"/>`;
+    const shape = "M1.5 14.5A10.5 10.5 0 0 1 22.5 14.5H20.6A8.6 7.2 0 0 0 3.4 14.5Z M14.1 12.4A2.1 2.1 0 1 1 9.9 12.4A2.1 2.1 0 1 1 14.1 12.4Z";
+    const colour = on ? "var(--color-favourite)" : "var(--color-text-secondary)";
     const span = el("span", { class: "fermata" + (small ? " small" : ""), role: "img", "aria-label": on ? "Favourite" : "Not a favourite" });
-    span.innerHTML = `<svg viewBox="0 0 24 16" width="100%" height="100%">${body}</svg>`;
+    span.innerHTML = `<svg viewBox="1.5 4 21 10.5" width="100%" height="100%"><path d="${shape}" fill="${colour}"/></svg>`;
     return span;
   }
 

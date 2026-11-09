@@ -30,7 +30,7 @@ The pill at the top belongs to the specimen, not to the app. The page scroll ind
 
 - `tokens.css` is a copy of `design/tokens.css` on `main`, which `scripts/tokens.py` writes. Refresh it with `git -C <repo> show main:design/tokens.css > tokens.css`.
 - `specimen.css` and every page read tokens only. A fixed value in them is chrome that iOS fixes, such as the tab label size.
-- Favourites, listening notes and the queue are specimen state in the session. Close the tab to reset them. The favourite mark is the fermata of ADR 0017.
+- Favourites, listening notes and the queue are specimen state in the session. Close the tab to reset them. The favourite mark is the fermata of ADR 0032. `fermata.html` and `fermata-2.html` keep the two rounds that decided it.
 
 ## Variants
 

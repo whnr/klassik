@@ -24,7 +24,7 @@ The pages carry no middle dot (sz-rs30.1.83.16). Facts read as prose: "Recorded 
 
 ## Specimen controls
 
-The pill at the top belongs to the specimen, not to the app. The page scroll indicator is drawn by hand so it runs beside the timeline. It sets the variant, the theme (auto, light, dark), high contrast, the Dynamic Type size and what plays (a recording, a Chopin album, weak tags, nothing). The settings stay in the URL and in the session, so links keep them.
+The pill at the top belongs to the specimen, not to the app. The page scroll indicator is drawn by hand so it runs beside the timeline. It sets the variant, the theme (light or dark) and high contrast (on or off), never from the system settings, the Dynamic Type size and what plays (a recording, a Chopin album, weak tags, nothing). The settings stay in the URL and in the session, so links keep them.
 
 ## Values
 

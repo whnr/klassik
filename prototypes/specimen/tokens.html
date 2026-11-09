@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Token sheet</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="tokens.css?v=35">
-<link rel="stylesheet" href="specimen.css?v=35">
-<script src="specimen.js?v=35"></script>
+<link rel="stylesheet" href="tokens.css?v=36">
+<link rel="stylesheet" href="specimen.css?v=36">
+<script src="specimen.js?v=36"></script>
 </head>
 <body>
 <style>
@@ -17,6 +17,7 @@
     background-size: 10px 10px; background-position: 0 0, 5px 5px; }
   .swatch > div { position: absolute; inset: 0; }
   .col-head { text-align: center; }
+  .col-head.fail { color: var(--color-text-primary); font-weight: 700; text-decoration: underline; }
   .name { overflow-wrap: anywhere; }
   .sizes { display: flex; gap: var(--space-xs); overflow-x: auto; padding: 0 var(--space-l) var(--space-s); scrollbar-width: none; }
   .scale .row { align-items: baseline; }
@@ -57,25 +58,41 @@ K.start(() => {
   });
   const colourHead = el("div", { class: "row" }, el("div", { class: "swatches", style: "width:100%" }, el("span"), ...THEMES.map((t) => el("div", { class: "col-head t-caption2 secondary" }, t[2]))));
 
-  // Contrast of each text colour on rows and pages, per theme (WCAG 2 ratio).
+  // Contrast of each text and mark colour on each background, per theme (WCAG 2.2 ratio).
+  // A variant reaches the probes only through [data-theme] selectors, as the README says.
   function luminance(rgb) {
-    const [r, g, b] = rgb.map((c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
+    const [r, g, b] = rgb.map((c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
     return 0.2126 * r + 0.7152 * g + 0.0722 * b;
   }
-  function resolved(name, theme, contrast, over) {
-    const probe = el("div", { "data-theme": theme, "data-contrast": contrast, style: `position:absolute;visibility:hidden;color:var(${name});background:var(${over})` });
-    document.body.append(probe);
+  // A colour with alpha sits on its background, and a background with alpha sits on the page.
+  function ratio(name, theme, contrast, over) {
+    const page = el("div", { "data-theme": theme, "data-contrast": contrast, style: "position:absolute;visibility:hidden;background:var(--color-background-page)" });
+    const probe = el("div", { style: `color:var(${name});background:var(${over})` });
+    page.append(probe);
+    document.body.append(page);
     const parse = (s) => s.match(/[\d.]+/g).map(Number);
-    const fg = parse(getComputedStyle(probe).color), bg = parse(getComputedStyle(probe).backgroundColor);
-    probe.remove();
-    const a = fg.length > 3 ? fg[3] : 1;
-    const mixed = [0, 1, 2].map((i) => fg[i] * a + bg[i] * (1 - a));
-    const [l1, l2] = [luminance(mixed), luminance(bg.slice(0, 3))].sort((x, y) => y - x);
+    const [fg, bg, base] = [getComputedStyle(probe).color, getComputedStyle(probe).backgroundColor, getComputedStyle(page).backgroundColor].map(parse);
+    page.remove();
+    const over_ = (top, under) => { const a = top.length > 3 ? top[3] : 1; return [0, 1, 2].map((i) => top[i] * a + under[i] * (1 - a)); };
+    const back = over_(bg, base), front = over_(fg, back);
+    const [l1, l2] = [luminance(front), luminance(back)].sort((x, y) => y - x);
     return (l1 + 0.05) / (l2 + 0.05);
   }
-  const contrastRows = names("--color-text-").concat(["--color-tint"]).map((name) =>
-    el("div", { class: "row" }, el("div", { class: "swatches", style: "width:100%" }, el("div", { class: "name t-footnote" }, name.slice(8) + " on row"),
-      ...THEMES.map(([t, c]) => { const r = resolved(name, t, c, "--color-background-row"); return el("div", { class: "col-head t-caption1 nums" + (r < 4.5 ? " tint" : "") }, r.toFixed(1)); }))));
+  // Text: AA 4.5, AAA 7, large text (title and headings) 3. Marks: AA 3, and 4.5 for Increase Contrast (map sz-rs30.1.83.19).
+  const verdict = (r, text) => text
+    ? (r >= 7 ? "AAA" : r >= 4.5 ? "AA" : r >= 3 ? "large" : "fail")
+    : (r >= 4.5 ? "HC" : r >= 3 ? "AA" : "fail");
+  const TEXTS = names("--color-text-").concat(["--color-tint"]);
+  const MARKS = ["--color-favourite", "--color-timeline-played", "--color-tint"].filter((n) => props.has(n));
+  const BACKS = names("--color-background-");
+  const pairRow = (fg, bg, text) =>
+    el("div", { class: "row" }, el("div", { class: "swatches", style: "width:100%" },
+      el("div", { class: "name t-footnote" }, `${fg.slice(8)} on ${bg.slice(8).replace("background-", "")}`),
+      ...THEMES.map(([t, c]) => { const r = ratio(fg, t, c, bg); const v = verdict(r, text);
+        return el("div", { class: "col-head t-caption1 nums" + (v === "fail" ? " fail" : "") }, r.toFixed(1), el("br"), v); })));
+  const contrastRows = BACKS.flatMap((bg) => TEXTS.map((fg) => pairRow(fg, bg, true)));
+  const markRows = ["--color-background-page", "--color-background-row", "--color-timeline-unplayed"].filter((n) => props.has(n))
+    .flatMap((bg) => MARKS.filter((fg) => bg !== "--color-timeline-unplayed" || fg === "--color-timeline-played").map((fg) => pairRow(fg, bg, false)));
 
   // Type: the scale at one Dynamic Type size, and every size in numbers.
   const SIZES = ["xSmall", "small", "medium", "large", "xLarge", "xxLarge", "xxxLarge", "AX1", "AX2", "AX3", "AX4", "AX5"];
@@ -132,7 +149,8 @@ K.start(() => {
     el("div", { class: "page-head" }, el("h1", { class: "t-largeTitle" }, "Token sheet"),
       el("p", { class: "t-subheadline secondary meta" }, "Every value from design/klassik.tokens.json, with the variant's overrides. Tap a motion row to play it.")),
     section("COLOUR", "Each swatch sits in its own theme.", el("div", { class: "list" }, colourHead, ...colourRows)),
-    section("CONTRAST ON ROWS", "WCAG 2 ratio. Below 4.5 shows in the tint.", el("div", { class: "list" }, colourHead.cloneNode(true), ...contrastRows)),
+    section("CONTRAST OF TEXT", "WCAG 2.2 ratio. AA needs 4.5, AAA needs 7. 'large' passes only for the page title and section headings (3).", el("div", { class: "list" }, colourHead.cloneNode(true), ...contrastRows)),
+    section("CONTRAST OF MARKS", "The fermata, the timeline and controls. AA needs 3. HC: 4.5, the Increase Contrast target.", el("div", { class: "list" }, colourHead.cloneNode(true), ...markRows)),
     section("FAVOURITE MARK", null, el("div", { class: "list" },
       el("div", { class: "row" }, el("div", { class: "main t-body" }, "Set ", K.fermata(true), "   Not set ", K.fermata(false))),
       el("div", { class: "row" }, el("div", { class: "main t-title1" }, "Title ", K.fermata(true))))),

@@ -355,11 +355,9 @@ const K = (() => {
   // ---------- Specimen controls ----------
   function applyLook() {
     const root = document.documentElement;
-    const theme = setting("theme", "auto");
-    const dark = theme === "dark" || (theme === "auto" && matchMedia("(prefers-color-scheme: dark)").matches);
-    root.dataset.theme = dark ? "dark" : "light";
-    const contrast = setting("contrast", "auto");
-    root.dataset.contrast = contrast === "high" || (contrast === "auto" && matchMedia("(prefers-contrast: more)").matches) ? "high" : "normal";
+    // Only the switch sets the room, so each variant is judged in the room that Flo picks.
+    root.dataset.theme = setting("theme", "light") === "dark" ? "dark" : "light";
+    root.dataset.contrast = setting("contrast", "normal") === "high" ? "high" : "normal";
     root.dataset.typeSize = setting("size", "large");
     root.dataset.side = setting("side", "right");
   }
@@ -395,12 +393,12 @@ const K = (() => {
         el("option", { value: "" }, "decided"), ...names.map((n) => el("option", { value: n, selected: params.get("variant") === n }, variants[n].label || n)));
       bar.append(sel);
     }
-    const themes = ["auto", "light", "dark"];
-    const theme = el("button", { onclick: () => { const t = themes[(themes.indexOf(setting("theme", "auto")) + 1) % 3]; setParam("theme", t); theme.textContent = label(t); applyLook(); } });
-    const label = (t) => ({ auto: "◐ Auto", light: "○ Light", dark: "● Dark" })[t];
-    theme.textContent = label(setting("theme", "auto"));
-    const contrast = el("button", { onclick: () => { const c = setting("contrast", "auto") === "high" ? "normal" : "high"; setParam("contrast", c); contrast.classList.toggle("on", c === "high"); applyLook(); } }, "Contrast");
-    contrast.classList.toggle("on", setting("contrast", "auto") === "high");
+    const current = () => (setting("theme", "light") === "dark" ? "dark" : "light");
+    const theme = el("button", { onclick: () => { const t = current() === "dark" ? "light" : "dark"; setParam("theme", t); theme.textContent = label(t); applyLook(); } });
+    const label = (t) => ({ light: "○ Light", dark: "● Dark" })[t];
+    theme.textContent = label(current());
+    const contrast = el("button", { onclick: () => { const c = setting("contrast", "normal") === "high" ? "normal" : "high"; setParam("contrast", c); contrast.classList.toggle("on", c === "high"); applyLook(); } }, "Contrast");
+    contrast.classList.toggle("on", setting("contrast", "normal") === "high");
     const size = el("select", { "aria-label": "Text size", onchange: (e) => { setParam("size", e.target.value); applyLook(); layoutChrome(); } },
       ...SIZES.map((s) => el("option", { value: s, selected: setting("size", "large") === s }, "Aa " + s)));
     const playing = el("select", { "aria-label": "What plays", onchange: (e) => { setParam("playing", e.target.value); store("play", null); location.reload(); } },
@@ -651,7 +649,6 @@ const K = (() => {
 
   async function start(render) {
     applyLook();
-    matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyLook);
     const variants = await loadVariant();
     const [data, chronology, people] = await Promise.all(["specimen", "chronology", "people"].map((n) => fetch(`data/${n}.json`).then((r) => r.json())));
     build(data, chronology);

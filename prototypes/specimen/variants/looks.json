@@ -1,0 +1,11 @@
+{
+  "links-ink": { "label": "Links A: ink, accent line", "css": "links.css" },
+  "links-hairline": { "label": "Links B: accent, faint line", "css": "links.css" },
+  "links-prose": { "label": "Links C: line in prose only", "css": "links.css" },
+  "pic-lane": { "label": "Picture A: fade, timeline lane", "css": "pictures.css", "page": "person" },
+  "pic-scrim": { "label": "Picture B: on the picture, measured", "css": "pictures.css", "js": "pictures.js", "page": "person" },
+  "pic-plate": { "label": "Picture C: plate", "css": "pictures.css", "page": "person" },
+  "player-hall": { "label": "Player A: the hall", "css": "player.css", "js": "player.js", "page": "player" },
+  "player-room": { "label": "Player B: cover room", "css": "player.css", "js": "player.js", "page": "player" },
+  "player-stage": { "label": "Player C: stage", "css": "player.css", "js": "player.js", "page": "player" }
+}

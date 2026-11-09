@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Token sheet</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="tokens.css?v=39">
-<link rel="stylesheet" href="specimen.css?v=39">
-<script src="specimen.js?v=39"></script>
+<link rel="stylesheet" href="tokens.css?v=40">
+<link rel="stylesheet" href="specimen.css?v=40">
+<script src="specimen.js?v=40"></script>
 </head>
 <body>
 <style>
@@ -159,11 +159,11 @@ K.start(() => {
     section("FAVOURITE MARK", null, el("div", { class: "list" },
       el("div", { class: "row" }, el("div", { class: "main t-body" }, "Set ", K.fermata(true), "   Not set ", K.fermata(false))),
       el("div", { class: "row" }, el("div", { class: "main t-title1" }, "Title ", K.fermata(true))))),
-    section("SWIPE", "Preview for sz-rs30.1.83.19.6: one colour per action, white labels at 4.6:1 or more.", el("div", { class: "list" },
+    section("SWIPE", "The app's default edges (sz-rs30.1.83.19.6). Add to Queue and Favourite sit a step darker. White labels at 4.6:1 or more.", el("div", { class: "list" },
       ...[["lead", "Symphony No. 5 in C minor"], ["trail", "Symphony No. 5 in C minor"], ["lead", "Carlos Kleiber, 1974"], ["trail", "Carlos Kleiber, 1974"]].map(([side, text]) => {
         const acts = side === "lead"
-          ? [["playNext", "Play Next", "⤒"], ["addToQueue", "Add to Queue", "⤓"]]
-          : [["download", "Download", "↓"], ["reference", "Favourite", null]];
+          ? [["download", "Download", "↓"], ["favourite", "Favourite", null]]
+          : [["playNext", "Play Next", "⤒"], ["addToQueue", "Add to Queue", "⤓"]];
         const buttons = acts.map(([k, label, glyph]) => el("div", { class: "act t-caption1", style: `background: var(--color-swipe-${k}, var(--color-tint))` },
           glyph ? el("span", { class: "t-body" }, glyph) : K.fermata(true), label));
         const main = el("div", { class: "main t-body", style: "min-width:0;overflow:hidden;white-space:nowrap" }, text);

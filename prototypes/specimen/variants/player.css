@@ -1,0 +1,42 @@
+/* PROTOTYPE, round 24, sz-rs30.1.83.19.7: what makes the player page unmistakable. See player.js. */
+
+/* ---------- A: the hall ---------- */
+/* The hall is a step darker than the dark room of other pages, and the cover lights it from behind. */
+.app[data-look="player-hall"].is-player { background: var(--color-background-grouped); }
+.app[data-look="player-hall"].is-player .wash {
+  height: 760px;
+  background: radial-gradient(ellipse 85% 60% at 50% 28%, color-mix(in srgb, var(--cover-light, transparent) 70%, transparent) 0,
+    color-mix(in srgb, var(--cover-light, transparent) 22%, transparent) 55%, transparent 100%) !important;
+}
+
+/* ---------- B: cover room ---------- */
+.app[data-look="player-room"].is-player { background: var(--color-background-grouped); }
+.app[data-look="player-room"].is-player .wash { display: none; }
+
+/* ---------- C: stage ---------- */
+/* The cover runs edge to edge under the bar and fades into the page; the title starts on its fade. */
+.app[data-look="player-stage"].is-player .wash { display: none; }
+.app[data-look="player-stage"].is-player { background: var(--color-background-page); --edge-colour: var(--color-background-page); }
+.app[data-look="player-stage"].is-player .hero .big {
+  width: 100vw; height: min(100vw, 64vh); max-width: none; border-radius: 0; box-shadow: none; object-fit: cover;
+  /* The specimen pill is not part of the app, so the cover starts under the bar, below the pill. */
+  margin: calc(-1 * (var(--size-hitTarget) + var(--space-s))) 0 calc(-1 * var(--space-xxl)) 0; object-position: 50% 30%;
+  align-self: center;
+  -webkit-mask-image: linear-gradient(to top, transparent 0, #000 38%); mask-image: linear-gradient(to top, transparent 0, #000 38%);
+}
+.app[data-look="player-stage"].is-player .hero h1 { position: relative; }
+.app[data-look="player-stage"].is-player .nav .back {
+  margin-left: var(--space-xs); padding-right: var(--space-m); border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-background-elevated) 72%, transparent);
+  -webkit-backdrop-filter: blur(24px) saturate(1.8); backdrop-filter: blur(24px) saturate(1.8);
+  box-shadow: 0 0 0 0.5px var(--color-separator), 0 2px 10px rgb(0 0 0 / 0.18);
+}
+/* The timeline crosses the cover: a keyline of page colour and a soft dark edge keep it apart. */
+:root[data-look="player-stage"] .timeline .seg { box-shadow: 0 0 0 1px var(--color-background-page); }
+:root[data-look="player-stage"] .timeline .bar { filter: drop-shadow(0 0 1.5px rgb(0 0 0 / 0.55)); }
+
+/* ---------- B and C: the cover marks what plays; controls keep the accent ---------- */
+.app:is([data-look="player-room"], [data-look="player-stage"]).is-player .mv-bar .fill,
+.app:is([data-look="player-room"], [data-look="player-stage"]).is-player .track .eq { background: none; }
+.app:is([data-look="player-room"], [data-look="player-stage"]).is-player .mv-bar .fill { background: var(--cover-mark, var(--color-tint)); }
+.app:is([data-look="player-room"], [data-look="player-stage"]).is-player .track .eq { color: var(--cover-mark, var(--color-tint)); }

@@ -8,7 +8,7 @@ const K = (() => {
   document.documentElement.dataset.page = location.pathname.split("/").pop().replace(".html", "") || "index";
   // Variant files carry the stamp of specimen.js, so Safari loads new copies with it.
   const STAMP = document.currentScript ? new URL(document.currentScript.src).searchParams.get("v") || "" : "";
-  const CARRIED = ["variant", "theme", "paper", "contrast", "size", "playing", "side", "edge"];
+  const CARRIED = ["variant", "look", "theme", "paper", "contrast", "size", "playing", "side", "edge"];
   const SIZES = ["xSmall", "small", "medium", "large", "xLarge", "xxLarge", "xxxLarge", "AX1", "AX2", "AX3", "AX4", "AX5"];
   const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI"];
   const ENSEMBLE = new Set(["Orchestra", "Choir", "Ensemble", "Trio", "Quartet"]);
@@ -353,10 +353,14 @@ const K = (() => {
   }
 
   // ---------- Specimen controls ----------
+  // A look variant can hold a page in one room, as SwiftUI's preferredColorScheme does for one view.
+  let room = null;
+  function setRoom(t) { room = t; applyLook(); }
+
   function applyLook() {
     const root = document.documentElement;
     // Only the switch sets the room, so each variant is judged in the room that Flo picks.
-    root.dataset.theme = setting("theme", "light") === "dark" ? "dark" : "light";
+    root.dataset.theme = room || (setting("theme", "light") === "dark" ? "dark" : "light");
     root.dataset.paper = setting("paper", "middle");
     root.dataset.contrast = setting("contrast", "normal") === "high" ? "high" : "normal";
     root.dataset.typeSize = setting("size", "large");
@@ -377,14 +381,23 @@ const K = (() => {
     // The decided mini player loads before any variant, so a variant can still replace it through K.setMini.
     document.head.append(el("link", { rel: "stylesheet", href: "pill.css?v=" + STAMP }));
     await new Promise((ok) => document.head.append(el("script", { src: "pill.js?v=" + STAMP, onload: ok, onerror: ok })));
-    if (v) {
-      if (v.css) document.head.append(el("link", { rel: "stylesheet", href: "variants/" + v.css + "?v=" + STAMP }));
-      if (v.js) await new Promise((ok) => document.head.append(el("script", { src: "variants/" + v.js + "?v=" + STAMP, onload: ok, onerror: ok })));
+    // A look (variants/looks.json) is the variant of one look ticket. It loads after the palette, so both combine.
+    let looks = {};
+    try { looks = await (await fetch("variants/looks.json", { cache: "no-store" })).json(); } catch { /* none yet */ }
+    // A look for another page does not load here, though links carry it on.
+    let l = params.get("look") && looks[params.get("look")];
+    if (l && l.page && l.page !== document.documentElement.dataset.page) l = null;
+    // One look file can serve several looks of a ticket; it reads the name from this attribute.
+    if (l) document.documentElement.dataset.look = params.get("look");
+    for (const x of [v, l]) {
+      if (!x) continue;
+      if (x.css) document.head.append(el("link", { rel: "stylesheet", href: "variants/" + x.css + "?v=" + STAMP }));
+      if (x.js) await new Promise((ok) => document.head.append(el("script", { src: "variants/" + x.js + "?v=" + STAMP, onload: ok, onerror: ok })));
     }
-    return variants;
+    return { variants, looks };
   }
 
-  function controls(variants) {
+  function controls({ variants, looks }) {
     const bar = el("div", { class: "specimen-bar", "aria-label": "Specimen controls" });
     // A variant names its page; a look variant without a page shows everywhere. Other pages show no menu.
     const here = location.pathname.split("/").pop().replace(".html", "") || "index";
@@ -392,6 +405,12 @@ const K = (() => {
     if (names.length) {
       const sel = el("select", { "aria-label": "Variant", onchange: (e) => { setParam("variant", e.target.value); location.reload(); } },
         el("option", { value: "" }, "decided"), ...names.map((n) => el("option", { value: n, selected: params.get("variant") === n }, variants[n].label || n)));
+      bar.append(sel);
+    }
+    const lookNames = Object.keys(looks).filter((n) => !looks[n].page || looks[n].page === here);
+    if (lookNames.length) {
+      const sel = el("select", { "aria-label": "Look", onchange: (e) => { setParam("look", e.target.value); location.reload(); } },
+        el("option", { value: "" }, "Look: decided"), ...lookNames.map((n) => el("option", { value: n, selected: params.get("look") === n }, looks[n].label || n)));
       bar.append(sel);
     }
     const current = () => (setting("theme", "light") === "dark" ? "dark" : "light");
@@ -663,7 +682,7 @@ const K = (() => {
   }
 
   return {
-    start, page, el, ICON, href, params, store, fermata, time, sheet, cover, coverImage, coverColour, surname,
+    start, page, el, ICON, setRoom, href, params, store, fermata, time, sheet, cover, coverImage, coverColour, surname,
     M, P, current, song, seek, playItem, togglePause, onPlay, resolveItem, movementTitle,
     isFavourite, toggleFavourite, orderedRecordings, layoutChrome, emit, becomePlayer, performersOf, ROMAN, titled, personHref,
     setMini, cardMini, chrome, peopleLine, count, duration, joinNames, roleBlock, NB, searchItems: () => MINI.searchItems(),

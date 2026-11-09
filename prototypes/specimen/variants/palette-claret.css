@@ -20,9 +20,9 @@
   --color-fill-standard: #3c302829;
   --color-fill-quiet: #3c302814;
   --color-swipe-playNext: #716eb0;
-  --color-swipe-addToQueue: #a16834;
+  --color-swipe-addToQueue: #7c450a;
   --color-swipe-download: #058096;
-  --color-swipe-reference: #d23a6b;
+  --color-swipe-favourite: #a7014a;
 }
 
 :root[data-paper="faint"][data-theme="light"][data-contrast="high"],
@@ -45,9 +45,9 @@
   --color-fill-standard: #3c302829;
   --color-fill-quiet: #3c302814;
   --color-swipe-playNext: #565190;
-  --color-swipe-addToQueue: #834b14;
+  --color-swipe-addToQueue: #592e00;
   --color-swipe-download: #006274;
-  --color-swipe-reference: #af0d50;
+  --color-swipe-favourite: #790033;
 }
 
 :root[data-paper="middle"][data-theme="light"][data-contrast="normal"],
@@ -70,9 +70,9 @@
   --color-fill-standard: #3c302829;
   --color-fill-quiet: #3c302814;
   --color-swipe-playNext: #716eb0;
-  --color-swipe-addToQueue: #a16834;
+  --color-swipe-addToQueue: #7c450a;
   --color-swipe-download: #058096;
-  --color-swipe-reference: #d23a6b;
+  --color-swipe-favourite: #a7014a;
 }
 
 :root[data-paper="middle"][data-theme="light"][data-contrast="high"],
@@ -95,9 +95,9 @@
   --color-fill-standard: #3c302829;
   --color-fill-quiet: #3c302814;
   --color-swipe-playNext: #565190;
-  --color-swipe-addToQueue: #834b14;
+  --color-swipe-addToQueue: #592e00;
   --color-swipe-download: #006274;
-  --color-swipe-reference: #af0d50;
+  --color-swipe-favourite: #790033;
 }
 
 :root[data-paper="creamy"][data-theme="light"][data-contrast="normal"],
@@ -120,9 +120,9 @@
   --color-fill-standard: #3c302829;
   --color-fill-quiet: #3c302814;
   --color-swipe-playNext: #716eb0;
-  --color-swipe-addToQueue: #a16834;
+  --color-swipe-addToQueue: #7c450a;
   --color-swipe-download: #058096;
-  --color-swipe-reference: #d23a6b;
+  --color-swipe-favourite: #a7014a;
 }
 
 :root[data-paper="creamy"][data-theme="light"][data-contrast="high"],
@@ -145,9 +145,9 @@
   --color-fill-standard: #3c302829;
   --color-fill-quiet: #3c302814;
   --color-swipe-playNext: #565190;
-  --color-swipe-addToQueue: #834b14;
+  --color-swipe-addToQueue: #592e00;
   --color-swipe-download: #006274;
-  --color-swipe-reference: #af0d50;
+  --color-swipe-favourite: #790033;
 }
 
 :root[data-theme="dark"][data-contrast="normal"],
@@ -170,9 +170,9 @@
   --color-fill-standard: #f0e6d833;
   --color-fill-quiet: #f0e6d81c;
   --color-swipe-playNext: #716eb0;
-  --color-swipe-addToQueue: #a16834;
+  --color-swipe-addToQueue: #7c450a;
   --color-swipe-download: #058096;
-  --color-swipe-reference: #d23a6b;
+  --color-swipe-favourite: #a7014a;
 }
 
 :root[data-theme="dark"][data-contrast="high"],
@@ -195,7 +195,7 @@
   --color-fill-standard: #f0e6d833;
   --color-fill-quiet: #f0e6d81c;
   --color-swipe-playNext: #565190;
-  --color-swipe-addToQueue: #834b14;
+  --color-swipe-addToQueue: #592e00;
   --color-swipe-download: #006274;
-  --color-swipe-reference: #af0d50;
+  --color-swipe-favourite: #790033;
 }

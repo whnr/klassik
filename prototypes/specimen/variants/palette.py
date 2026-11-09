@@ -70,8 +70,8 @@ def apca(text, bg):
     return 0 if s > -0.1 else (s + 0.027) * 100
 
 
-def solve(C, h, bg, target, darker):
-    """The lightness nearest the background that still reaches the target ratio."""
+def solve(C, h, bg, target, darker, step=0.0):
+    """The lightness nearest the background that still reaches the target ratio, then step darker."""
     lo, hi = (0.0, 1.0)
     for _ in range(40):
         mid = (lo + hi) / 2
@@ -80,7 +80,7 @@ def solve(C, h, bg, target, darker):
             lo, hi = (mid, hi) if ok else (lo, mid)
         else:
             lo, hi = (lo, mid) if ok else (mid, hi)
-    return hexof(lo if darker else hi, C, h)
+    return hexof((lo if darker else hi) - step, C, h)
 
 
 # ---------- the families ----------
@@ -90,10 +90,12 @@ FAMILIES = {
     "green": dict(label="Bottle green", h=160, dayC=0.09, nightC=0.09, fillL=0.40, fillC=0.08),
     "plum": dict(label="Plum", h=345, dayC=0.11, nightC=0.10, fillL=0.38, fillC=0.10),
 }
-# Swipe preview (sz-rs30.1.83.19.6): one hue per action, the same lightness and chroma, white labels.
-# Reference takes the favourite's hue, because it marks the favourite recording.
-SWIPES = {"swipe-playNext": 285, "swipe-addToQueue": 60, "swipe-download": 215}
-SWIPE_C = 0.10
+# Swipe colours (sz-rs30.1.83.19.6): one hue per action, white labels. Favourite takes the favourite's hue.
+# Add to Queue and Favourite sit OKLab L 0.12 darker, so a pair still differs for colour-blind eyes
+# (docs/research/colour-vision.md on branch research/colour-vision).
+SWIPES = {"swipe-playNext": (285, 0.10), "swipe-addToQueue": (60, 0.10), "swipe-download": (215, 0.10), "swipe-favourite": (None, 0.19)}
+SWIPE_DARKER = {"swipe-addToQueue", "swipe-favourite"}
+SWIPE_STEP = 0.12
 PAPERS = {"faint": (0.972, 0.010), "middle": (0.966, 0.020), "creamy": (0.958, 0.032)}
 PAPER_H = 85
 HALL_L, HALL_C = 0.18, 0.010
@@ -156,9 +158,9 @@ def marks(values, fam, theme, high):
     for name, a in (("fill-standard", 0.16 if day else 0.2), ("fill-quiet", 0.08 if day else 0.11)):
         values[name] = "#%02x%02x%02x%02x" % (*ink, round(a * 255))
     target = 7 if high else 4.6
-    for name, h in SWIPES.items():
-        values[name] = solve(SWIPE_C, h, "#ffffff", target, True)
-    values["swipe-reference"] = solve(0.19, nh, "#ffffff", target, True)
+    for name, (h, c) in SWIPES.items():
+        step = SWIPE_STEP if name in SWIPE_DARKER else 0.0
+        values[name] = solve(c, nh if h is None else h, "#ffffff", target, True, step)
 
 
 def block(selectors, values):

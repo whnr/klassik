@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fermata board</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="tokens.css?v=34">
+<link rel="stylesheet" href="specimen.css?v=34">
+<script src="specimen.js?v=34"></script>
+<script src="variants/fermata.js?v=34"></script>
+</head>
+<body>
+<style>
+  .styles { display: flex; gap: 2px; padding: 2px; border-radius: 9px; background: var(--color-fill-quiet); margin: var(--space-s) var(--pad-right) 0 var(--pad-left); }
+  .styles button { flex: 1; padding: 6px 4px; border-radius: 7px; color: var(--color-text-primary); }
+  .styles button.on { background: var(--color-background-elevated); box-shadow: 0 1px 3px rgb(0 0 0 / 0.15); font-weight: 600; }
+  .style-note { margin: var(--space-xs) var(--pad-right) 0 var(--pad-left); }
+  .marks { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-xs); margin-top: var(--space-s); }
+  .marks figure { margin: 0; display: grid; justify-items: center; gap: 4px; padding: var(--space-xs) 0; border-radius: var(--radius-s); }
+  .marks figure.chosen { background: var(--color-fill-quiet); }
+  .marks .big { width: 48px; height: 33px; }
+  .marks .big svg { display: block; }
+  .shape-head { display: flex; align-items: baseline; gap: var(--space-xs); }
+  .shape-head .use { margin-left: auto; color: var(--color-tint); }
+  .shape-head .use.on { color: var(--color-text-secondary); }
+  .sample { display: flex; align-items: baseline; gap: var(--space-s); margin-top: var(--space-s); }
+  .sample button { text-align: left; color: inherit; padding: 0; }
+  .pagetitle { font: var(--type-pageTitle-weight) var(--type-pageTitle-size)/var(--type-pageTitle-line-height) var(--type-pageTitle-family); margin-top: var(--space-xs); }
+  .fermata svg { display: block; }
+  .fermata.pop { animation: pop 260ms ease-out; }
+  @keyframes pop { 40% { transform: scale(1.25); } }
+  @media (prefers-reduced-motion: reduce) { .fermata.pop { animation: none; } }
+</style>
+<script>
+K.start(() => {
+  const { el, href } = K;
+  const { scroll } = K.page({ tab: "library", title: "Fermata", back: { label: "Library", href: "index.html" } });
+  let style = (K.store("fermata") || {}).style || "grey";
+  const fav = new Set(K.store("fermataBoard") || ["lunette"]);
+
+  const choose = (shape) => { K.store("fermata", { shape, style }); render(); };
+  const toggle = (id) => { fav.has(id) ? fav.delete(id) : fav.add(id); K.store("fermataBoard", [...fav]); render(id); };
+
+  const tabs = el("div", { class: "styles", role: "tablist" });
+  const note = el("p", { class: "style-note t-footnote secondary" });
+  const list = el("div");
+  const chosen = el("p", { class: "t-footnote secondary", style: "margin: var(--space-xl) var(--pad-right) var(--space-xl) var(--pad-left)" });
+
+  scroll.append(
+    el("div", { class: "page-head" }, el("h1", { class: "t-largeTitle" }, "Fermata"),
+      el("p", { class: "t-subheadline secondary meta" }, "Ten drawings for Klassik's own favourite mark, and three looks for a mark that is not set. Tap a sample line to set or clear it.")),
+    tabs, note, list, chosen);
+
+  function render(popped) {
+    const pick = KF.pick();
+    tabs.replaceChildren(...KF.STYLES.map((s) => el("button", { class: "t-subheadline" + (s.id === style ? " on" : ""), role: "tab", "aria-selected": s.id === style,
+      onclick: () => { style = s.id; if (K.store("fermata")) K.store("fermata", { ...pick, style }); render(); } }, s.name)));
+    note.textContent = KF.STYLES.find((s) => s.id === style).note;
+
+    list.replaceChildren(...KF.SHAPES.map((shape, i) => {
+      const on = fav.has(shape.id);
+      const figure = (label, isOn, st) => el("figure", { class: !isOn && st === style ? "chosen" : null },
+        el("div", { class: "big", html: KF.svg(shape.id, isOn, st) }), el("figcaption", { class: "t-caption2 secondary" }, label));
+      const inline = KF.mark(on, false, shape.id, style);
+      if (popped === shape.id) inline.classList.add("pop");
+      const isPick = pick.shape === shape.id;
+      return el("section", { class: "section" },
+        el("div", { class: "section-head t-footnote shape-head" },
+          el("span", {}, (i ? i + ". " : "") + shape.name),
+          el("button", { class: "use t-footnote" + (isPick ? " on" : ""), onclick: () => choose(shape.id) }, isPick ? "On all pages" : "Use on all pages")),
+        el("div", { class: "list" }, el("div", { class: "row" }, el("div", { class: "main" },
+          el("div", { class: "t-subheadline secondary" }, shape.note),
+          el("div", { class: "marks" }, figure("Set", true), ...KF.STYLES.map((s) => figure(s.name, false, s.id))),
+          el("div", { class: "sample" }, el("button", { class: "t-body", "aria-pressed": on, onclick: () => toggle(shape.id) },
+            K.titled("String Quartet in F major, Op. 135", inline))),
+          el("div", { class: "pagetitle" }, K.titled("Symphony No. 5", KF.mark(true, false, shape.id, style))),
+          el("div", { class: "t-footnote secondary", style: "margin-top: var(--space-xs)" }, on ? "Set. A tap clears it." : "Not set. A tap sets it.")))));
+    }));
+
+    const p = KF.SHAPES.find((s) => s.id === pick.shape);
+    chosen.replaceChildren("On all pages: ", p.name, ", ", KF.STYLES.find((s) => s.id === pick.style).name, ". ",
+      el("a", { class: "tint", href: href("work.html", { variant: "fermata", back: "Fermata" }) }, "Open a work page with it"), " (variant “fermata”).");
+  }
+  render();
+});
+</script>
+</body>
+</html>

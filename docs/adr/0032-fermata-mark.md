@@ -13,9 +13,9 @@ The favourite mark is a fermata (ADR 0017), drawn by Klassik as a custom SF Symb
 - Not set: the same solid drawing in secondary text colour. No outline.
 - The arc is 0.64 em high, about nine tenths of the SF cap height. It is twice as wide as high. It scales with the text that it follows.
 - The feet sit on the text baseline, a quarter em after the last word.
+- One weight for all text. The arc does not grow heavier beside bold text or with Bold Text on.
 
 ## Consequences
 
 - Set and not set differ only in colour. The VoiceOver label carries the state.
 - The SF Symbol template draws the arc below the cap-height guide.
-- Whether the arc grows heavier with heavier text is open on the design map.

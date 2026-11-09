@@ -86,7 +86,6 @@ def solve(C, h, bg, target, darker):
 # ---------- the families ----------
 # h: accent hue. Day text is a deep jewel; night text is its lighter, quieter twin.
 FAMILIES = {
-    "oxblood": dict(label="Oxblood", h=25, dayC=0.13, nightC=0.11, fillL=0.40, fillC=0.12),
     "claret": dict(label="Claret", h=6, dayC=0.13, nightC=0.11, fillL=0.38, fillC=0.12),
     "green": dict(label="Bottle green", h=160, dayC=0.09, nightC=0.09, fillL=0.40, fillC=0.08),
     "plum": dict(label="Plum", h=345, dayC=0.11, nightC=0.10, fillL=0.38, fillC=0.10),

@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Token sheet</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="tokens.css?v=38">
-<link rel="stylesheet" href="specimen.css?v=38">
-<script src="specimen.js?v=38"></script>
+<link rel="stylesheet" href="tokens.css?v=39">
+<link rel="stylesheet" href="specimen.css?v=39">
+<script src="specimen.js?v=39"></script>
 </head>
 <body>
 <style>
@@ -163,7 +163,7 @@ K.start(() => {
       ...[["lead", "Symphony No. 5 in C minor"], ["trail", "Symphony No. 5 in C minor"], ["lead", "Carlos Kleiber, 1974"], ["trail", "Carlos Kleiber, 1974"]].map(([side, text]) => {
         const acts = side === "lead"
           ? [["playNext", "Play Next", "⤒"], ["addToQueue", "Add to Queue", "⤓"]]
-          : [["download", "Download", "↓"], ["reference", "Reference", null]];
+          : [["download", "Download", "↓"], ["reference", "Favourite", null]];
         const buttons = acts.map(([k, label, glyph]) => el("div", { class: "act t-caption1", style: `background: var(--color-swipe-${k}, var(--color-tint))` },
           glyph ? el("span", { class: "t-body" }, glyph) : K.fermata(true), label));
         const main = el("div", { class: "main t-body", style: "min-width:0;overflow:hidden;white-space:nowrap" }, text);

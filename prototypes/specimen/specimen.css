@@ -147,10 +147,10 @@ input { font: inherit; color: inherit; }
 .row .round { margin: -6px 0; }
 
 /* ADR 0032: the arc is 0.64 em high and twice as wide, feet on the baseline. */
-.fermata { display: inline-block; width: 1.28em; height: 0.64em; vertical-align: 0; margin-left: 0.25em; }
+.fermata { display: inline-block; width: 1.036em; height: 0.64em; vertical-align: 0; margin-left: 0.25em; }
 .fermata svg { display: block; }
 input::placeholder { color: var(--color-text-secondary); opacity: 1; }
-.fermata.small { width: 20px; height: 10px; margin: 0; vertical-align: middle; }
+.fermata.small { width: 16.2px; height: 10px; margin: 0; vertical-align: middle; }
 .chip {
   display: inline-flex; align-items: center; min-height: 30px; padding: 0 var(--space-m); border-radius: var(--radius-full);
   background: var(--color-fill-quiet); color: var(--color-text-primary); white-space: nowrap;

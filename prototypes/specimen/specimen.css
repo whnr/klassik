@@ -128,6 +128,8 @@ input { font: inherit; color: inherit; }
 .cover.none { display: grid; place-items: center; color: var(--color-text-tertiary); }
 .row.playing { background: color-mix(in srgb, var(--color-tint) 12%, var(--color-background-row)); }
 .link { color: var(--color-tint); }
+/* Links carry colour only (sz-rs30.1.83.19.5). Increase Contrast adds an underline in the link's own colour. */
+:root[data-contrast="high"] :is(.link, .roles a[href]) { text-decoration: underline; text-decoration-color: currentColor; text-underline-offset: 0.2em; }
 
 .button-row { display: flex; gap: var(--space-m); padding: var(--space-m) var(--pad-right) 0 var(--pad-left); }
 .capsule {

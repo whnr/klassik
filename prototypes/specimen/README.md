@@ -57,7 +57,6 @@ In `prototypes/`, run `python3 -m http.server 8765 --bind 0.0.0.0` and open `htt
 
 `variants/looks.json` lists the variants of one look ticket at a time, beside the palette variant, so both combine. `?look=<name>` loads its css and js and sets `data-look` on the root; one file can serve every look of a ticket. A look with `page` loads only on that page, though links carry it on. A look can hold the page in one room with `K.setRoom`.
 
-- Links (sz-rs30.1.83.19.5), every page: A ink names with a thin accent line; B accent names with a faint line; C a line only on links in running text. "Look: decided" is the current state.
 - Pictures (sz-rs30.1.83.19.9), person page: A the fade, the timeline in a lane of page colour; B the name on the picture over a scrim of hall colour, measured from the picture for AA; C the picture as a plate in the margins.
 - Player (sz-rs30.1.83.19.7), player page, only while it plays: A the hall, always the dark room, lit by the cover; B the cover room, the ground in the cover's hue; C the stage, the cover edge to edge. In B and C the timeline and the playing row take the cover's hue; controls keep the accent.
 

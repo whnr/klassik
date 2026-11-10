@@ -81,12 +81,14 @@
   --space-inGroup: 5.38px;
   --space-betweenGroups: 22.67px;
   --space-betweenSections: 40.3px;
+  --radius-xs: 4px;
   --radius-s: 6px;
   --radius-m: 10px;
   --radius-l: 16px;
   --radius-full: 999px;
   --size-hitTarget: 44px;
   --size-timeline: 8px;
+  --size-timelineCap: 8px;
   --size-coverRow: 56px;
   --size-coverPage: 240px;
   --size-miniPlayer: 64px;
@@ -179,7 +181,7 @@
   --color-favourite: #fc628d;
   --color-favourite-off: #685e60;
   --color-timeline-played: #d67e92;
-  --color-timeline-unplayed: #3a3031;
+  --color-timeline-unplayed: #4b4441;
   --color-swipe-playNext: #716eb0;
   --color-swipe-addToQueue: #7c450a;
   --color-swipe-download: #058096;
@@ -204,7 +206,7 @@
   --color-favourite: #ff8fa9;
   --color-favourite-off: #8f8687;
   --color-timeline-played: #f197aa;
-  --color-timeline-unplayed: #4a3f41;
+  --color-timeline-unplayed: #484340;
   --color-swipe-playNext: #565190;
   --color-swipe-addToQueue: #592e00;
   --color-swipe-download: #006274;
@@ -230,7 +232,7 @@
     --color-favourite: #fc628d;
     --color-favourite-off: #685e60;
     --color-timeline-played: #d67e92;
-    --color-timeline-unplayed: #3a3031;
+    --color-timeline-unplayed: #4b4441;
     --color-swipe-playNext: #716eb0;
     --color-swipe-addToQueue: #7c450a;
     --color-swipe-download: #058096;
@@ -312,7 +314,7 @@
   --color-favourite: #04ae72;
   --color-favourite-off: #5b635e;
   --color-timeline-played: #61a682;
-  --color-timeline-unplayed: #2c3530;
+  --color-timeline-unplayed: #444640;
   --color-swipe-playNext: #716eb0;
   --color-swipe-addToQueue: #7c450a;
   --color-swipe-download: #058096;
@@ -338,7 +340,7 @@
   --color-favourite: #01ca85;
   --color-favourite-off: #828a86;
   --color-timeline-played: #79c09a;
-  --color-timeline-unplayed: #3b453f;
+  --color-timeline-unplayed: #43453f;
   --color-swipe-playNext: #565190;
   --color-swipe-addToQueue: #592e00;
   --color-swipe-download: #006274;
@@ -364,7 +366,7 @@
     --color-favourite: #04ae72;
     --color-favourite-off: #5b635e;
     --color-timeline-played: #61a682;
-    --color-timeline-unplayed: #2c3530;
+    --color-timeline-unplayed: #444640;
     --color-swipe-playNext: #716eb0;
     --color-swipe-addToQueue: #7c450a;
     --color-swipe-download: #058096;
@@ -444,7 +446,7 @@
   --color-favourite: #ee67ba;
   --color-favourite-off: #665f63;
   --color-timeline-played: #c982aa;
-  --color-timeline-unplayed: #393035;
+  --color-timeline-unplayed: #4a4443;
   --color-swipe-playNext: #716eb0;
   --color-swipe-addToQueue: #7c450a;
   --color-swipe-download: #058096;
@@ -470,7 +472,7 @@
   --color-favourite: #ff89cf;
   --color-favourite-off: #8e868a;
   --color-timeline-played: #e39bc3;
-  --color-timeline-unplayed: #493f44;
+  --color-timeline-unplayed: #474341;
   --color-swipe-playNext: #565190;
   --color-swipe-addToQueue: #592e00;
   --color-swipe-download: #006274;
@@ -496,7 +498,7 @@
     --color-favourite: #ee67ba;
     --color-favourite-off: #665f63;
     --color-timeline-played: #c982aa;
-    --color-timeline-unplayed: #393035;
+    --color-timeline-unplayed: #4a4443;
     --color-swipe-playNext: #716eb0;
     --color-swipe-addToQueue: #7c450a;
     --color-swipe-download: #058096;

@@ -503,6 +503,13 @@
   },
   "radius": {
     "$type": "dimension",
+    "xs": {
+      "$value": {
+        "value": 4,
+        "unit": "px"
+      },
+      "$description": "The content-side corners of a timeline segment."
+    },
     "s": {
       "$value": {
         "value": 6,
@@ -546,7 +553,14 @@
         "value": 8,
         "unit": "px"
       },
-      "$description": "Width of the timeline bar."
+      "$description": "Width of the timeline bar. Segments sit space.xxs apart."
+    },
+    "timelineCap": {
+      "$value": {
+        "value": 8,
+        "unit": "px"
+      },
+      "$description": "The curve where the first timeline segment grows out of the screen edge."
     },
     "coverRow": {
       "$value": {

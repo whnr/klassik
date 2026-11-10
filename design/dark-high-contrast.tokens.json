@@ -1,18 +1,81 @@
 {
-  "$description": "Dark appearance, Increase Contrast. Only colours whose system colour has its own high-contrast value.",
+  "$description": "Dark appearance, Increase Contrast. Colours only; each points to the accent family's palette.",
   "color": {
     "$type": "color",
-    "tint": {
-      "$value": {
-        "colorSpace": "srgb",
-        "components": [
-          0.251,
-          0.6118,
-          1.0
-        ],
-        "hex": "#409CFF"
+    "background": {
+      "page": {
+        "$value": "{palette.darkHighContrast.background.page}"
       },
-      "$description": "iOS systemBlue, high contrast."
+      "row": {
+        "$value": "{palette.darkHighContrast.background.row}"
+      },
+      "grouped": {
+        "$value": "{palette.darkHighContrast.background.grouped}"
+      },
+      "elevated": {
+        "$value": "{palette.darkHighContrast.background.elevated}"
+      }
+    },
+    "text": {
+      "primary": {
+        "$value": "{palette.darkHighContrast.text.primary}"
+      },
+      "secondary": {
+        "$value": "{palette.darkHighContrast.text.secondary}"
+      },
+      "tertiary": {
+        "$value": "{palette.darkHighContrast.text.tertiary}"
+      }
+    },
+    "separator": {
+      "$value": "{palette.darkHighContrast.separator}"
+    },
+    "fill": {
+      "standard": {
+        "$value": "{palette.darkHighContrast.fill.standard}"
+      },
+      "quiet": {
+        "$value": "{palette.darkHighContrast.fill.quiet}"
+      }
+    },
+    "tint": {
+      "$value": "{palette.darkHighContrast.tint}"
+    },
+    "accent": {
+      "fill": {
+        "$value": "{palette.darkHighContrast.accent.fill}"
+      }
+    },
+    "on-accent": {
+      "$value": "{palette.darkHighContrast.on-accent}"
+    },
+    "favourite": {
+      "$value": "{palette.darkHighContrast.favourite}"
+    },
+    "favourite-off": {
+      "$value": "{palette.darkHighContrast.favourite-off}"
+    },
+    "timeline": {
+      "played": {
+        "$value": "{palette.darkHighContrast.timeline.played}"
+      },
+      "unplayed": {
+        "$value": "{palette.darkHighContrast.timeline.unplayed}"
+      }
+    },
+    "swipe": {
+      "playNext": {
+        "$value": "{palette.darkHighContrast.swipe.playNext}"
+      },
+      "addToQueue": {
+        "$value": "{palette.darkHighContrast.swipe.addToQueue}"
+      },
+      "download": {
+        "$value": "{palette.darkHighContrast.swipe.download}"
+      },
+      "favourite": {
+        "$value": "{palette.darkHighContrast.swipe.favourite}"
+      }
     }
   }
 }

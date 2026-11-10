@@ -1,162 +1,101 @@
 {
-  "$description": "Klassik design tokens, DTCG 2025.10. Decided values only (ADR 0021). Type and spacing follow ADR 0030; colour, radius, size and motion stay at neutral iOS system values until a look ticket decides.",
+  "$description": "Klassik design tokens, DTCG 2025.10. Decided values only (ADR 0021). Type and spacing follow ADR 0030, colour ADR 0034. Radius, size and motion stay at neutral iOS system values until a look ticket decides.",
   "color": {
     "$type": "color",
     "background": {
       "page": {
-        "$value": {
-          "colorSpace": "srgb",
-          "components": [
-            1.0,
-            1.0,
-            1.0
-          ],
-          "hex": "#FFFFFF"
-        },
-        "$description": "Plain page. iOS systemBackground."
-      },
-      "grouped": {
-        "$value": {
-          "colorSpace": "srgb",
-          "components": [
-            0.949,
-            0.949,
-            0.9686
-          ],
-          "hex": "#F2F2F7"
-        },
-        "$description": "Behind inset lists. iOS systemGroupedBackground."
+        "$value": "{palette.light.background.page}",
+        "$description": "Plain page: paper by day, the hall at night."
       },
       "row": {
-        "$value": {
-          "colorSpace": "srgb",
-          "components": [
-            1.0,
-            1.0,
-            1.0
-          ],
-          "hex": "#FFFFFF"
-        },
-        "$description": "A row of an inset list. iOS secondarySystemGroupedBackground."
+        "$value": "{palette.light.background.row}",
+        "$description": "A row of an inset list."
+      },
+      "grouped": {
+        "$value": "{palette.light.background.grouped}",
+        "$description": "Behind inset lists."
       },
       "elevated": {
-        "$value": {
-          "colorSpace": "srgb",
-          "components": [
-            1.0,
-            1.0,
-            1.0
-          ],
-          "hex": "#FFFFFF"
-        },
-        "$description": "A card above the page, such as the mini player. iOS tertiarySystemBackground."
+        "$value": "{palette.light.background.elevated}",
+        "$description": "A card or sheet above the page."
       }
     },
     "text": {
       "primary": {
-        "$value": {
-          "colorSpace": "srgb",
-          "components": [
-            0.0,
-            0.0,
-            0.0
-          ],
-          "hex": "#000000"
-        },
-        "$description": "iOS label."
+        "$value": "{palette.light.text.primary}",
+        "$description": "Ink."
       },
       "secondary": {
-        "$value": {
-          "colorSpace": "srgb",
-          "components": [
-            0.2353,
-            0.2353,
-            0.2627
-          ],
-          "hex": "#3C3C43",
-          "alpha": 0.6
-        },
-        "$description": "iOS secondaryLabel."
+        "$value": "{palette.light.text.secondary}",
+        "$description": "Facts, labels and placeholders."
       },
       "tertiary": {
-        "$value": {
-          "colorSpace": "srgb",
-          "components": [
-            0.2353,
-            0.2353,
-            0.2627
-          ],
-          "hex": "#3C3C43",
-          "alpha": 0.3
-        },
-        "$description": "iOS tertiaryLabel."
+        "$value": "{palette.light.text.tertiary}",
+        "$description": "Disabled items only."
       }
     },
     "separator": {
-      "$value": {
-        "colorSpace": "srgb",
-        "components": [
-          0.2353,
-          0.2353,
-          0.2627
-        ],
-        "hex": "#3C3C43",
-        "alpha": 0.29
-      },
-      "$description": "iOS separator."
+      "$value": "{palette.light.separator}",
+      "$description": "Lines between rows."
     },
     "fill": {
       "standard": {
-        "$value": {
-          "colorSpace": "srgb",
-          "components": [
-            0.4706,
-            0.4706,
-            0.502
-          ],
-          "hex": "#787880",
-          "alpha": 0.2
-        },
-        "$description": "Controls and the unplayed timeline. iOS systemFill."
+        "$value": "{palette.light.fill.standard}",
+        "$description": "A translucent overlay: controls, Chronology era bands."
       },
       "quiet": {
-        "$value": {
-          "colorSpace": "srgb",
-          "components": [
-            0.4627,
-            0.4627,
-            0.502
-          ],
-          "hex": "#767680",
-          "alpha": 0.12
-        },
-        "$description": "Search field and chips. iOS tertiarySystemFill."
+        "$value": "{palette.light.fill.quiet}",
+        "$description": "A quieter translucent overlay: the search field, chips."
       }
     },
     "tint": {
-      "$value": {
-        "colorSpace": "srgb",
-        "components": [
-          0.0,
-          0.4784,
-          1.0
-        ],
-        "hex": "#007AFF"
-      },
-      "$description": "Klassik's tint: links, controls, the played timeline, the wash of a cover without colour. iOS systemBlue."
+      "$value": "{palette.light.tint}",
+      "$description": "The accent: links, controls, the playing row, the played timeline."
+    },
+    "accent": {
+      "fill": {
+        "$value": "{palette.light.accent.fill}",
+        "$description": "The accent as a fill behind a label: a filled button, a selected chip."
+      }
+    },
+    "on-accent": {
+      "$value": "{palette.light.on-accent}",
+      "$description": "A label on the accent fill."
     },
     "favourite": {
-      "$value": "{color.tint}",
-      "$description": "The fermata of a favourite."
+      "$value": "{palette.light.favourite}",
+      "$description": "The set fermata: the accent at its strongest chroma."
+    },
+    "favourite-off": {
+      "$value": "{palette.light.favourite-off}",
+      "$description": "The fermata when not set: a quiet grey."
     },
     "timeline": {
       "played": {
-        "$value": "{color.tint}",
+        "$value": "{palette.light.timeline.played}",
         "$description": "The played part of the timeline."
       },
       "unplayed": {
-        "$value": "{color.fill.standard}",
+        "$value": "{palette.light.timeline.unplayed}",
         "$description": "The part of the timeline still to play."
+      }
+    },
+    "swipe": {
+      "playNext": {
+        "$value": "{palette.light.swipe.playNext}",
+        "$description": "Swipe action Play Next, with a white icon and label."
+      },
+      "addToQueue": {
+        "$value": "{palette.light.swipe.addToQueue}",
+        "$description": "Swipe action Add to Queue, with a white icon and label."
+      },
+      "download": {
+        "$value": "{palette.light.swipe.download}",
+        "$description": "Swipe action Download, with a white icon and label."
+      },
+      "favourite": {
+        "$value": "{palette.light.swipe.favourite}",
+        "$description": "Swipe action Favourite, with a white icon and label."
       }
     }
   },

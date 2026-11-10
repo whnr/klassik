@@ -65,8 +65,12 @@ jobs:
 
   test:
     needs: [lint, fixtures]
-    runs-on: macos-26
+    runs-on: xcode-27
     timeout-minutes: 40
+    # The xcode-27 image holds the iOS 27 SDK. Its default Xcode 27.1 has one simulator on its own iOS;
+    # Xcode 27.2 matches the newest simulator runtime.
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
     outputs:
       ui: ${{ steps.ui.outputs.ui }}
     steps:

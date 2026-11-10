@@ -12,7 +12,7 @@ Klassik is a classical music player for iPhone. It plays your own library from a
 
 ## Requirements
 
-- iPhone with iOS 26 or later.
+- iPhone with iOS 27 or later.
 - An OpenSubsonic server. Works and movements need [Navidrome](https://www.navidrome.org) 0.63 or later and the WORK, MOVEMENTNAME, MOVEMENT and MOVEMENTTOTAL tags.
 
 ## Build
@@ -21,7 +21,7 @@ The Xcode project is generated from `project.yml` by [XcodeGen](https://github.c
 
 Without a Mac: open a pull request from a fork. GitHub Actions builds the app and runs tests on macOS, except for documentation-only changes (`.github/workflows/test.yml`).
 
-With a Mac and Xcode 26:
+With a Mac and Xcode 27:
 
 ```sh
 brew install xcodegen

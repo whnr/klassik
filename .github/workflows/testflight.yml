@@ -54,11 +54,13 @@ jobs:
   upload:
     needs: due
     if: needs.due.outputs.upload == 'true'
-    runs-on: macos-26
+    runs-on: xcode-27
     timeout-minutes: 45
     permissions:
       contents: write
     env:
+      # The same Xcode as the Test workflow, on the image that holds the iOS 27 SDK.
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}

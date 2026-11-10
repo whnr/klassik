@@ -12,6 +12,7 @@ Embedded cover art never reaches the snapshot. Each album gets a public-domain p
 Commons instead, chosen by the composition year of its works, and loaded at runtime. Two albums
 get none.
 """
+
 import json
 import pathlib
 import re
@@ -72,18 +73,29 @@ FLO = ["Chopin"] + [
 # Another library's style: no work, movement or role tags; all performers in one artist string;
 # the work and movement only in the title. Each album is weak in its own way.
 WEAK = [
-    {   # Surname-only composer, "Work: I. Movement".
-        "album": "Beethoven: Symphony No. 7", "composer": "Beethoven", "genre": "Classical", "sep": ": ",
+    {  # Surname-only composer, "Work: I. Movement".
+        "album": "Beethoven: Symphony No. 7",
+        "composer": "Beethoven",
+        "genre": "Classical",
+        "sep": ": ",
         "sources": ["Beethoven/Symphony No. 7 in A major, Op. 92/Wiener Philharmoniker, Karl Böhm"],
     },
-    {   # No composer tag; the work is a nickname.
-        "album": "Vivaldi - The Four Seasons", "composer": None, "genre": "Classical", "sep": ": ",
+    {  # No composer tag; the work is a nickname.
+        "album": "Vivaldi - The Four Seasons",
+        "composer": None,
+        "genre": "Classical",
+        "sep": ": ",
         "works": {"RV 315": "Summer", "RV 293": "Autumn"},
-        "sources": ["Vivaldi/Violin Concerto in G minor, Op. 8 No. 2, RV 315 'Summer'/Venice Baroque Orchestra, Andrea Marcon",
-                    "Vivaldi/Violin Concerto in F major, Op. 8 No. 3, RV 293 'Autumn'/Venice Baroque Orchestra, Andrea Marcon"],
+        "sources": [
+            "Vivaldi/Violin Concerto in G minor, Op. 8 No. 2, RV 315 'Summer'/Venice Baroque Orchestra, Andrea Marcon",
+            "Vivaldi/Violin Concerto in F major, Op. 8 No. 3, RV 293 'Autumn'/Venice Baroque Orchestra, Andrea Marcon",
+        ],
     },
-    {   # No genre, "Work - I. Movement".
-        "album": "Schubert: The Great C Major", "composer": "Franz Schubert", "genre": None, "sep": " - ",
+    {  # No genre, "Work - I. Movement".
+        "album": "Schubert: The Great C Major",
+        "composer": "Franz Schubert",
+        "genre": None,
+        "sep": " - ",
         "sources": ["Schubert/Symphony No. 9 in C major, D 944/Gewandhausorchester Leipzig, Herbert Blomstedt"],
     },
 ]
@@ -94,10 +106,35 @@ NO_COVER = {"Weihnachtshistorie", "Schubert: The Great C Major"}
 ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"]
 AUDIO = (".mp3", ".flac", ".m4a")
 # Fields that describe the file or the server, not the music, or that would leak the real covers.
-DROP = {"path", "coverArt", "size", "bitRate", "contentType", "suffix", "created", "isDir", "isVideo", "type",
-        "mediaType", "parent", "albumId", "artistId", "bpm", "samplingRate", "channelCount", "bitDepth",
-        "replayGain", "artistImageUrl", "played", "playCount", "starred", "userRating", "explicitStatus",
-        "transcodedContentType", "transcodedSuffix"}
+DROP = {
+    "path",
+    "coverArt",
+    "size",
+    "bitRate",
+    "contentType",
+    "suffix",
+    "created",
+    "isDir",
+    "isVideo",
+    "type",
+    "mediaType",
+    "parent",
+    "albumId",
+    "artistId",
+    "bpm",
+    "samplingRate",
+    "channelCount",
+    "bitDepth",
+    "replayGain",
+    "artistImageUrl",
+    "played",
+    "playCount",
+    "starred",
+    "userRating",
+    "explicitStatus",
+    "transcodedContentType",
+    "transcodedSuffix",
+}
 
 
 def raw(path, name):
@@ -144,8 +181,23 @@ def build_weak(lib, folder, album):
         performers = src.parent.name
         out = folder / f"{n:02d}.mp3"
         seconds = mutagen.File(src).info.length  # pyright: ignore[reportOptionalMemberAccess]
-        subprocess.run(["ffmpeg", "-loglevel", "error", "-f", "lavfi", "-i", "anullsrc=r=8000:cl=mono",
-                        "-t", f"{seconds:.2f}", "-b:a", "8k", str(out)], check=True)
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-loglevel",
+                "error",
+                "-f",
+                "lavfi",
+                "-i",
+                "anullsrc=r=8000:cl=mono",
+                "-t",
+                f"{seconds:.2f}",
+                "-b:a",
+                "8k",
+                str(out),
+            ],
+            check=True,
+        )
         id3 = ID3()
         id3.add(TIT2(encoding=3, text=title))
         id3.add(TALB(encoding=3, text=album["album"]))
@@ -206,9 +258,15 @@ def paintings():
         if b["p"]["value"] in seen:
             continue
         seen.add(b["p"]["value"])
-        out.append({"file": urllib.parse.unquote(b["img"]["value"].rsplit("/", 1)[1]),
-                    "title": b["pLabel"]["value"], "painter": b["cLabel"]["value"],
-                    "year": int(b["year"]["value"]), "wikidata": b["p"]["value"]})
+        out.append(
+            {
+                "file": urllib.parse.unquote(b["img"]["value"].rsplit("/", 1)[1]),
+                "title": b["pLabel"]["value"],
+                "painter": b["cLabel"]["value"],
+                "year": int(b["year"]["value"]),
+                "wikidata": b["p"]["value"],
+            }
+        )
     return out
 
 
@@ -216,9 +274,15 @@ def commons(files):
     """Thumbnail URL, page and licence for each Commons file; public domain only."""
     info = {}
     for i in range(0, len(files), 40):
-        params = {"action": "query", "format": "json", "prop": "imageinfo", "iiprop": "url|extmetadata",
-                  "iiurlwidth": "1200", "iiextmetadatafilter": "LicenseShortName",
-                  "titles": "|".join("File:" + f for f in files[i:i + 40])}
+        params = {
+            "action": "query",
+            "format": "json",
+            "prop": "imageinfo",
+            "iiprop": "url|extmetadata",
+            "iiurlwidth": "1200",
+            "iiextmetadatafilter": "LicenseShortName",
+            "titles": "|".join("File:" + f for f in files[i : i + 40]),
+        }
         pages = fetch("https://commons.wikimedia.org/w/api.php?" + urllib.parse.urlencode(params))
         names = {n["to"]: n["from"] for n in pages["query"].get("normalized", [])}
         for page in pages["query"]["pages"].values():
@@ -228,7 +292,10 @@ def commons(files):
             licence = ii["extmetadata"].get("LicenseShortName", {}).get("value", "")
             if licence.lower().startswith("public domain"):
                 info[names.get(page["title"], page["title"])[5:]] = {
-                    "url": ii["thumburl"], "page": ii["descriptionurl"], "licence": licence}
+                    "url": ii["thumburl"],
+                    "page": ii["descriptionurl"],
+                    "licence": licence,
+                }
     return info
 
 
@@ -265,8 +332,8 @@ def main():
     weak_names = {a["album"] for a in WEAK}
     snapshot = {
         "about": "Specimen data for the Klassik design map. OpenSubsonic responses of Navidrome 0.64.2. "
-                 "Set 'flo': Flo's tags. Set 'weak': another tagging style. Covers: public-domain paintings "
-                 "from Wikimedia Commons, credit with each. Regenerate with make_data.py.",
+        "Set 'flo': Flo's tags. Set 'weak': another tagging style. Covers: public-domain paintings "
+        "from Wikimedia Commons, credit with each. Regenerate with make_data.py.",
         "server": "Navidrome 0.64.2",
         "albums": [dict(clean(a), set="weak" if a["name"] in weak_names else "flo") for a in albums],
         "artists": [clean(a) for a in artists],

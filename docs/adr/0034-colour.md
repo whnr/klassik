@@ -1,6 +1,6 @@
 # 0034. Colour: a programme by day, the hall at night
 
-Date: 2026-11-09. Decided by Flo after specimen rounds 19 to 24 on the phone. Beads: the colour map sz-rs30.1.83.19 and its tickets .1 to .16.
+Date: 2026-11-09. Decided by Flo after specimen rounds 19 to 24 on the phone. Beads: the colour map sz-rs30.1.83.19 and its tickets .1 to .16. The dark unplayed timeline colour is replaced by [0035](0035-timeline-shape.md). Where the values come from is replaced by [0037](0037-palette-from-targets.md).
 
 ## Context
 

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Checks the decided design: contrast targets of ADR 0034 in every accent and room, and the links between ADRs.
 
+A record that replaces part of another must be answered: the old record links back, and its index row names it.
+
 Usage: design/scripts/check.py
 Exits 1 on a failed pair or a broken link. Known pairs below target are listed but do not fail.
 """
@@ -94,9 +96,28 @@ def check_links():
     return broken
 
 
+def check_chain():
+    """The rule of docs/adr/README.md: each "Replaces" sentence in a header line has a pointer back and an index row."""
+    adr = ROOT / "docs/adr"
+    index = (adr / "README.md").read_text()
+    missing = []
+    for record in sorted(adr.glob("0*.md")):
+        header = record.read_text().splitlines()[2]
+        for sentence in re.split(r"(?<=\.) ", header):
+            if not sentence.startswith("Replaces"):
+                continue
+            for target in re.findall(r"\]\((0\d{3}-[^)]+\.md)\)", sentence):
+                if f"({record.name})" not in (adr / target).read_text().splitlines()[2]:
+                    missing.append(f"{target}: no pointer back to {record.name}")
+                row = next((line for line in index.splitlines() if line.startswith(f"| [{target[:4]}]")), "")
+                if not re.search(rf"replaced by [^)]*\b{record.name[:4]}\b", row):
+                    missing.append(f"README.md: the row of {target} does not name {record.name[:4]}")
+    return missing
+
+
 def main():
     failures, known = check_contrast()
-    broken = check_links()
+    broken = check_links() + check_chain()
     for line in known:
         print(f"known, sz-rs30.1.83.19.17: {line}")
     for line in failures:

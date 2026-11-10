@@ -46,8 +46,12 @@ def composers(names):
     for row in rows:
         name = value(row, "name")
         # A label can name several composers; the one with work period data or the earliest item wins.
-        entry = {"wikidata": row["item"]["value"].rsplit("/", 1)[-1], "born": year(row, "b"),
-                 "died": year(row, "d"), "activeFrom": year(row, "a")}
+        entry = {
+            "wikidata": row["item"]["value"].rsplit("/", 1)[-1],
+            "born": year(row, "b"),
+            "died": year(row, "d"),
+            "activeFrom": year(row, "a"),
+        }
         if name not in out or (entry["activeFrom"] and not out[name]["activeFrom"]):
             out[name] = entry
     return out
@@ -77,8 +81,11 @@ def chopin_years():
         }} GROUP BY ?w ?wLabel""")
     found = {}
     for row in rows:
-        title = row["wLabel"]["value"] + " " + " ".join(f"KK {c[3:]}" for c in (value(row, "codes") or "").split("|")
-                                                     if c.startswith("KK "))
+        title = (
+            row["wLabel"]["value"]
+            + " "
+            + " ".join(f"KK {c[3:]}" for c in (value(row, "codes") or "").split("|") if c.startswith("KK "))
+        )
         for key in catalogue_keys(title):
             found.setdefault(key, set()).add(int(row["y"]["value"]))
     return {key: min(years) for key, years in found.items() if len(years) == 1}
@@ -113,8 +120,8 @@ def main():
         years.setdefault(composer, {})[name] = y
     out = {
         "about": "Outside data for the Chronology specimen, from Wikidata (CC0). Composer: P569, P570, P2031. "
-                 "Work: P571 through the MusicBrainz work ID (P435), or for Chopin through the catalogue number. "
-                 "null: no date found. Regenerate with make_chronology.py.",
+        "Work: P571 through the MusicBrainz work ID (P435), or for Chopin through the catalogue number. "
+        "null: no date found. Regenerate with make_chronology.py.",
         "composers": composers(sorted(names)),
         "workYears": years,
     }

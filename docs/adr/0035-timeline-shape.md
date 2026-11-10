@@ -1,6 +1,6 @@
 # 0035. The timeline: flush, round on the content side, a gap for each movement
 
-Date: 2026-11-10. Decided by Flo after specimen round 25 on the phone. Bead: sz-rs30.1.83.21. Adds the shape to the timeline of [0014](0014-player.md).
+Date: 2026-11-10. Decided by Flo after specimen round 25 on the phone. Bead: sz-rs30.1.83.21. Adds the shape to the timeline of [0014](0014-player.md). Replaces the dark unplayed colour of [0034](0034-colour.md).
 
 ## Context
 

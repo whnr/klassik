@@ -44,7 +44,7 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0031](0031-no-separator-glyph.md) | No separator glyph: prose, words and role lines | 2026-11-09 |
 | [0032](0032-fermata-mark.md) | The fermata: one solid drawing, grey when not set (partly replaced by 0033) | 2026-11-08 |
 | [0033](0033-engraved-fermata.md) | The engraved fermata, strong when set and quiet when not | 2026-11-09 |
-| [0034](0034-colour.md) | Colour: a programme by day, the hall at night (the dark timeline partly replaced by 0035; values from 0037) | 2026-11-09 |
+| [0034](0034-colour.md) | Colour: a programme by day, the hall at night (partly replaced by 0035 and 0037) | 2026-11-09 |
 | [0035](0035-timeline-shape.md) | The timeline: flush, round on the content side, a gap for each movement | 2026-11-10 |
 | [0036](0036-design-folder-and-checks.md) | The design folder and its checks | 2026-11-10 |
 | [0037](0037-palette-from-targets.md) | The palette is solved from its targets on main | 2026-11-10 |

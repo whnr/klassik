@@ -61,34 +61,53 @@ def plain(html):
 
 
 def picture(file):
-    info = get("https://commons.wikimedia.org/w/api.php", action="query", format="json", prop="imageinfo",
-               titles="File:" + file, iiprop="url|extmetadata", iiurlwidth=1280)
+    info = get(
+        "https://commons.wikimedia.org/w/api.php",
+        action="query",
+        format="json",
+        prop="imageinfo",
+        titles="File:" + file,
+        iiprop="url|extmetadata",
+        iiurlwidth=1280,
+    )
     page = next(iter(info["query"]["pages"].values()))
     if "imageinfo" not in page:
         return None
     ii = page["imageinfo"][0]
     meta = ii.get("extmetadata", {})
-    return {"url": ii.get("thumburl") or ii["url"], "page": ii["descriptionurl"],
-            "author": plain(meta.get("Artist", {}).get("value")) or "Unknown",
-            "licence": plain(meta.get("LicenseShortName", {}).get("value")) or "See file page"}
+    return {
+        "url": ii.get("thumburl") or ii["url"],
+        "page": ii["descriptionurl"],
+        "author": plain(meta.get("Artist", {}).get("value")) or "Unknown",
+        "licence": plain(meta.get("LicenseShortName", {}).get("value")) or "See file page",
+    }
 
 
 def lead(title):
-    pages = get("https://en.wikipedia.org/w/api.php", action="query", format="json", prop="extracts",
-                exintro=1, explaintext=1, titles=title)["query"]["pages"]
+    pages = get(
+        "https://en.wikipedia.org/w/api.php",
+        action="query",
+        format="json",
+        prop="extracts",
+        exintro=1,
+        explaintext=1,
+        titles=title,
+    )["query"]["pages"]
     return next(iter(pages.values())).get("extract", "").strip() or None
 
 
 def person(qid):
-    entity = wikidata(action="wbgetentities", ids=qid, props="claims|descriptions|sitelinks", languages="en",
-                      sitefilter="enwiki")["entities"][qid]
+    entity = wikidata(
+        action="wbgetentities", ids=qid, props="claims|descriptions|sitelinks", languages="en", sitefilter="enwiki"
+    )["entities"][qid]
     claims = entity.get("claims", {})
     file = claims.get("P18", [{}])[0].get("mainsnak", {}).get("datavalue", {}).get("value")
     wiki = entity.get("sitelinks", {}).get("enwiki", {}).get("title")
     return {
         "wikidata": qid,
         "description": entity.get("descriptions", {}).get("en", {}).get("value"),
-        "born": year(claims, "P569"), "died": year(claims, "P570"),
+        "born": year(claims, "P569"),
+        "died": year(claims, "P570"),
         "picture": picture(file) if file else None,
         "bio": lead(wiki) if wiki else None,
         "wikipedia": f"https://en.wikipedia.org/wiki/{urllib.parse.quote(wiki.replace(' ', '_'))}" if wiki else None,
@@ -112,9 +131,18 @@ def main():
         qid = find(name)
         out[name] = dict(person(qid), kind="performer") if qid else {"kind": "performer", "wikidata": None}
         print(name, qid)
-    (HERE / "people.json").write_text(json.dumps(
-        {"about": "Wikidata (CC0), Commons pictures with their credits, Wikipedia leads (CC BY-SA 4.0). "
-                  "Regenerate with make_people.py.", "people": out}, ensure_ascii=False, indent=1) + "\n")
+    (HERE / "people.json").write_text(
+        json.dumps(
+            {
+                "about": "Wikidata (CC0), Commons pictures with their credits, Wikipedia leads (CC BY-SA 4.0). "
+                "Regenerate with make_people.py.",
+                "people": out,
+            },
+            ensure_ascii=False,
+            indent=1,
+        )
+        + "\n"
+    )
     found = sum(1 for p in out.values() if p.get("picture"))
     print(f"people.json: {len(out)} people, {found} with a picture")
 

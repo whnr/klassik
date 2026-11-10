@@ -5,8 +5,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
-uvx ruff@0.17.3 format --check scripts design/scripts
-uvx ruff@0.17.3 check scripts design/scripts
+uvx ruff@0.17.3 format --check scripts design
+uvx ruff@0.17.3 check scripts design
 npx --yes prettier@3.9.10 --check "design/**/*.{html,css,js,json}"
 npx --yes @biomejs/biome@2.6.3 lint --error-on-warnings
 uv run --no-project design/scripts/palette.py --check

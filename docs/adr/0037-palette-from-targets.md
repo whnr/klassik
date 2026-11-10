@@ -1,6 +1,6 @@
 # 0037. The palette is solved from its targets on main
 
-Date: 2026-11-10. Decided by Flo on PR #13. Bead: sz-rs30.1.83.25. Changes where the colour values of [0034](0034-colour.md) come from; [0021](0021-design-tokens.md) still holds for every other token.
+Date: 2026-11-10. Decided by Flo on PR #13. Bead: sz-rs30.1.83.25. Replaces where the colour values of [0034](0034-colour.md) come from. [0021](0021-design-tokens.md) still holds for every other token.
 
 ## Context
 

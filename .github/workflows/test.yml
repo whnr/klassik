@@ -81,8 +81,11 @@ jobs:
         id: ui
         env:
           MESSAGE: ${{ github.event.head_commit.message }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
           INPUT: ${{ inputs.ui }}
         run: |
+          # A pull request event carries no commit message; the checkout holds the head commit of the branch.
+          if [ -n "$PR_HEAD" ]; then MESSAGE=$(git log -1 --format=%B "$PR_HEAD"); fi
           line=$(printf '%s\n' "$MESSAGE" | grep -E '^\[ui(:[a-zA-Z, ]+)?\] *$' | head -1 || true)
           case "$line" in
             "") ui=${INPUT:-false} ;;

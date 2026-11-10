@@ -56,6 +56,18 @@ private struct TypeStyleModifier: ViewModifier {
     }
 }
 
+/// An explicit foreground style does not dim in a disabled row, so the disabled colour stands in.
+private struct InkModifier: ViewModifier {
+    @Environment(\.isEnabled) private var isEnabled
+
+    func body(content: Content) -> some View {
+        content.foregroundStyle(
+            isEnabled ? Palette.textPrimary : Palette.textTertiary,
+            isEnabled ? Palette.textSecondary : Palette.textTertiary,
+            Palette.textTertiary)
+    }
+}
+
 private struct MotionModifier<Value: Equatable>: ViewModifier {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let motion: Motion
@@ -80,7 +92,7 @@ extension View {
     /// Sets ink for text, and the two quieter text colours for the levels below it.
     /// A button must not get it: a foreground style replaces the tint of a button.
     func ink() -> some View {
-        foregroundStyle(Palette.textPrimary, Palette.textSecondary, Palette.textTertiary)
+        modifier(InkModifier())
     }
 
     /// Puts an inset list on Klassik's grounds.
@@ -114,6 +126,25 @@ struct PageForm<Content: View>: View {
     var body: some View {
         Form { content.listRowBackground(Palette.backgroundRow.color) }
             .grounds()
+    }
+}
+
+/// A label with its title in ink. The icon keeps the tint, which `ink()` on a whole label replaces.
+struct InkLabel: View {
+    let title: String
+    let systemImage: String
+
+    init(_ title: String, systemImage: String) {
+        self.title = title
+        self.systemImage = systemImage
+    }
+
+    var body: some View {
+        Label {
+            Text(title).ink()
+        } icon: {
+            Image(systemName: systemImage)
+        }
     }
 }
 

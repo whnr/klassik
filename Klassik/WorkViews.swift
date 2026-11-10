@@ -281,7 +281,7 @@ private struct ComposedRow: View {
             WorkSourcesView(work: work)
         } label: {
             if case .candidates = enrichment.link(of: work) {
-                Label("Confirm the MusicBrainz Work", systemImage: "questionmark.circle")
+                InkLabel("Confirm the MusicBrainz Work", systemImage: "questionmark.circle")
             } else {
                 LabeledContent("Composed") {
                     if let composed = enrichment.composed(work) {
@@ -330,8 +330,11 @@ struct RecordingView: View {
                     LabeledContent("Year", value: String(year))
                         .ink()
                 }
-                NavigationLink("Tags and Grouping") {
+                NavigationLink {
                     RawTagsView(work: work, recording: recording)
+                } label: {
+                    Text("Tags and Grouping")
+                        .ink()
                 }
                 .accessibilityIdentifier("raw-tags")
             }

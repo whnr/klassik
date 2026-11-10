@@ -13,7 +13,7 @@ struct HomeView: View {
                         NavigationLink {
                             WorkTimelineView()
                         } label: {
-                            Label("Timeline", systemImage: "calendar")
+                            InkLabel("Timeline", systemImage: "calendar")
                         }
                         .accessibilityIdentifier("timeline")
                         NavigationLink {
@@ -23,7 +23,7 @@ struct HomeView: View {
                                 Text(lookupState)
                                     .foregroundStyle(Palette.textSecondary)
                             } label: {
-                                Label("MusicBrainz", systemImage: "books.vertical")
+                                InkLabel("MusicBrainz", systemImage: "books.vertical")
                             }
                         }
                         .accessibilityIdentifier("musicbrainz")
@@ -114,31 +114,31 @@ struct HomeView: View {
                     NavigationLink {
                         FilterView()
                     } label: {
-                        Label("Classical Filter", systemImage: "line.3.horizontal.decrease.circle")
+                        InkLabel("Classical Filter", systemImage: "line.3.horizontal.decrease.circle")
                     }
                     .accessibilityIdentifier("classical-filter")
                     NavigationLink {
                         LocalStorageView()
                     } label: {
-                        Label("Local Storage", systemImage: "internaldrive")
+                        InkLabel("Local Storage", systemImage: "internaldrive")
                     }
                     .accessibilityIdentifier("local-storage")
                     NavigationLink {
                         SwipeSettingsView()
                     } label: {
-                        Label("Swipe Actions", systemImage: "arrow.left.arrow.right")
+                        InkLabel("Swipe Actions", systemImage: "arrow.left.arrow.right")
                     }
                     .accessibilityIdentifier("swipe-actions")
                     NavigationLink {
                         DiagnosticsView()
                     } label: {
-                        Label("Diagnostics", systemImage: "stethoscope")
+                        InkLabel("Diagnostics", systemImage: "stethoscope")
                     }
                     .accessibilityIdentifier("diagnostics")
                     NavigationLink {
                         LicencesView()
                     } label: {
-                        Label("Licences", systemImage: "doc.text")
+                        InkLabel("Licences", systemImage: "doc.text")
                     }
                     .accessibilityIdentifier("licences")
                 }

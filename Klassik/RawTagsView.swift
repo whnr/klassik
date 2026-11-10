@@ -22,7 +22,10 @@ struct RawTagsView: View {
 
             ForEach(recording.songs) { song in
                 Section(song.title) {
-                    if work.id.hasPrefix("album|") { LabeledContent("Own work key", value: WorkIndex.workKey(song)) }
+                    if work.id.hasPrefix("album|") {
+                        LabeledContent("Own work key", value: WorkIndex.workKey(song))
+                            .ink()
+                    }
                     ForEach(Array(song.tagRows.enumerated()), id: \.offset) { _, row in
                         LabeledContent(row.name, value: row.value)
                             .ink()

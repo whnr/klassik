@@ -77,8 +77,13 @@ struct DiagnosticsView: View {
             }
 
             Section("Playback") {
-                NavigationLink("Gapless Test") { GaplessTestView() }
-                    .accessibilityIdentifier("gapless-test")
+                NavigationLink {
+                    GaplessTestView()
+                } label: {
+                    Text("Gapless Test")
+                        .ink()
+                }
+                .accessibilityIdentifier("gapless-test")
             }
 
             Section {

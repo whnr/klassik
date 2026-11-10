@@ -1,5 +1,5 @@
 // The specimen frame: data model, specimen controls, app chrome, timeline, mini player and sheet.
-// Pages call K.start(render). Flows follow ADR 0013 to 0020; looks come from tokens.css and a variant only.
+// Pages call K.start(render). Flows follow ADR 0013 to 0029; looks come from tokens.css and the decided drawn views.
 "use strict";
 
 const K = (() => {

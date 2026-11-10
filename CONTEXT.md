@@ -26,6 +26,16 @@ _Avoid_: Disc, CD
 The first recording in the list of a work: the first favourite recording, else the first that a favourite lifts, else the newest. It plays when the listener plays the work.
 _Avoid_: Default recording
 
+### Classical filter
+
+**Classical rule**:
+A rule that the listener edits to say which tracks are classical. A track matches when any classical rule matches. An album counts when most of its tracks match.
+_Avoid_: Filter, condition
+
+**Check**:
+One test in a classical rule, such as "Genre contains Classical" or "Has a work". A classical rule matches when all of its checks match.
+_Avoid_: Condition, criterion, clause
+
 ### Views
 
 **Place**:

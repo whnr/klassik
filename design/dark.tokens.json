@@ -1,0 +1,81 @@
+{
+  "$description": "Dark appearance: the hall. Colours only; each points to the accent family's palette.",
+  "color": {
+    "$type": "color",
+    "background": {
+      "page": {
+        "$value": "{palette.dark.background.page}"
+      },
+      "row": {
+        "$value": "{palette.dark.background.row}"
+      },
+      "grouped": {
+        "$value": "{palette.dark.background.grouped}"
+      },
+      "elevated": {
+        "$value": "{palette.dark.background.elevated}"
+      }
+    },
+    "text": {
+      "primary": {
+        "$value": "{palette.dark.text.primary}"
+      },
+      "secondary": {
+        "$value": "{palette.dark.text.secondary}"
+      },
+      "tertiary": {
+        "$value": "{palette.dark.text.tertiary}"
+      }
+    },
+    "separator": {
+      "$value": "{palette.dark.separator}"
+    },
+    "fill": {
+      "standard": {
+        "$value": "{palette.dark.fill.standard}"
+      },
+      "quiet": {
+        "$value": "{palette.dark.fill.quiet}"
+      }
+    },
+    "tint": {
+      "$value": "{palette.dark.tint}"
+    },
+    "accent": {
+      "fill": {
+        "$value": "{palette.dark.accent.fill}"
+      }
+    },
+    "on-accent": {
+      "$value": "{palette.dark.on-accent}"
+    },
+    "favourite": {
+      "$value": "{palette.dark.favourite}"
+    },
+    "favourite-off": {
+      "$value": "{palette.dark.favourite-off}"
+    },
+    "timeline": {
+      "played": {
+        "$value": "{palette.dark.timeline.played}"
+      },
+      "unplayed": {
+        "$value": "{palette.dark.timeline.unplayed}"
+      }
+    },
+    "swipe": {
+      "playNext": {
+        "$value": "{palette.dark.swipe.playNext}"
+      },
+      "addToQueue": {
+        "$value": "{palette.dark.swipe.addToQueue}"
+      },
+      "download": {
+        "$value": "{palette.dark.swipe.download}"
+      },
+      "favourite": {
+        "$value": "{palette.dark.swipe.favourite}"
+      }
+    }
+  }
+}

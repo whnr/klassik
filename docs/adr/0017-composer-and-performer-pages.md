@@ -1,6 +1,6 @@
 # 0017. Composer and performer pages
 
-Date: 2026-11-04. Decided by Flo after six prototype rounds. Beads: sz-rs30.1.74.8, sz-rs30.1.74.12.
+Date: 2026-11-04. Decided by Flo after six prototype rounds. Beads: sz-rs30.1.74.8, sz-rs30.1.74.12. The naming note for grouped works is replaced by [0020](0020-set-and-condition.md). The outline of a mark that is not set is replaced by [0032](0032-fermata-mark.md).
 
 ## Context
 

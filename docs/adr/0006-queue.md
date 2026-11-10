@@ -1,6 +1,6 @@
 # 0006. The queue holds recordings
 
-Date: 2026-10-18. Proposed by code for TB3; Flo tests it in 0.6.1. Beads: sz-rs30.1.5, sz-rs30.1.26.
+Date: 2026-10-18. Proposed by code for TB3; Flo tests it in 0.6.1. Beads: sz-rs30.1.5, sz-rs30.1.26. The rule for a work without a chosen recording is replaced by [0013](0013-favourites.md).
 
 ## Context
 

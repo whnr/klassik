@@ -1,6 +1,6 @@
 # 0016. The Chronology: a chart of one composer among their contemporaries
 
-Date: 2026-11-04. Decided by Flo after four prototype rounds and one grilling. Bead: sz-rs30.1.74.6. Replaces the timeline rules of [0011](0011-enrichment.md): undated works no longer sit inside the composer's lifetime.
+Date: 2026-11-04. Decided by Flo after four prototype rounds and one grilling. Bead: sz-rs30.1.74.6. Replaces the timeline rules of [0011](0011-enrichment.md): undated works no longer sit inside the composer's lifetime. The work card and the sideways drag are replaced by [0022](0022-chronology-taps.md). The rule for contemporaries is replaced by [0026](0026-contemporaries-by-active-years.md).
 
 ## Context
 

@@ -1,0 +1,74 @@
+/* The mini player of ADR 0028. The pill grows out of the timeline: a flat face on the timeline's side. */
+.edge-pill {
+  position: fixed;
+  z-index: 41;
+  right: 0;
+  bottom: max(env(safe-area-inset-bottom), var(--space-s));
+  display: flex;
+  gap: var(--space-xs);
+  padding: var(--space-xs);
+  border-radius: 28px 0 12px 28px;
+  padding-right: calc(var(--size-timeline) + var(--space-xs));
+  /* The timeline bar runs on down the flat face, so the pill reads as its end. */
+  box-shadow:
+    inset calc(-1 * var(--size-timeline)) 0 0 var(--color-timeline-unplayed),
+    0 0 0 0.5px var(--color-separator),
+    0 4px 18px rgb(0 0 0 / 0.12);
+}
+[data-side="left"] .edge-pill {
+  right: auto;
+  left: 0;
+  border-radius: 0 28px 28px 12px;
+  flex-direction: row-reverse;
+  padding-right: var(--space-xs);
+  padding-left: calc(var(--size-timeline) + var(--space-xs));
+  box-shadow:
+    inset var(--size-timeline) 0 0 var(--color-timeline-unplayed),
+    0 0 0 0.5px var(--color-separator),
+    0 4px 18px rgb(0 0 0 / 0.12);
+}
+.edge-pill > * {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-full);
+  display: grid;
+  place-items: center;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  -webkit-touch-callout: none;
+}
+/* Album art is square; only the play/pause button is round. */
+.edge-pill .cover-link {
+  border-radius: var(--radius-s);
+}
+.edge-pill .cover,
+.edge-pill img {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-s);
+  pointer-events: none;
+}
+.edge-pill .pp svg {
+  width: 20px;
+  height: 20px;
+}
+.edge-pill .pp:active {
+  background: var(--color-fill-quiet);
+}
+
+/* The tab bar leaves room for the pill on the timeline's side. */
+:root.has-edge-pill .tabbar {
+  right: calc(var(--edge-pill-width) + var(--space-s));
+}
+:root.has-edge-pill[data-side="left"] .tabbar {
+  right: var(--space-l);
+  left: calc(var(--edge-pill-width) + var(--space-s));
+}
+body.typing .edge-pill {
+  display: none;
+}
+:root.has-edge-pill body.typing .tabbar {
+  right: var(--space-l);
+  left: var(--space-l);
+}

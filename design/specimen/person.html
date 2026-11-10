@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Person</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="../tokens.css?v=44" />
+    <link rel="stylesheet" href="specimen.css?v=44" />
+    <script src="specimen.js?v=44"></script>
+  </head>
+  <body>
+    <style>
+      /* The fade starts above the name, so the name always reads on the fading bottom of the picture. */
+      .hero {
+        position: relative;
+        margin-top: calc(-1 * (max(env(safe-area-inset-top), 6px) + var(--pill-space, 34px) + var(--size-hitTarget)));
+        --fade: calc(var(--title-h, 80px) + 96px);
+      }
+      .pic {
+        display: block;
+        width: 100%;
+        position: relative;
+        height: max(min(118vw, 470px), calc(var(--fade) + 220px));
+        overflow: hidden;
+      }
+      .pic img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: 50% 22%;
+        display: block;
+        -webkit-mask-image: linear-gradient(
+          to top,
+          transparent 0,
+          rgb(0 0 0 / 0.25) calc(var(--title-h, 80px) * 0.6),
+          #000 var(--fade)
+        );
+        mask-image: linear-gradient(
+          to top,
+          transparent 0,
+          rgb(0 0 0 / 0.25) calc(var(--title-h, 80px) * 0.6),
+          #000 var(--fade)
+        );
+      }
+      .pic .blur {
+        position: absolute;
+        inset: auto 0 0 0;
+        height: var(--fade);
+        -webkit-backdrop-filter: blur(14px);
+        backdrop-filter: blur(14px);
+        -webkit-mask-image: linear-gradient(to top, transparent, #000 40%, transparent);
+        mask-image: linear-gradient(to top, transparent, #000 40%, transparent);
+      }
+      /* Some room under the description, so the block does not touch the content below. */
+      .hero .page-head {
+        padding-bottom: var(--space-xs);
+      }
+      .hero .page-head {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        padding-bottom: 0;
+        pointer-events: none;
+      }
+      .hero .page-head button {
+        pointer-events: auto;
+      }
+      .no-pic .hero {
+        margin-top: 0;
+      }
+      .no-pic .hero .page-head {
+        position: relative;
+      }
+      .has-pic .nav .back {
+        margin-left: var(--space-xs);
+        padding-right: var(--space-m);
+        border-radius: var(--radius-full);
+        background: color-mix(in srgb, var(--color-background-elevated) 72%, transparent);
+        -webkit-backdrop-filter: blur(24px) saturate(1.8);
+        backdrop-filter: blur(24px) saturate(1.8);
+        box-shadow:
+          0 0 0 0.5px var(--color-separator),
+          0 2px 10px rgb(0 0 0 / 0.18);
+      }
+
+      .segmented {
+        display: flex;
+        margin: var(--space-l) var(--pad-right) 0 var(--pad-left);
+        padding: 2px;
+        border-radius: var(--radius-m);
+        background: var(--color-fill-quiet);
+      }
+      .segmented button {
+        flex: 1;
+        min-height: 32px;
+        border-radius: calc(var(--radius-m) - 2px);
+      }
+      .segmented button.on {
+        background: var(--color-background-row);
+        box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
+      }
+      .chips {
+        display: flex;
+        gap: var(--space-xs);
+        overflow-x: auto;
+        scrollbar-width: none;
+        padding: var(--space-m) var(--pad-right) 0 var(--pad-left);
+      }
+      .albums {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--space-l) var(--space-m);
+      }
+      .albums img,
+      .albums .none {
+        width: 100%;
+        aspect-ratio: 1;
+        height: auto;
+        border-radius: var(--radius-m);
+      }
+      .bio {
+        padding: var(--space-m) var(--space-l);
+        white-space: pre-line;
+        user-select: text;
+        -webkit-user-select: text;
+      }
+      .full img {
+        width: 100%;
+        max-height: 50vh;
+        object-fit: contain;
+        display: block;
+      }
+    </style>
+    <script>
+      K.start(() => {
+        const { el, href, M } = K;
+        const name = K.params.get("name") || "Ludwig van Beethoven";
+        const facts = M.people[name] || { kind: "performer" };
+        const composer = M.composers.get(name);
+        const kind = composer ? "composer" : "performer";
+        const { app, scroll } = K.page({ tab: "library", back: { label: "Library", href: "index.html" } });
+
+        // ADR 0019: only a picture with a person shows; the specimen cannot detect faces, so every P18 picture shows.
+        const pic = facts.picture;
+        const hero = el("div", { class: "hero" });
+        scroll.append(hero);
+        if (pic) {
+          const box = el(
+            "button",
+            {
+              class: "pic",
+              "aria-label": "Show the whole picture",
+              onclick: () =>
+                K.sheet(
+                  name,
+                  el(
+                    "div",
+                    { class: "full" },
+                    el("img", { src: pic.url, alt: "" }),
+                    el(
+                      "p",
+                      { class: "section-foot t-footnote" },
+                      `${pic.author}. ${pic.licence}. `,
+                      el("a", { class: "link", href: pic.page }, "File page"),
+                    ),
+                  ),
+                ),
+            },
+            el("img", { src: pic.url, alt: "", crossorigin: "anonymous" }),
+            el("div", { class: "blur" }),
+          );
+          hero.append(box);
+          app.classList.add("has-pic");
+        } else app.classList.add("no-pic");
+
+        // ADR 0017: the Wikidata description without years, then the years; tag roles only without a description.
+        const years = facts.born ? (facts.died ? `${facts.born}–${facts.died}` : `born ${facts.born}`) : null;
+        const desc = (facts.description || "").replace(/\s*\(\d{3,4}\s*[-–]\s*\d{0,4}\)\s*$/, "");
+        const roles = new Set();
+        for (const r of M.recordings.values())
+          for (const p of r.performers) if (p.name === name) roles.add(p.subRole || p.role);
+        const line = [
+          desc ||
+            (roles.size
+              ? K.joinNames([...roles].map((r) => r.toLowerCase())).replace(/^./, (c) => c.toUpperCase())
+              : null) ||
+            (composer ? "composer" : null),
+          years,
+        ]
+          .filter(Boolean)
+          .join(", ");
+        const fav = (kind === "composer" ? "composer:" : "performer:") + name;
+        const mark = el(
+          "button",
+          {
+            "aria-label": "Favourite",
+            onclick: () => {
+              K.toggleFavourite(fav);
+              mark.replaceChildren(K.fermata(K.isFavourite(fav)));
+            },
+          },
+          K.fermata(K.isFavourite(fav)),
+        );
+        // The name and its description line form one block on the picture; the block ends where the fade ends.
+        const head = el(
+          "div",
+          { class: "page-head person-head" },
+          el("h1", { class: "t-largeTitle" }, K.titled(name, mark)),
+          el("div", { class: "meta t-subheadline secondary" }, line),
+        );
+        hero.append(head);
+        new ResizeObserver(() => hero.style.setProperty("--title-h", head.offsetHeight + "px")).observe(head);
+        if (composer?.facts)
+          scroll.append(
+            el(
+              "div",
+              { class: "button-row" },
+              el(
+                "a",
+                { class: "capsule t-headline", href: href("chronology.html", { composer: name, back: name }) },
+                "Chronology",
+              ),
+            ),
+          );
+
+        const tabs = kind === "composer" ? ["Works", "About"] : ["Albums", "About"];
+        let tab = tabs[0];
+        const seg = el(
+          "div",
+          { class: "segmented t-subheadline", role: "tablist" },
+          ...tabs.map((t) =>
+            el(
+              "button",
+              {
+                role: "tab",
+                onclick: () => {
+                  tab = t;
+                  render();
+                },
+              },
+              t,
+            ),
+          ),
+        );
+        const body = el("div");
+        scroll.append(seg, body);
+
+        // Works tab: genre chips filter with "or"; a genre that every work carries does not show; a set folds into one row.
+        const works = composer ? [...composer.works].sort((a, b) => a.name.localeCompare(b.name)) : [];
+        const allGenres = [...new Set(works.flatMap((w) => [...w.genres]))]
+          .filter((g) => !works.every((w) => w.genres.has(g)))
+          .sort();
+        const picked = new Set();
+        const openSets = new Set();
+        function workRow(w, inset) {
+          return el(
+            "a",
+            {
+              class: "row",
+              href: href("work.html", { work: w.id, back: name }),
+              style: inset ? "padding-left: calc(var(--space-l) * 2)" : null,
+            },
+            el(
+              "div",
+              { class: "main" },
+              el(
+                "div",
+                { class: "t-body" },
+                K.isFavourite("work:" + w.id) ? K.titled(w.name, K.fermata(true)) : w.name,
+              ),
+              el(
+                "div",
+                { class: "t-footnote secondary" },
+                [w.year ? `Composed${K.NB}${w.year}` : null, K.count(w.recordings.length, "recording")]
+                  .filter(Boolean)
+                  .join(", "),
+              ),
+            ),
+            el("span", { html: K.ICON.chevron }),
+          );
+        }
+        function worksTab() {
+          const shown = works.filter((w) => !picked.size || [...picked].some((g) => w.genres.has(g)));
+          const rows = [],
+            seen = new Set();
+          for (const w of shown) {
+            if (!w.grouping) {
+              rows.push(workRow(w));
+              continue;
+            }
+            if (seen.has(w.grouping)) continue;
+            seen.add(w.grouping);
+            const members = shown.filter((x) => x.grouping === w.grouping);
+            const open = openSets.has(w.grouping);
+            rows.push(
+              el(
+                "button",
+                {
+                  class: "row",
+                  onclick: () => {
+                    open ? openSets.delete(w.grouping) : openSets.add(w.grouping);
+                    render();
+                  },
+                },
+                el(
+                  "div",
+                  { class: "main" },
+                  el("div", { class: "t-body" }, w.grouping),
+                  el("div", { class: "t-footnote secondary" }, `${members.length} works`),
+                ),
+                el("span", {
+                  class: "chevron-box",
+                  html: K.ICON.chevron,
+                  style: `transform: rotate(${open ? 90 : 0}deg); transition: transform var(--motion-transition-open-duration) var(--motion-transition-open-easing)`,
+                }),
+              ),
+            );
+            if (open)
+              members.forEach((m) => {
+                rows.push(workRow(m, true));
+              });
+          }
+          return [
+            allGenres.length
+              ? el(
+                  "div",
+                  { class: "chips" },
+                  ...allGenres.map((g) =>
+                    el(
+                      "button",
+                      {
+                        class: "chip t-subheadline" + (picked.has(g) ? " on" : ""),
+                        onclick: () => {
+                          picked.has(g) ? picked.delete(g) : picked.add(g);
+                          render();
+                        },
+                      },
+                      g,
+                    ),
+                  ),
+                )
+              : null,
+            el(
+              "section",
+              { class: "section" },
+              el(
+                "div",
+                { class: "section-head t-footnote" },
+                el("span", {}, "Works"),
+                el("span", { class: "count" }, `(${shown.length})`),
+              ),
+              el("div", { class: "list" }, ...rows),
+            ),
+          ];
+        }
+
+        // Albums tab: covers, newest first; an album opens its album page.
+        function albumsTab() {
+          const albums = [...M.albums.values()]
+            .filter((a) => a.recordings.some((r) => r.performers.some((p) => p.name === name)))
+            .sort((a, b) => (b.year || 0) - (a.year || 0));
+          return [
+            el(
+              "section",
+              { class: "section" },
+              el(
+                "div",
+                { class: "albums" },
+                ...albums.map((a) =>
+                  el(
+                    "a",
+                    { href: href("player.html", { album: a.id, back: name }) },
+                    K.coverImage(a, "cover", 500),
+                    el("div", { class: "t-subheadline", style: "margin-top: var(--space-xs)" }, a.name),
+                    el("div", { class: "t-footnote secondary" }, a.year || ""),
+                  ),
+                ),
+              ),
+            ),
+          ];
+        }
+
+        // About: the bio and every credit.
+        function aboutTab() {
+          const fact = (k, v) =>
+            v
+              ? el(
+                  "div",
+                  { class: "row" },
+                  el("div", { class: "main t-body" }, k),
+                  el("div", { class: "trail t-body" }, String(v)),
+                )
+              : null;
+          const credits = [
+            pic
+              ? el(
+                  "div",
+                  { class: "row" },
+                  el(
+                    "div",
+                    { class: "main t-footnote" },
+                    `Picture: ${pic.author}. ${pic.licence}. `,
+                    el("a", { class: "link", href: pic.page }, "Wikimedia Commons"),
+                  ),
+                )
+              : null,
+            facts.bio
+              ? el(
+                  "div",
+                  { class: "row" },
+                  el(
+                    "div",
+                    { class: "main t-footnote" },
+                    "Text: Wikipedia, CC BY-SA 4.0. ",
+                    el("a", { class: "link", href: facts.wikipedia }, "Article"),
+                  ),
+                )
+              : null,
+            facts.wikidata
+              ? el(
+                  "div",
+                  { class: "row" },
+                  el(
+                    "div",
+                    { class: "main t-footnote" },
+                    "Facts: Wikidata, CC0. ",
+                    el("a", { class: "link", href: `https://www.wikidata.org/wiki/${facts.wikidata}` }, facts.wikidata),
+                  ),
+                )
+              : null,
+          ].filter(Boolean);
+          return [
+            facts.bio
+              ? el(
+                  "section",
+                  { class: "section" },
+                  el("div", { class: "list" }, el("p", { class: "bio t-body" }, facts.bio)),
+                )
+              : el(
+                  "p",
+                  { class: "section-foot t-subheadline" },
+                  "Wikidata has nothing on this name. The page shows the tags only.",
+                ),
+            el(
+              "section",
+              { class: "section" },
+              el(
+                "div",
+                { class: "list" },
+                fact("Born", facts.born),
+                fact("Died", facts.died),
+                fact("Roles in your library", [...roles].join(", ")),
+              ),
+            ),
+            credits.length
+              ? el(
+                  "section",
+                  { class: "section" },
+                  el("div", { class: "section-head t-footnote" }, "Credits"),
+                  el("div", { class: "list" }, ...credits),
+                )
+              : null,
+          ];
+        }
+
+        function render() {
+          seg.querySelectorAll("button").forEach((b) => {
+            b.classList.toggle("on", b.textContent === tab);
+          });
+          body.replaceChildren(
+            ...(tab === "About" ? aboutTab() : tab === "Works" ? worksTab() : albumsTab()).filter(Boolean),
+          );
+        }
+        render();
+      });
+    </script>
+  </body>
+</html>

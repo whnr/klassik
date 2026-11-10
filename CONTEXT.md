@@ -45,7 +45,7 @@ The years from a composer's work period start in Wikidata until their death. Bef
 _Avoid_: Career, working life
 
 **Contemporary**:
-A composer with works in the library inside the active years of the composer in focus, 10 years before and after.
+A composer in the library whose active years overlap those of the composer in focus, 10 years before and after (ADR 0026).
 _Avoid_: Neighbour, peer
 
 **Page**:
@@ -88,12 +88,20 @@ _Avoid_: Rule, filter, token, criterion
 One row of a search. Its search terms join with "or". The conditions of a search join with "and", and each condition shows how many recordings remain.
 _Avoid_: Set, group, clause, step
 
+**Recent search**:
+A search that the listener made, kept on the device with its text and its conditions. The empty Search page lists them, newest first.
+_Avoid_: History, suggestion, saved search
+
+**Search session**:
+The time from the first text or condition until the x pill clears the search. One search session is one recent search.
+_Avoid_: Query, visit
+
 **Set**:
 Works that share a GROUPING tag, such as Etudes, Op. 10. A set folds into one row that opens in place.
 _Avoid_: Group, cycle, collection
 
 **Scope**:
-The kind of search term that the search lists: all kinds, genres, composers, conductors or performers. A scope with an empty field lists every search term of that kind.
+The kind of search term that the filter sheet lists: genres, composers, conductors or performers. A scope with an empty field lists every search term of that kind.
 _Avoid_: Facet, category, tab
 
 **Timeline**:
@@ -101,7 +109,7 @@ The bar on the screen edge that shows the whole work or album that plays, one se
 _Avoid_: Rail, edge bar, progress bar
 
 **Mini player**:
-The card that shows what plays, in every place: movement, work and people. It joins the timeline, and a tap opens the player.
+The pill at the end of the timeline, in the tab bar row: play/pause and the square cover. The cover opens the player.
 _Avoid_: Now playing bar
 
 **Player**:

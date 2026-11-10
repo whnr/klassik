@@ -1,11 +1,16 @@
-"""Compares the screenshots of a UI walk with a baseline and writes a report for a reader who cannot look at all of them.
+"""Compares the screenshots of a UI walk with a baseline.
+
+It writes a report for a reader who cannot look at all of them.
 
 Writes diff.md (one row per screen, largest change first), diff.json, and for each changed screen a PNG with
 three panels at one pixel per point: baseline, current, and current with the changed pixels in red.
 Usage: python3 scripts/screen_diff.py <baseline-dir> <current-dir> <out-dir>
 The baseline directory may hold sources.json: {"<screen>.png": "<run, commit>"}.
 """
-import json, pathlib, sys
+
+import json
+import pathlib
+import sys
 
 import numpy as np
 from PIL import Image
@@ -63,7 +68,12 @@ def panel(base, current, changed):
 def compare(base_path, current_path):
     base, current = load(base_path), load(current_path)
     if base.shape != current.shape:
-        return {"band": "large", "percent": 100.0, "regions": [], "note": f"size {base.shape[:2]} → {current.shape[:2]}"}, None
+        return {
+            "band": "large",
+            "percent": 100.0,
+            "regions": [],
+            "note": f"size {base.shape[:2]} → {current.shape[:2]}",
+        }, None
     changed = np.abs(base - current).max(axis=2) > TOLERANCE
     for x, y, w, h in MASKS.get(current_path.stem, []):
         changed[y * SCALE : (y + h) * SCALE, x * SCALE : (x + w) * SCALE] = False

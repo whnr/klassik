@@ -6,3 +6,4 @@ DerivedData/
 *.xcresult
 __pycache__/
 .DS_Store
+.scratch/

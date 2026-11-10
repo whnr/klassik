@@ -2,7 +2,14 @@
 
 Env: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 (key text). Screenshots land in ./feedback/.
 """
-import json, os, time, urllib.request, urllib.parse, pathlib
+
+import json
+import os
+import pathlib
+import time
+import urllib.parse
+import urllib.request
+
 import jwt  # pyjwt[crypto]
 
 API = "https://api.appstoreconnect.apple.com"
@@ -13,7 +20,10 @@ def token():
     now = int(time.time())
     return jwt.encode(
         {"iss": os.environ["ASC_ISSUER_ID"], "iat": now, "exp": now + 1200, "aud": "appstoreconnect-v1"},
-        os.environ["ASC_KEY_P8"], algorithm="ES256", headers={"kid": os.environ["ASC_KEY_ID"]})
+        os.environ["ASC_KEY_P8"],
+        algorithm="ES256",
+        headers={"kid": os.environ["ASC_KEY_ID"]},
+    )
 
 
 def get(path, **params):
@@ -42,9 +52,10 @@ def builds(doc):
 def header(kind, item, versions):
     a = item["attributes"]
     build = (item.get("relationships", {}).get("build", {}).get("data") or {}).get("id")
-    print(f"\n=== {kind} {a.get('createdDate')} build {versions.get(build, '?')} {a.get('deviceModel')} iOS {a.get('osVersion')}")
+    device = f"{a.get('deviceModel')} iOS {a.get('osVersion')}"
+    print(f"\n=== {kind} {a.get('createdDate')} build {versions.get(build, '?')} {device}")
     print(f"comment: {a.get('comment')!r}")
-    print("attributes: " + json.dumps({k: v for k, v in a.items() if k not in ('comment', 'screenshots')}))
+    print("attributes: " + json.dumps({k: v for k, v in a.items() if k not in ("comment", "screenshots")}))
 
 
 TOKEN = token()
@@ -66,7 +77,10 @@ for doc in pages(f"/v1/apps/{app}/betaFeedbackCrashSubmissions", include="build"
     for item in doc["data"]:
         header("CRASH", item, versions)
         try:
-            log = get(f"/v1/betaFeedbackCrashSubmissions/{item['id']}/crashLog")["data"]["attributes"].get("logText") or ""
+            log = (
+                get(f"/v1/betaFeedbackCrashSubmissions/{item['id']}/crashLog")["data"]["attributes"].get("logText")
+                or ""
+            )
             print("crash log (head):\n" + "\n".join(log.splitlines()[:120]))
         except Exception as e:  # crash log may not be processed yet
             print(f"crash log unavailable: {e}")

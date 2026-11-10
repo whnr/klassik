@@ -31,14 +31,30 @@ jobs:
       - uses: actions/checkout@v7
       - run: scripts/lint.sh
 
-  # ffmpeg is quick to install on Linux; the macOS job only needs the finished files.
+  # ffmpeg installs quickly on Linux; the macOS job only needs the finished files.
   # The tarball keeps the colons in the file names, which artifact paths reject.
   fixtures:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
-      - run: command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)
+      # A pinned static build: the Ubuntu mirror can take ten minutes for ffmpeg's packages.
+      # BtbN prunes old builds; when this one is gone the step warns and falls back to apt.
+      - name: Install ffmpeg
+        env:
+          FFMPEG_URL: https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-09-30-13-08/ffmpeg-n8.1.3-9-g29e619e767-linux64-gpl-8.1.tar.xz
+          FFMPEG_SHA256: 97ce978979194b5cf7e06a5e68020dbdaa7a4f3294c5452b6a1bc347100dbb79
+        run: |
+          if curl -sfL --retry 3 -o "$RUNNER_TEMP/ffmpeg.tar.xz" "$FFMPEG_URL" \
+            && echo "$FFMPEG_SHA256  $RUNNER_TEMP/ffmpeg.tar.xz" | sha256sum -c --quiet; then
+            mkdir -p "$RUNNER_TEMP/ffmpeg"
+            tar -xJf "$RUNNER_TEMP/ffmpeg.tar.xz" -C "$RUNNER_TEMP/ffmpeg" --strip-components=2 --wildcards '*/bin/ffmpeg'
+            echo "$RUNNER_TEMP/ffmpeg" >> "$GITHUB_PATH"
+          else
+            echo "::warning::The pinned ffmpeg build is gone or changed; installing from apt. Pin a newer build."
+            sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+          fi
+      - run: ffmpeg -version | head -1
       - run: pip install mutagen
       - run: python3 scripts/fixtures.py fixture/music && tar czf fixture-music.tgz -C fixture music
       - uses: actions/upload-artifact@v7

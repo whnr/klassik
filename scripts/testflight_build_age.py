@@ -2,19 +2,30 @@
 
 Env: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8. Used by the TestFlight workflow's daily check.
 """
-import datetime, json, os, time, urllib.parse, urllib.request
+
+import datetime
+import json
+import os
+import time
+import urllib.parse
+import urllib.request
+
 import jwt  # pyjwt[crypto]
 
 API = "https://api.appstoreconnect.apple.com"
 now = int(time.time())
 token = jwt.encode(
     {"iss": os.environ["ASC_ISSUER_ID"], "iat": now, "exp": now + 600, "aud": "appstoreconnect-v1"},
-    os.environ["ASC_KEY_P8"], algorithm="ES256", headers={"kid": os.environ["ASC_KEY_ID"]})
+    os.environ["ASC_KEY_P8"],
+    algorithm="ES256",
+    headers={"kid": os.environ["ASC_KEY_ID"]},
+)
 
 
 def get(path, **params):
-    req = urllib.request.Request(f"{API}{path}?{urllib.parse.urlencode(params)}",
-                                 headers={"Authorization": f"Bearer {token}"})
+    req = urllib.request.Request(
+        f"{API}{path}?{urllib.parse.urlencode(params)}", headers={"Authorization": f"Bearer {token}"}
+    )
     with urllib.request.urlopen(req) as r:
         return json.load(r)
 

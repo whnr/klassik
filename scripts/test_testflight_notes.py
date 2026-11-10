@@ -1,4 +1,5 @@
 """Check the narrow boundary between tester notes and development instructions."""
+
 import pathlib
 import subprocess
 import sys

@@ -2,7 +2,12 @@
 
 Usage: python3 scripts/name_screenshots.py <export-dir> <output-dir>
 """
-import json, pathlib, re, shutil, sys
+
+import json
+import pathlib
+import re
+import shutil
+import sys
 
 raw, out = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
 for test in json.loads((raw / "manifest.json").read_text()):

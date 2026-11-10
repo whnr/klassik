@@ -1,0 +1,7 @@
+SELECT ?p ?pLabel ?img ?year ?cLabel ?links WHERE {
+  VALUES ?coll { wd:Q19675 wd:Q190804 wd:Q180788 wd:Q160112 wd:Q95569 wd:Q23402 wd:Q132783 }
+  ?p wdt:P195 ?coll; wdt:P31 wd:Q3305213; wdt:P18 ?img; wdt:P571 ?d; wdt:P170 ?c; wikibase:sitelinks ?links.
+  FILTER(?links >= 8)
+  BIND(YEAR(?d) AS ?year) FILTER(?year >= 1500 && ?year <= 1920)
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+}

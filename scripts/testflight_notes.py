@@ -5,7 +5,16 @@ Usage: testflight_notes.py --check            validates version, length, and dev
 Env for the second form: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8.
 The file starts with the line "Klassik X.Y.Z". Apple allows 4000 characters.
 """
-import json, os, pathlib, re, sys, time, urllib.error, urllib.parse, urllib.request
+
+import json
+import os
+import pathlib
+import re
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
 
 # This backstop detects development terms; the release review checks app meaning.
 DEVELOPMENT_TERMS = re.compile(
@@ -17,7 +26,9 @@ DEVELOPMENT_TERMS = re.compile(
 
 def validate(notes, version):
     if not notes.startswith(f"Klassik {version}\n"):
-        raise ValueError(f"docs/what-to-test.md must start with the line 'Klassik {version}'. Write the notes for this release.")
+        raise ValueError(
+            f"docs/what-to-test.md must start with the line 'Klassik {version}'. Write the notes for this release."
+        )
     if len(notes) > 4000:
         raise ValueError(f"docs/what-to-test.md has {len(notes)} characters; TestFlight allows 4000.")
     match = DEVELOPMENT_TERMS.search(notes)
@@ -45,11 +56,17 @@ def main():
         now = int(time.time())
         token = jwt.encode(
             {"iss": os.environ["ASC_ISSUER_ID"], "iat": now, "exp": now + 600, "aud": "appstoreconnect-v1"},
-            os.environ["ASC_KEY_P8"], algorithm="ES256", headers={"kid": os.environ["ASC_KEY_ID"]})
+            os.environ["ASC_KEY_P8"],
+            algorithm="ES256",
+            headers={"kid": os.environ["ASC_KEY_ID"]},
+        )
         query = f"?{urllib.parse.urlencode(params)}" if params else ""
         request = urllib.request.Request(
-            f"{API}{path}{query}", method=method, data=json.dumps(body).encode() if body else None,
-            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
+            f"{API}{path}{query}",
+            method=method,
+            data=json.dumps(body).encode() if body else None,
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+        )
         try:
             with urllib.request.urlopen(request) as response:
                 return json.load(response)
@@ -72,12 +89,23 @@ def main():
     existing = call("GET", f"/v1/builds/{build}/betaBuildLocalizations")["data"]
     current = next((item for item in existing if item["attributes"]["locale"] == "en-US"), None)
     if current:
-        call("PATCH", f"/v1/betaBuildLocalizations/{current['id']}", {
-            "data": {"type": "betaBuildLocalizations", "id": current["id"], "attributes": {"whatsNew": notes}}})
+        call(
+            "PATCH",
+            f"/v1/betaBuildLocalizations/{current['id']}",
+            {"data": {"type": "betaBuildLocalizations", "id": current["id"], "attributes": {"whatsNew": notes}}},
+        )
     else:
-        call("POST", "/v1/betaBuildLocalizations", {"data": {
-            "type": "betaBuildLocalizations", "attributes": {"locale": "en-US", "whatsNew": notes},
-            "relationships": {"build": {"data": {"type": "builds", "id": build}}}}})
+        call(
+            "POST",
+            "/v1/betaBuildLocalizations",
+            {
+                "data": {
+                    "type": "betaBuildLocalizations",
+                    "attributes": {"locale": "en-US", "whatsNew": notes},
+                    "relationships": {"build": {"data": {"type": "builds", "id": build}}},
+                }
+            },
+        )
     print(f"What to Test set for build {build_number} ({version}).")
 
 

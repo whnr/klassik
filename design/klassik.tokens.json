@@ -1,0 +1,660 @@
+{
+  "$description": "Klassik design tokens, DTCG 2025.10. Decided values only (ADR 0021). Type and spacing follow ADR 0030, colour ADR 0034. Radius, size and motion stay at neutral iOS system values until a look ticket decides.",
+  "color": {
+    "$type": "color",
+    "background": {
+      "page": {
+        "$value": "{palette.light.background.page}",
+        "$description": "Plain page: paper by day, the hall at night."
+      },
+      "row": {
+        "$value": "{palette.light.background.row}",
+        "$description": "A row of an inset list."
+      },
+      "grouped": {
+        "$value": "{palette.light.background.grouped}",
+        "$description": "Behind inset lists."
+      },
+      "elevated": {
+        "$value": "{palette.light.background.elevated}",
+        "$description": "A card or sheet above the page."
+      }
+    },
+    "text": {
+      "primary": {
+        "$value": "{palette.light.text.primary}",
+        "$description": "Ink."
+      },
+      "secondary": {
+        "$value": "{palette.light.text.secondary}",
+        "$description": "Facts, labels and placeholders."
+      },
+      "tertiary": {
+        "$value": "{palette.light.text.tertiary}",
+        "$description": "Disabled items only."
+      }
+    },
+    "separator": {
+      "$value": "{palette.light.separator}",
+      "$description": "Lines between rows."
+    },
+    "fill": {
+      "standard": {
+        "$value": "{palette.light.fill.standard}",
+        "$description": "A translucent overlay: controls, Chronology era bands."
+      },
+      "quiet": {
+        "$value": "{palette.light.fill.quiet}",
+        "$description": "A quieter translucent overlay: the search field, chips."
+      }
+    },
+    "tint": {
+      "$value": "{palette.light.tint}",
+      "$description": "The accent: links, controls, the playing row, the played timeline."
+    },
+    "accent": {
+      "fill": {
+        "$value": "{palette.light.accent.fill}",
+        "$description": "The accent as a fill behind a label: a filled button, a selected chip."
+      }
+    },
+    "on-accent": {
+      "$value": "{palette.light.on-accent}",
+      "$description": "A label on the accent fill."
+    },
+    "favourite": {
+      "$value": "{palette.light.favourite}",
+      "$description": "The set fermata: the accent at its strongest chroma."
+    },
+    "favourite-off": {
+      "$value": "{palette.light.favourite-off}",
+      "$description": "The fermata when not set: a quiet grey."
+    },
+    "timeline": {
+      "played": {
+        "$value": "{palette.light.timeline.played}",
+        "$description": "The played part of the timeline."
+      },
+      "unplayed": {
+        "$value": "{palette.light.timeline.unplayed}",
+        "$description": "The part of the timeline still to play."
+      }
+    },
+    "swipe": {
+      "playNext": {
+        "$value": "{palette.light.swipe.playNext}",
+        "$description": "Swipe action Play Next, with a white icon and label."
+      },
+      "addToQueue": {
+        "$value": "{palette.light.swipe.addToQueue}",
+        "$description": "Swipe action Add to Queue, with a white icon and label."
+      },
+      "download": {
+        "$value": "{palette.light.swipe.download}",
+        "$description": "Swipe action Download, with a white icon and label."
+      },
+      "favourite": {
+        "$value": "{palette.light.swipe.favourite}",
+        "$description": "Swipe action Favourite, with a white icon and label."
+      }
+    }
+  },
+  "font": {
+    "family": {
+      "$type": "fontFamily",
+      "text": {
+        "$value": ["-apple-system", "system-ui", "sans-serif"],
+        "$description": "The system face. In SwiftUI, a text style without a custom font."
+      },
+      "display": {
+        "$value": ["Wittgenstein", "serif"],
+        "$description": "Page titles and section headings only. Bundled with the app under the SIL Open Font License 1.1."
+      }
+    }
+  },
+  "type": {
+    "$type": "typography",
+    "largeTitle": {
+      "$value": {
+        "fontFamily": "{font.family.text}",
+        "fontSize": {
+          "value": 40.3,
+          "unit": "px"
+        },
+        "fontWeight": 400,
+        "lineHeight": 1.2059,
+        "letterSpacing": {
+          "value": 0,
+          "unit": "px"
+        }
+      },
+      "$extensions": {
+        "de.whnr.klassik": {
+          "textStyle": "largeTitle",
+          "step": 3
+        }
+      }
+    },
+    "title1": {
+      "$value": {
+        "fontFamily": "{font.family.text}",
+        "fontSize": {
+          "value": 30.22,
+          "unit": "px"
+        },
+        "fontWeight": 400,
+        "lineHeight": 1.2143,
+        "letterSpacing": {
+          "value": 0,
+          "unit": "px"
+        }
+      },
+      "$extensions": {
+        "de.whnr.klassik": {
+          "textStyle": "title",
+          "step": 2
+        }
+      }
+    },
+    "title2": {
+      "$value": {
+        "fontFamily": "{font.family.text}",
+        "fontSize": {
+          "value": 26.17,
+          "unit": "px"
+        },
+        "fontWeight": 400,
+        "lineHeight": 1.2727,
+        "letterSpacing": {
+          "value": 0,
+          "unit": "px"
+        }
+      },
+      "$extensions": {
+        "de.whnr.klassik": {
+          "textStyle": "title2",
+          "step": 1.5
+        }
+      }
+    },
+    "title3": {
+      "$value": {
+        "fontFamily": "{font.family.text}",
+        "fontSize": {
+          "value": 22.67,
+          "unit": "px"
+        },
+        "fontWeight": 400,
+        "lineHeight": 1.25,
+        "letterSpacing": {
+          "value": 0,
+          "unit": "px"
+        }
+      },
+      "$extensions": {
+        "de.whnr.klassik": {
+          "textStyle": "title3",
+          "step": 1
+        }
+      }
+    },
+    "headline": {
+      "$value": {
+        "fontFamily": "{font.family.text}",
+        "fontSize": {
+          "value": 17.0,
+          "unit": "px"
+        },
+        "fontWeight": 600,
+        "lineHeight": 1.2941,
+        "letterSpacing": {
+          "value": 0,
+          "unit": "px"
+        }
+      },
+      "$extensions": {
+        "de.whnr.klassik": {
+          "textStyle": "headline",
+          "step": 0
+        }
+      }
+    },
+    "body": {
+      "$value": {
+        "fontFamily": "{font.family.text}",
+        "fontSize": {
+          "value": 17.0,
+          "unit": "px"
+        },
+        "fontWeight": 400,
+        "lineHeight": 1.2941,
+        "letterSpacing": {
+          "value": 0,
+          "unit": "px"
+        }
+      },
+      "$extensions": {
+        "de.whnr.klassik": {
+          "textStyle": "body",
+          "step": 0
+        }
+      }
+    },
+    "callout": {
+      "$value": {
+        "fontFamily": "{font.family.text}",
+        "fontSize": {
+          "value": 15.82,
+          "unit": "px"
+        },
+        "fontWeight": 400,
+        "lineHeight": 1.3125,
+        "letterSpacing": {
+          "value": 0,
+          "unit": "px"
+        }
+      },
+      "$extensions": {
+        "de.whnr.klassik": {
+          "textStyle": "callout",
+          "step": -0.25
+        }
+      }
+    },
+    "subheadline": {
+      "$value": {
+        "fontFamily": "{font.family.text}",
+        "fontSize": {
+          "value": 14.72,
+          "unit": "px"
+        },
+        "fontWeight": 400,
+        "lineHeight": 1.3333,
+        "letterSpacing": {
+          "value": 0,
+          "unit": "px"
+        }
+      },
+      "$extensions": {
+        "de.whnr.klassik": {
+          "textStyle": "subheadline",
+          "step": -0.5
+        }
+      }
+    },
+    "footnote": {
+      "$value": {
+        "fontFamily": "{font.family.text}",
+        "fontSize": {
+          "value": 12.75,
+          "unit": "px"
+        },
+        "fontWeight": 400,
+        "lineHeight": 1.3846,
+        "letterSpacing": {
+          "value": 0,
+          "unit": "px"
+        }
+      },
+      "$extensions": {
+        "de.whnr.klassik": {
+          "textStyle": "footnote",
+          "step": -1
+        }
+      }
+    },
+    "caption1": {
+      "$value": {
+        "fontFamily": "{font.family.text}",
+        "fontSize": {
+          "value": 11.87,
+          "unit": "px"
+        },
+        "fontWeight": 400,
+        "lineHeight": 1.3333,
+        "letterSpacing": {
+          "value": 0,
+          "unit": "px"
+        }
+      },
+      "$extensions": {
+        "de.whnr.klassik": {
+          "textStyle": "caption",
+          "step": -1.25
+        }
+      }
+    },
+    "caption2": {
+      "$value": {
+        "fontFamily": "{font.family.text}",
+        "fontSize": {
+          "value": 11.04,
+          "unit": "px"
+        },
+        "fontWeight": 400,
+        "lineHeight": 1.1818,
+        "letterSpacing": {
+          "value": 0,
+          "unit": "px"
+        }
+      },
+      "$extensions": {
+        "de.whnr.klassik": {
+          "textStyle": "caption2",
+          "step": -1.5
+        }
+      }
+    },
+    "$description": "One ratio drives every size: body 17 pt times 4:3 to the power of the step. Figures are lining and proportional everywhere.",
+    "$extensions": {
+      "de.whnr.klassik": {
+        "ratio": 1.3333,
+        "body": 17,
+        "figures": ["lnum", "pnum"]
+      }
+    },
+    "pageTitle": {
+      "$value": {
+        "fontFamily": "{font.family.display}",
+        "fontSize": {
+          "value": 30.22,
+          "unit": "px"
+        },
+        "fontWeight": 500,
+        "lineHeight": 1.15,
+        "letterSpacing": {
+          "value": 0,
+          "unit": "px"
+        }
+      },
+      "$description": "The title at the top of a content page.",
+      "$extensions": {
+        "de.whnr.klassik": {
+          "textStyle": "title",
+          "step": 2
+        }
+      }
+    },
+    "sectionHeading": {
+      "$value": {
+        "fontFamily": "{font.family.display}",
+        "fontSize": {
+          "value": 22.67,
+          "unit": "px"
+        },
+        "fontWeight": 500,
+        "lineHeight": 1.2,
+        "letterSpacing": {
+          "value": 0,
+          "unit": "px"
+        }
+      },
+      "$description": "A section heading of a content page, in sentence case. Settings and sheets keep the system header.",
+      "$extensions": {
+        "de.whnr.klassik": {
+          "textStyle": "title3",
+          "step": 1
+        }
+      }
+    }
+  },
+  "space": {
+    "$type": "dimension",
+    "$description": "Spacing. In SwiftUI, ScaledMetric. The roles follow the type ratio (ADR 0030). The steps are system insets and paddings.",
+    "xxs": {
+      "$value": {
+        "value": 2,
+        "unit": "px"
+      }
+    },
+    "xs": {
+      "$value": {
+        "value": 4,
+        "unit": "px"
+      }
+    },
+    "s": {
+      "$value": {
+        "value": 8,
+        "unit": "px"
+      }
+    },
+    "m": {
+      "$value": {
+        "value": 12,
+        "unit": "px"
+      }
+    },
+    "l": {
+      "$value": {
+        "value": 16,
+        "unit": "px"
+      }
+    },
+    "xl": {
+      "$value": {
+        "value": 20,
+        "unit": "px"
+      }
+    },
+    "xxl": {
+      "$value": {
+        "value": 24,
+        "unit": "px"
+      }
+    },
+    "xxxl": {
+      "$value": {
+        "value": 32,
+        "unit": "px"
+      }
+    },
+    "$extensions": {
+      "de.whnr.klassik": {
+        "ratio": 1.3333
+      }
+    },
+    "inGroup": {
+      "$value": {
+        "value": 5.38,
+        "unit": "px"
+      },
+      "$description": "Between the lines of one group, such as the lines of a row.",
+      "$extensions": {
+        "de.whnr.klassik": {
+          "step": -4
+        }
+      }
+    },
+    "betweenGroups": {
+      "$value": {
+        "value": 22.67,
+        "unit": "px"
+      },
+      "$description": "Between groups inside a section. A row takes half above and half below.",
+      "$extensions": {
+        "de.whnr.klassik": {
+          "step": 1
+        }
+      }
+    },
+    "betweenSections": {
+      "$value": {
+        "value": 40.3,
+        "unit": "px"
+      },
+      "$description": "Between the sections of a page.",
+      "$extensions": {
+        "de.whnr.klassik": {
+          "step": 3
+        }
+      }
+    }
+  },
+  "radius": {
+    "$type": "dimension",
+    "xs": {
+      "$value": {
+        "value": 4,
+        "unit": "px"
+      },
+      "$description": "The content-side corners of a timeline segment."
+    },
+    "s": {
+      "$value": {
+        "value": 6,
+        "unit": "px"
+      },
+      "$description": "Chips and small covers."
+    },
+    "m": {
+      "$value": {
+        "value": 10,
+        "unit": "px"
+      },
+      "$description": "Inset list sections and cards."
+    },
+    "l": {
+      "$value": {
+        "value": 16,
+        "unit": "px"
+      },
+      "$description": "Large covers and the mini player."
+    },
+    "full": {
+      "$value": {
+        "value": 999,
+        "unit": "px"
+      },
+      "$description": "Round controls and capsules."
+    }
+  },
+  "size": {
+    "$type": "dimension",
+    "hitTarget": {
+      "$value": {
+        "value": 44,
+        "unit": "px"
+      },
+      "$description": "The smallest tap area."
+    },
+    "timeline": {
+      "$value": {
+        "value": 8,
+        "unit": "px"
+      },
+      "$description": "Width of the timeline bar. Segments sit space.xxs apart."
+    },
+    "timelineCap": {
+      "$value": {
+        "value": 8,
+        "unit": "px"
+      },
+      "$description": "The curve where the first timeline segment grows out of the screen edge."
+    },
+    "coverRow": {
+      "$value": {
+        "value": 56,
+        "unit": "px"
+      },
+      "$description": "A cover in a recording row."
+    },
+    "coverPage": {
+      "$value": {
+        "value": 240,
+        "unit": "px"
+      },
+      "$description": "The cover of a recording or album page."
+    },
+    "miniPlayer": {
+      "$value": {
+        "value": 64,
+        "unit": "px"
+      },
+      "$description": "Height of the mini player."
+    }
+  },
+  "motion": {
+    "duration": {
+      "$type": "duration",
+      "quick": {
+        "$value": {
+          "value": 150,
+          "unit": "ms"
+        }
+      },
+      "standard": {
+        "$value": {
+          "value": 250,
+          "unit": "ms"
+        }
+      },
+      "slow": {
+        "$value": {
+          "value": 400,
+          "unit": "ms"
+        }
+      }
+    },
+    "easing": {
+      "$type": "cubicBezier",
+      "standard": {
+        "$value": [0.25, 0.1, 0.25, 1]
+      },
+      "out": {
+        "$value": [0, 0, 0.58, 1]
+      },
+      "inOut": {
+        "$value": [0.42, 0, 0.58, 1]
+      }
+    },
+    "transition": {
+      "$type": "transition",
+      "$description": "Reduce Motion replaces each with a cross-fade of motion.duration.quick.",
+      "inPlace": {
+        "$value": {
+          "duration": "{motion.duration.quick}",
+          "delay": {
+            "value": 0,
+            "unit": "ms"
+          },
+          "timingFunction": "{motion.easing.out}"
+        },
+        "$description": "A value that changes in place: a count, a label, a tint."
+      },
+      "open": {
+        "$value": {
+          "duration": "{motion.duration.standard}",
+          "delay": {
+            "value": 0,
+            "unit": "ms"
+          },
+          "timingFunction": "{motion.easing.inOut}"
+        },
+        "$description": "A row that opens in place."
+      },
+      "rise": {
+        "$value": {
+          "duration": "{motion.duration.slow}",
+          "delay": {
+            "value": 0,
+            "unit": "ms"
+          },
+          "timingFunction": "{motion.easing.inOut}"
+        },
+        "$description": "The next queue item rises into the player."
+      },
+      "glide": {
+        "$value": {
+          "duration": "{motion.duration.slow}",
+          "delay": {
+            "value": 0,
+            "unit": "ms"
+          },
+          "timingFunction": "{motion.easing.standard}"
+        },
+        "$description": "The Chronology glides to another composer."
+      }
+    }
+  }
+}

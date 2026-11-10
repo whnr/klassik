@@ -1,12 +1,18 @@
 // The mini player of ADR 0028: a pill at the end of the timeline, play/pause beside the square cover, no text.
-"use strict";
 
 (() => {
   const { el, ICON, chrome } = K;
   const root = document.documentElement;
 
   function ppButton(cls) {
-    const b = el("button", { class: "pp " + cls, onclick: (e) => { e.preventDefault(); e.stopPropagation(); K.togglePause(); } });
+    const b = el("button", {
+      class: "pp " + cls,
+      onclick: (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        K.togglePause();
+      },
+    });
     paint(b);
     return b;
   }
@@ -27,13 +33,23 @@
       // The cover opens the player page, so the player page shows the pill without it (ADR 0015).
       const withCover = !chrome.player;
       pill = el("div", { class: "edge-pill glass" }, ppButton(""));
-      if (withCover) pill.append(el("a", { class: "cover-link", href: playerHref(), "aria-label": "Open what plays" }, K.coverImage(K.current().album)));
+      if (withCover)
+        pill.append(
+          el(
+            "a",
+            { class: "cover-link", href: playerHref(), "aria-label": "Open what plays" },
+            K.coverImage(K.current().album),
+          ),
+        );
       document.body.append(pill);
       root.classList.add("has-edge-pill");
       if (!withCover) root.style.setProperty("--edge-pill-width", "64px");
     },
     remove() {
-      if (pill) { pill.remove(); pill = null; }
+      if (pill) {
+        pill.remove();
+        pill = null;
+      }
       root.classList.remove("has-edge-pill");
       root.style.setProperty("--edge-pill-width", width + "px");
     },
@@ -53,6 +69,8 @@
       }
       paintAll();
     },
-    searchItems() { return { lead: [], trail: [], hideCard: true }; },
+    searchItems() {
+      return { lead: [], trail: [], hideCard: true };
+    },
   });
 })();

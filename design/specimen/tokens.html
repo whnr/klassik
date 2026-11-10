@@ -1,180 +1,572 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Token sheet</title>
-<link rel="icon" href="data:,">
-<link rel="stylesheet" href="../tokens.css?v=44">
-<link rel="stylesheet" href="specimen.css?v=44">
-<script src="specimen.js?v=44"></script>
-</head>
-<body>
-<style>
-  .swatches { display: grid; grid-template-columns: 1fr repeat(4, 44px); gap: var(--space-xs); align-items: center; }
-  .swatch { height: 36px; border-radius: var(--radius-s); box-shadow: inset 0 0 0 0.5px rgb(128 128 128 / 0.5); position: relative; overflow: hidden;
-    background-image: linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%), linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%);
-    background-size: 10px 10px; background-position: 0 0, 5px 5px; }
-  .swatch > div { position: absolute; inset: 0; }
-  .col-head { text-align: center; }
-  .swipe { gap: 0; }
-  .swipe.trail { padding-right: 0; } .swipe.lead { padding-left: 0; } .swipe.lead .main { padding-left: var(--space-l); }
-  .swipe .act { flex: none; width: 78px; align-self: stretch; display: grid; place-items: center; align-content: center; gap: 2px; margin: calc(-1 * var(--space-betweenGroups) / 2) 0; color: #fff; text-align: center; }
-  .swipe .act .fermata { margin: 0; } .swipe .act .fermata svg path { fill: currentColor; }
-  .col-head.fail { color: var(--color-text-primary); font-weight: 700; text-decoration: underline; }
-  .name { overflow-wrap: anywhere; }
-  .sizes { display: flex; gap: var(--space-xs); overflow-x: auto; padding: 0 var(--space-l) var(--space-s); scrollbar-width: none; }
-  .scale .row { align-items: baseline; }
-  .scale .tag { flex: none; width: 92px; }
-  .grid { display: grid; grid-template-columns: 74px repeat(12, minmax(0, 1fr)); gap: 0; letter-spacing: -0.3px; font-variant-numeric: tabular-nums; overflow-x: auto; }
-  .grid > div { padding: 2px 0; text-align: center; }
-  .grid > .h { color: var(--color-text-secondary); }
-  .grid > .cur { color: var(--color-tint); }
-  .space-bar { height: 12px; background: var(--color-tint); border-radius: 2px; }
-  .radius-box { width: 64px; height: 44px; background: var(--color-fill-standard); }
-  .demo { flex: none; width: 110px; height: 56px; position: relative; overflow: hidden; border-radius: var(--radius-s); background: var(--color-fill-quiet); }
-  .demo .thing { position: absolute; background: var(--color-tint); border-radius: var(--radius-s); }
-  .demo-num { position: absolute; inset: 0; display: grid; place-items: center; }
-</style>
-<script>
-K.start(() => {
-  const { el } = K;
-  const { scroll } = K.page({ tab: "settings", title: "Token sheet", back: { label: "Library", href: "index.html" } });
-  const css = getComputedStyle(document.documentElement);
-  const v = (name) => css.getPropertyValue(name).trim();
-
-  const props = new Set();
-  for (const sheet of document.styleSheets) {
-    let rules; try { rules = sheet.cssRules; } catch { continue; }
-    for (const r of rules) if (r.style) for (const p of r.style) if (p.startsWith("--")) props.add(p);
-  }
-  const names = (prefix) => [...props].filter((p) => p.startsWith(prefix));
-  const section = (title, foot, ...body) => el("section", { class: "section" }, el("div", { class: "section-head t-footnote" }, title), ...body, foot ? el("div", { class: "section-foot t-footnote" }, foot) : null);
-
-  // Colours: four themes side by side, each swatch inside its own theme scope.
-  const THEMES = [["light", "normal", "Light"], ["light", "high", "Light HC"], ["dark", "normal", "Dark"], ["dark", "high", "Dark HC"]];
-  const colourRows = names("--color-").map((name) => {
-    const cells = THEMES.map(([t, c]) => {
-      const inner = el("div", { style: `background: var(${name})` });
-      return el("div", { class: "swatch", "data-theme": t, "data-contrast": c, title: name }, inner);
-    });
-    return el("div", { class: "row" }, el("div", { class: "swatches", style: "width:100%" }, el("div", { class: "name t-footnote" }, name.slice(8)), ...cells));
-  });
-  const colourHead = el("div", { class: "row" }, el("div", { class: "swatches", style: "width:100%" }, el("span"), ...THEMES.map((t) => el("div", { class: "col-head t-caption2 secondary" }, t[2]))));
-
-  // Contrast of each text and mark colour on each background, per theme (WCAG 2.2 ratio).
-  // A variant reaches the probes only through [data-theme] selectors, as the README says.
-  function luminance(rgb) {
-    const [r, g, b] = rgb.map((c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
-    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  }
-  // A colour with alpha sits on its background, and a background with alpha sits on the page.
-  function ratio(name, theme, contrast, over) {
-    const page = el("div", { "data-theme": theme, "data-contrast": contrast, style: "position:absolute;visibility:hidden;background:var(--color-background-page)" });
-    const probe = el("div", { style: `color:var(${name});background:var(${over})` });
-    page.append(probe);
-    document.body.append(page);
-    const parse = (s) => s.match(/[\d.]+/g).map(Number);
-    const [fg, bg, base] = [getComputedStyle(probe).color, getComputedStyle(probe).backgroundColor, getComputedStyle(page).backgroundColor].map(parse);
-    page.remove();
-    const over_ = (top, under) => { const a = top.length > 3 ? top[3] : 1; return [0, 1, 2].map((i) => top[i] * a + under[i] * (1 - a)); };
-    const back = over_(bg, base), front = over_(fg, back);
-    const [l1, l2] = [luminance(front), luminance(back)].sort((x, y) => y - x);
-    return (l1 + 0.05) / (l2 + 0.05);
-  }
-  // Text: AA 4.5, AAA 7, large text (title and headings) 3. Marks: AA 3, and 4.5 for Increase Contrast (map sz-rs30.1.83.19).
-  const verdict = (r, text) => text
-    ? (r >= 7 ? "AAA" : r >= 4.5 ? "AA" : r >= 3 ? "large" : "fail")
-    : (r >= 4.5 ? "HC" : r >= 3 ? "AA" : "fail");
-  const TEXTS = names("--color-text-").concat(["--color-tint"]);
-  const MARKS = ["--color-favourite", "--color-favourite-off", "--color-timeline-played", "--color-tint"].filter((n) => props.has(n));
-  const BACKS = names("--color-background-");
-  const pairRow = (fg, bg, text) =>
-    el("div", { class: "row" }, el("div", { class: "swatches", style: "width:100%" },
-      el("div", { class: "name t-footnote" }, `${fg.slice(8)} on ${bg.slice(8).replace("background-", "")}`),
-      ...THEMES.map(([t, c]) => { const r = ratio(fg, t, c, bg); const v = verdict(r, text);
-        return el("div", { class: "col-head t-caption1 nums" + (v === "fail" ? " fail" : "") }, r.toFixed(1), el("br"), v); })));
-  const contrastRows = BACKS.flatMap((bg) => TEXTS.map((fg) => pairRow(fg, bg, true)))
-    .concat(props.has("--color-on-accent") ? [pairRow("--color-on-accent", "--color-accent-fill", true)] : []);
-  const markRows = ["--color-background-page", "--color-background-row", "--color-timeline-unplayed"].filter((n) => props.has(n))
-    .flatMap((bg) => MARKS.filter((fg) => bg !== "--color-timeline-unplayed" || fg === "--color-timeline-played").map((fg) => pairRow(fg, bg, false)));
-
-  // Type: the scale at one Dynamic Type size, and every size in numbers.
-  const SIZES = ["xSmall", "small", "medium", "large", "xLarge", "xxLarge", "xxxLarge", "AX1", "AX2", "AX3", "AX4", "AX5"];
-  const STYLES = names("--type-").filter((n) => n.endsWith("-size")).map((n) => n.slice(7, -5));
-  let shown = document.documentElement.dataset.typeSize || "large";
-  const scaleBox = el("div", { class: "list scale" });
-  const grid = el("div", { class: "grid t-caption2" });
-  const sizeChips = el("div", { class: "sizes" }, ...SIZES.map((s) => el("button", { class: "chip t-footnote", "data-s": s, onclick: () => { shown = s; drawType(); } }, s)));
-  function drawType() {
-    sizeChips.querySelectorAll(".chip").forEach((c) => c.classList.toggle("on", c.dataset.s === shown));
-    scaleBox.setAttribute("data-type-size", shown);
-    scaleBox.replaceChildren(...STYLES.map((s) => el("div", { class: "row" }, el("span", { class: "tag t-caption1 secondary" }, s), el("span", { class: "t-" + s, style: "min-width:0;overflow-wrap:anywhere" }, "Symphony No. 5"))));
-    const cells = [el("div", { class: "h" }, ""), ...SIZES.map((s) => el("div", { class: "h" + (s === shown ? " cur" : "") }, s.replace("Large", "L").replace("xxx", "3x").replace("xx", "2x").replace("Small", "S").replace("medium", "M").replace("large", "L")))];
-    for (const st of STYLES) {
-      cells.push(el("div", { class: "h", style: "text-align:left" }, st));
-      for (const s of SIZES) {
-        const probe = el("div", { "data-type-size": s, style: `font-size: var(--type-${st}-size)` });
-        document.body.append(probe);
-        cells.push(el("div", { class: s === shown ? "cur" : "" }, parseFloat(getComputedStyle(probe).fontSize).toFixed(0)));
-        probe.remove();
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Token sheet</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="../tokens.css?v=44" />
+    <link rel="stylesheet" href="specimen.css?v=44" />
+    <script src="specimen.js?v=44"></script>
+  </head>
+  <body>
+    <style>
+      .swatches {
+        display: grid;
+        grid-template-columns: 1fr repeat(4, 44px);
+        gap: var(--space-xs);
+        align-items: center;
       }
-    }
-    grid.replaceChildren(...cells);
-  }
-  drawType();
+      .swatch {
+        height: 36px;
+        border-radius: var(--radius-s);
+        box-shadow: inset 0 0 0 0.5px rgb(128 128 128 / 0.5);
+        position: relative;
+        overflow: hidden;
+        background-image:
+          linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%),
+          linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%);
+        background-size: 10px 10px;
+        background-position:
+          0 0,
+          5px 5px;
+      }
+      .swatch > div {
+        position: absolute;
+        inset: 0;
+      }
+      .col-head {
+        text-align: center;
+      }
+      .swipe {
+        gap: 0;
+      }
+      .swipe.trail {
+        padding-right: 0;
+      }
+      .swipe.lead {
+        padding-left: 0;
+      }
+      .swipe.lead .main {
+        padding-left: var(--space-l);
+      }
+      .swipe .act {
+        flex: none;
+        width: 78px;
+        align-self: stretch;
+        display: grid;
+        place-items: center;
+        align-content: center;
+        gap: 2px;
+        margin: calc(-1 * var(--space-betweenGroups) / 2) 0;
+        color: #fff;
+        text-align: center;
+      }
+      .swipe .act .fermata {
+        margin: 0;
+      }
+      .swipe .act .fermata svg path {
+        fill: currentColor;
+      }
+      .col-head.fail {
+        color: var(--color-text-primary);
+        font-weight: 700;
+        text-decoration: underline;
+      }
+      .name {
+        overflow-wrap: anywhere;
+      }
+      .sizes {
+        display: flex;
+        gap: var(--space-xs);
+        overflow-x: auto;
+        padding: 0 var(--space-l) var(--space-s);
+        scrollbar-width: none;
+      }
+      .scale .row {
+        align-items: baseline;
+      }
+      .scale .tag {
+        flex: none;
+        width: 92px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 74px repeat(12, minmax(0, 1fr));
+        gap: 0;
+        letter-spacing: -0.3px;
+        font-variant-numeric: tabular-nums;
+        overflow-x: auto;
+      }
+      .grid > div {
+        padding: 2px 0;
+        text-align: center;
+      }
+      .grid > .h {
+        color: var(--color-text-secondary);
+      }
+      .grid > .cur {
+        color: var(--color-tint);
+      }
+      .space-bar {
+        height: 12px;
+        background: var(--color-tint);
+        border-radius: 2px;
+      }
+      .radius-box {
+        width: 64px;
+        height: 44px;
+        background: var(--color-fill-standard);
+      }
+      .demo {
+        flex: none;
+        width: 110px;
+        height: 56px;
+        position: relative;
+        overflow: hidden;
+        border-radius: var(--radius-s);
+        background: var(--color-fill-quiet);
+      }
+      .demo .thing {
+        position: absolute;
+        background: var(--color-tint);
+        border-radius: var(--radius-s);
+      }
+      .demo-num {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+      }
+    </style>
+    <script>
+      K.start(() => {
+        const { el } = K;
+        const { scroll } = K.page({
+          tab: "settings",
+          title: "Token sheet",
+          back: { label: "Library", href: "index.html" },
+        });
+        const css = getComputedStyle(document.documentElement);
+        const v = (name) => css.getPropertyValue(name).trim();
 
-  const dimRows = (prefix, sample) => names(prefix).map((n) => el("div", { class: "row" },
-    el("div", { class: "main" }, el("div", { class: "t-subheadline" }, n.slice(2)), el("div", { class: "t-caption1 secondary nums" }, v(n))), sample(n)));
+        const props = new Set();
+        for (const sheet of document.styleSheets) {
+          let rules;
+          try {
+            rules = sheet.cssRules;
+          } catch {
+            continue;
+          }
+          for (const r of rules) if (r.style) for (const p of r.style) if (p.startsWith("--")) props.add(p);
+        }
+        const names = (prefix) => [...props].filter((p) => p.startsWith(prefix));
+        const section = (title, foot, ...body) =>
+          el(
+            "section",
+            { class: "section" },
+            el("div", { class: "section-head t-footnote" }, title),
+            ...body,
+            foot ? el("div", { class: "section-foot t-footnote" }, foot) : null,
+          );
 
-  // Motion: each transition on its own, with its duration and curve.
-  function demo(kind) {
-    const box = el("div", { class: "demo" });
-    const name = `--motion-transition-${kind}`;
-    const t = `var(${name}-duration) var(${name}-easing)`;
-    let flip = false;
-    if (kind === "inPlace") { const n = el("div", { class: "demo-num t-title2 nums", style: `transition: opacity ${t}` }, "12"); box.append(n);
-      return [box, () => { n.style.opacity = 0; setTimeout(() => { n.textContent = flip ? "12" : "13"; flip = !flip; n.style.opacity = 1; }, parseFloat(v(name + "-duration"))); }]; }
-    const thing = el("div", { class: "thing" }); box.append(thing);
-    const set = { open: [{ left: "8px", top: "8px", width: "94px", height: "10px" }, { height: "40px" }],
-                  rise: [{ left: "8px", top: "60px", width: "94px", height: "40px", opacity: 0 }, { top: "8px", opacity: 1 }],
-                  glide: [{ left: "8px", top: "22px", width: "12px", height: "12px", borderRadius: "50%" }, { left: "90px" }] }[kind];
-    Object.assign(thing.style, set[0]);
-    thing.style.transition = ["left", "top", "height", "opacity"].map((p) => `${p} ${t}`).join(", ");
-    return [box, () => { flip = !flip; Object.assign(thing.style, flip ? set[1] : set[0]); }];
-  }
-  const motionRows = ["inPlace", "open", "rise", "glide"].map((k) => {
-    const [box, run] = demo(k);
-    const name = `--motion-transition-${k}`;
-    return el("button", { class: "row", onclick: run }, el("div", { class: "main" }, el("div", { class: "t-body" }, k),
-      el("div", { class: "t-caption1 secondary nums" }, `${v(name + "-duration")} · ${v(name + "-easing")}`)), box);
-  });
+        // Colours: four themes side by side, each swatch inside its own theme scope.
+        const THEMES = [
+          ["light", "normal", "Light"],
+          ["light", "high", "Light HC"],
+          ["dark", "normal", "Dark"],
+          ["dark", "high", "Dark HC"],
+        ];
+        const colourRows = names("--color-").map((name) => {
+          const cells = THEMES.map(([t, c]) => {
+            const inner = el("div", { style: `background: var(${name})` });
+            return el("div", { class: "swatch", "data-theme": t, "data-contrast": c, title: name }, inner);
+          });
+          return el(
+            "div",
+            { class: "row" },
+            el(
+              "div",
+              { class: "swatches", style: "width:100%" },
+              el("div", { class: "name t-footnote" }, name.slice(8)),
+              ...cells,
+            ),
+          );
+        });
+        const colourHead = el(
+          "div",
+          { class: "row" },
+          el(
+            "div",
+            { class: "swatches", style: "width:100%" },
+            el("span"),
+            ...THEMES.map((t) => el("div", { class: "col-head t-caption2 secondary" }, t[2])),
+          ),
+        );
 
-  scroll.append(
-    el("div", { class: "page-head" }, el("h1", { class: "t-largeTitle" }, "Token sheet"),
-      el("p", { class: "t-subheadline secondary meta" }, "Every value from design/klassik.tokens.json, with the variant's overrides. Tap a motion row to play it.")),
-    section("COLOUR", "Each swatch sits in its own theme.", el("div", { class: "list" }, colourHead, ...colourRows)),
-    section("CONTRAST OF TEXT", "WCAG 2.2 ratio. AA needs 4.5, AAA needs 7. 'large' passes only for the page title and section headings (3).", el("div", { class: "list" }, colourHead.cloneNode(true), ...contrastRows)),
-    section("CONTRAST OF MARKS", "The fermata, the timeline and controls. AA needs 3. HC: 4.5, the Increase Contrast target.", el("div", { class: "list" }, colourHead.cloneNode(true), ...markRows)),
-    section("FAVOURITE MARK", null, el("div", { class: "list" },
-      el("div", { class: "row" }, el("div", { class: "main t-body" }, "Set ", K.fermata(true), "   Not set ", K.fermata(false))),
-      el("div", { class: "row" }, el("div", { class: "main t-title1" }, "Title ", K.fermata(true))))),
-    section("SWIPE", "The app's default edges (sz-rs30.1.83.19.6). Add to Queue and Favourite sit a step darker. White labels at 4.6:1 or more.", el("div", { class: "list" },
-      ...[["lead", "Symphony No. 5 in C minor"], ["trail", "Symphony No. 5 in C minor"], ["lead", "Carlos Kleiber, 1974"], ["trail", "Carlos Kleiber, 1974"]].map(([side, text]) => {
-        const acts = side === "lead"
-          ? [["download", "Download", "↓"], ["favourite", "Favourite", null]]
-          : [["playNext", "Play Next", "⤒"], ["addToQueue", "Add to Queue", "⤓"]];
-        const buttons = acts.map(([k, label, glyph]) => el("div", { class: "act t-caption1", style: `background: var(--color-swipe-${k}, var(--color-tint))` },
-          glyph ? el("span", { class: "t-body" }, glyph) : K.fermata(true), label));
-        const main = el("div", { class: "main t-body", style: "min-width:0;overflow:hidden;white-space:nowrap" }, text);
-        return el("div", { class: "row swipe " + side }, ...(side === "lead" ? [...buttons, main] : [main, ...buttons]));
-      }))),
-    section("TYPE", "Points at each Dynamic Type size. Weight and line height stay.", sizeChips, scaleBox, el("div", { class: "list", style: "margin-top: var(--space-s); padding: var(--space-s)" }, grid)),
-    section("SPACING", "Scales with text size in the app (ScaledMetric).", el("div", { class: "list" }, ...dimRows("--space-", (n) => el("div", { class: "space-bar", style: `width: var(${n})` })))),
-    section("RADIUS", null, el("div", { class: "list" }, ...dimRows("--radius-", (n) => el("div", { class: "radius-box", style: `border-radius: var(${n})` })))),
-    section("SIZE", null, el("div", { class: "list" }, ...dimRows("--size-", () => el("span")))),
-    section("MOTION", "With Reduce Motion, each becomes a cross-fade of the quick duration.", el("div", { class: "list" }, ...motionRows)));
-});
-</script>
-</body>
+        // Contrast of each text and mark colour on each background, per theme (WCAG 2.2 ratio).
+        // A variant reaches the probes only through [data-theme] selectors, as the README says.
+        function luminance(rgb) {
+          const [r, g, b] = rgb.map((c) => {
+            c /= 255;
+            return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+          });
+          return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        }
+        // A colour with alpha sits on its background, and a background with alpha sits on the page.
+        function ratio(name, theme, contrast, over) {
+          const page = el("div", {
+            "data-theme": theme,
+            "data-contrast": contrast,
+            style: "position:absolute;visibility:hidden;background:var(--color-background-page)",
+          });
+          const probe = el("div", { style: `color:var(${name});background:var(${over})` });
+          page.append(probe);
+          document.body.append(page);
+          const parse = (s) => s.match(/[\d.]+/g).map(Number);
+          const [fg, bg, base] = [
+            getComputedStyle(probe).color,
+            getComputedStyle(probe).backgroundColor,
+            getComputedStyle(page).backgroundColor,
+          ].map(parse);
+          page.remove();
+          const over_ = (top, under) => {
+            const a = top.length > 3 ? top[3] : 1;
+            return [0, 1, 2].map((i) => top[i] * a + under[i] * (1 - a));
+          };
+          const back = over_(bg, base),
+            front = over_(fg, back);
+          const [l1, l2] = [luminance(front), luminance(back)].sort((x, y) => y - x);
+          return (l1 + 0.05) / (l2 + 0.05);
+        }
+        // Text: AA 4.5, AAA 7, large text (title and headings) 3. Marks: AA 3, and 4.5 for Increase Contrast (map sz-rs30.1.83.19).
+        const verdict = (r, text) =>
+          text
+            ? r >= 7
+              ? "AAA"
+              : r >= 4.5
+                ? "AA"
+                : r >= 3
+                  ? "large"
+                  : "fail"
+            : r >= 4.5
+              ? "HC"
+              : r >= 3
+                ? "AA"
+                : "fail";
+        const TEXTS = names("--color-text-").concat(["--color-tint"]);
+        const MARKS = ["--color-favourite", "--color-favourite-off", "--color-timeline-played", "--color-tint"].filter(
+          (n) => props.has(n),
+        );
+        const BACKS = names("--color-background-");
+        const pairRow = (fg, bg, text) =>
+          el(
+            "div",
+            { class: "row" },
+            el(
+              "div",
+              { class: "swatches", style: "width:100%" },
+              el("div", { class: "name t-footnote" }, `${fg.slice(8)} on ${bg.slice(8).replace("background-", "")}`),
+              ...THEMES.map(([t, c]) => {
+                const r = ratio(fg, t, c, bg);
+                const v = verdict(r, text);
+                return el(
+                  "div",
+                  { class: "col-head t-caption1 nums" + (v === "fail" ? " fail" : "") },
+                  r.toFixed(1),
+                  el("br"),
+                  v,
+                );
+              }),
+            ),
+          );
+        const contrastRows = BACKS.flatMap((bg) => TEXTS.map((fg) => pairRow(fg, bg, true))).concat(
+          props.has("--color-on-accent") ? [pairRow("--color-on-accent", "--color-accent-fill", true)] : [],
+        );
+        const markRows = ["--color-background-page", "--color-background-row", "--color-timeline-unplayed"]
+          .filter((n) => props.has(n))
+          .flatMap((bg) =>
+            MARKS.filter((fg) => bg !== "--color-timeline-unplayed" || fg === "--color-timeline-played").map((fg) =>
+              pairRow(fg, bg, false),
+            ),
+          );
+
+        // Type: the scale at one Dynamic Type size, and every size in numbers.
+        const SIZES = [
+          "xSmall",
+          "small",
+          "medium",
+          "large",
+          "xLarge",
+          "xxLarge",
+          "xxxLarge",
+          "AX1",
+          "AX2",
+          "AX3",
+          "AX4",
+          "AX5",
+        ];
+        const STYLES = names("--type-")
+          .filter((n) => n.endsWith("-size"))
+          .map((n) => n.slice(7, -5));
+        let shown = document.documentElement.dataset.typeSize || "large";
+        const scaleBox = el("div", { class: "list scale" });
+        const grid = el("div", { class: "grid t-caption2" });
+        const sizeChips = el(
+          "div",
+          { class: "sizes" },
+          ...SIZES.map((s) =>
+            el(
+              "button",
+              {
+                class: "chip t-footnote",
+                "data-s": s,
+                onclick: () => {
+                  shown = s;
+                  drawType();
+                },
+              },
+              s,
+            ),
+          ),
+        );
+        function drawType() {
+          sizeChips.querySelectorAll(".chip").forEach((c) => {
+            c.classList.toggle("on", c.dataset.s === shown);
+          });
+          scaleBox.setAttribute("data-type-size", shown);
+          scaleBox.replaceChildren(
+            ...STYLES.map((s) =>
+              el(
+                "div",
+                { class: "row" },
+                el("span", { class: "tag t-caption1 secondary" }, s),
+                el("span", { class: "t-" + s, style: "min-width:0;overflow-wrap:anywhere" }, "Symphony No. 5"),
+              ),
+            ),
+          );
+          const cells = [
+            el("div", { class: "h" }, ""),
+            ...SIZES.map((s) =>
+              el(
+                "div",
+                { class: "h" + (s === shown ? " cur" : "") },
+                s
+                  .replace("Large", "L")
+                  .replace("xxx", "3x")
+                  .replace("xx", "2x")
+                  .replace("Small", "S")
+                  .replace("medium", "M")
+                  .replace("large", "L"),
+              ),
+            ),
+          ];
+          for (const st of STYLES) {
+            cells.push(el("div", { class: "h", style: "text-align:left" }, st));
+            for (const s of SIZES) {
+              const probe = el("div", { "data-type-size": s, style: `font-size: var(--type-${st}-size)` });
+              document.body.append(probe);
+              cells.push(
+                el("div", { class: s === shown ? "cur" : "" }, parseFloat(getComputedStyle(probe).fontSize).toFixed(0)),
+              );
+              probe.remove();
+            }
+          }
+          grid.replaceChildren(...cells);
+        }
+        drawType();
+
+        const dimRows = (prefix, sample) =>
+          names(prefix).map((n) =>
+            el(
+              "div",
+              { class: "row" },
+              el(
+                "div",
+                { class: "main" },
+                el("div", { class: "t-subheadline" }, n.slice(2)),
+                el("div", { class: "t-caption1 secondary nums" }, v(n)),
+              ),
+              sample(n),
+            ),
+          );
+
+        // Motion: each transition on its own, with its duration and curve.
+        function demo(kind) {
+          const box = el("div", { class: "demo" });
+          const name = `--motion-transition-${kind}`;
+          const t = `var(${name}-duration) var(${name}-easing)`;
+          let flip = false;
+          if (kind === "inPlace") {
+            const n = el("div", { class: "demo-num t-title2 nums", style: `transition: opacity ${t}` }, "12");
+            box.append(n);
+            return [
+              box,
+              () => {
+                n.style.opacity = 0;
+                setTimeout(
+                  () => {
+                    n.textContent = flip ? "12" : "13";
+                    flip = !flip;
+                    n.style.opacity = 1;
+                  },
+                  parseFloat(v(name + "-duration")),
+                );
+              },
+            ];
+          }
+          const thing = el("div", { class: "thing" });
+          box.append(thing);
+          const set = {
+            open: [{ left: "8px", top: "8px", width: "94px", height: "10px" }, { height: "40px" }],
+            rise: [
+              { left: "8px", top: "60px", width: "94px", height: "40px", opacity: 0 },
+              { top: "8px", opacity: 1 },
+            ],
+            glide: [{ left: "8px", top: "22px", width: "12px", height: "12px", borderRadius: "50%" }, { left: "90px" }],
+          }[kind];
+          Object.assign(thing.style, set[0]);
+          thing.style.transition = ["left", "top", "height", "opacity"].map((p) => `${p} ${t}`).join(", ");
+          return [
+            box,
+            () => {
+              flip = !flip;
+              Object.assign(thing.style, flip ? set[1] : set[0]);
+            },
+          ];
+        }
+        const motionRows = ["inPlace", "open", "rise", "glide"].map((k) => {
+          const [box, run] = demo(k);
+          const name = `--motion-transition-${k}`;
+          return el(
+            "button",
+            { class: "row", onclick: run },
+            el(
+              "div",
+              { class: "main" },
+              el("div", { class: "t-body" }, k),
+              el("div", { class: "t-caption1 secondary nums" }, `${v(name + "-duration")} · ${v(name + "-easing")}`),
+            ),
+            box,
+          );
+        });
+
+        scroll.append(
+          el(
+            "div",
+            { class: "page-head" },
+            el("h1", { class: "t-largeTitle" }, "Token sheet"),
+            el(
+              "p",
+              { class: "t-subheadline secondary meta" },
+              "Every value from design/klassik.tokens.json, with the variant's overrides. Tap a motion row to play it.",
+            ),
+          ),
+          section(
+            "COLOUR",
+            "Each swatch sits in its own theme.",
+            el("div", { class: "list" }, colourHead, ...colourRows),
+          ),
+          section(
+            "CONTRAST OF TEXT",
+            "WCAG 2.2 ratio. AA needs 4.5, AAA needs 7. 'large' passes only for the page title and section headings (3).",
+            el("div", { class: "list" }, colourHead.cloneNode(true), ...contrastRows),
+          ),
+          section(
+            "CONTRAST OF MARKS",
+            "The fermata, the timeline and controls. AA needs 3. HC: 4.5, the Increase Contrast target.",
+            el("div", { class: "list" }, colourHead.cloneNode(true), ...markRows),
+          ),
+          section(
+            "FAVOURITE MARK",
+            null,
+            el(
+              "div",
+              { class: "list" },
+              el(
+                "div",
+                { class: "row" },
+                el("div", { class: "main t-body" }, "Set ", K.fermata(true), "   Not set ", K.fermata(false)),
+              ),
+              el("div", { class: "row" }, el("div", { class: "main t-title1" }, "Title ", K.fermata(true))),
+            ),
+          ),
+          section(
+            "SWIPE",
+            "The app's default edges (sz-rs30.1.83.19.6). Add to Queue and Favourite sit a step darker. White labels at 4.6:1 or more.",
+            el(
+              "div",
+              { class: "list" },
+              ...[
+                ["lead", "Symphony No. 5 in C minor"],
+                ["trail", "Symphony No. 5 in C minor"],
+                ["lead", "Carlos Kleiber, 1974"],
+                ["trail", "Carlos Kleiber, 1974"],
+              ].map(([side, text]) => {
+                const acts =
+                  side === "lead"
+                    ? [
+                        ["download", "Download", "↓"],
+                        ["favourite", "Favourite", null],
+                      ]
+                    : [
+                        ["playNext", "Play Next", "⤒"],
+                        ["addToQueue", "Add to Queue", "⤓"],
+                      ];
+                const buttons = acts.map(([k, label, glyph]) =>
+                  el(
+                    "div",
+                    { class: "act t-caption1", style: `background: var(--color-swipe-${k}, var(--color-tint))` },
+                    glyph ? el("span", { class: "t-body" }, glyph) : K.fermata(true),
+                    label,
+                  ),
+                );
+                const main = el(
+                  "div",
+                  { class: "main t-body", style: "min-width:0;overflow:hidden;white-space:nowrap" },
+                  text,
+                );
+                return el(
+                  "div",
+                  { class: "row swipe " + side },
+                  ...(side === "lead" ? [...buttons, main] : [main, ...buttons]),
+                );
+              }),
+            ),
+          ),
+          section(
+            "TYPE",
+            "Points at each Dynamic Type size. Weight and line height stay.",
+            sizeChips,
+            scaleBox,
+            el("div", { class: "list", style: "margin-top: var(--space-s); padding: var(--space-s)" }, grid),
+          ),
+          section(
+            "SPACING",
+            "Scales with text size in the app (ScaledMetric).",
+            el(
+              "div",
+              { class: "list" },
+              ...dimRows("--space-", (n) => el("div", { class: "space-bar", style: `width: var(${n})` })),
+            ),
+          ),
+          section(
+            "RADIUS",
+            null,
+            el(
+              "div",
+              { class: "list" },
+              ...dimRows("--radius-", (n) => el("div", { class: "radius-box", style: `border-radius: var(${n})` })),
+            ),
+          ),
+          section("SIZE", null, el("div", { class: "list" }, ...dimRows("--size-", () => el("span")))),
+          section(
+            "MOTION",
+            "With Reduce Motion, each becomes a cross-fade of the quick duration.",
+            el("div", { class: "list" }, ...motionRows),
+          ),
+        );
+      });
+    </script>
+  </body>
 </html>

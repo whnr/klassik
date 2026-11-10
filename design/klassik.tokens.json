@@ -103,18 +103,11 @@
     "family": {
       "$type": "fontFamily",
       "text": {
-        "$value": [
-          "-apple-system",
-          "system-ui",
-          "sans-serif"
-        ],
+        "$value": ["-apple-system", "system-ui", "sans-serif"],
         "$description": "The system face. In SwiftUI, a text style without a custom font."
       },
       "display": {
-        "$value": [
-          "Wittgenstein",
-          "serif"
-        ],
+        "$value": ["Wittgenstein", "serif"],
         "$description": "Page titles and section headings only. Bundled with the app under the SIL Open Font License 1.1."
       }
     }
@@ -357,10 +350,7 @@
       "de.whnr.klassik": {
         "ratio": 1.3333,
         "body": 17,
-        "figures": [
-          "lnum",
-          "pnum"
-        ]
+        "figures": ["lnum", "pnum"]
       }
     },
     "pageTitle": {
@@ -609,28 +599,13 @@
     "easing": {
       "$type": "cubicBezier",
       "standard": {
-        "$value": [
-          0.25,
-          0.1,
-          0.25,
-          1
-        ]
+        "$value": [0.25, 0.1, 0.25, 1]
       },
       "out": {
-        "$value": [
-          0,
-          0,
-          0.58,
-          1
-        ]
+        "$value": [0, 0, 0.58, 1]
       },
       "inOut": {
-        "$value": [
-          0.42,
-          0,
-          0.58,
-          1
-        ]
+        "$value": [0.42, 0, 0.58, 1]
       }
     },
     "transition": {

@@ -1,0 +1,4 @@
+# Generated files: their generators own the layout.
+design/tokens.css
+design/accent-*.tokens.json
+design/specimen/data/

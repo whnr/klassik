@@ -1,10 +1,22 @@
 /* The timeline's shape (ADR 0035, sz-rs30.1.83.21): flush with the screen edge, round only on the content side,
    a gap of space-xxs between all segments, the first segment grows out of the edge.
    --t and --b are the top and bottom corners on the content side. */
-.timeline .seg { --t: var(--radius-xs); --b: var(--radius-xs); border-radius: var(--t) 0 0 var(--b); }
-[data-side="left"] .timeline .seg { border-radius: 0 var(--t) var(--b) 0; }
-.timeline .seg.first { --t: var(--size-timelineCap); }
+.timeline .seg {
+  --t: var(--radius-xs);
+  --b: var(--radius-xs);
+  border-radius: var(--t) 0 0 var(--b);
+}
+[data-side="left"] .timeline .seg {
+  border-radius: 0 var(--t) var(--b) 0;
+}
+.timeline .seg.first {
+  --t: var(--size-timelineCap);
+}
 
 /* Over a picture with Increase Contrast: a 2 pt keyline, paper colour in the dark room, so keyline or shadow stands apart. */
-:root[data-page="person"][data-contrast="high"] .timeline .seg { box-shadow: 0 0 0 var(--space-xxs) var(--color-background-page); }
-:root[data-page="person"][data-contrast="high"][data-theme="dark"] .timeline .seg { box-shadow: 0 0 0 var(--space-xxs) #faf3e5; }
+:root[data-page="person"][data-contrast="high"] .timeline .seg {
+  box-shadow: 0 0 0 var(--space-xxs) var(--color-background-page);
+}
+:root[data-page="person"][data-contrast="high"][data-theme="dark"] .timeline .seg {
+  box-shadow: 0 0 0 var(--space-xxs) #faf3e5;
+}

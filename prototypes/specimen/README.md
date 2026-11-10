@@ -53,6 +53,10 @@ The server sends no cache header, so Safari keeps old copies. Raise the `?v=` st
 
 In `prototypes/`, run `python3 -m http.server 8765 --bind 0.0.0.0` and open `http://<laptop>:8765/specimen/`. The covers load from Wikimedia Commons, so the phone needs network access.
 
+## Timeline (round 25)
+
+The looks `tl-a`, `tl-b`, `tl-c` and `tl-a4` (sz-rs30.1.83.21) shape the timeline on every page. Each is flush with the screen edge, round on the content side only, and its first segment grows out of the edge over 8 pt. A: a 2 pt gap and 2 pt radius everywhere. B: a 1 pt hairline between movements, 4 pt between works. C: 2 pt gaps, square cuts, round only at a work's ends. A4: A at 4 pt radius. `K.setTimeline` sets the gap between two segments. In the dark room the unplayed part takes about 2:1. On the person page the looks keep the picture look B, with a 2 pt keyline in Increase Contrast. What plays adds the Matthäus-Passion and the Chopin sonatas. The specimen pill pushes the bar down; the app starts it at the top safe area.
+
 ## Looks (round 24)
 
 `variants/looks.json` lists the variants of one look ticket at a time, beside the palette variant, so both combine. `?look=<name>` loads its css and js and sets `data-look` on the root; one file can serve every look of a ticket. A look with `page` loads only on that page, though links carry it on. A look can hold the page in one room with `K.setRoom`.

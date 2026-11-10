@@ -231,6 +231,9 @@ const K = (() => {
   const QUEUES = {
     recording: { label: "Beethoven 5", items: [["recording", "640qawSbxRzx7BX6z3M2wM", "Symphony No. 5 in C minor, Op. 67"], ["recording", null, "Symphony No. 9 in E minor, Op. 95"]], start: [1, 95] },
     album: { label: "Chopin album", items: [["album", "64HbQV0X1HES4YXv4Z2nCJ"], ["recording", "640qawSbxRzx7BX6z3M2wM", "Symphony No. 5 in C minor, Op. 67"]], start: [1, 40] },
+    // Round 25 (sz-rs30.1.83.21): a long work, and an album of three works, for the timeline's gaps.
+    passion: { label: "Matthäus-Passion", items: [["album", "0E6R5t8dsTf408V87Y7Lct"]], start: [20, 60] },
+    sonatas: { label: "Chopin sonatas", items: [["album", "3Is4qK0IBSlUYtEHMhh8YH"]], start: [4, 60] },
     weak: { label: "Weak tags", items: [["album", "1KhEMYqfQA2bpiPvD5lSqV"], ["album", "6MbFGUFnJLoswdnWRoGffX"]], start: [0, 200] },
     none: { label: "Nothing", items: [], start: [0, 0] },
   };
@@ -590,20 +593,33 @@ const K = (() => {
   let MINI = cardMini;
   function setMini(provider) { MINI = { ...cardMini, ...provider }; }
 
+  // A timeline look (sz-rs30.1.83.21) sets the gap between two segments through K.setTimeline.
+  let TL = { gap: (count) => (count > 40 ? 1 : 2) };
+  function setTimeline(provider) { TL = { ...TL, ...provider }; }
+  const workOf = (s) => (s.works && s.works[0] ? s.works[0].name : "");
+
   function segments() {
-    const item = current();
-    const H = chrome.timeline.clientHeight, gap = item.songs.length > 40 ? 1 : 2;
+    const item = current(), n = item.songs.length;
+    const H = chrome.timeline.clientHeight;
     const total = item.songs.reduce((t, s) => t + s.duration, 0);
-    const usable = H - gap * (item.songs.length - 1);
+    const gaps = item.songs.map((s, i) => (i ? TL.gap(n, workOf(s) === workOf(item.songs[i - 1])) : 0));
+    const usable = H - gaps.reduce((a, b) => a + b, 0);
     let y = 0;
-    return item.songs.map((s) => { const h = Math.max(1, (s.duration / total) * usable); const seg = { y, h, s }; y += h + gap; return seg; });
+    return item.songs.map((s, i) => {
+      y += gaps[i];
+      const h = Math.max(1, (s.duration / total) * usable);
+      const seg = { y, h, s, first: i === 0, workStart: i === 0 || workOf(s) !== workOf(item.songs[i - 1]), workEnd: i === n - 1 || workOf(s) !== workOf(item.songs[i + 1]) };
+      y += h;
+      return seg;
+    });
   }
 
   function drawTimeline() {
     if (!chrome.timeline || !current()) return;
     const bar = chrome.timeline.querySelector(".bar");
     bar.replaceChildren(...segments().map((g) => {
-      const seg = el("div", { class: "seg" }, el("div", { class: "done" }));
+      const cls = ["seg", g.first && "first", g.workStart && "work-start", g.workEnd && "work-end"].filter(Boolean).join(" ");
+      const seg = el("div", { class: cls }, el("div", { class: "done" }));
       seg.style.top = g.y + "px"; seg.style.height = g.h + "px";
       return seg;
     }));
@@ -687,6 +703,6 @@ const K = (() => {
     start, page, el, ICON, setRoom, href, params, store, fermata, time, sheet, cover, coverImage, coverColour, surname,
     M, P, current, song, seek, playItem, togglePause, onPlay, resolveItem, movementTitle,
     isFavourite, toggleFavourite, orderedRecordings, layoutChrome, emit, becomePlayer, performersOf, ROMAN, titled, personHref,
-    setMini, cardMini, chrome, peopleLine, count, duration, joinNames, roleBlock, NB, searchItems: () => MINI.searchItems(),
+    setMini, cardMini, setTimeline, chrome, peopleLine, count, duration, joinNames, roleBlock, NB, searchItems: () => MINI.searchItems(),
   };
 })();

@@ -1,0 +1,23 @@
+/* PROTOTYPE, round 25, sz-rs30.1.83.21: the timeline's shape. Decided in grilling: flush with the screen edge,
+   round only on the content side, the first segment grows out of the edge over 8 pt, a gap between every movement.
+   The looks differ in the gaps and where the radius sits. */
+:root[data-look^="tl-"] { --radius-xs: 2px; --tl-cap: 8px; }
+:root[data-look="tl-a4"] { --radius-xs: 4px; }
+
+/* --t and --b are the top and bottom corners on the content side. */
+:root[data-look^="tl-"] .timeline .seg { --t: var(--radius-xs); --b: var(--radius-xs); border-radius: var(--t) 0 0 var(--b); }
+:root[data-look^="tl-"][data-side="left"] .timeline .seg { border-radius: 0 var(--t) var(--b) 0; }
+/* C: movements are square cuts; only a work's ends are round. */
+:root[data-look="tl-c"] .timeline .seg { --t: 0px; --b: 0px; }
+:root[data-look="tl-c"] .timeline .seg.work-start { --t: var(--radius-xs); }
+:root[data-look="tl-c"] .timeline .seg.work-end { --b: var(--radius-xs); }
+:root[data-look^="tl-"] .timeline .seg.first { --t: var(--tl-cap); }
+
+/* The dark room: the unplayed part at about 2:1 on the page, an exception to the locked colours for the timeline only.
+   The played part keeps 3:1 from it (4.5:1 in Increase Contrast). */
+:root[data-look^="tl-"][data-theme="dark"] { --color-timeline-unplayed: color-mix(in oklab, var(--color-text-primary) 32%, var(--color-background-page)); }
+:root[data-look^="tl-"][data-theme="dark"][data-contrast="high"] { --color-timeline-unplayed: color-mix(in oklab, var(--color-text-primary) 30%, var(--color-background-page)); }
+
+/* Over a picture in Increase Contrast: a 2 pt keyline, paper colour in the dark room, so keyline or shadow stands apart. */
+:root[data-look^="tl-"][data-contrast="high"][data-pic="scrim"] .timeline .seg { box-shadow: 0 0 0 var(--space-xxs) var(--color-background-page); }
+:root[data-look^="tl-"][data-contrast="high"][data-theme="dark"][data-pic="scrim"] .timeline .seg { box-shadow: 0 0 0 var(--space-xxs) #faf3e5; }

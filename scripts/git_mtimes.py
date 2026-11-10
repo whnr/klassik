@@ -4,9 +4,13 @@ A fresh checkout gives every file the time of the checkout, so the Swift compile
 even with a cached DerivedData. Needs the full history (actions/checkout with fetch-depth: 0).
 Usage: python3 scripts/git_mtimes.py
 """
-import os, subprocess
 
-tracked = set(subprocess.run(["git", "ls-files", "-z"], capture_output=True, text=True, check=True).stdout.split("\0")) - {""}
+import os
+import subprocess
+
+tracked = set(
+    subprocess.run(["git", "ls-files", "-z"], capture_output=True, text=True, check=True).stdout.split("\0")
+) - {""}
 log = subprocess.run(
     ["git", "log", "--format=@%ct", "--name-only", "--no-renames"], capture_output=True, text=True, check=True
 ).stdout

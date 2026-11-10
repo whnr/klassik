@@ -2,9 +2,17 @@
 
 A run that walked only some areas holds only their screens, so older runs fill the rest.
 Writes the PNGs and sources.json ({"<screen>.png": "run <id>, <commit>"}) into the baseline directory.
-Usage: GH_TOKEN=... GITHUB_REPOSITORY=owner/repo GITHUB_RUN_ID=... python3 scripts/screen_baseline.py <current-dir> <baseline-dir>
+Usage: GH_TOKEN=... GITHUB_REPOSITORY=owner/repo GITHUB_RUN_ID=... \
+    python3 scripts/screen_baseline.py <current-dir> <baseline-dir>
 """
-import json, os, pathlib, shutil, subprocess, sys, tempfile
+
+import json
+import os
+import pathlib
+import shutil
+import subprocess
+import sys
+import tempfile
 
 RUNS = 30  # Most pushes walk no screens; their artifact holds only the gapless report.
 
@@ -18,9 +26,9 @@ base_dir.mkdir(parents=True, exist_ok=True)
 repo, this_run = os.environ["GITHUB_REPOSITORY"], int(os.environ.get("GITHUB_RUN_ID", 0))
 wanted = {p.name for p in current_dir.glob("*.png")}
 sources = {}
-runs = json.loads(
-    gh("api", f"repos/{repo}/actions/workflows/test.yml/runs?branch=ci&status=success&per_page={RUNS}")
-)["workflow_runs"]
+runs = json.loads(gh("api", f"repos/{repo}/actions/workflows/test.yml/runs?branch=ci&status=success&per_page={RUNS}"))[
+    "workflow_runs"
+]
 for run in runs:
     if not wanted - set(sources):
         break

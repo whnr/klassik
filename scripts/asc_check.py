@@ -2,7 +2,15 @@
 
 Env: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8. Exits non-zero when the key does not authenticate.
 """
-import json, os, re, sys, time, urllib.error, urllib.request
+
+import json
+import os
+import re
+import sys
+import time
+import urllib.error
+import urllib.request
+
 import jwt  # pyjwt[crypto]
 
 key_id, issuer, p8 = (os.environ.get(k, "") for k in ("ASC_KEY_ID", "ASC_ISSUER_ID", "ASC_KEY_P8"))
@@ -20,11 +28,16 @@ if key_id != key_id.strip() or issuer != issuer.strip():
 
 def apps(claims):
     now = int(time.time())
-    token = jwt.encode({**claims, "iat": now, "exp": now + 600, "aud": "appstoreconnect-v1"},
-                       p8, algorithm="ES256", headers={"kid": key_id.strip()})
+    token = jwt.encode(
+        {**claims, "iat": now, "exp": now + 600, "aud": "appstoreconnect-v1"},
+        p8,
+        algorithm="ES256",
+        headers={"kid": key_id.strip()},
+    )
     request = urllib.request.Request(
         "https://api.appstoreconnect.apple.com/v1/apps?filter[bundleId]=de.whnr.klassik",
-        headers={"Authorization": f"Bearer {token}"})
+        headers={"Authorization": f"Bearer {token}"},
+    )
     with urllib.request.urlopen(request) as response:
         return json.load(response)["data"]
 
@@ -38,5 +51,8 @@ except urllib.error.HTTPError as error:
         apps({"sub": "user"})
         print("FAIL the key is an individual key; create a team key (Admin) instead")
     except urllib.error.HTTPError:
-        print("FAIL no token shape works: ASC_KEY_P8 does not belong to ASC_KEY_ID, the issuer ID is wrong, or the key is revoked")
+        print(
+            "FAIL no token shape works: ASC_KEY_P8 does not belong to ASC_KEY_ID, "
+            "the issuer ID is wrong, or the key is revoked"
+        )
     sys.exit(1)

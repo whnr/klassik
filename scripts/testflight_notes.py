@@ -5,7 +5,16 @@ Usage: testflight_notes.py --check            fails if the file does not match M
 Env for the second form: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8.
 The file starts with the line "Klassik X.Y.Z". Apple allows 4000 characters.
 """
-import json, os, pathlib, re, sys, time, urllib.error, urllib.parse, urllib.request
+
+import json
+import os
+import pathlib
+import re
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
 
 root = pathlib.Path(__file__).resolve().parent.parent
 notes = (root / "docs/what-to-test.md").read_text().strip()
@@ -18,7 +27,7 @@ if len(notes) > 4000:
 if sys.argv[1:] == ["--check"]:
     sys.exit(0)
 
-import jwt  # pyjwt[crypto]
+import jwt  # noqa: E402 - pyjwt[crypto]; imported after --check, which runs without it
 
 API = "https://api.appstoreconnect.apple.com"
 
@@ -27,11 +36,17 @@ def call(method, path, body=None, **params):
     now = int(time.time())
     token = jwt.encode(
         {"iss": os.environ["ASC_ISSUER_ID"], "iat": now, "exp": now + 600, "aud": "appstoreconnect-v1"},
-        os.environ["ASC_KEY_P8"], algorithm="ES256", headers={"kid": os.environ["ASC_KEY_ID"]})
+        os.environ["ASC_KEY_P8"],
+        algorithm="ES256",
+        headers={"kid": os.environ["ASC_KEY_ID"]},
+    )
     query = f"?{urllib.parse.urlencode(params)}" if params else ""
     request = urllib.request.Request(
-        f"{API}{path}{query}", method=method, data=json.dumps(body).encode() if body else None,
-        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
+        f"{API}{path}{query}",
+        method=method,
+        data=json.dumps(body).encode() if body else None,
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+    )
     try:
         with urllib.request.urlopen(request) as response:
             return json.load(response)
@@ -55,10 +70,21 @@ if not build:
 existing = call("GET", f"/v1/builds/{build}/betaBuildLocalizations")["data"]
 current = next((item for item in existing if item["attributes"]["locale"] == "en-US"), None)
 if current:
-    call("PATCH", f"/v1/betaBuildLocalizations/{current['id']}", {
-        "data": {"type": "betaBuildLocalizations", "id": current["id"], "attributes": {"whatsNew": notes}}})
+    call(
+        "PATCH",
+        f"/v1/betaBuildLocalizations/{current['id']}",
+        {"data": {"type": "betaBuildLocalizations", "id": current["id"], "attributes": {"whatsNew": notes}}},
+    )
 else:
-    call("POST", "/v1/betaBuildLocalizations", {"data": {
-        "type": "betaBuildLocalizations", "attributes": {"locale": "en-US", "whatsNew": notes},
-        "relationships": {"build": {"data": {"type": "builds", "id": build}}}}})
+    call(
+        "POST",
+        "/v1/betaBuildLocalizations",
+        {
+            "data": {
+                "type": "betaBuildLocalizations",
+                "attributes": {"locale": "en-US", "whatsNew": notes},
+                "relationships": {"build": {"data": {"type": "builds", "id": build}}},
+            }
+        },
+    )
 print(f"What to Test set for build {build_number} ({version}).")

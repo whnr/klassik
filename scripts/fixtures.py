@@ -5,16 +5,17 @@ Needs ffmpeg on PATH and mutagen. The audio is generated, so the repo carries no
 material. Tags follow the convention in the library epic: Navidrome 0.64 drops the ID3 MVIN
 frame, so movement number and total go into TXXX:MOVEMENT and TXXX:MOVEMENTTOTAL.
 """
+
 import pathlib
 import subprocess
 import sys
 
 from mutagen.flac import FLAC
-from mutagen.id3 import GRP1, ID3, TALB, TCOM, TCON, TDRC, TDRL, TIT2, TMCL, TPE1, TPE2, TPE3, TPOS, TRCK, TXXX, MVNM
+from mutagen.id3 import GRP1, ID3, MVNM, TALB, TCOM, TCON, TDRC, TDRL, TIT2, TMCL, TPE1, TPE2, TPE3, TPOS, TRCK, TXXX
 
 # (album, album artist, genre, recording date, release date, tracks)
-# track: (composer, work, movement name, movement number, movement total, performers, conductor, seconds or None for the glide,
-#         optional GROUPING)
+# track: (composer, work, movement name, movement number, movement total, performers, conductor,
+#         seconds or None for the glide, optional GROUPING)
 BEETHOVEN = "Ludwig van Beethoven"
 BACH = "Johann Sebastian Bach"
 MOZART = "Wolfgang Amadeus Mozart"
@@ -46,8 +47,14 @@ GLIDE_RATE = 44100
 GLIDE_SAMPLES = [132301, 110017, 154441]
 
 # ReplayGain tags of the 1990 recording of the Fifth. The peak allows less boost than the gain asks for.
-REPLAYGAIN = {"Beethoven: Symphony No. 5": {"album_gain": "+6.00 dB", "album_peak": "0.800000",
-                                            "track_gain": "+5.00 dB", "track_peak": "0.700000"}}
+REPLAYGAIN = {
+    "Beethoven: Symphony No. 5": {
+        "album_gain": "+6.00 dB",
+        "album_peak": "0.800000",
+        "track_gain": "+5.00 dB",
+        "track_peak": "0.700000",
+    }
+}
 
 
 def piece(title, grouping, performer):
@@ -61,31 +68,84 @@ def work(composer, title, movements, performers, conductor, seconds=4, only=None
 
 
 ALBUMS = [
-    ("Beethoven: Symphony No. 5", "Testing Philharmonic; Anna Probe", "Classical > Orchestral", "1990", "1991-03-01",
-     work(BEETHOVEN, B5, B5_MOVEMENTS, ORCH_A, "Anna Probe")),
-    ("Beethoven: Symphonies 4 & 5", "Sine Wave Chamber Orchestra; Carl Fixture", "Classical", "2015", "2016-05-20",
-     work(BEETHOVEN, B5, B5_MOVEMENTS, ORCH_B, "Carl Fixture")),
-    ("Bach: Cello Suites", "Clara Cellotest", "Classical > Chamber", "2004", "2005-01-10",
-     work(BACH, SUITE, SUITE_MOVEMENTS, [("cello", "Clara Cellotest")], None, seconds=3)),
-    ("Mozart: Piano Concertos 21 & 23", "Daniel Keys; Testing Philharmonic; Anna Probe", "Classical > Concerto", "1999", "2000-09-15",
-     work(MOZART, K467, K467_MOVEMENTS, [("piano", "Daniel Keys")] + ORCH_A, "Anna Probe")),
+    (
+        "Beethoven: Symphony No. 5",
+        "Testing Philharmonic; Anna Probe",
+        "Classical > Orchestral",
+        "1990",
+        "1991-03-01",
+        work(BEETHOVEN, B5, B5_MOVEMENTS, ORCH_A, "Anna Probe"),
+    ),
+    (
+        "Beethoven: Symphonies 4 & 5",
+        "Sine Wave Chamber Orchestra; Carl Fixture",
+        "Classical",
+        "2015",
+        "2016-05-20",
+        work(BEETHOVEN, B5, B5_MOVEMENTS, ORCH_B, "Carl Fixture"),
+    ),
+    (
+        "Bach: Cello Suites",
+        "Clara Cellotest",
+        "Classical > Chamber",
+        "2004",
+        "2005-01-10",
+        work(BACH, SUITE, SUITE_MOVEMENTS, [("cello", "Clara Cellotest")], None, seconds=3),
+    ),
+    (
+        "Mozart: Piano Concertos 21 & 23",
+        "Daniel Keys; Testing Philharmonic; Anna Probe",
+        "Classical > Concerto",
+        "1999",
+        "2000-09-15",
+        work(MOZART, K467, K467_MOVEMENTS, [("piano", "Daniel Keys")] + ORCH_A, "Anna Probe"),
+    ),
     # A recital disc with only part of a work, for the completeness badge.
-    ("Romantic Encores", "Sine Wave Chamber Orchestra; Carl Fixture", "Classical", "2021", "2022-02-02",
-     work(BRAHMS, B4, B4_MOVEMENTS, ORCH_B, "Carl Fixture", only=[3])
-     + work(MOZART, K467, K467_MOVEMENTS, [("piano", "Daniel Keys")] + ORCH_B, "Carl Fixture", only=[2])),
-    ("Mendelssohn: Violin Concerto", "Eva Bogen; Testing Philharmonic; Anna Probe", "Classical > Concerto", "2008", "2009-04-01",
-     work(MENDELSSOHN, OP64, OP64_MOVEMENTS, [("violin", "Eva Bogen")] + ORCH_A, "Anna Probe", seconds=None)),
+    (
+        "Romantic Encores",
+        "Sine Wave Chamber Orchestra; Carl Fixture",
+        "Classical",
+        "2021",
+        "2022-02-02",
+        work(BRAHMS, B4, B4_MOVEMENTS, ORCH_B, "Carl Fixture", only=[3])
+        + work(MOZART, K467, K467_MOVEMENTS, [("piano", "Daniel Keys")] + ORCH_B, "Carl Fixture", only=[2]),
+    ),
+    (
+        "Mendelssohn: Violin Concerto",
+        "Eva Bogen; Testing Philharmonic; Anna Probe",
+        "Classical > Concerto",
+        "2008",
+        "2009-04-01",
+        work(MENDELSSOHN, OP64, OP64_MOVEMENTS, [("violin", "Eva Bogen")] + ORCH_A, "Anna Probe", seconds=None),
+    ),
     # Every piece is its own work. The set is only the GROUPING tag; the ninth and tenth nocturne have none.
-    ("Chopin: Nocturnes", "Pia Nissimo", "Classical > Piano", "2012", "2013-01-01",
-     [piece("Nocturne No. 1 in B-flat minor, Op. 9 No. 1", "Nocturnes, Op. 9", "Pia Nissimo"),
-      piece("Nocturne No. 2 in E-flat major, Op. 9 No. 2", "Nocturnes, Op. 9", "Pia Nissimo"),
-      piece("Nocturne No. 4 in F major, Op. 15 No. 1", "Nocturnes, Op. 15", "Pia Nissimo"),
-      piece("Nocturne No. 20 in C-sharp minor, Op. posth.", None, "Pia Nissimo")]),
+    (
+        "Chopin: Nocturnes",
+        "Pia Nissimo",
+        "Classical > Piano",
+        "2012",
+        "2013-01-01",
+        [
+            piece("Nocturne No. 1 in B-flat minor, Op. 9 No. 1", "Nocturnes, Op. 9", "Pia Nissimo"),
+            piece("Nocturne No. 2 in E-flat major, Op. 9 No. 2", "Nocturnes, Op. 9", "Pia Nissimo"),
+            piece("Nocturne No. 4 in F major, Op. 15 No. 1", "Nocturnes, Op. 15", "Pia Nissimo"),
+            piece("Nocturne No. 20 in C-sharp minor, Op. posth.", None, "Pia Nissimo"),
+        ],
+    ),
 ]
 
 # Not classical: the default filter must leave this out.
-JAZZ = ("Sine Standards", "Fixture Jazz Trio", "Jazz", "2010", "2010-06-01",
-        [("Fixture Jazz Trio", None, "Blue Sine", 1, 0, [], None, 3), ("Fixture Jazz Trio", None, "Square Dance", 2, 0, [], None, 3)])
+JAZZ = (
+    "Sine Standards",
+    "Fixture Jazz Trio",
+    "Jazz",
+    "2010",
+    "2010-06-01",
+    [
+        ("Fixture Jazz Trio", None, "Blue Sine", 1, 0, [], None, 3),
+        ("Fixture Jazz Trio", None, "Square Dance", 2, 0, [], None, 3),
+    ],
+)
 
 
 # Not classical: the glide again, lossless. FLAC has no encoder delay, so its movements must join without a trim.
@@ -95,18 +155,35 @@ FLAC_ALBUM = ("Glide in FLAC", "Fixture Lossless Trio", "Electronic", "2020", "2
 def encode(path, source):
     codec = ["-codec:a", "flac"] if str(path).endswith(".flac") else ["-codec:a", "libmp3lame", "-b:a", "64k"]
     subprocess.run(
-        ["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", source, "-ac", "1", "-ar", "44100", *codec,
-         str(path)],
-        check=True)
+        [
+            "ffmpeg",
+            "-loglevel",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            source,
+            "-ac",
+            "1",
+            "-ar",
+            "44100",
+            *codec,
+            str(path),
+        ],
+        check=True,
+    )
 
 
 def glide(movement):
     """Samples of the glide for one movement: 0.5 sin(2π(300 t + 25 t²)), t counted from the work's start."""
-    start = sum(GLIDE_SAMPLES[:movement - 1])
+    start = sum(GLIDE_SAMPLES[: movement - 1])
     count = GLIDE_SAMPLES[movement - 1]
     t = f"(t+{start}/{GLIDE_RATE})"
-    return (f"aevalsrc=0.5*sin(2*PI*(300*{t}+25*{t}*{t})):s={GLIDE_RATE}:d={count / GLIDE_RATE + 1},"
-            f"atrim=end_sample={count}")
+    return (
+        f"aevalsrc=0.5*sin(2*PI*(300*{t}+25*{t}*{t})):s={GLIDE_RATE}:d={count / GLIDE_RATE + 1},"
+        f"atrim=end_sample={count}"
+    )
 
 
 def tag(path, album, album_artist, genre, recorded, released, number, total, track):
@@ -120,7 +197,11 @@ def tag(path, album, album_artist, genre, recorded, released, number, total, tra
     tags.add(TRCK(encoding=3, text=f"{number}/{total}"))
     tags.add(TPOS(encoding=3, text="1/1"))
     if work_title:
-        tags.add(TIT2(encoding=3, text=f"{work_title}: {roman(movement_no)}. {movement}" if movement_total > 1 else work_title))
+        tags.add(
+            TIT2(
+                encoding=3, text=f"{work_title}: {roman(movement_no)}. {movement}" if movement_total > 1 else work_title
+            )
+        )
         tags.add(TCOM(encoding=3, text=composer))
         tags.add(TXXX(encoding=3, desc="WORK", text=work_title))
         if work_title == B5:
@@ -148,8 +229,16 @@ def tag(path, album, album_artist, genre, recorded, released, number, total, tra
 def tag_flac(path, number, total, title):
     album, artist, genre, recorded, released, _ = FLAC_ALBUM
     tags = FLAC(path)
-    tags.update(title=title, album=album, artist=artist, albumartist=artist, genre=genre, date=recorded,
-                tracknumber=f"{number}/{total}", discnumber="1/1")
+    tags.update(
+        title=title,
+        album=album,
+        artist=artist,
+        albumartist=artist,
+        genre=genre,
+        date=recorded,
+        tracknumber=f"{number}/{total}",
+        discnumber="1/1",
+    )
     tags.save()
 
 

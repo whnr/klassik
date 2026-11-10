@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """Writes the generated design files from the DTCG token files in design/ (ADR 0021).
 
+It writes the CSS for the specimen, and the Swift file and the colour sets for the app.
+
 Usage: design/scripts/tokens.py [--check]
 --check writes nothing and fails when a generated file is not current.
 """
 
 import json
+import shutil
 import sys
 from pathlib import Path
 from typing import Any
@@ -14,6 +17,11 @@ ROOT = Path(__file__).resolve().parents[2]
 DESIGN = ROOT / "design"
 RESOLVER = DESIGN / "klassik.resolver.json"
 CSS = DESIGN / "tokens.css"
+SWIFT = ROOT / "Klassik" / "Tokens.swift"
+# The script owns this folder: it removes a colour set that no token names.
+COLOUR_SETS = ROOT / "Klassik" / "Assets.xcassets" / "Colors"
+# The colour set that the build setting ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME names.
+GLOBAL_ACCENT = "AccentColor"
 
 # Point sizes of the iOS text styles at each Dynamic Type size, from Apple's Human Interface
 # Guidelines. A type token scales by the ratio of its text style, as Font.custom(relativeTo:) does.
@@ -229,16 +237,262 @@ def css(resolver):
     return "\n\n".join(parts) + "\n"
 
 
+def upper_camel(path):
+    return "".join(part[0].upper() + part[1:] for part in path.replace("-", ".").split("."))
+
+
+def lower_camel(path):
+    name = upper_camel(path)
+    return name[0].lower() + name[1:]
+
+
+def colour_paths(tokens):
+    return [path for path, token in tokens.items() if token["$type"] == "color" and not path.startswith("palette.")]
+
+
+def asset_colour(value):
+    channels = {name: f"0x{value['hex'][i : i + 2].upper()}" for name, i in (("red", 1), ("green", 3), ("blue", 5))}
+    return {"color-space": "srgb", "components": {**channels, "alpha": f"{value.get('alpha', 1):.3f}"}}
+
+
+def colour_set(path, contexts):
+    """One colour set: the value of each appearance, as the asset catalog compiler reads it."""
+    appearances = {
+        "light": [],
+        "dark": [{"appearance": "luminosity", "value": "dark"}],
+        "lightHighContrast": [{"appearance": "contrast", "value": "high"}],
+        "darkHighContrast": [
+            {"appearance": "luminosity", "value": "dark"},
+            {"appearance": "contrast", "value": "high"},
+        ],
+    }
+    colours = []
+    for theme, appearance in appearances.items():
+        tokens = contexts[theme]
+        entry: dict[str, Any] = {"idiom": "universal"}
+        if appearance:
+            entry["appearances"] = appearance
+        entry["color"] = asset_colour(dereference(tokens[path]["$value"], tokens))
+        colours.append(entry)
+    return json.dumps({"colors": colours, "info": {"author": "xcode", "version": 1}}, indent=2) + "\n"
+
+
+def colour_sets(resolver):
+    """The asset catalog files: a folder with its own namespace for each accent family, and the global accent."""
+    info = {"info": {"author": "xcode", "version": 1}}
+    outputs = {COLOUR_SETS / "Contents.json": json.dumps(info, indent=2) + "\n"}
+    accents = resolver["modifiers"]["accent"]
+    for accent in accents["contexts"]:
+        contexts = {
+            theme: flatten(resolve_context(resolver, theme, accent))
+            for theme in resolver["modifiers"]["theme"]["contexts"]
+        }
+        folder = COLOUR_SETS / upper_camel(accent)
+        outputs[folder / "Contents.json"] = (
+            json.dumps({**info, "properties": {"provides-namespace": True}}, indent=2) + "\n"
+        )
+        for path in colour_paths(contexts["light"]):
+            name = upper_camel(path.removeprefix("color."))
+            outputs[folder / f"{name}.colorset" / "Contents.json"] = colour_set(path, contexts)
+        if accent == accents["default"]:
+            outputs[COLOUR_SETS / f"{GLOBAL_ACCENT}.colorset" / "Contents.json"] = colour_set("color.tint", contexts)
+    return outputs
+
+
+FONT_WEIGHTS = {400: ("regular", "Regular"), 500: ("medium", "Medium"), 600: ("semibold", "SemiBold")}
+
+
+def swift_switch(name, swift_type, doc, cases):
+    lines = [f"    /// {doc}", f"    var {name}: {swift_type} {{", "        switch self {"]
+    lines += [f"        case .{case}: {value}" for case, value in cases]
+    return lines + ["        }", "    }"]
+
+
+def swift_enum(name, protocols, doc, cases):
+    return [f"/// {doc}", f"enum {name}: {protocols} {{", *(f"    case {case}" for case in cases)]
+
+
+def swift_colours(resolver, tokens):
+    accents = resolver["modifiers"]["accent"]
+    names = [path.removeprefix("color.") for path in colour_paths(tokens)]
+    return [
+        *swift_enum(
+            "AccentFamily",
+            "String, CaseIterable, Sendable",
+            "An accent family of ADR 0034. The raw value is the folder of its colour sets.",
+            [f'{accent} = "{upper_camel(accent)}"' for accent in accents["contexts"]],
+        ),
+        "",
+        f"    static let standard = AccentFamily.{accents['default']}",
+        "}",
+        "",
+        *swift_enum(
+            "Palette",
+            "String, CaseIterable, ShapeStyle, Sendable",
+            "A colour. The raw value is the name of its colour set in the folder of an accent family.",
+            [f'{lower_camel(name)} = "{upper_camel(name)}"' for name in names],
+        ),
+        "",
+        "    /// The name of the colour set in the asset catalog.",
+        "    func assetName(in family: AccentFamily = .standard) -> String {",
+        '        "\\(family.rawValue)/\\(rawValue)"',
+        "    }",
+        "",
+        "    var color: Color { Color(assetName()) }",
+        "",
+        "    func resolve(in environment: EnvironmentValues) -> Color.Resolved {",
+        "        color.resolve(in: environment)",
+        "    }",
+        "}",
+    ]
+
+
+def swift_type_styles(tokens):
+    styles = []
+    for path, token in tokens.items():
+        if token["$type"] != "typography":
+            continue
+        value = dereference(token["$value"], tokens)
+        family = value["fontFamily"][0]
+        weight, face_weight = FONT_WEIGHTS[value["fontWeight"]]
+        styles.append(
+            {
+                "name": path.removeprefix("type."),
+                "size": number(value["fontSize"]["value"]),
+                "textStyle": "." + token["$extensions"]["de.whnr.klassik"]["textStyle"],
+                "weight": "." + weight,
+                # A family that starts with "-" is a CSS keyword for the system face.
+                "face": "nil" if family.startswith("-") else f'"{family}-{face_weight}"',
+            }
+        )
+
+    def cases(key):
+        return [(style["name"], style[key]) for style in styles]
+
+    return [
+        *swift_enum(
+            "TypeStyle",
+            "CaseIterable, Sendable",
+            "A text style of ADR 0030. `typeStyle(_:)` sets it on a view.",
+            [style["name"] for style in styles],
+        ),
+        "",
+        *swift_switch("size", "CGFloat", "The size in points at the default Dynamic Type size.", cases("size")),
+        "",
+        *swift_switch(
+            "textStyle", "Font.TextStyle", "The system text style whose metrics scale the size.", cases("textStyle")
+        ),
+        "",
+        *swift_switch("weight", "Font.Weight", "The weight of the system face.", cases("weight")),
+        "",
+        *swift_switch(
+            "face", "String?", "The PostScript name of a bundled face. The system face has none.", cases("face")
+        ),
+        "}",
+    ]
+
+
+def swift_constants(name, doc, group, tokens):
+    lines = [f"/// {doc}", f"enum {name} {{"]
+    for path, token in tokens.items():
+        if path.startswith(group + "."):
+            value = dereference(token["$value"], tokens)["value"]
+            lines.append(f"    static let {lower_camel(path.removeprefix(group + '.'))}: CGFloat = {number(value)}")
+    return lines + ["}"]
+
+
+def swift_space(tokens):
+    steps = [
+        (path.removeprefix("space."), number(dereference(token["$value"], tokens)["value"]))
+        for path, token in tokens.items()
+        if path.startswith("space.")
+    ]
+    return [
+        *swift_enum(
+            "Space",
+            "CaseIterable, Sendable",
+            "A gap. `ScaledMetric(space:)` scales it with Dynamic Type.",
+            [name for name, _ in steps],
+        ),
+        "",
+        *swift_switch("points", "CGFloat", "The gap in points at the default Dynamic Type size.", steps),
+        "}",
+    ]
+
+
+def seconds(duration):
+    return number(duration["value"] / 1000 if duration["unit"] == "ms" else duration["value"])
+
+
+def swift_motion(tokens):
+    transitions = []
+    for path, token in tokens.items():
+        if token["$type"] != "transition":
+            continue
+        value = dereference(token["$value"], tokens)
+        curve = ", ".join(number(v) for v in value["timingFunction"])
+        animation = f".timingCurve({curve}, duration: {seconds(value['duration'])})"
+        if value["delay"]["value"]:
+            animation += f".delay({seconds(value['delay'])})"
+        transitions.append((path.removeprefix("motion.transition."), animation))
+    reduced = seconds(dereference(tokens["motion.duration.quick"]["$value"], tokens))
+    return [
+        *swift_enum(
+            "Motion",
+            "CaseIterable, Sendable",
+            "A movement. `motion(_:value:)` runs it on a view.",
+            [name for name, _ in transitions],
+        ),
+        "",
+        "    /// The animation. Reduce Motion replaces each one with a short cross-fade.",
+        "    func animation(reduceMotion: Bool) -> Animation {",
+        f"        if reduceMotion {{ return .linear(duration: {reduced}) }}",
+        "        return switch self {",
+        *(f"        case .{name}: {animation}" for name, animation in transitions),
+        "        }",
+        "    }",
+        "}",
+    ]
+
+
+def swift(resolver):
+    tokens = flatten(resolve_context(resolver, "light"))
+    parts = [
+        ["// Generated by design/scripts/tokens.py from design/*.tokens.json. Do not edit.", "", "import SwiftUI"],
+        swift_colours(resolver, tokens),
+        swift_type_styles(tokens),
+        swift_space(tokens),
+        swift_constants("Radius", "A corner radius in points.", "radius", tokens),
+        swift_constants("Measure", "A fixed size in points.", "size", tokens),
+        swift_motion(tokens),
+    ]
+    return "\n\n".join("\n".join(part) for part in parts) + "\n"
+
+
+def stale_colour_sets(outputs):
+    """Folders below the colour set folder that hold no generated file."""
+    if not COLOUR_SETS.exists():
+        return []
+    keep = {parent for path in outputs for parent in path.parents}
+    return sorted(path for path in COLOUR_SETS.rglob("*") if path.is_dir() and path not in keep)
+
+
 def main():
     check = "--check" in sys.argv[1:]
     resolver = json.loads(RESOLVER.read_text())
-    outputs = {CSS: css(resolver)}
+    outputs = {CSS: css(resolver), SWIFT: swift(resolver), **colour_sets(resolver)}
     stale = [path for path, text in outputs.items() if not path.exists() or path.read_text() != text]
+    extra = stale_colour_sets(outputs)
     if check:
-        for path in stale:
+        for path in stale + extra:
             print(f"tokens.py: {path.relative_to(ROOT)} is not current. Run design/scripts/tokens.py.", file=sys.stderr)
-        sys.exit(1 if stale else 0)
+        sys.exit(1 if stale or extra else 0)
+    for path in extra:
+        if path.exists():
+            shutil.rmtree(path)
+            print(f"removed {path.relative_to(ROOT)}")
     for path in stale:
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(outputs[path])
         print(f"wrote {path.relative_to(ROOT)}")
 

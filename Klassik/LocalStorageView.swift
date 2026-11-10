@@ -6,9 +6,10 @@ struct LocalStorageView: View {
 
     var body: some View {
         @Bindable var tracks = model.tracks
-        Form {
+        PageForm {
             Section {
                 LabeledContent("Used", value: Self.size(tracks.cacheBytes))
+                    .ink()
                 Stepper(
                     value: Binding(
                         get: { max(1, Int(tracks.cacheLimit / TrackStore.gigabyte)) },
@@ -16,6 +17,7 @@ struct LocalStorageView: View {
                     in: TrackStore.limitRange
                 ) {
                     LabeledContent("Limit", value: Self.size(tracks.cacheLimit))
+                        .ink()
                 }
                 .accessibilityIdentifier("cache-limit")
                 Button("Clear Cache", role: .destructive) { tracks.clearCache() }
@@ -32,18 +34,20 @@ struct LocalStorageView: View {
             Section {
                 if tracks.downloads.isEmpty {
                     Text("No downloads")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Palette.textSecondary)
                 } else {
                     LabeledContent("Used", value: Self.size(tracks.downloadBytes))
+                        .ink()
                     ForEach(tracks.downloads.sorted { $0.date > $1.date }) { download in
                         VStack(alignment: .leading) {
                             Text(download.title)
+                                .ink()
                             Text(
                                 [download.detail, Self.size(download.bytes)]
                                     .filter { !$0.isEmpty }.joined(separator: " · ")
                             )
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .typeStyle(.subheadline)
+                            .foregroundStyle(Palette.textSecondary)
                         }
                         .swipeActions {
                             Button("Remove", systemImage: "trash", role: .destructive) { tracks.remove(download) }

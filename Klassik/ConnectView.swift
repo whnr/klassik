@@ -18,7 +18,7 @@ struct ConnectView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            PageForm {
                 Section {
                     TextField("Server URL", text: $url, prompt: Text("music.example.org"))
                         .keyboardType(.URL)
@@ -53,7 +53,7 @@ struct ConnectView: View {
                 if let error {
                     Section {
                         Label(error, systemImage: "exclamationmark.triangle")
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Palette.textPrimary)
                     }
                 }
             }

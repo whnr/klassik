@@ -29,7 +29,7 @@ struct EnrichmentStatusView: View {
         let enrichment = model.enrichment
         let index = model.library.index
         let summary = enrichment.summary(of: index)
-        Form {
+        PageForm {
             Section {
                 if let progress = enrichment.progress {
                     ProgressView(value: Double(progress.done), total: Double(max(progress.total, 1))) {
@@ -38,11 +38,13 @@ struct EnrichmentStatusView: View {
                     .accessibilityIdentifier("lookup-progress")
                 } else if let error = enrichment.lastError {
                     Label(error, systemImage: "exclamationmark.triangle")
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Palette.textPrimary)
                 } else {
                     LabeledContent("Status", value: summary.pending > 0 ? "Waiting" : "Up to date")
+                        .ink()
                 }
                 LabeledContent("Requests Since Start", value: enrichment.requests.formatted())
+                    .ink()
                 Button("Look Up Missing Again", systemImage: "arrow.clockwise") {
                     Task { await enrichment.lookUpMissingAgain(index) }
                 }
@@ -57,13 +59,17 @@ struct EnrichmentStatusView: View {
 
             Section("Works with a WORK Tag") {
                 LabeledContent("Works", value: summary.works.formatted())
+                    .ink()
                 LabeledContent("Linked to MusicBrainz", value: summary.linked.formatted())
+                    .ink()
                     .accessibilityIdentifier("linked-count")
                 LabeledContent("With a Year", value: summary.dated.formatted())
+                    .ink()
                 NavigationLink {
                     WorkListView(title: "To Confirm", works: summary.toConfirm)
                 } label: {
                     LabeledContent("To Confirm", value: summary.toConfirm.count.formatted())
+                        .ink()
                 }
                 .disabled(summary.toConfirm.isEmpty)
                 .accessibilityIdentifier("to-confirm")
@@ -71,16 +77,20 @@ struct EnrichmentStatusView: View {
                     WorkListView(title: "No Match", works: summary.unmatched)
                 } label: {
                     LabeledContent("No Match", value: summary.unmatched.count.formatted())
+                        .ink()
                 }
                 .disabled(summary.unmatched.isEmpty)
                 if summary.pending > 0 {
                     LabeledContent("Not Looked Up Yet", value: summary.pending.formatted())
+                        .ink()
                 }
             }
 
             Section("Composers") {
                 LabeledContent(
-                    "With Life Dates", value: "\(summary.composersWithDates) of \(summary.composers)")
+                    "With Life Dates", value: "\(summary.composersWithDates) of \(summary.composers)"
+                )
+                .ink()
             }
         }
         .navigationTitle("MusicBrainz")
@@ -94,18 +104,21 @@ private struct WorkListView: View {
     let works: [WorkIndex.Work]
 
     var body: some View {
-        List(works) { work in
-            NavigationLink {
-                WorkSourcesView(work: work)
-            } label: {
-                VStack(alignment: .leading) {
-                    Text(work.title)
-                    Text(work.composer)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+        PageList {
+            ForEach(works) { work in
+                NavigationLink {
+                    WorkSourcesView(work: work)
+                } label: {
+                    VStack(alignment: .leading) {
+                        Text(work.title)
+                        Text(work.composer)
+                            .typeStyle(.subheadline)
+                            .foregroundStyle(Palette.textSecondary)
+                    }
+                    .ink()
                 }
+                .accessibilityIdentifier("status-work")
             }
-            .accessibilityIdentifier("status-work")
         }
         .navigationTitle(title)
         .miniPlayerInset()

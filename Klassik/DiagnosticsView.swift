@@ -6,26 +6,36 @@ struct DiagnosticsView: View {
     @AppStorage(TapIndicator.storageKey) private var showTaps = false
 
     var body: some View {
-        Form {
+        PageForm {
             Section("Server") {
                 if let credentials = model.credentials {
                     LabeledContent("URL", value: credentials.url.absoluteString)
+                        .ink()
                     LabeledContent("User", value: credentials.username)
+                        .ink()
                 }
                 if let info = model.serverInfo {
                     LabeledContent(
-                        "Server", value: [info.type, info.serverVersion].compactMap(\.self).joined(separator: " "))
+                        "Server", value: [info.type, info.serverVersion].compactMap(\.self).joined(separator: " ")
+                    )
+                    .ink()
                     LabeledContent("API version", value: info.apiVersion)
+                        .ink()
                     LabeledContent("OpenSubsonic", value: info.openSubsonic ? "Yes" : "No")
+                        .ink()
                         .accessibilityIdentifier("opensubsonic")
                     LabeledContent(
                         "Extensions",
-                        value: info.extensions.isEmpty ? "None" : info.extensions.sorted().joined(separator: ", "))
+                        value: info.extensions.isEmpty ? "None" : info.extensions.sorted().joined(separator: ", ")
+                    )
+                    .ink()
                 } else {
                     LabeledContent("Status", value: model.isChecking ? "Checking…" : "Not reached")
+                        .ink()
                 }
                 if let lastCheck = model.lastCheck {
                     LabeledContent("Last check", value: lastCheck.formatted(date: .abbreviated, time: .standard))
+                        .ink()
                 }
             }
 
@@ -33,28 +43,36 @@ struct DiagnosticsView: View {
                 let library = model.library
                 if let syncedAt = library.syncedAt {
                     LabeledContent("Tracks", value: library.songs.count.formatted())
+                        .ink()
                     LabeledContent("Albums", value: library.albumCount.formatted())
+                        .ink()
                     LabeledContent("Classical tracks", value: library.classical.count.formatted())
+                        .ink()
                     LabeledContent("Classical albums", value: library.classicalAlbumCount.formatted())
+                        .ink()
                     LabeledContent("Last sync", value: syncedAt.formatted(date: .abbreviated, time: .standard))
+                        .ink()
                 } else {
                     LabeledContent("Tracks", value: library.isSyncing ? "Syncing…" : "Not synced")
+                        .ink()
                 }
                 if let error = library.syncError {
                     LabeledContent("Sync error", value: error)
+                        .ink()
                 }
             }
 
             Section("Last Error") {
                 if let error = model.lastError {
                     Text(error)
+                        .ink()
                     if let date = model.lastErrorDate {
                         Text(date.formatted(date: .abbreviated, time: .standard))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Palette.textSecondary)
                     }
                 } else {
                     Text("None")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Palette.textSecondary)
                 }
             }
 
@@ -74,6 +92,7 @@ struct DiagnosticsView: View {
 
             Section("App") {
                 LabeledContent("Version", value: Self.appVersion)
+                    .ink()
             }
 
             Section {

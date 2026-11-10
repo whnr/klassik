@@ -6,7 +6,7 @@ struct FilterView: View {
 
     var body: some View {
         @Bindable var library = model.library
-        Form {
+        PageForm {
             ForEach($library.filter.rules) { $rule in
                 let number = (library.filter.rules.firstIndex { $0.id == rule.id } ?? 0) + 1
                 Section {
@@ -40,7 +40,9 @@ struct FilterView: View {
 
             Section("Result") {
                 LabeledContent("Classical Albums", value: library.classicalAlbumCount.formatted())
+                    .ink()
                 LabeledContent("Classical Tracks", value: library.classical.count.formatted())
+                    .ink()
             }
 
             Section {
@@ -63,7 +65,7 @@ private struct ConditionRow: View {
             }
             .labelsHidden()
             .fixedSize()
-            .tint(.primary)
+            .tint(Palette.textPrimary)
             if condition.kind.takesText {
                 TextField("Genre", text: $condition.text)
                     .multilineTextAlignment(.trailing)

@@ -80,8 +80,8 @@ final class TapIndicator {
         let size = 44.0
         let marker = UIView(frame: CGRect(x: 0, y: 0, width: size, height: size))
         marker.layer.cornerRadius = size / 2
-        marker.backgroundColor = UIColor.systemGray.withAlphaComponent(0.5)
-        marker.layer.borderColor = UIColor.white.withAlphaComponent(0.8).cgColor
+        marker.backgroundColor = Palette.textSecondary.uiColor.withAlphaComponent(0.5)
+        marker.layer.borderColor = Palette.backgroundElevated.uiColor.withAlphaComponent(0.8).cgColor
         marker.layer.borderWidth = 2
         overlay.addSubview(marker)
         return marker

@@ -4,23 +4,28 @@ import SwiftUI
 struct MiniPlayer: View {
     @Environment(AppModel.self) private var model
     @State private var showsRecording = false
+    @ScaledMetric(space: .xxs) private var lineGap: CGFloat
+    @ScaledMetric(space: .m) private var inset: CGFloat
+    @ScaledMetric(space: .l) private var gap: CGFloat
+    @ScaledMetric(space: .xl) private var edge: CGFloat
 
     var body: some View {
         let player = model.player
         if let work = player.work, let recording = player.recording {
-            HStack(spacing: 16) {
-                VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: gap) {
+                VStack(alignment: .leading, spacing: lineGap) {
                     Text(work.title)
+                        .ink()
                         .lineLimit(1)
                     if !work.composer.isEmpty {
                         Text(work.composer)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .typeStyle(.subheadline)
+                            .foregroundStyle(Palette.textSecondary)
                             .lineLimit(1)
                     }
                     Text(player.current.map { recording.title(of: recording.songs[$0]) } ?? recording.performers)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .typeStyle(.subheadline)
+                        .foregroundStyle(Palette.textSecondary)
                         .lineLimit(1)
                 }
                 Spacer()
@@ -29,12 +34,12 @@ struct MiniPlayer: View {
                     player.togglePause()
                 }
                 .labelStyle(.iconOnly)
-                .font(.title3)
+                .typeStyle(.title3)
                 .buttonStyle(.borderless)
                 .accessibilityIdentifier("mini-player-pause")
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
+            .padding(.horizontal, edge)
+            .padding(.vertical, inset)
             .contentShape(.rect)
             .onTapGesture { showsRecording = true }
             .glassEffect(in: .capsule)

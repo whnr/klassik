@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Search</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="tokens.css?v=43">
-<link rel="stylesheet" href="specimen.css?v=43">
-<script src="specimen.js?v=43"></script>
+<link rel="stylesheet" href="tokens.css?v=44">
+<link rel="stylesheet" href="specimen.css?v=44">
+<script src="specimen.js?v=44"></script>
 </head>
 <body>
 <!--
@@ -75,7 +75,6 @@
 <script>
 K.start(() => {
   const { el, href, ICON, M } = K;
-  const L = { "search-top": "top", "search-stack": "stack", "search-nav": "nav" }[K.params.get("variant")] || "prominent";
   const KINDS = { genre: "Genres", composer: "Composers", conductor: "Conductors", performer: "Performers" };
   const ONE = { genre: "Genre", composer: "Composer", conductor: "Conductor", performer: "Performer" };
   const FUNNEL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M7 12h10M10 17h4"/></svg>';

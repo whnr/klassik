@@ -81,12 +81,14 @@
   --space-inGroup: 5.38px;
   --space-betweenGroups: 22.67px;
   --space-betweenSections: 40.3px;
+  --radius-xs: 4px;
   --radius-s: 6px;
   --radius-m: 10px;
   --radius-l: 16px;
   --radius-full: 999px;
   --size-hitTarget: 44px;
   --size-timeline: 8px;
+  --size-timelineCap: 8px;
   --size-coverRow: 56px;
   --size-coverPage: 240px;
   --size-miniPlayer: 64px;
@@ -113,93 +115,394 @@
 :root,
 [data-theme="light"] {
   color-scheme: light;
-  --color-background-page: #ffffff;
-  --color-background-grouped: #f2f2f7;
-  --color-background-row: #ffffff;
-  --color-background-elevated: #ffffff;
-  --color-text-primary: #000000;
-  --color-text-secondary: rgb(60 60 67 / 0.6);
-  --color-text-tertiary: rgb(60 60 67 / 0.3);
-  --color-separator: rgb(60 60 67 / 0.29);
-  --color-fill-standard: rgb(120 120 128 / 0.2);
-  --color-fill-quiet: rgb(118 118 128 / 0.12);
-  --color-tint: #007aff;
-  --color-favourite: #007aff;
-  --color-timeline-played: #007aff;
-  --color-timeline-unplayed: rgb(120 120 128 / 0.2);
+  --color-background-page: #faf3e5;
+  --color-background-row: #faf3e5;
+  --color-background-grouped: #f1e9d8;
+  --color-background-elevated: #fcf7ed;
+  --color-text-primary: #281f20;
+  --color-text-secondary: #726265;
+  --color-text-tertiary: #a29598;
+  --color-separator: #d4c9cb;
+  --color-fill-standard: rgb(60 48 40 / 0.16);
+  --color-fill-quiet: rgb(60 48 40 / 0.08);
+  --color-tint: #90304c;
+  --color-accent-fill: #731e38;
+  --color-on-accent: #faf3e5;
+  --color-favourite: #cb3466;
+  --color-favourite-off: #908d85;
+  --color-timeline-played: #90304c;
+  --color-timeline-unplayed: #d0c8b8;
+  --color-swipe-playNext: #716eb0;
+  --color-swipe-addToQueue: #7c450a;
+  --color-swipe-download: #058096;
+  --color-swipe-favourite: #a7014a;
 }
 
 [data-theme="light"][data-contrast="high"] {
   color-scheme: light;
-  --color-background-page: #ffffff;
-  --color-background-grouped: #f2f2f7;
-  --color-background-row: #ffffff;
-  --color-background-elevated: #ffffff;
-  --color-text-primary: #000000;
-  --color-text-secondary: rgb(60 60 67 / 0.6);
-  --color-text-tertiary: rgb(60 60 67 / 0.3);
-  --color-separator: rgb(60 60 67 / 0.29);
-  --color-fill-standard: rgb(120 120 128 / 0.2);
-  --color-fill-quiet: rgb(118 118 128 / 0.12);
-  --color-tint: #0040dd;
-  --color-favourite: #0040dd;
-  --color-timeline-played: #0040dd;
-  --color-timeline-unplayed: rgb(120 120 128 / 0.2);
+  --color-background-page: #f7f3eb;
+  --color-background-row: #f7f3eb;
+  --color-background-grouped: #eee9df;
+  --color-background-elevated: #faf7f2;
+  --color-text-primary: #180f11;
+  --color-text-secondary: #58494c;
+  --color-text-tertiary: #786d6f;
+  --color-separator: #bab0b2;
+  --color-fill-standard: rgb(60 48 40 / 0.16);
+  --color-fill-quiet: rgb(60 48 40 / 0.08);
+  --color-tint: #7c1e3c;
+  --color-accent-fill: #600829;
+  --color-on-accent: #f7f3eb;
+  --color-favourite: #a50149;
+  --color-favourite-off: #6d6962;
+  --color-timeline-played: #7c1e3c;
+  --color-timeline-unplayed: #b8b2a7;
+  --color-swipe-playNext: #565190;
+  --color-swipe-addToQueue: #592e00;
+  --color-swipe-download: #006274;
+  --color-swipe-favourite: #790033;
 }
 
 [data-theme="dark"] {
   color-scheme: dark;
-  --color-background-page: #000000;
-  --color-background-grouped: #000000;
-  --color-background-row: #1c1c1e;
-  --color-background-elevated: #2c2c2e;
-  --color-text-primary: #ffffff;
-  --color-text-secondary: rgb(235 235 245 / 0.6);
-  --color-text-tertiary: rgb(235 235 245 / 0.3);
-  --color-separator: rgb(84 84 88 / 0.6);
-  --color-fill-standard: rgb(120 120 128 / 0.36);
-  --color-fill-quiet: rgb(118 118 128 / 0.24);
-  --color-tint: #0a84ff;
-  --color-favourite: #0a84ff;
-  --color-timeline-played: #0a84ff;
-  --color-timeline-unplayed: rgb(120 120 128 / 0.36);
+  --color-background-page: #161011;
+  --color-background-row: #1f191a;
+  --color-background-grouped: #161011;
+  --color-background-elevated: #262021;
+  --color-text-primary: #d0cabc;
+  --color-text-secondary: #979185;
+  --color-text-tertiary: #5f5c54;
+  --color-separator: #332c2d;
+  --color-fill-standard: rgb(240 230 216 / 0.2);
+  --color-fill-quiet: rgb(240 230 216 / 0.11);
+  --color-tint: #d67e92;
+  --color-accent-fill: #62182f;
+  --color-on-accent: #d0cabc;
+  --color-favourite: #fc628d;
+  --color-favourite-off: #685e60;
+  --color-timeline-played: #d67e92;
+  --color-timeline-unplayed: #4b4441;
+  --color-swipe-playNext: #716eb0;
+  --color-swipe-addToQueue: #7c450a;
+  --color-swipe-download: #058096;
+  --color-swipe-favourite: #a7014a;
 }
 
 [data-theme="dark"][data-contrast="high"] {
   color-scheme: dark;
-  --color-background-page: #000000;
-  --color-background-grouped: #000000;
-  --color-background-row: #1c1c1e;
-  --color-background-elevated: #2c2c2e;
-  --color-text-primary: #ffffff;
-  --color-text-secondary: rgb(235 235 245 / 0.6);
-  --color-text-tertiary: rgb(235 235 245 / 0.3);
-  --color-separator: rgb(84 84 88 / 0.6);
-  --color-fill-standard: rgb(120 120 128 / 0.36);
-  --color-fill-quiet: rgb(118 118 128 / 0.24);
-  --color-tint: #409cff;
-  --color-favourite: #409cff;
-  --color-timeline-played: #409cff;
-  --color-timeline-unplayed: rgb(120 120 128 / 0.36);
+  --color-background-page: #100c0d;
+  --color-background-row: #1f191a;
+  --color-background-grouped: #100c0d;
+  --color-background-elevated: #262021;
+  --color-text-primary: #e8e2d4;
+  --color-text-secondary: #b1ab9f;
+  --color-text-tertiary: #7d7a72;
+  --color-separator: #474041;
+  --color-fill-standard: rgb(240 230 216 / 0.2);
+  --color-fill-quiet: rgb(240 230 216 / 0.11);
+  --color-tint: #f197aa;
+  --color-accent-fill: #62182f;
+  --color-on-accent: #e8e2d4;
+  --color-favourite: #ff8fa9;
+  --color-favourite-off: #8f8687;
+  --color-timeline-played: #f197aa;
+  --color-timeline-unplayed: #484340;
+  --color-swipe-playNext: #565190;
+  --color-swipe-addToQueue: #592e00;
+  --color-swipe-download: #006274;
+  --color-swipe-favourite: #790033;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
     color-scheme: dark;
-    --color-background-page: #000000;
-    --color-background-grouped: #000000;
-    --color-background-row: #1c1c1e;
-    --color-background-elevated: #2c2c2e;
-    --color-text-primary: #ffffff;
-    --color-text-secondary: rgb(235 235 245 / 0.6);
-    --color-text-tertiary: rgb(235 235 245 / 0.3);
-    --color-separator: rgb(84 84 88 / 0.6);
-    --color-fill-standard: rgb(120 120 128 / 0.36);
-    --color-fill-quiet: rgb(118 118 128 / 0.24);
-    --color-tint: #0a84ff;
-    --color-favourite: #0a84ff;
-    --color-timeline-played: #0a84ff;
-    --color-timeline-unplayed: rgb(120 120 128 / 0.36);
+    --color-background-page: #161011;
+    --color-background-row: #1f191a;
+    --color-background-grouped: #161011;
+    --color-background-elevated: #262021;
+    --color-text-primary: #d0cabc;
+    --color-text-secondary: #979185;
+    --color-text-tertiary: #5f5c54;
+    --color-separator: #332c2d;
+    --color-fill-standard: rgb(240 230 216 / 0.2);
+    --color-fill-quiet: rgb(240 230 216 / 0.11);
+    --color-tint: #d67e92;
+    --color-accent-fill: #62182f;
+    --color-on-accent: #d0cabc;
+    --color-favourite: #fc628d;
+    --color-favourite-off: #685e60;
+    --color-timeline-played: #d67e92;
+    --color-timeline-unplayed: #4b4441;
+    --color-swipe-playNext: #716eb0;
+    --color-swipe-addToQueue: #7c450a;
+    --color-swipe-download: #058096;
+    --color-swipe-favourite: #a7014a;
+  }
+}
+
+/* Other accent families: data-accent on the root. Without it the page takes claret. */
+
+:root[data-accent="green"],
+[data-accent="green"][data-theme="light"],
+[data-accent="green"] [data-theme="light"] {
+  color-scheme: light;
+  --color-background-page: #faf3e5;
+  --color-background-row: #faf3e5;
+  --color-background-grouped: #f1e9d8;
+  --color-background-elevated: #fcf7ed;
+  --color-text-primary: #1c241f;
+  --color-text-secondary: #5c6962;
+  --color-text-tertiary: #909b95;
+  --color-separator: #c6cfca;
+  --color-fill-standard: rgb(60 48 40 / 0.16);
+  --color-fill-quiet: rgb(60 48 40 / 0.08);
+  --color-tint: #115e3e;
+  --color-accent-fill: #145538;
+  --color-on-accent: #faf3e5;
+  --color-favourite: #008053;
+  --color-favourite-off: #908d85;
+  --color-timeline-played: #115e3e;
+  --color-timeline-unplayed: #d0c8b8;
+  --color-swipe-playNext: #716eb0;
+  --color-swipe-addToQueue: #7c450a;
+  --color-swipe-download: #058096;
+  --color-swipe-favourite: #005f3c;
+}
+
+[data-accent="green"][data-theme="light"][data-contrast="high"],
+[data-accent="green"] [data-theme="light"][data-contrast="high"] {
+  color-scheme: light;
+  --color-background-page: #f7f3eb;
+  --color-background-row: #f7f3eb;
+  --color-background-grouped: #eee9df;
+  --color-background-elevated: #faf7f2;
+  --color-text-primary: #0c140f;
+  --color-text-secondary: #434f48;
+  --color-text-tertiary: #68726d;
+  --color-separator: #adb5b0;
+  --color-fill-standard: rgb(60 48 40 / 0.16);
+  --color-fill-quiet: rgb(60 48 40 / 0.08);
+  --color-tint: #014d30;
+  --color-accent-fill: #00442a;
+  --color-on-accent: #f7f3eb;
+  --color-favourite: #015f3d;
+  --color-favourite-off: #6d6962;
+  --color-timeline-played: #014d30;
+  --color-timeline-unplayed: #b8b2a7;
+  --color-swipe-playNext: #565190;
+  --color-swipe-addToQueue: #592e00;
+  --color-swipe-download: #006274;
+  --color-swipe-favourite: #004128;
+}
+
+[data-accent="green"][data-theme="dark"],
+[data-accent="green"] [data-theme="dark"] {
+  color-scheme: dark;
+  --color-background-page: #0e1310;
+  --color-background-row: #171c19;
+  --color-background-grouped: #0e1310;
+  --color-background-elevated: #1e2320;
+  --color-text-primary: #d1cabc;
+  --color-text-secondary: #979286;
+  --color-text-tertiary: #5f5c54;
+  --color-separator: #2a2f2c;
+  --color-fill-standard: rgb(240 230 216 / 0.2);
+  --color-fill-quiet: rgb(240 230 216 / 0.11);
+  --color-tint: #61a682;
+  --color-accent-fill: #104830;
+  --color-on-accent: #d1cabc;
+  --color-favourite: #04ae72;
+  --color-favourite-off: #5b635e;
+  --color-timeline-played: #61a682;
+  --color-timeline-unplayed: #444640;
+  --color-swipe-playNext: #716eb0;
+  --color-swipe-addToQueue: #7c450a;
+  --color-swipe-download: #058096;
+  --color-swipe-favourite: #005f3c;
+}
+
+[data-accent="green"][data-theme="dark"][data-contrast="high"],
+[data-accent="green"] [data-theme="dark"][data-contrast="high"] {
+  color-scheme: dark;
+  --color-background-page: #0b0e0c;
+  --color-background-row: #171c19;
+  --color-background-grouped: #0b0e0c;
+  --color-background-elevated: #1e2320;
+  --color-text-primary: #e8e2d4;
+  --color-text-secondary: #b1aca0;
+  --color-text-tertiary: #7d7a72;
+  --color-separator: #3e4440;
+  --color-fill-standard: rgb(240 230 216 / 0.2);
+  --color-fill-quiet: rgb(240 230 216 / 0.11);
+  --color-tint: #79c09a;
+  --color-accent-fill: #104830;
+  --color-on-accent: #e8e2d4;
+  --color-favourite: #01ca85;
+  --color-favourite-off: #828a86;
+  --color-timeline-played: #79c09a;
+  --color-timeline-unplayed: #43453f;
+  --color-swipe-playNext: #565190;
+  --color-swipe-addToQueue: #592e00;
+  --color-swipe-download: #006274;
+  --color-swipe-favourite: #004128;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-accent="green"]:not([data-theme]) {
+    color-scheme: dark;
+    --color-background-page: #0e1310;
+    --color-background-row: #171c19;
+    --color-background-grouped: #0e1310;
+    --color-background-elevated: #1e2320;
+    --color-text-primary: #d1cabc;
+    --color-text-secondary: #979286;
+    --color-text-tertiary: #5f5c54;
+    --color-separator: #2a2f2c;
+    --color-fill-standard: rgb(240 230 216 / 0.2);
+    --color-fill-quiet: rgb(240 230 216 / 0.11);
+    --color-tint: #61a682;
+    --color-accent-fill: #104830;
+    --color-on-accent: #d1cabc;
+    --color-favourite: #04ae72;
+    --color-favourite-off: #5b635e;
+    --color-timeline-played: #61a682;
+    --color-timeline-unplayed: #444640;
+    --color-swipe-playNext: #716eb0;
+    --color-swipe-addToQueue: #7c450a;
+    --color-swipe-download: #058096;
+    --color-swipe-favourite: #005f3c;
+  }
+}
+
+:root[data-accent="plum"],
+[data-accent="plum"][data-theme="light"],
+[data-accent="plum"] [data-theme="light"] {
+  color-scheme: light;
+  --color-background-page: #faf3e5;
+  --color-background-row: #faf3e5;
+  --color-background-grouped: #f1e9d8;
+  --color-background-elevated: #fcf7ed;
+  --color-text-primary: #271f23;
+  --color-text-secondary: #706269;
+  --color-text-tertiary: #a0959b;
+  --color-separator: #d3c9ce;
+  --color-fill-standard: rgb(60 48 40 / 0.16);
+  --color-fill-quiet: rgb(60 48 40 / 0.08);
+  --color-tint: #803a65;
+  --color-accent-fill: #66294e;
+  --color-on-accent: #faf3e5;
+  --color-favourite: #bf3a90;
+  --color-favourite-off: #908d85;
+  --color-timeline-played: #803a65;
+  --color-timeline-unplayed: #d0c8b8;
+  --color-swipe-playNext: #716eb0;
+  --color-swipe-addToQueue: #7c450a;
+  --color-swipe-download: #058096;
+  --color-swipe-favourite: #9c1072;
+}
+
+[data-accent="plum"][data-theme="light"][data-contrast="high"],
+[data-accent="plum"] [data-theme="light"][data-contrast="high"] {
+  color-scheme: light;
+  --color-background-page: #f7f3eb;
+  --color-background-row: #f7f3eb;
+  --color-background-grouped: #eee9df;
+  --color-background-elevated: #faf7f2;
+  --color-text-primary: #170f13;
+  --color-text-secondary: #564950;
+  --color-text-tertiary: #776d72;
+  --color-separator: #b9b0b5;
+  --color-fill-standard: rgb(60 48 40 / 0.16);
+  --color-fill-quiet: rgb(60 48 40 / 0.08);
+  --color-tint: #6e2954;
+  --color-accent-fill: #54183e;
+  --color-on-accent: #f7f3eb;
+  --color-favourite: #9b0e71;
+  --color-favourite-off: #6d6962;
+  --color-timeline-played: #6e2954;
+  --color-timeline-unplayed: #b8b2a7;
+  --color-swipe-playNext: #565190;
+  --color-swipe-addToQueue: #592e00;
+  --color-swipe-download: #006274;
+  --color-swipe-favourite: #730052;
+}
+
+[data-accent="plum"][data-theme="dark"],
+[data-accent="plum"] [data-theme="dark"] {
+  color-scheme: dark;
+  --color-background-page: #151013;
+  --color-background-row: #1e191c;
+  --color-background-grouped: #151013;
+  --color-background-elevated: #252023;
+  --color-text-primary: #d0cabc;
+  --color-text-secondary: #979185;
+  --color-text-tertiary: #5f5c54;
+  --color-separator: #322c2f;
+  --color-fill-standard: rgb(240 230 216 / 0.2);
+  --color-fill-quiet: rgb(240 230 216 / 0.11);
+  --color-tint: #c982aa;
+  --color-accent-fill: #572142;
+  --color-on-accent: #d0cabc;
+  --color-favourite: #ee67ba;
+  --color-favourite-off: #665f63;
+  --color-timeline-played: #c982aa;
+  --color-timeline-unplayed: #4a4443;
+  --color-swipe-playNext: #716eb0;
+  --color-swipe-addToQueue: #7c450a;
+  --color-swipe-download: #058096;
+  --color-swipe-favourite: #9c1072;
+}
+
+[data-accent="plum"][data-theme="dark"][data-contrast="high"],
+[data-accent="plum"] [data-theme="dark"][data-contrast="high"] {
+  color-scheme: dark;
+  --color-background-page: #0f0c0e;
+  --color-background-row: #1e191c;
+  --color-background-grouped: #0f0c0e;
+  --color-background-elevated: #252023;
+  --color-text-primary: #e8e2d4;
+  --color-text-secondary: #b0ab9f;
+  --color-text-tertiary: #7d7a72;
+  --color-separator: #474044;
+  --color-fill-standard: rgb(240 230 216 / 0.2);
+  --color-fill-quiet: rgb(240 230 216 / 0.11);
+  --color-tint: #e39bc3;
+  --color-accent-fill: #572142;
+  --color-on-accent: #e8e2d4;
+  --color-favourite: #ff89cf;
+  --color-favourite-off: #8e868a;
+  --color-timeline-played: #e39bc3;
+  --color-timeline-unplayed: #474341;
+  --color-swipe-playNext: #565190;
+  --color-swipe-addToQueue: #592e00;
+  --color-swipe-download: #006274;
+  --color-swipe-favourite: #730052;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-accent="plum"]:not([data-theme]) {
+    color-scheme: dark;
+    --color-background-page: #151013;
+    --color-background-row: #1e191c;
+    --color-background-grouped: #151013;
+    --color-background-elevated: #252023;
+    --color-text-primary: #d0cabc;
+    --color-text-secondary: #979185;
+    --color-text-tertiary: #5f5c54;
+    --color-separator: #322c2f;
+    --color-fill-standard: rgb(240 230 216 / 0.2);
+    --color-fill-quiet: rgb(240 230 216 / 0.11);
+    --color-tint: #c982aa;
+    --color-accent-fill: #572142;
+    --color-on-accent: #d0cabc;
+    --color-favourite: #ee67ba;
+    --color-favourite-off: #665f63;
+    --color-timeline-played: #c982aa;
+    --color-timeline-unplayed: #4a4443;
+    --color-swipe-playNext: #716eb0;
+    --color-swipe-addToQueue: #7c450a;
+    --color-swipe-download: #058096;
+    --color-swipe-favourite: #9c1072;
   }
 }
 

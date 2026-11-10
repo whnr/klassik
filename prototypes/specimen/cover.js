@@ -1,12 +1,12 @@
-// PROTOTYPE, round 24, sz-rs30.1.83.19.7: what makes the player page unmistakable.
+// The player page while it plays (ADR 0034, sz-rs30.1.83.19.7).
 // Only the page of what plays changes (.app.is-player); an album page that does not play stays a plain page.
-// player-hall: the page always sits in the dark room, the concert hall with the lights down, lit by the cover.
-// player-room: the page ground takes the cover's hue; text and the accent are solved again for that ground.
-// player-stage: the cover fills the top of the page edge to edge, as nothing else in the app does.
-// In room and stage the timeline and the playing row take a mark colour from the cover; controls keep the accent.
+// The cover room, the default: the page ground takes the cover's hue; text and the accent are solved again for that ground.
+// The hall, a setting: the page sits in the dark room, a step darker, lit by a glow in the cover's hue.
+// In the cover room the timeline and the playing row take a mark colour from the cover; controls keep the accent.
 "use strict";
 (() => {
-  const look = document.documentElement.dataset.look;
+  // The specimen pill sets the setting as data-player on the root.
+  const look = "player-" + (document.documentElement.dataset.player === "hall" ? "hall" : "room");
 
   // ---------- OKLab ----------
   const lin = (c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
@@ -150,6 +150,6 @@
     const run = async () => { if (busy) return; busy = true; try { await apply(); } finally { busy = false; } };
     run();
     new MutationObserver(run).observe(a, { attributes: true, attributeFilter: ["class"] });
-    new MutationObserver(() => setTimeout(run, 0)).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "data-contrast", "data-paper"] });
+    new MutationObserver(() => setTimeout(run, 0)).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "data-contrast", "data-accent", "data-player"] });
   }, 50);
 })();

@@ -1,4 +1,4 @@
-// PROTOTYPE, round 24, sz-rs30.1.83.19.9, look "pic-scrim": measure the blurred picture under the name block and set
+// ADR 0034, sz-rs30.1.83.19.9: measure the blurred picture under the name block and set
 // the scrim alpha so the facts line reaches 4.5:1 and the name 3:1 (large text) on the brightest pixels there
 // (7:1 and 4.5:1 in Increase Contrast).
 "use strict";

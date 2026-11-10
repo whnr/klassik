@@ -1,0 +1,17 @@
+/* The player page while it plays (ADR 0034, sz-rs30.1.83.19.7). cover.js sets data-look on the app frame:
+   player-room, the default, or player-hall, the setting. A page that does not play stays a plain page. */
+
+/* The hall: the dark room a step darker, lit by a glow in the cover's hue behind the cover. */
+.app[data-look="player-hall"].is-player { background: var(--color-background-grouped); }
+.app[data-look="player-hall"].is-player .wash {
+  height: 760px;
+  background: radial-gradient(ellipse 85% 60% at 50% 28%, color-mix(in srgb, var(--cover-light, transparent) 70%, transparent) 0,
+    color-mix(in srgb, var(--cover-light, transparent) 22%, transparent) 55%, transparent 100%) !important;
+}
+
+/* The cover room: the ground takes the cover's hue; cover.js solves text and the accent again for it. */
+.app[data-look="player-room"].is-player { background: var(--color-background-grouped); }
+.app[data-look="player-room"].is-player .wash { display: none; }
+
+/* In the cover room the cover marks what plays; controls keep the accent. */
+.app[data-look="player-room"].is-player .mv-bar .fill { background: var(--cover-mark, var(--color-tint)); }

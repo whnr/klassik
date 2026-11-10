@@ -184,7 +184,7 @@ input::placeholder { color: var(--color-text-secondary); opacity: 1; }
 .tab-search { flex: none; width: 56px; border-radius: var(--radius-full); }
 .tab-search.on { color: var(--color-tint); }
 
-/* Timeline and mini player: drawn by hand (ADR 0014). Only neutral values until their look ticket. */
+/* Timeline and mini player: drawn by hand (ADR 0014). The timeline shape is in timeline.css (ADR 0035). */
 .timeline {
   position: fixed; z-index: 40; right: 0; width: var(--size-hitTarget);
   top: calc(max(env(safe-area-inset-top), 6px) + var(--pill-space, 34px)); touch-action: none;

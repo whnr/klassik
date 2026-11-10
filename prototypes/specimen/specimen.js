@@ -366,7 +366,10 @@ const K = (() => {
     const root = document.documentElement;
     // Only the switch sets the room, so each variant is judged in the room that Flo picks.
     root.dataset.theme = room || (setting("theme", "light") === "dark" ? "dark" : "light");
-    root.dataset.paper = setting("paper", "middle");
+    // Claret is the default accent (ADR 0034): tokens.css writes it without an attribute.
+    const accent = setting("accent", "claret");
+    if (accent === "claret") delete root.dataset.accent; else root.dataset.accent = accent;
+    root.dataset.player = setting("player", "room");
     root.dataset.contrast = setting("contrast", "normal") === "high" ? "high" : "normal";
     root.dataset.typeSize = setting("size", "large");
     root.dataset.side = setting("side", "right");
@@ -386,6 +389,12 @@ const K = (() => {
     // The decided mini player loads before any variant, so a variant can still replace it through K.setMini.
     document.head.append(el("link", { rel: "stylesheet", href: "pill.css?v=" + STAMP }));
     await new Promise((ok) => document.head.append(el("script", { src: "pill.js?v=" + STAMP, onload: ok, onerror: ok })));
+    // The decided drawn views load on every page: the timeline shape, the player page and the person picture.
+    document.head.append(el("link", { rel: "stylesheet", href: "timeline.css?v=" + STAMP }));
+    document.head.append(el("link", { rel: "stylesheet", href: "cover.css?v=" + STAMP }));
+    document.head.append(el("link", { rel: "stylesheet", href: "picture.css?v=" + STAMP }));
+    await new Promise((ok) => document.head.append(el("script", { src: "cover.js?v=" + STAMP, onload: ok, onerror: ok })));
+    await new Promise((ok) => document.head.append(el("script", { src: "picture.js?v=" + STAMP, onload: ok, onerror: ok })));
     // A look (variants/looks.json) is the variant of one look ticket. It loads after the palette, so both combine.
     let looks = {};
     try { looks = await (await fetch("variants/looks.json", { cache: "no-store" })).json(); } catch { /* none yet */ }
@@ -428,10 +437,13 @@ const K = (() => {
       ...SIZES.map((s) => el("option", { value: s, selected: setting("size", "large") === s }, "Aa " + s)));
     const playing = el("select", { "aria-label": "What plays", onchange: (e) => { setParam("playing", e.target.value); store("play", null); location.reload(); } },
       ...Object.entries(QUEUES).map(([k, q]) => el("option", { value: k, selected: setting("playing", "recording") === k }, "▶ " + q.label)));
-    // Paper warmth of the colour variants (sz-rs30.1.83.19.1); the decided tokens ignore it.
-    const paper = el("select", { "aria-label": "Paper", onchange: (e) => { setParam("paper", e.target.value); applyLook(); } },
-      ...["faint", "middle", "creamy"].map((p) => el("option", { value: p, selected: setting("paper", "middle") === p }, "Paper " + p)));
-    bar.append(theme, paper, contrast, size, playing);
+    // The accent switch and the player look are in-app settings until sz-rs30.1.83.19.15 decides (ADR 0034).
+    const accents = { claret: "Claret", green: "Bottle green", plum: "Plum" };
+    const accent = el("select", { "aria-label": "Accent", onchange: (e) => { setParam("accent", e.target.value); applyLook(); } },
+      ...Object.entries(accents).map(([k, v]) => el("option", { value: k, selected: setting("accent", "claret") === k }, v)));
+    const player = el("select", { "aria-label": "Player look", onchange: (e) => { setParam("player", e.target.value); location.reload(); } },
+      ...[["room", "Cover room"], ["hall", "Hall"]].map(([k, v]) => el("option", { value: k, selected: setting("player", "room") === k }, v)));
+    bar.append(theme, accent, player, contrast, size, playing);
     // The timeline edge is a listener option on every page; it leads the pill so a narrow screen never hides it.
     const sides = { right: "Timeline ⇥", left: "⇤ Timeline" };
     bar.prepend(el("button", { class: "on", "aria-label": "Timeline edge", onclick: () => { setParam("side", setting("side", "right") === "right" ? "left" : "right"); location.reload(); } }, sides[setting("side", "right")]));
@@ -594,7 +606,8 @@ const K = (() => {
   function setMini(provider) { MINI = { ...cardMini, ...provider }; }
 
   // A timeline look (sz-rs30.1.83.21) sets the gap between two segments through K.setTimeline.
-  let TL = { gap: (count) => (count > 40 ? 1 : 2) };
+  // The gap is space-xxs between every segment (ADR 0035).
+  let TL = { gap: () => 2 };
   function setTimeline(provider) { TL = { ...TL, ...provider }; }
   const workOf = (s) => (s.works && s.works[0] ? s.works[0].name : "");
 

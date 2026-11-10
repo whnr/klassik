@@ -37,7 +37,7 @@ Rules for coding agents in this repository.
 - Cover each app change since the last TestFlight build. Keep development instructions and process notes in PR descriptions or documentation.
 - `scripts/testflight_notes.py --check` rejects version mismatches, excess length, and unambiguous development terms.
 - `.github/workflows/testflight-notes.yml` runs this narrow backstop and its tests on every PR and `main` push.
-- The fresh Codex release review is the semantic gate. It checks that every instruction tests installed-app behavior.
+- The fresh release review is the semantic gate. It checks that every instruction tests installed-app behavior.
 - `testflight.yml` validates notes before its macOS job. `scripts/testflight_notes.py` sets them after upload.
 - `.github/workflows/testflight-feedback.yml` runs by hand. It checks the API key secrets (`scripts/asc_check.py`), then prints TestFlight feedback and crash logs and uploads the feedback screenshots.
 - Versions follow semantic versioning: `MARKETING_VERSION` in `project.yml` is MAJOR.MINOR.PATCH. In a release PR, increase MINOR for a batch with features and PATCH for a batch with only fixes. 1.0.0 is the first App Store release. The build number is the TestFlight run number. The TestFlight workflow tags each uploaded version as `vX.Y.Z`.
@@ -48,7 +48,7 @@ Rules for coding agents in this repository.
 
 - Fix PRs never change the app version.
 - `Klassik release` means one PR that bumps `MARKETING_VERSION` and adds installed-app checks in “What to Test”.
-- A fresh Codex review must approve the exact PR head before an agent merges it.
+- A fresh review must approve the exact PR head before an agent merges it.
 - Any head change requires a new review. Check the approved SHA against the current head before merging.
 - The release agent merges the approved release PR, then waits for successful Test on the exact `main` merge commit.
 - The release agent starts TestFlight on that commit and watches all jobs, including notes publication.
@@ -58,7 +58,7 @@ Rules for coding agents in this repository.
 ## Pull requests
 
 - Push worker branches and open PRs. Never push `main` directly.
-- A fresh Codex review must approve the current PR head. A review comment must identify that SHA and its verdict.
+- A fresh review must approve the current PR head. A review comment must identify that SHA and its verdict.
 - Agents merge approved PRs only within their assigned scope. A worker assigned to stop for review must stop.
 - End every PR body with `## Test plan`: numbered on-device checks, one per app change, with expected results.
 - For process-only changes, state the installed-app regression check and explain the process validation before the test plan.

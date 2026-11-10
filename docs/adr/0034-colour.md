@@ -27,7 +27,7 @@ The specimen used neutral iOS colours and system blue. Klassik needs its own voi
 
 ## Consequences
 
-- The token files hold the four themes of each accent family in `design/accent-*.tokens.json`. The theme files point each colour there. `scripts/tokens.py` writes the default family plainly and the others under `data-accent`.
+- The token files hold the four themes of each accent family in `design/accent-*.tokens.json`. The theme files point each colour there. `design/scripts/tokens.py` writes the default family plainly and the others under `data-accent`.
 - The UI tracer (sz-4k87) generates the colour sets for each family and moves the app off system colours. It renames the swipe action Reference to Favourite.
 - The cover room, the cover hue and the picture scrim are runtime rules, not tokens. The tracer builds them in Core Image with the same targets.
 - Open question: in the locked standard values, some marks sit below 3:1 on rows, grouped lists and grey covers. Bead sz-rs30.1.83.19.17 asks Flo to keep or fix them.

@@ -36,7 +36,7 @@ The pill at the top belongs to the specimen, not to the app. It sets the timelin
 
 ## Values
 
-- `tokens.css` is `design/tokens.css` on `main`, which `scripts/tokens.py` writes from the token files. The copy under `design/specimen/` on `main` links it directly.
+- `tokens.css` is `design/tokens.css` on `main`, which `design/scripts/tokens.py` writes from the token files. The copy under `design/specimen/` on `main` links it directly.
 - `specimen.css` and every page read tokens only. A fixed value in them is chrome that iOS fixes, such as the tab label size.
 - Favourites, listening notes and the queue are specimen state in the session. Close the tab to reset them.
 - `variants/palette.py` solved the colour values from their contrast targets; `variants/contrast_check.py` proves the Increase Contrast pairs.

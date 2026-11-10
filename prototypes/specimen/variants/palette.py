@@ -146,13 +146,28 @@ def dark(fam, high):
     return out
 
 
+BACKGROUNDS = ("background-page", "background-row", "background-grouped", "background-elevated")
+
+
+def solve_on(C, h, values, target, floor, darker):
+    """Reach the target on the page and the floor on every other ground: the weakest ground decides."""
+    found = [solve(C, h, values["background-page"], target, darker)]
+    found += [solve(C, h, values[k], floor, darker) for k in BACKGROUNDS[1:] if floor]
+    return (min if darker else max)(found, key=lum)
+
+
 def marks(values, fam, theme, high):
     """The strong favourite, its quiet off state, translucent fills and the swipe preview."""
     bg, nh, day = values["background-page"], fam["h"], theme == "light"
+    # The standard values are decided on the page ground. Increase Contrast holds AAA on rows, groups and sheets too.
+    text, mark = (7, 4.5) if high else (None, None)
+    if high:
+        values["text-secondary"] = solve_on(0.02 if day else 0.018, nh if day else PAPER_H, values, 7.5 if day else 8, text, day)
+        values["tint"] = values["timeline-played"] = solve_on(fam["dayC"] if day else fam["nightC"], nh, values, 9, text, day)
     # The favourite is the accent at its strongest chroma that still clears its target.
-    values["favourite"] = solve(0.19, nh, bg, (7 if high else 4.5) if day else (9 if high else 6.5), day)
+    values["favourite"] = solve_on(0.19, nh, values, (7 if high else 4.5) if day else (9 if high else 6.5), mark, day)
     # Not set: a quiet neutral at the 3:1 floor for a control (4.5 in Increase Contrast).
-    values["favourite-off"] = solve(0.012, PAPER_H if day else nh, bg, 4.5 if high else 3.0, day)
+    values["favourite-off"] = solve_on(0.012, PAPER_H if day else nh, values, 4.5 if high else 3.0, mark, day)
     # Fills are overlays: the Chronology draws its era bands over the composer lines.
     ink = (0x3c, 0x30, 0x28) if day else (0xf0, 0xe6, 0xd8)
     for name, a in (("fill-standard", 0.16 if day else 0.2), ("fill-quiet", 0.08 if day else 0.11)):

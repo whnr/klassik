@@ -103,7 +103,7 @@
     // The values go on the root: the timeline and the scrub label sit outside the app frame.
     const r = document.documentElement;
     const props = ["--color-background-page", "--color-background-grouped", "--color-background-row", "--color-text-secondary", "--color-tint",
-      "--color-timeline-played", "--color-timeline-unplayed", "--cover-mark", "--cover-light", "--edge-colour", "--color-favourite"];
+      "--color-timeline-played", "--color-timeline-unplayed", "--cover-mark", "--cover-light", "--edge-colour", "--color-favourite", "--color-favourite-off"];
     props.forEach((p) => r.style.removeProperty(p));
     if (!playing) return;
     const item = K.current();
@@ -129,10 +129,14 @@
       r.style.setProperty("--color-tint", css(solve(lch(parse(root.getPropertyValue("--color-tint"))), ground, t)));
       r.style.setProperty("--color-favourite", css(solve(lch(parse(root.getPropertyValue("--color-favourite") || root.getPropertyValue("--color-tint"))), ground, high() ? 7 : 4.5)));
       r.style.setProperty("--color-timeline-unplayed", css(rgbOf(dark() ? 0.36 : 0.8, Math.min(hue.C, 0.03), hue.h)));
+      // The quiet off state is solved on the page ground; on the cover ground Increase Contrast solves it again.
+      if (high()) r.style.setProperty("--color-favourite-off", css(solve(lch(parse(root.getPropertyValue("--color-favourite-off"))), ground, 4.5)));
     }
     // The mark colour: the cover's hue at a strong chroma, 3:1 on the ground (4.5:1 in Increase Contrast).
     const start = dark() ? 0.7 : 0.55;
-    const mark = solve([start, Math.min(Math.max(hue.C, 0.09), 0.14), hue.h], ground, high() ? 4.5 : 3);
+    let mark = solve([start, Math.min(Math.max(hue.C, 0.09), 0.14), hue.h], ground, high() ? 4.5 : 3);
+    // Increase Contrast: the played part also stands 4.5:1 apart from the unplayed part beside it.
+    if (high()) mark = solve(lch(mark), parse(getComputedStyle(r).getPropertyValue("--color-timeline-unplayed")), 4.5);
     r.style.setProperty("--cover-mark", css(mark));
     r.style.setProperty("--color-timeline-played", css(mark));
   }

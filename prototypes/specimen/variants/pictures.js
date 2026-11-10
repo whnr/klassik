@@ -1,5 +1,6 @@
 // PROTOTYPE, round 24, sz-rs30.1.83.19.9, look "pic-scrim": measure the blurred picture under the name block and set
-// the scrim alpha so the facts line reaches 4.5:1 and the name 3:1 (large text) on the brightest pixels there.
+// the scrim alpha so the facts line reaches 4.5:1 and the name 3:1 (large text) on the brightest pixels there
+// (7:1 and 4.5:1 in Increase Contrast).
 "use strict";
 (() => {
   const lin = (c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
@@ -66,11 +67,14 @@
     const meta = head.querySelector(".meta"), title = head.querySelector("h1");
     const yMeta = lum(rgbOf(getComputedStyle(meta).color)), yTitle = lum(rgbOf(getComputedStyle(title).color));
     const yScrim = lum(scrim);
+    // Increase Contrast asks AAA: 7:1 for the facts, 4.5:1 for the large name.
+    const high = document.documentElement.dataset.contrast === "high";
+    const tMeta = high ? 7 : 4.5, tTitle = high ? 4.5 : 3;
     let a = 0;
     // Compositing is linear in light: the pixel under the scrim is mixed toward the scrim colour.
     for (; a <= 1; a += 0.02) {
       const y = worst * (1 - a) + yScrim * a;
-      if (ratio(yMeta, y) >= 4.5 && ratio(yTitle, y) >= 3) break;
+      if (ratio(yMeta, y) >= tMeta && ratio(yTitle, y) >= tTitle) break;
     }
     a = Math.min(1, Math.max(a, 0.25));
     const hero = document.querySelector(".hero");

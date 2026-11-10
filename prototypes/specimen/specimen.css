@@ -130,6 +130,8 @@ input { font: inherit; color: inherit; }
 .link { color: var(--color-tint); }
 /* Links carry colour only (sz-rs30.1.83.19.5). Increase Contrast adds an underline in the link's own colour. */
 :root[data-contrast="high"] :is(.link, .roles a[href]) { text-decoration: underline; text-decoration-color: currentColor; text-underline-offset: 0.2em; }
+/* The hall's accent fill stands only 1.6:1 from the page. Increase Contrast rings a filled control in the tint (9:1). */
+[data-theme="dark"][data-contrast="high"] :is(.capsule.filled, .chip.on, .orbtn.on, .badge, .tune .chips button.on, .tune .tog button.on) { box-shadow: 0 0 0 1px var(--color-tint); }
 
 .button-row { display: flex; gap: var(--space-m); padding: var(--space-m) var(--pad-right) 0 var(--pad-left); }
 .capsule {

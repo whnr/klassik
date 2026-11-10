@@ -32,7 +32,7 @@
   --color-background-grouped: #eeebe6;
   --color-background-elevated: #fbfaf7;
   --color-text-primary: #170f13;
-  --color-text-secondary: #584c52;
+  --color-text-secondary: #574a51;
   --color-text-tertiary: #786e74;
   --color-separator: #bbb2b6;
   --color-tint: #6f2a55;
@@ -41,7 +41,7 @@
   --color-timeline-unplayed: #b9b4ac;
   --color-timeline-played: #6f2a55;
   --color-favourite: #9d1172;
-  --color-favourite-off: #747069;
+  --color-favourite-off: #6e6a63;
   --color-fill-standard: #3c302829;
   --color-fill-quiet: #3c302814;
   --color-swipe-playNext: #565190;
@@ -82,7 +82,7 @@
   --color-background-grouped: #eee9df;
   --color-background-elevated: #faf7f2;
   --color-text-primary: #170f13;
-  --color-text-secondary: #574a51;
+  --color-text-secondary: #564950;
   --color-text-tertiary: #776d72;
   --color-separator: #b9b0b5;
   --color-tint: #6e2954;
@@ -91,7 +91,7 @@
   --color-timeline-unplayed: #b8b2a7;
   --color-timeline-played: #6e2954;
   --color-favourite: #9b0e71;
-  --color-favourite-off: #736f68;
+  --color-favourite-off: #6d6962;
   --color-fill-standard: #3c302829;
   --color-fill-quiet: #3c302814;
   --color-swipe-playNext: #565190;
@@ -132,7 +132,7 @@
   --color-background-grouped: #eee6d6;
   --color-background-elevated: #f9f5eb;
   --color-text-primary: #170f13;
-  --color-text-secondary: #564950;
+  --color-text-secondary: #54484f;
   --color-text-tertiary: #766b71;
   --color-separator: #b6adb2;
   --color-tint: #6c2752;
@@ -141,7 +141,7 @@
   --color-timeline-unplayed: #b7b0a0;
   --color-timeline-played: #6c2752;
   --color-favourite: #990a6f;
-  --color-favourite-off: #716d66;
+  --color-favourite-off: #6b6760;
   --color-fill-standard: #3c302829;
   --color-fill-quiet: #3c302814;
   --color-swipe-playNext: #565190;
@@ -182,7 +182,7 @@
   --color-background-row: #1e191c;
   --color-background-elevated: #252023;
   --color-text-primary: #e8e2d4;
-  --color-text-secondary: #aba69a;
+  --color-text-secondary: #b0ab9f;
   --color-text-tertiary: #7d7a72;
   --color-separator: #474044;
   --color-tint: #e39bc3;
@@ -191,7 +191,7 @@
   --color-on-accent: #e8e2d4;
   --color-timeline-played: #e39bc3;
   --color-favourite: #ff89cf;
-  --color-favourite-off: #80787c;
+  --color-favourite-off: #8e868a;
   --color-fill-standard: #f0e6d833;
   --color-fill-quiet: #f0e6d81c;
   --color-swipe-playNext: #565190;

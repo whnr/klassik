@@ -1,6 +1,6 @@
 # 0021. Design tokens in the repository
 
-Date: 2026-11-05. Decided by Flo after research. Beads: sz-rs30.1.83.1, sz-rs30.1.83.3.
+Date: 2026-11-05. Decided by Flo after research. Beads: sz-rs30.1.83.1, sz-rs30.1.83.3. The script path and the lint rule are replaced by [0036](0036-design-folder-and-checks.md).
 
 ## Context
 

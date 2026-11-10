@@ -31,7 +31,7 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0018](0018-stack-and-back.md) | The system back stack, with the name of the page behind (partly replaced by 0029) | 2026-11-04 |
 | [0019](0019-performer-facts.md) | Performer facts from Wikidata | 2026-11-04 |
 | [0020](0020-set-and-condition.md) | Set means works; a search row is a condition | 2026-11-04 |
-| [0021](0021-design-tokens.md) | Design tokens in the repository | 2026-11-05 |
+| [0021](0021-design-tokens.md) | Design tokens in the repository (partly replaced by 0036) | 2026-11-05 |
 | [0022](0022-chronology-taps.md) | Chronology taps open pages | 2026-11-07 |
 | [0023](0023-no-title-in-the-bar.md) | No title in the navigation bar | 2026-11-07 |
 | [0024](0024-album-work-headings.md) | Work headings on an album page only for whole works | 2026-11-07 |
@@ -46,3 +46,4 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0033](0033-engraved-fermata.md) | The engraved fermata, strong when set and quiet when not | 2026-11-09 |
 | [0034](0034-colour.md) | Colour: a programme by day, the hall at night (the dark timeline partly replaced by 0035) | 2026-11-09 |
 | [0035](0035-timeline-shape.md) | The timeline: flush, round on the content side, a gap for each movement | 2026-11-10 |
+| [0036](0036-design-folder-and-checks.md) | The design folder and its checks | 2026-11-10 |

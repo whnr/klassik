@@ -29,6 +29,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+      # The Swift image has no Python; lint.sh also checks that design/tokens.css is current.
+      - run: apt-get update -qq && apt-get install -y -qq --no-install-recommends python3
       - run: scripts/lint.sh
 
   # ffmpeg is quick to install on Linux; the macOS job only needs the finished files.

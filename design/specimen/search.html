@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Search</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../tokens.css?v=44">
+<link rel="stylesheet" href="specimen.css?v=44">
+<script src="specimen.js?v=44"></script>
+</head>
+<body>
+<!--
+  Search round 9 (sz-rs30.1.83.13), Flo's verdict on round 8: the field and Filters at the top, a back arrow,
+  recent searches on the empty page, no suggestions. The x in the field clears the text; the x pill beside Filters clears the text and the conditions. The filters open in the sheet of ADR 0025.
+-->
+<style>
+  .specimen-bar { max-width: calc(100vw - 12px); overflow-x: auto; scrollbar-width: none; }
+  .roundglass { flex: none; width: 48px; height: 48px; border-radius: var(--radius-full); display: grid; place-items: center; position: relative; color: var(--color-text-primary); }
+  .roundglass svg { width: 22px; height: 22px; }
+  .roundglass.on { color: var(--color-tint); }
+  .badge { position: absolute; top: -3px; right: -3px; min-width: 19px; height: 19px; padding: 0 5px; border-radius: 10px; background: var(--color-accent-fill, var(--color-tint)); color: var(--color-on-accent, #fff); font: 600 12px/19px -apple-system, system-ui, sans-serif; text-align: center; }
+  .field { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--space-s); min-height: 48px; padding: 0 var(--space-m) 0 var(--space-l); border-radius: var(--radius-full); }
+  .field svg { width: 18px; height: 18px; flex: none; color: var(--color-text-secondary); }
+  .field input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font-size: max(16px, var(--type-body-size)); }
+  .field input::placeholder { color: var(--color-text-secondary); }
+  .field input::-webkit-search-cancel-button, .narrow input::-webkit-search-cancel-button { display: none; }
+  .clear { color: var(--color-text-secondary); padding: var(--space-xs); visibility: hidden; }
+
+  .hint { padding: var(--space-xl) var(--pad-right) 0 var(--space-xl); color: var(--color-text-secondary); }
+  .nomatch { padding: var(--space-l) var(--space-l) 0; color: var(--color-text-secondary); }
+
+  /* Conditions, shared by the three variants. */
+  .cond { flex-wrap: wrap; }
+  .cond .terms { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: var(--space-xs); align-items: center; }
+  .cond .chip { gap: var(--space-xs); }
+  .cond .chip .x { color: var(--color-text-tertiary); }
+  .cond.marked { box-shadow: inset 3px 0 0 var(--color-tint); background: color-mix(in srgb, var(--color-tint) 8%, var(--color-background-row)); }
+  .orbtn { min-height: 30px; padding: 0 var(--space-m); border-radius: var(--radius-full); background: var(--color-fill-quiet); color: var(--color-tint); white-space: nowrap; }
+  .orbtn.on { background: var(--color-accent-fill, var(--color-tint)); color: var(--color-on-accent, #fff); }
+  .and-word { padding: var(--space-xs) var(--space-l); color: var(--color-text-secondary); }
+  .seg { display: flex; padding: 2px; border-radius: 9px; background: var(--color-fill-quiet); margin: var(--space-m) 0 var(--space-s); }
+  .seg button { flex: 1; min-height: 30px; border-radius: 7px; white-space: nowrap; padding: 0 2px; }
+  .seg button.on { background: var(--color-background-row); box-shadow: 0 1px 3px rgb(0 0 0 / 0.12); font-weight: 600; }
+  .narrow { display: flex; align-items: center; gap: var(--space-s); min-height: 36px; padding: 0 var(--space-m); border-radius: 10px; background: var(--color-fill-quiet); margin-bottom: var(--space-s); }
+  .narrow svg { width: 15px; height: 15px; flex: none; color: var(--color-text-secondary); }
+  .narrow input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font-size: 16px; }
+  .narrow input::placeholder { color: var(--color-text-secondary); }
+  .term .what { color: var(--color-tint); white-space: nowrap; }
+  .term .what.on { color: var(--color-text-secondary); }
+
+  /* A: a sheet at the medium detent; the results stay live above it. */
+  .fsheet { position: fixed; z-index: 61; left: var(--space-xs); right: var(--space-xs); bottom: var(--space-xs); height: 58vh;
+    display: flex; flex-direction: column; border-radius: 30px; background: var(--color-background-grouped);
+    transform: translateY(110%); transition: transform var(--motion-transition-open-duration) var(--motion-transition-open-easing); box-shadow: 0 -2px 24px rgb(0 0 0 / 0.2); }
+  .fsheet.on { transform: none; }
+  .fsheet .grabber { width: 36px; height: 5px; border-radius: 3px; background: var(--color-fill-standard); margin: var(--space-xs) auto 0; flex: none; }
+  .fsheet .head { display: flex; align-items: baseline; gap: var(--space-s); padding: var(--space-s) var(--space-l) var(--space-xs); flex: none; }
+  .fsheet .head h2 { flex: 1; }
+  .fsheet .body { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 0 var(--space-l) var(--space-xl); }
+
+  /* The field row sits under the bar and stays there: a system inline field. Only the content scrolls. */
+  .fieldrow { position: fixed; z-index: 25; left: 0; right: 0; top: calc(max(env(safe-area-inset-top), 6px) + var(--pill-space, 34px) + var(--size-hitTarget));
+    display: flex; gap: var(--space-s); align-items: center; padding: 0 var(--pad-right) var(--space-s) var(--pad-left); background: var(--color-background-grouped); }
+  .fieldrow .field { min-height: 40px; height: 40px; border-radius: 12px; background: var(--color-fill-quiet); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding-left: var(--space-m); }
+  .fieldrow .roundglass { width: 40px; height: 40px; background: var(--color-fill-quiet); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .search-page .nav { background: var(--color-background-grouped); }
+  .search-page .scroll { padding-top: calc(max(env(safe-area-inset-top), 6px) + var(--pill-space, 34px) + var(--size-hitTarget) + 48px); }
+  .fieldrow .reset svg { width: 18px; height: 18px; }
+  .fieldrow .reset:disabled { color: var(--color-text-tertiary); cursor: default; }
+  .recent .row { width: 100%; text-align: left; }
+  .recent .row svg { width: 16px; height: 16px; flex: none; color: var(--color-text-secondary); }
+  .section-head button { color: var(--color-tint); text-transform: none; font: inherit; }
+</style>
+<script>
+K.start(() => {
+  const { el, href, ICON, M } = K;
+  const KINDS = { genre: "Genres", composer: "Composers", conductor: "Conductors", performer: "Performers" };
+  const ONE = { genre: "Genre", composer: "Composer", conductor: "Conductor", performer: "Performer" };
+  const FUNNEL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M7 12h10M10 17h4"/></svg>';
+
+  // ---------- Matching: diacritics fold away; "Op. 67" meets "op67", "K. 626" meets "KV 626". ----------
+  const fold = (s) => (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
+    .replace(/ø/g, "o").replace(/ł/g, "l").replace(/ß/g, "ss").replace(/æ/g, "ae").replace(/[^a-z0-9]+/g, " ").trim();
+  const CATALOGUE = /^(op|k|kv|bwv|d|hob|rv|hwv|kk|swv|wq|sz|l)$/;
+  function words(s) {
+    const w = fold(s).split(" ").filter(Boolean);
+    const out = new Set(w);
+    for (let i = 0; i + 1 < w.length; i++) if (CATALOGUE.test(w[i]) && /^\d/.test(w[i + 1])) {
+      out.add(w[i] + w[i + 1]);
+      if (w[i] === "k") out.add("kv" + w[i + 1]);
+      if (w[i] === "kv") out.add("k" + w[i + 1]);
+    }
+    return [...out];
+  }
+  function queryTokens(q) {
+    const w = fold(q).split(" ").filter(Boolean);
+    const out = [];
+    for (let i = 0; i < w.length; i++) {
+      if (CATALOGUE.test(w[i]) && w[i + 1] && /^\d/.test(w[i + 1])) { out.push(w[i] + w[i + 1]); i++; }
+      else out.push(w[i]);
+    }
+    return out;
+  }
+  const matches = (tokens, hay) => tokens.every((t) => hay.some((h) => h.startsWith(t)));
+
+  // ---------- The index: every recording with its search terms, read from the songs. ----------
+  const recs = [...M.recordings.values()].map((r) => {
+    const terms = new Set(r.genres.map((g) => "genre:" + g));
+    for (const s of r.songs) for (const c of s.contributors || []) terms.add(`${c.role === "composer" ? "composer" : c.role === "conductor" ? "conductor" : "performer"}:${c.artist.name}`);
+    if (r.composer) terms.add("composer:" + r.composer);
+    r.performers.filter((p) => p.role === "artist").forEach((p) => terms.add("performer:" + p.name));
+    return { r, terms };
+  });
+  const allTerms = new Map();
+  for (const { terms } of recs) for (const t of terms) allTerms.set(t, (allTerms.get(t) || 0) + 1);
+  // A genre that every recording carries filters nothing, so the picker hides it (as on the composer page, ADR 0017).
+  // Weak tags leave some recordings without a genre, so the test counts only the recordings that carry one.
+  const withGenre = recs.filter((x) => x.r.genres.length).length;
+  for (const [t, n] of allTerms) if (t.startsWith("genre:") && n === withGenre) allTerms.delete(t);
+  const label = (t) => t.slice(t.indexOf(":") + 1);
+  const kindOf = (t) => t.slice(0, t.indexOf(":"));
+
+  const works = [...M.works.values()].map((w) => ({ w, hay: words(w.name + " " + w.composer + " " + (w.grouping || "")), title: fold(w.name) }));
+  const people = new Map();
+  for (const { r, terms } of recs) for (const t of terms) {
+    const k = kindOf(t);
+    if (k === "genre") continue;
+    const name = label(t);
+    if (!people.has(name)) people.set(name, { name, roles: new Set(), recs: new Set(), byRole: new Map(), hay: words(name) });
+    people.get(name).roles.add(k);
+    if (!people.get(name).byRole.has(k)) people.get(name).byRole.set(k, new Set());
+    people.get(name).byRole.get(k).add(r);
+    people.get(name).recs.add(r);
+  }
+  const albums = [...M.albums.values()].map((a) => ({ a, hay: words([a.name, a.artist, a.displayArtist, ...a.song.map((s) => s.title)].join(" ")) }));
+
+  // ---------- State. The query and the conditions stay when the filters hide. ----------
+  let query = K.store("search3.q") || "";
+  let conds = K.store("search3.conds") || [];
+  let open = K.store("search3.open") || false;
+  let marked = null, kind = "composer", narrowQ = "", clearNarrow = () => {};
+  const save = () => { K.store("search3.q", query); K.store("search3.conds", conds); K.store("search3.open", open); };
+  // Back from a result keeps the search. Any other arrival (a tab, a link) starts fresh: leaving the page already put the search into Recent.
+  const nav = performance.getEntriesByType("navigation")[0];
+  if (!nav || nav.type === "navigate") { query = ""; conds = []; open = false; save(); K.store("search.session", null); }
+  const passes = (x, list) => list.every((c) => c.some((t) => x.terms.has(t)));
+  // The filters count only what the text already found: the recordings of matching works, people and albums.
+  let foundKey = null, foundSet = null;
+  function found() {
+    const tokens = queryTokens(query);
+    if (!tokens.length) return null;
+    if (foundKey === query) return foundSet;
+    const set = new Set();
+    works.filter((x) => matches(tokens, x.hay)).forEach((x) => x.w.recordings.forEach((r) => set.add(r)));
+    people.forEach((p) => { if (matches(tokens, p.hay)) p.recs.forEach((r) => set.add(r)); });
+    albums.filter((x) => matches(tokens, x.hay)).forEach((x) => x.a.recordings.forEach((r) => set.add(r)));
+    foundKey = query; foundSet = set;
+    return set;
+  }
+  const count = (list) => { const f = found(); return recs.filter((x) => (!f || f.has(x.r)) && passes(x, list)).length; };
+
+  // ---------- Page, field and tab bar ----------
+  // Search is a tab, yet it keeps a back arrow to the page it was opened from (Flo, round 8).
+  const { scroll } = K.page({ tab: "search", title: "Search", back: { label: "Library", href: "index.html" } });
+  document.body.classList.add("search-page");
+  const input = el("input", { type: "search", enterkeyhint: "search", autocomplete: "off", autocorrect: "off", spellcheck: "false", placeholder: "Work or name" });
+  input.value = query;
+  const clear = el("button", { class: "clear t-body", "aria-label": "Clear", onclick: () => { input.value = ""; query = ""; save(); update(); input.focus(); } }, "✕");
+  const badge = el("span", { class: "badge" });
+  // The keyboard goes down at the moment the sheet comes up; the sheet never rides on a closing keyboard.
+  const filtersBtn = el("button", { class: "roundglass", "aria-label": "Filters", html: FUNNEL,
+    onpointerdown: (e) => e.preventDefault(), onclick: () => { input.blur(); setOpen(!open); } });
+  filtersBtn.append(badge);
+  // The x pill clears the text and every condition. It stays in place when there is nothing to clear, so the field never changes width.
+  const resetBtn = el("button", { class: "roundglass reset", "aria-label": "Clear search and filters",
+    html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M7 7l10 10M17 7 7 17"/></svg>',
+    onpointerdown: (e) => e.preventDefault(),
+    onclick: () => { commit(); endSession(); input.value = ""; query = ""; conds = []; marked = null; save(); update(); } });
+  const field = el("label", { class: "field" }, el("span", { html: ICON.search }), input, clear);
+  document.body.append(el("div", { class: "fieldrow" }, field, filtersBtn, resetBtn));
+  input.addEventListener("input", () => { query = input.value; save(); update(); });
+  input.addEventListener("focus", () => document.body.classList.add("typing"));
+  input.addEventListener("blur", () => document.body.classList.remove("typing"));
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") { commit(); input.blur(); } });
+
+  // ---------- Recent searches: newest first, on this device only. Each keeps its filters. ----------
+  // A search session is one entry. Every commit replaces the session's entry, so edits never add a row each.
+  // Commits: Enter, Done on the filters, opening a result, leaving the page. The x pill ends the session.
+  const asRecent = (r) => (typeof r === "string" ? { q: r, conds: [] } : r);
+  let recent = (K.store("search.recent") || []).map(asRecent).map((r) => ({ id: r.id || Math.random().toString(36).slice(2), ...r }));
+  let session = K.store("search.session");
+  const recentKey = (r) => r.q.trim().toLowerCase() + "|" + JSON.stringify(r.conds);
+  function commit() {
+    const entry = { id: session || Math.random().toString(36).slice(2), q: query.trim(), conds: conds.map((c) => [...c]) };
+    if (!entry.q && !entry.conds.length) return;
+    session = entry.id;
+    recent = [entry, ...recent.filter((r) => r.id !== entry.id && recentKey(r) !== recentKey(entry))].slice(0, 42);
+    K.store("search.recent", recent);
+    K.store("search.session", session);
+  }
+  function endSession() { session = null; K.store("search.session", null); }
+  // The filters read as they work: terms of one condition joined with "or", conditions with "and".
+  const filterLine = (list) => list.map((c) => c.map((t) => `${ONE[kindOf(t)]} ${label(t)}`).join(" or ")).join(" and ");
+  scroll.addEventListener("click", (e) => { if (e.target.closest("a.row")) commit(); });
+  // The back arrow, a tab or a link: whatever the search holds when the page goes is what the listener searched.
+  addEventListener("pagehide", commit);
+
+  // ---------- The keyboard: only the content scrolls. The sheet rides on the keyboard only for its own field. ----------
+  const riders = [];
+  function ride() {
+    if (scrollY || document.documentElement.scrollTop) scrollTo(0, 0);
+    const vv = window.visualViewport;
+    const kb = vv ? Math.max(0, innerHeight - vv.height - vv.offsetTop) : 0;
+    riders.forEach((r) => r(kb, kb > 40));
+    K.layoutChrome();
+  }
+  // iOS sends the viewport events late, so the riders follow each frame while the keyboard moves.
+  let until = 0;
+  function follow() { until = performance.now() + 900; const step = () => { ride(); if (performance.now() < until) requestAnimationFrame(step); }; step(); }
+  if (window.visualViewport) { visualViewport.addEventListener("resize", follow); visualViewport.addEventListener("scroll", ride); }
+  addEventListener("scroll", ride);
+  document.addEventListener("focusin", follow);
+  document.addEventListener("focusout", follow);
+  // ---------- Shared pieces of the filters ----------
+  function chip(t, ci) {
+    return el("button", { class: "chip t-subheadline", "aria-label": "Remove " + label(t), onclick: (e) => { e.stopPropagation(); removeTerm(ci, t); } },
+      label(t), el("span", { class: "x" }, "✕"));
+  }
+  function removeTerm(ci, t) {
+    conds[ci] = conds[ci].filter((x) => x !== t);
+    if (!conds[ci].length) { conds.splice(ci, 1); if (marked === ci) marked = null; else if (marked > ci) marked--; }
+    save(); update();
+  }
+  // One row per condition. In A and B a tap marks it, so the next term joins it with "or".
+  function condRows(markable) {
+    const out = [];
+    conds.forEach((c, i) => {
+      if (i) out.push(el("div", { class: "and-word t-footnote" }, "and"));
+      const terms = el("div", { class: "terms" });
+      c.forEach((t, j) => { if (j) terms.append(el("span", { class: "t-footnote secondary" }, "or")); terms.append(chip(t, i)); });
+      out.push(el("div", { class: "list" }, el("div", {
+        class: "row cond" + (marked === i ? " marked" : ""), role: markable ? "button" : null,
+        onclick: markable ? () => { marked = marked === i ? null : i; update(); } : null },
+        terms, el("div", { class: "trail" }, el("span", { class: "t-subheadline nums" }, String(count(conds.slice(0, i + 1)))),
+          markable ? el("button", { class: "orbtn t-footnote" + (marked === i ? " on" : ""), onclick: (e) => { e.stopPropagation(); marked = marked === i ? null : i; update(); } }, marked === i ? "or ✓" : "or +") : null))));
+    });
+    return out;
+  }
+  function markNote() {
+    if (!conds.length) return "Pick a term to start a condition.";
+    return marked != null ? 'A tap adds the term with "or" to the marked condition.'
+      : 'A tap adds a new condition with "and". "or +" on a condition adds the next term to it with "or".';
+  }
+  // What a tap on a term does, and how many recordings remain after it.
+  function termAction(t, into) {
+    if (into != null && conds[into].includes(t)) return { word: "✓", n: count(conds), run: () => removeTerm(into, t), on: true };
+    if (into != null) return { word: "or", n: count(conds.map((c, i) => (i === into ? [...c, t] : c))), run: () => { conds[into].push(t); save(); update(); } };
+    return { word: conds.length ? "and" : "", n: count([...conds, [t]]), run: () => { conds.push([t]); marked = null; save(); update(); } };
+  }
+  function termRows(into) {
+    const used = new Set(conds.filter((_, i) => i !== into).flat());
+    const q = queryTokens(narrowQ);
+    const list = [...allTerms.keys()].filter((t) => kindOf(t) === kind && !used.has(t) && (!q.length || matches(q, words(label(t)))))
+      .map((t) => ({ t, a: termAction(t, into) })).filter((x) => x.a.n > 0 || x.a.on)
+      .sort((x, y) => (Number(!!y.a.on) - Number(!!x.a.on)) || y.a.n - x.a.n || label(x.t).localeCompare(label(y.t)));
+    if (!list.length) return [el("div", { class: "row t-subheadline secondary" }, "No term of this kind is left.")];
+    // A pick clears the narrowing text, so the next term can be typed at once.
+    return list.map(({ t, a }) => el("button", { class: "row term", onclick: () => { clearNarrow(); a.run(); } },
+      el("div", { class: "main t-body" }, label(t)),
+      el("div", { class: "trail" }, el("span", { class: "what t-subheadline nums" + (a.on ? " on" : "") }, `${a.word} ${a.n}`.trim()))));
+  }
+  function kindSeg(onChange) {
+    const seg = el("div", { class: "seg" });
+    seg.draw = () => seg.replaceChildren(...Object.keys(KINDS).map((k) => el("button", { class: "t-footnote" + (k === kind ? " on" : ""), onclick: () => { kind = k; seg.draw(); onChange(); } }, KINDS[k])));
+    seg.draw();
+    return seg;
+  }
+  function narrowField(onChange) {
+    const i = el("input", { type: "search", enterkeyhint: "done", autocomplete: "off", autocorrect: "off", spellcheck: "false" });
+    const setPh = () => (i.placeholder = "Find in " + KINDS[kind].toLowerCase());
+    setPh();
+    i.addEventListener("input", () => { narrowQ = i.value; onChange(); });
+    i.addEventListener("keydown", (e) => { if (e.key === "Enter") i.blur(); });
+    const box = el("label", { class: "narrow" }, el("span", { html: ICON.search }), i);
+    box.reset = () => { i.value = ""; narrowQ = ""; setPh(); };
+    return box;
+  }
+
+  // ---------- Results: sections by kind; the conditions narrow every section. ----------
+  const resultsBox = el("div");
+  scroll.append(resultsBox);
+
+  function section(title, n, rows, inset) {
+    return el("section", { class: "section" },
+      el("div", { class: "section-head t-footnote" }, el("span", {}, title), el("span", { class: "count" }, `(${n})`)),
+      el("div", { class: "list", style: inset ? `--sep-inset: ${inset}` : null }, ...rows));
+  }
+  const plural = (n, word) => K.count(n, word);
+  // Each role has its own count: a composer has works, a conductor or performer has recordings.
+  // The biggest comes first: "Conductor on 212 recordings, composer of 30 works and performer on 3 recordings".
+  function roleCounts(p) {
+    const parts = [...p.byRole].map(([k, set]) => {
+      const mine = [...set].filter((r) => ok.has(r));
+      if (k === "composer") { const n = new Set(mine.map((r) => (r.workRef ? r.workRef.id : r.work))).size; return { n, text: `composer of ${plural(n, "work")}` }; }
+      return { n: mine.length, text: `${ONE[k].toLowerCase()} on ${plural(mine.length, "recording")}` };
+    }).filter((x) => x.n > 0).sort((a, b) => b.n - a.n);
+    return K.joinNames(parts.map((x) => x.text)).replace(/^./, (c) => c.toUpperCase());
+  }
+  let ok = new Set();
+  function results() {
+    const tokens = queryTokens(query);
+    if (!tokens.length && !conds.length) {
+      if (!recent.length) return [el("div", { class: "hint t-subheadline" }, "Type a work, a catalogue number such as Op. 67 or K. 626, or a name.")];
+      return [el("section", { class: "section recent" },
+        el("div", { class: "section-head t-footnote" }, el("span", {}, "Recent"),
+          el("button", { onclick: () => { recent = []; K.store("search.recent", recent); update(); } }, "Clear")),
+        el("div", { class: "list" }, ...recent.map((r) => el("button", { class: "row", onclick: () => {
+            input.value = r.q; query = r.q; conds = r.conds.map((c) => [...c]); marked = null; session = r.id; commit(); save(); update(); } },
+          el("span", { html: r.conds.length && !r.q ? FUNNEL : ICON.search }),
+          el("div", { class: "main" },
+            r.q ? el("div", { class: "t-body" }, r.q) : null,
+            r.conds.length ? el("div", { class: r.q ? "t-subheadline secondary" : "t-body" }, filterLine(r.conds)) : null)))))];
+    }
+    ok = new Set(recs.filter((x) => passes(x, conds)).map((x) => x.r));
+    const out = [];
+    // A title that starts with the text comes first, then a title that holds it, then a match on the composer only.
+    const rank = (x) => (!tokens.length ? 0 : x.title.startsWith(tokens[0]) ? 0 : matches(tokens, words(x.w.name)) ? 1 : 2);
+    const wl = works.filter((x) => !tokens.length || matches(tokens, x.hay)).map((x) => ({ ...x, n: x.w.recordings.filter((r) => ok.has(r)).length, score: rank(x) }));
+    const shown = wl.filter((x) => x.n > 0).sort((a, b) => a.score - b.score || a.w.name.localeCompare(b.w.name, undefined, { numeric: true }));
+    const hidden = wl.length - shown.length;
+    if (shown.length) out.push(section("Works", shown.length, shown.map(({ w, n }) =>
+      el("a", { class: "row", href: href("work.html", { work: w.id, back: "Search" }) },
+        el("div", { class: "main" }, el("div", { class: "t-body" }, w.name),
+          el("div", { class: "t-subheadline secondary" }, `${w.composer}, ${conds.length ? `${n} of ${plural(w.recordings.length, "recording")} match` : plural(n, "recording")}`)),
+        el("span", { html: ICON.chevron })))));
+    if (tokens.length) {
+      const pl = [...people.values()].filter((p) => matches(tokens, p.hay)).map((p) => ({ p, n: [...p.recs].filter((r) => ok.has(r)).length })).filter((x) => x.n > 0)
+        .sort((a, b) => b.n - a.n || a.p.name.localeCompare(b.p.name));
+      if (pl.length) out.push(section("Composers and performers", pl.length, pl.map(({ p, n }) =>
+        el("a", { class: "row", href: K.personHref(p.name, { back: "Search" }) },
+          el("div", { class: "main" }, el("div", { class: "t-body" }, p.name),
+            el("div", { class: "t-subheadline secondary" }, roleCounts(p))),
+          el("span", { html: ICON.chevron })))));
+    }
+    const al = albums.filter((x) => !tokens.length || matches(tokens, x.hay))
+      .map((x) => ({ ...x, n: x.a.recordings.filter((r) => ok.has(r)).length })).filter((x) => x.n > 0)
+      .sort((a, b) => a.a.name.localeCompare(b.a.name));
+    if (al.length) out.push(section("Albums", al.length, al.map(({ a }) =>
+      el("a", { class: "row", href: href("player.html", { album: a.id, back: "Search" }) },
+        K.coverImage(a),
+        el("div", { class: "main" }, el("div", { class: "t-body" }, a.name),
+          el("div", { class: "t-subheadline secondary" }, [a.displayArtist || a.artist, a.year].filter(Boolean).join(", "))),
+        el("span", { html: ICON.chevron }))), "calc(var(--space-l) + var(--size-coverRow) + var(--space-m))"));
+    if (!out.length) out.push(el("div", { class: "nomatch t-subheadline" }, "No work, name or album matches."));
+    if (hidden > 0 && conds.length) out.push(el("div", { class: "hint t-footnote", style: "padding-top: var(--space-l)" },
+      `The filters hide ${plural(hidden, "more work")} that match the text.`));
+    return out;
+  }
+
+  // ---------- A: the sheet ----------
+  let sheetParts = null;
+  function buildSheet() {
+    const total = el("span", { class: "t-subheadline secondary nums" });
+    const condsBox = el("div");
+    const note = el("div", { class: "section-foot t-footnote" });
+    const list = el("div", { class: "list" });
+    const redraw = () => list.replaceChildren(...termRows(marked));
+    const narrow = narrowField(redraw);
+    clearNarrow = narrow.reset;
+    const seg = kindSeg(() => { narrow.reset(); redraw(); });
+    const box = el("div", { class: "fsheet", role: "dialog", "aria-label": "Filters" },
+      el("div", { class: "grabber" }),
+      el("div", { class: "head" }, el("h2", { class: "t-headline" }, "Filters"), total, el("button", { class: "t-body tint", onclick: () => setOpen(false) }, "Done")),
+      el("div", { class: "body" }, condsBox, note, seg, narrow, list));
+    document.body.append(box);
+    riders.push((kb, up) => {
+      up = up && box.contains(document.activeElement);
+      box.style.bottom = up ? kb + 8 + "px" : "";
+      box.style.height = up ? Math.min(visualViewport.height - 70, innerHeight * 0.58) + "px" : "";
+    });
+    sheetParts = { box, draw: () => {
+      total.textContent = conds.length || query.trim() ? plural(count(conds), "recording") : "";
+      condsBox.replaceChildren(...condRows(true)); note.textContent = markNote(); redraw();
+    } };
+  }
+
+  function setOpen(v) {
+    open = v; save();
+    if (!open) commit();
+    if (!sheetParts) buildSheet();
+    sheetParts.box.classList.toggle("on", open);
+    if (!open && document.activeElement) document.activeElement.blur();
+    update();
+  }
+
+
+  function update() {
+    clear.style.visibility = input.value ? "visible" : "hidden";
+    resetBtn.disabled = !query && !conds.length;
+    badge.textContent = String(conds.length);
+    badge.style.display = conds.length && !open ? "" : "none";
+    filtersBtn.classList.toggle("on", open);
+    if (sheetParts) sheetParts.draw();
+    resultsBox.replaceChildren(...results());
+  }
+
+  // Specimen only: a reset for the search state.
+  const sbar = document.querySelector(".specimen-bar");
+  if (sbar) sbar.append(el("button", { onclick: () => { ["q", "conds", "open"].forEach((k) => K.store("search3." + k, null)); location.reload(); } }, "Reset"));
+
+  if (open) { buildSheet(); requestAnimationFrame(() => sheetParts.box.classList.add("on")); }
+  update();
+  K.layoutChrome();
+  follow();
+});
+</script>
+</body>
+</html>

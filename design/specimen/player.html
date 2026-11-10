@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Player</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../tokens.css?v=44">
+<link rel="stylesheet" href="specimen.css?v=44">
+<script src="specimen.js?v=44"></script>
+</head>
+<body>
+<style>
+  .wash { position: absolute; inset: 0 0 auto 0; height: 640px; pointer-events: none;
+    background: linear-gradient(to bottom, var(--wash-colour) 0, var(--wash-colour) 30%, transparent 100%);
+    opacity: 0; transition: opacity var(--motion-transition-inPlace-duration) var(--motion-transition-inPlace-easing); }
+  .is-player .wash { opacity: 1; }
+  .page-body { position: relative; }
+  .hero { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--space-xs);
+    padding: var(--space-s) var(--pad-right) 0 var(--pad-left); }
+  .hero .big { width: var(--size-coverPage); height: var(--size-coverPage); border-radius: var(--radius-l); object-fit: cover;
+    box-shadow: 0 6px 24px rgb(0 0 0 / 0.22); margin-bottom: var(--space-m); }
+  .hero .big.none { box-shadow: none; }
+  .hero .big.none svg { width: 64px; height: 64px; }
+  .hero .roles a { color: var(--color-tint); }
+  .hero .facts { margin-top: var(--space-inGroup); }
+  .open-body { padding: 0 var(--space-l) var(--space-m); display: grid; gap: var(--space-s); }
+  .track .slot { flex: none; width: 32px; display: flex; justify-content: flex-end; align-items: center; }
+  .open-body .people-rows { gap: var(--space-inGroup); }
+  .open-body:empty { display: none; }
+  .notes { display: grid; gap: var(--space-xs); }
+  .note { display: flex; gap: var(--space-s); text-align: left; }
+  .note .at { flex: none; color: var(--color-tint); }
+  .bar-box { display: grid; gap: var(--space-xs); }
+  /* The names above the bar keep the gap between groups, so the note marks on the bar never touch them. */
+  .open-body .people-rows + .bar-box { margin-top: var(--space-betweenGroups); }
+  .mv-bar { position: relative; height: 6px; border-radius: var(--radius-full); background: var(--color-fill-standard); touch-action: none; }
+  /* The bar is 6 px tall; its touch area is the 44 px of a system slider. */
+  .mv-bar::after { touch-action: none; content: ""; position: absolute; left: 0; right: 0; top: -19px; bottom: -19px; }
+  .mv-bar .fill { position: absolute; inset: 0 auto 0 0; border-radius: var(--radius-full); background: var(--color-tint); }
+  .mv-bar .note-dot { position: absolute; top: -9px; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: var(--color-text-secondary); }
+  .mv-bar .note-span { position: absolute; top: -8px; height: 4px; border-radius: 2px; background: var(--color-text-secondary); }
+  .mv-times { display: flex; justify-content: space-between; }
+  .mv-controls { display: flex; justify-content: center; gap: var(--space-xxl); align-items: center; }
+  .mv-controls button { width: var(--size-hitTarget); height: var(--size-hitTarget); display: grid; place-items: center; color: var(--color-text-primary); }
+  .mv-controls svg { width: 22px; height: 22px; }
+  .mv-controls .main-btn svg { width: 30px; height: 30px; }
+  /* Player rows (ADR 0027): a faint play button at the end of every row; a row opens only with what differs. */
+  .round.faint { background: var(--color-fill-quiet); color: var(--color-text-secondary); }
+  .add-note { justify-self: start; color: var(--color-tint); }
+  .note-edit { display: grid; gap: var(--space-xs); }
+  .note-line { display: flex; gap: var(--space-s); align-items: baseline; }
+  .note-actions { display: flex; gap: var(--space-l); justify-content: flex-end; }
+  .save-note { color: var(--color-tint); }
+  .disclose { flex: none; display: inline-flex; width: 12px; height: 12px; justify-content: center; color: var(--color-tint); transition: transform var(--motion-transition-inPlace-duration) var(--motion-transition-inPlace-easing); }
+  .disclose svg { width: 7px; height: 12px; }
+  [aria-expanded="true"] .disclose { transform: rotate(90deg); }
+  .note-edit .at { flex: none; color: var(--color-tint); }
+  .end-note { flex: none; color: var(--color-tint); }
+  .note-input { flex: 1 1 0; width: 0; min-width: 0; border: 0; border-bottom: 1px solid var(--color-separator); background: none; color: var(--color-text-primary); padding: var(--space-xxs) 0; outline: none; }
+  .rise-out { transform: translateY(-40px); opacity: 0; transition: transform var(--motion-transition-rise-duration) var(--motion-transition-rise-easing), opacity var(--motion-transition-rise-duration) var(--motion-transition-rise-easing); }
+  .rise-in { animation: rise var(--motion-transition-rise-duration) var(--motion-transition-rise-easing); }
+  @keyframes rise { from { transform: translateY(120px); opacity: 0; } to { transform: none; opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .rise-out { transform: none; } .rise-in { animation-name: fade; } @keyframes fade { from { opacity: 0; } } }
+</style>
+<script>
+K.start(() => {
+  const { el, href, ICON, M } = K;
+  const NOTES = K.store("notes") || { "640qawSbxRzx7BX6z3M2wM|1": [{ at: 92, text: "The cellos and violas take the theme." }, { at: 300, span: 40, text: "Brass fanfare in C major." }] };
+  const notesOf = (i) => NOTES[`${item.album.id}|${i}`] || [];
+
+  function pageItem() {
+    if (K.params.get("recording")) { const r = M.recordings.get(K.params.get("recording")); return K.resolveItem(["recording", r.album.id, r.work]); }
+    if (K.params.get("album")) return K.resolveItem(["album", K.params.get("album")]);
+    return K.current();
+  }
+  let item = pageItem() || K.resolveItem(["recording", "640qawSbxRzx7BX6z3M2wM", "Symphony No. 5 in C minor, Op. 67"]);
+  const playingHere = () => K.current() && K.current().id === item.id;
+
+  const { app, scroll, nav } = K.page({ tab: "library", title: item.title, back: { label: "Library", href: "index.html" }, player: playingHere() });
+  const body = el("div", { class: "page-body" });
+  const wash = el("div", { class: "wash" });
+  scroll.append(wash, body);
+  const open = new Set();
+
+  async function applyWash() {
+    app.classList.toggle("is-player", playingHere());
+    const rgb = await K.coverColour(item.album);
+    app.style.setProperty("--wash-colour", rgb
+      ? `color-mix(in srgb, rgb(${rgb.join(" ")}) 35%, var(--color-background-grouped))`
+      : "color-mix(in srgb, var(--color-tint) 18%, var(--color-background-grouped))");
+  }
+
+  function shared() {
+    const sets = item.songs.map((s) => new Set((s.contributors || []).filter((c) => c.role !== "composer").map((c) => c.artist.id)));
+    return item.recordings.flatMap((r) => r.performers).filter((p, i, all) => all.findIndex((q) => q.name === p.name) === i)
+      .filter((p) => !p.id || sets.every((s) => s.has(p.id)));
+  }
+
+  // The header shows what every track shares; an opened row shows only what differs for that track.
+  function sharedComposers() {
+    const per = item.songs.map((s) => (s.contributors || []).filter((c) => c.role === "composer").map((c) => c.artist.name));
+    return [...new Set(per.flat())].filter((name) => per.every((list) => list.includes(name)));
+  }
+
+  function hero() {
+    const box = el("div", { class: "hero" });
+    const img = K.coverImage(item.album, "big", 960);
+    if (img.tagName === "IMG") img.classList.remove("cover");
+    const fav = (item.recording ? "rec:" : "album:") + (item.recording ? item.recording.id : item.album.id);
+    const mark = el("button", { "aria-label": "Favourite", onclick: () => { K.toggleFavourite(fav); mark.replaceChildren(K.fermata(K.isFavourite(fav))); } }, K.fermata(K.isFavourite(fav)));
+    const title = el("h1", { class: "t-title2" }, K.titled(item.title, mark));
+    box.append(img, title);
+    const composers = sharedComposers();
+    if (composers.length) box.append(el("div", { class: "t-subheadline" }, ...composers.flatMap((c, n) => [n ? (n === composers.length - 1 ? " and " : ", ") : null, el("a", { class: "link", href: K.personHref(c, { back: item.title }) }, c)]).filter(Boolean)));
+    // One line per role, the album as one more labelled line (sz-rs30.1.83.16).
+    const albumLine = item.kind === "recording"
+      ? [{ label: "album", list: [{ name: item.album.name, album: true }] }] : [];
+    const roles = K.roleBlock(shared(), { extra: albumLine,
+      link: (p) => p.album ? el("a", { class: "link", href: href("player.html", { album: item.album.id, back: item.title }) }, p.name)
+        : p.id ? el("a", { href: K.personHref(p.name, { back: item.title }) }, p.name) : p.name });
+    if (roles) { roles.classList.add("t-subheadline"); box.append(roles); }
+    // A recording shows the year its tracks carry; the album year of a box set can belong to another recording on it.
+    const years = [...new Set(item.songs.map((s) => s.year).filter(Boolean))];
+    const year = item.kind === "recording" ? (years.length === 1 ? years[0] : null) : item.album.year;
+    const total = item.songs.reduce((t, s) => t + s.duration, 0);
+    const n = item.songs.length;
+    const amount = item.kind === "recording" ? (n > 1 ? `${K.duration(total)}, ${K.count(n, "movement")}.` : `${K.duration(total)}.`) : `${K.duration(total)}, ${K.count(n, "track")}.`;
+    box.append(el("div", { class: "t-subheadline secondary facts" }, [year ? `Recorded in ${year}.` : null, amount].filter(Boolean).join(" ")));
+    if (!playingHere()) {
+      const play = el("button", { class: "capsule filled t-headline", style: "flex: none; width: 60%; margin-top: var(--space-m)", html: ICON.play.replace("<svg", '<svg width="14" height="14"') + "<span>Play</span>" });
+      play.addEventListener("click", () => { K.playItem(item); K.becomePlayer(); render(); });
+      box.append(play);
+    }
+    return box;
+  }
+
+  function playFrom(i, pos = 0) {
+    if (!playingHere()) { K.playItem(item, i); K.becomePlayer(); }
+    K.seek(i, pos); K.P.paused = false; open.clear(); render();
+  }
+
+  const faintPlay = (i) => el("button", { class: "round faint", "aria-label": "Play from here", html: ICON.play, onclick: (e) => { e.stopPropagation(); playFrom(i); } });
+
+  // The row head keeps one height whether open or not, so a tapped row never moves.
+  function trackRow(s, i, work) {
+    const isPlaying = playingHere() && K.P.index === i;
+    // A row opens only when it holds something: performers that differ from the page, or notes.
+    const opens = !isPlaying && hasContent(s, i);
+    const isOpen = isPlaying || (opens && open.has(i));
+    const block = el("div", { class: "row-block track" });
+    const trail = el("span", { class: "slot" }, isPlaying ? null : faintPlay(i));
+    const tap = () => {
+      if (isPlaying || !opens) return;
+      open.has(i) ? open.delete(i) : open.add(i);
+      render();
+    };
+    const title = K.movementTitle(s, work);
+    // The disclosure chevron of a SwiftUI DisclosureGroup in a List: trailing, tinted, it turns down when the row opens.
+    const chevron = opens ? el("span", { class: "disclose", "aria-hidden": "true", html: ICON.chevron.replace('class="chevron" ', "") }) : null;
+    const head = el(opens ? "button" : "div", { class: "row", "aria-expanded": opens ? (isOpen ? "true" : "false") : null, onclick: tap },
+      el("div", { class: "main" }, el("div", { class: isPlaying ? "t-headline" : "t-body" }, title)),
+      el("div", { class: "trail t-subheadline nums" }, K.time(s.duration), chevron, trail));
+    block.append(head);
+    if (isPlaying) block.append(openBody(s, i));
+    else if (isOpen) block.append(details(s, i));
+    return block;
+  }
+
+  // ADR 0014: only the performers that differ from the whole page, one line per role. Never cut.
+  function performerRows(s) {
+    const sharedNames = new Set(shared().map((p) => p.name));
+    const sharedComposerNames = new Set(sharedComposers());
+    const composers = (s.contributors || []).filter((c) => c.role === "composer" && !sharedComposerNames.has(c.artist.name))
+      .map((c) => ({ id: c.artist.id, name: c.artist.name, role: "composer", subRole: null }));
+    const list = [...composers, ...K.performersOf([s], item.album).filter((p) => !sharedNames.has(p.name))];
+    const block = list.length ? K.roleBlock(list, {
+      link: (p) => p.id ? el("a", { class: "link", href: K.personHref(p.name, { back: item.title }) }, p.name) : p.name }) : null;
+    if (block) block.classList.add("people-rows", "t-subheadline");
+    return block;
+  }
+
+  // A note shows inline, its time as a prefix. A tap on a note plays from its time.
+  function noteRows(s, i, notes) {
+    return notes.length ? el("div", { class: "notes" }, ...notes.map((n) =>
+      el("button", { class: "note t-subheadline", onclick: (e) => { e.stopPropagation(); playFrom(i, n.at); } },
+        el("span", { class: "at nums" }, K.time(n.at) + (n.span ? `–${K.time(n.at + n.span)}` : "")), el("span", {}, n.text)))) : null;
+  }
+
+  function noteMark(n, s) {
+    const mark = el("div", { class: n.span ? "note-span" : "note-dot" });
+    mark.style.left = (n.at / s.duration) * 100 + "%";
+    if (n.span) mark.style.width = (n.span / s.duration) * 100 + "%";
+    return mark;
+  }
+
+  // A note is written while its movement plays. One tap starts it at the playing time and opens the text field.
+  // "End here" is optional and turns the note into a span. Return or a tap elsewhere saves it.
+  let editing = null;
+  function noteControl(s, i) {
+    if (editing && editing.i === i) {
+      const when = el("span", { class: "at nums t-subheadline" });
+      const show = () => (when.textContent = K.time(editing.at) + (editing.span ? `–${K.time(editing.at + editing.span)}` : ""));
+      show();
+      const input = el("input", { class: "note-input t-body", placeholder: "Write the note", enterkeyhint: "done", value: editing.text });
+      input.addEventListener("input", () => (editing.text = input.value));
+      const save = () => {
+        const n = editing; editing = null;
+        if (n.text.trim()) {
+          const key = `${item.album.id}|${n.i}`;
+          NOTES[key] = [...(NOTES[key] || []), { at: n.at, span: n.span || undefined, text: n.text.trim() }].sort((a, b) => a.at - b.at);
+          K.store("notes", NOTES);
+        }
+        render();
+      };
+      input.addEventListener("keydown", (e) => { if (e.key === "Enter") save(); });
+      // The note stays open without the keyboard, so the listener can scrub to find the end.
+      const end = el("button", { class: "end-note t-subheadline", onclick: () => {
+        // An end before the start swaps the two, so a scrub back still gives a span.
+        if (K.P.index === i) {
+          const now = Math.floor(K.P.pos), a = Math.min(now, editing.at), b = Math.max(now, editing.at);
+          editing.at = a; editing.span = b - a;
+        }
+        show();
+      } }, "End here");
+      return el("div", { class: "note-edit" }, el("div", { class: "note-line" }, when, input),
+        el("div", { class: "note-actions" }, end, el("button", { class: "end-note t-subheadline", onclick: () => { editing = null; render(); } }, "Cancel"), el("button", { class: "save-note t-headline", onclick: save }, "Save")));
+    }
+    return el("button", { class: "add-note t-subheadline", onclick: () => {
+      editing = { i, at: Math.floor(K.P.pos), span: 0, text: "" };
+      render();
+      // iOS opens the keyboard only for a focus inside the tap itself.
+      body.querySelector(".note-input").focus();
+    } }, "Add a note here");
+  }
+
+  function hasContent(s, i) {
+    return Boolean(performerRows(s) || notesOf(i).length);
+  }
+
+  // A row that does not play shows what it holds, with no bar: a bar belongs to the playing movement only.
+  function details(s, i) {
+    const box = el("div", { class: "open-body" });
+    box.append(...[performerRows(s), noteRows(s, i, notesOf(i))].filter(Boolean));
+    return box;
+  }
+
+  function openBody(s, i) {
+    const box = el("div", { class: "open-body" });
+    const people = performerRows(s);
+    if (people) box.append(people);
+    const bar = el("div", { class: "mv-bar", role: "slider", "aria-label": "Position in movement" }, el("div", { class: "fill" }));
+    const notes = notesOf(i);
+    for (const n of notes) bar.append(noteMark(n, s));
+    bar.addEventListener("pointerdown", (e) => {
+      // A scrub must not take focus, so an open note field stays open while the listener finds the end.
+      e.preventDefault();
+      bar.setPointerCapture(e.pointerId);
+      const move = (ev) => { const r = bar.getBoundingClientRect(); K.seek(i, Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width)) * s.duration); };
+      move(e);
+      bar.onpointermove = move;
+      bar.onpointerup = bar.onpointercancel = () => { bar.onpointermove = null; };
+    });
+    const times = el("div", { class: "mv-times t-caption1 secondary nums" }, el("span", { class: "now" }), el("span", { class: "left" }));
+    const pause = el("button", { class: "main-btn", "aria-label": "Pause", onclick: () => K.togglePause() });
+    const controls = el("div", { class: "mv-controls" },
+      el("button", { "aria-label": "Previous", html: ICON.prev, onclick: () => K.seek(Math.max(0, i - (K.P.pos < 3 ? 1 : 0))) }),
+      pause,
+      el("button", { "aria-label": "Next", html: ICON.next, onclick: next }));
+    box.append(el("div", { class: "bar-box" }, bar, times), controls);
+    const noteList = noteRows(s, i, notes);
+    if (noteList) box.append(noteList);
+    box.append(noteControl(s, i));
+    tick.parts = { fill: bar.firstChild, now: times.firstChild, left: times.lastChild, pause, s, i };
+    tick();
+    return box;
+  }
+
+  function next() {
+    if (K.P.index < item.songs.length - 1) return K.seek(K.P.index + 1);
+    K.P.item++; K.P.index = 0; K.P.pos = 0; K.emit(); itemEnded();
+  }
+
+  function tick() {
+    const t = tick.parts;
+    if (!t || !playingHere()) return;
+    // A scrub holds the rows still, so the bar stays on its row; past it the bar is full, before it empty.
+    const pos = K.P.index === t.i ? K.P.pos : K.P.index > t.i ? t.s.duration : 0;
+    t.fill.style.width = (pos / t.s.duration) * 100 + "%";
+    t.now.textContent = K.time(pos);
+    t.left.textContent = "−" + K.time(t.s.duration - pos);
+    t.pause.innerHTML = K.P.paused ? ICON.play : ICON.pause;
+    t.pause.setAttribute("aria-label", K.P.paused ? "Play" : "Pause");
+  }
+
+  // ADR 0015: when an item ends, the next item's row rises to the top and becomes its page. No page goes onto the stack.
+  function itemEnded() {
+    if (!K.current()) { render(); return; }
+    body.classList.add("rise-out");
+    setTimeout(() => {
+      item = K.current();
+      open.clear();
+      body.classList.remove("rise-out");
+      scroll.scrollTop = 0;
+      render();
+      body.classList.add("rise-in");
+      setTimeout(() => body.classList.remove("rise-in"), 600);
+    }, parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--motion-transition-rise-duration")) || 400);
+  }
+  K.P.onItemEnd = () => { const ended = K.P.queue[K.P.item - 1]; if (ended && ended.id === item.id) setTimeout(itemEnded); };
+
+  function render() {
+    // The playing row registers its bar while the rows are built.
+    tick.parts = null;
+    applyWash();
+    const sections = [];
+    const headed = item.kind !== "album" || wholeWork(item.songs);
+    if (!headed) sections.push(el("section", { class: "section" }, el("div", { class: "list" }, ...item.songs.map((s, i) => trackRow(s, i, null)))));
+    const groups = !headed ? [] : item.kind === "album" ? item.recordings : [item.recordings[0]];
+    for (const r of groups) {
+      const list = el("div", { class: "list" }, ...r.songs.map((s) => { const i = item.songs.indexOf(s); return trackRow(s, i, r.work); }));
+      sections.push(el("section", { class: "section" },
+        item.kind === "album" && r.work ? el("a", { class: "section-head t-footnote", href: href("work.html", { work: r.workRef.id, back: item.title }) }, el("span", { class: "link" }, r.work)) : null, list));
+    }
+    const nextItem = playingHere() ? K.P.queue[K.P.item + 1] : null;
+    const tail = playingHere()
+      ? el("section", { class: "section" }, el("div", { class: "section-head t-footnote" }, "Next"),
+          el("div", { class: "list" }, nextItem
+            ? el("div", { class: "row", style: "--sep-inset: 0" }, K.coverImage(nextItem.album), el("div", { class: "main" }, el("div", { class: "t-body" }, nextItem.title), el("div", { class: "t-subheadline secondary" }, nextItem.album.name)))
+            : el("div", { class: "row t-body secondary" }, "The queue ends here.")))
+      : null;
+    const ended = !K.current() && K.P.queue.length ? el("p", { class: "section-foot t-subheadline" }, "The queue has ended.") : null;
+    // The hero is built once per item and state, so a tap on a row never reloads the cover.
+    const heroKey = item.id + "|" + playingHere();
+    if (heroKey !== render.heroKey) { render.heroKey = heroKey; render.hero = hero(); }
+    body.replaceChildren(...[render.hero, ...sections, tail, ended].filter(Boolean));
+  }
+
+  function wholeWork(songs) {
+    const work = (s) => (s.works && s.works[0] ? s.works[0].name : null);
+    return songs.some((s, i) => i > 0 && work(s) && work(s) === work(songs[i - 1]));
+  }
+
+  let last = "";
+  K.onPlay(() => {
+    if (K.P.scrubbing || editing) return tick();
+    const now = [K.current() && K.current().id, K.P.index, K.P.paused].join("|");
+    if (now !== last) { last = now; render(); } else tick();
+  });
+  last = [K.current() && K.current().id, K.P.index, K.P.paused].join("|");
+  render();
+
+  // ADR 0014, confirmed by Flo for sz-rs30.1.83.8: after a quiet spell without touches, the view brings the playing row back.
+  var quiet = Date.now();
+  ["touchstart", "pointerdown", "wheel"].forEach((t) => scroll.addEventListener(t, () => (quiet = Date.now()), { passive: true }));
+  const rowAt = (i) => body.querySelectorAll(".track")[i];
+  setInterval(() => {
+    if (K.P.scrubbing || editing || !playingHere() || Date.now() - quiet < 8000) return;
+    const row = rowAt(K.P.index), prev = rowAt(K.P.index - 1);
+    if (!row) return;
+    const target = (prev || row).getBoundingClientRect().top - scroll.getBoundingClientRect().top + scroll.scrollTop - 120;
+    if (Math.abs(scroll.scrollTop - target) > 40) scroll.scrollTo({ top: target, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  }, 1000);
+});
+</script>
+</body>
+</html>

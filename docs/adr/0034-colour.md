@@ -12,7 +12,7 @@ The specimen used neutral iOS colours and system blue. Klassik needs its own voi
 - **Paper and hall.** The light page is middle paper, `#faf3e5` (OKLCH 0.966 0.020 85), never white. The dark page is a warm near-black at L 0.18, tinted toward the accent, never black. Neutrals carry a trace of the accent hue.
 - **Accent families.** Claret (hue 6), bottle green (hue 160) and plum (hue 345) stay as an in-app switch. Claret is the default. The grilling sz-rs30.1.83.19.15 decides before 1.0 whether one family wins. Oxblood, bronze, gold and blue are out.
 - **Where colour goes.** The accent marks taps and live state: links, controls, the playing row, the played timeline, the set fermata. Headings stay ink. System chrome (tab bar, sheets, glass, the mini player pill) stays Apple's.
-- **Solved values.** Each colour has a contrast target on its ground. A script solves the lightness for that target, then lowers chroma until the colour fits sRGB. The token file keeps the hex value, with the OKLCH source beside it.
+- **Solved values.** Each colour has a contrast target on its ground. `design/scripts/palette.py` solves the lightness for that target, then lowers chroma until the colour fits sRGB. The token file keeps the hex value, with its OKLCH value beside it.
 - **Targets, standard modes (WCAG 2.2 AA).** Night text 11.5:1. Secondary text 5.2:1 by day and 6:1 at night. Tint 7:1 by day and 6.5:1 at night. Marks and large text 3:1. Tertiary text is for disabled items only. Placeholders use secondary text.
 - **Targets, Increase Contrast (AAA).** Text and links reach 7:1 on every ground: page, row, grouped and elevated. Marks reach 4.5:1 on every ground. On the page, secondary text keeps 7.5:1 by day and 8:1 at night, and the tint keeps 9:1.
 - **Fills.** The accent fill is the deep jewel behind a light label. Standard and quiet fills are translucent overlays, so the Chronology lines stay visible through its era bands. In the hall with Increase Contrast, a filled control gets a 1 pt ring in the tint, because the fill stands only 1.6:1 from the page.
@@ -27,7 +27,7 @@ The specimen used neutral iOS colours and system blue. Klassik needs its own voi
 
 ## Consequences
 
-- The token files hold the four themes of each accent family in `design/accent-*.tokens.json`. The theme files point each colour there. `design/scripts/tokens.py` writes the default family plainly and the others under `data-accent`.
+- The token files hold the four themes of each accent family in `design/accent-*.tokens.json`, which `design/scripts/palette.py` writes from the targets ([0037](0037-palette-from-targets.md)). The theme files point each colour there. `design/scripts/tokens.py` writes the default family plainly and the others under `data-accent`.
 - The UI tracer (sz-4k87) generates the colour sets for each family and moves the app off system colours. It renames the swipe action Reference to Favourite.
 - The cover room, the cover hue and the picture scrim are runtime rules, not tokens. The tracer builds them in Core Image with the same targets.
 - Open question: in the locked standard values, some marks sit below 3:1 on rows, grouped lists and grey covers. Bead sz-rs30.1.83.19.17 asks Flo to keep or fix them.

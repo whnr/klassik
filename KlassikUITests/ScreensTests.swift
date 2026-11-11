@@ -355,15 +355,16 @@ final class TimelineScreens: ScreensTestCase {
         XCTAssertTrue(bar.exists)
         XCTAssertEqual(bar.frame.maxX, app.frame.maxX, accuracy: 1, "The timeline is not on the right edge")
         XCTAssertGreaterThan(bar.frame.minY, 40, "The timeline runs into the status bar")
-        XCTAssertEqual(pill.frame.maxX, app.frame.maxX, accuracy: 1, "The pill is not flush with the edge")
+        let frame = pillFrame(pill)
+        XCTAssertEqual(frame.maxX, app.frame.maxX, accuracy: 1, "The pill is not flush with the edge")
         XCTAssertEqual(
             pill.buttons["mini-player-cover"].frame.maxX, app.frame.maxX, accuracy: 1,
             "A tap at the screen edge misses the cover")
-        XCTAssertEqual(app.frame.maxY - pill.frame.maxY, 21, accuracy: 1, "The tab row is not where the system puts it")
-        XCTAssertEqual(bar.frame.maxY, pill.frame.minY, accuracy: 1, "The timeline does not run into the pill")
+        XCTAssertEqual(app.frame.maxY - frame.maxY, 21, accuracy: 1, "The tab row is not where the system puts it")
+        XCTAssertEqual(bar.frame.maxY, frame.minY, accuracy: 1, "The timeline does not run into the pill")
         let row = app.descendants(matching: .any)["tab-row"].firstMatch
-        XCTAssertEqual(pill.frame.minY, row.frame.minY, accuracy: 1, "The pill is not in the tab row")
-        XCTAssertLessThanOrEqual(tab(app, "Search").frame.maxX, pill.frame.minX, "The tabs run under the pill")
+        XCTAssertEqual(frame.minY, row.frame.minY, accuracy: 1, "The pill is not in the tab row")
+        XCTAssertLessThanOrEqual(tab(app, "Search").frame.maxX, frame.minX, "The tabs run under the pill")
         XCTAssertTrue(pill.buttons["mini-player-cover"].exists)
         XCTAssertEqual(pill.buttons["mini-player-pause"].label, "Resume")
         snap(app, "15b-timeline-right")
@@ -406,7 +407,7 @@ final class TimelineScreens: ScreensTestCase {
         XCTAssertTrue(bar.exists)
         XCTAssertEqual(bar.frame.minX, 0, accuracy: 1, "The timeline is not on the left edge")
         let pill = app.descendants(matching: .any)["mini-player"].firstMatch
-        XCTAssertEqual(pill.frame.minX, 0, accuracy: 1, "The pill is not flush with the left edge")
+        XCTAssertEqual(pillFrame(pill).minX, 0, accuracy: 1, "The pill is not flush with the left edge")
         snap(app, "15e-timeline-left")
 
         let place = bar.value as? String ?? ""
@@ -696,6 +697,13 @@ class ScreensTestCase: XCTestCase {
         XCTAssertTrue(pause.waitForExistence(timeout: 30))
         pause.tap()
         XCTAssertTrue(app.buttons["Resume"].firstMatch.waitForExistence(timeout: 10))
+    }
+
+    /// The frame of the mini player. Its buttons take its padding and fill it to its edges. XCUITest reports the
+    /// container with only part of its content, so its own frame does not show the pill.
+    @MainActor
+    func pillFrame(_ pill: XCUIElement) -> CGRect {
+        pill.buttons.allElementsBoundByIndex.map(\.frame).reduce(CGRect.null) { $0.union($1) }
     }
 
     /// Opens a recording, leaves it paused in the player and goes back to the list of composers.

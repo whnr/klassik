@@ -1,6 +1,6 @@
 # 0038. Standard tabs, and a back arrow on a root reached from another tab
 
-Date: 2026-11-11. Decided by Flo after the slice 2 review (PR #17). Beads: sz-rs30.1.105.21, sz-rs30.1.105.23. Replaces the rule of [0018](0018-stack-and-back.md) that a page is in the stack once. Replaces the rule of [0018](0018-stack-and-back.md) that the back button shows the name of the page behind. Replaces the named arrow of [0029](0029-search-at-the-top.md).
+Date: 2026-11-11. Decided by Flo after the slice 2 review (PR #17). Beads: sz-rs30.1.105.21, sz-rs30.1.105.23. Replaces the rule of [0018](0018-stack-and-back.md) that a page is in the stack once. Replaces the rule of [0018](0018-stack-and-back.md) that the back button shows the name of the page behind. Replaces the named arrow of [0029](0029-search-at-the-top.md). Replaces the clause of [0015](0015-player-page.md) that the mini player jumps back to a page that the stack holds.
 
 ## Context
 

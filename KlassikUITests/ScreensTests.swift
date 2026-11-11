@@ -227,7 +227,7 @@ final class PlaybackScreens: ScreensTestCase {
     }
 
     /// Next has nowhere to go on the last movement of the last item. The fixture movements last about three
-    /// seconds, so the walk does as little as it can between the second Next and the check.
+    /// seconds, so the walk pauses at once. A queue that ends removes the Next button.
     @MainActor
     func testNextEndsAtTheLastMovement() throws {
         let app = try launchAndConnect()
@@ -237,6 +237,10 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(next.waitForExistence(timeout: 30), "No Next button")
         next.tap()
         next.tap()
+        let pause = app.buttons["Pause"].firstMatch
+        XCTAssertTrue(pause.waitForExistence(timeout: 10), "No Pause button")
+        pause.tap()
+        XCTAssertTrue(app.buttons["Resume"].firstMatch.waitForExistence(timeout: 10))
         XCTAssertFalse(next.isEnabled, "Next stays on at the last movement")
         snap(app, "05d-next-ends")
     }

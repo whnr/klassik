@@ -68,6 +68,7 @@ struct PlaceStack<Root: View>: View {
                 }
                 .navigationDestination(for: Page.self) { page in
                     // From the second page on, the back button has a pages menu behind it.
+                    // A repeated copy of the first page gets index 0 and shows no back tip.
                     PageView(page: page)
                         .environment(\.showsBackTip, (navigator.pages(in: place).firstIndex(of: page) ?? 0) >= 1)
                 }

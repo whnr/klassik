@@ -132,7 +132,7 @@ final class PlaybackSession {
     // MARK: Queue
 
     /// Plays one item. On the item that already plays, it pauses or resumes, as a tap on its tinted row does
-    /// (ADR 0015). Any other item replaces the queue (ADR 0006).
+    /// (ADR 0039). Any other item replaces the queue (ADR 0006).
     func play(_ item: QueueItem) {
         if let playing = self.item, playing.recording.id == item.recording.id {
             togglePause()

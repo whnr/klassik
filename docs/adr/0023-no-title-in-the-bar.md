@@ -1,6 +1,6 @@
 # 0023. No title in the navigation bar
 
-Date: 2026-11-07. Decided by Flo after the first specimen round. Bead: sz-rs30.1.83.10.
+Date: 2026-11-07. Decided by Flo after the first specimen round. Bead: sz-rs30.1.83.10. The second rule has no effect while [0038](0038-standard-tabs-and-the-cross-tab-back.md) hides the name on the back button.
 
 ## Context
 

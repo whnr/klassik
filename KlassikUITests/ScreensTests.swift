@@ -38,21 +38,21 @@ final class PlacesScreens: ScreensTestCase {
         XCTAssertFalse(app.buttons["place-back"].exists)
 
         openPlace(app, "Chronology")
-        expectBackArrow(app, to: "Library")
+        expectBackArrowShowsName(app, to: "Library")
         snap(app, "02f-chronology")
 
         openPlace(app, "Search")
-        expectBackArrow(app, to: "Chronology")
+        expectBackArrowShowsName(app, to: "Chronology")
         snap(app, "02g-search")
 
         openPlace(app, "Settings")
-        expectBackArrow(app, to: "Search")
+        expectBackArrowShowsName(app, to: "Search")
         snap(app, "02h-settings")
 
         // Back returns to the place the listener came from, and that place still has its own back arrow.
         app.buttons["place-back"].tap()
         XCTAssertTrue(app.navigationBars["Search"].waitForExistence(timeout: 10))
-        expectBackArrow(app, to: "Chronology")
+        expectBackArrowShowsName(app, to: "Chronology")
     }
 
     @MainActor
@@ -61,15 +61,16 @@ final class PlacesScreens: ScreensTestCase {
         composer(app, "Frédéric Chopin").tap()
         XCTAssertTrue(app.navigationBars["Frédéric Chopin"].waitForExistence(timeout: 10))
         openPlace(app, "Settings")
-        expectBackArrow(app, to: "Chopin")
+        expectBackArrowShowsName(app, to: "Chopin")
         snap(app, "02i-back-arrow-to-page")
         app.buttons["place-back"].tap()
         XCTAssertTrue(app.navigationBars["Frédéric Chopin"].waitForExistence(timeout: 10))
     }
 
-    /// The check of sz-rs30.1.87: the system back button shows the name of the page behind it.
+    /// The check of sz-rs30.1.87. It reads the accessibility label of the system back button only. It cannot
+    /// tell whether the name shows on screen: the owner decides about that, from the 02j screenshot.
     @MainActor
-    func testBackButtonNamesThePageBehind() throws {
+    func testSystemBackButtonAccessibilityLabel() throws {
         let app = try launchAndConnect()
         composer(app, "Felix Mendelssohn").tap()
         let work = app.buttons.matching(identifier: "work").firstMatch
@@ -457,12 +458,15 @@ class ScreensTestCase: XCTestCase {
         return app
     }
 
-    /// A place opened from another one shows an arrow that names the page behind it.
+    /// A place opened from another one shows an arrow that names the page behind it, as text on screen.
     @MainActor
-    func expectBackArrow(_ app: XCUIApplication, to name: String) {
+    func expectBackArrowShowsName(_ app: XCUIApplication, to name: String) {
         let arrow = app.buttons["place-back"]
         XCTAssertTrue(arrow.waitForExistence(timeout: 10), "No back arrow")
         XCTAssertTrue(arrow.label.contains(name), "The back arrow reads \"\(arrow.label)\", not \"\(name)\"")
+        // The label alone also holds when only a chevron draws. A chevron in a glass circle is about 44 points
+        // wide, so a button that also draws the name is wider.
+        XCTAssertGreaterThan(arrow.frame.width, 64, "The back arrow draws no name: \(arrow.frame.width) points wide")
     }
 
     /// Taps a place in the tab bar.

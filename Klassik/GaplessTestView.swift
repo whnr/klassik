@@ -11,7 +11,7 @@ struct GaplessTestView: View {
         PageList {
             Section {
                 ForEach(albums) { album in
-                    NavigationLink(value: Page.gaplessAlbum(album)) {
+                    NavigationLink(value: Page.gaplessAlbum(album.id)) {
                         VStack(alignment: .leading) {
                             Text(album.name)
                                 .ink()
@@ -52,7 +52,8 @@ struct GaplessTestView: View {
 
 struct GaplessAlbumView: View {
     @Environment(AppModel.self) private var model
-    let album: Album
+    let albumID: String
+    @State private var name: String?
     @State private var songs: [Song] = []
     @State private var player = GaplessTestPlayer()
     @State private var kind = GaplessTestPlayer.Kind.audioEngine
@@ -98,11 +99,13 @@ struct GaplessAlbumView: View {
                 Button("Stop") { player.stop() }
             }
         }
-        .navigationTitle(album.name)
+        .navigationTitle(name ?? "Album")
         .miniPlayerInset()
         .task {
             guard let client = model.client, songs.isEmpty else { return }
-            songs = (try? await client.album(id: album.id).songs) ?? []
+            guard let album = try? await client.album(id: albumID) else { return }
+            name = album.name
+            songs = album.songs
         }
         .onDisappear { player.stop() }
     }

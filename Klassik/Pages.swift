@@ -22,7 +22,7 @@ enum Page: Hashable {
     case diagnostics
     case licences
     case gaplessTest
-    case gaplessAlbum(Album)
+    case gaplessAlbum(String)
 }
 
 typealias AppNavigator = Navigator<Page>
@@ -90,7 +90,8 @@ extension Page {
         case .diagnostics: return "Diagnostics"
         case .licences: return "Licences"
         case .gaplessTest: return "Gapless Test"
-        case .gaplessAlbum(let album): return album.name
+        // The page loads the album name, so the arrow cannot name it.
+        case .gaplessAlbum: return "Album"
         }
     }
 }
@@ -151,8 +152,8 @@ struct PageView: View {
             LicencesView()
         case .gaplessTest:
             GaplessTestView()
-        case .gaplessAlbum(let album):
-            GaplessAlbumView(album: album)
+        case .gaplessAlbum(let id):
+            GaplessAlbumView(albumID: id)
         }
     }
 }

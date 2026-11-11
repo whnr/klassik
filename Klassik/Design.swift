@@ -112,12 +112,11 @@ extension ScaledMetric where Value == CGFloat {
 
 /// A `List` on Klassik's grounds. The system gives a list its own colours, and each row its own ground.
 struct PageList<Content: View>: View {
-    @Environment(\.showsBackTip) private var showsBackTip
     @ViewBuilder let content: Content
 
     var body: some View {
         List {
-            if showsBackTip { TipView(BackTip()) }
+            BackTipRow()
             content.listRowBackground(Palette.backgroundRow.color)
         }
         .grounds()
@@ -126,12 +125,11 @@ struct PageList<Content: View>: View {
 
 /// A `Form` on Klassik's grounds.
 struct PageForm<Content: View>: View {
-    @Environment(\.showsBackTip) private var showsBackTip
     @ViewBuilder let content: Content
 
     var body: some View {
         Form {
-            if showsBackTip { TipView(BackTip()) }
+            BackTipRow()
             content.listRowBackground(Palette.backgroundRow.color)
         }
         .grounds()

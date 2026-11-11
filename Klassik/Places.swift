@@ -45,15 +45,18 @@ struct PlaceStack<Root: View>: View {
                     // the listener came from.
                     if let target = navigator.backTarget(for: place) {
                         ToolbarItem(placement: .topBarLeading) {
+                            let name = target.page?.backTitle(in: model.library) ?? target.place.title
                             Button {
                                 navigator.goBack(from: place)
                             } label: {
-                                Label(
-                                    target.page?.backTitle(in: model.library) ?? target.place.title,
-                                    systemImage: "chevron.backward"
-                                )
-                                .labelStyle(.titleAndIcon)
+                                // iOS 27 drops the title of a `Label` in a toolbar item, so the text is drawn here.
+                                HStack(spacing: Space.xs.points) {
+                                    Image(systemName: "chevron.backward")
+                                    Text(name)
+                                        .lineLimit(1)
+                                }
                             }
+                            .accessibilityLabel(name)
                             .accessibilityIdentifier("place-back")
                         }
                     }
@@ -73,6 +76,19 @@ struct BackTip: Tip {
     var message: Text? { Text("Touch and hold the back button to jump to any page behind this one.") }
     var image: Image? { Image(systemName: "chevron.backward") }
     var options: [any TipOption] { [Tips.MaxDisplayCount(1)] }
+}
+
+/// The row of the tip in a list. The row takes no ground of its own, so that the tip does not draw as a card
+/// on the ground of the page.
+struct BackTipRow: View {
+    @Environment(\.showsBackTip) private var showsBackTip
+
+    var body: some View {
+        if showsBackTip {
+            TipView(BackTip())
+                .listRowBackground(Color.clear)
+        }
+    }
 }
 
 extension EnvironmentValues {

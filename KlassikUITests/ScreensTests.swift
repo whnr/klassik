@@ -354,7 +354,12 @@ final class TimelineScreens: ScreensTestCase {
         let bar = timeline(app)
         XCTAssertTrue(bar.exists)
         XCTAssertEqual(bar.frame.maxX, app.frame.maxX, accuracy: 1, "The timeline is not on the right edge")
+        XCTAssertGreaterThan(bar.frame.minY, 40, "The timeline runs into the status bar")
         XCTAssertEqual(pill.frame.maxX, app.frame.maxX, accuracy: 1, "The pill is not flush with the edge")
+        XCTAssertEqual(
+            pill.buttons["mini-player-cover"].frame.maxX, app.frame.maxX, accuracy: 1,
+            "A tap at the screen edge misses the cover")
+        XCTAssertEqual(app.frame.maxY - pill.frame.maxY, 21, accuracy: 1, "The tab row is not where the system puts it")
         XCTAssertEqual(bar.frame.maxY, pill.frame.minY, accuracy: 1, "The timeline does not run into the pill")
         let row = app.descendants(matching: .any)["tab-row"].firstMatch
         XCTAssertEqual(pill.frame.minY, row.frame.minY, accuracy: 1, "The pill is not in the tab row")

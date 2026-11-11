@@ -7,6 +7,11 @@ struct TimelineBarView: View {
     @Environment(AppNavigator.self) private var navigator
     let side: TimelineSide
     @State private var touch = TimelineTouch.undecided
+    /// The start of the touch that `touch` belongs to. The system can cancel a drag without `onEnded`, so a new
+    /// start point begins a new touch.
+    @State private var touchStart: CGPoint?
+    /// True while a finger is down. It turns false on a cancel too, which takes the scrub label away.
+    @GestureState private var isTouching = false
     /// The place under the finger while it scrubs. The bar draws it, and the music moves there when the finger
     /// lifts, so the movement does not restart for every step of the drag.
     @State private var scrubbed: TimelineBar.Place?
@@ -45,6 +50,9 @@ struct TimelineBarView: View {
                     .frame(width: Self.touchWidth, height: proxy.size.height, alignment: alignment)
                     .contentShape(.rect)
                     .gesture(drag(on: bar))
+                    .onChange(of: isTouching) { _, touching in
+                        if !touching { scrubbed = nil }
+                    }
                     .accessibilityElement()
                     .accessibilityLabel("Timeline")
                     .accessibilityValue(accessibilityValue)
@@ -108,7 +116,13 @@ struct TimelineBarView: View {
 
     private func drag(on bar: TimelineBar) -> some Gesture {
         DragGesture(minimumDistance: 0)
+            .updating($isTouching) { _, state, _ in state = true }
             .onChanged { value in
+                if value.startLocation != touchStart {
+                    touchStart = value.startLocation
+                    touch = .undecided
+                    scrubbed = nil
+                }
                 touch = touch.moved(dx: value.translation.width, dy: value.translation.height)
                 if touch == .scrub {
                     finger = value.location.y
@@ -119,6 +133,7 @@ struct TimelineBarView: View {
                 let action = touch.moved(dx: value.translation.width, dy: value.translation.height)
                     .end(dx: value.translation.width, side: side, at: bar.place(at: value.location.y))
                 touch = .undecided
+                touchStart = nil
                 perform(action)
                 scrubbed = nil
             }

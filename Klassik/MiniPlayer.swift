@@ -19,26 +19,29 @@ struct MiniPlayer: View {
             let page = Page.recording(work: item.work.id, recording: item.recording.id)
             // On the player page the pill holds only play/pause (ADR 0028).
             let onPlayer = navigator.pages(in: navigator.selection).last == page
-            let shape = shape
+            let edge: Edge.Set = side == .right ? .trailing : .leading
+            let content: Edge.Set = side == .right ? .leading : .trailing
             HStack(spacing: Space.xs.points) {
-                if side == .left, !onPlayer { cover(of: item, page: page) }
-                Button(player.isPaused ? "Resume" : "Pause", systemImage: player.isPaused ? "play.fill" : "pause.fill")
-                {
+                if side == .left, !onPlayer { cover(of: item, page: page, edge: edge) }
+                Button {
                     player.togglePause()
+                } label: {
+                    Image(systemName: player.isPaused ? "play.fill" : "pause.fill")
+                        .typeStyle(.title3)
+                        .foregroundStyle(Palette.textPrimary)
+                        .frame(width: Self.item, height: Self.item)
+                        .padding(.vertical, Space.xs.points)
+                        .padding(content, Space.xs.points)
+                        .padding(edge, onPlayer ? Self.edgeInset : 0)
+                        .contentShape(.rect)
                 }
-                .labelStyle(.iconOnly)
-                .typeStyle(.title3)
-                .foregroundStyle(Palette.textPrimary)
-                .frame(width: Self.item, height: Self.item)
-                .contentShape(.circle)
                 .buttonStyle(.borderless)
+                .accessibilityLabel(player.isPaused ? "Resume" : "Pause")
                 .accessibilityIdentifier("mini-player-pause")
-                if side == .right, !onPlayer { cover(of: item, page: page) }
+                if side == .right, !onPlayer { cover(of: item, page: page, edge: edge) }
             }
-            .padding(Space.xs.points)
-            // The timeline runs on down the flat face, so the pill reads as its end.
-            .padding(side == .right ? .trailing : .leading, Measure.timeline)
             .background {
+                // The timeline runs on down the flat face, so the pill reads as its end.
                 Rectangle()
                     .fill(Palette.timelineUnplayed)
                     .frame(width: Measure.timeline)
@@ -51,6 +54,10 @@ struct MiniPlayer: View {
             .accessibilityIdentifier("mini-player")
         }
     }
+
+    /// The padding on the screen edge: the timeline strip and a gap. The button at the edge takes it into its
+    /// own frame, so a tap at the screen edge still hits it.
+    private static let edgeInset = Space.xs.points + Measure.timeline
 
     /// Round on the content side, flat on the screen edge.
     private var shape: UnevenRoundedRectangle {
@@ -65,13 +72,16 @@ struct MiniPlayer: View {
     }
 
     /// Album art is square, so the cover is square; only play/pause is round.
-    private func cover(of item: QueueItem, page: Page) -> some View {
+    private func cover(of item: QueueItem, page: Page, edge: Edge.Set) -> some View {
         Button {
             navigator.open(page, in: navigator.selection)
         } label: {
             CoverImage(id: item.recording.songs.first?.coverArt, points: Self.item)
                 .frame(width: Self.item, height: Self.item)
                 .clipShape(.rect(cornerRadius: Radius.s))
+                .padding(.vertical, Space.xs.points)
+                .padding(edge, Self.edgeInset)
+                .contentShape(.rect)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(item.work.title)
@@ -100,7 +110,6 @@ struct CoverImage: View {
                     .foregroundStyle(Palette.textSecondary)
             }
         }
-        .accessibilityHidden(true)
         .task(id: id) {
             image = nil
             guard let id, let client = model.client else { return }

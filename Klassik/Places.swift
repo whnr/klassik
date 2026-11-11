@@ -9,6 +9,7 @@ struct PlacesView: View {
     /// Owned here, so that a sign-out takes the stacks away with the places.
     @State private var navigator = AppNavigator()
     @AppStorage(TimelineSide.storageKey) private var side = TimelineSide.standard
+    @State private var clearance = TabRow.clearance(safeArea: 0)
 
     var body: some View {
         TabView(selection: Binding(get: { navigator.selection }, set: { navigator.select($0) })) {
@@ -26,9 +27,11 @@ struct PlacesView: View {
             }
         }
         .overlay {
-            // The chrome reads the safe area itself, so it starts at the top safe area (ADR 0035) and sits above
-            // the home indicator whatever frame the tab view takes.
+            // The reader keeps the safe area, so its insets are real. The chrome inside ignores it and places
+            // itself: the timeline starts at the top safe area (ADR 0035), and the tab row sits where the system
+            // tab bar sits. The keyboard does not move the chrome, so the row stays below the search results.
             GeometryReader { proxy in
+                let insets = proxy.safeAreaInsets
                 VStack(spacing: 0) {
                     if model.playback.item != nil {
                         TimelineBarView(side: side)
@@ -37,11 +40,16 @@ struct PlacesView: View {
                     }
                     TabRow(side: side)
                 }
-                .padding(.top, proxy.safeAreaInsets.top)
-                .padding(.bottom, max(proxy.safeAreaInsets.bottom, Space.s.points))
+                .padding(.top, insets.top)
+                .padding(.bottom, TabRow.gap(safeArea: insets.bottom))
+                .ignoresSafeArea(.container)
+                .onChange(of: insets.bottom, initial: true) { _, bottom in
+                    clearance = TabRow.clearance(safeArea: bottom)
+                }
             }
-            .ignoresSafeArea()
+            .ignoresSafeArea(.keyboard)
         }
+        .environment(\.tabRowClearance, clearance)
         .environment(navigator)
     }
 }
@@ -66,6 +74,18 @@ struct TabRow: View {
 
     /// The capsule around the items: as tall as the pill.
     static let height = MiniPlayer.item + 2 * Space.xs.points
+    /// The distance from the screen bottom to the system tab bar on a phone with a home indicator.
+    static let homeIndicatorGap: CGFloat = 21
+
+    /// The distance from the screen bottom to the row.
+    static func gap(safeArea bottom: CGFloat) -> CGFloat {
+        bottom > 0 ? homeIndicatorGap : Space.s.points
+    }
+
+    /// The height above the bottom safe area that a page keeps clear: the row and a gap of `Space.s` above it.
+    static func clearance(safeArea bottom: CGFloat) -> CGFloat {
+        max(0, gap(safeArea: bottom) + height + Space.s.points - bottom)
+    }
 
     var body: some View {
         let playing = model.playback.item != nil
@@ -103,6 +123,8 @@ struct TabRow: View {
             VStack(spacing: 1) {
                 Image(systemName: place.symbol)
                     .font(.system(size: 22))
+                    // As in the system tab bar, the selected tab shows the filled symbol.
+                    .symbolVariant(selected ? .fill : .none)
                 // A system tab bar keeps its label size and offers the large content viewer instead.
                 if place != .search {
                     Text(place.title)
@@ -183,13 +205,14 @@ struct PlaceStack<Root: View>: View {
 private struct PlaceInsets: ViewModifier {
     @Environment(AppModel.self) private var model
     @AppStorage(TimelineSide.storageKey) private var side = TimelineSide.standard
+    @Environment(\.tabRowClearance) private var clearance
 
     func body(content: Content) -> some View {
         let beside = model.playback.item != nil && side == .right ? Measure.timeline : 0
         content
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 Color.clear
-                    .frame(height: TabRow.height + Space.s.points)
+                    .frame(height: clearance)
                     .allowsHitTesting(false)
             }
             .contentMargins(.trailing, beside, for: .scrollIndicators)
@@ -247,4 +270,6 @@ struct BackTipRow: View {
 extension EnvironmentValues {
     /// True on a page that a pages menu sits behind, which is where the tip makes sense.
     @Entry var showsBackTip = false
+    /// The height above the bottom safe area that the tab row takes, with its gap.
+    @Entry var tabRowClearance = TabRow.clearance(safeArea: 0)
 }

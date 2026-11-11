@@ -1,45 +1,64 @@
 import XCTest
 
-/// Walks the main screens against the fixture server and keeps a screenshot of each.
-/// The screens workflow passes the server through TEST_RUNNER_KLASSIK_* variables.
-final class ScreensTests: XCTestCase {
-    // Each test starts from a reset app, so a UI change can walk only its own area: scripts/screens.sh takes the
-    // names after "test" in KLASSIK_UI.
+// Each area is one class, and each test starts from a reset app and keeps a few screenshots. So a UI change can
+// walk only its own area, and one failed test does not stop the screenshots of the others. scripts/screens.sh
+// takes the class names without "Screens" in KLASSIK_UI. scripts/screen_report.py reads the names of the
+// screenshots from the snap calls in this file.
+
+/// The start page and the pages that the lookup fills.
+final class BrowseScreens: ScreensTestCase {
     @MainActor
-    func testBrowse() throws {
+    func testHome() throws {
         let app = try launchAndConnect(snapConnect: true)
         snap(app, "02-home")
+    }
 
+    @MainActor
+    func testTimeline() throws {
+        let app = try launchAndConnect()
         app.buttons["timeline"].tap()
         let dated = app.buttons.matching(identifier: "timeline-work")
             .matching(NSPredicate(format: "label CONTAINS 'Symphony No. 5'")).firstMatch
         XCTAssertTrue(dated.waitForExistence(timeout: 30))
         XCTAssertTrue(dated.label.contains("1804"))
         snap(app, "02b-timeline")
-        back(app)
+    }
 
+    @MainActor
+    func testMusicBrainz() throws {
+        let app = try launchAndConnect()
         app.buttons["musicbrainz"].tap()
         let toConfirm = app.buttons["to-confirm"]
         XCTAssertTrue(toConfirm.waitForExistence(timeout: 10))
-        XCTAssertTrue(toConfirm.label.contains("1"), toConfirm.label)
+        // The lookup may still run right after the connect.
+        let counted = expectation(for: NSPredicate(format: "label CONTAINS '1'"), evaluatedWith: toConfirm)
+        XCTAssertEqual(XCTWaiter.wait(for: [counted], timeout: 30), .completed, toConfirm.label)
         snap(app, "02c-musicbrainz")
-        back(app)
+    }
 
+    @MainActor
+    func testSets() throws {
+        let app = try launchAndConnect()
         composer(app, "Frédéric Chopin").tap()
         let set = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Nocturnes, Op. 9'")).firstMatch
         XCTAssertTrue(set.waitForExistence(timeout: 10))
         set.tap()
         XCTAssertTrue(app.buttons.matching(identifier: "work").firstMatch.waitForExistence(timeout: 10))
         snap(app, "02a-sets")
-        back(app)
+    }
 
-        // Two good matches in another language: the listener picks one once.
+    /// Two good matches in another language: the listener picks one once.
+    @MainActor
+    func testConfirmMatch() throws {
+        let app = try launchAndConnect()
         reveal(composer(app, "Wolfgang"), in: app).tap()
-        app.buttons.matching(identifier: "work").matching(NSPredicate(format: "label CONTAINS 'K. 467'")).firstMatch
-            .tap()
-        let confirm = app.buttons["composed"]
-        XCTAssertTrue(confirm.waitForExistence(timeout: 10))
-        XCTAssertTrue(confirm.label.contains("Confirm"), confirm.label)
+        let work = app.buttons.matching(identifier: "work").matching(NSPredicate(format: "label CONTAINS 'K. 467'"))
+            .firstMatch
+        XCTAssertTrue(work.waitForExistence(timeout: 10))
+        work.tap()
+        let confirm = app.buttons.matching(NSPredicate(format: "identifier == 'composed' AND label CONTAINS 'Confirm'"))
+            .firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 30), app.buttons["composed"].label)
         confirm.tap()
         let candidate = app.buttons.matching(identifier: "candidate").firstMatch
         XCTAssertTrue(candidate.waitForExistence(timeout: 10))
@@ -51,9 +70,12 @@ final class ScreensTests: XCTestCase {
         XCTAssertTrue(year.waitForExistence(timeout: 10))
         snap(app, "04c-sources")
     }
+}
 
+/// A recording, the player, the queue and the downloads.
+final class PlaybackScreens: ScreensTestCase {
     @MainActor
-    func testPlayback() throws {
+    func testRecording() throws {
         let app = try launchAndConnect()
         composer(app, "Felix Mendelssohn").tap()
         let work = app.buttons.matching(identifier: "work").firstMatch
@@ -69,11 +91,11 @@ final class ScreensTests: XCTestCase {
         snap(app, "04-work")
 
         recording.tap()
+        XCTAssertTrue(app.buttons["play-recording"].waitForExistence(timeout: 10))
         app.buttons["play-recording"].tap()
         let playing = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Now playing'")).firstMatch
         XCTAssertTrue(playing.waitForExistence(timeout: 30))
         snap(app, "05-recording")
-        // The fixture movements last seconds; paused, the player stays for the next screens.
         app.buttons["Pause"].firstMatch.tap()
 
         // A paused player moves to the dragged position and stays paused.
@@ -86,20 +108,27 @@ final class ScreensTests: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [moved], timeout: 5), .completed, start)
         XCTAssertTrue(app.buttons["Resume"].firstMatch.exists)
         snap(app, "05c-seek")
+    }
 
+    @MainActor
+    func testDownload() throws {
+        let app = try launchAndConnect()
+        openRecording(app)
+        playPaused(app)
         reveal(app.buttons["download"], in: app).tap()
         XCTAssertTrue(app.buttons["remove-download"].waitForExistence(timeout: 30))
         snap(app, "05a-downloaded")
-        app.buttons["reference"].tap()
-        back(app)
-        let reference = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Play Reference Recording'"))
-            .firstMatch
-        XCTAssertTrue(reference.waitForExistence(timeout: 10))
-        snap(app, "05b-work-reference")
-        for _ in 0..<2 { back(app) }
+        back(app, times: 3)
 
-        let miniPlayer = app.descendants(matching: .any)["mini-player"]
-        XCTAssertTrue(miniPlayer.waitForExistence(timeout: 10))
+        reveal(app.buttons["local-storage"], in: app).tap()
+        XCTAssertTrue(app.descendants(matching: .any)["download"].firstMatch.waitForExistence(timeout: 10))
+        snap(app, "08a-local-storage")
+    }
+
+    @MainActor
+    func testPerformers() throws {
+        let app = try launchAndConnect()
+        _ = pausedPlayerAtHome(app)
         snap(app, "06-home-playing")
 
         app.buttons["performers"].tap()
@@ -118,14 +147,19 @@ final class ScreensTests: XCTestCase {
         reveal(app.buttons["raw-tags"], in: app).tap()
         XCTAssertTrue(app.navigationBars["Tags"].waitForExistence(timeout: 10))
         snap(app, "06c-tags")
-        for _ in 0..<4 { back(app) }
+    }
 
+    @MainActor
+    func testQueue() throws {
+        let app = try launchAndConnect()
+        let miniPlayer = pausedPlayerAtHome(app)
         composer(app, "Ludwig").tap()
         let fifth = app.buttons.matching(identifier: "work").firstMatch
         XCTAssertTrue(fifth.waitForExistence(timeout: 10))
         fifth.swipeLeft()
-        app.buttons["Add to Queue"].tap()
-        back(app)
+        let add = app.buttons["Add to Queue"].firstMatch
+        XCTAssertTrue(add.waitForExistence(timeout: 10))
+        add.tap()
 
         miniPlayer.tap()
         XCTAssertTrue(app.descendants(matching: .any)["playback-progress"].waitForExistence(timeout: 10))
@@ -134,43 +168,48 @@ final class ScreensTests: XCTestCase {
         for _ in 0..<3 where !(queued.exists && queued.isHittable) { app.swipeUp() }
         XCTAssertTrue(queued.label.contains("Symphony No. 5"))
         snap(app, "08-up-next")
-        app.buttons["Done"].tap()
-
-        reveal(app.buttons["local-storage"], in: app).tap()
-        XCTAssertTrue(app.descendants(matching: .any)["download"].firstMatch.waitForExistence(timeout: 10))
-        snap(app, "08a-local-storage")
-        back(app)
     }
 
+    /// The server keeps the reference recording, so this test changes what the later ones see.
     @MainActor
-    func testSettings() throws {
+    func testReference() throws {
         let app = try launchAndConnect()
-        // Diagnostics checks that the mini player leaves the last row free, so something must be playing.
-        composer(app, "Felix Mendelssohn").tap()
-        let work = app.buttons.matching(identifier: "work").firstMatch
-        XCTAssertTrue(work.waitForExistence(timeout: 10))
-        work.tap()
-        let recording = app.buttons.matching(identifier: "recording").firstMatch
-        XCTAssertTrue(recording.waitForExistence(timeout: 10))
-        recording.tap()
-        app.buttons["play-recording"].tap()
-        XCTAssertTrue(app.buttons["Pause"].firstMatch.waitForExistence(timeout: 30))
-        app.buttons["Pause"].firstMatch.tap()
-        for _ in 0..<3 { back(app) }
-        XCTAssertTrue(app.descendants(matching: .any)["mini-player"].waitForExistence(timeout: 10))
+        openRecording(app)
+        app.buttons["reference"].tap()
+        back(app)
+        let reference = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Play Reference Recording'"))
+            .firstMatch
+        XCTAssertTrue(reference.waitForExistence(timeout: 10))
+        snap(app, "05b-work-reference")
+    }
+}
+
+/// The settings pages and the diagnostic pages.
+final class SettingsScreens: ScreensTestCase {
+    @MainActor
+    func testHomeSettings() throws {
+        let app = try launchAndConnect()
+        // The mini player must leave the last rows free, so something must be playing.
+        _ = pausedPlayerAtHome(app)
         XCTAssertTrue(reveal(app.buttons["diagnostics"], in: app).isHittable)
         snap(app, "08c-home-settings")
 
         reveal(app.buttons["swipe-actions"], in: app).tap()
         XCTAssertTrue(app.navigationBars["Swipe Actions"].waitForExistence(timeout: 10))
         snap(app, "08b-swipe-actions")
-        back(app)
+    }
 
+    @MainActor
+    func testFilter() throws {
+        let app = try launchAndConnect()
         reveal(app.buttons["classical-filter"], in: app).tap()
         XCTAssertTrue(app.textFields.matching(identifier: "condition-text").firstMatch.waitForExistence(timeout: 10))
         snap(app, "09-filter")
-        back(app)
+    }
 
+    @MainActor
+    func testClassicalAlbums() throws {
+        let app = try launchAndConnect()
         reveal(app.buttons["classical-albums"], in: app).tap()
         let concerto = app.buttons.matching(identifier: "album")
             .matching(NSPredicate(format: "label CONTAINS 'Mendelssohn: Violin Concerto'")).firstMatch
@@ -187,16 +226,18 @@ final class ScreensTests: XCTestCase {
         back(app)
         XCTAssertTrue(encores.waitForExistence(timeout: 10))
         XCTAssertTrue(encores.label.contains(performers), encores.label)
-        back(app)
+    }
 
+    @MainActor
+    func testDiagnostics() throws {
+        let app = try launchAndConnect()
+        // Diagnostics checks that the mini player leaves the last row free, so something must be playing.
+        let bar = pausedPlayerAtHome(app)
         reveal(app.buttons["diagnostics"], in: app).tap()
         XCTAssertTrue(app.staticTexts["Diagnostics"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.descendants(matching: .any)["opensubsonic"].waitForExistence(timeout: 10))
         snap(app, "11-diagnostics")
-        app.swipeUp()
-        app.swipeUp()
-        let signOut = app.buttons["Sign Out"]
-        let bar = app.descendants(matching: .any)["mini-player"].firstMatch
+        let signOut = reveal(app.buttons["Sign Out"], in: app)
         XCTAssertTrue(signOut.isHittable)
         XCTAssertLessThanOrEqual(signOut.frame.maxY, bar.frame.minY, "The mini player covers the last row.")
         snap(app, "12-diagnostics-bottom")
@@ -205,7 +246,13 @@ final class ScreensTests: XCTestCase {
         showTaps.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
         XCTAssertEqual(showTaps.value as? String, "1")
         snap(app, "12a-show-taps")
+    }
 
+    @MainActor
+    func testGapless() throws {
+        let app = try launchAndConnect()
+        reveal(app.buttons["diagnostics"], in: app).tap()
+        XCTAssertTrue(app.descendants(matching: .any)["opensubsonic"].waitForExistence(timeout: 10))
         reveal(app.buttons["gapless-test"], in: app).tap()
         let search = app.searchFields.firstMatch
         XCTAssertTrue(search.waitForExistence(timeout: 10))
@@ -223,7 +270,11 @@ final class ScreensTests: XCTestCase {
         XCTAssertTrue(analysis.waitForExistence(timeout: 30))
         snap(app, "14-gapless-album")
     }
+}
 
+/// What every area needs: the fixture server, the MusicBrainz answers, and the steps that several tests share.
+/// The screens workflow passes the server through TEST_RUNNER_KLASSIK_* variables.
+class ScreensTestCase: XCTestCase {
     /// MusicBrainz answers for the fixture works, shaped like real ones, by the keys of `Enrichment.stubKey`.
     /// Bach, Brahms and the nocturnes get no answer, as if MusicBrainz had no match.
     static let musicBrainz: String = {
@@ -279,7 +330,7 @@ final class ScreensTests: XCTestCase {
     }()
 
     @MainActor
-    private func launchAndConnect(snapConnect: Bool = false) throws -> XCUIApplication {
+    func launchAndConnect(snapConnect: Bool = false) throws -> XCUIApplication {
         let env = ProcessInfo.processInfo.environment
         guard let server = env["KLASSIK_SERVER_URL"] else { throw XCTSkip("No fixture server configured") }
 
@@ -302,25 +353,67 @@ final class ScreensTests: XCTestCase {
     }
 
     @MainActor
-    private func composer(_ app: XCUIApplication, _ name: String) -> XCUIElement {
+    func composer(_ app: XCUIApplication, _ name: String) -> XCUIElement {
         app.buttons.matching(identifier: "composer").matching(NSPredicate(format: "label BEGINSWITH %@", name))
             .firstMatch
     }
 
+    /// Goes back one page. UIKit gives the back button of a navigation bar the identifier "BackButton".
     @MainActor
-    private func back(_ app: XCUIApplication) {
-        app.navigationBars.buttons.element(boundBy: 0).tap()
+    func back(_ app: XCUIApplication, times: Int = 1) {
+        for _ in 0..<times {
+            let named = app.navigationBars.buttons["BackButton"].firstMatch
+            // A system that names the button differently still has it first in the bar.
+            let button = named.waitForExistence(timeout: 5) ? named : app.navigationBars.buttons.firstMatch
+            XCTAssertTrue(button.waitForExistence(timeout: 5), "No back button")
+            button.tap()
+        }
+    }
+
+    /// Opens the first recording of the first Mendelssohn work.
+    @MainActor
+    func openRecording(_ app: XCUIApplication) {
+        composer(app, "Felix Mendelssohn").tap()
+        let work = app.buttons.matching(identifier: "work").firstMatch
+        XCTAssertTrue(work.waitForExistence(timeout: 10))
+        work.tap()
+        let recording = app.buttons.matching(identifier: "recording").firstMatch
+        XCTAssertTrue(recording.waitForExistence(timeout: 10))
+        recording.tap()
+        XCTAssertTrue(app.buttons["play-recording"].waitForExistence(timeout: 10))
+    }
+
+    /// Plays the open recording and pauses it. The fixture movements last seconds; paused, the player stays.
+    @MainActor
+    func playPaused(_ app: XCUIApplication) {
+        app.buttons["play-recording"].tap()
+        let pause = app.buttons["Pause"].firstMatch
+        XCTAssertTrue(pause.waitForExistence(timeout: 30))
+        pause.tap()
+        XCTAssertTrue(app.buttons["Resume"].firstMatch.waitForExistence(timeout: 10))
+    }
+
+    /// Opens a recording, leaves it paused in the player and goes back to the start page.
+    @MainActor
+    func pausedPlayerAtHome(_ app: XCUIApplication) -> XCUIElement {
+        openRecording(app)
+        playPaused(app)
+        back(app, times: 3)
+        let miniPlayer = app.descendants(matching: .any)["mini-player"].firstMatch
+        XCTAssertTrue(miniPlayer.waitForExistence(timeout: 10))
+        return miniPlayer
     }
 
     /// Scrolls down until the element is on screen. Lists create rows only when they come near the screen.
     @MainActor
-    private func reveal(_ element: XCUIElement, in app: XCUIApplication) -> XCUIElement {
+    @discardableResult
+    func reveal(_ element: XCUIElement, in app: XCUIApplication) -> XCUIElement {
         for _ in 0..<4 where !(element.exists && element.isHittable) { app.swipeUp() }
         return element
     }
 
     @MainActor
-    private func snap(_ app: XCUIApplication, _ name: String) {
+    func snap(_ app: XCUIApplication, _ name: String) {
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = name
         attachment.lifetime = .keepAlways

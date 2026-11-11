@@ -3,7 +3,9 @@ name: Test
 # Unit, library sync and gapless tests against a fixture Navidrome. The UI walk and its screenshots run only on
 # request, because the walk takes most of the time: a line "[ui]" or "[ui: browse,settings]" in the newest commit
 # message, or the "ui" input of a run by hand. After a walk, screens-diff compares each screenshot with the newest
-# green walk on ci.
+# walk on the same branch, else on ci.
+# A failed build or unit test fails the run. A failed UI walk fails it only if the repository variable
+# UI_TESTS_REQUIRED is "true"; else the job summary reports the failure and the screenshots still upload.
 # TestFlight needs a green run for the exact merge commit on main.
 on:
   push:
@@ -57,6 +59,8 @@ jobs:
       - run: ffmpeg -version | head -1
       - run: pip install mutagen
       - run: python3 scripts/fixtures.py fixture/music && tar czf fixture-music.tgz -C fixture music
+      - name: Test the screenshot scripts
+        run: python3 -m unittest discover -s scripts -p "test_screens.py"
       - uses: actions/upload-artifact@v7
         with:
           name: fixture-music
@@ -73,6 +77,7 @@ jobs:
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
     outputs:
       ui: ${{ steps.ui.outputs.ui }}
+      screens: ${{ steps.report.outputs.screens }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -114,10 +119,19 @@ jobs:
       - name: Run the tests
         env:
           KLASSIK_UI: ${{ steps.ui.outputs.ui }}
+          UI_TESTS_REQUIRED: ${{ vars.UI_TESTS_REQUIRED || 'false' }}
         run: scripts/screens.sh "$RUNNER_TEMP/screens"
-      - name: Time of each phase
+      # The script passes after a tolerated UI failure, so this step tells the truth about each result.
+      - name: Results and time of each phase
+        id: report
         if: always()
-        run: (echo '```'; cat "$RUNNER_TEMP/screens/timings.txt"; echo '```') >> "$GITHUB_STEP_SUMMARY" || true
+        run: |
+          out="$RUNNER_TEMP/screens"
+          mkdir -p "$out"
+          python3 scripts/screen_report.py summary "$out" >> "$GITHUB_STEP_SUMMARY"
+          (echo '```'; cat "$out/timings.txt"; echo '```') >> "$GITHUB_STEP_SUMMARY" || true
+          echo "ui=$(grep '^ui=' "$out/results.txt" | tail -1 | cut -d= -f2)" >> "$GITHUB_OUTPUT" || true
+          if ls "$out"/*.png >/dev/null 2>&1; then echo "screens=true"; else echo "screens=false"; fi >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -130,15 +144,16 @@ jobs:
         if: failure()
         run: tail -50 "$RUNNER_TEMP/fixture/navidrome.log"
       - uses: actions/upload-artifact@v7
-        if: failure()
+        if: failure() || steps.report.outputs.ui == 'failed'
         with:
           name: screens-xcresult
-          path: ${{ runner.temp }}/screens/screens.xcresult
+          path: ${{ runner.temp }}/screens/*.xcresult
 
-  # The diff informs; it never fails the run.
+  # The diff informs; it never fails the run. It runs when screenshots exist, also after a failed test job.
+  # Without screenshots the job shows as skipped, and the summary of test says why.
   screens-diff:
     needs: test
-    if: needs.test.outputs.ui != 'false'
+    if: ${{ !cancelled() && needs.test.outputs.screens == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     continue-on-error: true
@@ -155,12 +170,19 @@ jobs:
       - name: Collect the baseline
         env:
           GH_TOKEN: ${{ github.token }}
+          BASELINE_BRANCH: ${{ github.head_ref || github.ref_name }}
         run: python3 scripts/screen_baseline.py current baseline
       - name: Compare
+        run: python3 scripts/screen_diff.py baseline current screens-diff
+      # A comparison that did not finish must read as skipped, not as a clean result.
+      - name: Report
+        if: always()
         run: |
-          python3 scripts/screen_diff.py baseline current screens-diff
-          cat screens-diff/diff.md >> "$GITHUB_STEP_SUMMARY"
+          python3 scripts/screen_report.py diff current screens-diff baseline >> "$GITHUB_STEP_SUMMARY"
+          cat screens-diff/diff.md >> "$GITHUB_STEP_SUMMARY" || true
       - uses: actions/upload-artifact@v7
+        if: always()
         with:
+          if-no-files-found: warn
           name: screens-diff
           path: screens-diff

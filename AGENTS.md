@@ -14,7 +14,7 @@ Rules for coding agents in this repository.
 ## App rules
 
 - SwiftUI system components: `List`, `Form`, `NavigationStack`, swipe actions, `Menu`. Style by hand only when no system component does the job.
-- iOS 26 or later, Swift 6, iPhone only.
+- iOS 27 or later, Swift 6, iPhone only.
 - OpenSubsonic standard fields only. No server-specific features.
 - Verify behaviour against Navidrome 0.64.2. `scripts/fixture-server.sh` starts it on a generated library, on Linux or macOS.
 - Credentials for a real server never go into the repository, logs or screenshots.
@@ -25,11 +25,14 @@ Rules for coding agents in this repository.
 - `project.yml` defines the project. XcodeGen generates `Klassik.xcodeproj`; do not commit it.
 - `scripts/test.sh` generates the project and runs the unit tests on an iPhone simulator.
 - `scripts/lint.sh` checks the Swift layout against `.swift-format` (Swift 6.2 `swift format`). Run it before you push. `swift format --in-place --recursive Klassik KlassikTests KlassikUITests` fixes most findings.
-- `design/scripts/lint.sh` checks the design and all Python, HTML, CSS and JavaScript: format, lint, tokens, contrast, ADR links and the specimen pages. It needs uv and Node. Run it before you push a change to `design/`, `docs/adr/` or a Python script. `.github/workflows/design.yml` runs it on Linux when those files change.
-- `.github/workflows/test.yml` runs `scripts/lint.sh` on Linux, then unit, library sync and gapless tests on `macos-26` against fixture Navidrome. It runs on `main` and `ci` pushes, pull requests except documentation-only changes, and manual requests. It uploads the screenshots as artifact `screens`.
-- The UI walk and its screenshots are expensive. Run them only for a UI change. Put a line `[ui]` in the newest commit message of the push to walk all areas. Put `[ui: browse,settings]` to walk only those areas, the test names in `ScreensTests` without `test`. On a run by hand, set input `ui` to `all` or to the areas. A release needs a green test run, not the UI walk.
-- After a UI walk, job `screens-diff` compares each screenshot with the newest green walk on `ci`. Download artifact `screens-diff` through the GitHub REST API and read `diff.md`. Look at the `-diff.png` of each new or large screen. Look at a small screen only if the push changed it.
-- The job summary of `test` gives the time of each phase: project, simulator, build, boot (the wait after the build), test, export.
+- `design/scripts/lint.sh` checks the design and all Python, HTML, CSS and JavaScript: format, lint, tokens, contrast, ADR links and the specimen pages. It needs uv and Node. Run it before you push a change to `design/`, `docs/adr/` or a Python script.
+- `design/scripts/tokens.py` writes `design/tokens.css`, `Klassik/Tokens.swift` and the colour sets in `Klassik/Assets.xcassets/Colors/`. Never edit them by hand. The design lint fails when one is not current. `.github/workflows/design.yml` runs it on Linux when those files change.
+- `.github/workflows/test.yml` runs `scripts/lint.sh` on Linux, then unit, library sync and gapless tests on `xcode-27` with Xcode 27.2 against fixture Navidrome. It runs on `main` and `ci` pushes, pull requests except documentation-only changes, and manual requests. It uploads the screenshots as artifact `screens`.
+- The UI walk and its screenshots are expensive. Run them only for a UI change. Put a line `[ui]` in the newest commit message of the push to walk all areas. On a pull request, the newest commit of the branch counts. Put `[ui: browse,settings]` to walk only those areas, the classes in `ScreensTests.swift` without `Screens`. Each test of an area starts from a reset app and keeps a few screenshots. On a run by hand, set input `ui` to `all` or to the areas. A release needs a green test run, not the UI walk.
+- A failure of lint, fixtures, the build or a unit test always fails the run. A failed UI walk fails the `test` job only when `UI_TESTS_REQUIRED` is `true`. Set it as a repository variable, in the Actions variables of the repository settings. Without the variable the value is `false`, the default during the interface rebuild.
+- A failed walk still uploads `screens` and the result bundle `screens-xcresult`, and `screens-diff` still runs. The job summary of `test` shows the build, unit and UI results, the enforcement and the missing screenshots. It shows a tolerated failure as FAILED.
+- After a UI walk, job `screens-diff` compares each screenshot with the newest usable walk on the same branch, else with the newest green walk on `ci`. A walk is usable when its `screens` artifact holds screenshots. A run is never its own baseline. The job runs when screenshots exist. Differences never fail the run. Its job summary gives the baseline and the counts of new, changed, same and missing screens. Download artifact `screens-diff` through the GitHub REST API and read `diff.md`. Look at the `-diff.png` of each new or large screen. Look at a small screen only if the push changed it.
+- The job summary of `test` gives the time of each phase: project, simulator, build, boot (the wait after the build), test, ui, export.
 - `.github/workflows/testflight.yml` runs by hand. It requires a successful `test.yml` run for the exact commit SHA, including the merge commit on `main`. It archives without signing, signs at export with the App Store Connect API key, and uploads with `altool`. A daily run uploads again when the newest build is 85 days old, because TestFlight builds expire after 90 days.
 - Write each build's “What to Test” in `docs/what-to-test.md`, with at most 4000 characters.
 - Start with `Klassik X.Y.Z`, matching `MARKETING_VERSION` in `project.yml`.

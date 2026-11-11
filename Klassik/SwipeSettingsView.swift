@@ -6,7 +6,7 @@ struct SwipeSettingsView: View {
 
     var body: some View {
         @Bindable var swipes = model.swipes
-        Form {
+        PageForm {
             Section {
                 ForEach(0..<SwipeSettings.slots, id: \.self) { slot in
                     picker(slot, in: $swipes.leading)

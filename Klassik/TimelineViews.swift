@@ -9,10 +9,12 @@ struct WorkTimelineView: View {
         let timeline = Timeline(
             index: model.library.index, composed: { enrichment.composed($0)?.span },
             lifetime: { name in enrichment.composer(named: name).map { ($0.born, $0.died) } })
-        List {
+        PageList {
             ForEach(timeline.sections) { section in
-                Section("\(section.period.title) · \(section.period.years)") {
+                Section {
                     ForEach(section.entries) { TimelineRow(entry: $0) }
+                } header: {
+                    SectionHeading("\(section.period.title) · \(section.period.years)")
                 }
             }
             if !timeline.undated.isEmpty {
@@ -23,14 +25,15 @@ struct WorkTimelineView: View {
                         } label: {
                             VStack(alignment: .leading) {
                                 Text(work.title)
+                                    .ink()
                                 Text(work.composer)
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
+                                    .typeStyle(.subheadline)
+                                    .foregroundStyle(Palette.textSecondary)
                             }
                         }
                     }
                 } header: {
-                    Text("Undated")
+                    SectionHeading("Undated")
                 } footer: {
                     Text("MusicBrainz has no dates for these works or their composers.")
                 }
@@ -54,22 +57,25 @@ struct WorkTimelineView: View {
 /// One work on the timeline. A work without a date shows its composer's lifetime and is marked approximate.
 private struct TimelineRow: View {
     let entry: Timeline.Entry
+    @ScaledMetric(space: .m) private var gap: CGFloat
+    /// Four figures of a year must fit at every text size.
+    @ScaledMetric private var yearWidth = Measure.hitTarget
 
     var body: some View {
         NavigationLink {
             WorkView(work: entry.work)
         } label: {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
+            HStack(alignment: .firstTextBaseline, spacing: gap) {
                 Text(entry.isApproximate ? "≈" : String(entry.span.start))
-                    .monospacedDigit()
-                    .foregroundStyle(entry.isApproximate ? .secondary : .primary)
-                    .frame(width: 44, alignment: .leading)
+                    .foregroundStyle(entry.isApproximate ? Palette.textSecondary : Palette.textPrimary)
+                    .frame(width: yearWidth, alignment: .leading)
                     .accessibilityLabel(entry.isApproximate ? "Approximate" : String(entry.span.start))
                 VStack(alignment: .leading) {
                     Text(entry.work.title)
+                        .ink()
                     Text(subtitle)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .typeStyle(.subheadline)
+                        .foregroundStyle(Palette.textSecondary)
                 }
             }
         }
@@ -92,7 +98,7 @@ struct WorkSourcesView: View {
     var body: some View {
         let enrichment = model.enrichment
         let facts = enrichment.facts(of: work)
-        Form {
+        PageForm {
             Section {
                 TextField(
                     "Your year",
@@ -105,7 +111,9 @@ struct WorkSourcesView: View {
                 .accessibilityIdentifier("year")
                 if let composed = facts?.composed, let source = facts?.source {
                     LabeledContent(
-                        source == .wikidata ? "Wikidata (published)" : "MusicBrainz", value: composed.text)
+                        source == .wikidata ? "Wikidata (published)" : "MusicBrainz", value: composed.text
+                    )
+                    .ink()
                 }
             } header: {
                 Text("Composed")
@@ -133,6 +141,7 @@ struct WorkSourcesView: View {
         switch link {
         case .tagged(let id), .found(let id):
             LabeledContent("Work", value: facts?.title ?? (enrichment.isRunning ? "Looking up…" : "Not found"))
+                .ink()
                 .accessibilityIdentifier("musicbrainz-work")
             Button("Open in MusicBrainz", systemImage: "arrow.up.forward.square") {
                 openURL(MusicBrainz.workURL(id: facts?.id ?? id))
@@ -143,13 +152,13 @@ struct WorkSourcesView: View {
             lookUpAgain
         case .candidates(let found):
             Text("Which MusicBrainz work is this?")
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Palette.textSecondary)
             ForEach(found) { candidate in
                 Button {
                     Task { await enrichment.confirm(candidate, for: work) }
                 } label: {
                     Text(candidate.title)
-                        .foregroundStyle(Color.primary)
+                        .ink()
                 }
                 .accessibilityIdentifier("candidate")
             }
@@ -160,11 +169,11 @@ struct WorkSourcesView: View {
                     ? "No MusicBrainz work matches. A catalogue number in the title, such as Op. 67, helps."
                     : "No MusicBrainz work matches."
             )
-            .foregroundStyle(.secondary)
+            .foregroundStyle(Palette.textSecondary)
             lookUpAgain
         case .pending:
             Text("Not looked up yet.")
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Palette.textSecondary)
         }
     }
 

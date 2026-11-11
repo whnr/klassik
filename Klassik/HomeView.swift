@@ -7,13 +7,13 @@ struct HomeView: View {
         let library = model.library
         @Bindable var player = model.player
         NavigationStack {
-            List {
+            PageList {
                 if !library.index.composers.isEmpty {
                     Section {
                         NavigationLink {
                             WorkTimelineView()
                         } label: {
-                            Label("Timeline", systemImage: "calendar")
+                            InkLabel("Timeline", systemImage: "calendar")
                         }
                         .accessibilityIdentifier("timeline")
                         NavigationLink {
@@ -21,21 +21,25 @@ struct HomeView: View {
                         } label: {
                             LabeledContent {
                                 Text(lookupState)
+                                    .foregroundStyle(Palette.textSecondary)
                             } label: {
-                                Label("MusicBrainz", systemImage: "books.vertical")
+                                InkLabel("MusicBrainz", systemImage: "books.vertical")
                             }
                         }
                         .accessibilityIdentifier("musicbrainz")
                     }
-                    Section("Composers") {
+                    Section {
                         ForEach(library.index.composers) { composer in
                             NavigationLink {
                                 ComposerView(composer: composer)
                             } label: {
                                 LabeledContent(composer.name, value: composer.works.count.formatted())
+                                    .ink()
                             }
                             .accessibilityIdentifier("composer")
                         }
+                    } header: {
+                        SectionHeading("Composers")
                     }
                 }
 
@@ -45,6 +49,7 @@ struct HomeView: View {
                             PerformersView()
                         } label: {
                             LabeledContent("Performers", value: library.index.performers.count.formatted())
+                                .ink()
                         }
                         .accessibilityIdentifier("performers")
                     }
@@ -56,28 +61,33 @@ struct HomeView: View {
                             LabeledContent("Syncing") {
                                 Text("\(library.received) tracks")
                             }
+                            .ink()
                         } else {
                             Text("Not synced")
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Palette.textSecondary)
                         }
                     } else {
                         NavigationLink {
                             AlbumsView(title: "Classical Albums", songs: library.classical)
                         } label: {
                             LabeledContent("Classical Albums", value: library.classicalAlbumCount.formatted())
+                                .ink()
                         }
                         .accessibilityIdentifier("classical-albums")
                         LabeledContent("Classical Tracks", value: library.classical.count.formatted())
+                            .ink()
                         NavigationLink {
                             AlbumsView(title: "Other Albums", songs: otherSongs)
                         } label: {
                             LabeledContent(
-                                "Other Albums", value: (library.albumCount - library.classicalAlbumCount).formatted())
+                                "Other Albums", value: (library.albumCount - library.classicalAlbumCount).formatted()
+                            )
+                            .ink()
                         }
                         .accessibilityIdentifier("other-albums")
                     }
                 } header: {
-                    Text("Library")
+                    SectionHeading("Library")
                 } footer: {
                     if let error = library.syncError {
                         Text(error)
@@ -104,27 +114,33 @@ struct HomeView: View {
                     NavigationLink {
                         FilterView()
                     } label: {
-                        Label("Classical Filter", systemImage: "line.3.horizontal.decrease.circle")
+                        InkLabel("Classical Filter", systemImage: "line.3.horizontal.decrease.circle")
                     }
                     .accessibilityIdentifier("classical-filter")
                     NavigationLink {
                         LocalStorageView()
                     } label: {
-                        Label("Local Storage", systemImage: "internaldrive")
+                        InkLabel("Local Storage", systemImage: "internaldrive")
                     }
                     .accessibilityIdentifier("local-storage")
                     NavigationLink {
                         SwipeSettingsView()
                     } label: {
-                        Label("Swipe Actions", systemImage: "arrow.left.arrow.right")
+                        InkLabel("Swipe Actions", systemImage: "arrow.left.arrow.right")
                     }
                     .accessibilityIdentifier("swipe-actions")
                     NavigationLink {
                         DiagnosticsView()
                     } label: {
-                        Label("Diagnostics", systemImage: "stethoscope")
+                        InkLabel("Diagnostics", systemImage: "stethoscope")
                     }
                     .accessibilityIdentifier("diagnostics")
+                    NavigationLink {
+                        LicencesView()
+                    } label: {
+                        InkLabel("Licences", systemImage: "doc.text")
+                    }
+                    .accessibilityIdentifier("licences")
                 }
             }
             .navigationTitle("Klassik")
@@ -181,29 +197,31 @@ struct AlbumsView: View {
     }
 
     var body: some View {
-        List(rows) { row in
-            NavigationLink {
-                RecordingView(work: row.item.work, recording: row.item.recording)
-                    .miniPlayerInset()
-            } label: {
-                VStack(alignment: .leading) {
-                    HStack {
-                        Text(row.name)
-                            .foregroundStyle(Color.primary)
-                        OfflineHint(isOffline: model.tracks.isOffline(row.item.recording))
+        PageList {
+            ForEach(rows) { row in
+                NavigationLink {
+                    RecordingView(work: row.item.work, recording: row.item.recording)
+                        .miniPlayerInset()
+                } label: {
+                    VStack(alignment: .leading) {
+                        HStack {
+                            Text(row.name)
+                                .ink()
+                            OfflineHint(isOffline: model.tracks.isOffline(row.item.recording))
+                        }
+                        Text(
+                            [row.item.recording.performers, "\(row.item.recording.songs.count) tracks"].filter {
+                                !$0.isEmpty
+                            }.joined(
+                                separator: " · ")
+                        )
+                        .typeStyle(.subheadline)
+                        .foregroundStyle(Palette.textSecondary)
                     }
-                    Text(
-                        [row.item.recording.performers, "\(row.item.recording.songs.count) tracks"].filter {
-                            !$0.isEmpty
-                        }.joined(
-                            separator: " · ")
-                    )
-                    .font(.subheadline)
-                    .foregroundStyle(Color.secondary)
                 }
+                .itemActions(row.item, downloads: true)
+                .accessibilityIdentifier("album")
             }
-            .itemActions(row.item, downloads: true)
-            .accessibilityIdentifier("album")
         }
         .overlay {
             if songs.isEmpty { ContentUnavailableView("No Albums", systemImage: "square.stack") }

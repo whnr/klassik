@@ -9,39 +9,47 @@ struct ComposerView: View {
         let sets = composer.sets
         let loose = composer.looseWorks
         let untagged = composer.works.filter { !$0.isTagged }
-        List {
+        PageList {
             if let facts = model.enrichment.composer(named: composer.name), facts.born != nil || facts.died != nil {
                 Section {
                     LabeledContent(
-                        "Lived", value: "\(facts.born.map(String.init) ?? "?")–\(facts.died.map(String.init) ?? "")")
+                        "Lived", value: "\(facts.born.map(String.init) ?? "?")–\(facts.died.map(String.init) ?? "")"
+                    )
+                    .ink()
                     if let period = Timeline.Period.of(born: facts.born, died: facts.died) {
                         LabeledContent("Period", value: period.title)
+                            .ink()
                     }
                 }
                 .accessibilityIdentifier("composer-dates")
             }
             if !sets.isEmpty {
-                Section("Sets") {
+                Section {
                     ForEach(sets) { set in
                         DisclosureGroup {
                             ForEach(set.works) { WorkRow(work: $0) }
                         } label: {
                             LabeledContent(set.name, value: "\(set.works.count)")
+                                .ink()
                         }
                         .accessibilityIdentifier("set")
                     }
+                } header: {
+                    SectionHeading("Sets")
                 }
             }
             if !loose.isEmpty {
-                Section("Works") {
+                Section {
                     ForEach(loose) { WorkRow(work: $0) }
+                } header: {
+                    SectionHeading("Works")
                 }
             }
             if !untagged.isEmpty {
                 Section {
                     ForEach(untagged) { WorkRow(work: $0) }
                 } header: {
-                    Text("Albums Without Work Tags")
+                    SectionHeading("Albums without work tags")
                 } footer: {
                     Text("These tracks have no WORK tag, so Klassik shows each album as one work.")
                 }
@@ -104,14 +112,14 @@ private struct ItemActions: ViewModifier {
         switch action {
         case .playNext:
             Button("Play Next", systemImage: "text.line.first.and.arrowtriangle.forward") { playNext() }
-                .tint(.indigo)
+                .tint(Palette.swipePlayNext.color)
         case .addToQueue:
             Button("Add to Queue", systemImage: "text.line.last.and.arrowtriangle.forward") { addToQueue() }
-                .tint(.orange)
+                .tint(Palette.swipeAddToQueue.color)
         case .download:
-            if downloads { downloadButton.tint(.blue) }
+            if downloads { downloadButton.tint(Palette.swipeDownload.color) }
         case .reference:
-            if reference { referenceButton.tint(.yellow) }
+            if reference { referenceButton.tint(Palette.swipeFavourite.color) }
         }
     }
 
@@ -161,8 +169,8 @@ struct OfflineHint: View {
     var body: some View {
         if isOffline {
             Image(systemName: "arrow.down.circle.fill")
-                .font(.caption)
-                .foregroundStyle(Color.secondary)
+                .typeStyle(.caption1)
+                .foregroundStyle(Palette.textSecondary)
                 .accessibilityLabel("Available offline")
         }
     }
@@ -179,14 +187,15 @@ private struct WorkRow: View {
             VStack(alignment: .leading) {
                 HStack {
                     Text(work.title)
+                        .ink()
                     OfflineHint(isOffline: work.recordings.contains { model.tracks.isOffline($0) })
                 }
                 Text(
                     [work.context, work.recordings.count == 1 ? "1 recording" : "\(work.recordings.count) recordings"]
                         .filter { !$0.isEmpty }.joined(separator: " · ")
                 )
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .typeStyle(.subheadline)
+                .foregroundStyle(Palette.textSecondary)
             }
         }
         .itemActions(work.defaultRecording.map { Player.Item(work: work, recording: $0) })
@@ -200,12 +209,13 @@ struct WorkView: View {
     let work: WorkIndex.Work
 
     var body: some View {
-        List {
+        PageList {
             Section {
                 LabeledContent("Composer", value: work.composer)
+                    .ink()
                 if !work.context.isEmpty {
                     Text(work.context)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Palette.textSecondary)
                 }
                 if work.isTagged {
                     ComposedRow(work: work)
@@ -228,10 +238,11 @@ struct WorkView: View {
                         VStack(alignment: .leading) {
                             HStack {
                                 Text(recording.performers.isEmpty ? recording.album : recording.performers)
+                                    .ink()
                                 if recording.isReference {
                                     Image(systemName: "star.fill")
-                                        .font(.caption)
-                                        .foregroundStyle(.yellow)
+                                        .typeStyle(.caption1)
+                                        .foregroundStyle(Palette.favourite)
                                         .accessibilityLabel("Reference recording")
                                 }
                                 OfflineHint(isOffline: model.tracks.isOffline(recording))
@@ -243,15 +254,15 @@ struct WorkView: View {
                                 ]
                                 .compactMap(\.self).joined(separator: " · ")
                             )
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .typeStyle(.subheadline)
+                            .foregroundStyle(Palette.textSecondary)
                         }
                     }
                     .itemActions(Player.Item(work: work, recording: recording), downloads: true, reference: true)
                     .accessibilityIdentifier("recording")
                 }
             } header: {
-                Text("Recordings")
+                SectionHeading("Recordings")
             }
         }
         .navigationTitle(work.title)
@@ -270,7 +281,7 @@ private struct ComposedRow: View {
             WorkSourcesView(work: work)
         } label: {
             if case .candidates = enrichment.link(of: work) {
-                Label("Confirm the MusicBrainz Work", systemImage: "questionmark.circle")
+                InkLabel("Confirm the MusicBrainz Work", systemImage: "questionmark.circle")
             } else {
                 LabeledContent("Composed") {
                     if let composed = enrichment.composed(work) {
@@ -279,6 +290,7 @@ private struct ComposedRow: View {
                         Text(enrichment.isRunning ? "Looking up…" : "Unknown")
                     }
                 }
+                .ink()
             }
         }
         .accessibilityIdentifier("composed")
@@ -304,18 +316,25 @@ struct RecordingView: View {
 
     var body: some View {
         let player = model.player
-        List {
+        PageList {
             Section {
                 LabeledContent("Composer", value: work.composer)
+                    .ink()
                 if !recording.performers.isEmpty {
                     LabeledContent("Performers", value: recording.performers)
+                        .ink()
                 }
                 LabeledContent("Album", value: recording.album)
+                    .ink()
                 if let year = recording.year {
                     LabeledContent("Year", value: String(year))
+                        .ink()
                 }
-                NavigationLink("Tags and Grouping") {
+                NavigationLink {
                     RawTagsView(work: work, recording: recording)
+                } label: {
+                    Text("Tags and Grouping")
+                        .ink()
                 }
                 .accessibilityIdentifier("raw-tags")
             }
@@ -342,7 +361,7 @@ struct RecordingView: View {
                     }
                     .labelStyle(.iconOnly)
                     .buttonStyle(.borderless)
-                    .font(.title2)
+                    .typeStyle(.title2)
                     .padding(.horizontal)
                 } else {
                     Button("Play", systemImage: "play.fill") { play(from: 0) }
@@ -355,66 +374,71 @@ struct RecordingView: View {
                 }
                 if isPlayingThis, let error = player.error {
                     Label(error, systemImage: "exclamationmark.triangle")
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Palette.textPrimary)
                 }
             }
 
-            Section("Offline") {
+            Section {
                 OfflineControls(recording: recording, title: work.title)
+            } header: {
+                SectionHeading("Offline")
             }
 
-            Section("Movements") {
+            Section {
                 ForEach(Array(recording.songs.enumerated()), id: \.element.id) { index, song in
                     Button {
                         play(from: index)
                     } label: {
                         HStack {
                             Text(recording.title(of: song))
-                                .foregroundStyle(Color.primary)
+                                .ink()
                             Spacer()
                             if isPlayingThis, player.current == index {
                                 if player.isLoading {
                                     ProgressView()
                                 } else {
                                     Image(systemName: "speaker.wave.2.fill")
-                                        .foregroundStyle(.tint)
+                                        .foregroundStyle(Palette.tint)
                                         .accessibilityLabel("Now playing")
                                 }
                             } else {
                                 OfflineHint(isOffline: model.tracks.isOffline(song))
                                 if let duration = song.duration {
                                     Text(Duration.seconds(duration).formatted(.time(pattern: .minuteSecond)))
-                                        .foregroundStyle(Color.secondary)
-                                        .monospacedDigit()
+                                        .foregroundStyle(Palette.textSecondary)
                                 }
                             }
                         }
                     }
                     .accessibilityIdentifier("movement")
                 }
+            } header: {
+                SectionHeading("Movements")
             }
 
             if isPlayingThis, !player.upNext.isEmpty {
-                Section("Up Next") {
+                Section {
                     ForEach(player.upNext) { item in
                         Button {
                             player.playQueued(item.id)
                         } label: {
                             VStack(alignment: .leading) {
                                 Text(item.work.title)
-                                    .foregroundStyle(Color.primary)
+                                    .ink()
                                 Text(
                                     [item.work.composer, item.recording.performers]
                                         .filter { !$0.isEmpty }.joined(separator: " · ")
                                 )
-                                .font(.subheadline)
-                                .foregroundStyle(Color.secondary)
+                                .typeStyle(.subheadline)
+                                .foregroundStyle(Palette.textSecondary)
                             }
                         }
                         .accessibilityIdentifier("up-next")
                     }
                     .onDelete { player.removeFromQueue(at: $0) }
                     .onMove { player.moveInQueue(from: $0, to: $1) }
+                } header: {
+                    SectionHeading("Up next")
                 }
             }
         }
@@ -442,11 +466,13 @@ struct RecordingView: View {
 /// How far the current movement and the whole work have played.
 struct PlaybackProgress: View {
     let player: Player
+    @ScaledMetric(space: .m) private var gap: CGFloat
+    @ScaledMetric(space: .xs) private var lineGap: CGFloat
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 0.5)) { _ in
             if let progress = player.progress(), let recording = player.recording {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: gap) {
                     PositionSlider(
                         player: player, title: recording.title(of: recording.songs[progress.movement]),
                         elapsed: progress.elapsed, duration: progress.duration
@@ -456,7 +482,7 @@ struct PlaybackProgress: View {
                         recording.isAlbum ? "Whole Album" : "Whole Work", progress.workElapsed,
                         of: progress.workDuration, gaps: progress.durations)
                 }
-                .padding(.vertical, 4)
+                .padding(.vertical, lineGap)
             }
         }
         // A container keeps the identifiers of its children, such as the position slider.
@@ -467,9 +493,9 @@ struct PlaybackProgress: View {
     private func bar(
         _ title: String, _ elapsed: Double, of duration: Double, gaps durations: [Double] = []
     ) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: lineGap) {
             Text(title)
-                .font(.subheadline)
+                .typeStyle(.subheadline)
             if durations.count > 1 {
                 SegmentedBar(elapsed: elapsed, durations: durations)
             } else {
@@ -485,9 +511,8 @@ struct PlaybackProgress: View {
             Spacer()
             Text("−" + time(max(duration - elapsed, 0)))
         }
-        .font(.caption)
-        .monospacedDigit()
-        .foregroundStyle(.secondary)
+        .typeStyle(.caption1)
+        .foregroundStyle(Palette.textSecondary)
     }
 
     static func time(_ seconds: Double) -> String {
@@ -505,12 +530,13 @@ private struct PositionSlider: View {
     let duration: Double
     @State private var dragged: Double?
     @State private var isDragging = false
+    @ScaledMetric(space: .xs) private var lineGap: CGFloat
 
     var body: some View {
         let shown = dragged ?? min(elapsed, duration)
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: lineGap) {
             Text(title)
-                .font(.subheadline)
+                .typeStyle(.subheadline)
             Slider(
                 value: Binding(
                     get: { shown },
@@ -543,7 +569,7 @@ private struct PositionSlider: View {
 private struct SegmentedBar: View {
     let elapsed: Double
     let durations: [Double]
-    private let gap: CGFloat = 2
+    private let gap = Space.xxs.points
 
     var body: some View {
         GeometryReader { proxy in
@@ -554,8 +580,8 @@ private struct SegmentedBar: View {
                     let start = durations[..<index].reduce(0, +)
                     let share = min(max((elapsed - start) / max(durations[index], 0.001), 0), 1)
                     ZStack(alignment: .leading) {
-                        Capsule().fill(Color.secondary.opacity(0.25))
-                        Capsule().fill(Color.accentColor)
+                        Capsule().fill(Palette.timelineUnplayed)
+                        Capsule().fill(Palette.timelinePlayed)
                             .frame(width: usable * durations[index] / total * share)
                     }
                     .frame(width: usable * durations[index] / total)
@@ -580,6 +606,7 @@ private struct OfflineControls: View {
         let tracks = model.tracks
         if let download = tracks.downloads.first(where: { $0.id == recording.id }) {
             LabeledContent("Downloaded", value: Self.size(download.bytes))
+                .ink()
             Button("Remove Download", systemImage: "trash", role: .destructive) { tracks.remove(download) }
                 .accessibilityIdentifier("remove-download")
         } else if let share = tracks.progress[recording.id] {
@@ -592,7 +619,7 @@ private struct OfflineControls: View {
             .accessibilityIdentifier("download")
             if let failure = tracks.failures[recording.id] {
                 Label(failure, systemImage: "exclamationmark.triangle")
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Palette.textPrimary)
             }
         }
     }

@@ -6,11 +6,14 @@ struct RawTagsView: View {
     let recording: WorkIndex.Recording
 
     var body: some View {
-        List {
+        PageList {
             Section {
                 Text(work.groupingReason)
+                    .ink()
                 LabeledContent("Work key", value: work.id)
+                    .ink()
                 LabeledContent("Album ID", value: recording.songs.first?.albumId ?? "None")
+                    .ink()
             } header: {
                 Text("Grouping")
             } footer: {
@@ -19,9 +22,13 @@ struct RawTagsView: View {
 
             ForEach(recording.songs) { song in
                 Section(song.title) {
-                    if work.id.hasPrefix("album|") { LabeledContent("Own work key", value: WorkIndex.workKey(song)) }
+                    if work.id.hasPrefix("album|") {
+                        LabeledContent("Own work key", value: WorkIndex.workKey(song))
+                            .ink()
+                    }
                     ForEach(Array(song.tagRows.enumerated()), id: \.offset) { _, row in
                         LabeledContent(row.name, value: row.value)
+                            .ink()
                     }
                 }
             }

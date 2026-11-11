@@ -8,7 +8,7 @@ struct GaplessTestView: View {
     @State private var error: String?
 
     var body: some View {
-        List {
+        PageList {
             Section {
                 ForEach(albums) { album in
                     NavigationLink {
@@ -16,10 +16,11 @@ struct GaplessTestView: View {
                     } label: {
                         VStack(alignment: .leading) {
                             Text(album.name)
+                                .ink()
                             if let artist = album.artist {
                                 Text(artist)
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
+                                    .typeStyle(.subheadline)
+                                    .foregroundStyle(Palette.textSecondary)
                             }
                         }
                     }
@@ -60,7 +61,7 @@ struct GaplessAlbumView: View {
     @State private var startNearEnd = true
 
     var body: some View {
-        Form {
+        PageForm {
             Section {
                 Picker("Player", selection: $kind) {
                     ForEach(GaplessTestPlayer.Kind.allCases) { Text($0.rawValue).tag($0) }
@@ -81,11 +82,11 @@ struct GaplessAlbumView: View {
                     } label: {
                         VStack(alignment: .leading) {
                             Text(song.title)
-                                .foregroundStyle(Color.primary)
+                                .ink()
                             if let analysis = player.analysis[song.id] {
                                 Text(analysis.summary)
-                                    .font(.caption)
-                                    .foregroundStyle(Color.secondary)
+                                    .typeStyle(.caption1)
+                                    .foregroundStyle(Palette.textSecondary)
                             }
                         }
                     }
@@ -95,6 +96,7 @@ struct GaplessAlbumView: View {
 
             Section {
                 LabeledContent("Status", value: player.status)
+                    .ink()
                 Button("Stop") { player.stop() }
             }
         }

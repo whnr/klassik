@@ -8,6 +8,8 @@ on:
       - "design/**"
       - "docs/adr/**"
       - "scripts/**.py"
+      - "Klassik/Tokens.swift"
+      - "Klassik/Assets.xcassets/Colors/**"
       - "ruff.toml"
       - ".prettierrc.json"
       - ".prettierignore"

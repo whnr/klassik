@@ -9,13 +9,16 @@ struct PerformersView: View {
         let performers = model.library.index.performers.filter {
             query.isEmpty || $0.name.localizedStandardContains(query)
         }
-        List(performers) { performer in
-            NavigationLink {
-                PerformerView(performer: performer)
-            } label: {
-                LabeledContent(performer.name, value: performer.entries.count.formatted())
+        PageList {
+            ForEach(performers) { performer in
+                NavigationLink {
+                    PerformerView(performer: performer)
+                } label: {
+                    LabeledContent(performer.name, value: performer.entries.count.formatted())
+                        .ink()
+                }
+                .accessibilityIdentifier("performer")
             }
-            .accessibilityIdentifier("performer")
         }
         .overlay {
             if performers.isEmpty {
@@ -37,14 +40,14 @@ struct PerformerView: View {
             .values.sorted {
                 ($0[0].work.composer, $0[0].work.title) < ($1[0].work.composer, $1[0].work.title)
             }
-        List {
+        PageList {
             ForEach(groups, id: \.[0].work.id) { entries in
                 Section {
                     ForEach(entries.sorted { ($0.recording.year ?? .max) < ($1.recording.year ?? .max) }) { entry in
                         PerformerRow(entry: entry)
                     }
                 } header: {
-                    Text(entries[0].work.title)
+                    SectionHeading(entries[0].work.title)
                 } footer: {
                     Text(entries[0].work.composer)
                 }
@@ -67,14 +70,15 @@ private struct PerformerRow: View {
             VStack(alignment: .leading) {
                 HStack {
                     Text(entry.recording.performers)
+                        .ink()
                     OfflineHint(isOffline: model.tracks.isOffline(entry.recording))
                 }
                 Text(
                     [entry.recording.year.map(String.init), entry.recording.album]
                         .compactMap(\.self).joined(separator: " · ")
                 )
-                .font(.subheadline)
-                .foregroundStyle(Color.secondary)
+                .typeStyle(.subheadline)
+                .foregroundStyle(Palette.textSecondary)
             }
         }
         .itemActions(Player.Item(work: entry.work, recording: entry.recording), downloads: true, reference: true)

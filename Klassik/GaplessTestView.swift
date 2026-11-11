@@ -36,7 +36,6 @@ struct GaplessTestView: View {
             Task { await search() }
         }
         .navigationTitle("Gapless Test")
-        .miniPlayerInset()
     }
 
     private func search() async {
@@ -100,7 +99,6 @@ struct GaplessAlbumView: View {
             }
         }
         .navigationTitle(name ?? "Album")
-        .miniPlayerInset()
         .task {
             guard let client = model.client, songs.isEmpty else { return }
             guard let album = try? await client.album(id: albumID) else { return }

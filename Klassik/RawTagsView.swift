@@ -34,7 +34,6 @@ struct RawTagsView: View {
             }
         }
         .navigationTitle("Tags")
-        .miniPlayerInset()
     }
 }
 

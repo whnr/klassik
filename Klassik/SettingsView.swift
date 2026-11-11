@@ -3,6 +3,7 @@ import SwiftUI
 /// The Settings place: what the listener sets, and what shows how Klassik reads the library.
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
+    @AppStorage(TimelineSide.storageKey) private var timelineSide = TimelineSide.standard
 
     var body: some View {
         let library = model.library
@@ -60,6 +61,15 @@ struct SettingsView: View {
             }
 
             Section {
+                Picker("Timeline", selection: $timelineSide) {
+                    ForEach(TimelineSide.allCases) { Text($0.title).tag($0) }
+                }
+                .accessibilityIdentifier("timeline-side")
+            } footer: {
+                Text("While music plays, the timeline runs on this screen edge.")
+            }
+
+            Section {
                 NavigationLink(value: Page.classicalFilter) {
                     InkLabel("Classical Filter", systemImage: "line.3.horizontal.decrease.circle")
                 }
@@ -83,7 +93,6 @@ struct SettingsView: View {
             }
         }
         .navigationTitle("Settings")
-        .miniPlayerInset()
     }
 
     /// Progress while the lookup runs, else the works that wait for the listener.
@@ -154,6 +163,5 @@ struct AlbumsView: View {
             if songs.isEmpty { ContentUnavailableView("No Albums", systemImage: "square.stack") }
         }
         .navigationTitle(classical ? "Classical Albums" : "Other Albums")
-        .miniPlayerInset()
     }
 }

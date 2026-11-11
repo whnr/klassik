@@ -2,27 +2,125 @@ import SwiftUI
 import TipKit
 import UIKit
 
-/// The four places in a system tab bar, each with its own stack.
+/// The four places, each with its own stack. The system `TabView` keeps the places and their stacks. Its tab bar
+/// spans the screen, so a tab bar drawn by hand takes its place and leaves room for the mini player (ADR 0028).
 struct PlacesView: View {
+    @Environment(AppModel.self) private var model
     /// Owned here, so that a sign-out takes the stacks away with the places.
     @State private var navigator = AppNavigator()
+    @AppStorage(TimelineSide.storageKey) private var side = TimelineSide.standard
 
     var body: some View {
         TabView(selection: Binding(get: { navigator.selection }, set: { navigator.select($0) })) {
-            Tab(Place.library.title, systemImage: "books.vertical", value: Place.library) {
+            Tab(Place.library.title, systemImage: Place.library.symbol, value: Place.library) {
                 PlaceStack(place: .library) { LibraryView() }
             }
-            Tab(Place.chronology.title, systemImage: "calendar", value: Place.chronology) {
+            Tab(Place.chronology.title, systemImage: Place.chronology.symbol, value: Place.chronology) {
                 PlaceStack(place: .chronology) { WorkTimelineView() }
             }
             Tab(value: Place.search, role: .search) {
                 PlaceStack(place: .search) { SearchView() }
             }
-            Tab(Place.settings.title, systemImage: "gearshape", value: Place.settings) {
+            Tab(Place.settings.title, systemImage: Place.settings.symbol, value: Place.settings) {
                 PlaceStack(place: .settings) { SettingsView() }
             }
         }
+        .overlay {
+            // The chrome reads the safe area itself, so it starts at the top safe area (ADR 0035) and sits above
+            // the home indicator whatever frame the tab view takes.
+            GeometryReader { proxy in
+                VStack(spacing: 0) {
+                    if model.playback.item != nil {
+                        TimelineBarView(side: side)
+                    } else {
+                        Spacer(minLength: 0)
+                    }
+                    TabRow(side: side)
+                }
+                .padding(.top, proxy.safeAreaInsets.top)
+                .padding(.bottom, max(proxy.safeAreaInsets.bottom, Space.s.points))
+            }
+            .ignoresSafeArea()
+        }
         .environment(navigator)
+    }
+}
+
+extension Place {
+    var symbol: String {
+        switch self {
+        case .library: "books.vertical"
+        case .chronology: "calendar"
+        case .search: "magnifyingglass"
+        case .settings: "gearshape"
+        }
+    }
+}
+
+/// The tab bar, drawn by hand: the tabs in a glass capsule, Search on its own, and the mini player on the
+/// timeline's side while something plays. It keeps the height of the system tab bar (ADR 0028).
+struct TabRow: View {
+    @Environment(AppModel.self) private var model
+    @Environment(AppNavigator.self) private var navigator
+    let side: TimelineSide
+
+    /// The capsule around the items: as tall as the pill.
+    static let height = MiniPlayer.item + 2 * Space.xs.points
+
+    var body: some View {
+        let playing = model.playback.item != nil
+        HStack(spacing: Space.s.points) {
+            if playing, side == .left { MiniPlayer(side: side) }
+            GlassEffectContainer(spacing: Space.s.points) {
+                HStack(spacing: Space.s.points) {
+                    HStack(spacing: 0) {
+                        ForEach([Place.library, .chronology, .settings], id: \.self) { place in
+                            tab(place)
+                        }
+                    }
+                    .padding(Space.xs.points)
+                    .glassEffect(.regular.interactive(), in: .capsule)
+                    tab(.search)
+                        .padding(Space.xs.points)
+                        .frame(width: Self.height)
+                        .glassEffect(.regular.interactive(), in: .circle)
+                }
+            }
+            .padding(.leading, playing && side == .left ? 0 : Space.l.points)
+            .padding(.trailing, playing && side == .right ? 0 : Space.l.points)
+            if playing, side == .right { MiniPlayer(side: side) }
+        }
+        .frame(height: Self.height)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("tab-row")
+    }
+
+    private func tab(_ place: Place) -> some View {
+        let selected = navigator.selection == place
+        return Button {
+            navigator.select(place)
+        } label: {
+            VStack(spacing: 1) {
+                Image(systemName: place.symbol)
+                    .font(.system(size: 22))
+                // A system tab bar keeps its label size and offers the large content viewer instead.
+                if place != .search {
+                    Text(place.title)
+                        .font(.system(size: 10, weight: .medium))
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: MiniPlayer.item)
+            .foregroundStyle(selected ? Palette.tint : Palette.textPrimary)
+            .background {
+                if selected, place != .search { Capsule().fill(Palette.fillQuiet) }
+            }
+            .contentShape(.capsule)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(place.title)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityShowsLargeContentViewer()
+        .accessibilityIdentifier("tab-\(place.rawValue)")
     }
 }
 
@@ -47,6 +145,7 @@ struct PlaceStack<Root: View>: View {
                 set: { navigator.setPages($0, in: place) })
         ) {
             root
+                .modifier(PlaceInsets())
                 .gesture(edgeSwipe)
                 .toolbar {
                     if let target {
@@ -70,9 +169,31 @@ struct PlaceStack<Root: View>: View {
                     // From the second page on, the back button has a pages menu behind it.
                     // A repeated copy of the first page gets index 0 and shows no back tip.
                     PageView(page: page)
+                        .modifier(PlaceInsets())
                         .environment(\.showsBackTip, (navigator.pages(in: place).firstIndex(of: page) ?? 0) >= 1)
                 }
         }
+        .toolbarVisibility(.hidden, for: .tabBar)
+    }
+}
+
+/// Keeps the last rows of a page clear of the tab row, and the scroll indicator clear of the timeline (ADR 0029).
+/// Each page needs its own inset: an inset on the `NavigationStack` does not move the last rows of a pushed List.
+/// Each page also hides the system tab bar, so that a push does not bring it back.
+private struct PlaceInsets: ViewModifier {
+    @Environment(AppModel.self) private var model
+    @AppStorage(TimelineSide.storageKey) private var side = TimelineSide.standard
+
+    func body(content: Content) -> some View {
+        let beside = model.playback.item != nil && side == .right ? Measure.timeline : 0
+        content
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                Color.clear
+                    .frame(height: TabRow.height + Space.s.points)
+                    .allowsHitTesting(false)
+            }
+            .contentMargins(.trailing, beside, for: .scrollIndicators)
+            .toolbarVisibility(.hidden, for: .tabBar)
     }
 }
 

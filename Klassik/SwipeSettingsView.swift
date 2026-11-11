@@ -28,7 +28,6 @@ struct SwipeSettingsView: View {
             }
         }
         .navigationTitle("Swipe Actions")
-        .miniPlayerInset()
     }
 
     private func picker(_ slot: Int, in actions: Binding<[SwipeAction?]>) -> some View {

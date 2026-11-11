@@ -25,7 +25,6 @@ struct PerformersView: View {
         }
         .searchable(text: $query)
         .navigationTitle("Performers")
-        .miniPlayerInset()
     }
 }
 
@@ -52,7 +51,6 @@ struct PerformerView: View {
             }
         }
         .navigationTitle(performer.name)
-        .miniPlayerInset()
     }
 }
 

@@ -345,6 +345,36 @@ struct PlaybackSessionTests {
         #expect(engine.loads.last == load("a", movements: 3, from: 1, at: 4))
     }
 
+    /// A scrub on the timeline ends in any movement of the playing item.
+    @Test func seekToAnotherMovementMovesThereAtOnce() throws {
+        let (session, engine) = try makeSession()
+        session.play(item("a", movements: 3))
+        session.seek(movement: 2, to: 4)
+        #expect(session.state.movement == 2)
+        #expect(session.state.position == 4)
+        #expect(!session.state.isPaused)
+        #expect(engine.loads.last == load("a", movements: 3, from: 2, at: 4))
+    }
+
+    @Test func aPausedSeekToAnotherMovementStaysPaused() throws {
+        let (session, engine) = try makeSession()
+        session.play(item("a", movements: 3))
+        session.pause()
+        session.seek(movement: 2, to: 4)
+        #expect(session.state.isPaused)
+        #expect(session.state.movement == 2)
+        #expect(session.state.position == 4)
+        #expect(engine.loads.count == 1)
+    }
+
+    @Test func seekToAMovementThatTheItemDoesNotHaveChangesNothing() throws {
+        let (session, engine) = try makeSession()
+        session.play(item("a", movements: 3))
+        session.seek(movement: 3, to: 4)
+        #expect(session.state.movement == 0)
+        #expect(engine.loads.count == 1)
+    }
+
     @Test func pauseAndResumeKeepTheEngine() throws {
         let (session, engine) = try makeSession()
         session.play(item("a"))

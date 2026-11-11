@@ -109,7 +109,6 @@ struct DiagnosticsView: View {
             }
         }
         .navigationTitle("Diagnostics")
-        .miniPlayerInset()
         .refreshable { await model.check() }
     }
 

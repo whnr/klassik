@@ -103,6 +103,8 @@ struct Song: Codable, Sendable, Identifiable, Hashable {
     var year: Int?
     var duration: Int?
     var suffix: String?
+    /// The ID of the cover for `getCoverArt`.
+    var coverArt: String?
     var genre: String?
     var genres: [Genre]?
     var displayComposer: String?
@@ -224,6 +226,11 @@ struct SubsonicClient: Sendable {
     }
 
     /// `format=raw` asks for the original file: a transcoded stream loses the MP3 gapless header.
+    /// The address of a cover, scaled by the server to `size` pixels on its longer side.
+    func coverArtURL(id: String, size: Int) -> URL {
+        url("getCoverArt", [URLQueryItem(name: "id", value: id), URLQueryItem(name: "size", value: String(size))])
+    }
+
     func streamURL(songID: String) -> URL {
         url("stream", [URLQueryItem(name: "id", value: songID), URLQueryItem(name: "format", value: "raw")])
     }

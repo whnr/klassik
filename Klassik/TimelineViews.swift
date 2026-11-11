@@ -48,7 +48,6 @@ struct WorkTimelineView: View {
             }
         }
         .navigationTitle("Chronology")
-        .miniPlayerInset()
     }
 }
 

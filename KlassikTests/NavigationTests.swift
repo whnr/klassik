@@ -96,6 +96,30 @@ struct NavigatorTests {
         #expect(navigator.selection == .library)
     }
 
+    @Test func backLeavesThePageOnTopOfTheShownPlace() {
+        let navigator = Navigator<String>()
+        navigator.open("composer", in: .library)
+        navigator.open("work", in: .library)
+        navigator.back()
+        #expect(navigator.selection == .library)
+        #expect(navigator.pages(in: .library) == ["composer"])
+    }
+
+    @Test func backOnARootReturnsToThePlaceItWasReachedFrom() {
+        let navigator = Navigator<String>()
+        navigator.open("composer", in: .library)
+        navigator.select(.chronology)
+        navigator.back()
+        #expect(navigator.selection == .library)
+        #expect(navigator.pages(in: .library) == ["composer"])
+    }
+
+    @Test func backOnLibraryAtLaunchDoesNothing() {
+        let navigator = Navigator<String>()
+        navigator.back()
+        #expect(navigator.selection == .library)
+    }
+
     @Test func linkToAPageInTheStackPushesItAgain() {
         let navigator = Navigator<String>()
         for page in ["composer", "work", "recording", "composer"] { navigator.open(page, in: .library) }

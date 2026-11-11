@@ -25,7 +25,6 @@ struct LibraryView: View {
             }
         }
         .navigationTitle("Library")
-        .miniPlayerInset()
         .toolbar {
             ToolbarItem(placement: .topBarLeading) { EditButton() }
             ToolbarItem(placement: .topBarTrailing) {
@@ -95,7 +94,6 @@ struct ComposersView: View {
             }
         }
         .navigationTitle("Composers")
-        .miniPlayerInset()
     }
 }
 
@@ -133,6 +131,5 @@ struct FavouritesView: View {
             }
         }
         .navigationTitle("Favourites")
-        .miniPlayerInset()
     }
 }

@@ -29,10 +29,19 @@ struct NavigatorTests {
         #expect(navigator.pages(in: .library) == ["composer"])
     }
 
-    @Test func libraryHasNoBackArrow() {
+    @Test func libraryAtLaunchHasNoBackArrow() {
+        let navigator = Navigator<String>()
+        #expect(navigator.backTarget(for: .library) == nil)
+    }
+
+    @Test func libraryReachedFromAnotherPlaceGoesBackToIt() {
         let navigator = Navigator<String>()
         navigator.select(.settings)
+        navigator.open("page", in: .settings)
         navigator.select(.library)
+        #expect(navigator.backTarget(for: .library) == Origin(place: .settings, page: "page"))
+        navigator.goBack(from: .library)
+        #expect(navigator.selection == .settings)
         #expect(navigator.backTarget(for: .library) == nil)
     }
 
@@ -84,6 +93,30 @@ struct NavigatorTests {
     @Test func backFromAPlaceThatShowsLibraryDoesNothing() {
         let navigator = Navigator<String>()
         navigator.goBack(from: .library)
+        #expect(navigator.selection == .library)
+    }
+
+    @Test func backLeavesThePageOnTopOfTheShownPlace() {
+        let navigator = Navigator<String>()
+        navigator.open("composer", in: .library)
+        navigator.open("work", in: .library)
+        navigator.back()
+        #expect(navigator.selection == .library)
+        #expect(navigator.pages(in: .library) == ["composer"])
+    }
+
+    @Test func backOnARootReturnsToThePlaceItWasReachedFrom() {
+        let navigator = Navigator<String>()
+        navigator.open("composer", in: .library)
+        navigator.select(.chronology)
+        navigator.back()
+        #expect(navigator.selection == .library)
+        #expect(navigator.pages(in: .library) == ["composer"])
+    }
+
+    @Test func backOnLibraryAtLaunchDoesNothing() {
+        let navigator = Navigator<String>()
+        navigator.back()
         #expect(navigator.selection == .library)
     }
 

@@ -18,6 +18,5 @@ struct SearchView: View {
             }
         }
         .navigationTitle("Search")
-        .miniPlayerInset()
     }
 }

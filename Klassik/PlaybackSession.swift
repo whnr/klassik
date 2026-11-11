@@ -215,8 +215,15 @@ final class PlaybackSession {
     /// Moves to a position in the current movement. The movements after it schedule again, as after a skip,
     /// so they still join without a gap. A paused player stays paused.
     func seek(to seconds: Double) {
-        guard let item, let movement else { return }
-        start(item, from: movement, offset: seconds, paused: !playback.wantsPlayback)
+        guard let movement else { return }
+        seek(movement: movement, to: seconds)
+    }
+
+    /// Moves to a position in any movement of the item that plays, as a scrub on the timeline does. A paused
+    /// player stays paused.
+    func seek(movement index: Int, to seconds: Double) {
+        guard let item, item.recording.songs.indices.contains(index) else { return }
+        start(item, from: index, offset: seconds, paused: !playback.wantsPlayback)
     }
 
     func togglePause() {

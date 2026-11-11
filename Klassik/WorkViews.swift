@@ -56,7 +56,6 @@ struct ComposerView: View {
             }
         }
         .navigationTitle(composer.name)
-        .miniPlayerInset()
         .toolbar { ShuffleButton(works: composer.works) }
     }
 }
@@ -257,7 +256,6 @@ struct WorkView: View {
             }
         }
         .navigationTitle(work.title)
-        .miniPlayerInset()
     }
 }
 

@@ -53,10 +53,20 @@ final class Navigator<Page: Hashable> {
         selection = place
     }
 
-    /// Where the back arrow of a place goes: the page it was opened from, else Library. Library has no arrow.
+    /// Where the back arrow of a place goes: the page it was opened from, else Library. Library at launch has
+    /// no place behind it, so it has no arrow (ADR 0038).
     func backTarget(for place: Place) -> Origin? {
-        guard place != .library else { return nil }
+        guard place != .library else { return origins[place] }
         return origins[place] ?? Origin(place: .library, page: nil)
+    }
+
+    /// Leaves the page on top of the place that shows, or goes back to the place before from its root.
+    func back() {
+        if pages(in: selection).isEmpty {
+            goBack(from: selection)
+        } else {
+            stacks[selection]?.removeLast()
+        }
     }
 
     /// Returns to the page that the place was opened from.

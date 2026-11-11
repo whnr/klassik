@@ -1,6 +1,6 @@
 # 0038. Standard tabs, and a back arrow on a root reached from another tab
 
-Date: 2026-11-11. Decided by Flo after the slice 2 review (PR #17). Beads: sz-rs30.1.105.21, sz-rs30.1.105.23. Replaces the rule of [0018](0018-stack-and-back.md) that a page is in the stack once. Replaces the rule of [0018](0018-stack-and-back.md) that the back button shows the name of the page behind. Replaces the named arrow of [0029](0029-search-at-the-top.md). Replaces the clause of [0015](0015-player-page.md) that the mini player jumps back to a page that the stack holds.
+Date: 2026-11-11. Decided by Flo after the slice 2 review (PR #17). Beads: sz-rs30.1.105.21, sz-rs30.1.105.23. Replaces the rule of [0018](0018-stack-and-back.md) that a page is in the stack once. Replaces the rule of [0018](0018-stack-and-back.md) that the back button shows the name of the page behind. Replaces the named arrow of [0029](0029-search-at-the-top.md). Replaces the clause of [0015](0015-player-page.md) that the mini player jumps back to a page that the stack holds. Replaces the rule of [0029](0029-search-at-the-top.md) that Library has no back arrow.
 
 ## Context
 
@@ -15,7 +15,8 @@ The root of Chronology, Search or Settings has no system back button, so ADR 002
 - The system back button shows the chevron only. Its accessibility label names the page behind. Bead sz-rs30.1.105.23 revisits the name at the end of the rebuild.
 - A tab root that the listener reached from another tab shows an arrow. A tap on the tab or a link to a place, such as a link that opens Chronology, reaches it.
 - The arrow copies the system back button: a toolbar button in the leading position, the chevron `chevron.backward`, no name. Its accessibility label names the target.
-- The arrow returns to the previous tab. That tab shows its page as the listener left it. A place opened with no place behind returns to Library. Library has no arrow.
+- The arrow returns to the previous tab. That tab shows its page as the listener left it. A place opened with no place behind returns to Library.
+- Library shows the arrow too when the listener reached it from another tab (Flo, 2026-11-11, sz-rs30.1.105.21). At launch, Library has no place behind it and no arrow.
 - A swipe from the left edge of such a root does the same as the arrow. It acts when the swipe ends, without a peel of the page. One `UIScreenEdgePanGestureRecognizer` does it.
 - The recogniser is off on every pushed page, where the system swipe works.
 

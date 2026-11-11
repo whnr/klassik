@@ -32,9 +32,9 @@ final class PlacesScreens: ScreensTestCase {
     func testFourPlaces() throws {
         let app = try launchAndConnect(openComposers: false)
         for name in ["Library", "Chronology", "Search", "Settings"] {
-            XCTAssertTrue(app.tabBars.buttons[name].exists, "No tab \(name)")
+            XCTAssertTrue(tab(app, name).exists, "No tab \(name)")
         }
-        // Library is the root of the app and has no back arrow.
+        // At launch, Library has no place behind it and no back arrow.
         XCTAssertFalse(app.buttons["place-back"].exists)
 
         openPlace(app, "Chronology")
@@ -53,6 +53,11 @@ final class PlacesScreens: ScreensTestCase {
         app.buttons["place-back"].tap()
         XCTAssertTrue(app.navigationBars["Search"].waitForExistence(timeout: 10))
         expectBackArrow(app, to: "Chronology")
+
+        // Library reached from another place shows the arrow too (ADR 0038).
+        openPlace(app, "Library")
+        expectBackArrow(app, to: "Search")
+        snap(app, "02l-library-back-arrow")
     }
 
     @MainActor
@@ -75,7 +80,7 @@ final class PlacesScreens: ScreensTestCase {
         expectBackArrow(app, to: "Library")
         swipeFromLeftEdge(app)
         XCTAssertTrue(app.buttons["place-back"].waitForNonExistence(timeout: 10), "The swipe did not go back")
-        XCTAssertTrue(app.tabBars.buttons["Library"].isSelected)
+        XCTAssertTrue(tab(app, "Library").isSelected)
         XCTAssertTrue(app.buttons["library-composers"].exists)
     }
 
@@ -298,7 +303,7 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(add.waitForExistence(timeout: 10))
         add.tap()
 
-        miniPlayer.tap()
+        miniPlayer.buttons["mini-player-cover"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["playback-progress"].waitForExistence(timeout: 10))
         snap(app, "07-now-playing")
         let queued = app.buttons.matching(identifier: "up-next").firstMatch
@@ -318,6 +323,117 @@ final class PlaybackScreens: ScreensTestCase {
             .firstMatch
         XCTAssertTrue(reference.waitForExistence(timeout: 10))
         snap(app, "05b-work-reference")
+    }
+}
+
+/// The timeline on the screen edge and the mini player in the tab row (ADR 0014, 0028, 0035).
+final class TimelineScreens: ScreensTestCase {
+    /// With nothing playing, pages show neither the timeline nor the mini player.
+    @MainActor
+    func testNothingPlaying() throws {
+        let app = try launchAndConnect()
+        XCTAssertTrue(tab(app, "Library").isSelected)
+        XCTAssertFalse(timeline(app).exists)
+        XCTAssertFalse(app.descendants(matching: .any)["mini-player"].exists)
+        snap(app, "15-nothing-playing")
+
+        openRecording(app)
+        playPaused(app)
+        XCTAssertTrue(timeline(app).exists)
+        app.buttons["Stop"].firstMatch.tap()
+        XCTAssertTrue(timeline(app).waitForNonExistence(timeout: 10), "The timeline stays after Stop")
+        XCTAssertFalse(app.descendants(matching: .any)["mini-player"].exists)
+        snap(app, "15a-stopped")
+    }
+
+    /// The timeline runs down the right edge into the pill. The pill sits in the tab row beside the tabs.
+    @MainActor
+    func testTimelineAndPill() throws {
+        let app = try launchAndConnect()
+        let pill = pausedPlayerInLibrary(app)
+        let bar = timeline(app)
+        XCTAssertTrue(bar.exists)
+        XCTAssertEqual(bar.frame.maxX, app.frame.maxX, accuracy: 1, "The timeline is not on the right edge")
+        XCTAssertGreaterThan(bar.frame.minY, 40, "The timeline runs into the status bar")
+        let frame = pillFrame(pill)
+        XCTAssertEqual(frame.maxX, app.frame.maxX, accuracy: 1, "The pill is not flush with the edge")
+        XCTAssertEqual(
+            pill.buttons["mini-player-cover"].frame.maxX, app.frame.maxX, accuracy: 1,
+            "A tap at the screen edge misses the cover")
+        XCTAssertEqual(app.frame.maxY - frame.maxY, 21, accuracy: 1, "The tab row is not where the system puts it")
+        XCTAssertEqual(bar.frame.maxY, frame.minY, accuracy: 1, "The timeline does not run into the pill")
+        let row = app.descendants(matching: .any)["tab-row"].firstMatch
+        XCTAssertEqual(frame.minY, row.frame.minY, accuracy: 1, "The pill is not in the tab row")
+        XCTAssertLessThanOrEqual(tab(app, "Search").frame.maxX, frame.minX, "The tabs run under the pill")
+        XCTAssertTrue(pill.buttons["mini-player-cover"].exists)
+        XCTAssertEqual(pill.buttons["mini-player-pause"].label, "Resume")
+        snap(app, "15b-timeline-right")
+
+        // The cover opens the page of what plays. There, the pill holds only play/pause.
+        pill.buttons["mini-player-cover"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["playback-progress"].waitForExistence(timeout: 10))
+        XCTAssertFalse(pill.buttons["mini-player-cover"].exists)
+        snap(app, "15c-player-pill")
+    }
+
+    /// A vertical drag moves the paused music to the place under the finger. A tap plays the movement under it.
+    @MainActor
+    func testScrubAndTap() throws {
+        let app = try launchAndConnect()
+        let pill = pausedPlayerInLibrary(app)
+        let bar = timeline(app)
+        let start = bar.value as? String ?? ""
+        bar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.1))
+            .press(forDuration: 0.1, thenDragTo: bar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95)))
+        let moved = expectation(for: NSPredicate(format: "value != %@", start), evaluatedWith: bar)
+        XCTAssertEqual(XCTWaiter.wait(for: [moved], timeout: 5), .completed, "The scrub did not move: \(start)")
+        XCTAssertEqual(pill.buttons["mini-player-pause"].label, "Resume", "The scrub started the music")
+        snap(app, "15d-scrubbed")
+
+        bar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.02)).tap()
+        let first = expectation(for: NSPredicate(format: "value BEGINSWITH 'Movement 1 of'"), evaluatedWith: bar)
+        XCTAssertEqual(XCTWaiter.wait(for: [first], timeout: 5), .completed, bar.value as? String ?? "")
+        let pause = pill.buttons["mini-player-pause"]
+        if pause.label == "Pause" { pause.tap() }
+    }
+
+    /// On the left edge, a swipe from the edge goes back a page or a place. It never scrubs.
+    @MainActor
+    func testTimelineOnTheLeft() throws {
+        let app = try launchAndConnect(arguments: ["-\(timelineSideKey)", "left"])
+        openRecording(app)
+        playPaused(app)
+        let bar = timeline(app)
+        XCTAssertTrue(bar.exists)
+        XCTAssertEqual(bar.frame.minX, 0, accuracy: 1, "The timeline is not on the left edge")
+        let pill = app.descendants(matching: .any)["mini-player"].firstMatch
+        XCTAssertEqual(pillFrame(pill).minX, 0, accuracy: 1, "The pill is not flush with the left edge")
+        snap(app, "15e-timeline-left")
+
+        let place = bar.value as? String ?? ""
+        swipeFromLeftEdge(app)
+        XCTAssertTrue(
+            app.buttons.matching(identifier: "recording").firstMatch.waitForExistence(timeout: 10),
+            "The swipe did not go back to the work")
+        XCTAssertEqual(bar.value as? String, place, "The swipe scrubbed")
+
+        back(app, times: 2)
+        openPlace(app, "Chronology")
+        expectBackArrow(app, to: "Composers")
+        swipeFromLeftEdge(app)
+        XCTAssertTrue(tab(app, "Library").waitForSelection(timeout: 10), "The swipe did not go back to Library")
+        XCTAssertEqual(bar.value as? String, place, "The swipe scrubbed")
+        snap(app, "15f-left-back")
+    }
+
+    /// The listener picks the edge in Settings.
+    @MainActor
+    func testTimelineSetting() throws {
+        let app = try launchAndConnect(arguments: ["-\(timelineSideKey)", "right"])
+        _ = pausedPlayerInLibrary(app)
+        openPlace(app, "Settings")
+        XCTAssertTrue(reveal(app.descendants(matching: .any)["timeline-side"].firstMatch, in: app).exists)
+        snap(app, "15g-timeline-setting")
     }
 }
 
@@ -520,12 +636,26 @@ class ScreensTestCase: XCTestCase {
         edge.press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.5)))
     }
 
+    /// The key of the timeline edge in the user defaults. A launch argument sets it for one run.
+    let timelineSideKey = "timeline.side"
+
+    /// A place in the tab bar, which Klassik draws by hand beside the mini player.
+    @MainActor
+    func tab(_ app: XCUIApplication, _ name: String) -> XCUIElement {
+        app.buttons["tab-\(name.lowercased())"]
+    }
+
     /// Taps a place in the tab bar.
     @MainActor
     func openPlace(_ app: XCUIApplication, _ name: String) {
-        let tab = app.tabBars.buttons[name]
+        let tab = tab(app, name)
         XCTAssertTrue(tab.waitForExistence(timeout: 10), "No tab \(name)")
         tab.tap()
+    }
+
+    @MainActor
+    func timeline(_ app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any)["timeline"].firstMatch
     }
 
     @MainActor
@@ -569,6 +699,13 @@ class ScreensTestCase: XCTestCase {
         XCTAssertTrue(app.buttons["Resume"].firstMatch.waitForExistence(timeout: 10))
     }
 
+    /// The frame of the mini player. Its buttons take its padding and fill it to its edges. XCUITest reports the
+    /// container with only part of its content, so its own frame does not show the pill.
+    @MainActor
+    func pillFrame(_ pill: XCUIElement) -> CGRect {
+        pill.buttons.allElementsBoundByIndex.map(\.frame).reduce(CGRect.null) { $0.union($1) }
+    }
+
     /// Opens a recording, leaves it paused in the player and goes back to the list of composers.
     @MainActor
     func pausedPlayerInLibrary(_ app: XCUIApplication) -> XCUIElement {
@@ -580,19 +717,19 @@ class ScreensTestCase: XCTestCase {
         return miniPlayer
     }
 
-    /// Scrolls down until the element is on screen and clear of the mini player.
+    /// Scrolls down until the element is on screen and clear of the tab row and the mini player.
     /// Lists create rows only when they come near the screen.
     /// A short drag has no momentum, so it cannot move the element past the screen.
     @MainActor
     @discardableResult
     func reveal(_ element: XCUIElement, in app: XCUIApplication) -> XCUIElement {
-        let bar = app.descendants(matching: .any)["mini-player"].firstMatch
+        let row = app.descendants(matching: .any)["tab-row"].firstMatch
         let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
         let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35))
         for _ in 0..<14 {
             if element.exists {
-                // A tap on a row below the mini player opens the player.
-                let floor = bar.exists ? bar.frame.minY : app.frame.maxY
+                // A tap on a row under the tab row would open a place or the player.
+                let floor = row.exists ? row.frame.minY : app.frame.maxY
                 if element.frame.maxY <= floor, element.isHittable { return element }
             }
             from.press(forDuration: 0.05, thenDragTo: to)
@@ -606,5 +743,13 @@ class ScreensTestCase: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+}
+
+extension XCUIElement {
+    /// Waits until the element carries the selected trait.
+    func waitForSelection(timeout: TimeInterval) -> Bool {
+        let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isSelected == true"), object: self)
+        return XCTWaiter.wait(for: [selected], timeout: timeout) == .completed
     }
 }

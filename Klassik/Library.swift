@@ -52,7 +52,8 @@ final class Library {
             return
         }
         owner = (cache.server, cache.username)
-        marker = cache.marker
+        // An older cache lacks fields that a sync fills, so it syncs even when the server did not change.
+        marker = cache.isCurrent ? cache.marker : nil
         show(cache.songs, syncedAt: cache.syncedAt)
     }
 
@@ -129,11 +130,17 @@ final class Library {
 }
 
 struct LibraryCache: Codable, Sendable {
+    /// Goes up when a sync fills a song field that older caches lack.
+    static let currentFormat = 2
+
     var server: URL
     var username: String
     var syncedAt: Date
     var songs: [Song]
     var marker: String?
+    var format: Int? = Self.currentFormat
+
+    var isCurrent: Bool { format == Self.currentFormat }
 
     static func read(from url: URL) throws -> LibraryCache {
         try JSONDecoder().decode(LibraryCache.self, from: Data(contentsOf: url))

@@ -118,7 +118,6 @@ struct PageView: View {
         case .recording(let work, let recording):
             if let found = library.recording(work: work, recording: recording) {
                 RecordingView(work: found.work, recording: found.recording)
-                    .miniPlayerInset()
             } else {
                 Gone()
             }
@@ -161,6 +160,5 @@ struct PageView: View {
 private struct Gone: View {
     var body: some View {
         ContentUnavailableView("Page Not Found", systemImage: "questionmark.folder")
-            .miniPlayerInset()
     }
 }

@@ -112,6 +112,28 @@ struct LibraryTests {
         #expect(read.server == cache.server)
     }
 
+    /// A cache from before a new song field must not skip the sync, or the field stays empty until the server
+    /// changes.
+    @Test func aCacheWithoutTheCurrentFormatIsNotCurrent() throws {
+        let url = FileManager.default.temporaryDirectory.appending(path: "\(UUID().uuidString)/library.json")
+        let cache = LibraryCache(
+            server: URL(string: "https://music.example.org")!, username: "joe",
+            syncedAt: Date(timeIntervalSince1970: 0), songs: [], marker: "m")
+        #expect(cache.isCurrent)
+        var json = try #require(try JSONSerialization.jsonObject(with: JSONEncoder().encode(cache)) as? [String: Any])
+        json["format"] = nil
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try JSONSerialization.data(withJSONObject: json).write(to: url)
+        let read = try LibraryCache.read(from: url)
+        #expect(!read.isCurrent)
+        #expect(read.marker == "m")
+    }
+
+    @Test func aSongKeepsItsCoverArt() throws {
+        let json = #"{"id":"t1","title":"Allegro","coverArt":"al-1"}"#
+        #expect(try JSONDecoder().decode(Song.self, from: Data(json.utf8)).coverArt == "al-1")
+    }
+
     @MainActor @Test func filterIsKeptOnDevice() throws {
         let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
         let url = FileManager.default.temporaryDirectory.appending(path: "\(UUID().uuidString).json")

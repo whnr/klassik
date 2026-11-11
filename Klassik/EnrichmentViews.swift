@@ -90,7 +90,6 @@ struct EnrichmentStatusView: View {
             }
         }
         .navigationTitle("MusicBrainz")
-        .miniPlayerInset()
     }
 }
 
@@ -115,6 +114,5 @@ struct WorkListView: View {
             }
         }
         .navigationTitle(title)
-        .miniPlayerInset()
     }
 }

@@ -62,7 +62,6 @@ struct LocalStorageView: View {
             }
         }
         .navigationTitle("Local Storage")
-        .miniPlayerInset()
     }
 
     private static func size(_ bytes: Int64) -> String {

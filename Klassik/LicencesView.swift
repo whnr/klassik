@@ -15,6 +15,5 @@ struct LicencesView: View {
             }
         }
         .navigationTitle("Licences")
-        .miniPlayerInset()
     }
 }

@@ -340,6 +340,7 @@ struct RecordingView: View {
                         }
                         Spacer()
                         Button("Next", systemImage: "forward.fill") { player.next() }
+                            .disabled(!player.hasNext)
                         Spacer()
                         Button("Next Work", systemImage: "forward.end.fill") { player.nextItem() }
                             .disabled(player.upNext.isEmpty)

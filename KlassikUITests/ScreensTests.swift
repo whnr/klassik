@@ -201,6 +201,19 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(reveal(playing, in: app).exists, "No movement shows the playing mark")
     }
 
+    /// Next has nowhere to go on the last movement of the last item.
+    @MainActor
+    func testNextEndsAtTheLastMovement() throws {
+        let app = try launchAndConnect()
+        openRecording(app)
+        app.buttons["play-recording"].tap()
+        let next = app.buttons["Next"].firstMatch
+        XCTAssertTrue(next.waitForExistence(timeout: 30), "No Next button")
+        for _ in 0..<12 where next.isEnabled { next.tap() }
+        XCTAssertFalse(next.isEnabled, "Next stays on at the last movement")
+        snap(app, "05d-next-ends")
+    }
+
     @MainActor
     func testDownload() throws {
         let app = try launchAndConnect()

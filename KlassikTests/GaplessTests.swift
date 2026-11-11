@@ -71,7 +71,7 @@ final class GaplessTests: XCTestCase {
         let skip = Int(Self.sampleRate)
         let seeked = try Self.joins(files, skip: skip) { file, index in
             let range = headers[index]?.playableRange(decodedLength: file.length) ?? 0..<file.length
-            return index == 0 ? Player.seekRange(range, to: 1, sampleRate: Self.sampleRate) : range
+            return index == 0 ? GaplessEngine.seekRange(range, to: 1, sampleRate: Self.sampleRate) : range
         }
         report += [
             "Engine, whole decoded files: start \(whole.start), shift after each join \(whole.shifts)",

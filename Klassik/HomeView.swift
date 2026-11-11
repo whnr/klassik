@@ -5,7 +5,7 @@ struct HomeView: View {
 
     var body: some View {
         let library = model.library
-        @Bindable var player = model.player
+        @Bindable var player = model.playback
         NavigationStack {
             PageList {
                 if !library.index.composers.isEmpty {
@@ -181,7 +181,7 @@ struct AlbumsView: View {
     private struct Row: Identifiable {
         var id: String
         var name: String
-        var item: Player.Item
+        var item: QueueItem
     }
 
     private var rows: [Row] {
@@ -190,7 +190,7 @@ struct AlbumsView: View {
                 WorkIndex.album(tracks).map { album in
                     Row(
                         id: key, name: album.work.title,
-                        item: Player.Item(work: album.work, recording: album.recording))
+                        item: QueueItem(work: album.work, recording: album.recording))
                 }
             }
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }

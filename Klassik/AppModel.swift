@@ -3,7 +3,9 @@ import Observation
 
 @MainActor @Observable
 final class AppModel {
-    private(set) var credentials: ServerCredentials?
+    private(set) var credentials: ServerCredentials? {
+        didSet { updateServer() }
+    }
     private(set) var serverInfo: ServerInfo?
     private(set) var lastCheck: Date?
     private(set) var lastError: String?
@@ -12,7 +14,7 @@ final class AppModel {
 
     let library: Library
     let tracks: TrackStore
-    let player: Player
+    let playback: PlaybackSession
     let enrichment: Enrichment
     let swipes = SwipeSettings()
     private let store: CredentialStore
@@ -23,7 +25,7 @@ final class AppModel {
         self.store = store
         self.library = library
         tracks = TrackStore()
-        player = Player(store: tracks)
+        playback = PlaybackSession(engine: GaplessEngine(), store: tracks)
         enrichment = Enrichment.forLaunch()
         // UI tests start from the connect screen.
         if ProcessInfo.processInfo.arguments.contains("-resetServer") {
@@ -33,6 +35,7 @@ final class AppModel {
             enrichment.clear()
         }
         credentials = store.load()
+        updateServer()
     }
 
     /// Returns the error text if the server rejects the login; nothing is saved then.
@@ -97,13 +100,18 @@ final class AppModel {
     }
 
     func signOut() {
-        player.stop()
+        playback.stop()
         tracks.clearAll()
         store.clear()
         library.clear()
         credentials = nil
         serverInfo = nil
         lastCheck = nil
+    }
+
+    /// The playback session reaches the server through the saved login.
+    private func updateServer() {
+        playback.server = client
     }
 
     private func record(_ error: Error) {

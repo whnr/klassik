@@ -81,7 +81,7 @@ private struct PerformerRow: View {
                 .foregroundStyle(Palette.textSecondary)
             }
         }
-        .itemActions(Player.Item(work: entry.work, recording: entry.recording), downloads: true, reference: true)
+        .itemActions(QueueItem(work: entry.work, recording: entry.recording), downloads: true, reference: true)
         .accessibilityIdentifier("recording")
     }
 }

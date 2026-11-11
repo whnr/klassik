@@ -92,7 +92,7 @@ struct PlaybackStateTests {
 
     @Test func headphoneRemovalPausesUntilExplicitPlay() {
         var state = playing()
-        #expect(state.handle(.routeChanged(oldDeviceUnavailable: true, headphonesRemoved: true)) == .pause)
+        #expect(state.handle(.routeChanged(oldDeviceUnavailable: true, headphonesRemoved: true)) == .suspend)
         #expect(!state.shouldPlay)
         #expect(state.handle(.configurationChanged) == .suspend)
         #expect(state.handle(.routeChanged(oldDeviceUnavailable: false, headphonesRemoved: false)) == .none)

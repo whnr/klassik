@@ -68,11 +68,10 @@ struct ShuffleButton: View {
 
     var body: some View {
         Button("Shuffle Works", systemImage: "shuffle") {
-            guard let client = model.client else { return }
             let items = works.shuffled().compactMap { work in
-                work.defaultRecording.map { Player.Item(work: work, recording: $0) }
+                work.defaultRecording.map { QueueItem(work: work, recording: $0) }
             }
-            model.player.play(items, client: client)
+            model.playback.play(queue: items)
         }
         .disabled(works.isEmpty)
         .accessibilityIdentifier("shuffle")
@@ -83,7 +82,7 @@ struct ShuffleButton: View {
 /// download and reference recording. The context menu holds all of them, as in Apple Music.
 private struct ItemActions: ViewModifier {
     @Environment(AppModel.self) private var model
-    let item: Player.Item
+    let item: QueueItem
     /// Only recordings and albums download, never a whole work.
     let downloads: Bool
     let reference: Bool
@@ -97,9 +96,7 @@ private struct ItemActions: ViewModifier {
                 ForEach(SwipeSettings.actions(model.swipes.leading)) { button(for: $0) }
             }
             .contextMenu {
-                Button("Play", systemImage: "play") {
-                    if let client = model.client { model.player.play([item], client: client) }
-                }
+                Button("Play", systemImage: "play") { model.playback.play(item) }
                 Button("Play Next", systemImage: "text.line.first.and.arrowtriangle.forward") { playNext() }
                 Button("Add to Queue", systemImage: "text.line.last.and.arrowtriangle.forward") { addToQueue() }
                 if downloads { downloadButton }
@@ -148,16 +145,16 @@ private struct ItemActions: ViewModifier {
     }
 
     private func playNext() {
-        if let client = model.client { model.player.playNext(item, client: client) }
+        model.playback.playNext(item)
     }
 
     private func addToQueue() {
-        if let client = model.client { model.player.addToQueue(item, client: client) }
+        model.playback.addToQueue(item)
     }
 }
 
 extension View {
-    @ViewBuilder func itemActions(_ item: Player.Item?, downloads: Bool = false, reference: Bool = false) -> some View {
+    @ViewBuilder func itemActions(_ item: QueueItem?, downloads: Bool = false, reference: Bool = false) -> some View {
         if let item { modifier(ItemActions(item: item, downloads: downloads, reference: reference)) } else { self }
     }
 }
@@ -198,7 +195,7 @@ private struct WorkRow: View {
                 .foregroundStyle(Palette.textSecondary)
             }
         }
-        .itemActions(work.defaultRecording.map { Player.Item(work: work, recording: $0) })
+        .itemActions(work.defaultRecording.map { QueueItem(work: work, recording: $0) })
         .accessibilityIdentifier("work")
     }
 }
@@ -222,7 +219,7 @@ struct WorkView: View {
                 }
                 if let recording = work.defaultRecording {
                     Button(recording.isReference ? "Play Reference Recording" : "Play", systemImage: "play.fill") {
-                        if let client = model.client { model.player.play(recording, of: work, client: client) }
+                        model.playback.play(QueueItem(work: work, recording: recording))
                     }
                     .accessibilityIdentifier("play-work")
                 }
@@ -258,7 +255,7 @@ struct WorkView: View {
                             .foregroundStyle(Palette.textSecondary)
                         }
                     }
-                    .itemActions(Player.Item(work: work, recording: recording), downloads: true, reference: true)
+                    .itemActions(QueueItem(work: work, recording: recording), downloads: true, reference: true)
                     .accessibilityIdentifier("recording")
                 }
             } header: {
@@ -303,19 +300,19 @@ struct RecordingView: View {
     let work: WorkIndex.Work
     let recording: WorkIndex.Recording
 
-    private var isPlayingThis: Bool { model.player.recording?.id == recording.id }
+    private var isPlayingThis: Bool { model.playback.recording?.id == recording.id }
 
     /// The whole album, if it holds more than this recording.
-    private var album: Player.Item? {
+    private var album: QueueItem? {
         guard !recording.isAlbum, let key = recording.songs.first?.albumKey,
             let album = WorkIndex.album(model.library.songs.filter { $0.albumKey == key }),
             album.recording.songs.count > recording.songs.count
         else { return nil }
-        return Player.Item(work: album.work, recording: album.recording)
+        return QueueItem(work: album.work, recording: album.recording)
     }
 
     var body: some View {
-        let player = model.player
+        let player = model.playback
         PageList {
             Section {
                 LabeledContent("Composer", value: work.composer)
@@ -354,7 +351,7 @@ struct RecordingView: View {
                         Spacer()
                         Button("Next", systemImage: "forward.fill") { player.next() }
                         Spacer()
-                        Button("Next Work", systemImage: "forward.end.fill") { player.nextWork() }
+                        Button("Next Work", systemImage: "forward.end.fill") { player.nextItem() }
                             .disabled(player.upNext.isEmpty)
                         Spacer()
                         Button("Stop", systemImage: "stop.fill") { player.stop() }
@@ -368,7 +365,7 @@ struct RecordingView: View {
                         .accessibilityIdentifier("play-recording")
                     if let album {
                         Button("Play Whole Album", systemImage: "square.stack") {
-                            if let client = model.client { player.play([album], client: client) }
+                            player.play(album)
                         }
                     }
                 }
@@ -393,7 +390,7 @@ struct RecordingView: View {
                             Text(recording.title(of: song))
                                 .ink()
                             Spacer()
-                            if isPlayingThis, player.current == index {
+                            if isPlayingThis, player.movement == index {
                                 if player.isLoading {
                                     ProgressView()
                                 } else {
@@ -458,20 +455,19 @@ struct RecordingView: View {
     }
 
     private func play(from index: Int) {
-        guard let client = model.client else { return }
-        model.player.play(recording, of: work, from: index, client: client)
+        model.playback.play(QueueItem(work: work, recording: recording), from: index)
     }
 }
 
 /// How far the current movement and the whole work have played.
 struct PlaybackProgress: View {
-    let player: Player
+    let player: PlaybackSession
     @ScaledMetric(space: .m) private var gap: CGFloat
     @ScaledMetric(space: .xs) private var lineGap: CGFloat
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 0.5)) { _ in
-            if let progress = player.progress(), let recording = player.recording {
+        Group {
+            if let progress = player.progress, let recording = player.recording {
                 VStack(alignment: .leading, spacing: gap) {
                     PositionSlider(
                         player: player, title: recording.title(of: recording.songs[progress.movement]),
@@ -524,7 +520,7 @@ struct PlaybackProgress: View {
 /// The position in the current movement. A drag moves playback when the finger lifts, so the movement does not
 /// restart for every step of the drag.
 private struct PositionSlider: View {
-    let player: Player
+    let player: PlaybackSession
     let title: String
     let elapsed: Double
     let duration: Double

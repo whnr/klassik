@@ -54,7 +54,8 @@ struct PlaybackState: Sendable {
         case .routeChanged(let oldDeviceUnavailable, let headphonesRemoved):
             guard oldDeviceUnavailable && headphonesRemoved else { return .none }
             wantsPlayback = false
-            return .pause
+            // The engine keeps a graph for the output that went away. Play must build a new one for the next output.
+            return .suspend
         case .configurationChanged:
             return shouldPlay ? .rebuild : .suspend
         case .mediaServicesLost:

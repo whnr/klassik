@@ -97,10 +97,6 @@ final class PlaybackScreens: ScreensTestCase {
         let pause = app.buttons["Pause"].firstMatch
         XCTAssertTrue(pause.waitForExistence(timeout: 30), "No Pause button")
         pause.tap()
-        // The mark is an image in the row. Not every system puts its label into the label of the row.
-        let playing = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS 'Now playing'"))
-            .firstMatch
-        XCTAssertTrue(playing.waitForExistence(timeout: 10), "No movement shows the playing mark")
         snap(app, "05-recording")
 
         // A paused player moves to the dragged position and stays paused.
@@ -113,6 +109,12 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [moved], timeout: 5), .completed, start)
         XCTAssertTrue(app.buttons["Resume"].firstMatch.exists)
         snap(app, "05c-seek")
+
+        // The movements are below the player, and a list creates a row only near the screen.
+        // The mark is an image in the row. Not every system puts its label into the label of the row.
+        let playing = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS 'Now playing'"))
+            .firstMatch
+        XCTAssertTrue(reveal(playing, in: app).exists, "No movement shows the playing mark")
     }
 
     @MainActor

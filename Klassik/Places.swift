@@ -73,17 +73,17 @@ struct TabRow: View {
     let side: TimelineSide
 
     /// The capsule around the items: as tall as the pill.
-    static let height = MiniPlayer.item + 2 * Space.xs.points
+    nonisolated static let height = MiniPlayer.item + 2 * Space.xs.points
     /// The distance from the screen bottom to the system tab bar on a phone with a home indicator.
-    static let homeIndicatorGap: CGFloat = 21
+    nonisolated static let homeIndicatorGap: CGFloat = 21
 
     /// The distance from the screen bottom to the row.
-    static func gap(safeArea bottom: CGFloat) -> CGFloat {
+    nonisolated static func gap(safeArea bottom: CGFloat) -> CGFloat {
         bottom > 0 ? homeIndicatorGap : Space.s.points
     }
 
     /// The height above the bottom safe area that a page keeps clear: the row and a gap of `Space.s` above it.
-    static func clearance(safeArea bottom: CGFloat) -> CGFloat {
+    nonisolated static func clearance(safeArea bottom: CGFloat) -> CGFloat {
         max(0, gap(safeArea: bottom) + height + Space.s.points - bottom)
     }
 

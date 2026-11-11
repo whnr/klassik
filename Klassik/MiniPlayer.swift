@@ -9,7 +9,7 @@ struct MiniPlayer: View {
     let side: TimelineSide
 
     /// The size of the button and the cover, as of the tab items beside them.
-    static let item: CGFloat = 48
+    nonisolated static let item: CGFloat = 48
     /// The corner toward the round screen corner.
     private static let edgeCorner: CGFloat = 12
 

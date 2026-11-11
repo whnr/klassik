@@ -16,7 +16,7 @@ final class TrackStore {
     }
 
     /// Loads one track and returns the temporary file. A test replaces it, so no test needs a server.
-    typealias Fetch = @MainActor (Song, SubsonicClient) async throws -> URL
+    typealias Fetch = @MainActor (Song, any ServerPort) async throws -> URL
 
     /// The limit counts whole gigabytes, in the same decimal unit that the screen uses for every size.
     static let gigabyte: Int64 = 1_000_000_000
@@ -75,7 +75,7 @@ final class TrackStore {
     }
 
     /// The local file of a track. A track that is not on the device downloads into the cache first.
-    func file(for song: Song, client: SubsonicClient) async throws -> URL {
+    func file(for song: Song, client: any ServerPort) async throws -> URL {
         let name = Self.fileName(song)
         let kept = downloadFolder.appending(path: name)
         if FileManager.default.fileExists(atPath: kept.path()) { return kept }
@@ -92,7 +92,7 @@ final class TrackStore {
     }
 
     /// Downloads every track of a recording. It runs in the background; `progress` shows how far it is.
-    func download(_ recording: WorkIndex.Recording, title: String, client: SubsonicClient) {
+    func download(_ recording: WorkIndex.Recording, title: String, client: any ServerPort) {
         guard tasks[recording.id] == nil, !isDownloaded(recording) else { return }
         failures[recording.id] = nil
         progress[recording.id] = 0
@@ -181,7 +181,7 @@ final class TrackStore {
         rescan()
     }
 
-    private func fetch(_ song: Song, to target: URL, client: SubsonicClient) async throws {
+    private func fetch(_ song: Song, to target: URL, client: any ServerPort) async throws {
         let temporary = try await load(song, client)
         try FileManager.default.createDirectory(
             at: target.deletingLastPathComponent(), withIntermediateDirectories: true)

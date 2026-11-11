@@ -10,7 +10,7 @@ struct MiniPlayer: View {
     @ScaledMetric(space: .xl) private var edge: CGFloat
 
     var body: some View {
-        let player = model.player
+        let player = model.playback
         if let work = player.work, let recording = player.recording {
             HStack(spacing: gap) {
                 VStack(alignment: .leading, spacing: lineGap) {
@@ -23,7 +23,7 @@ struct MiniPlayer: View {
                             .foregroundStyle(Palette.textSecondary)
                             .lineLimit(1)
                     }
-                    Text(player.current.map { recording.title(of: recording.songs[$0]) } ?? recording.performers)
+                    Text(player.movement.map { recording.title(of: recording.songs[$0]) } ?? recording.performers)
                         .typeStyle(.subheadline)
                         .foregroundStyle(Palette.textSecondary)
                         .lineLimit(1)
@@ -71,7 +71,7 @@ private struct NowPlayingView: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        if let work = model.player.work, let recording = model.player.recording {
+        if let work = model.playback.work, let recording = model.playback.recording {
             RecordingView(work: work, recording: recording)
                 .id(recording.id)
         } else {

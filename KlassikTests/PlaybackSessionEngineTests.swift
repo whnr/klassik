@@ -4,9 +4,10 @@ import Testing
 
 @testable import Klassik
 
+/// The session with the real engine, against the fixture server. Held completions stand in for the audio thread.
 @Suite(.serialized, .enabled(if: ProcessInfo.processInfo.environment["KLASSIK_SERVER_URL"] != nil))
 @MainActor
-struct PlayerTests {
+struct PlaybackSessionEngineTests {
     private final class Completions: Sendable {
         typealias Callback = @MainActor @Sendable () -> Void
         private let callbacks = Mutex<[Callback]>([])
@@ -46,16 +47,16 @@ struct PlayerTests {
         credentials: ServerCredentials(
             url: URL(string: "https://music.example.org")!, username: "fixture", password: "fixture"))
 
-    private func item(_ id: String, movements: Int = 1) -> Player.Item {
+    private func item(_ id: String, movements: Int = 1) -> QueueItem {
         let songs = (0..<movements).map {
             Song(id: "\(id)-\($0)", title: "Movement \($0 + 1)", duration: 2, suffix: "wav")
         }
         let recording = WorkIndex.Recording(id: id, album: id, performers: "Fixture", songs: songs)
         let work = WorkIndex.Work(id: id, title: id, composer: "Fixture", isTagged: false, recordings: [recording])
-        return Player.Item(work: work, recording: recording)
+        return QueueItem(work: work, recording: recording)
     }
 
-    private func makePlayer(_ completions: Completions, gate: DownloadGate? = nil) async throws -> Player {
+    private func makePlayer(_ completions: Completions, gate: DownloadGate? = nil) async throws -> PlaybackSession {
         let env = ProcessInfo.processInfo.environment
         let server = try #require(env["KLASSIK_SERVER_URL"].flatMap(ServerCredentials.normalizedURL))
         let fixtureClient = SubsonicClient(
@@ -79,7 +80,10 @@ struct PlayerTests {
                 try Task.checkCancellation()
                 return try clip(source, seconds: song.id == "first-0" ? 0.2 : 2)
             })
-        return Player(store: store, defaults: defaults, deliverCompletion: { completions.hold($0) })
+        let session = PlaybackSession(
+            engine: GaplessEngine(deliverCompletion: { completions.hold($0) }), store: store, defaults: defaults)
+        session.server = client
+        return session
     }
 
     private func clip(_ source: URL, seconds: Double) throws -> URL {
@@ -99,7 +103,7 @@ struct PlayerTests {
             if condition() { return }
             try await Task.sleep(for: .milliseconds(10))
         }
-        try #require(condition(), "Player did not reach the expected state")
+        try #require(condition(), "Session did not reach the expected state")
     }
 
     @Test(arguments: [false, true], [false, true])
@@ -112,7 +116,7 @@ struct PlayerTests {
         }
         let first = item("first")
         let second = item("second")
-        player.play(queued ? [first, second] : [first], client: client)
+        player.play(queue: queued ? [first, second] : [first])
         try await wait { completions.count == 1 }
 
         // Hold the audio-thread callback until Pause has reached the main actor.
@@ -129,7 +133,7 @@ struct PlayerTests {
         #expect(player.isPaused == !queued)
         #expect(player.error == nil)
         if queued {
-            try await wait { (player.progress()?.elapsed ?? 0) > 0 }
+            try await wait { (player.progress?.elapsed ?? 0) > 0 }
             #expect(player.item?.id == second.id)
         }
     }
@@ -146,26 +150,26 @@ struct PlayerTests {
         }
         let first = item("first", movements: 3)
         let queued = item("queued")
-        player.play([first, queued], client: client)
+        player.play(queue: [first, queued])
         try await wait { gate.isWaiting && completions.count == 1 }
         completions.deliver()
-        #expect(player.current == 1)
-        #expect(player.progress()?.movement == 1)
-        #expect(player.progress()?.elapsed == 0)
+        #expect(player.movement == 1)
+        #expect(player.progress?.movement == 1)
+        #expect(player.progress?.elapsed == 0)
 
         // The position task must run while the next movement has no scheduled segment.
         try await Task.sleep(for: .milliseconds(600))
-        #expect(player.current == 1)
-        #expect(player.progress()?.movement == 1)
+        #expect(player.movement == 1)
+        #expect(player.progress?.movement == 1)
         player.pause()
         player.resume()
-        #expect(player.current == 1)
+        #expect(player.movement == 1)
 
         if skip { player.next() }
         gate.release()
         let expected = skip ? 2 : 1
-        try await wait { player.progress()?.movement == expected && (player.progress()?.elapsed ?? 0) > 0 }
-        #expect(player.current == expected)
+        try await wait { player.progress?.movement == expected && (player.progress?.elapsed ?? 0) > 0 }
+        #expect(player.movement == expected)
         #expect(player.item?.id == first.id)
         #expect(player.upNext.map(\.id) == [queued.id])
         #expect(player.error == nil)
@@ -178,11 +182,11 @@ struct PlayerTests {
             player.stop()
             try? FileManager.default.removeItem(at: root)
         }
-        player.play([item("first")], client: client)
+        player.play(queue: [item("first")])
         try await wait { completions.count == 1 }
         player.pause()
         let replacement = item("replacement")
-        player.play([replacement], client: client)
+        player.play(queue: [replacement])
         completions.deliver()
         #expect(player.item?.id == replacement.id)
         #expect(!player.isPaused)

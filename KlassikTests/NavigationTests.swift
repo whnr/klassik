@@ -29,10 +29,19 @@ struct NavigatorTests {
         #expect(navigator.pages(in: .library) == ["composer"])
     }
 
-    @Test func libraryHasNoBackArrow() {
+    @Test func libraryAtLaunchHasNoBackArrow() {
+        let navigator = Navigator<String>()
+        #expect(navigator.backTarget(for: .library) == nil)
+    }
+
+    @Test func libraryReachedFromAnotherPlaceGoesBackToIt() {
         let navigator = Navigator<String>()
         navigator.select(.settings)
+        navigator.open("page", in: .settings)
         navigator.select(.library)
+        #expect(navigator.backTarget(for: .library) == Origin(place: .settings, page: "page"))
+        navigator.goBack(from: .library)
+        #expect(navigator.selection == .settings)
         #expect(navigator.backTarget(for: .library) == nil)
     }
 

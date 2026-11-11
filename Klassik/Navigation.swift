@@ -53,9 +53,10 @@ final class Navigator<Page: Hashable> {
         selection = place
     }
 
-    /// Where the back arrow of a place goes: the page it was opened from, else Library. Library has no arrow.
+    /// Where the back arrow of a place goes: the page it was opened from, else Library. Library at launch has
+    /// no place behind it, so it has no arrow (ADR 0038).
     func backTarget(for place: Place) -> Origin? {
-        guard place != .library else { return nil }
+        guard place != .library else { return origins[place] }
         return origins[place] ?? Origin(place: .library, page: nil)
     }
 

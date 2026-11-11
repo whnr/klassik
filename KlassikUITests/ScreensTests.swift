@@ -34,7 +34,7 @@ final class PlacesScreens: ScreensTestCase {
         for name in ["Library", "Chronology", "Search", "Settings"] {
             XCTAssertTrue(app.tabBars.buttons[name].exists, "No tab \(name)")
         }
-        // Library is the root of the app and has no back arrow.
+        // At launch, Library has no place behind it and no back arrow.
         XCTAssertFalse(app.buttons["place-back"].exists)
 
         openPlace(app, "Chronology")
@@ -53,6 +53,11 @@ final class PlacesScreens: ScreensTestCase {
         app.buttons["place-back"].tap()
         XCTAssertTrue(app.navigationBars["Search"].waitForExistence(timeout: 10))
         expectBackArrow(app, to: "Chronology")
+
+        // Library reached from another place shows the arrow too (ADR 0038).
+        openPlace(app, "Library")
+        expectBackArrow(app, to: "Search")
+        snap(app, "02l-library-back-arrow")
     }
 
     @MainActor

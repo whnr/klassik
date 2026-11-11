@@ -226,7 +226,8 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(reveal(playing, in: app).exists, "No movement shows the playing mark")
     }
 
-    /// Next has nowhere to go on the last movement of the last item.
+    /// Next has nowhere to go on the last movement of the last item. The fixture movements last about three
+    /// seconds, so the walk does as little as it can between the second Next and the check.
     @MainActor
     func testNextEndsAtTheLastMovement() throws {
         let app = try launchAndConnect()
@@ -234,7 +235,8 @@ final class PlaybackScreens: ScreensTestCase {
         app.buttons["play-recording"].tap()
         let next = app.buttons["Next"].firstMatch
         XCTAssertTrue(next.waitForExistence(timeout: 30), "No Next button")
-        for _ in 0..<12 where next.isEnabled { next.tap() }
+        next.tap()
+        next.tap()
         XCTAssertFalse(next.isEnabled, "Next stays on at the last movement")
         snap(app, "05d-next-ends")
     }

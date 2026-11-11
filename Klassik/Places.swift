@@ -58,6 +58,7 @@ struct PlaceStack<Root: View>: View {
                                 // The system back button of iOS 27 draws the chevron only. The label keeps the name.
                                 Image(systemName: "chevron.backward")
                                     .fontWeight(.semibold)
+                                    .foregroundStyle(.primary)
                             }
                             .accessibilityLabel(name)
                             .accessibilityIdentifier("place-back")

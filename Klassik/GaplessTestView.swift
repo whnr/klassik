@@ -11,9 +11,7 @@ struct GaplessTestView: View {
         PageList {
             Section {
                 ForEach(albums) { album in
-                    NavigationLink {
-                        GaplessAlbumView(album: album)
-                    } label: {
+                    NavigationLink(value: Page.gaplessAlbum(album)) {
                         VStack(alignment: .leading) {
                             Text(album.name)
                                 .ink()
@@ -102,7 +100,6 @@ struct GaplessAlbumView: View {
         }
         .navigationTitle(album.name)
         .miniPlayerInset()
-        .navigationBarTitleDisplayMode(.inline)
         .task {
             guard let client = model.client, songs.isEmpty else { return }
             songs = (try? await client.album(id: album.id).songs) ?? []

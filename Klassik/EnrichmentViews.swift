@@ -65,17 +65,13 @@ struct EnrichmentStatusView: View {
                     .accessibilityIdentifier("linked-count")
                 LabeledContent("With a Year", value: summary.dated.formatted())
                     .ink()
-                NavigationLink {
-                    WorkListView(title: "To Confirm", works: summary.toConfirm)
-                } label: {
+                NavigationLink(value: Page.worksToConfirm) {
                     LabeledContent("To Confirm", value: summary.toConfirm.count.formatted())
                         .ink()
                 }
                 .disabled(summary.toConfirm.isEmpty)
                 .accessibilityIdentifier("to-confirm")
-                NavigationLink {
-                    WorkListView(title: "No Match", works: summary.unmatched)
-                } label: {
+                NavigationLink(value: Page.worksWithoutMatch) {
                     LabeledContent("No Match", value: summary.unmatched.count.formatted())
                         .ink()
                 }
@@ -99,16 +95,14 @@ struct EnrichmentStatusView: View {
 }
 
 /// Works that need a look, each opening its dates and sources.
-private struct WorkListView: View {
+struct WorkListView: View {
     let title: String
     let works: [WorkIndex.Work]
 
     var body: some View {
         PageList {
             ForEach(works) { work in
-                NavigationLink {
-                    WorkSourcesView(work: work)
-                } label: {
+                NavigationLink(value: Page.sources(work: work.id)) {
                     VStack(alignment: .leading) {
                         Text(work.title)
                         Text(work.composer)

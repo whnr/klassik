@@ -178,9 +178,7 @@ private struct WorkRow: View {
     let work: WorkIndex.Work
 
     var body: some View {
-        NavigationLink {
-            WorkView(work: work)
-        } label: {
+        NavigationLink(value: Page.work(work.id)) {
             VStack(alignment: .leading) {
                 HStack {
                     Text(work.title)
@@ -227,11 +225,7 @@ struct WorkView: View {
 
             Section {
                 ForEach(work.recordings) { recording in
-                    NavigationLink {
-                        // Here and not in RecordingView, because the now-playing sheet also shows RecordingView.
-                        RecordingView(work: work, recording: recording)
-                            .miniPlayerInset()
-                    } label: {
+                    NavigationLink(value: Page.recording(work: work.id, recording: recording.id)) {
                         VStack(alignment: .leading) {
                             HStack {
                                 Text(recording.performers.isEmpty ? recording.album : recording.performers)
@@ -274,9 +268,7 @@ private struct ComposedRow: View {
 
     var body: some View {
         let enrichment = model.enrichment
-        NavigationLink {
-            WorkSourcesView(work: work)
-        } label: {
+        NavigationLink(value: Page.sources(work: work.id)) {
             if case .candidates = enrichment.link(of: work) {
                 InkLabel("Confirm the MusicBrainz Work", systemImage: "questionmark.circle")
             } else {
@@ -327,9 +319,7 @@ struct RecordingView: View {
                     LabeledContent("Year", value: String(year))
                         .ink()
                 }
-                NavigationLink {
-                    RawTagsView(work: work, recording: recording)
-                } label: {
+                NavigationLink(value: Page.rawTags(work: work.id, recording: recording.id)) {
                     Text("Tags and Grouping")
                         .ink()
                 }
@@ -440,7 +430,6 @@ struct RecordingView: View {
             }
         }
         .navigationTitle(work.title)
-        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if !recording.isAlbum {
                 Button(

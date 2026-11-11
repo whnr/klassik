@@ -1,5 +1,6 @@
 import CoreText
 import SwiftUI
+import TipKit
 import UIKit
 
 extension Palette {
@@ -111,21 +112,29 @@ extension ScaledMetric where Value == CGFloat {
 
 /// A `List` on Klassik's grounds. The system gives a list its own colours, and each row its own ground.
 struct PageList<Content: View>: View {
+    @Environment(\.showsBackTip) private var showsBackTip
     @ViewBuilder let content: Content
 
     var body: some View {
-        List { content.listRowBackground(Palette.backgroundRow.color) }
-            .grounds()
+        List {
+            if showsBackTip { TipView(BackTip()) }
+            content.listRowBackground(Palette.backgroundRow.color)
+        }
+        .grounds()
     }
 }
 
 /// A `Form` on Klassik's grounds.
 struct PageForm<Content: View>: View {
+    @Environment(\.showsBackTip) private var showsBackTip
     @ViewBuilder let content: Content
 
     var body: some View {
-        Form { content.listRowBackground(Palette.backgroundRow.color) }
-            .grounds()
+        Form {
+            if showsBackTip { TipView(BackTip()) }
+            content.listRowBackground(Palette.backgroundRow.color)
+        }
+        .grounds()
     }
 }
 

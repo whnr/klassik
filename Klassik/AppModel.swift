@@ -17,6 +17,7 @@ final class AppModel {
     let playback: PlaybackSession
     let enrichment: Enrichment
     let swipes = SwipeSettings()
+    let libraryRows = LibraryRows()
     private let store: CredentialStore
 
     var client: SubsonicClient? { credentials.map { SubsonicClient(credentials: $0) } }
@@ -33,6 +34,7 @@ final class AppModel {
             library.clear()
             tracks.clearAll()
             enrichment.clear()
+            libraryRows.reset()
         }
         credentials = store.load()
         updateServer()

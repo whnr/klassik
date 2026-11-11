@@ -49,6 +49,7 @@ struct MiniPlayer: View {
             .sheet(isPresented: $showsRecording) {
                 NavigationStack {
                     NowPlayingView()
+                        .navigationDestination(for: Page.self) { PageView(page: $0) }
                         .toolbar {
                             Button("Done", systemImage: "chevron.down") { showsRecording = false }
                         }

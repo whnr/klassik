@@ -11,9 +11,7 @@ struct PerformersView: View {
         }
         PageList {
             ForEach(performers) { performer in
-                NavigationLink {
-                    PerformerView(performer: performer)
-                } label: {
+                NavigationLink(value: Page.performer(performer.name)) {
                     LabeledContent(performer.name, value: performer.entries.count.formatted())
                         .ink()
                 }
@@ -63,10 +61,7 @@ private struct PerformerRow: View {
     let entry: WorkIndex.Performer.Entry
 
     var body: some View {
-        NavigationLink {
-            RecordingView(work: entry.work, recording: entry.recording)
-                .miniPlayerInset()
-        } label: {
+        NavigationLink(value: Page.recording(work: entry.work.id, recording: entry.recording.id)) {
             VStack(alignment: .leading) {
                 HStack {
                     Text(entry.recording.performers)

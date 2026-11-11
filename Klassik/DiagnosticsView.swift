@@ -77,9 +77,7 @@ struct DiagnosticsView: View {
             }
 
             Section("Playback") {
-                NavigationLink {
-                    GaplessTestView()
-                } label: {
+                NavigationLink(value: Page.gaplessTest) {
                     Text("Gapless Test")
                         .ink()
                 }

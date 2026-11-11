@@ -111,11 +111,7 @@ final class AppModel {
 
     /// The playback session reaches the server through the saved login.
     private func updateServer() {
-        if let client {
-            playback.server = client
-        } else {
-            playback.server = nil
-        }
+        playback.server = client
     }
 
     private func record(_ error: Error) {

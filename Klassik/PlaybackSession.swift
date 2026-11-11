@@ -96,6 +96,7 @@ final class PlaybackSession {
 
     private var playback = PlaybackState()
     private let notifications = PlaybackNotifications()
+    private let remoteTargets = RemoteCommandTargets()
     private var positionTask: Task<Void, Never>?
     /// Engine reconfiguration can erase its timeline before the notification reaches the main actor.
     private var checkpoint: (movement: Int, elapsed: Double)?
@@ -399,35 +400,47 @@ final class PlaybackSession {
         ]
     }
 
+    /// One handler for each remote command, ready for `addTarget`.
+    struct RemoteHandlers: Sendable {
+        typealias Handler = @Sendable (MPRemoteCommandEvent) -> MPRemoteCommandHandlerStatus
+        let play: Handler
+        let pause: Handler
+        let toggle: Handler
+        let next: Handler
+        let previous: Handler
+        let seek: Handler
+    }
+
+    /// The system calls these from a thread of its own. A closure that a main-actor method writes would be
+    /// main-actor too, and it would trap at entry on that thread. Here the closures have no actor.
+    nonisolated static func remoteHandlers(for session: PlaybackSession) -> RemoteHandlers {
+        func forward(_ command: RemoteCommand) -> RemoteHandlers.Handler {
+            { @Sendable [weak session] _ in
+                session?.receive(command)
+                return .success
+            }
+        }
+        return RemoteHandlers(
+            play: forward(.play), pause: forward(.pause), toggle: forward(.toggle), next: forward(.next),
+            previous: forward(.previous),
+            seek: { @Sendable [weak session] event in
+                guard let time = (event as? MPChangePlaybackPositionCommandEvent)?.positionTime else {
+                    return .commandFailed
+                }
+                session?.receive(.seek(time))
+                return .success
+            })
+    }
+
     private func registerRemoteCommands() {
         let center = MPRemoteCommandCenter.shared()
-        center.playCommand.addTarget { [weak self] _ in
-            self?.receive(.play)
-            return .success
-        }
-        center.pauseCommand.addTarget { [weak self] _ in
-            self?.receive(.pause)
-            return .success
-        }
-        center.togglePlayPauseCommand.addTarget { [weak self] _ in
-            self?.receive(.toggle)
-            return .success
-        }
-        center.nextTrackCommand.addTarget { [weak self] _ in
-            self?.receive(.next)
-            return .success
-        }
-        center.previousTrackCommand.addTarget { [weak self] _ in
-            self?.receive(.previous)
-            return .success
-        }
-        center.changePlaybackPositionCommand.addTarget { [weak self] event in
-            guard let time = (event as? MPChangePlaybackPositionCommandEvent)?.positionTime else {
-                return .commandFailed
-            }
-            self?.receive(.seek(time))
-            return .success
-        }
+        let handlers = Self.remoteHandlers(for: self)
+        remoteTargets.add(center.playCommand, handlers.play)
+        remoteTargets.add(center.pauseCommand, handlers.pause)
+        remoteTargets.add(center.togglePlayPauseCommand, handlers.toggle)
+        remoteTargets.add(center.nextTrackCommand, handlers.next)
+        remoteTargets.add(center.previousTrackCommand, handlers.previous)
+        remoteTargets.add(center.changePlaybackPositionCommand, handlers.seek)
     }
 
     private func observeAudioSession() {

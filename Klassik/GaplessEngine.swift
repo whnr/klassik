@@ -111,6 +111,8 @@ final class GaplessEngine: PlaybackEngine {
     private func schedule(
         _ songs: [Song], from index: Int, offset: Double, file source: PlaybackFileSource, generation: Int
     ) async {
+        // A `discard()` can run between `load` and the start of this task. Then no state may change.
+        guard generation == self.generation, !Task.isCancelled else { return }
         let engine = AVAudioEngine()
         let node = AVAudioPlayerNode()
         let gain = AVAudioUnitEQ(numberOfBands: 0)

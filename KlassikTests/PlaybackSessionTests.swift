@@ -1,7 +1,19 @@
 import Foundation
+import MediaPlayer
 import Testing
 
 @testable import Klassik
+
+private final class PositionEvent: MPChangePlaybackPositionCommandEvent {
+    private let time: TimeInterval
+
+    init(time: TimeInterval) {
+        self.time = time
+        super.init()
+    }
+
+    override var positionTime: TimeInterval { time }
+}
 
 /// The queue rules, the transport and the audio-session events, through the session interface.
 /// A fake engine stands in for the audio, and an in-memory server for the network.
@@ -477,22 +489,28 @@ struct PlaybackSessionTests {
         #expect(engine.loads.last == load("a", movements: 3, from: 1, at: 7.5))
     }
 
-    /// The lock screen calls from a thread of its own. A call that expects the main thread crashes the app.
-    @Test func lockScreenCommandsFromAnotherThreadReachTheSession() async throws {
+    /// The system calls the handlers that `addTarget` gets from a thread of its own. A handler that expects the main
+    /// actor traps there, before it reaches the session.
+    @Test func lockScreenHandlersWorkOnAnotherThread() async throws {
         let (session, engine) = try makeSession()
         session.play(item("a", movements: 3))
-        await Task.detached { session.receive(.pause) }.value
+        let handlers = PlaybackSession.remoteHandlers(for: session)
+        let paused = await Task.detached { handlers.pause(MPRemoteCommandEvent()) == .success }.value
+        #expect(paused)
         try await settle { session.state.isPaused }
         #expect(engine.calls.contains(.pause))
-        await Task.detached { session.receive(.play) }.value
+        await Task.detached { _ = handlers.play(MPRemoteCommandEvent()) }.value
         try await settle { !session.state.isPaused }
-        await Task.detached { session.receive(.next) }.value
+        await Task.detached { _ = handlers.next(MPRemoteCommandEvent()) }.value
         try await settle { session.state.movement == 1 }
-        await Task.detached { session.receive(.previous) }.value
+        await Task.detached { _ = handlers.previous(MPRemoteCommandEvent()) }.value
         try await settle { session.state.movement == 0 }
-        await Task.detached { session.receive(.seek(4)) }.value
+        let sought = await Task.detached { handlers.seek(PositionEvent(time: 4)) == .success }.value
+        #expect(sought)
         try await settle { session.state.position == 4 }
-        await Task.detached { session.receive(.toggle) }.value
+        let refused = await Task.detached { handlers.seek(MPRemoteCommandEvent()) == .commandFailed }.value
+        #expect(refused)
+        await Task.detached { _ = handlers.toggle(MPRemoteCommandEvent()) }.value
         try await settle { session.state.isPaused }
     }
 

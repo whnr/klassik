@@ -1,27 +1,19 @@
-Klassik 0.10.4
+Klassik 0.11.0
 
-Album rows show all performers in track order and keep their names stable.
-Playback recovers after system interruptions and preserves the queue.
-The comparison engine downloads movements during playback.
-
-Known problems
-- Recovery can repeat audio since the last position checkpoint, which targets 250 ms.
-- iOS controls automatic resume permission. Explicit pauses and headphone removal require Play.
-- Download and decoding errors require explicit retry.
-
-On-device checks
-
-1. Open Classical Albums. Open a recording, play, pause, and return. Expect identical performer names. (sz-rs30.1.69, PR #2)
-2. Open an album with different performers across movements. Expect each name once, in track order. Increase text size. Expect all names visible. (sz-qf3x, PR #4)
-3. Play several movements with the gapless comparison engine. Expect downloads during playback and gapless joins. (sz-vnh1, PR #3; sz-5sbe, PR #5)
-4. Queue another recording. Browse, switch tabs, lock the phone for two minutes, and switch apps. Expect playback across movement joins. (sz-5sbe)
-5. Receive notifications and play another app's short sound. Expect music to continue or resume when iOS permits. (sz-5sbe)
-6. Use Siri, then dismiss it. Receive and end a call. Expect music near the saved position when iOS permits. (sz-5sbe)
-7. Pause before a call. Repeat with remote Pause during a call. Expect music to stay paused after each call. (sz-5sbe)
-8. Let another music app interrupt Klassik. Return and press Play. Expect playback when session activation succeeds. (sz-5sbe)
-9. Remove wired or Bluetooth headphones, then reconnect them. Expect silence until Play. (sz-5sbe)
-10. Switch Bluetooth, AirPlay, speaker, and CarPlay routes where available. Expect playback to continue or recover with the queue intact. (sz-5sbe)
-11. Reset Media Services in Developer settings during playback. Expect recovery near the saved position. Repeat while paused. Expect silence. (sz-5sbe)
-12. Seek during a call, then end the call. Expect playback at that position when iOS permits. (sz-5sbe)
-13. Queue another recording. Pause at the final movement's end, then press Play. Expect the queued recording with sound. Repeat without a queue. Expect stopped playback without silent playing controls. (sz-5sbe)
-14. Play three uncached movements on a slow connection. Let movement one finish while movement two downloads. Expect movement two selected. Press Next during the wait. Expect movement three to play. (sz-5sbe)
+1. Open the app in light and in dark mode. Expect warm paper by day and a warm near-black by night. Buttons, links and switches are claret, never blue. (sz-rs30.1.105.1)
+2. Turn on Increase Contrast in Accessibility settings, in both modes. Expect stronger text and claret, and readable text. (sz-rs30.1.105.1)
+3. Open a composer, a work, then a recording. Expect page titles and section headings (Works, Recordings, Movements) in the serif face. Settings headers stay small and plain. (sz-rs30.1.105.1)
+4. Swipe a recording left and right. Expect Play Next violet, Add to Queue amber, Download teal, Reference claret, each with a white icon. Mark a Reference. Expect a claret star, not yellow. (sz-rs30.1.105.1)
+5. Set the largest Larger Text size. Expect titles, rows and the mini player to grow, and no small text. (sz-rs30.1.105.1)
+6. Open Settings, then Licences. Expect the font licence text. Open MusicBrainz. Expect rows with count 0 to look pale and not open. (sz-rs30.1.105.1)
+7. Look at the tab bar. Expect Library, Chronology and Settings, with Search apart at the end. Each tab opens its own place. (sz-rs30.1.105.2)
+8. In Library, tap Edit. Drag Favourites above Composers and tap Done. Close and reopen the app. Expect the new order. (sz-rs30.1.105.2)
+9. Open Composers, then a composer. Expect no small title in the navigation bar, and the large title scrolls away. On the composer page, expect a tip about holding Back, once only. Open a work. Expect no tip. Hold Back. Expect a list of pages behind. Swipe from the left edge. Expect one page back. (sz-rs30.1.105.2, sz-rs30.1.87)
+10. Open a composer, then Chronology. Expect a back arrow with the composer name. Tap it. Expect the composer page. Open Chronology, then Search. Expect Chronology in the arrow. (sz-rs30.1.105.2)
+11. Mark a recording as Reference. Open Favourites in Library. Expect it listed, and it opens. Open Performers in Search and a work in Chronology. Expect pages that open and go back. (sz-rs30.1.105.2)
+12. Play a recording. Switch through all four tabs. Expect the mini player above the tab bar in each tab. Tap its button. Expect pause, then resume. (sz-rs30.1.105.2)
+13. Play a recording, add two more with Add to Queue, then tap a later movement of the playing one. Expect a jump to that movement and both recordings in Up next. Swipe one recording to Play Next. Expect it first in Up next. (sz-rs30.1.105.3)
+14. Play, then lock the phone. Use pause, play, next, previous and the scrubber on the lock screen. Expect each to work. (sz-rs30.1.105.3)
+15. Unlock the phone and open the player. Expect the position bar and the Whole Work bar to follow the music. Drag the slider. Expect playback to seek. (sz-rs30.1.105.3)
+16. Play with Bluetooth headphones, then disconnect them. Expect pause. Press Play in the player. Expect sound on the speaker at the same place, with an instant response. (sz-b170, sz-rs30.1.105.3)
+17. Let the last recording of the queue end. Expect playback to stop and the mini player to go. On a composer, tap Shuffle Works. Expect works in random order, movements in order. Play, then call the phone and end the call. Expect the music to pause during the call, and to resume near the same place after it. (sz-rs30.1.105.3)

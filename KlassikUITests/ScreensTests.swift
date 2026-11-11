@@ -93,10 +93,15 @@ final class PlaybackScreens: ScreensTestCase {
         recording.tap()
         XCTAssertTrue(app.buttons["play-recording"].waitForExistence(timeout: 10))
         app.buttons["play-recording"].tap()
-        let playing = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Now playing'")).firstMatch
-        XCTAssertTrue(playing.waitForExistence(timeout: 30))
+        // The fixture movements last seconds, so the walk pauses before it looks at the page.
+        let pause = app.buttons["Pause"].firstMatch
+        XCTAssertTrue(pause.waitForExistence(timeout: 30), "No Pause button")
+        pause.tap()
+        // The mark is an image in the row. Not every system puts its label into the label of the row.
+        let playing = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS 'Now playing'"))
+            .firstMatch
+        XCTAssertTrue(playing.waitForExistence(timeout: 10), "No movement shows the playing mark")
         snap(app, "05-recording")
-        app.buttons["Pause"].firstMatch.tap()
 
         // A paused player moves to the dragged position and stays paused.
         let position = app.sliders["position"]
@@ -116,7 +121,7 @@ final class PlaybackScreens: ScreensTestCase {
         openRecording(app)
         playPaused(app)
         reveal(app.buttons["download"], in: app).tap()
-        XCTAssertTrue(app.buttons["remove-download"].waitForExistence(timeout: 30))
+        XCTAssertTrue(app.buttons["remove-download"].waitForExistence(timeout: 30), "The download did not finish")
         snap(app, "05a-downloaded")
         back(app, times: 3)
 
@@ -404,11 +409,23 @@ class ScreensTestCase: XCTestCase {
         return miniPlayer
     }
 
-    /// Scrolls down until the element is on screen. Lists create rows only when they come near the screen.
+    /// Scrolls down until the element is on screen and clear of the mini player.
+    /// Lists create rows only when they come near the screen.
+    /// A short drag has no momentum, so it cannot move the element past the screen.
     @MainActor
     @discardableResult
     func reveal(_ element: XCUIElement, in app: XCUIApplication) -> XCUIElement {
-        for _ in 0..<4 where !(element.exists && element.isHittable) { app.swipeUp() }
+        let bar = app.descendants(matching: .any)["mini-player"].firstMatch
+        let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
+        let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35))
+        for _ in 0..<14 {
+            if element.exists {
+                // A tap on a row below the mini player opens the player.
+                let floor = bar.exists ? bar.frame.minY : app.frame.maxY
+                if element.frame.maxY <= floor, element.isHittable { return element }
+            }
+            from.press(forDuration: 0.05, thenDragTo: to)
+        }
         return element
     }
 

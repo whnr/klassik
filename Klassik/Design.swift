@@ -1,5 +1,6 @@
 import CoreText
 import SwiftUI
+import TipKit
 import UIKit
 
 extension Palette {
@@ -114,8 +115,11 @@ struct PageList<Content: View>: View {
     @ViewBuilder let content: Content
 
     var body: some View {
-        List { content.listRowBackground(Palette.backgroundRow.color) }
-            .grounds()
+        List {
+            BackTipRow()
+            content.listRowBackground(Palette.backgroundRow.color)
+        }
+        .grounds()
     }
 }
 
@@ -124,8 +128,11 @@ struct PageForm<Content: View>: View {
     @ViewBuilder let content: Content
 
     var body: some View {
-        Form { content.listRowBackground(Palette.backgroundRow.color) }
-            .grounds()
+        Form {
+            BackTipRow()
+            content.listRowBackground(Palette.backgroundRow.color)
+        }
+        .grounds()
     }
 }
 

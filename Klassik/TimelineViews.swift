@@ -20,9 +20,7 @@ struct WorkTimelineView: View {
             if !timeline.undated.isEmpty {
                 Section {
                     ForEach(timeline.undated) { work in
-                        NavigationLink {
-                            WorkView(work: work)
-                        } label: {
+                        NavigationLink(value: Page.work(work.id)) {
                             VStack(alignment: .leading) {
                                 Text(work.title)
                                     .ink()
@@ -49,7 +47,7 @@ struct WorkTimelineView: View {
                     "No Works", systemImage: "calendar", description: Text("Works with a WORK tag appear here."))
             }
         }
-        .navigationTitle("Timeline")
+        .navigationTitle("Chronology")
         .miniPlayerInset()
     }
 }
@@ -62,9 +60,7 @@ private struct TimelineRow: View {
     @ScaledMetric private var yearWidth = Measure.hitTarget
 
     var body: some View {
-        NavigationLink {
-            WorkView(work: entry.work)
-        } label: {
+        NavigationLink(value: Page.work(entry.work.id)) {
             HStack(alignment: .firstTextBaseline, spacing: gap) {
                 Text(entry.isApproximate ? "≈" : String(entry.span.start))
                     .foregroundStyle(entry.isApproximate ? Palette.textSecondary : Palette.textPrimary)
@@ -133,7 +129,6 @@ struct WorkSourcesView: View {
             }
         }
         .navigationTitle("Dates and Sources")
-        .navigationBarTitleDisplayMode(.inline)
     }
 
     @ViewBuilder private func link(_ link: Enrichment.Link, facts: WorkFacts?) -> some View {

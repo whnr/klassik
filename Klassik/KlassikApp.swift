@@ -1,4 +1,5 @@
 import SwiftUI
+import TipKit
 
 @main
 struct KlassikApp: App {
@@ -14,6 +15,20 @@ struct KlassikApp: App {
                 .foregroundColor: Palette.textPrimary.uiColor,
             ]
         }
+        // The bar shows no title (ADR 0023). Only the colour of the small title goes: VoiceOver and the back
+        // button of the next page still read it.
+        UINavigationBar.appearance().titleTextAttributes = [.foregroundColor: UIColor.clear]
+        Self.configureTips()
+    }
+
+    /// The UI walk starts every run from the same state. It hides the tip, except for the run that looks at it.
+    private static func configureTips() {
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("-resetServer") {
+            try? Tips.resetDatastore()
+            if arguments.contains("-showTips") { Tips.showAllTipsForTesting() } else { Tips.hideAllTipsForTesting() }
+        }
+        try? Tips.configure([.displayFrequency(.immediate)])
     }
 
     var body: some Scene {
@@ -34,7 +49,7 @@ struct RootView: View {
             if model.credentials == nil {
                 ConnectView()
             } else {
-                HomeView()
+                PlacesView()
                     .task { await model.start() }
             }
         }

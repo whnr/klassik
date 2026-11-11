@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// A page that a link pushes onto the stack of a place. A page names its thing by ID, so that a stack
-/// holds a page once and a page follows the library when a sync changes it.
+/// A page that a link pushes onto the stack of a place. A page names its thing by ID, so that a page follows
+/// the library when a sync changes it.
 enum Page: Hashable {
     case composers
     case favourites

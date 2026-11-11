@@ -109,6 +109,23 @@ struct PlaybackSessionTests {
         #expect(engine.loads.last == load("a", movements: 3, from: 2))
     }
 
+    @Test func playOnThePlayingItemPausesAndResumesIt() throws {
+        let (session, engine) = try makeSession()
+        let playing = item("a", movements: 3)
+        session.play(queue: [playing, item("b")], from: 1)
+        engine.playing = (1, 4)
+        session.play(item("a", movements: 3))
+        #expect(session.state.isPaused)
+        #expect(engine.calls.last == .pause)
+        session.play(item("a", movements: 3))
+        #expect(!session.state.isPaused)
+        #expect(engine.calls.last == .resume)
+        #expect(engine.loads == [load("a", movements: 3, from: 1)])
+        #expect(session.state.item?.id == playing.id)
+        #expect(session.state.movement == 1)
+        #expect(session.state.upNext.map(\.recording.id) == ["b"])
+    }
+
     @Test func playNextAndAddToQueueFillTheQueue() throws {
         let (session, _) = try makeSession()
         session.play(item("a"))
@@ -243,6 +260,42 @@ struct PlaybackSessionTests {
         #expect(session.state.item?.recording.id == "a")
         #expect(session.state.movement == 1)
         #expect(engine.loads.count == 1)
+    }
+
+    @Test func nextExistsUntilTheLastMovementOfTheLastItem() throws {
+        let (session, _) = try makeSession()
+        #expect(!session.hasNext)
+        session.play(item("a", movements: 2))
+        #expect(session.hasNext)
+        session.next()
+        #expect(!session.hasNext)
+        session.addToQueue(item("b"))
+        #expect(session.hasNext)
+        session.removeFromQueue(at: IndexSet(integer: 0))
+        #expect(!session.hasNext)
+    }
+
+    @Test func nextExistsOnTheLastMovementWhenAnotherItemWaits() throws {
+        let (session, _) = try makeSession()
+        session.play(queue: [item("a", movements: 2), item("b")], from: 1)
+        #expect(session.hasNext)
+        session.next()
+        #expect(session.state.item?.recording.id == "b")
+        #expect(!session.hasNext)
+    }
+
+    @Test func theLockScreenNextFollowsTheSession() throws {
+        let command = MPRemoteCommandCenter.shared().nextTrackCommand
+        let (session, _) = try makeSession()
+        #expect(!command.isEnabled)
+        session.play(item("a", movements: 2))
+        #expect(command.isEnabled)
+        session.next()
+        #expect(!command.isEnabled)
+        session.addToQueue(item("b"))
+        #expect(command.isEnabled)
+        session.stop()
+        #expect(!command.isEnabled)
     }
 
     @Test func previousRestartsAMovementThatHasPlayedForAWhile() throws {

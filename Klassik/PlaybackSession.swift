@@ -53,12 +53,17 @@ final class PlaybackSession {
     }
 
     // Views read these one by one, so that the ticking position does not redraw a view that ignores it.
-    private(set) var item: QueueItem?
-    private(set) var upNext: [QueueItem] = []
+    private(set) var item: QueueItem? {
+        didSet { updateNextCommand() }
+    }
+    private(set) var upNext: [QueueItem] = [] {
+        didSet { updateNextCommand() }
+    }
     private(set) var movement: Int? {
         didSet {
             applyGain()
             updateNowPlaying()
+            updateNextCommand()
         }
     }
     private(set) var position = 0.0
@@ -76,6 +81,12 @@ final class PlaybackSession {
 
     /// Nil until the listener connects. Nothing plays without it.
     @ObservationIgnored var server: (any ServerPort)?
+
+    /// False on the last movement of the last item, where Next has nowhere to go.
+    var hasNext: Bool {
+        guard let item, let movement else { return false }
+        return movement + 1 < item.recording.songs.count || !upNext.isEmpty
+    }
 
     var work: WorkIndex.Work? { item?.work }
     var recording: WorkIndex.Recording? { item?.recording }
@@ -115,13 +126,24 @@ final class PlaybackSession {
         engine.onEvent = { [weak self] event in self?.engineEvent(event) }
         observeAudioSession()
         registerRemoteCommands()
+        updateNextCommand()
     }
 
     // MARK: Queue
 
-    /// Plays one item and keeps the queue when that item already plays: a movement of the playing item only
-    /// moves the position. Any other item replaces the queue (ADR 0006, 0015).
-    func play(_ item: QueueItem, from movement: Int = 0, at position: Double = 0) {
+    /// Plays one item. On the item that already plays, it pauses or resumes, as a tap on its tinted row does
+    /// (ADR 0039). Any other item replaces the queue (ADR 0006).
+    func play(_ item: QueueItem) {
+        if let playing = self.item, playing.recording.id == item.recording.id {
+            togglePause()
+        } else {
+            play(queue: [item])
+        }
+    }
+
+    /// Plays one item from a movement. A movement of the playing item only moves the position and keeps the
+    /// queue (ADR 0015). Any other item replaces the queue (ADR 0006).
+    func play(_ item: QueueItem, from movement: Int, at position: Double = 0) {
         if let playing = self.item, playing.recording.id == item.recording.id {
             start(playing, from: movement, offset: position)
         } else {
@@ -172,7 +194,8 @@ final class PlaybackSession {
 
     // MARK: Transport
 
-    /// Goes to the next movement, or to the next item after the last movement.
+    /// Goes to the next movement, or to the next item after the last movement. On the last movement of the last
+    /// item it does nothing.
     func next() {
         guard let item, let movement else { return }
         if movement + 1 < item.recording.songs.count {
@@ -386,6 +409,11 @@ final class PlaybackSession {
     }
 
     // MARK: System
+
+    /// The lock screen shows Next as unavailable where the app has none.
+    private func updateNextCommand() {
+        MPRemoteCommandCenter.shared().nextTrackCommand.isEnabled = hasNext
+    }
 
     /// Fills the lock screen and Control Center.
     private func updateNowPlaying() {

@@ -38,21 +38,21 @@ final class PlacesScreens: ScreensTestCase {
         XCTAssertFalse(app.buttons["place-back"].exists)
 
         openPlace(app, "Chronology")
-        expectBackArrowShowsName(app, to: "Library")
+        expectBackArrow(app, to: "Library")
         snap(app, "02f-chronology")
 
         openPlace(app, "Search")
-        expectBackArrowShowsName(app, to: "Chronology")
+        expectBackArrow(app, to: "Chronology")
         snap(app, "02g-search")
 
         openPlace(app, "Settings")
-        expectBackArrowShowsName(app, to: "Search")
+        expectBackArrow(app, to: "Search")
         snap(app, "02h-settings")
 
         // Back returns to the place the listener came from, and that place still has its own back arrow.
         app.buttons["place-back"].tap()
         XCTAssertTrue(app.navigationBars["Search"].waitForExistence(timeout: 10))
-        expectBackArrowShowsName(app, to: "Chronology")
+        expectBackArrow(app, to: "Chronology")
     }
 
     @MainActor
@@ -61,14 +61,39 @@ final class PlacesScreens: ScreensTestCase {
         composer(app, "Frédéric Chopin").tap()
         XCTAssertTrue(app.navigationBars["Frédéric Chopin"].waitForExistence(timeout: 10))
         openPlace(app, "Settings")
-        expectBackArrowShowsName(app, to: "Chopin")
+        expectBackArrow(app, to: "Chopin")
         snap(app, "02i-back-arrow-to-page")
         app.buttons["place-back"].tap()
         XCTAssertTrue(app.navigationBars["Frédéric Chopin"].waitForExistence(timeout: 10))
     }
 
-    /// The check of sz-rs30.1.87. It reads the accessibility label of the system back button only. It cannot
-    /// tell whether the name shows on screen: the owner decides about that, from the 02j screenshot.
+    /// A swipe from the left edge of a root with an arrow does what the arrow does.
+    @MainActor
+    func testEdgeSwipeGoesBack() throws {
+        let app = try launchAndConnect(openComposers: false)
+        openPlace(app, "Chronology")
+        expectBackArrow(app, to: "Library")
+        swipeFromLeftEdge(app)
+        XCTAssertTrue(app.buttons["place-back"].waitForNonExistence(timeout: 10), "The swipe did not go back")
+        XCTAssertTrue(app.tabBars.buttons["Library"].isSelected)
+        XCTAssertTrue(app.buttons["library-composers"].exists)
+    }
+
+    /// The previous place shows its page as the listener left it, after the arrow and after the swipe.
+    @MainActor
+    func testBackToThePageAsLeft() throws {
+        let app = try launchAndConnect()
+        composer(app, "Frédéric Chopin").tap()
+        XCTAssertTrue(app.navigationBars["Frédéric Chopin"].waitForExistence(timeout: 10))
+        openPlace(app, "Settings")
+        expectBackArrow(app, to: "Chopin")
+        swipeFromLeftEdge(app)
+        XCTAssertTrue(app.navigationBars["Frédéric Chopin"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["place-back"].exists)
+    }
+
+    /// The check of sz-rs30.1.87. It reads the accessibility label of the system back button only. The screenshots
+    /// 02i and 02j show the arrow of a place next to the system back button.
     @MainActor
     func testSystemBackButtonAccessibilityLabel() throws {
         let app = try launchAndConnect()
@@ -199,6 +224,25 @@ final class PlaybackScreens: ScreensTestCase {
         let playing = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS 'Now playing'"))
             .firstMatch
         XCTAssertTrue(reveal(playing, in: app).exists, "No movement shows the playing mark")
+    }
+
+    /// Next has nowhere to go on the last movement of the last item. The fixture movements last about three
+    /// seconds, so the walk pauses at once. A queue that ends removes the Next button.
+    @MainActor
+    func testNextEndsAtTheLastMovement() throws {
+        let app = try launchAndConnect()
+        openRecording(app)
+        app.buttons["play-recording"].tap()
+        let next = app.buttons["Next"].firstMatch
+        XCTAssertTrue(next.waitForExistence(timeout: 30), "No Next button")
+        next.tap()
+        next.tap()
+        let pause = app.buttons["Pause"].firstMatch
+        XCTAssertTrue(pause.waitForExistence(timeout: 10), "No Pause button")
+        pause.tap()
+        XCTAssertTrue(app.buttons["Resume"].firstMatch.waitForExistence(timeout: 10))
+        XCTAssertFalse(next.isEnabled, "Next stays on at the last movement")
+        snap(app, "05d-next-ends")
     }
 
     @MainActor
@@ -458,15 +502,22 @@ class ScreensTestCase: XCTestCase {
         return app
     }
 
-    /// A place opened from another one shows an arrow that names the page behind it, as text on screen.
+    /// A place opened from another one shows an arrow like the system back button: a chevron with no name on
+    /// screen. Its label names the place or page behind it.
     @MainActor
-    func expectBackArrowShowsName(_ app: XCUIApplication, to name: String) {
+    func expectBackArrow(_ app: XCUIApplication, to name: String) {
         let arrow = app.buttons["place-back"]
         XCTAssertTrue(arrow.waitForExistence(timeout: 10), "No back arrow")
         XCTAssertTrue(arrow.label.contains(name), "The back arrow reads \"\(arrow.label)\", not \"\(name)\"")
-        // The label alone also holds when only a chevron draws. A chevron in a glass circle is about 44 points
-        // wide, so a button that also draws the name is wider.
-        XCTAssertGreaterThan(arrow.frame.width, 64, "The back arrow draws no name: \(arrow.frame.width) points wide")
+        // A chevron in a glass circle is about 44 points wide. A button that also draws a name is wider.
+        XCTAssertLessThan(arrow.frame.width, 64, "The back arrow draws a name: \(arrow.frame.width) points wide")
+    }
+
+    /// A swipe from the left screen edge to the middle, as a thumb makes it.
+    @MainActor
+    func swipeFromLeftEdge(_ app: XCUIApplication) {
+        let edge = app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0.5))
+        edge.press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.5)))
     }
 
     /// Taps a place in the tab bar.

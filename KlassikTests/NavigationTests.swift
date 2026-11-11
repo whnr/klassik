@@ -2,46 +2,6 @@ import Testing
 
 @testable import Klassik
 
-struct PageStackTests {
-    @Test func openPushesNewPages() {
-        var stack = PageStack<String>()
-        stack.open("composer")
-        stack.open("work")
-        #expect(stack.pages == ["composer", "work"])
-    }
-
-    @Test func linkToAPageInTheStackGoesBackToIt() {
-        var stack = PageStack<String>()
-        for page in ["composer", "work", "recording"] { stack.open(page) }
-        stack.open("composer")
-        #expect(stack.pages == ["composer"])
-    }
-
-    @Test func linkToThePageOnTopChangesNothing() {
-        var stack = PageStack<String>()
-        stack.open("work")
-        stack.open("work")
-        #expect(stack.pages == ["work"])
-    }
-
-    @Test func pathFromTheSystemKeepsThePageOnce() {
-        var stack = PageStack<String>()
-        stack.replace(with: ["composer", "work", "composer"])
-        #expect(stack.pages == ["composer"])
-        stack.replace(with: ["composer", "work"])
-        #expect(stack.pages == ["composer", "work"])
-        stack.replace(with: [])
-        #expect(stack.pages.isEmpty)
-    }
-
-    @Test func popToRootEmptiesTheStack() {
-        var stack = PageStack<String>()
-        stack.open("composer")
-        stack.popToRoot()
-        #expect(stack.pages.isEmpty)
-    }
-}
-
 @MainActor
 struct NavigatorTests {
     typealias Origin = Navigator<String>.Origin
@@ -127,10 +87,50 @@ struct NavigatorTests {
         #expect(navigator.selection == .library)
     }
 
-    @Test func linkInAPlaceGoesBackToAPageInItsStack() {
+    @Test func linkToAPageInTheStackPushesItAgain() {
         let navigator = Navigator<String>()
-        for page in ["composer", "work", "recording"] { navigator.open(page, in: .library) }
-        navigator.setPages(["composer", "work", "recording", "composer"], in: .library)
+        for page in ["composer", "work", "recording", "composer"] { navigator.open(page, in: .library) }
+        #expect(navigator.pages(in: .library) == ["composer", "work", "recording", "composer"])
+    }
+
+    @Test func linkToThePageOnTopPushesItAgain() {
+        let navigator = Navigator<String>()
+        navigator.open("work", in: .library)
+        navigator.open("work", in: .library)
+        #expect(navigator.pages(in: .library) == ["work", "work"])
+    }
+
+    @Test func pathFromTheSystemKeepsRepeatedPages() {
+        let navigator = Navigator<String>()
+        navigator.setPages(["composer", "work", "composer"], in: .library)
+        #expect(navigator.pages(in: .library) == ["composer", "work", "composer"])
+        navigator.setPages(["composer"], in: .library)
         #expect(navigator.pages(in: .library) == ["composer"])
+        navigator.setPages([], in: .library)
+        #expect(navigator.pages(in: .library).isEmpty)
+    }
+
+    @Test func aTabTapKeepsTheStackOfThePlaceItLeaves() {
+        let navigator = Navigator<String>()
+        navigator.setPages(["composer", "work", "composer"], in: .library)
+        navigator.select(.chronology)
+        navigator.goBack(from: .chronology)
+        #expect(navigator.selection == .library)
+        #expect(navigator.pages(in: .library) == ["composer", "work", "composer"])
+    }
+
+    @Test func aTripAcrossPlacesBacksOutOneArrowAtATime() {
+        let navigator = Navigator<String>()
+        navigator.open("composer", in: .library)
+        navigator.select(.chronology)
+        navigator.open("work", in: .chronology)
+        navigator.select(.settings)
+        #expect(navigator.backTarget(for: .settings) == Origin(place: .chronology, page: "work"))
+        navigator.goBack(from: .settings)
+        #expect(navigator.selection == .chronology)
+        #expect(navigator.backTarget(for: .chronology) == Origin(place: .library, page: "composer"))
+        navigator.goBack(from: .chronology)
+        #expect(navigator.selection == .library)
+        #expect(navigator.pages(in: .chronology) == ["work"])
     }
 }

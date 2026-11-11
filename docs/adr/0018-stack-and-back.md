@@ -1,6 +1,6 @@
 # 0018. The system back stack, with the name of the page behind
 
-Date: 2026-11-04. Decided by Flo after one prototype round and research. Bead: sz-rs30.1.74.11. For the tab places, the rule of no custom back button is replaced by [0029](0029-search-at-the-top.md).
+Date: 2026-11-04. Decided by Flo after one prototype round and research. Bead: sz-rs30.1.74.11. For the tab places, the rule of no custom back button is replaced by [0029](0029-search-at-the-top.md). The rule of one page in the stack and the name on the back button are replaced by [0038](0038-standard-tabs-and-the-cross-tab-back.md).
 
 ## Context
 

@@ -1,6 +1,6 @@
 # 0029. Search at the top, with a back arrow and recent searches
 
-Date: 2026-11-08. Decided by Flo after specimen rounds 8 and 9 on the phone. Beads: sz-rs30.1.83.13, sz-rs30.1.83.14. Replaces the bottom row of [0025](0025-search-field-and-filter-sheet.md). Replaces the rule of [0018](0018-stack-and-back.md) that adds no custom back button, for the tab places only.
+Date: 2026-11-08. Decided by Flo after specimen rounds 8 and 9 on the phone. Beads: sz-rs30.1.83.13, sz-rs30.1.83.14. Replaces the bottom row of [0025](0025-search-field-and-filter-sheet.md). Replaces the rule of [0018](0018-stack-and-back.md) that adds no custom back button, for the tab places only. The named arrow is replaced by [0038](0038-standard-tabs-and-the-cross-tab-back.md).
 
 ## Context
 

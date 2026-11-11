@@ -63,7 +63,7 @@ A view about one thing, such as a composer, work, recording, album or performer.
 _Avoid_: Screen, detail view
 
 **Stack**:
-The pages a listener opened in one place, in order. Back leaves the top page. A link to a page already in the stack goes back to it.
+The pages a listener opened in one place, in order. Back leaves the top page. A link always pushes a page, also one that the stack holds.
 _Avoid_: History, trail, breadcrumbs
 
 **Work page**:

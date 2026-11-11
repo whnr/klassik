@@ -18,40 +18,7 @@ enum Place: String, CaseIterable, Hashable, Sendable {
     }
 }
 
-/// The pages a listener opened in one place, in order (CONTEXT.md: Stack).
-/// A page is in the stack once. Opening it again goes back to it.
-struct PageStack<Page: Hashable>: Equatable {
-    private(set) var pages: [Page] = []
-
-    /// Pushes the page, or goes back to it when the stack holds it already.
-    mutating func open(_ page: Page) {
-        pages = Self.settled(pages + [page])
-    }
-
-    /// Takes the stack from the system after a push or a pop. The system never knows the rule of one page once.
-    mutating func replace(with pages: [Page]) {
-        self.pages = Self.settled(pages)
-    }
-
-    mutating func popToRoot() {
-        pages = []
-    }
-
-    /// Cuts the stack back to the first time a page shows up again.
-    static func settled(_ pages: [Page]) -> [Page] {
-        var result: [Page] = []
-        for page in pages {
-            if let first = result.firstIndex(of: page) {
-                result.removeSubrange((first + 1)...)
-            } else {
-                result.append(page)
-            }
-        }
-        return result
-    }
-}
-
-/// Which place shows, the stack of each place, and where the back arrow of a place goes.
+/// Which place shows, the stack of each place (CONTEXT.md: Stack), and where the back arrow of a place goes.
 @MainActor @Observable
 final class Navigator<Page: Hashable> {
     /// The place and page that the listener left to open another place.
@@ -62,19 +29,21 @@ final class Navigator<Page: Hashable> {
     }
 
     private(set) var selection = Place.library
-    private var stacks: [Place: PageStack<Page>] = [:]
+    private var stacks: [Place: [Page]] = [:]
     private var origins: [Place: Origin] = [:]
 
     func pages(in place: Place) -> [Page] {
-        stacks[place]?.pages ?? []
+        stacks[place] ?? []
     }
 
+    /// Pushes a page. A page that the stack holds already is pushed again: Back is one step back.
     func open(_ page: Page, in place: Place) {
-        stacks[place, default: PageStack()].open(page)
+        stacks[place, default: []].append(page)
     }
 
+    /// Takes the stack from the system after a push or a pop.
     func setPages(_ pages: [Page], in place: Place) {
-        stacks[place, default: PageStack()].replace(with: pages)
+        stacks[place] = pages
     }
 
     /// Shows a place. It remembers the page that the listener leaves, for the back arrow of the new place.

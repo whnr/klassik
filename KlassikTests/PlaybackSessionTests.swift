@@ -4,15 +4,16 @@ import Testing
 
 @testable import Klassik
 
+/// A seek event with a fixed position.
 private final class PositionEvent: MPChangePlaybackPositionCommandEvent {
-    private let time: TimeInterval
+    override var positionTime: TimeInterval { 4 }
+}
 
-    init(time: TimeInterval) {
-        self.time = time
-        super.init()
-    }
-
-    override var positionTime: TimeInterval { time }
+/// MediaPlayer raises an exception when code calls `init` on a command event. The system makes the events,
+/// so a test allocates one without `init`. The subclasses above keep no stored state.
+private func allocated<Event: MPRemoteCommandEvent>(_ type: Event.Type) -> Event {
+    let object = (type as AnyObject).perform(NSSelectorFromString("alloc"))?.takeUnretainedValue()
+    return unsafeDowncast(object.unsafelyUnwrapped, to: Event.self)
 }
 
 /// The queue rules, the transport and the audio-session events, through the session interface.
@@ -495,22 +496,23 @@ struct PlaybackSessionTests {
         let (session, engine) = try makeSession()
         session.play(item("a", movements: 3))
         let handlers = PlaybackSession.remoteHandlers(for: session)
-        let paused = await Task.detached { handlers.pause(MPRemoteCommandEvent()) == .success }.value
+        let paused = await Task.detached { handlers.pause(allocated(MPRemoteCommandEvent.self)) == .success }.value
         #expect(paused)
         try await settle { session.state.isPaused }
         #expect(engine.calls.contains(.pause))
-        await Task.detached { _ = handlers.play(MPRemoteCommandEvent()) }.value
+        await Task.detached { _ = handlers.play(allocated(MPRemoteCommandEvent.self)) }.value
         try await settle { !session.state.isPaused }
-        await Task.detached { _ = handlers.next(MPRemoteCommandEvent()) }.value
+        await Task.detached { _ = handlers.next(allocated(MPRemoteCommandEvent.self)) }.value
         try await settle { session.state.movement == 1 }
-        await Task.detached { _ = handlers.previous(MPRemoteCommandEvent()) }.value
+        await Task.detached { _ = handlers.previous(allocated(MPRemoteCommandEvent.self)) }.value
         try await settle { session.state.movement == 0 }
-        let sought = await Task.detached { handlers.seek(PositionEvent(time: 4)) == .success }.value
+        let sought = await Task.detached { handlers.seek(allocated(PositionEvent.self)) == .success }.value
         #expect(sought)
         try await settle { session.state.position == 4 }
-        let refused = await Task.detached { handlers.seek(MPRemoteCommandEvent()) == .commandFailed }.value
+        let refused = await Task.detached { handlers.seek(allocated(MPRemoteCommandEvent.self)) == .commandFailed }
+            .value
         #expect(refused)
-        await Task.detached { _ = handlers.toggle(MPRemoteCommandEvent()) }.value
+        await Task.detached { _ = handlers.toggle(allocated(MPRemoteCommandEvent.self)) }.value
         try await settle { session.state.isPaused }
     }
 

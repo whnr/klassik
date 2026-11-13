@@ -10,8 +10,6 @@ struct MiniPlayer: View {
 
     /// The size of the button and the cover, as of the tab items beside them.
     nonisolated static let item: CGFloat = 48
-    /// The corner toward the round screen corner.
-    private static let edgeCorner: CGFloat = 12
 
     var body: some View {
         let player = model.playback
@@ -60,15 +58,15 @@ struct MiniPlayer: View {
     private static let edgeInset = Space.xs.points + Measure.timeline
 
     /// Round on the content side, flat on the screen edge.
-    private var shape: UnevenRoundedRectangle {
+    private var shape: ConcentricRectangle {
         let round = Self.item / 2 + Space.xs.points
         return side == .right
-            ? UnevenRoundedRectangle(
-                topLeadingRadius: round, bottomLeadingRadius: round, bottomTrailingRadius: Self.edgeCorner,
-                topTrailingRadius: 0)
-            : UnevenRoundedRectangle(
-                topLeadingRadius: 0, bottomLeadingRadius: Self.edgeCorner, bottomTrailingRadius: round,
-                topTrailingRadius: round)
+            ? ConcentricRectangle(
+                topLeadingCorner: .fixed(round), topTrailingCorner: .fixed(0),
+                bottomLeadingCorner: .fixed(round), bottomTrailingCorner: .concentric)
+            : ConcentricRectangle(
+                topLeadingCorner: .fixed(0), topTrailingCorner: .fixed(round),
+                bottomLeadingCorner: .concentric, bottomTrailingCorner: .fixed(round))
     }
 
     /// Album art is square, so the cover is square; only play/pause is round.

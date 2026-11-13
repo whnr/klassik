@@ -6,14 +6,12 @@ enum Place: String, CaseIterable, Hashable, Sendable {
     case library
     case chronology
     case search
-    case settings
 
     var title: String {
         switch self {
         case .library: "Library"
         case .chronology: "Chronology"
         case .search: "Search"
-        case .settings: "Settings"
         }
     }
 }
@@ -39,6 +37,13 @@ final class Navigator<Page: Hashable> {
     /// Pushes a page. A page that the stack holds already is pushed again: Back is one step back.
     func open(_ page: Page, in place: Place) {
         stacks[place, default: []].append(page)
+    }
+
+    /// The player follows the queue in place. A listener who browses another page keeps that page (ADR 0015).
+    func followPlayback(from old: Page?, to new: Page?) {
+        guard let old, let new, old != new, var pages = stacks[selection], pages.last == old else { return }
+        pages[pages.count - 1] = new
+        stacks[selection] = pages
     }
 
     /// Takes the stack from the system after a push or a pop.

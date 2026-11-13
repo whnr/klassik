@@ -15,16 +15,16 @@ struct NavigatorTests {
     @Test func eachPlaceKeepsItsOwnStack() {
         let navigator = Navigator<String>()
         navigator.open("composer", in: .library)
-        navigator.open("page", in: .settings)
+        navigator.open("page", in: .chronology)
         #expect(navigator.pages(in: .library) == ["composer"])
-        #expect(navigator.pages(in: .settings) == ["page"])
-        #expect(navigator.pages(in: .chronology).isEmpty)
+        #expect(navigator.pages(in: .chronology) == ["page"])
+        #expect(navigator.pages(in: .search).isEmpty)
     }
 
     @Test func aPlaceKeepsItsStackWhileAnotherShows() {
         let navigator = Navigator<String>()
         navigator.open("composer", in: .library)
-        navigator.select(.settings)
+        navigator.select(.chronology)
         navigator.select(.library)
         #expect(navigator.pages(in: .library) == ["composer"])
     }
@@ -36,12 +36,12 @@ struct NavigatorTests {
 
     @Test func libraryReachedFromAnotherPlaceGoesBackToIt() {
         let navigator = Navigator<String>()
-        navigator.select(.settings)
-        navigator.open("page", in: .settings)
+        navigator.select(.chronology)
+        navigator.open("page", in: .chronology)
         navigator.select(.library)
-        #expect(navigator.backTarget(for: .library) == Origin(place: .settings, page: "page"))
+        #expect(navigator.backTarget(for: .library) == Origin(place: .chronology, page: "page"))
         navigator.goBack(from: .library)
-        #expect(navigator.selection == .settings)
+        #expect(navigator.selection == .chronology)
         #expect(navigator.backTarget(for: .library) == nil)
     }
 
@@ -58,36 +58,36 @@ struct NavigatorTests {
 
     @Test func aPlaceOpenedFromARootGoesBackToThatRoot() {
         let navigator = Navigator<String>()
-        navigator.select(.settings)
+        navigator.select(.chronology)
         navigator.select(.search)
-        #expect(navigator.backTarget(for: .search) == Origin(place: .settings, page: nil))
+        #expect(navigator.backTarget(for: .search) == Origin(place: .chronology, page: nil))
         navigator.goBack(from: .search)
-        #expect(navigator.selection == .settings)
+        #expect(navigator.selection == .chronology)
     }
 
     @Test func aPlaceOpenedFromNowhereGoesBackToLibrary() {
         let navigator = Navigator<String>()
-        #expect(navigator.backTarget(for: .settings) == Origin(place: .library, page: nil))
-        navigator.goBack(from: .settings)
+        #expect(navigator.backTarget(for: .chronology) == Origin(place: .library, page: nil))
+        navigator.goBack(from: .chronology)
         #expect(navigator.selection == .library)
     }
 
     @Test func eachOpeningSetsTheBackTargetAgain() {
         let navigator = Navigator<String>()
         navigator.open("composer", in: .library)
-        navigator.select(.settings)
+        navigator.select(.chronology)
         navigator.select(.library)
         navigator.open("work", in: .library)
-        navigator.select(.settings)
-        #expect(navigator.backTarget(for: .settings) == Origin(place: .library, page: "work"))
+        navigator.select(.chronology)
+        #expect(navigator.backTarget(for: .chronology) == Origin(place: .library, page: "work"))
     }
 
     @Test func aSecondTapOnThePlaceKeepsTheBackTarget() {
         let navigator = Navigator<String>()
         navigator.open("composer", in: .library)
-        navigator.select(.settings)
-        navigator.select(.settings)
-        #expect(navigator.backTarget(for: .settings) == Origin(place: .library, page: "composer"))
+        navigator.select(.chronology)
+        navigator.select(.chronology)
+        #expect(navigator.backTarget(for: .chronology) == Origin(place: .library, page: "composer"))
     }
 
     @Test func backFromAPlaceThatShowsLibraryDoesNothing() {
@@ -157,13 +157,52 @@ struct NavigatorTests {
         navigator.open("composer", in: .library)
         navigator.select(.chronology)
         navigator.open("work", in: .chronology)
-        navigator.select(.settings)
-        #expect(navigator.backTarget(for: .settings) == Origin(place: .chronology, page: "work"))
-        navigator.goBack(from: .settings)
+        navigator.select(.search)
+        #expect(navigator.backTarget(for: .search) == Origin(place: .chronology, page: "work"))
+        navigator.goBack(from: .search)
         #expect(navigator.selection == .chronology)
         #expect(navigator.backTarget(for: .chronology) == Origin(place: .library, page: "composer"))
         navigator.goBack(from: .chronology)
         #expect(navigator.selection == .library)
         #expect(navigator.pages(in: .chronology) == ["work"])
+    }
+
+    @Test func thePlayerFollowsTheNextItemWithoutAddingAPage() {
+        let navigator = Navigator<String>()
+        navigator.setPages(["composer", "work", "recording-a"], in: .library)
+        navigator.followPlayback(from: "recording-a", to: "recording-b")
+        #expect(navigator.pages(in: .library) == ["composer", "work", "recording-b"])
+        navigator.back()
+        #expect(navigator.pages(in: .library) == ["composer", "work"])
+    }
+
+    @Test func aQueueAdvanceKeepsThePageThatTheListenerBrowses() {
+        let navigator = Navigator<String>()
+        navigator.setPages(["recording-a", "composer"], in: .library)
+        navigator.followPlayback(from: "recording-a", to: "recording-b")
+        #expect(navigator.pages(in: .library) == ["recording-a", "composer"])
+    }
+
+    @Test func aQueueAdvanceDoesNotChangeAnotherPlacesStack() {
+        let navigator = Navigator<String>()
+        navigator.open("recording-a", in: .library)
+        navigator.select(.search)
+        navigator.followPlayback(from: "recording-a", to: "recording-b")
+        #expect(navigator.pages(in: .search).isEmpty)
+        #expect(navigator.pages(in: .library) == ["recording-a"])
+    }
+
+    @Test func theEndOfTheQueueKeepsThePlayerPage() {
+        let navigator = Navigator<String>()
+        navigator.open("recording-a", in: .library)
+        navigator.followPlayback(from: "recording-a", to: nil)
+        #expect(navigator.pages(in: .library) == ["recording-a"])
+    }
+
+    @Test func startingPlaybackKeepsTheOpenRecordingPage() {
+        let navigator = Navigator<String>()
+        navigator.open("recording-a", in: .library)
+        navigator.followPlayback(from: nil, to: "recording-b")
+        #expect(navigator.pages(in: .library) == ["recording-a"])
     }
 }

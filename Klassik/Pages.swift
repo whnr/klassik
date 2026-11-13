@@ -3,6 +3,7 @@ import SwiftUI
 /// A page that a link pushes onto the stack of a place. A page names its thing by ID, so that a page follows
 /// the library when a sync changes it.
 enum Page: Hashable {
+    case settings
     case composers
     case favourites
     case performers
@@ -66,10 +67,15 @@ extension Library {
 }
 
 extension Page {
+    init(playing item: QueueItem) {
+        self = .recording(work: item.work.id, recording: item.recording.id)
+    }
+
     /// The short name that a back arrow gives to the page behind it.
     @MainActor func backTitle(in library: Library) -> String {
         let index = library.index
         switch self {
+        case .settings: return "Settings"
         case .composers: return "Composers"
         case .favourites: return "Favourites"
         case .performers: return "Performers"
@@ -105,6 +111,8 @@ struct PageView: View {
         let library = model.library
         let index = library.index
         switch page {
+        case .settings:
+            SettingsView()
         case .composers:
             ComposersView()
         case .favourites:

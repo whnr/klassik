@@ -39,7 +39,7 @@ _Avoid_: Condition, criterion, clause
 ### Views
 
 **Place**:
-One of the top-level parts of the app that the listener moves between: Library, Chronology, Search, Settings.
+One of the top-level parts of the app that the listener moves between: Library, Chronology and Search. Settings opens from the Library toolbar.
 _Avoid_: Tab, section, area
 
 **Library**:

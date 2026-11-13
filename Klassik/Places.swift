@@ -2,13 +2,15 @@ import SwiftUI
 import TipKit
 import UIKit
 
-/// The four places, each with its own stack. The system `TabView` keeps the places and their stacks. Its tab bar
+/// The three places, each with its own stack. The system `TabView` keeps the places and their stacks. Its tab bar
 /// spans the screen, so a tab bar drawn by hand takes its place and leaves room for the mini player (ADR 0028).
 struct PlacesView: View {
     @Environment(AppModel.self) private var model
     /// Owned here, so that a sign-out takes the stacks away with the places.
     @State private var navigator = AppNavigator()
     @AppStorage(TimelineSide.storageKey) private var side = TimelineSide.standard
+    @State private var backTransition = PlaceBackTransition()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var clearance = TabRow.clearance(safeArea: 0)
 
     var body: some View {
@@ -22,9 +24,18 @@ struct PlacesView: View {
             Tab(value: Place.search, role: .search) {
                 PlaceStack(place: .search) { SearchView() }
             }
-            Tab(Place.settings.title, systemImage: Place.settings.symbol, value: Place.settings) {
-                PlaceStack(place: .settings) { SettingsView() }
+        }
+        .background { PlaceBackSurface(transition: backTransition) }
+        .environment(
+            \.returnToPlace,
+            {
+                backTransition.perform(reduceMotion: reduceMotion, bottom: clearance) {
+                    navigator.goBack(from: navigator.selection)
+                }
             }
+        )
+        .onChange(of: model.playback.item.map(Page.init(playing:))) { old, new in
+            navigator.followPlayback(from: old, to: new)
         }
         .overlay {
             // The reader keeps the safe area, so its insets are real. The chrome inside ignores it and places
@@ -60,7 +71,6 @@ extension Place {
         case .library: "books.vertical"
         case .chronology: "calendar"
         case .search: "magnifyingglass"
-        case .settings: "gearshape"
         }
     }
 }
@@ -74,12 +84,9 @@ struct TabRow: View {
 
     /// The capsule around the items: as tall as the pill.
     nonisolated static let height = MiniPlayer.item + 2 * Space.xs.points
-    /// The distance from the screen bottom to the system tab bar on a phone with a home indicator.
-    nonisolated static let homeIndicatorGap: CGFloat = 21
-
     /// The distance from the screen bottom to the row.
     nonisolated static func gap(safeArea bottom: CGFloat) -> CGFloat {
-        bottom > 0 ? homeIndicatorGap : Space.s.points
+        max(bottom, Space.s.points)
     }
 
     /// The height above the bottom safe area that a page keeps clear: the row and a gap of `Space.s` above it.
@@ -94,7 +101,7 @@ struct TabRow: View {
             GlassEffectContainer(spacing: Space.s.points) {
                 HStack(spacing: Space.s.points) {
                     HStack(spacing: 0) {
-                        ForEach([Place.library, .chronology, .settings], id: \.self) { place in
+                        ForEach([Place.library, .chronology], id: \.self) { place in
                             tab(place)
                         }
                     }
@@ -152,6 +159,7 @@ struct TabRow: View {
 struct PlaceStack<Root: View>: View {
     @Environment(AppNavigator.self) private var navigator
     @Environment(AppModel.self) private var model
+    @Environment(\.returnToPlace) private var returnToPlace
     let place: Place
     @ViewBuilder let root: Root
 
@@ -174,7 +182,7 @@ struct PlaceStack<Root: View>: View {
                         ToolbarItem(placement: .topBarLeading) {
                             let name = target.page?.backTitle(in: model.library) ?? target.place.title
                             Button {
-                                navigator.goBack(from: place)
+                                returnToPlace()
                             } label: {
                                 // The system back button of iOS 27 draws the chevron only. The label keeps the name.
                                 Image(systemName: "chevron.backward")
@@ -215,6 +223,8 @@ private struct PlaceInsets: ViewModifier {
                     .frame(height: clearance)
                     .allowsHitTesting(false)
             }
+            .scrollEdgeEffectStyle(.soft, for: .top)
+            .toolbarBackground(.hidden, for: .navigationBar)
             .contentMargins(.trailing, beside, for: .scrollIndicators)
             .toolbarVisibility(.hidden, for: .tabBar)
     }
@@ -268,6 +278,7 @@ struct BackTipRow: View {
 }
 
 extension EnvironmentValues {
+    @Entry var returnToPlace: @MainActor () -> Void = {}
     /// True on a page that a pages menu sits behind, which is where the tip makes sense.
     @Entry var showsBackTip = false
     /// The height above the bottom safe area that the tab row takes, with its gap.

@@ -48,5 +48,6 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0035](0035-timeline-shape.md) | The timeline: flush, round on the content side, a gap for each movement | 2026-11-10 |
 | [0036](0036-design-folder-and-checks.md) | The design folder and its checks | 2026-11-10 |
 | [0037](0037-palette-from-targets.md) | The palette is solved from its targets on main | 2026-11-10 |
-| [0038](0038-standard-tabs-and-the-cross-tab-back.md) | Standard tabs, and a back arrow on a root reached from another tab | 2026-11-11 |
+| [0038](0038-standard-tabs-and-the-cross-tab-back.md) | Standard tabs, and a back arrow on a root reached from another tab (partly replaced by 0040) | 2026-11-11 |
 | [0039](0039-next-at-the-end-and-play-on-the-playing-item.md) | Next ends at the last movement; Play on the playing item pauses or resumes | 2026-11-11 |
+| [0040](0040-settings-from-the-library.md) | Settings opens from the Library toolbar | 2026-11-13 |

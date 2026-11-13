@@ -205,8 +205,11 @@ struct WorkView: View {
     var body: some View {
         PageList {
             Section {
-                LabeledContent("Composer", value: work.composer)
-                    .ink()
+                NavigationLink(value: Page.composer(work.composer)) {
+                    LabeledContent("Composer", value: work.composer)
+                        .ink()
+                }
+                .accessibilityIdentifier("work-composer")
                 if !work.context.isEmpty {
                     Text(work.context)
                         .foregroundStyle(Palette.textSecondary)

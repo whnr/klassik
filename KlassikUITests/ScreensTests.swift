@@ -5,7 +5,7 @@ import XCTest
 // takes the class names without "Screens" in KLASSIK_UI. scripts/screen_report.py reads the names of the
 // screenshots from the snap calls in this file.
 
-/// The four places, the stack of each place and the back arrow between them.
+/// The three places, the stack of each place and the back arrow between them.
 final class PlacesScreens: ScreensTestCase {
     @MainActor
     func testLibrary() throws {
@@ -29,9 +29,9 @@ final class PlacesScreens: ScreensTestCase {
     }
 
     @MainActor
-    func testFourPlaces() throws {
+    func testThreePlaces() throws {
         let app = try launchAndConnect(openComposers: false)
-        for name in ["Library", "Chronology", "Search", "Settings"] {
+        for name in ["Library", "Chronology", "Search"] {
             XCTAssertTrue(tab(app, name).exists, "No tab \(name)")
         }
         // At launch, Library has no place behind it and no back arrow.
@@ -45,18 +45,14 @@ final class PlacesScreens: ScreensTestCase {
         expectBackArrow(app, to: "Chronology")
         snap(app, "02g-search")
 
-        openPlace(app, "Settings")
-        expectBackArrow(app, to: "Search")
-        snap(app, "02h-settings")
-
-        // Back returns to the place the listener came from, and that place still has its own back arrow.
+        XCTAssertFalse(tab(app, "Settings").exists)
         app.buttons["place-back"].tap()
-        XCTAssertTrue(app.navigationBars["Search"].waitForExistence(timeout: 10))
-        expectBackArrow(app, to: "Chronology")
+        XCTAssertTrue(app.navigationBars["Chronology"].waitForExistence(timeout: 10))
+        expectBackArrow(app, to: "Library")
 
         // Library reached from another place shows the arrow too (ADR 0038).
         openPlace(app, "Library")
-        expectBackArrow(app, to: "Search")
+        expectBackArrow(app, to: "Chronology")
         snap(app, "02l-library-back-arrow")
     }
 
@@ -65,7 +61,7 @@ final class PlacesScreens: ScreensTestCase {
         let app = try launchAndConnect()
         composer(app, "Frédéric Chopin").tap()
         XCTAssertTrue(app.navigationBars["Frédéric Chopin"].waitForExistence(timeout: 10))
-        openPlace(app, "Settings")
+        openPlace(app, "Search")
         expectBackArrow(app, to: "Chopin")
         snap(app, "02i-back-arrow-to-page")
         app.buttons["place-back"].tap()
@@ -90,7 +86,7 @@ final class PlacesScreens: ScreensTestCase {
         let app = try launchAndConnect()
         composer(app, "Frédéric Chopin").tap()
         XCTAssertTrue(app.navigationBars["Frédéric Chopin"].waitForExistence(timeout: 10))
-        openPlace(app, "Settings")
+        openPlace(app, "Search")
         expectBackArrow(app, to: "Chopin")
         swipeFromLeftEdge(app)
         XCTAssertTrue(app.navigationBars["Frédéric Chopin"].waitForExistence(timeout: 10))
@@ -110,6 +106,25 @@ final class PlacesScreens: ScreensTestCase {
         XCTAssertTrue(back.waitForExistence(timeout: 10))
         snap(app, "02j-back-names-page")
         XCTAssertTrue(back.label.contains("Mendelssohn"), "The back button reads \"\(back.label)\"")
+    }
+
+    @MainActor
+    func testWorkComposerLinkKeepsEachPageInTheStack() throws {
+        let app = try launchAndConnect()
+        composer(app, "Felix Mendelssohn").tap()
+        let work = app.buttons.matching(identifier: "work").firstMatch
+        XCTAssertTrue(work.waitForExistence(timeout: 10))
+        work.tap()
+        let title = app.navigationBars.firstMatch.identifier
+        app.buttons["work-composer"].tap()
+        XCTAssertTrue(app.navigationBars["Felix Mendelssohn"].waitForExistence(timeout: 10))
+        app.buttons.matching(identifier: "work").firstMatch.tap()
+        XCTAssertTrue(app.navigationBars[title].waitForExistence(timeout: 10))
+        back(app)
+        XCTAssertTrue(app.navigationBars["Felix Mendelssohn"].waitForExistence(timeout: 10))
+        back(app)
+        XCTAssertTrue(app.navigationBars[title].waitForExistence(timeout: 10))
+        snap(app, "02m-work-composer-back")
     }
 
     /// The tip comes once, on the second page of a stack: the first page has only the root behind it.
@@ -139,7 +154,7 @@ final class BrowseScreens: ScreensTestCase {
     @MainActor
     func testMusicBrainz() throws {
         let app = try launchAndConnect()
-        openPlace(app, "Settings")
+        openSettings(app)
         XCTAssertTrue(app.buttons["musicbrainz"].waitForExistence(timeout: 30))
         app.buttons["musicbrainz"].tap()
         let toConfirm = app.buttons["to-confirm"]
@@ -260,7 +275,7 @@ final class PlaybackScreens: ScreensTestCase {
         snap(app, "05a-downloaded")
         back(app, times: 3)
 
-        openPlace(app, "Settings")
+        openSettings(app)
         reveal(app.buttons["local-storage"], in: app).tap()
         XCTAssertTrue(app.descendants(matching: .any)["download"].firstMatch.waitForExistence(timeout: 10))
         snap(app, "08a-local-storage")
@@ -310,6 +325,13 @@ final class PlaybackScreens: ScreensTestCase {
         for _ in 0..<3 where !(queued.exists && queued.isHittable) { app.swipeUp() }
         XCTAssertTrue(queued.label.contains("Symphony No. 5"))
         snap(app, "08-up-next")
+        reveal(app.buttons["Next Work"].firstMatch, in: app).tap()
+        XCTAssertTrue(
+            app.navigationBars.matching(NSPredicate(format: "identifier CONTAINS 'Symphony No. 5'"))
+                .firstMatch.waitForExistence(timeout: 15))
+        XCTAssertTrue(app.descendants(matching: .any)["playback-progress"].waitForExistence(timeout: 10))
+        XCTAssertFalse(miniPlayer.buttons["mini-player-cover"].exists)
+        snap(app, "08d-next-player")
     }
 
     /// The server keeps the reference recording, so this test changes what the later ones see.
@@ -360,7 +382,7 @@ final class TimelineScreens: ScreensTestCase {
         XCTAssertEqual(
             pill.buttons["mini-player-cover"].frame.maxX, app.frame.maxX, accuracy: 1,
             "A tap at the screen edge misses the cover")
-        XCTAssertEqual(app.frame.maxY - frame.maxY, 21, accuracy: 1, "The tab row is not where the system puts it")
+        XCTAssertGreaterThanOrEqual(app.frame.maxY - frame.maxY, 34, "The pill reaches the screen corner")
         XCTAssertEqual(bar.frame.maxY, frame.minY, accuracy: 1, "The timeline does not run into the pill")
         let row = app.descendants(matching: .any)["tab-row"].firstMatch
         XCTAssertEqual(frame.minY, row.frame.minY, accuracy: 1, "The pill is not in the tab row")
@@ -431,7 +453,7 @@ final class TimelineScreens: ScreensTestCase {
     func testTimelineSetting() throws {
         let app = try launchAndConnect(arguments: ["-\(timelineSideKey)", "right"])
         _ = pausedPlayerInLibrary(app)
-        openPlace(app, "Settings")
+        openSettings(app)
         XCTAssertTrue(reveal(app.descendants(matching: .any)["timeline-side"].firstMatch, in: app).exists)
         snap(app, "15g-timeline-setting")
     }
@@ -444,7 +466,7 @@ final class SettingsScreens: ScreensTestCase {
         let app = try launchAndConnect()
         // The mini player must leave the last rows free, so something must be playing.
         _ = pausedPlayerInLibrary(app)
-        openPlace(app, "Settings")
+        openSettings(app)
         XCTAssertTrue(reveal(app.buttons["diagnostics"], in: app).isHittable)
         snap(app, "08c-settings")
 
@@ -456,7 +478,7 @@ final class SettingsScreens: ScreensTestCase {
     @MainActor
     func testFilter() throws {
         let app = try launchAndConnect()
-        openPlace(app, "Settings")
+        openSettings(app)
         reveal(app.buttons["classical-filter"], in: app).tap()
         XCTAssertTrue(app.textFields.matching(identifier: "condition-text").firstMatch.waitForExistence(timeout: 10))
         snap(app, "09-filter")
@@ -465,7 +487,7 @@ final class SettingsScreens: ScreensTestCase {
     @MainActor
     func testClassicalAlbums() throws {
         let app = try launchAndConnect()
-        openPlace(app, "Settings")
+        openSettings(app)
         reveal(app.buttons["classical-albums"], in: app).tap()
         let concerto = app.buttons.matching(identifier: "album")
             .matching(NSPredicate(format: "label CONTAINS 'Mendelssohn: Violin Concerto'")).firstMatch
@@ -489,7 +511,7 @@ final class SettingsScreens: ScreensTestCase {
         let app = try launchAndConnect()
         // Diagnostics checks that the mini player leaves the last row free, so something must be playing.
         let bar = pausedPlayerInLibrary(app)
-        openPlace(app, "Settings")
+        openSettings(app)
         reveal(app.buttons["diagnostics"], in: app).tap()
         XCTAssertTrue(app.staticTexts["Diagnostics"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.descendants(matching: .any)["opensubsonic"].waitForExistence(timeout: 10))
@@ -508,7 +530,7 @@ final class SettingsScreens: ScreensTestCase {
     @MainActor
     func testGapless() throws {
         let app = try launchAndConnect()
-        openPlace(app, "Settings")
+        openSettings(app)
         reveal(app.buttons["diagnostics"], in: app).tap()
         XCTAssertTrue(app.descendants(matching: .any)["opensubsonic"].waitForExistence(timeout: 10))
         reveal(app.buttons["gapless-test"], in: app).tap()
@@ -643,6 +665,17 @@ class ScreensTestCase: XCTestCase {
     @MainActor
     func tab(_ app: XCUIApplication, _ name: String) -> XCUIElement {
         app.buttons["tab-\(name.lowercased())"]
+    }
+
+    /// Settings belongs to the Library stack, behind its toolbar cog.
+    @MainActor
+    func openSettings(_ app: XCUIApplication) {
+        openPlace(app, "Library")
+        for _ in 0..<10 where !app.buttons["library-settings"].exists { back(app) }
+        let cog = app.buttons["library-settings"]
+        XCTAssertTrue(cog.waitForExistence(timeout: 10))
+        cog.tap()
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 10))
     }
 
     /// Taps a place in the tab bar.

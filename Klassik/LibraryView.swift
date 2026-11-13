@@ -30,6 +30,12 @@ struct LibraryView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 ShuffleButton(works: library.index.composers.flatMap(\.works))
             }
+            ToolbarItem(placement: .topBarTrailing) {
+                NavigationLink(value: Page.settings) {
+                    Label("Settings", systemImage: "gearshape")
+                }
+                .accessibilityIdentifier("library-settings")
+            }
         }
         .refreshable {
             guard let client = model.client else { return }

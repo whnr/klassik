@@ -31,7 +31,7 @@ struct TimelineBarView: View {
             ZStack(alignment: side == .right ? .topTrailing : .topLeading) {
                 if let scrubbed {
                     label(scrubbed)
-                        .frame(maxWidth: proxy.size.width * 0.7, alignment: .leading)
+                        .frame(maxWidth: proxy.size.width * 0.7, alignment: side == .right ? .trailing : .leading)
                         .fixedSize(horizontal: false, vertical: true)
                         .onGeometryChange(for: Double.self) {
                             Double($0.size.height)
@@ -60,6 +60,7 @@ struct TimelineBarView: View {
                     .accessibilityAdjustableAction(adjust)
                     .accessibilityIdentifier("timeline")
             }
+            .coordinateSpace(name: "timeline")
             .frame(
                 width: proxy.size.width, height: proxy.size.height,
                 alignment: side == .right ? .topTrailing : .topLeading)
@@ -115,7 +116,7 @@ struct TimelineBarView: View {
     }
 
     private func drag(on bar: TimelineBar) -> some Gesture {
-        DragGesture(minimumDistance: 0)
+        DragGesture(minimumDistance: 0, coordinateSpace: .named("timeline"))
             .updating($isTouching) { _, state, _ in state = true }
             .onChanged { value in
                 if value.startLocation != touchStart {

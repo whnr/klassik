@@ -10,7 +10,6 @@ struct PlacesView: View {
     @State private var navigator = AppNavigator()
     @AppStorage(TimelineSide.storageKey) private var side = TimelineSide.standard
     @State private var backTransition = PlaceBackTransition()
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var clearance = TabRow.clearance(safeArea: 0)
 
     var body: some View {
@@ -26,14 +25,7 @@ struct PlacesView: View {
             }
         }
         .background { PlaceBackSurface(transition: backTransition) }
-        .environment(
-            \.returnToPlace,
-            {
-                backTransition.perform(reduceMotion: reduceMotion, bottom: clearance) {
-                    navigator.goBack(from: navigator.selection)
-                }
-            }
-        )
+        .environment(\.placeBackTransition, backTransition)
         .onChange(of: model.playback.item.map(Page.init(playing:))) { old, new in
             navigator.followPlayback(from: old, to: new)
         }
@@ -159,7 +151,9 @@ struct TabRow: View {
 struct PlaceStack<Root: View>: View {
     @Environment(AppNavigator.self) private var navigator
     @Environment(AppModel.self) private var model
-    @Environment(\.returnToPlace) private var returnToPlace
+    @Environment(\.placeBackTransition) private var backTransition
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.tabRowClearance) private var clearance
     let place: Place
     @ViewBuilder let root: Root
 
@@ -182,7 +176,13 @@ struct PlaceStack<Root: View>: View {
                         ToolbarItem(placement: .topBarLeading) {
                             let name = target.page?.backTitle(in: model.library) ?? target.place.title
                             Button {
-                                returnToPlace()
+                                if let backTransition {
+                                    backTransition.perform(reduceMotion: reduceMotion, bottom: clearance) {
+                                        navigator.goBack(from: place)
+                                    }
+                                } else {
+                                    navigator.goBack(from: place)
+                                }
                             } label: {
                                 // The system back button of iOS 27 draws the chevron only. The label keeps the name.
                                 Image(systemName: "chevron.backward")
@@ -278,7 +278,7 @@ struct BackTipRow: View {
 }
 
 extension EnvironmentValues {
-    @Entry var returnToPlace: @MainActor () -> Void = {}
+    @Entry var placeBackTransition: PlaceBackTransition? = nil
     /// True on a page that a pages menu sits behind, which is where the tip makes sense.
     @Entry var showsBackTip = false
     /// The height above the bottom safe area that the tab row takes, with its gap.

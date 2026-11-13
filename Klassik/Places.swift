@@ -225,6 +225,12 @@ private struct PlaceInsets: ViewModifier {
             }
             .scrollEdgeEffectStyle(.soft, for: .top)
             .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    // Keep the large title and back labels while suppressing the inline title (ADR 0023).
+                    Color.clear.frame(width: 1, height: 1).accessibilityHidden(true)
+                }
+            }
             .contentMargins(.trailing, beside, for: .scrollIndicators)
             .toolbarVisibility(.hidden, for: .tabBar)
     }

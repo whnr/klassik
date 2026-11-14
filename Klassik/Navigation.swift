@@ -27,6 +27,7 @@ final class Navigator<Page: Hashable> {
     }
 
     private(set) var selection = Place.library
+    private(set) var isPlayerOpen = false
     private var stacks: [Place: [Page]] = [:]
     private var origins: [Place: Origin] = [:]
 
@@ -39,12 +40,10 @@ final class Navigator<Page: Hashable> {
         stacks[place, default: []].append(page)
     }
 
-    /// The player follows the queue in place. A listener who browses another page keeps that page (ADR 0015).
-    func followPlayback(from old: Page?, to new: Page?) {
-        guard let old, let new, old != new, var pages = stacks[selection], pages.last == old else { return }
-        pages[pages.count - 1] = new
-        stacks[selection] = pages
-    }
+    /// The player lives above the places, so opening or closing it cannot change a page stack.
+    func openPlayer() { isPlayerOpen = true }
+
+    func closePlayer() { isPlayerOpen = false }
 
     /// Takes the stack from the system after a push or a pop.
     func setPages(_ pages: [Page], in place: Place) {
@@ -60,7 +59,10 @@ final class Navigator<Page: Hashable> {
 
     /// A second tap on the selected tab returns to its root without changing other stacks.
     func selectTab(_ place: Place) {
-        if place == selection {
+        if isPlayerOpen {
+            closePlayer()
+            select(place)
+        } else if place == selection {
             stacks[place] = []
         } else {
             select(place)

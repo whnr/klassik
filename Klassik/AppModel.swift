@@ -11,7 +11,7 @@ final class AppModel {
     private(set) var lastError: String?
     private(set) var lastErrorDate: Date?
     private(set) var isChecking = false
-    /// True while a finger scrubs the timeline. The rows of the player page stay still until it lifts (ADR 0027).
+    /// True while a finger scrubs the timeline. The rows of the player stay still until it lifts (ADR 0027).
     var isScrubbingTimeline = false
 
     let library: Library

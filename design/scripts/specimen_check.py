@@ -56,20 +56,58 @@ class QuietHandler(http.server.SimpleHTTPRequestHandler):
 
 
 def check_overlay(page, where, failures):
-    """The cover opens the overlay over the place; another tab slides it down and leaves."""
-    page.locator(".edge-pill .cover-link").tap()
-    page.wait_for_timeout(900)
-    if not page.locator(".player-overlay iframe").count():
+    """Dismissal restores the page under the player and each tab's last page."""
+    before = page.locator(".edge-pill").bounding_box()
+    url = page.url
+
+    def open_player():
+        page.locator(".edge-pill .cover-link").tap()
+        page.wait_for_timeout(900)
+
+    open_player()
+    overlay = page.locator(".player-overlay")
+    if not overlay.count():
         failures.append(f"{where}: a tap on the cover did not open the player overlay")
         return
-    if page.locator(".edge-pill .cover-link").count():
-        failures.append(f"{where}: the pill keeps its cover while the player is open")
+    if not page.locator(".edge-pill .cover-link").count():
+        failures.append(f"{where}: the pill lost its cover while the player is open")
+    if page.locator(".edge-pill").bounding_box() != before:
+        failures.append(f"{where}: opening the player moved the pill")
+    bounds = overlay.bounding_box()
+    if bounds != {"x": 0, "y": 0, "width": 393, "height": 852}:
+        failures.append(f"{where}: the overlay does not fill the display: {bounds}")
     if not page.frame_locator(".player-overlay iframe").locator(".is-player .hero").count():
         failures.append(f"{where}: the overlay shows no player")
-    page.locator(".tabs a").nth(2).tap()
-    page.wait_for_timeout(1500)
-    if "search.html" not in page.url:
-        failures.append(f"{where}: another tab did not leave the overlay")
+    grab = page.locator(".player-overlay .grab").bounding_box()
+    page.mouse.move(grab["x"] + grab["width"] / 2, grab["y"] + grab["height"] - 8)
+    page.mouse.down()
+    page.mouse.move(190, 500, steps=10)
+    page.mouse.up()
+    page.wait_for_timeout(900)
+    if overlay.count() or page.url != url:
+        failures.append(f"{where}: sliding down did not restore the underlying page")
+    open_player()
+    page.locator(".tabs a.on, .tab-search.on").tap()
+    page.wait_for_timeout(900)
+    if overlay.count() or page.url != url:
+        failures.append(f"{where}: the underlying tab did not keep its page")
+    base = url.split("/specimen/")[0] + "/specimen/"
+    for place in ("library", "chronology", "search"):
+        destination = base + f"person.html?name=Karl%20B%C3%B6hm&place={place}"
+        page.evaluate(
+            "([place, url]) => sessionStorage.setItem('specimen.stack.' + place, JSON.stringify(url))",
+            [place, destination],
+        )
+        current = page.locator(".tabs a.on, .tab-search.on").get_attribute("aria-label").lower()
+        open_player()
+        page.locator(f".tabbar a[aria-label='{place.title()}']").tap()
+        page.wait_for_timeout(1500)
+        if place == current:
+            if page.url != url:
+                failures.append(f"{where}: {place} reset its underlying page")
+        elif "person.html" not in page.url or f"place={place}" not in page.url:
+            failures.append(f"{where}: {place} did not restore its last page")
+        url = page.url
 
 
 def main():

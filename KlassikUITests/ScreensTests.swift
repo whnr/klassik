@@ -255,6 +255,55 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(reveal(playing, in: app).exists, "No movement shows the playing mark")
     }
 
+    /// Play on the work page plays the reference recording and the pill shows the playing state (item 25).
+    @MainActor
+    func testPlayOnTheWorkPage() throws {
+        let app = try launchAndConnect()
+        composer(app, "Felix Mendelssohn").tap()
+        let work = app.buttons.matching(identifier: "work").firstMatch
+        XCTAssertTrue(work.waitForExistence(timeout: 10))
+        work.tap()
+        let play = app.buttons["play-work"]
+        XCTAssertTrue(play.waitForExistence(timeout: 10))
+        play.tap()
+        pause(app)
+    }
+
+    /// Play Whole Album on a recording page starts the album, not only the recording (build 48, item 11).
+    /// The Brahms movement lives on a recital disc that holds a second work, so its page offers the whole disc.
+    @MainActor
+    func testPlayWholeAlbumOnTheRecordingPage() throws {
+        let app = try launchAndConnect()
+        composer(app, "Johannes Brahms").tap()
+        let work = app.buttons.matching(identifier: "work").firstMatch
+        XCTAssertTrue(work.waitForExistence(timeout: 10))
+        work.tap()
+        let recording = app.buttons.matching(identifier: "recording").firstMatch
+        XCTAssertTrue(recording.waitForExistence(timeout: 10))
+        recording.tap()
+        let wholeAlbum = app.buttons["play-album"]
+        XCTAssertTrue(wholeAlbum.waitForExistence(timeout: 10), "The recording page offers no Play Whole Album")
+        wholeAlbum.tap()
+        pause(app)
+        snap(app, "05d-play-whole-album")
+    }
+
+    /// Play on an album page starts the album (build 48, item 21).
+    @MainActor
+    func testPlayOnTheAlbumPage() throws {
+        let app = try launchAndConnect()
+        openSettings(app)
+        reveal(app.buttons["classical-albums"], in: app).tap()
+        let encores = app.buttons.matching(identifier: "album")
+            .matching(NSPredicate(format: "label CONTAINS 'Romantic Encores'")).firstMatch
+        XCTAssertTrue(reveal(encores, in: app).isHittable)
+        encores.tap()
+        XCTAssertTrue(app.buttons["play-recording"].waitForExistence(timeout: 10))
+        startPlaying(app)
+        pause(app)
+        snap(app, "05e-play-album")
+    }
+
     /// Next has nowhere to go on the last movement of the last item. The fixture movements last about three
     /// seconds, so the walk pauses at once. A queue that ends removes the Next button.
     @MainActor
@@ -764,13 +813,17 @@ class ScreensTestCase: XCTestCase {
         }
     }
 
-    /// Pauses with the button of the mini player, which stays in the tab row whatever the page shows. The fixture
+    /// Pauses with the button of the mini player, which stays in the tab row whatever the page shows. The button
+    /// must read "Pause" first: a queue that never started sound reads "Resume" and must fail here. The fixture
     /// movements last seconds, so the walk pauses at once.
     @MainActor
     func pause(_ app: XCUIApplication) {
         let button = app.buttons["mini-player-pause"]
         XCTAssertTrue(button.waitForExistence(timeout: 10), "No pause button in the mini player")
-        if button.label == "Pause" { button.tap() }
+        let playing = NSPredicate(format: "label == 'Pause'")
+        let started = XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: playing, object: button)], timeout: 10)
+        XCTAssertEqual(started, .completed, "Play did not start playback: the pill reads \(button.label)")
+        button.tap()
         XCTAssertTrue(app.buttons["Resume"].firstMatch.waitForExistence(timeout: 10), "The player did not pause")
     }
 

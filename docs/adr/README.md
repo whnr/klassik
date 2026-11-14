@@ -38,7 +38,7 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0025](0025-search-field-and-filter-sheet.md) | The search field finds; filters open in a sheet (partly replaced by 0029) | 2026-11-07 |
 | [0026](0026-contemporaries-by-active-years.md) | Contemporaries by overlapping active years | 2026-11-07 |
 | [0027](0027-player-rows.md) | Player rows: play at the end, open only what differs | 2026-11-08 |
-| [0028](0028-mini-player-pill.md) | The mini player is a pill at the end of the timeline | 2026-11-08 |
+| [0028](0028-mini-player-pill.md) | The mini player is a pill at the end of the timeline (partly replaced by 0041) | 2026-11-08 |
 | [0029](0029-search-at-the-top.md) | Search at the top, with a back arrow and recent searches (partly replaced by 0038) | 2026-11-08 |
 | [0030](0030-type-and-spacing.md) | Type and spacing from one ratio | 2026-11-08 |
 | [0031](0031-no-separator-glyph.md) | No separator glyph: prose, words and role lines | 2026-11-09 |
@@ -51,3 +51,4 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0038](0038-standard-tabs-and-the-cross-tab-back.md) | Standard tabs, and a back arrow on a root reached from another tab (partly replaced by 0040) | 2026-11-11 |
 | [0039](0039-next-at-the-end-and-play-on-the-playing-item.md) | Next ends at the last movement; Play on the playing item pauses or resumes | 2026-11-11 |
 | [0040](0040-settings-from-the-library.md) | Settings opens from the Library toolbar | 2026-11-13 |
+| [0041](0041-native-tabs-and-display-corners.md) | Native tabs and the display corner | 2026-11-14 |

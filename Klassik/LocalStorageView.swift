@@ -63,7 +63,7 @@ struct LocalStorageView: View {
                 Text("A download stays until you remove it. The cache limit does not count it. Signing out removes it.")
             }
         }
-        .navigationTitle("Local Storage")
+        .pageTitle("Local Storage")
     }
 
     private static func size(_ bytes: Int64) -> String {

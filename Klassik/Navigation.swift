@@ -58,6 +58,15 @@ final class Navigator<Page: Hashable> {
         selection = place
     }
 
+    /// A second tap on the selected tab returns to its root without changing other stacks.
+    func selectTab(_ place: Place) {
+        if place == selection {
+            stacks[place] = []
+        } else {
+            select(place)
+        }
+    }
+
     /// Where the back arrow of a place goes: the page it was opened from, else Library. Library at launch has
     /// no place behind it, so it has no arrow (ADR 0038).
     func backTarget(for place: Place) -> Origin? {

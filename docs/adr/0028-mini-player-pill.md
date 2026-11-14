@@ -2,6 +2,8 @@
 
 Date: 2026-11-08. Decided by Flo after specimen round 7 on the phone. Bead: sz-rs30.1.83.9. Replaces the mini player of [0014](0014-player.md) and the rule of [0015](0015-player-page.md) that the mini player does not show on the player page.
 
+The custom-tab fallback is replaced by [0041](0041-native-tabs-and-display-corners.md).
+
 ## Context
 
 The card of ADR 0014 floated above the content in every place. It took a row of height from every page. A review found no plain pause button. Classical listening stays on one work for a long time, so the mini player needs little text. Round 7 showed four shapes: a pill with play/pause beside the cover, the same pill stacked on the edge, play/pause in the tab capsule, and the card with a pause button. Album art is square, so a round cover reads wrong. That ruled out the stacked pill.

@@ -68,6 +68,19 @@ final class PlacesScreens: ScreensTestCase {
         XCTAssertTrue(app.navigationBars["Frédéric Chopin"].waitForExistence(timeout: 10))
     }
 
+    @MainActor
+    func testSecondTabTapReturnsToRoot() throws {
+        let app = try launchAndConnect()
+        composer(app, "Felix Mendelssohn").tap()
+        XCTAssertTrue(app.navigationBars["Felix Mendelssohn"].waitForExistence(timeout: 10))
+        openPlace(app, "Search")
+        openPlace(app, "Library")
+        XCTAssertTrue(app.navigationBars["Felix Mendelssohn"].waitForExistence(timeout: 10))
+        tab(app, "Library").tap()
+        XCTAssertTrue(app.buttons["library-composers"].waitForExistence(timeout: 10))
+        snap(app, "02n-tab-root")
+    }
+
     /// A swipe from the left edge of a root with an arrow does what the arrow does.
     @MainActor
     func testEdgeSwipeGoesBack() throws {

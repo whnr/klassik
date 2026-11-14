@@ -27,6 +27,7 @@ PAGES = (
     "person.html?name=Ludwig%20van%20Beethoven",
     "person.html?name=Karl%20B%C3%B6hm",
     "tokens.html",
+    "settings.html",
 )
 # Each mode: room, contrast, accent, player look, what plays, timeline edge.
 MODES = (

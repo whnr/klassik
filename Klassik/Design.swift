@@ -112,10 +112,12 @@ extension ScaledMetric where Value == CGFloat {
 
 /// A `List` on Klassik's grounds. The system gives a list its own colours, and each row its own ground.
 struct PageList<Content: View>: View {
+    @Environment(\.pageHeading) private var heading
     @ViewBuilder let content: Content
 
     var body: some View {
         List {
+            PageHeading(title: heading)
             BackTipRow()
             content.listRowBackground(Palette.backgroundRow.color)
         }
@@ -125,10 +127,12 @@ struct PageList<Content: View>: View {
 
 /// A `Form` on Klassik's grounds.
 struct PageForm<Content: View>: View {
+    @Environment(\.pageHeading) private var heading
     @ViewBuilder let content: Content
 
     var body: some View {
         Form {
+            PageHeading(title: heading)
             BackTipRow()
             content.listRowBackground(Palette.backgroundRow.color)
         }
@@ -169,4 +173,34 @@ struct SectionHeading: View {
             .foregroundStyle(Palette.textPrimary)
             .textCase(nil)
     }
+}
+
+/// The heading scrolls as content, so UIKit cannot collapse it before it crosses the soft edge.
+private struct PageHeading: View {
+    let title: String
+
+    var body: some View {
+        if !title.isEmpty {
+            Text(title)
+                .typeStyle(.pageTitle)
+                .foregroundStyle(Palette.textPrimary)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("page-heading")
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+        }
+    }
+}
+
+extension View {
+    /// The navigation name supplies Back and VoiceOver; the list draws the visible heading (ADR 0023).
+    func pageTitle(_ title: String) -> some View {
+        environment(\.pageHeading, title)
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+extension EnvironmentValues {
+    @Entry var pageHeading = ""
 }

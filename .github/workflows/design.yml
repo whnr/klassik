@@ -35,3 +35,8 @@ jobs:
           node-version: 22
       - run: uv run --no-project --with playwright==1.64.1 playwright install --with-deps chromium
       - run: design/scripts/lint.sh
+      - uses: actions/upload-artifact@v7
+        with:
+          name: specimen
+          path: design/
+          retention-days: 14

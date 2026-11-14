@@ -33,7 +33,7 @@ struct RawTagsView: View {
                 }
             }
         }
-        .navigationTitle("Tags")
+        .pageTitle("Tags")
     }
 }
 

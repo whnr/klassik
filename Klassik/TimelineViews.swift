@@ -47,7 +47,7 @@ struct WorkTimelineView: View {
                     "No Works", systemImage: "calendar", description: Text("Works with a WORK tag appear here."))
             }
         }
-        .navigationTitle("Chronology")
+        .pageTitle("Chronology")
     }
 }
 
@@ -127,7 +127,7 @@ struct WorkSourcesView: View {
                 Text("Missing or wrong data? Fix it in MusicBrainz, then look up again.")
             }
         }
-        .navigationTitle("Dates and Sources")
+        .pageTitle("Dates and Sources")
     }
 
     @ViewBuilder private func link(_ link: Enrichment.Link, facts: WorkFacts?) -> some View {

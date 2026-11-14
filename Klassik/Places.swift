@@ -2,58 +2,126 @@ import SwiftUI
 import TipKit
 import UIKit
 
-/// The three places, each with its own stack. The system `TabView` keeps the places and their stacks. Its tab bar
-/// spans the screen, so a tab bar drawn by hand takes its place and leaves room for the mini player (ADR 0028).
+/// The system tab controller keeps each place and its stack, with room beside its bar for the mini player.
 struct PlacesView: View {
     @Environment(AppModel.self) private var model
-    /// Owned here, so that a sign-out takes the stacks away with the places.
     @State private var navigator = AppNavigator()
     @AppStorage(TimelineSide.storageKey) private var side = TimelineSide.standard
     @State private var backTransition = PlaceBackTransition()
-    @State private var clearance = TabRow.clearance(safeArea: 0)
 
     var body: some View {
-        TabView(selection: Binding(get: { navigator.selection }, set: { navigator.select($0) })) {
-            Tab(Place.library.title, systemImage: Place.library.symbol, value: Place.library) {
-                PlaceStack(place: .library) { LibraryView() }
-            }
-            Tab(Place.chronology.title, systemImage: Place.chronology.symbol, value: Place.chronology) {
-                PlaceStack(place: .chronology) { WorkTimelineView() }
-            }
-            Tab(value: Place.search, role: .search) {
-                PlaceStack(place: .search) { SearchView() }
-            }
-        }
+        let playing = model.playback.item != nil
+        let onPlayer =
+            model.playback.item.map { navigator.pages(in: navigator.selection).last == Page(playing: $0) } ?? false
+        SystemPlaces(
+            model: model, navigator: navigator, selection: navigator.selection, backTransition: backTransition,
+            side: side, reservedWidth: playing ? MiniPlayer.width(onPlayer: onPlayer) + Space.s.points : 0
+        )
+        .ignoresSafeArea(.container)
         .background { PlaceBackSurface(transition: backTransition) }
-        .environment(\.placeBackTransition, backTransition)
         .onChange(of: model.playback.item.map(Page.init(playing:))) { old, new in
             navigator.followPlayback(from: old, to: new)
         }
         .overlay {
-            // The reader keeps the safe area, so its insets are real. The chrome inside ignores it and places
-            // itself: the timeline starts at the top safe area (ADR 0035), and the tab row sits where the system
-            // tab bar sits. The keyboard does not move the chrome, so the row stays below the search results.
-            GeometryReader { proxy in
-                let insets = proxy.safeAreaInsets
-                VStack(spacing: 0) {
-                    if model.playback.item != nil {
-                        TimelineBarView(side: side)
-                    } else {
-                        Spacer(minLength: 0)
+            GeometryReader { safe in
+                let insets = safe.safeAreaInsets
+                let gap = TabRow.gap(safeArea: insets.bottom)
+                GeometryReader { display in
+                    if playing {
+                        VStack(spacing: 0) {
+                            TimelineBarView(side: side)
+                            HStack(spacing: 0) {
+                                if side == .right { Spacer(minLength: 0) }
+                                MiniPlayer(side: side, bottom: gap)
+                                if side == .left { Spacer(minLength: 0) }
+                            }
+                            .frame(height: TabRow.height)
+                            .accessibilityIdentifier("tab-row")
+                        }
+                        .padding(.top, insets.top)
+                        .padding(.bottom, gap)
+                        MiniPlayerCorner(side: side, top: display.size.height - gap - TabRow.height)
+                            .allowsHitTesting(false)
                     }
-                    TabRow(side: side)
                 }
-                .padding(.top, insets.top)
-                .padding(.bottom, TabRow.gap(safeArea: insets.bottom))
                 .ignoresSafeArea(.container)
-                .onChange(of: insets.bottom, initial: true) { _, bottom in
-                    clearance = TabRow.clearance(safeArea: bottom)
-                }
             }
             .ignoresSafeArea(.keyboard)
         }
-        .environment(\.tabRowClearance, clearance)
         .environment(navigator)
+    }
+}
+
+/// UIKit supplies glass selection, drag tracking and accessibility. Only the bar's available width changes.
+private struct SystemPlaces: UIViewControllerRepresentable {
+    let model: AppModel
+    let navigator: AppNavigator
+    let selection: Place
+    let backTransition: PlaceBackTransition
+    let side: TimelineSide
+    let reservedWidth: CGFloat
+
+    func makeUIViewController(context: Context) -> PlacesController {
+        let controller = PlacesController()
+        controller.delegate = context.coordinator
+        controller.viewControllers = Place.allCases.map { place in
+            let root: AnyView
+            switch place {
+            case .library: root = AnyView(PlaceStack(place: place) { LibraryView() })
+            case .chronology: root = AnyView(PlaceStack(place: place) { WorkTimelineView() })
+            case .search: root = AnyView(PlaceStack(place: place) { SearchView() })
+            }
+            let host = UIHostingController(
+                rootView:
+                    root
+                    .environment(model)
+                    .environment(navigator)
+                    .environment(\.placeBackTransition, backTransition)
+                    .environment(\.tabRowClearance, Space.s.points)
+                    .tint(Palette.tint))
+            host.tabBarItem = UITabBarItem(
+                title: place.title, image: UIImage(systemName: place.symbol),
+                selectedImage: UIImage(systemName: place == .library ? "books.vertical.fill" : place.symbol))
+            host.tabBarItem.accessibilityIdentifier = "tab-\(place.rawValue)"
+            return host
+        }
+        return controller
+    }
+
+    func updateUIViewController(_ controller: PlacesController, context: Context) {
+        let selected = Place.allCases.firstIndex(of: selection) ?? 0
+        if controller.selectedIndex != selected { controller.selectedIndex = selected }
+        controller.reservedWidth = reservedWidth
+        controller.side = side
+        controller.tabBar.tintColor = Palette.tint.uiColor
+        controller.view.setNeedsLayout()
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(navigator: navigator) }
+
+    final class Coordinator: NSObject, UITabBarControllerDelegate {
+        let navigator: AppNavigator
+
+        init(navigator: AppNavigator) { self.navigator = navigator }
+
+        func tabBarController(_ controller: UITabBarController, shouldSelect viewController: UIViewController) -> Bool {
+            guard let index = controller.viewControllers?.firstIndex(of: viewController) else { return false }
+            navigator.selectTab(Place.allCases[index])
+            return true
+        }
+    }
+}
+
+private final class PlacesController: UITabBarController {
+    var reservedWidth: CGFloat = 0
+    var side = TimelineSide.right
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        var frame = tabBar.frame
+        frame.origin.x = side == .left ? reservedWidth : 0
+        frame.size.width = max(0, view.bounds.width - reservedWidth)
+        tabBar.frame = frame
     }
 }
 
@@ -67,81 +135,16 @@ extension Place {
     }
 }
 
-/// The tab bar, drawn by hand: the tabs in a glass capsule, Search on its own, and the mini player on the
-/// timeline's side while something plays. It keeps the height of the system tab bar (ADR 0028).
-struct TabRow: View {
-    @Environment(AppModel.self) private var model
-    @Environment(AppNavigator.self) private var navigator
-    let side: TimelineSide
-
-    /// The capsule around the items: as tall as the pill.
+/// Playback controls align with the native tab bar; their safe-area gap keeps the square cover clear.
+enum TabRow {
     nonisolated static let height = MiniPlayer.item + 2 * Space.xs.points
-    /// The distance from the screen bottom to the row.
+
     nonisolated static func gap(safeArea bottom: CGFloat) -> CGFloat {
         max(bottom, Space.s.points)
     }
 
-    /// The height above the bottom safe area that a page keeps clear: the row and a gap of `Space.s` above it.
     nonisolated static func clearance(safeArea bottom: CGFloat) -> CGFloat {
         max(0, gap(safeArea: bottom) + height + Space.s.points - bottom)
-    }
-
-    var body: some View {
-        let playing = model.playback.item != nil
-        HStack(spacing: Space.s.points) {
-            if playing, side == .left { MiniPlayer(side: side) }
-            GlassEffectContainer(spacing: Space.s.points) {
-                HStack(spacing: Space.s.points) {
-                    HStack(spacing: 0) {
-                        ForEach([Place.library, .chronology], id: \.self) { place in
-                            tab(place)
-                        }
-                    }
-                    .padding(Space.xs.points)
-                    .glassEffect(.regular.interactive(), in: .capsule)
-                    tab(.search)
-                        .padding(Space.xs.points)
-                        .frame(width: Self.height)
-                        .glassEffect(.regular.interactive(), in: .circle)
-                }
-            }
-            .padding(.leading, playing && side == .left ? 0 : Space.l.points)
-            .padding(.trailing, playing && side == .right ? 0 : Space.l.points)
-            if playing, side == .right { MiniPlayer(side: side) }
-        }
-        .frame(height: Self.height)
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("tab-row")
-    }
-
-    private func tab(_ place: Place) -> some View {
-        let selected = navigator.selection == place
-        return Button {
-            navigator.select(place)
-        } label: {
-            VStack(spacing: 1) {
-                Image(systemName: place.symbol)
-                    .font(.system(size: 22))
-                    // As in the system tab bar, the selected tab shows the filled symbol.
-                    .symbolVariant(selected ? .fill : .none)
-                // A system tab bar keeps its label size and offers the large content viewer instead.
-                if place != .search {
-                    Text(place.title)
-                        .font(.system(size: 10, weight: .medium))
-                }
-            }
-            .frame(maxWidth: .infinity, minHeight: MiniPlayer.item)
-            .foregroundStyle(selected ? Palette.tint : Palette.textPrimary)
-            .background {
-                if selected, place != .search { Capsule().fill(Palette.fillQuiet) }
-            }
-            .contentShape(.capsule)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(place.title)
-        .accessibilityAddTraits(selected ? .isSelected : [])
-        .accessibilityShowsLargeContentViewer()
-        .accessibilityIdentifier("tab-\(place.rawValue)")
     }
 }
 
@@ -177,7 +180,9 @@ struct PlaceStack<Root: View>: View {
                             let name = target.page?.backTitle(in: model.library) ?? target.place.title
                             Button {
                                 if let backTransition {
-                                    backTransition.perform(reduceMotion: reduceMotion, bottom: clearance) {
+                                    backTransition.perform(
+                                        reduceMotion: reduceMotion, bottom: TabRow.height + clearance
+                                    ) {
                                         navigator.goBack(from: place)
                                     }
                                 } else {
@@ -203,13 +208,12 @@ struct PlaceStack<Root: View>: View {
                         .environment(\.showsBackTip, (navigator.pages(in: place).firstIndex(of: page) ?? 0) >= 1)
                 }
         }
-        .toolbarVisibility(.hidden, for: .tabBar)
     }
 }
 
 /// Keeps the last rows of a page clear of the tab row, and the scroll indicator clear of the timeline (ADR 0029).
 /// Each page needs its own inset: an inset on the `NavigationStack` does not move the last rows of a pushed List.
-/// Each page also hides the system tab bar, so that a push does not bring it back.
+/// UIKit keeps the native tab bar visible as the page stack changes.
 private struct PlaceInsets: ViewModifier {
     @Environment(AppModel.self) private var model
     @AppStorage(TimelineSide.storageKey) private var side = TimelineSide.standard
@@ -232,7 +236,6 @@ private struct PlaceInsets: ViewModifier {
                 }
             }
             .contentMargins(.trailing, beside, for: .scrollIndicators)
-            .toolbarVisibility(.hidden, for: .tabBar)
     }
 }
 

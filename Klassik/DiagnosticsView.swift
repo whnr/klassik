@@ -108,7 +108,7 @@ struct DiagnosticsView: View {
                 }
             }
         }
-        .navigationTitle("Diagnostics")
+        .pageTitle("Diagnostics")
         .refreshable { await model.check() }
     }
 

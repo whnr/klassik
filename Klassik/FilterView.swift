@@ -50,7 +50,7 @@ struct FilterView: View {
                     .disabled(library.filter == ClassicalFilter())
             }
         }
-        .navigationTitle("Classical Filter")
+        .pageTitle("Classical Filter")
     }
 }
 

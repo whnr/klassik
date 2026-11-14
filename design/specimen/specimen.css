@@ -166,7 +166,7 @@ input {
 }
 [data-side="left"] .scrub-label {
   right: auto;
-  left: calc(var(--size-hitTarget) + var(--space-xs));
+  left: calc(var(--size-hitTarget) + var(--space-xs) + 36px);
 }
 [data-side="left"] .mini {
   right: var(--space-l);
@@ -582,7 +582,7 @@ input::placeholder {
 .scrub-label {
   position: fixed;
   z-index: 45;
-  right: calc(var(--size-hitTarget) + var(--space-xs));
+  right: calc(var(--size-hitTarget) + var(--space-xs) + 36px);
   padding: var(--space-xs) var(--space-s);
   border-radius: var(--radius-s);
   background: var(--color-background-elevated);
@@ -811,4 +811,20 @@ h1[class] {
 }
 .section-head button {
   margin-left: auto;
+}
+
+/* The specimen approximates system chrome; native glass and display corners require an installed-app check. */
+.nav .settings-link {
+  min-width: var(--size-hitTarget);
+  min-height: var(--size-hitTarget);
+  display: grid;
+  place-items: center;
+  color: var(--color-text-primary);
+}
+.nav .settings-link svg {
+  width: 24px;
+  height: 24px;
+}
+.nav .back {
+  color: var(--color-text-primary);
 }

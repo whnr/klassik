@@ -305,15 +305,15 @@ final class PlaybackScreens: ScreensTestCase {
         let performer = app.buttons.matching(identifier: "performer").firstMatch
         XCTAssertTrue(performer.waitForExistence(timeout: 10))
         snap(app, "06a-performers")
-        let performed = app.buttons.matching(identifier: "recording").firstMatch
+        let cover = app.buttons.matching(identifier: "performer-album").firstMatch
         // A tap while the list still settles does not open the row, so the walk taps again.
-        for _ in 0..<3 where !performed.exists {
+        for _ in 0..<3 where !cover.exists {
             if performer.isHittable { performer.tap() }
-            _ = performed.waitForExistence(timeout: 5)
+            _ = cover.waitForExistence(timeout: 5)
         }
-        XCTAssertTrue(performed.exists)
+        XCTAssertTrue(cover.exists)
         snap(app, "06b-performer")
-        performed.tap()
+        cover.tap()
         reveal(app.buttons["raw-tags"], in: app).tap()
         XCTAssertTrue(app.navigationBars["Tags"].waitForExistence(timeout: 10))
         snap(app, "06c-tags")

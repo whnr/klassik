@@ -10,6 +10,9 @@ struct LoadedPortrait: @unchecked Sendable {
     /// The largest face: the picture of a composer centres on it.
     var face: CGRect? { faces.first }
 
+    /// A portrait shows one person: a picture with no face or with several faces is no portrait (ADR 0019).
+    var isPortrait: Bool { faces.count == 1 }
+
     /// The brightest quarter of a region of the picture, as one colour. A region is in the unit square of the
     /// picture. The brightest part decides, because the scrim must lift the text over the lightest spot.
     func brightestColour(in region: CGRect) -> PictureScrim.RGB {

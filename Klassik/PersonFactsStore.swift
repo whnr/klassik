@@ -27,6 +27,21 @@ final class PersonFactsStore {
         var chosen: Set<String> = []
         /// The MusicBrainz artist IDs that each resolution used, so that a lookup runs again only for new IDs.
         var inputs: [String: [String]] = [:]
+        /// The Wikidata item of each performer tag. An empty text means that Wikidata has none.
+        var performers: [String: String] = [:]
+
+        init() {}
+
+        init(from decoder: any Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            people = try container.decode([String: PersonFacts].self, forKey: .people)
+            composers = try container.decode([String: ComposerResolution].self, forKey: .composers)
+            artists = try container.decode([String: String].self, forKey: .artists)
+            chosen = try container.decode(Set<String>.self, forKey: .chosen)
+            inputs = try container.decode([String: [String]].self, forKey: .inputs)
+            // A cache from before performer pages has no such key.
+            performers = try container.decodeIfPresent([String: String].self, forKey: .performers) ?? [:]
+        }
     }
 
     private(set) var cache = Cache()
@@ -61,7 +76,38 @@ final class PersonFactsStore {
         return cache.people[qid]
     }
 
+    /// The facts of the performer that the tag stands for. Nil when Wikidata knows nobody, or not yet.
+    func facts(ofPerformer tag: String) -> PersonFacts? {
+        guard let qid = cache.performers[tag], !qid.isEmpty else { return nil }
+        return cache.people[qid]
+    }
+
+    /// True when a lookup for the tag has finished, with or without a match.
+    func hasResolved(performer tag: String) -> Bool {
+        guard let qid = cache.performers[tag] else { return false }
+        return qid.isEmpty || cache.people[qid] != nil
+    }
+
     // MARK: Lookup
+
+    /// Finds the performer of a tag. A failed lookup leaves nothing in the cache, so the next visit asks again.
+    func resolve(performer tag: String) async {
+        guard !loading.contains(tag), !hasResolved(performer: tag) else { return }
+        loading.insert(tag)
+        defer { loading.remove(tag) }
+        do {
+            if let qid = try await service.performer(named: tag)?.qid {
+                // The item is saved only with its facts, as for a composer.
+                cache.performers[tag] = try await load(qid) ? qid : ""
+            } else {
+                cache.performers[tag] = ""
+            }
+            lastError = nil
+        } catch {
+            lastError = error.localizedDescription
+        }
+        save()
+    }
 
     /// Finds the composer of a tag. `artistIDs` are the MusicBrainz composer IDs of the works under the tag:
     /// when they all lead to one Wikidata person, the works decide.

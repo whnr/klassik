@@ -166,7 +166,7 @@ struct PageView: View {
         case .sources(let id):
             if let work = index.work(id) { WorkSourcesView(work: work) } else { Gone() }
         case .performer(let name):
-            if let performer = index.performer(named: name) { PerformerView(performer: performer) } else { Gone() }
+            if let performer = index.performer(named: name) { PerformerPage(performer: performer) } else { Gone() }
         case .albums(let classical):
             AlbumsView(classical: classical)
         case .album(let key):

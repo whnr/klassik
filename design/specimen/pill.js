@@ -30,14 +30,23 @@
   K.setMini({
     build() {
       if (!K.current() || pill) return;
-      // The cover opens the player page, so the player page shows the pill without it (ADR 0015).
+      // The cover opens the player overlay, so the open overlay shows the pill without it (ADR 0014).
       const withCover = !chrome.player;
       pill = el("div", { class: "edge-pill glass" }, ppButton(""));
       if (withCover)
         pill.append(
           el(
             "a",
-            { class: "cover-link", href: playerHref(), "aria-label": "Open what plays" },
+            {
+              class: "cover-link",
+              href: playerHref(),
+              "aria-label": "Open the player",
+              onclick: (e) => {
+                if (!chrome.overlay) return;
+                e.preventDefault();
+                chrome.overlay.open();
+              },
+            },
             K.coverImage(K.current().album),
           ),
         );

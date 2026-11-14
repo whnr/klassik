@@ -8,6 +8,8 @@ const K = (() => {
   document.documentElement.dataset.page = location.pathname.split("/").pop().replace(".html", "") || "index";
   // Variant files carry the stamp of specimen.js, so Safari loads new copies with it.
   const STAMP = document.currentScript ? new URL(document.currentScript.src).searchParams.get("v") || "" : "";
+  // The player overlay (ADR 0014) shows its page in a frame over the place; the frame has no chrome of its own.
+  const embedded = params.get("embed") === "player";
   const CARRIED = ["variant", "look", "theme", "paper", "contrast", "size", "playing", "side", "edge", "place"];
   const SIZES = [
     "xSmall",
@@ -377,14 +379,29 @@ const K = (() => {
     } else Object.assign(P, { item: 0, index: q.start[0], pos: q.start[1], paused: false });
     P.name = name;
     normalise();
-    setInterval(() => {
-      if (!P.paused && current()) {
-        P.pos += 0.5;
-        normalise();
-        emit();
-      }
-    }, 500);
+    // The place under the overlay owns the clock; the overlay frame follows it through the shared session.
+    if (embedded) addEventListener("storage", follow);
+    else
+      setInterval(() => {
+        if (!P.paused && current()) {
+          P.pos += 0.5;
+          normalise();
+          emit();
+        }
+      }, 500);
     addEventListener("pagehide", save);
+  }
+
+  function follow(event) {
+    if (event.key !== "specimen.play" || !event.newValue) return;
+    const saved = JSON.parse(event.newValue);
+    const ended = saved.item > P.item;
+    if (saved.queue) P.queue = saved.queue.map(resolveItem);
+    Object.assign(P, { item: saved.item, index: saved.index, pos: saved.pos, paused: saved.paused });
+    P.listeners.forEach((f) => {
+      f();
+    });
+    if (ended) P.onItemEnd?.();
   }
 
   function save() {
@@ -564,6 +581,13 @@ const K = (() => {
     await new Promise((ok) =>
       document.head.append(el("script", { src: "pill.js?v=" + STAMP, onload: ok, onerror: ok })),
     );
+    // The player overlay opens from the pill's cover; the frame inside it needs none of this.
+    if (!embedded) {
+      document.head.append(el("link", { rel: "stylesheet", href: "overlay.css?v=" + STAMP }));
+      await new Promise((ok) =>
+        document.head.append(el("script", { src: "overlay.js?v=" + STAMP, onload: ok, onerror: ok })),
+      );
+    }
     // The decided drawn views load on every page: the timeline shape, the player page and the person picture.
     document.head.append(el("link", { rel: "stylesheet", href: "timeline.css?v=" + STAMP }));
     document.head.append(el("link", { rel: "stylesheet", href: "cover.css?v=" + STAMP }));
@@ -712,7 +736,27 @@ const K = (() => {
         ["hall", "Hall"],
       ].map(([k, v]) => el("option", { value: k, selected: setting("player", "room") === k }, v)),
     );
-    bar.append(theme, accent, player, contrast, size, playing);
+    // The overlay states of ADR 0014, for review without a finger: closed, mid-slide up, open, mid-slide down.
+    const overlayStates = {
+      closed: "Player closed",
+      opening: "Player sliding up",
+      open: "Player open",
+      closing: "Player sliding down",
+    };
+    const overlay = el(
+      "select",
+      {
+        "aria-label": "Player overlay",
+        onchange: (e) => {
+          setParam("overlay", e.target.value);
+          location.reload();
+        },
+      },
+      ...Object.entries(overlayStates).map(([k, v]) =>
+        el("option", { value: k, selected: setting("overlay", "closed") === k }, "⌃ " + v),
+      ),
+    );
+    bar.append(theme, accent, player, contrast, size, playing, overlay);
     // The timeline edge is a listener option on every page; it leads the pill so a narrow screen never hides it.
     const sides = { right: "Timeline ⇥", left: "⇤ Timeline" };
     bar.prepend(
@@ -747,14 +791,16 @@ const K = (() => {
 
   function tabbar(tab) {
     const roots = { library: "index.html", chronology: "chronology.html", search: "search.html" };
-    const item = (id, name) =>
-      el("a", {
+    const item = (id, name) => {
+      const link = el("a", {
         href: href(roots[id], { place: id }),
         class: tab === id ? "on" : null,
         "aria-label": name,
         "aria-current": tab === id ? "page" : null,
         onclick: (event) => {
           event.preventDefault();
+          // Another tab slides the player down; the place then changes (ADR 0014).
+          if (chrome.overlay?.isOpen()) return chrome.overlay.close(() => link.click());
           store("stack." + tab, location.href);
           const destination = new URL(
             tab === id
@@ -771,6 +817,8 @@ const K = (() => {
         },
         html: ICON[id] + `<span class="t-caption2">${name}</span>`,
       });
+      return link;
+    };
     return el(
       "nav",
       { class: "tabbar" },
@@ -797,7 +845,7 @@ const K = (() => {
     if (!["index.html", "chronology.html", "search.html", ""].includes(filename)) tab = params.get("place") || tab;
     params.set("place", tab);
     const app = el("div", { class: "app" + (plain ? " plain" : "") });
-    const backLabel = params.get("back") || back?.label;
+    const backLabel = embedded ? null : params.get("back") || back?.label;
     // ADR 0038 keeps the destination name in the accessibility label.
     const nav = el(
       "header",
@@ -837,6 +885,13 @@ const K = (() => {
     chrome.player = player;
     chrome.app = app;
     chrome.title = title;
+    if (embedded) {
+      // The place under the overlay draws the timeline, the tab bar and the pill; the page keeps clear of them.
+      chrome.player = true;
+      document.documentElement.classList.add("has-timeline");
+      scroll.style.setProperty("--bottom-space", "150px");
+      return { app, nav, scroll };
+    }
     if (tabs) {
       chrome.tabbar = tabbar(tab);
       document.body.append(chrome.tabbar);
@@ -884,12 +939,11 @@ const K = (() => {
     });
   }
 
-  // Play on a recording or album page turns that page into the player in place (ADR 0015).
-  function becomePlayer() {
-    chrome.player = true;
+  // While the player overlay is open, the pill holds only play/pause: the cover is on the player (ADR 0028).
+  function setPlayerOpen(open) {
+    chrome.player = open;
     MINI.remove();
-    if (!chrome.timeline) buildPlayingChrome();
-    else MINI.build();
+    MINI.build();
     layoutChrome();
   }
 
@@ -910,7 +964,7 @@ const K = (() => {
   function updatePlayingChrome() {
     drawTimelineProgress();
     if (!current()) {
-      // ADR 0015: at the end of the queue the player page stays; elsewhere the mini player and the timeline go.
+      // At the end of the queue the open player stays and says so; elsewhere the mini player and the timeline go.
       if (!chrome.player) {
         MINI.remove();
         if (chrome.timeline) chrome.timeline.remove();
@@ -1158,8 +1212,10 @@ const K = (() => {
     build(data, chronology);
     M.people = people.people;
     startPlayback();
-    controls(variants);
+    if (embedded) document.head.append(el("base", { target: "_top" }));
+    else controls(variants);
     render();
+    chrome.overlay?.init();
   }
 
   return {
@@ -1193,7 +1249,8 @@ const K = (() => {
     orderedRecordings,
     layoutChrome,
     emit,
-    becomePlayer,
+    setPlayerOpen,
+    embedded,
     performersOf,
     ROMAN,
     titled,

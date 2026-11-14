@@ -4,7 +4,7 @@ Date: 2026-11-04. Decided by Flo after six prototype rounds. Beads: sz-rs30.1.74
 
 ## Context
 
-Every composer and performer name on the work, recording and album pages is a link (ADR 0015), so both pages must exist. The old composer page showed two full lists: sets and works. Tags differ between libraries. A track carries one to many genres, in each library's own style. Flo's tag contract is one style among many. Wikidata gives a picture, a description and life dates. Its descriptions repeat the years in some items only.
+Every composer and performer name on the work, recording and album pages is a link, so both pages must exist. The old composer page showed two full lists: sets and works. Tags differ between libraries. A track carries one to many genres, in each library's own style. Flo's tag contract is one style among many. Wikidata gives a picture, a description and life dates. Its descriptions repeat the years in some items only.
 
 ## Decision
 

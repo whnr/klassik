@@ -4,6 +4,8 @@
 Usage: uv run --with playwright==1.64.1 design/scripts/specimen_check.py
 (once: uv run --with playwright==1.64.1 playwright install chromium)
 It also fails when a page draws nothing, the timeline is missing or a tapped movement row does not open.
+It checks the player overlay of ADR 0014: its three poses, the tab bar and the pill above it,
+a tap on the cover that opens it, and a tap on another tab that closes it.
 It cannot judge looks or Safari.
 """
 
@@ -28,6 +30,9 @@ PAGES = (
     "person.html?name=Karl%20B%C3%B6hm",
     "tokens.html",
     "settings.html",
+    "index.html?overlay=opening",
+    "work.html?overlay=open",
+    "chronology.html?overlay=closing",
 )
 # Each mode: room, contrast, accent, player look, what plays, timeline edge.
 MODES = (
@@ -48,6 +53,23 @@ def serve():
 class QuietHandler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, format, *args):  # noqa: A002 - the base class names it format
         del format, args
+
+
+def check_overlay(page, where, failures):
+    """The cover opens the overlay over the place; another tab slides it down and leaves."""
+    page.locator(".edge-pill .cover-link").tap()
+    page.wait_for_timeout(900)
+    if not page.locator(".player-overlay iframe").count():
+        failures.append(f"{where}: a tap on the cover did not open the player overlay")
+        return
+    if page.locator(".edge-pill .cover-link").count():
+        failures.append(f"{where}: the pill keeps its cover while the player is open")
+    if not page.frame_locator(".player-overlay iframe").locator(".is-player .hero").count():
+        failures.append(f"{where}: the overlay shows no player")
+    page.locator(".tabs a").nth(2).tap()
+    page.wait_for_timeout(1500)
+    if "search.html" not in page.url:
+        failures.append(f"{where}: another tab did not leave the overlay")
 
 
 def main():
@@ -78,6 +100,14 @@ def main():
                     failures.append(f"{where}: no app frame")
                 if page.locator(".timeline .seg").count() == 0:
                     failures.append(f"{where}: no timeline")
+                if "overlay=" in page_path:
+                    for part in (".player-overlay iframe", ".tabbar", ".edge-pill", ".timeline"):
+                        if page.locator(part).count() != 1:
+                            failures.append(f"{where}: overlay pose lacks {part}")
+                    if not page.locator(".tabbar").is_visible() or not page.locator(".edge-pill .pp").is_visible():
+                        failures.append(f"{where}: the tab bar or the play button is hidden by the overlay")
+                elif page_path in ("index.html", "work.html") and page.locator(".edge-pill .cover-link").count():
+                    check_overlay(page, where, failures)
                 # A movement row that holds something opens in place on a tap (ADR 0027).
                 rows = page.locator(".row-block.track button.row")
                 if rows.count():

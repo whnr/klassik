@@ -123,7 +123,7 @@ The pill at the end of the timeline, in the tab bar row: play/pause and the squa
 _Avoid_: Now playing bar
 
 **Player**:
-The recording page or album page of the queue item that plays. The mini player links to it.
+The overlay that slides up from the bottom and fills the screen. It shows the queue item that plays. The cover on the mini player opens it. A slide down, or a tap on another tab, closes it. The tab bar and the mini player stay visible above it.
 _Avoid_: Now playing, playback screen
 
 **Queue item**:

@@ -68,7 +68,8 @@ Native glass, display corners and system gestures require an installed-app check
 With each UX change, update affected specimen flows and run the design check.
 
 The Design workflow attaches the public specimen to each relevant pull request.
-The Specimen Pages workflow publishes each successful Design run from this repository, including pull requests.
-Its manual run can preview a worker branch.
-Enable GitHub Pages with GitHub Actions as its source. The deployment summary gives the phone link.
-Each preview replaces the current site. The revision.txt file names its commit.
+The Preview workflow publishes the specimen of every push to the `gh-pages` branch. Pull requests from forks are not published.
+Set Pages to "Deploy from a branch: gh-pages, / (root)" once. The bot comments the links on the pull request.
+Use `/c/<sha>/specimen/` for one commit and `/b/<branch>/specimen/index.html` for the newest push of a branch.
+The site root shows `main` and an index of branches and recent commits. The newest 40 commit folders stay.
+The revision.txt file in each folder names its commit.

@@ -14,7 +14,7 @@ struct MiniPlayer: View {
     var body: some View {
         let player = model.playback
         if let item = player.item {
-            let page = Page.recording(work: item.work.id, recording: item.recording.id)
+            let page = Page(playing: item)
             // On the player page the pill holds only play/pause (ADR 0028).
             let onPlayer = navigator.pages(in: navigator.selection).last == page
             let edge: Edge.Set = side == .right ? .trailing : .leading

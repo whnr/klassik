@@ -35,6 +35,9 @@ struct WorkIndex: Sendable {
         /// The GROUPING tag of its tracks, if any.
         var grouping: String?
 
+        /// The album that an untagged work stands for. A tagged work has no album page of its own.
+        var albumKey: String? { isTagged ? nil : recordings.first?.songs.first?.albumKey }
+
         /// The reference recording, else the oldest.
         var defaultRecording: Recording? { recordings.first { $0.isReference } ?? recordings.first }
 
@@ -79,6 +82,9 @@ struct WorkIndex: Sendable {
                 songs: try container.decode([Song].self, forKey: .songs),
                 isAlbum: try container.decodeIfPresent(Bool.self, forKey: .isAlbum) ?? false)
         }
+
+        /// The album page of a whole album.
+        var albumKey: String? { isAlbum ? songs.first?.albumKey : nil }
 
         /// The conductor, soloists and ensembles, which tell recordings apart.
         var principalNames: [Roles.Line] { names.filter { $0.kind.isPrincipal } }
@@ -125,12 +131,113 @@ struct WorkIndex: Sendable {
         var id: String { name }
     }
 
+    /// One album with its tracks in disc order, its works in disc order, and its year. Albums that carry no WORK
+    /// tag are in it too, as one entry each.
+    struct Album: Identifiable, Sendable {
+        /// A work that the album holds, with the recording page of this album's tracks of it.
+        struct Part: Identifiable, Sendable {
+            var workID: String
+            var title: String
+            var recordingID: String
+            var id: String { workID }
+        }
+
+        /// A run of consecutive tracks of the album page. `part` is nil for a plain list and for tracks without a
+        /// WORK tag.
+        struct Block: Identifiable, Sendable {
+            var part: Part?
+            /// The position of the first track in the album's tracks.
+            var start: Int
+            var tracks: [Song]
+            var id: Int { start }
+        }
+
+        /// The key that groups the tracks, as `Song.albumKey` says.
+        var id: String
+        /// The whole album as one work with one recording: one queue item.
+        var work: Work
+        var recording: Recording
+        /// The works in the order of their first track. Tracks without a WORK tag name none.
+        var parts: [Part]
+        /// ADR 0024: only when a work has two movements on consecutive tracks.
+        var showsWorkHeadings: Bool
+
+        var title: String { work.title }
+        var composer: String { work.composer }
+        var year: Int? { recording.year }
+        var tracks: [Song] { recording.songs }
+        var item: QueueItem { QueueItem(work: work, recording: recording) }
+
+        /// The tracks the page lists, in disc order. With work headings, a block holds the tracks of one work.
+        var blocks: [Block] {
+            guard showsWorkHeadings else { return [Block(part: nil, start: 0, tracks: tracks)] }
+            var blocks: [Block] = []
+            var last: String?
+            for (position, song) in tracks.enumerated() {
+                let key = Self.workKey(of: song)
+                if key != nil, key == last, !blocks.isEmpty {
+                    blocks[blocks.count - 1].tracks.append(song)
+                } else if key == nil, last == nil, let open = blocks.last, open.part == nil {
+                    blocks[blocks.count - 1].tracks.append(song)
+                } else {
+                    blocks.append(
+                        Block(part: parts.first { $0.workID == key }, start: position, tracks: [song]))
+                }
+                last = key
+            }
+            return blocks
+        }
+
+        /// A track under a work heading shows its movement name. Otherwise it shows its title as tagged.
+        func title(of song: Song, in block: Block) -> String {
+            block.part == nil ? song.title : song.movementTitle
+        }
+
+        init?(tracks: [Song]) {
+            guard let first = tracks.first, let whole = WorkIndex.album(tracks) else { return nil }
+            id = first.albumKey
+            work = whole.work
+            recording = whole.recording
+            let keys = recording.songs.map(Self.workKey)
+            showsWorkHeadings = zip(keys, keys.dropFirst()).contains { $0 != nil && $0 == $1 }
+            var parts: [Part] = []
+            for (song, key) in zip(recording.songs, keys) {
+                guard let key, let tag = song.works?.first, !parts.contains(where: { $0.workID == key }) else {
+                    continue
+                }
+                parts.append(Part(workID: key, title: tag.name, recordingID: "\(key)|\(first.albumKey)"))
+            }
+            self.parts = parts
+        }
+
+        /// The key of the track's work, nil without a WORK tag.
+        private static func workKey(of song: Song) -> String? {
+            song.works?.first == nil ? nil : WorkIndex.workKey(song)
+        }
+    }
+
     var composers: [Composer] = []
     var performers: [Performer] = []
+    /// By title. Every album of the tracks that built the index.
+    private(set) var albums: [Album] = []
+    private var albumPositions: [String: Int] = [:]
 
     init() {}
 
+    func album(_ key: String) -> Album? {
+        albumPositions[key].map { albums[$0] }
+    }
+
+    /// The albums of some tracks, by title.
+    static func albums(of songs: [Song]) -> [Album] {
+        Dictionary(grouping: songs, by: \.albumKey).values
+            .compactMap { Album(tracks: $0) }
+            .sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
+    }
+
     init(songs: [Song]) {
+        albums = Self.albums(of: songs)
+        albumPositions = Dictionary(uniqueKeysWithValues: albums.enumerated().map { ($1.id, $0) })
         var works: [String: Work] = [:]
         for (key, tracks) in Dictionary(grouping: songs, by: Self.workKey) {
             let first = tracks[0]

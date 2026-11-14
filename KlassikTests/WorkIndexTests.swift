@@ -219,4 +219,109 @@ struct WorkIndexTests {
         #expect(whole.completeness == nil)
         #expect(WorkIndex.Recording(id: "r", album: "A", songs: []).completeness == nil)
     }
+
+    /// ADR 0024: one work with two movements on consecutive tracks gives every work a heading.
+    @Test func albumHeadsWorksWhenOneWorkHasConsecutiveMovements() throws {
+        let index = WorkIndex(songs: [
+            Self.song("e1", album: "Recital", track: 1, work: "Etude"),
+            Self.song("s1", album: "Recital", track: 2, work: "Sonata", movement: (1, 2)),
+            Self.song("s2", album: "Recital", track: 3, work: "Sonata", movement: (2, 2)),
+            Self.song("w1", album: "Recital", track: 4, work: "Waltz"),
+        ])
+        let album = try #require(index.album("Recital"))
+        #expect(album.showsWorkHeadings)
+        #expect(album.parts.map(\.title) == ["Etude", "Sonata", "Waltz"])
+        #expect(album.blocks.map { $0.part?.title } == ["Etude", "Sonata", "Waltz"])
+        #expect(album.blocks.map(\.start) == [0, 1, 3])
+        #expect(album.blocks[1].tracks.map(\.id) == ["s1", "s2"])
+        // A heading opens the recording of this album's tracks of the work.
+        for part in album.parts {
+            let work = try #require(index.composers.flatMap(\.works).first(where: { $0.id == part.workID }))
+            #expect(work.recordings.contains { $0.id == part.recordingID })
+        }
+    }
+
+    @Test func albumOfSinglePiecesIsAPlainListWithTitlesAsTagged() throws {
+        let index = WorkIndex(songs: [
+            Self.song("a", album: "Chopin Album", track: 1, work: "Nocturne"),
+            Self.song("b", album: "Chopin Album", track: 2, work: "Waltz"),
+            Self.song("c", album: "Chopin Album", track: 3, work: "Polonaise"),
+        ])
+        let album = try #require(index.album("Chopin Album"))
+        #expect(!album.showsWorkHeadings)
+        let block = try #require(album.blocks.first)
+        #expect(album.blocks.count == 1 && block.part == nil && block.start == 0)
+        #expect(block.tracks.map { album.title(of: $0, in: block) } == ["Track 1", "Track 2", "Track 3"])
+        // The works stay in the index in disc order, whatever the page shows.
+        #expect(album.parts.map(\.title) == ["Nocturne", "Waltz", "Polonaise"])
+    }
+
+    @Test func aWorkSplitByAnotherTrackGivesNoHeadings() throws {
+        let index = WorkIndex(songs: [
+            Self.song("a", album: "Split", track: 1, work: "Sonata", movement: (1, 2)),
+            Self.song("b", album: "Split", track: 2, work: "Etude"),
+            Self.song("c", album: "Split", track: 3, work: "Sonata", movement: (2, 2)),
+        ])
+        let album = try #require(index.album("Split"))
+        #expect(!album.showsWorkHeadings)
+    }
+
+    @Test func tracksWithoutWorkTagStandInOneBlockUnderHeadings() throws {
+        let index = WorkIndex(songs: [
+            Self.song("s1", album: "Mixed", track: 1, work: "Sonata", movement: (1, 2)),
+            Self.song("s2", album: "Mixed", track: 2, work: "Sonata", movement: (2, 2)),
+            Self.song("x1", album: "Mixed", track: 3),
+            Self.song("x2", album: "Mixed", track: 4),
+        ])
+        let album = try #require(index.album("Mixed"))
+        #expect(album.showsWorkHeadings)
+        #expect(album.blocks.map { $0.part?.title } == ["Sonata", nil])
+        #expect(album.blocks[1].tracks.map(\.id) == ["x1", "x2"])
+        #expect(album.blocks[1].start == 2)
+    }
+
+    @Test func albumHoldsTracksInDiscOrderAndItsYear() throws {
+        var late = Self.song("d2", album: "Box", track: 1, year: 1990)
+        late.discNumber = 2
+        let early = Self.song("d1", album: "Box", track: 5, year: 1988)
+        let index = WorkIndex(songs: [late, early])
+        let album = try #require(index.album("Box"))
+        #expect(album.tracks.map(\.id) == ["d1", "d2"])
+        #expect(album.year == 1988)
+        #expect(album.item.recording.isAlbum)
+        #expect(album.item.recording.songs.count == 2)
+    }
+
+    /// The index holds each album once, in title order.
+    @Test func indexHoldsEachAlbumOnceByTitle() {
+        let index = WorkIndex(songs: [
+            Self.song("z", album: "Zeta", track: 1, work: "Op. 1"),
+            Self.song("a1", album: "Alpha", track: 1, work: "Op. 2"),
+            Self.song("a2", album: "Alpha", track: 2, work: "Op. 2"),
+        ])
+        #expect(index.albums.map(\.title) == ["Alpha", "Zeta"])
+        #expect(index.album("Missing") == nil)
+    }
+
+    @Test func albumWithoutWorkTagIsOneEntryUnderItsComposerAndOpensTheAlbumPage() throws {
+        let index = WorkIndex(songs: [
+            Self.song("s1", album: "Symphonie Nr.5", track: 1), Self.song("s2", album: "Symphonie Nr.5", track: 2),
+        ])
+        let composer = try #require(index.composers.first)
+        #expect(composer.works.count == 1)
+        let entry = try #require(composer.works.first)
+        #expect(!entry.isTagged)
+        let album = try #require(entry.albumKey.flatMap { index.album($0) })
+        #expect(album.title == "Symphonie Nr.5")
+        #expect(album.parts.isEmpty && !album.showsWorkHeadings)
+        // The whole album is one queue item.
+        #expect(album.item.recording.isAlbum && album.item.recording.songs.map(\.id) == ["s1", "s2"])
+        #expect(Page(playing: album.item) == .album(album.id))
+    }
+
+    @Test func taggedWorkHasNoAlbumPageOfItsOwn() throws {
+        let index = WorkIndex(songs: [Self.song("a", album: "A", track: 1, work: "Op. 1")])
+        let work = try #require(index.composers.first?.works.first)
+        #expect(work.albumKey == nil)
+    }
 }

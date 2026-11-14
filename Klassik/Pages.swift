@@ -14,6 +14,7 @@ enum Page: Hashable {
     case sources(work: String)
     case performer(String)
     case albums(classical: Bool)
+    case album(String)
     case musicBrainz
     case worksToConfirm
     case worksWithoutMatch
@@ -61,14 +62,17 @@ extension Library {
         }
         let prefix = "album|"
         guard recordingID.hasPrefix(prefix) else { return nil }
-        let key = String(recordingID.dropFirst(prefix.count))
-        return WorkIndex.album(songs.filter { $0.albumKey == key })
+        return album(String(recordingID.dropFirst(prefix.count))).map { ($0.work, $0.recording) }
     }
 }
 
 extension Page {
     init(playing item: QueueItem) {
-        self = .recording(work: item.work.id, recording: item.recording.id)
+        if let key = item.recording.albumKey {
+            self = .album(key)
+        } else {
+            self = .recording(work: item.work.id, recording: item.recording.id)
+        }
     }
 
     /// The short name that a back arrow gives to the page behind it.
@@ -87,6 +91,7 @@ extension Page {
         case .sources: return "Dates and Sources"
         case .performer(let name): return name
         case .albums(let classical): return classical ? "Classical Albums" : "Other Albums"
+        case .album(let key): return library.album(key)?.title ?? "Album"
         case .musicBrainz: return "MusicBrainz"
         case .worksToConfirm: return "To Confirm"
         case .worksWithoutMatch: return "No Match"
@@ -141,6 +146,12 @@ struct PageView: View {
             if let performer = index.performer(named: name) { PerformerView(performer: performer) } else { Gone() }
         case .albums(let classical):
             AlbumsView(classical: classical)
+        case .album(let key):
+            if let album = library.album(key) {
+                RecordingView(work: album.work, recording: album.recording, album: album)
+            } else {
+                Gone()
+            }
         case .musicBrainz:
             EnrichmentStatusView()
         case .worksToConfirm:

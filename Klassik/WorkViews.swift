@@ -117,25 +117,42 @@ struct WorkRow: View {
     let work: WorkIndex.Work
 
     var body: some View {
-        NavigationLink(value: Page.work(work.id)) {
-            VStack(alignment: .leading) {
-                HStack {
-                    Text(work.title)
-                        .ink()
-                    OfflineHint(isOffline: work.recordings.contains { model.tracks.isOffline($0) })
-                }
-                if !work.context.isEmpty {
-                    Text(work.context)
+        if let album = work.albumKey.flatMap({ model.library.index.album($0) }) {
+            NavigationLink(value: Page.album(album.id)) {
+                VStack(alignment: .leading) {
+                    HStack {
+                        Text(album.title)
+                            .ink()
+                        OfflineHint(isOffline: model.tracks.isOffline(album.recording))
+                    }
+                    Text(WorkIndex.Recording.count(album.tracks.count, "track"))
                         .typeStyle(.subheadline)
                         .foregroundStyle(Palette.textSecondary)
                 }
-                Text(WorkIndex.Recording.count(work.recordings.count, "recording"))
-                    .typeStyle(.subheadline)
-                    .foregroundStyle(Palette.textSecondary)
             }
+            .itemActions(album.item, downloads: true)
+            .accessibilityIdentifier("album")
+        } else {
+            NavigationLink(value: Page.work(work.id)) {
+                VStack(alignment: .leading) {
+                    HStack {
+                        Text(work.title)
+                            .ink()
+                        OfflineHint(isOffline: work.recordings.contains { model.tracks.isOffline($0) })
+                    }
+                    if !work.context.isEmpty {
+                        Text(work.context)
+                            .typeStyle(.subheadline)
+                            .foregroundStyle(Palette.textSecondary)
+                    }
+                    Text(WorkIndex.Recording.count(work.recordings.count, "recording"))
+                        .typeStyle(.subheadline)
+                        .foregroundStyle(Palette.textSecondary)
+                }
+            }
+            .itemActions(work.defaultRecording.map { QueueItem(work: work, recording: $0) })
+            .accessibilityIdentifier("work")
         }
-        .itemActions(work.defaultRecording.map { QueueItem(work: work, recording: $0) })
-        .accessibilityIdentifier("work")
     }
 }
 
@@ -259,16 +276,17 @@ struct RecordingView: View {
     @Environment(AppModel.self) private var model
     let work: WorkIndex.Work
     let recording: WorkIndex.Recording
+    /// Set on the album page, which lists the tracks of the album.
+    var album: WorkIndex.Album?
 
     private var isPlayingThis: Bool { model.playback.recording?.id == recording.id }
 
     /// The whole album, if it holds more than this recording.
-    private var album: QueueItem? {
+    private var wholeAlbum: QueueItem? {
         guard !recording.isAlbum, let key = recording.songs.first?.albumKey,
-            let album = WorkIndex.album(model.library.songs.filter { $0.albumKey == key }),
-            album.recording.songs.count > recording.songs.count
+            let whole = model.library.album(key), whole.tracks.count > recording.songs.count
         else { return nil }
-        return QueueItem(work: album.work, recording: album.recording)
+        return whole.item
     }
 
     var body: some View {
@@ -320,9 +338,9 @@ struct RecordingView: View {
                 } else {
                     Button("Play", systemImage: "play.fill") { play(from: 0) }
                         .accessibilityIdentifier("play-recording")
-                    if let album {
+                    if let wholeAlbum {
                         Button("Play Whole Album", systemImage: "square.stack") {
-                            player.play(album)
+                            player.play(wholeAlbum)
                         }
                     }
                 }
@@ -338,36 +356,24 @@ struct RecordingView: View {
                 SectionHeading("Offline")
             }
 
-            Section {
-                ForEach(Array(recording.songs.enumerated()), id: \.element.id) { index, song in
-                    Button {
-                        play(from: index)
-                    } label: {
-                        HStack {
-                            Text(recording.title(of: song))
-                                .ink()
-                            Spacer()
-                            if isPlayingThis, player.movement == index {
-                                if player.isLoading {
-                                    ProgressView()
-                                } else {
-                                    Image(systemName: "speaker.wave.2.fill")
-                                        .foregroundStyle(Palette.tint)
-                                        .accessibilityLabel("Now playing")
-                                }
-                            } else {
-                                OfflineHint(isOffline: model.tracks.isOffline(song))
-                                if let duration = song.duration {
-                                    Text(Duration.seconds(duration).formatted(.time(pattern: .minuteSecond)))
-                                        .foregroundStyle(Palette.textSecondary)
-                                }
-                            }
+            if let album, album.showsWorkHeadings {
+                ForEach(album.blocks) { block in
+                    Section {
+                        ForEach(Array(block.tracks.enumerated()), id: \.element.id) { offset, song in
+                            movementRow(song, at: block.start + offset, title: album.title(of: song, in: block))
                         }
+                    } header: {
+                        heading(of: block)
                     }
-                    .accessibilityIdentifier("movement")
                 }
-            } header: {
-                SectionHeading("Movements")
+            } else {
+                Section {
+                    ForEach(Array(recording.songs.enumerated()), id: \.element.id) { index, song in
+                        movementRow(song, at: index, title: recording.title(of: song))
+                    }
+                } header: {
+                    SectionHeading(recording.isAlbum ? "Tracks" : "Movements")
+                }
             }
 
             if isPlayingThis, !player.upNext.isEmpty {
@@ -407,6 +413,49 @@ struct RecordingView: View {
                 .accessibilityIdentifier("reference")
             }
         }
+    }
+
+    /// The work of a block opens its recording page, so the listener reaches the work from the disc.
+    @ViewBuilder private func heading(of block: WorkIndex.Album.Block) -> some View {
+        if let part = block.part {
+            NavigationLink(value: Page.recording(work: part.workID, recording: part.recordingID)) {
+                HStack {
+                    SectionHeading(part.title)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .foregroundStyle(Palette.textSecondary)
+                }
+            }
+            .accessibilityIdentifier("album-work")
+        }
+    }
+
+    private func movementRow(_ song: Song, at index: Int, title: String) -> some View {
+        Button {
+            play(from: index)
+        } label: {
+            HStack {
+                Text(title)
+                    .ink()
+                Spacer()
+                if isPlayingThis, model.playback.movement == index {
+                    if model.playback.isLoading {
+                        ProgressView()
+                    } else {
+                        Image(systemName: "speaker.wave.2.fill")
+                            .foregroundStyle(Palette.tint)
+                            .accessibilityLabel("Now playing")
+                    }
+                } else {
+                    OfflineHint(isOffline: model.tracks.isOffline(song))
+                    if let duration = song.duration {
+                        Text(Duration.seconds(duration).formatted(.time(pattern: .minuteSecond)))
+                            .foregroundStyle(Palette.textSecondary)
+                    }
+                }
+            }
+        }
+        .accessibilityIdentifier("movement")
     }
 
     private func play(from index: Int) {

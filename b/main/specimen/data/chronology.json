@@ -1,0 +1,487 @@
+{
+ "about": "Outside data for the Chronology specimen, from Wikidata (CC0). Composer: P569, P570, P2031. Work: P571 through the MusicBrainz work ID (P435), or for Chopin through the catalogue number. null: no date found. Regenerate with make_chronology.py.",
+ "composers": {
+  "Ludwig van Beethoven": {
+   "wikidata": "Q255",
+   "born": 1770,
+   "died": 1827,
+   "activeFrom": 1782
+  },
+  "Johann Sebastian Bach": {
+   "wikidata": "Q1339",
+   "born": 1685,
+   "died": 1750,
+   "activeFrom": 1710
+  },
+  "Antonín Dvořák": {
+   "wikidata": "Q7298",
+   "born": 1841,
+   "died": 1904,
+   "activeFrom": null
+  },
+  "Wolfgang Amadeus Mozart": {
+   "wikidata": "Q254",
+   "born": 1756,
+   "died": 1791,
+   "activeFrom": 1761
+  },
+  "Maurice Ravel": {
+   "wikidata": "Q1178",
+   "born": 1875,
+   "died": 1937,
+   "activeFrom": null
+  },
+  "Frédéric Chopin": {
+   "wikidata": "Q1268",
+   "born": 1810,
+   "died": 1849,
+   "activeFrom": 1817
+  },
+  "Antonio Vivaldi": {
+   "wikidata": "Q1340",
+   "born": 1678,
+   "died": 1741,
+   "activeFrom": 1685
+  },
+  "Johannes Brahms": {
+   "wikidata": "Q7294",
+   "born": 1833,
+   "died": 1897,
+   "activeFrom": 1843
+  },
+  "George Frideric Handel": {
+   "wikidata": "Q7302",
+   "born": 1685,
+   "died": 1759,
+   "activeFrom": 1702
+  },
+  "Gustav Mahler": {
+   "wikidata": "Q7304",
+   "born": 1860,
+   "died": 1911,
+   "activeFrom": null
+  },
+  "Franz Schubert": {
+   "wikidata": "Q7312",
+   "born": 1797,
+   "died": 1828,
+   "activeFrom": 1810
+  },
+  "Igor Stravinsky": {
+   "wikidata": "Q7314",
+   "born": 1882,
+   "died": 1971,
+   "activeFrom": null
+  },
+  "Pyotr Ilyich Tchaikovsky": {
+   "wikidata": "Q7315",
+   "born": 1840,
+   "died": 1893,
+   "activeFrom": 1859
+  },
+  "Joseph Haydn": {
+   "wikidata": "Q7349",
+   "born": 1732,
+   "died": 1809,
+   "activeFrom": 1740
+  },
+  "Richard Strauss": {
+   "wikidata": "Q13894",
+   "born": 1864,
+   "died": 1949,
+   "activeFrom": null
+  },
+  "Giovanni Gabrieli": {
+   "wikidata": "Q34624",
+   "born": 1557,
+   "died": 1612,
+   "activeFrom": null
+  },
+  "Felix Mendelssohn": {
+   "wikidata": "Q46096",
+   "born": 1809,
+   "died": 1847,
+   "activeFrom": 1826
+  },
+  "Hans Zender": {
+   "wikidata": "Q64789",
+   "born": 1936,
+   "died": 2019,
+   "activeFrom": null
+  },
+  "Dmitri Shostakovich": {
+   "wikidata": "Q80135",
+   "born": 1906,
+   "died": 1975,
+   "activeFrom": 1919
+  },
+  "Gabriel Fauré": {
+   "wikidata": "Q104919",
+   "born": 1845,
+   "died": 1924,
+   "activeFrom": 1861
+  },
+  "Michael Praetorius": {
+   "wikidata": "Q108278",
+   "born": 1571,
+   "died": 1621,
+   "activeFrom": 1600
+  },
+  "Heinrich Schütz": {
+   "wikidata": "Q153643",
+   "born": 1585,
+   "died": 1672,
+   "activeFrom": null
+  },
+  "Ralph Vaughan Williams": {
+   "wikidata": "Q207947",
+   "born": 1872,
+   "died": 1958,
+   "activeFrom": null
+  },
+  "Lili Boulanger": {
+   "wikidata": "Q230412",
+   "born": 1893,
+   "died": 1918,
+   "activeFrom": null
+  },
+  "Andreas Hammerschmidt": {
+   "wikidata": "Q497864",
+   "born": 1611,
+   "died": 1675,
+   "activeFrom": null
+  },
+  "Charlotte Sohy": {
+   "wikidata": "Q2399157",
+   "born": 1887,
+   "died": 1955,
+   "activeFrom": 1905
+  }
+ },
+ "workYears": {
+  "Andreas Hammerschmidt": {
+   "Machet die Tore weit": null
+  },
+  "Antonio Vivaldi": {
+   "Violin Concerto in E major, Op. 8 No. 1, RV 269 \"Spring\"": 1710,
+   "Violin Concerto in F minor, Op. 8 No. 4, RV 297 \"Winter\"": 1710
+  },
+  "Antonín Dvořák": {
+   "Cello Concerto in B minor, Op. 104": null,
+   "Symphony No. 9 in E minor, Op. 95": 1893
+  },
+  "Charlotte Sohy": {
+   "Mystical Dance, Op. 19": null
+  },
+  "Dmitri Shostakovich": {
+   "Symphony No. 5 in D minor, Op. 47": 1937
+  },
+  "Felix Mendelssohn": {
+   "A Midsummer Night's Dream, Op. 61": 1826
+  },
+  "Franz Schubert": {
+   "Symphony No. 8 in B minor, D 759": 1822
+  },
+  "Frédéric Chopin": {
+   "Album Leaf in E major, KK IVb/12": 1843,
+   "Allegro de concert in A major, Op. 46": 1841,
+   "Andante spianato and Grande Polonaise brillante in E-flat major, Op. 22": null,
+   "Ballade No. 1 in G minor, Op. 23": 1831,
+   "Ballade No. 2 in F major, Op. 38": 1839,
+   "Ballade No. 3 in A-flat major, Op. 47": 1840,
+   "Ballade No. 4 in F minor, Op. 52": 1842,
+   "Barcarolle in F-sharp major, Op. 60": null,
+   "Berceuse in D-flat major, Op. 57": null,
+   "Bolero, Op. 19": null,
+   "Bourrée No. 1 in G major, KK VIIb/1": null,
+   "Bourrée No. 2 in A major, KK VIIb/2": null,
+   "Cantabile in B-flat major, KK IVb/6": null,
+   "Cello Sonata in G minor, Op. 65": null,
+   "Enchantment, KK IVa/11": 1830,
+   "Fantasy in F minor, Op. 49": null,
+   "Fantasy on Polish Airs in A major, Op. 13": 1828,
+   "Fugue in A minor, KK IVc/2": null,
+   "Funeral March in C minor, Op. 72 No. 2": 1827,
+   "Galop in A-flat major, KK IVb/13": null,
+   "Grand Duo concertant in E major on themes from Meyerbeer's \"Robert le diable\", KK IIb/1": 1831,
+   "Handsome Lad, Op. 74 No. 8": null,
+   "I Want What I Have Not, Op. 74 No. 13": null,
+   "Impromptu No. 1 in A-flat major, Op. 29": 1837,
+   "Impromptu No. 2 in F-sharp major, Op. 36": 1839,
+   "Impromptu No. 3 in G-flat major, Op. 51": 1842,
+   "Impromptu No. 4 in C-sharp minor, Op. 66": 1835,
+   "Introduction and Polonaise brillante in C major, Op. 3": 1820,
+   "Largo in E-flat major, KK IVb/5": null,
+   "Leaves Are Falling (Hymn from the Tomb), Op. 74 No. 17": null,
+   "Lithuanian Song, Op. 74 No. 16": null,
+   "Mazurka No. 1 in F-sharp minor, Op. 6 No. 1": 1830,
+   "Mazurka No. 10 in B-flat major, Op. 17 No. 1": 1830,
+   "Mazurka No. 11 in E minor, Op. 17 No. 2": 1830,
+   "Mazurka No. 12 in A-flat major, Op. 17 No. 3": 1833,
+   "Mazurka No. 13 in A minor, Op. 17 No. 4": 1833,
+   "Mazurka No. 14 in G minor, Op. 24 No. 1": 1833,
+   "Mazurka No. 15 in C major, Op. 24 No. 2": 1833,
+   "Mazurka No. 16 in A-flat major, Op. 24 No. 3": 1833,
+   "Mazurka No. 17 in B-flat minor, Op. 24 No. 4": 1833,
+   "Mazurka No. 18 in C minor, Op. 30 No. 1": 1837,
+   "Mazurka No. 19 in B minor, Op. 30 No. 2": 1837,
+   "Mazurka No. 2 in C-sharp minor, Op. 6 No. 2": 1830,
+   "Mazurka No. 20 in D-flat major, Op. 30 No. 3": 1837,
+   "Mazurka No. 21 in C-sharp minor, Op. 30 No. 4": 1837,
+   "Mazurka No. 22 in G-sharp minor, Op. 33 No. 1": null,
+   "Mazurka No. 23 in D major, Op. 33 No. 2": null,
+   "Mazurka No. 24 in C major, Op. 33 No. 3": null,
+   "Mazurka No. 25 in B minor, Op. 33 No. 4": null,
+   "Mazurka No. 26 in C-sharp minor, Op. 41 No. 1": 1838,
+   "Mazurka No. 27 in E minor, Op. 41 No. 2": null,
+   "Mazurka No. 28 in B major, Op. 41 No. 3": null,
+   "Mazurka No. 29 in A-flat major, Op. 41 No. 4": null,
+   "Mazurka No. 3 in E major, Op. 6 No. 3": 1830,
+   "Mazurka No. 30 in G major, Op. 50 No. 1": 1840,
+   "Mazurka No. 31 in A-flat major, Op. 50 No. 2": 1840,
+   "Mazurka No. 32 in C-sharp minor, Op. 50 No. 3": 1840,
+   "Mazurka No. 33 in B major, Op. 56 No. 1": 1843,
+   "Mazurka No. 34 in C major, Op. 56 No. 2": 1843,
+   "Mazurka No. 35 in C minor, Op. 56 No. 3": 1843,
+   "Mazurka No. 36 in A minor, Op. 59 No. 1": 1845,
+   "Mazurka No. 37 in A-flat major, Op. 59 No. 2": 1845,
+   "Mazurka No. 38 in F-sharp minor, Op. 59 No. 3": 1845,
+   "Mazurka No. 39 in B major, Op. 63 No. 1": 1846,
+   "Mazurka No. 4 in E-flat minor, Op. 6 No. 4": 1832,
+   "Mazurka No. 40 in F minor, Op. 63 No. 2": 1846,
+   "Mazurka No. 41 in C-sharp minor, Op. 63 No. 3": 1846,
+   "Mazurka No. 42 in G major, Op. 67 No. 1": 1835,
+   "Mazurka No. 43 in G minor, Op. 67 No. 2": 1849,
+   "Mazurka No. 44 in C major, Op. 67 No. 3": 1835,
+   "Mazurka No. 45 in A minor, Op. 67 No. 4": 1846,
+   "Mazurka No. 46 in C major, Op. 68 No. 1": 1829,
+   "Mazurka No. 47 in A minor, Op. 68 No. 2": 1827,
+   "Mazurka No. 48 in F major, Op. 68 No. 3": 1829,
+   "Mazurka No. 49 in F minor, Op. 68 No. 4": 1849,
+   "Mazurka No. 5 in B-flat major, Op. 7 No. 1": 1830,
+   "Mazurka No. 6 in A minor, Op. 7 No. 2": null,
+   "Mazurka No. 7 in F minor, Op. 7 No. 3": 1830,
+   "Mazurka No. 8 in A-flat major, Op. 7 No. 4": 1830,
+   "Mazurka No. 9 in C major, Op. 7 No. 5": 1830,
+   "Mazurka in A minor, KK IIb/4": 1841,
+   "Mazurka in A minor, KK IIb/5": 1840,
+   "Mazurka in A-flat major, KK IVb/4": null,
+   "Mazurka in B-flat major, KK IIa/3": 1820,
+   "Mazurka in B-flat major, KK IVb/1": 1832,
+   "Mazurka in C major, KK IVb/3": 1833,
+   "Mazurka in D major, KK IVa/7": 1829,
+   "Mazurka in D major, KK IVb/2": 1832,
+   "Mazurka in G major, KK IIa/2": 1820,
+   "Melody, Op. 74 No. 9": null,
+   "Merrymaking, Op. 74 No. 4": null,
+   "My Darling, Op. 74 No. 12": null,
+   "New Étude No. 1 in F minor, KK IIb/3": 1800,
+   "New Étude No. 2 in A-flat major, KK IIb/3": 1800,
+   "New Étude No. 3 in D-flat major, KK IIb/3": 1800,
+   "Nocturne No. 1 in B-flat minor, Op. 9 No. 1": null,
+   "Nocturne No. 10 in A-flat major, Op. 32 No. 2": 1830,
+   "Nocturne No. 11 in G minor, Op. 37 No. 1": 1838,
+   "Nocturne No. 12 in G major, Op. 37 No. 2": 1839,
+   "Nocturne No. 13 in C minor, Op. 48 No. 1": 1841,
+   "Nocturne No. 14 in F-sharp minor, Op. 48 No. 2": 1841,
+   "Nocturne No. 15 in F minor, Op. 55 No. 1": 1843,
+   "Nocturne No. 16 in E-flat major, Op. 55 No. 2": 1843,
+   "Nocturne No. 17 in B major, Op. 62 No. 1": 1846,
+   "Nocturne No. 18 in E major, Op. 62 No. 2": 1846,
+   "Nocturne No. 19 in E minor, Op. 72 No. 1": 1829,
+   "Nocturne No. 2 in E-flat major, Op. 9 No. 2": 1830,
+   "Nocturne No. 20 in C-sharp minor, KK IVa/16": 1830,
+   "Nocturne No. 21 in C minor, KK IVb/8": 1847,
+   "Nocturne No. 3 in B major, Op. 9 No. 3": 1830,
+   "Nocturne No. 4 in F major, Op. 15 No. 1": 1830,
+   "Nocturne No. 5 in F-sharp major, Op. 15 No. 2": 1830,
+   "Nocturne No. 6 in G minor, Op. 15 No. 3": 1833,
+   "Nocturne No. 7 in C-sharp minor, Op. 27 No. 1": 1835,
+   "Nocturne No. 8 in D-flat major, Op. 27 No. 2": 1835,
+   "Nocturne No. 9 in B major, Op. 32 No. 1": 1830,
+   "Out of My Sight!, Op. 74 No. 6": null,
+   "Piano Concerto No. 1 in E minor, Op. 11": 1830,
+   "Piano Concerto No. 2 in F minor, Op. 21": 1829,
+   "Piano Sonata No. 1 in C minor, Op. 4": 1820,
+   "Piano Sonata No. 2 in B-flat minor, Op. 35": 1839,
+   "Piano Sonata No. 3 in B minor, Op. 58": 1844,
+   "Piano Trio in G minor, Op. 8": null,
+   "Polonaise No. 1 in C-sharp minor, Op. 26 No. 1": 1835,
+   "Polonaise No. 10 in F minor, Op. 71 No. 3": null,
+   "Polonaise No. 2 in E-flat minor, Op. 26 No. 2": 1834,
+   "Polonaise No. 3 in A major, Op. 40 No. 1": 1838,
+   "Polonaise No. 4 in C minor, Op. 40 No. 2": 1830,
+   "Polonaise No. 5 in F-sharp minor, Op. 44": null,
+   "Polonaise No. 6 in A-flat major, Op. 53": 1842,
+   "Polonaise No. 7 in A-flat major, Op. 61": null,
+   "Polonaise No. 8 in D minor, Op. 71 No. 1": null,
+   "Polonaise No. 9 in B-flat major, Op. 71 No. 2": null,
+   "Polonaise in A-flat major, KK IVa/2": 1821,
+   "Polonaise in B-flat major, KK IVa/1": 1817,
+   "Polonaise in B-flat minor, KK IVa/5": 1826,
+   "Polonaise in G minor, KK IIa/1": 1817,
+   "Polonaise in G-flat major, KK IVa/8": 1829,
+   "Polonaise in G-sharp minor, KK IVa/3": null,
+   "Prelude No. 1 in C major, Op. 28 No. 1": 1839,
+   "Prelude No. 10 in C-sharp minor, Op. 28 No. 10": 1830,
+   "Prelude No. 11 in B major, Op. 28 No. 11": 1830,
+   "Prelude No. 12 in G-sharp minor, Op. 28 No. 12": 1830,
+   "Prelude No. 13 in F-sharp minor, Op. 28 No. 13": 1830,
+   "Prelude No. 14 in E-flat minor, Op. 28 No. 14": 1830,
+   "Prelude No. 15 in D-flat major, Op. 28 No. 15": 1838,
+   "Prelude No. 16 in B-flat minor, Op. 28 No. 16": 1830,
+   "Prelude No. 17 in A-flat major, Op. 28 No. 17": 1836,
+   "Prelude No. 18 in F minor, Op. 28 No. 18": 1830,
+   "Prelude No. 19 in E-flat major, Op. 28 No. 19": 1830,
+   "Prelude No. 2 in A minor, Op. 28 No. 2": 1838,
+   "Prelude No. 20 in C minor, Op. 28 No. 20": 1830,
+   "Prelude No. 21 in B-flat major, Op. 28 No. 21": 1830,
+   "Prelude No. 22 in G minor, Op. 28 No. 22": 1830,
+   "Prelude No. 23 in F major, Op. 28 No. 23": 1830,
+   "Prelude No. 24 in D minor, Op. 28 No. 24": 1830,
+   "Prelude No. 3 in G major, Op. 28 No. 3": 1830,
+   "Prelude No. 4 in E minor, Op. 28 No. 4": 1838,
+   "Prelude No. 5 in D major, Op. 28 No. 5": 1830,
+   "Prelude No. 6 in B minor, Op. 28 No. 6": 1830,
+   "Prelude No. 7 in A major, Op. 28 No. 7": 1836,
+   "Prelude No. 8 in F-sharp minor, Op. 28 No. 8": 1830,
+   "Prelude No. 9 in E major, Op. 28 No. 9": 1830,
+   "Prelude in A-flat major, KK IVb/7": 1834,
+   "Prelude in C-sharp minor, Op. 45": 1841,
+   "Reverie, KK IVb/9": 1840,
+   "Rondo in C major for two pianos, Op. 73": 1828,
+   "Rondo in C minor, Op. 1": 1825,
+   "Rondo in E-flat major, Op. 16": 1832,
+   "Rondo à la Krakowiak in F major, Op. 14": 1828,
+   "Rondo à la Mazurka in F major, Op. 5": 1827,
+   "Scherzo No. 1 in B minor, Op. 20": 1835,
+   "Scherzo No. 2 in B-flat minor, Op. 31": 1837,
+   "Scherzo No. 3 in C-sharp minor, Op. 39": 1839,
+   "Scherzo No. 4 in E major, Op. 54": 1842,
+   "Spring, Op. 74 No. 2": null,
+   "Tarantelle in A-flat major, Op. 43": 1841,
+   "The Bridegroom, Op. 74 No. 15": null,
+   "The Double End, Op. 74 No. 11": null,
+   "The Messenger, Op. 74 No. 7": null,
+   "The Ring, Op. 74 No. 14": null,
+   "The Sad River, Op. 74 No. 3": null,
+   "The Warrior, Op. 74 No. 10": null,
+   "The Wish, Op. 74 No. 1": null,
+   "Three Écossaises, Op. 72 No. 3": 1826,
+   "Variation on the March from Bellini's \"I puritani\" in E major (Hexaméron, Variation 6), KK IIb/2": 1837,
+   "Variations brillantes in B-flat major, Op. 12": 1832,
+   "Variations on Mozart's \"Là ci darem la mano\" in B-flat major, Op. 2": 1827,
+   "Variations on Paganini's \"Souvenir de Paganini\" in A major, KK IVa/10": null,
+   "Variations on a German National Air in E major (\"Der Schweizerbub\"), KK IVa/4": 1824,
+   "Variations on an Irish National Air in D major (Moore) for piano four hands, KK IVa/6": null,
+   "Waltz No. 1 in E-flat major, Op. 18": null,
+   "Waltz No. 10 in B minor, Op. 69 No. 2": 1829,
+   "Waltz No. 11 in G-flat major, Op. 70 No. 1": 1833,
+   "Waltz No. 12 in F minor, Op. 70 No. 2": 1841,
+   "Waltz No. 13 in D-flat major, Op. 70 No. 3": 1829,
+   "Waltz No. 14 in E minor, KK IVa/15": 1830,
+   "Waltz No. 15 in E major, KK IVa/12": 1829,
+   "Waltz No. 16 in A-flat major, KK IVa/13": 1830,
+   "Waltz No. 17 in E-flat major, KK IVa/14": 1827,
+   "Waltz No. 18 in E-flat major, KK IVb/10": 1840,
+   "Waltz No. 19 in A minor, KK IVb/11": 1847,
+   "Waltz No. 2 in A-flat major, Op. 34 No. 1": 1835,
+   "Waltz No. 3 in A minor, Op. 34 No. 2": 1831,
+   "Waltz No. 4 in F major, Op. 34 No. 3": 1838,
+   "Waltz No. 5 in A-flat major, Op. 42": 1840,
+   "Waltz No. 6 in D-flat major, Op. 64 No. 1": 1847,
+   "Waltz No. 7 in C-sharp minor, Op. 64 No. 2": 1847,
+   "Waltz No. 8 in A-flat major, Op. 64 No. 3": 1847,
+   "Waltz No. 9 in A-flat major, Op. 69 No. 1": 1835,
+   "What She Likes, Op. 74 No. 5": null,
+   "Étude in A minor, Op. 10 No. 2": 1830,
+   "Étude in A minor, Op. 25 No. 11": 1834,
+   "Étude in A minor, Op. 25 No. 4": 1830,
+   "Étude in A-flat major, Op. 10 No. 10": 1829,
+   "Étude in A-flat major, Op. 25 No. 1": 1836,
+   "Étude in B minor, Op. 25 No. 10": 1830,
+   "Étude in C major, Op. 10 No. 1": 1830,
+   "Étude in C major, Op. 10 No. 7": 1832,
+   "Étude in C minor, Op. 10 No. 12": 1831,
+   "Étude in C minor, Op. 25 No. 12": 1836,
+   "Étude in C-sharp minor, Op. 10 No. 4": 1832,
+   "Étude in C-sharp minor, Op. 25 No. 7": 1836,
+   "Étude in D-flat major, Op. 25 No. 8": 1830,
+   "Étude in E major, Op. 10 No. 3": 1832,
+   "Étude in E minor, Op. 25 No. 5": 1830,
+   "Étude in E-flat major, Op. 10 No. 11": 1829,
+   "Étude in E-flat minor, Op. 10 No. 6": 1830,
+   "Étude in F major, Op. 10 No. 8": 1829,
+   "Étude in F major, Op. 25 No. 3": 1836,
+   "Étude in F minor, Op. 10 No. 9": 1829,
+   "Étude in F minor, Op. 25 No. 2": 1836,
+   "Étude in G-flat major, Op. 10 No. 5": 1830,
+   "Étude in G-flat major, Op. 25 No. 9": 1830,
+   "Étude in G-sharp minor, Op. 25 No. 6": 1830
+  },
+  "Gabriel Fauré": {
+   "Masques et bergamasques, Op. 112": null
+  },
+  "George Frideric Handel": {
+   "Water Music Suite No. 1 in F major, HWV 348": null
+  },
+  "Giovanni Gabrieli": {
+   "Sanctus and Benedictus a 12, Ch. 47": null
+  },
+  "Gustav Mahler": {
+   "Symphony No. 2 in C minor": null
+  },
+  "Hans Zender": {
+   "Schuberts Winterreise": null
+  },
+  "Heinrich Schütz": {
+   "Musikalische Exequien, Op. 7": null
+  },
+  "Igor Stravinsky": {
+   "The Rite of Spring": 1913
+  },
+  "Johann Sebastian Bach": {
+   "Brandenburgisches Konzert Nr. 5 D-Dur, BWV 1050": null,
+   "Goldberg-Variationen, BWV 988": null,
+   "Matthäus-Passion, BWV 244": null
+  },
+  "Johannes Brahms": {
+   "Ein deutsches Requiem, Op. 45": null,
+   "Violin Concerto in D major, Op. 77": null
+  },
+  "Joseph Haydn": {
+   "Die Schöpfung, Hob. XXI:2": 1796,
+   "Symphony No. 94 in G major, Hob. I:94": null
+  },
+  "Lili Boulanger": {
+   "On a Spring Morning": null
+  },
+  "Ludwig van Beethoven": {
+   "Piano Concerto No. 5 in E-flat major, Op. 73": 1809,
+   "Symphony No. 5 in C minor, Op. 67": 1807,
+   "Symphony No. 9 in D minor, Op. 125": 1824
+  },
+  "Maurice Ravel": {
+   "Boléro, M. 81": 1928
+  },
+  "Mel Bonis": {
+   "Cleopatra's Dream, Op. 180": null
+  },
+  "Michael Praetorius": {
+   "Es ist ein Ros entsprungen": null
+  },
+  "Pyotr Ilyich Tchaikovsky": {
+   "Symphony No. 6 in B minor, Op. 74": 1893
+  },
+  "Ralph Vaughan Williams": {
+   "Fantasia on Greensleeves": null
+  },
+  "Richard Strauss": {
+   "Don Juan, Op. 20": 1880
+  },
+  "Wolfgang Amadeus Mozart": {
+   "Clarinet Concerto in A major, K. 622": 1791,
+   "Requiem in D minor, K. 626": null
+  }
+ }
+}

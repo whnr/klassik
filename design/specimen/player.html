@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Player</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="../tokens.css?v=46" />
-    <link rel="stylesheet" href="specimen.css?v=46" />
-    <script src="specimen.js?v=46"></script>
+    <link rel="stylesheet" href="../tokens.css?v=47" />
+    <link rel="stylesheet" href="specimen.css?v=47" />
+    <script src="specimen.js?v=47"></script>
   </head>
   <body>
     <style>
@@ -275,12 +275,14 @@
         let item =
           pageItem() || K.resolveItem(["recording", "640qawSbxRzx7BX6z3M2wM", "Symphony No. 5 in C minor, Op. 67"]);
         const playingHere = () => K.current() && K.current().id === item.id;
+        // Only the overlay is the player (ADR 0014); the same page outside it is the recording or album page.
+        const asPlayer = () => K.embedded && playingHere();
 
         const { app, scroll } = K.page({
           tab: "library",
           title: item.title,
           back: { label: "Library", href: "index.html" },
-          player: playingHere(),
+          player: K.embedded,
         });
         const body = el("div", { class: "page-body" });
         const wash = el("div", { class: "wash" });
@@ -288,7 +290,7 @@
         const open = new Set();
 
         async function applyWash() {
-          app.classList.toggle("is-player", playingHere());
+          app.classList.toggle("is-player", asPlayer());
           const rgb = await K.coverColour(item.album);
           app.style.setProperty(
             "--wash-colour",
@@ -394,10 +396,17 @@
             });
             play.addEventListener("click", () => {
               K.playItem(item);
-              K.becomePlayer();
               render();
             });
             box.append(play);
+          } else if (!K.embedded) {
+            const show = el("button", {
+              class: "capsule filled t-headline",
+              style: "flex: none; width: 60%; margin-top: var(--space-m)",
+              html: "<span>Show the player</span>",
+            });
+            show.addEventListener("click", () => K.chrome.overlay.open());
+            box.append(show);
           }
           return box;
         }
@@ -405,7 +414,6 @@
         function playFrom(i, pos = 0) {
           if (!playingHere()) {
             K.playItem(item, i);
-            K.becomePlayer();
           }
           K.seek(i, pos);
           K.P.paused = false;
@@ -426,7 +434,7 @@
 
         // The row head keeps one height whether open or not, so a tapped row never moves.
         function trackRow(s, i, work) {
-          const isPlaying = playingHere() && K.P.index === i;
+          const isPlaying = asPlayer() && K.P.index === i;
           // A row opens only when it holds something: performers that differ from the page, or notes.
           const opens = !isPlaying && hasContent(s, i);
           const isOpen = isPlaying || (opens && open.has(i));
@@ -669,7 +677,7 @@
 
         function tick() {
           const t = tick.parts;
-          if (!t || !playingHere()) return;
+          if (!t || !asPlayer()) return;
           // A scrub holds the rows still, so the bar stays on its row; past it the bar is full, before it empty.
           const pos = K.P.index === t.i ? K.P.pos : K.P.index > t.i ? t.s.duration : 0;
           t.fill.style.width = (pos / t.s.duration) * 100 + "%";
@@ -679,7 +687,7 @@
           t.pause.setAttribute("aria-label", K.P.paused ? "Play" : "Pause");
         }
 
-        // ADR 0015: when an item ends, the next item's row rises to the top and becomes its page. No page goes onto the stack.
+        // When an item ends, the next item's row rises to the top and the overlay shows it.
         function itemEnded() {
           if (!K.current()) {
             render();
@@ -748,8 +756,8 @@
               ),
             );
           }
-          const nextItem = playingHere() ? K.P.queue[K.P.item + 1] : null;
-          const tail = playingHere()
+          const nextItem = asPlayer() ? K.P.queue[K.P.item + 1] : null;
+          const tail = asPlayer()
             ? el(
                 "section",
                 { class: "section" },
@@ -778,7 +786,7 @@
               ? el("p", { class: "section-foot t-subheadline" }, "The queue has ended.")
               : null;
           // The hero is built once per item and state, so a tap on a row never reloads the cover.
-          const heroKey = item.id + "|" + playingHere();
+          const heroKey = item.id + "|" + playingHere() + "|" + K.embedded;
           if (heroKey !== render.heroKey) {
             render.heroKey = heroKey;
             render.hero = hero();
@@ -810,7 +818,7 @@
         });
         const rowAt = (i) => body.querySelectorAll(".track")[i];
         setInterval(() => {
-          if (K.P.scrubbing || editing || !playingHere() || Date.now() - quiet < 8000) return;
+          if (K.P.scrubbing || editing || !asPlayer() || Date.now() - quiet < 8000) return;
           const row = rowAt(K.P.index),
             prev = rowAt(K.P.index - 1);
           if (!row) return;

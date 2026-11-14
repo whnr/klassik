@@ -1,6 +1,6 @@
 # 0015. The player is the page of what plays
 
-Date: 2026-11-03. Decided by Flo after three prototype rounds. Bead: sz-rs30.1.74.10. Replaces the parts of [0014](0014-player.md) where the player slides in on top and the mini player opens it. The mini player on the player page is replaced by [0028](0028-mini-player-pill.md). The clause that the mini player jumps back to a page already in the stack is replaced by [0038](0038-standard-tabs-and-the-cross-tab-back.md). The rule that Play replaces the queue does not hold for the item that plays, and Next is off at the end of the queue: see [0039](0039-next-at-the-end-and-play-on-the-playing-item.md).
+Date: 2026-11-03. Decided by Flo after three prototype rounds. Bead: sz-rs30.1.74.10. Annulled by Flo on 2026-11-14 (bead sz-rs30.1.105.8.1). His reason: this record fitted one stack that popped back. With one stack for each place, player pages pile up in every stack, in random places, and that confuses him. [0014](0014-player.md) is the record again. It holds the rules of this record that stay. This text stays as it was and no longer decides.
 
 ## Context
 

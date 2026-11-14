@@ -4,7 +4,7 @@ Date: 2026-11-07. Decided by Flo after the second specimen round. Beads: sz-rs30
 
 ## Context
 
-ADR 0015 and CONTEXT.md say that an album page shows its works and their tracks in disc order. The specimen put a heading above every work. On an album of single pieces, such as a Chopin album, each heading stood above one track, and the list became twice as long with nothing gained.
+CONTEXT.md says that an album page shows its works and their tracks in disc order. The specimen put a heading above every work. On an album of single pieces, such as a Chopin album, each heading stood above one track, and the list became twice as long with nothing gained.
 
 ## Decision
 

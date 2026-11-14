@@ -1,10 +1,10 @@
 # 0039. Next ends at the last movement; Play on the playing item pauses or resumes
 
-Date: 2026-11-11. Decided by Flo after the slice 3 review (PR #16). Bead: sz-rs30.1.105.20. Replaces the rule of [0006](0006-queue.md) and [0015](0015-player-page.md) that Play replaces the queue, for the item that already plays. Adds to the Next rule of [0015](0015-player-page.md).
+Date: 2026-11-11. Decided by Flo after the slice 3 review (PR #16). Bead: sz-rs30.1.105.20. Replaces the rule of [0006](0006-queue.md) that Play replaces the queue, for the item that already plays. Adds to the Next rule of [0014](0014-player.md).
 
 ## Context
 
-ADR 0006 and ADR 0015 say that Play replaces the queue. ADR 0015 says that a tap on the tinted row of the playing recording pauses and resumes it. The work page and the context menu also have a Play button. On the recording that already plays, that button had no rule. Next on the last movement of the last item did nothing, and the button looked active.
+ADR 0006 says that Play replaces the queue. ADR 0014 says that a tap on the tinted row of the playing recording pauses and resumes it. The work page and the context menu also have a Play button. On the recording that already plays, that button had no rule. Next on the last movement of the last item did nothing, and the button looked active.
 
 ## Decision
 

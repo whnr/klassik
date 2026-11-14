@@ -755,7 +755,10 @@ class ScreensTestCase: XCTestCase {
         app.buttons["play-recording"].tap()
         let pill = app.descendants(matching: .any)["mini-player"].firstMatch
         if !pill.waitForExistence(timeout: 15) {
-            snap(app, "failed-play")
+            let shot = XCTAttachment(screenshot: app.screenshot())
+            shot.name = "screen-after-play"
+            shot.lifetime = .keepAlways
+            add(shot)
             let tree = XCTAttachment(string: app.debugDescription)
             tree.name = "tree-after-play"
             tree.lifetime = .keepAlways

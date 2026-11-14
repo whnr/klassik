@@ -523,7 +523,7 @@ final class PlaybackSession {
         guard let work, let recording, let movement, segments.indices.contains(movement) else { return }
         MPNowPlayingInfoCenter.default().nowPlayingInfo = [
             MPMediaItemPropertyTitle: recording.title(of: recording.songs[movement]),
-            MPMediaItemPropertyArtist: recording.performers,
+            MPMediaItemPropertyArtist: recording.summary,
             MPMediaItemPropertyAlbumTitle: work.title,
             MPMediaItemPropertyPlaybackDuration: segments[movement],
             MPNowPlayingInfoPropertyElapsedPlaybackTime: position,

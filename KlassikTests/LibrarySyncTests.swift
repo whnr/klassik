@@ -44,11 +44,13 @@ final class LibrarySyncTests: XCTestCase {
         let fifth = try XCTUnwrap(library.index.composers.first { $0.name == "Ludwig van Beethoven" }?.works.first)
         XCTAssertEqual(fifth.title, "Symphony No. 5 in C minor, Op. 67")
         XCTAssertEqual(fifth.recordings.map(\.year), [1990, 2015])
-        XCTAssertEqual(fifth.recordings.first?.performers, "Testing Philharmonic, Anna Probe")
+        XCTAssertEqual(
+            fifth.recordings.first?.names.flatMap(\.names), ["Anna Probe", "Testing Philharmonic"])
         let encores = library.songs.filter { $0.album == "Romantic Encores" }
         for tracks in [encores, Array(encores.reversed())] {
             let album = try XCTUnwrap(WorkIndex.album(tracks))
-            XCTAssertEqual(album.recording.performers, "Sine Wave Chamber Orchestra • Carl Fixture • Daniel Keys")
+            XCTAssertEqual(
+                album.recording.names.flatMap(\.names), ["Carl Fixture", "Daniel Keys", "Sine Wave Chamber Orchestra"])
         }
         let gain = try XCTUnwrap(fifth.recordings.first?.songs.first?.replayGain)
         XCTAssertEqual(gain, Song.ReplayGain(trackGain: 5, albumGain: 6, trackPeak: 0.7, albumPeak: 0.8))

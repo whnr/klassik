@@ -73,6 +73,8 @@ struct Song: Codable, Sendable, Identifiable, Hashable {
     struct Artist: Codable, Sendable, Hashable {
         var id: String
         var name: String
+        /// The sort form of the name, such as "Kubelík, Rafael", where the server sends it.
+        var sortName: String?
     }
 
     struct Contributor: Codable, Sendable, Hashable {

@@ -42,12 +42,14 @@ struct LocalStorageView: View {
                         VStack(alignment: .leading) {
                             Text(download.title)
                                 .ink()
-                            Text(
-                                [download.detail, Self.size(download.bytes)]
-                                    .filter { !$0.isEmpty }.joined(separator: " · ")
-                            )
-                            .typeStyle(.subheadline)
-                            .foregroundStyle(Palette.textSecondary)
+                            if !download.detail.isEmpty {
+                                Text(download.detail)
+                                    .typeStyle(.subheadline)
+                                    .foregroundStyle(Palette.textSecondary)
+                            }
+                            Text(Self.size(download.bytes))
+                                .typeStyle(.subheadline)
+                                .foregroundStyle(Palette.textSecondary)
                         }
                         .swipeActions {
                             Button("Remove", systemImage: "trash", role: .destructive) { tracks.remove(download) }

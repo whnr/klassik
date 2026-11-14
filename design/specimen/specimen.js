@@ -756,10 +756,18 @@ const K = (() => {
         onclick: (event) => {
           event.preventDefault();
           store("stack." + tab, location.href);
-          location.href =
+          const destination = new URL(
             tab === id
               ? href(roots[id], { place: id, back: params.get("back") })
-              : store("stack." + id) || href(roots[id], { place: id, back: chrome.title || tab });
+              : store("stack." + id) || href(roots[id], { place: id, back: chrome.title || tab }),
+            location.href,
+          );
+          for (const name of CARRIED) {
+            if (name === "place") continue;
+            if (params.has(name)) destination.searchParams.set(name, params.get(name));
+            else destination.searchParams.delete(name);
+          }
+          location.href = destination.href;
         },
         html: ICON[id] + `<span class="t-caption2">${name}</span>`,
       });

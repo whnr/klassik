@@ -67,6 +67,7 @@ Native glass, display corners and system gestures require an installed-app check
 With each UX change, update affected specimen flows and run the design check.
 
 The Design workflow attaches the public specimen to each relevant pull request.
-The Specimen Pages workflow publishes main after validation. Its manual run can preview a worker branch.
+The Specimen Pages workflow publishes each successful Design run from this repository, including pull requests.
+Its manual run can preview a worker branch.
 Enable GitHub Pages with GitHub Actions as its source. The deployment summary gives the phone link.
-A manual preview replaces the current site until the next deployment.
+Each preview replaces the current site. The revision.txt file names its commit.

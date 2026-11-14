@@ -6,12 +6,23 @@ cd "$(dirname "$0")/.."
 package=$(mktemp -d)
 trap 'rm -rf "$package"' EXIT
 mkdir -p "$package/Sources/Klassik" "$package/Tests/KlassikTests"
-for source in PlaybackHistory QueueItem ServerPort SubsonicClient WorkIndex ClassicalFilter PlaybackEngine; do
+for source in PlaybackHistory QueueItem ServerPort SubsonicClient WorkIndex Roles ClassicalFilter PlaybackEngine; do
   cp "Klassik/$source.swift" "$package/Sources/Klassik/"
 done
 for source in PlaybackHistoryTests PlaybackHistoryFixtureTests PlaybackFakes SubsonicClientTests; do
   cp "KlassikTests/$source.swift" "$package/Tests/KlassikTests/"
 done
+# Linux Foundation lacks ListFormatter. Listening-data tests do not check display text.
+cat > "$package/Sources/Klassik/ListFormatter.swift" <<'SWIFT'
+#if os(Linux)
+import Foundation
+
+final class ListFormatter {
+    var locale = Locale.current
+    func string(from names: [String]) -> String? { names.joined(separator: " ") }
+}
+#endif
+SWIFT
 cat > "$package/Package.swift" <<'SWIFT'
 // swift-tools-version: 6.0
 import PackageDescription

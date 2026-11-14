@@ -406,9 +406,10 @@ struct RecordingView: View {
                     }
                 }
             }
-            // A touch on the page starts a new quiet spell. A scroll by the app itself is not a touch.
+            // A finger on the page, or a scroll that it started, holds the rows. The spell begins when the page is still.
+            // A scroll by the app itself is not a touch.
             .onScrollPhaseChange { _, phase in
-                if phase != .idle && phase != .animating { spell.touch() }
+                spell.touching(phase == .tracking || phase == .interacting || phase == .decelerating)
             }
             .simultaneousGesture(TapGesture().onEnded { spell.touch() })
             .onChange(of: model.isScrubbingTimeline) { _, scrubbing in spell.hold(scrubbing) }
@@ -427,11 +428,15 @@ struct RecordingView: View {
         .pageTitle(work.title)
         .toolbar {
             if !recording.isAlbum {
+                // The page can show a queue copy. The state and the change come from the library.
+                let live = model.library.current(work: work, recording: recording)
                 Button(
-                    recording.isReference ? "Remove Reference" : "Reference",
-                    systemImage: recording.isReference ? "star.fill" : "star"
+                    live.recording.isReference ? "Remove Reference" : "Reference",
+                    systemImage: live.recording.isReference ? "star.fill" : "star"
                 ) {
-                    Task { _ = await model.setReference(recording, of: work, to: !recording.isReference) }
+                    Task {
+                        _ = await model.setReference(live.recording, of: live.work, to: !live.recording.isReference)
+                    }
                 }
                 .accessibilityIdentifier("reference")
             }

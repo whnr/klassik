@@ -70,6 +70,25 @@ extension Library {
     }
 }
 
+extension Library {
+    /// A work and recording as the library holds them now. A queue copy lacks later stars and can lack movements
+    /// or other recordings, so Reference state and changes must not read it.
+    func current(work: WorkIndex.Work, recording: WorkIndex.Recording) -> (
+        work: WorkIndex.Work, recording: WorkIndex.Recording
+    ) {
+        if let live = index.work(work.id), let found = live.recordings.first(where: { $0.id == recording.id }) {
+            return (live, found)
+        }
+        // An unindexed work keeps its copy, with the stars of the library.
+        let stars = Dictionary(songs.map { ($0.id, $0.starred) }, uniquingKeysWith: { first, _ in first })
+        var copy = recording
+        for position in copy.songs.indices {
+            if let starred = stars[copy.songs[position].id] { copy.songs[position].starred = starred }
+        }
+        return (work, copy)
+    }
+}
+
 extension Page {
     init(playing item: QueueItem) {
         if let key = item.recording.albumKey {

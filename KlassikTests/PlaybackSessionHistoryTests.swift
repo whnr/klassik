@@ -89,6 +89,33 @@ struct PlaybackSessionHistoryTests {
         session.stop()
     }
 
+    @Test func referenceStateFollowsTheLibraryWhileThePageShowsAQueueCopy() async throws {
+        let songs = ["a", "b"].enumerated().map { index, id in
+            Song(
+                id: id, title: id, album: "Album", track: index + 1, duration: 600,
+                genres: [.init(name: "Classical")], works: [.init(name: "Work")])
+        }
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let credentials = ServerCredentials(
+            url: URL(string: "https://music.example.org")!, username: "fixture", password: "fixture")
+        let cache = root.appending(path: "library.json")
+        try LibraryCache(server: credentials.url, username: credentials.username, syncedAt: .now, songs: songs).write(
+            to: cache)
+        let library = Library(cacheURL: cache, defaults: try defaults())
+        await library.load(for: credentials)
+        // The queue holds one movement of the recording, as a partial restore does.
+        let work = try #require(library.index.composers.first?.works.first)
+        var copy = try #require(work.recordings.first)
+        copy.songs = [copy.songs[1]]
+        #expect(library.current(work: work, recording: copy).recording.songs.map(\.id) == ["a", "b"])
+        #expect(!library.current(work: work, recording: copy).recording.isReference)
+        library.setStarred(["a", "b"], true)
+        #expect(library.current(work: work, recording: copy).recording.isReference)
+        library.setStarred(["a", "b"], false)
+        #expect(!library.current(work: work, recording: copy).recording.isReference)
+    }
+
     @Test func anUntouchedLaunchDoesNotClearTheServerQueue() async throws {
         let server = InMemoryServer()
         let (session, _) = makeSession(server, defaults: try defaults())

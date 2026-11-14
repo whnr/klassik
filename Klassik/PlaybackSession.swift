@@ -209,7 +209,7 @@ final class PlaybackSession {
     }
 
     /// Plays one item from a movement. A movement of the playing item only moves the position and keeps the
-    /// queue (ADR 0014). Any other item replaces the queue (ADR 0006).
+    /// queue (ADR 0015). Any other item replaces the queue (ADR 0006).
     func play(_ item: QueueItem, from movement: Int, at position: Double = 0) {
         if let playing = self.item, playing.recording.id == item.recording.id {
             start(playing, from: movement, offset: position, preserveListen: true)

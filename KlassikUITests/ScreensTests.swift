@@ -305,7 +305,7 @@ final class PlaybackScreens: ScreensTestCase {
     @MainActor
     private func slidePlayerDown(_ app: XCUIApplication) {
         let handle = app.buttons["player-handle"]
-        handle.press(
+        handle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(
             forDuration: 0.1,
             thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7)))
         expectPlayerClosed(app)

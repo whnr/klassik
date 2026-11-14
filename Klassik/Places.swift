@@ -14,6 +14,8 @@ struct PlacesView: View {
     var body: some View {
         let playing = model.playback.item != nil
         let rowHeight = tabBarFrame?.height ?? TabRow.height
+        let timelineSide = side
+        let nativeFrame = tabBarFrame
         SystemPlaces(
             model: model, navigator: navigator, selection: navigator.selection, backTransition: backTransition,
             side: side,
@@ -51,9 +53,9 @@ struct PlacesView: View {
                 .ignoresSafeArea(.container)
                 .onGeometryChange(for: CGFloat.self) { geometry in
                     let corners = geometry.concentricCornerRadii
-                    let radius = side == .right ? corners?.bottomTrailing : corners?.bottomLeading
+                    let radius = timelineSide == .right ? corners?.bottomTrailing : corners?.bottomLeading
                     let bottom =
-                        tabBarFrame.map {
+                        nativeFrame.map {
                             max(0, geometry.size.height - $0.maxY)
                         } ?? TabRow.gap(safeArea: insets.bottom)
                     return MiniPlayer.coverInset(radius: radius ?? 0, bottom: bottom)

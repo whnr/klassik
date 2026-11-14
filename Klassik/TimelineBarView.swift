@@ -53,6 +53,9 @@ struct TimelineBarView: View {
                     .onChange(of: isTouching) { _, touching in
                         if !touching { scrubbed = nil }
                     }
+                    .onChange(of: scrubbed != nil) { _, scrubbing in
+                        model.isScrubbingTimeline = scrubbing
+                    }
                     .accessibilityElement()
                     .accessibilityLabel("Timeline")
                     .accessibilityValue(accessibilityValue)

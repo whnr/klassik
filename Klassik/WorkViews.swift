@@ -186,11 +186,14 @@ struct WorkView: View {
 
             Section {
                 ForEach(work.recordings) { recording in
+                    let isPlaying = plays(recording)
                     NavigationLink(value: Page.recording(work: work.id, recording: recording.id)) {
                         RecordingRow(
                             recording: recording, isOffline: model.tracks.isOffline(recording),
-                            isReference: recording.isReference)
+                            isReference: recording.isReference, isPlaying: isPlaying)
                     }
+                    // The row of what plays is tinted, so the listener sees it while browsing (ADR 0015).
+                    .listRowBackground(isPlaying ? Palette.tint.color.opacity(0.12) : Palette.backgroundRow.color)
                     .itemActions(QueueItem(work: work, recording: recording), downloads: true, reference: true)
                     .accessibilityIdentifier("recording")
                 }
@@ -200,6 +203,11 @@ struct WorkView: View {
         }
         .navigationTitle(work.title)
     }
+
+    private func plays(_ recording: WorkIndex.Recording) -> Bool {
+        guard let item = model.playback.item else { return false }
+        return item.work.id == work.id && item.recording.id == recording.id
+    }
 }
 
 /// A recording on the work page: its own cover, the principal performers, every other name, and the facts in prose.
@@ -207,6 +215,8 @@ private struct RecordingRow: View {
     let recording: WorkIndex.Recording
     let isOffline: Bool
     let isReference: Bool
+    let isPlaying: Bool
+    @Environment(AppModel.self) private var model
     @ScaledMetric(relativeTo: .body) private var cover: CGFloat = 56
     @ScaledMetric(space: .inGroup) private var gap: CGFloat
 
@@ -242,7 +252,26 @@ private struct RecordingRow: View {
                 RoleLines(lines: others)
                     .ink()
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            if isPlaying { slot }
         }
+    }
+
+    /// The slot at the trailing edge of the playing row pauses and resumes it, so the listener need not leave the page.
+    private var slot: some View {
+        let player = model.playback
+        return Button {
+            player.togglePause()
+        } label: {
+            Image(systemName: player.isPaused ? "play.fill" : "pause.fill")
+                .typeStyle(.title3)
+                .foregroundStyle(Palette.tint)
+                .frame(width: Measure.hitTarget, height: Measure.hitTarget)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.borderless)
+        .accessibilityLabel(player.isPaused ? "Resume" : "Pause")
+        .accessibilityIdentifier("recording-slot")
     }
 }
 
@@ -271,13 +300,18 @@ private struct ComposedRow: View {
     }
 }
 
-/// One recording: play it from the start or from any movement.
+/// The page of a recording or album. While it plays, it is the player (ADR 0015): the header holds what every track
+/// shares, a row holds what differs, and only the playing movement has a playback bar (ADR 0027).
 struct RecordingView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let work: WorkIndex.Work
     let recording: WorkIndex.Recording
     /// Set on the album page, which lists the tracks of the album.
     var album: WorkIndex.Album?
+    /// The rows that the listener opened, by track position.
+    @State private var opened: Set<Int> = []
+    @State private var spell = QuietSpell()
 
     private var isPlayingThis: Bool { model.playback.recording?.id == recording.id }
 
@@ -291,113 +325,102 @@ struct RecordingView: View {
 
     var body: some View {
         let player = model.playback
-        PageList {
-            Section {
-                LabeledContent("Composer", value: work.composer)
-                    .ink()
-                RoleLines(lines: recording.names)
-                    .ink()
-                LabeledContent("Album", value: recording.album)
-                    .ink()
-                if let year = recording.year {
-                    LabeledContent("Year", value: String(year))
-                        .ink()
-                }
-                NavigationLink(value: Page.rawTags(work: work.id, recording: recording.id)) {
-                    Text("Tags and Grouping")
-                        .ink()
-                }
-                .accessibilityIdentifier("raw-tags")
-            }
-
-            Section {
-                if isPlayingThis {
-                    PlaybackProgress(player: player)
-                    HStack {
-                        Button("Previous", systemImage: "backward.fill") { player.previous() }
-                        Spacer()
-                        Button(
-                            player.isPaused ? "Resume" : "Pause",
-                            systemImage: player.isPaused ? "play.fill" : "pause.fill"
-                        ) {
-                            player.togglePause()
-                        }
-                        Spacer()
-                        Button("Next", systemImage: "forward.fill") { player.next() }
-                            .disabled(!player.hasNext)
-                        Spacer()
-                        Button("Next Work", systemImage: "forward.end.fill") { player.nextItem() }
-                            .disabled(player.upNext.isEmpty)
-                        Spacer()
-                        Button("Stop", systemImage: "stop.fill") { player.stop() }
-                    }
-                    .labelStyle(.iconOnly)
-                    .buttonStyle(.borderless)
-                    .typeStyle(.title2)
-                    .padding(.horizontal)
-                } else {
-                    Button("Play", systemImage: "play.fill") { play(from: 0) }
-                        .accessibilityIdentifier("play-recording")
-                    if let wholeAlbum {
-                        Button("Play Whole Album", systemImage: "square.stack") {
-                            player.play(wholeAlbum)
-                        }
-                    }
-                }
-                if isPlayingThis, let error = player.error {
-                    Label(error, systemImage: "exclamationmark.triangle")
-                        .foregroundStyle(Palette.textPrimary)
-                }
-            }
-
-            Section {
-                OfflineControls(recording: recording, title: work.title)
-            } header: {
-                SectionHeading("Offline")
-            }
-
-            if let album, album.showsWorkHeadings {
-                ForEach(album.blocks) { block in
-                    Section {
-                        ForEach(Array(block.tracks.enumerated()), id: \.element.id) { offset, song in
-                            movementRow(song, at: block.start + offset, title: album.title(of: song, in: block))
-                        }
-                    } header: {
-                        heading(of: block)
-                    }
-                }
-            } else {
+        let page = PlayerPage(recording: recording)
+        ScrollViewReader { proxy in
+            PageList {
                 Section {
-                    ForEach(Array(recording.songs.enumerated()), id: \.element.id) { index, song in
-                        movementRow(song, at: index, title: recording.title(of: song))
+                    header(page)
+                    if isPlayingThis, let error = player.error {
+                        Label(error, systemImage: "exclamationmark.triangle")
+                            .foregroundStyle(Palette.textPrimary)
                     }
-                } header: {
-                    SectionHeading(recording.isAlbum ? "Tracks" : "Movements")
-                }
-            }
-
-            if isPlayingThis, !player.upNext.isEmpty {
-                Section {
-                    ForEach(player.upNext) { item in
-                        Button {
-                            player.playQueued(item.id)
-                        } label: {
-                            VStack(alignment: .leading) {
-                                Text(item.work.title)
-                                    .ink()
-                                Text(item.work.composer)
-                                    .typeStyle(.subheadline)
-                                    .foregroundStyle(Palette.textSecondary)
-                                RoleLines(lines: item.recording.principalNames, style: .subheadline)
-                                    .foregroundStyle(Palette.textSecondary)
+                    if !isPlayingThis {
+                        Button("Play", systemImage: "play.fill") { play(from: 0) }
+                            .accessibilityIdentifier("play-recording")
+                        if let wholeAlbum {
+                            Button("Play Whole Album", systemImage: "square.stack") {
+                                player.play(wholeAlbum)
                             }
                         }
-                        .accessibilityIdentifier("up-next")
                     }
-                    .onDelete { player.removeFromQueue(at: $0) }
-                    .onMove { player.moveInQueue(from: $0, to: $1) }
+                }
+
+                if let album, album.showsWorkHeadings {
+                    ForEach(album.blocks) { block in
+                        Section {
+                            ForEach(Array(block.tracks.enumerated()), id: \.element.id) { offset, song in
+                                movementRow(
+                                    song, at: block.start + offset, page: page,
+                                    title: album.title(of: song, in: block))
+                            }
+                        } header: {
+                            heading(of: block)
+                        }
+                    }
+                } else {
+                    Section {
+                        ForEach(Array(recording.songs.enumerated()), id: \.element.id) { index, song in
+                            movementRow(song, at: index, page: page, title: recording.title(of: song))
+                        }
+                    } header: {
+                        SectionHeading(recording.isAlbum ? "Tracks" : "Movements")
+                    }
+                }
+
+                Section {
+                    NavigationLink(value: Page.rawTags(work: work.id, recording: recording.id)) {
+                        Text("Tags and Grouping")
+                            .ink()
+                    }
+                    .accessibilityIdentifier("raw-tags")
+                }
+
+                Section {
+                    OfflineControls(recording: recording, title: work.title)
                 } header: {
-                    SectionHeading("Up next")
+                    SectionHeading("Offline")
+                }
+
+                if isPlayingThis, !player.upNext.isEmpty {
+                    Section {
+                        ForEach(player.upNext) { item in
+                            Button {
+                                player.playQueued(item.id)
+                            } label: {
+                                VStack(alignment: .leading) {
+                                    Text(item.work.title)
+                                        .ink()
+                                    Text(item.work.composer)
+                                        .typeStyle(.subheadline)
+                                        .foregroundStyle(Palette.textSecondary)
+                                    RoleLines(lines: item.recording.principalNames, style: .subheadline)
+                                        .foregroundStyle(Palette.textSecondary)
+                                }
+                            }
+                            .accessibilityIdentifier("up-next")
+                        }
+                        .onDelete { player.removeFromQueue(at: $0) }
+                        .onMove { player.moveInQueue(from: $0, to: $1) }
+                    } header: {
+                        SectionHeading("Up next")
+                    }
+                }
+            }
+            // A touch on the page starts a new quiet spell. A scroll by the app itself is not a touch.
+            .onScrollPhaseChange { _, phase in
+                if phase != .idle && phase != .animating { spell.touch() }
+            }
+            .simultaneousGesture(TapGesture().onEnded { spell.touch() })
+            .onChange(of: model.isScrubbingTimeline) { _, scrubbing in spell.hold(scrubbing) }
+            .task(id: isPlayingThis ? player.movement : nil) {
+                guard isPlayingThis, let movement = player.movement, recording.songs.indices.contains(movement)
+                else { return }
+                while let rest = spell.wait() {
+                    try? await Task.sleep(for: rest)
+                    if Task.isCancelled { return }
+                }
+                withAnimation(Motion.glide.animation(reduceMotion: reduceMotion)) {
+                    proxy.scrollTo(recording.songs[movement].id, anchor: UnitPoint(x: 0.5, y: 0.2))
                 }
             }
         }
@@ -415,6 +438,21 @@ struct RecordingView: View {
         }
     }
 
+    /// What every track shares, in centred lines.
+    private func header(_ page: PlayerPage) -> some View {
+        VStack(spacing: Space.xs.points) {
+            if let composer = page.composer {
+                Text(composer)
+                    .typeStyle(.headline)
+                    .ink()
+            }
+            RoleLines(lines: page.header, alignment: .center, style: .subheadline)
+                .ink()
+        }
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity)
+    }
+
     /// The work of a block opens its recording page, so the listener reaches the work from the disc.
     @ViewBuilder private func heading(of block: WorkIndex.Album.Block) -> some View {
         if let part = block.part {
@@ -430,79 +468,172 @@ struct RecordingView: View {
         }
     }
 
-    private func movementRow(_ song: Song, at index: Int, title: String) -> some View {
-        Button {
-            play(from: index)
-        } label: {
-            HStack {
-                Text(title)
-                    .ink()
-                Spacer()
-                if isPlayingThis, model.playback.movement == index {
-                    if model.playback.isLoading {
-                        ProgressView()
-                    } else {
-                        Image(systemName: "speaker.wave.2.fill")
-                            .foregroundStyle(Palette.tint)
-                            .accessibilityLabel("Now playing")
-                    }
-                } else {
-                    OfflineHint(isOffline: model.tracks.isOffline(song))
-                    if let duration = song.duration {
-                        Text(Duration.seconds(duration).formatted(.time(pattern: .minuteSecond)))
-                            .foregroundStyle(Palette.textSecondary)
-                    }
-                }
-            }
-        }
-        .accessibilityIdentifier("movement")
+    private func movementRow(_ song: Song, at index: Int, page: PlayerPage, title: String) -> some View {
+        MovementRow(
+            song: song, title: title, names: page.differing.indices.contains(index) ? page.differing[index] : [],
+            isPlaying: isPlayingThis && model.playback.movement == index,
+            isOpen: opened.contains(index),
+            toggle: {
+                if opened.contains(index) { opened.remove(index) } else { opened.insert(index) }
+            },
+            play: { play(from: index) }
+        )
+        .id(song.id)
     }
 
     private func play(from index: Int) {
+        opened.removeAll()
         model.playback.play(QueueItem(work: work, recording: recording), from: index)
     }
 }
 
-/// How far the current movement and the whole work have played.
+/// One movement or track. A row that does not play has a faint play button at its trailing edge. It opens only when
+/// it holds names that differ from the header, and then shows the disclosure chevron. The playing row stays open and
+/// holds the only playback bar (ADR 0027).
+private struct MovementRow: View {
+    @Environment(AppModel.self) private var model
+    let song: Song
+    let title: String
+    /// The names that differ from the header.
+    let names: [Roles.Line]
+    let isPlaying: Bool
+    let isOpen: Bool
+    let toggle: () -> Void
+    let play: () -> Void
+    @ScaledMetric(space: .m) private var gap: CGFloat
+
+    private var opens: Bool { names.contains { !$0.names.isEmpty } }
+
+    var body: some View {
+        if isPlaying {
+            playing
+        } else {
+            VStack(alignment: .leading, spacing: gap) {
+                HStack {
+                    head
+                    playButton
+                }
+                if opens && isOpen {
+                    RoleLines(lines: names, style: .subheadline)
+                        .ink()
+                }
+            }
+            .accessibilityIdentifier("movement")
+        }
+    }
+
+    /// The title and the duration. A row with nothing to show is plain text, so a tap does nothing.
+    @ViewBuilder private var head: some View {
+        if opens {
+            Button(action: toggle) { label }
+                .buttonStyle(.borderless)
+                .accessibilityHint(isOpen ? "Hides the names" : "Shows the names")
+        } else {
+            label
+        }
+    }
+
+    private var label: some View {
+        HStack {
+            Text(title)
+                .ink()
+            Spacer()
+            OfflineHint(isOffline: model.tracks.isOffline(song))
+            if let duration = song.duration {
+                Text(Duration.seconds(duration).formatted(.time(pattern: .minuteSecond)))
+                    .foregroundStyle(Palette.textSecondary)
+            }
+            if opens {
+                Image(systemName: "chevron.right")
+                    .typeStyle(.footnote)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Palette.tint)
+                    .rotationEffect(.degrees(isOpen ? 90 : 0))
+                    .motion(.inPlace, value: isOpen)
+                    .accessibilityHidden(true)
+            }
+        }
+        .contentShape(.rect)
+    }
+
+    private var playButton: some View {
+        Button(action: play) {
+            Image(systemName: "play.fill")
+                .typeStyle(.caption1)
+                .foregroundStyle(Palette.textSecondary)
+                .frame(width: Measure.hitTarget * 0.7, height: Measure.hitTarget * 0.7)
+                .background(Palette.fillQuiet, in: .circle)
+                .frame(width: Measure.hitTarget, height: Measure.hitTarget)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.borderless)
+        .accessibilityLabel("Play from here")
+        .accessibilityIdentifier("play-movement")
+    }
+
+    /// The playing row: its title, the names that differ, the playback bar and the controls.
+    private var playing: some View {
+        let player = model.playback
+        return VStack(alignment: .leading, spacing: gap) {
+            HStack {
+                Text(title)
+                    .typeStyle(.headline)
+                    .ink()
+                Spacer()
+                if player.isLoading {
+                    ProgressView()
+                } else {
+                    Image(systemName: "speaker.wave.2.fill")
+                        .foregroundStyle(Palette.tint)
+                        .accessibilityLabel("Now playing")
+                }
+            }
+            RoleLines(lines: names, style: .subheadline)
+                .ink()
+            PlaybackProgress(player: player)
+            HStack {
+                Button("Previous", systemImage: "backward.fill") { player.previous() }
+                Spacer()
+                Button(
+                    player.isPaused ? "Resume" : "Pause",
+                    systemImage: player.isPaused ? "play.fill" : "pause.fill"
+                ) {
+                    player.togglePause()
+                }
+                Spacer()
+                Button("Next", systemImage: "forward.fill") { player.next() }
+                    .disabled(!player.hasNext)
+                Spacer()
+                Button("Next Work", systemImage: "forward.end.fill") { player.nextItem() }
+                    .disabled(player.upNext.isEmpty)
+                Spacer()
+                Button("Stop", systemImage: "stop.fill") { player.stop() }
+            }
+            .labelStyle(.iconOnly)
+            .buttonStyle(.borderless)
+            .typeStyle(.title2)
+            .padding(.horizontal)
+        }
+        .accessibilityIdentifier("movement")
+    }
+}
+
+/// How far the playing movement has played.
 struct PlaybackProgress: View {
     let player: PlaybackSession
-    @ScaledMetric(space: .m) private var gap: CGFloat
     @ScaledMetric(space: .xs) private var lineGap: CGFloat
 
     var body: some View {
         Group {
-            if let progress = player.progress, let recording = player.recording {
-                VStack(alignment: .leading, spacing: gap) {
-                    PositionSlider(
-                        player: player, title: recording.title(of: recording.songs[progress.movement]),
-                        elapsed: progress.elapsed, duration: progress.duration
-                    )
+            if let progress = player.progress {
+                PositionSlider(player: player, elapsed: progress.elapsed, duration: progress.duration)
                     .id(progress.movement)
-                    bar(
-                        recording.isAlbum ? "Whole Album" : "Whole Work", progress.workElapsed,
-                        of: progress.workDuration, gaps: progress.durations)
-                }
-                .padding(.vertical, lineGap)
+                    .padding(.vertical, lineGap)
             }
         }
         // A container keeps the identifiers of its children, such as the position slider.
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("playback-progress")
-    }
-
-    private func bar(
-        _ title: String, _ elapsed: Double, of duration: Double, gaps durations: [Double] = []
-    ) -> some View {
-        VStack(alignment: .leading, spacing: lineGap) {
-            Text(title)
-                .typeStyle(.subheadline)
-            if durations.count > 1 {
-                SegmentedBar(elapsed: elapsed, durations: durations)
-            } else {
-                ProgressView(value: min(elapsed, duration), total: max(duration, 1))
-            }
-            Self.times(elapsed, of: duration)
-        }
     }
 
     static func times(_ elapsed: Double, of duration: Double) -> some View {
@@ -525,7 +656,6 @@ struct PlaybackProgress: View {
 /// restart for every step of the drag.
 private struct PositionSlider: View {
     let player: PlaybackSession
-    let title: String
     let elapsed: Double
     let duration: Double
     @State private var dragged: Double?
@@ -535,8 +665,6 @@ private struct PositionSlider: View {
     var body: some View {
         let shown = dragged ?? min(elapsed, duration)
         VStack(alignment: .leading, spacing: lineGap) {
-            Text(title)
-                .typeStyle(.subheadline)
             Slider(
                 value: Binding(
                     get: { shown },
@@ -562,37 +690,6 @@ private struct PositionSlider: View {
         player.seek(to: dragged)
         // The player reports the new position at once, so the slider does not jump back.
         self.dragged = nil
-    }
-}
-
-/// A progress bar with a gap at each track boundary, so the bar shows how many tracks there are.
-private struct SegmentedBar: View {
-    let elapsed: Double
-    let durations: [Double]
-    private let gap = Space.xxs.points
-
-    var body: some View {
-        GeometryReader { proxy in
-            let total = max(durations.reduce(0, +), 1)
-            let usable = max(proxy.size.width - gap * CGFloat(durations.count - 1), 0)
-            HStack(spacing: gap) {
-                ForEach(durations.indices, id: \.self) { index in
-                    let start = durations[..<index].reduce(0, +)
-                    let share = min(max((elapsed - start) / max(durations[index], 0.001), 0), 1)
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(Palette.timelineUnplayed)
-                        Capsule().fill(Palette.timelinePlayed)
-                            .frame(width: usable * durations[index] / total * share)
-                    }
-                    .frame(width: usable * durations[index] / total)
-                }
-            }
-        }
-        .frame(height: 4)
-        .accessibilityElement()
-        .accessibilityLabel("Progress")
-        .accessibilityValue(
-            Text(elapsed / max(durations.reduce(0, +), 1), format: .percent.precision(.fractionLength(0))))
     }
 }
 

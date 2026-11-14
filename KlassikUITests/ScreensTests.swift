@@ -297,9 +297,6 @@ final class PlaybackScreens: ScreensTestCase {
     @MainActor
     func testPerformers() throws {
         let app = try launchAndConnect()
-        _ = pausedPlayerInLibrary(app)
-        snap(app, "06-library-playing")
-
         openPlace(app, "Search")
         app.buttons["performers"].tap()
         let performer = app.buttons.matching(identifier: "performer").firstMatch

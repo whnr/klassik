@@ -1,11 +1,10 @@
 name: Test
 
-# Unit, library sync and gapless tests against a fixture Navidrome. The UI walk and its screenshots run only on
-# request, because the walk takes most of the time: a line "[ui]" or "[ui: browse,settings]" in the newest commit
-# message, or the "ui" input of a run by hand. After a walk, screens-diff compares each screenshot with the newest
-# walk on the same branch, else on ci.
-# A failed build or unit test fails the run. A failed UI walk fails it only if the repository variable
-# UI_TESTS_REQUIRED is "true"; else the job summary reports the failure and the screenshots still upload.
+# Unit, library sync and gapless tests against a fixture Navidrome, then the UI walk and its screenshots on every
+# run. During the interface rebuild the walk is a warning, never a red check: a failed walk shows in the job summary
+# and fails the run only if the repository variable UI_TESTS_REQUIRED is "true". The screenshots always upload.
+# After a walk, screens-diff compares each screenshot with the newest walk on the same branch, else on ci.
+# A failed build or unit test fails the run. The "ui" input of a run by hand narrows the walk, such as "browse,settings".
 # TestFlight needs a green run for the exact merge commit on main.
 on:
   push:
@@ -85,19 +84,9 @@ jobs:
       - name: Choose the UI areas
         id: ui
         env:
-          MESSAGE: ${{ github.event.head_commit.message }}
-          PR_HEAD: ${{ github.event.pull_request.head.sha }}
           INPUT: ${{ inputs.ui }}
         run: |
-          # A pull request event carries no commit message; the checkout holds the head commit of the branch.
-          if [ -n "$PR_HEAD" ]; then MESSAGE=$(git log -1 --format=%B "$PR_HEAD"); fi
-          line=$(printf '%s\n' "$MESSAGE" | grep -E '^\[ui(:[a-zA-Z, ]+)?\] *$' | head -1 || true)
-          case "$line" in
-            "") ui=${INPUT:-false} ;;
-            "[ui]"*) ui=all ;;
-            *) ui=${line#"[ui:"}; ui=${ui%%"]"*} ;;
-          esac
-          echo "ui=$ui" | tee -a "$GITHUB_OUTPUT"
+          echo "ui=${INPUT:-all}" | tee -a "$GITHUB_OUTPUT"
       # The cached DerivedData helps only if unchanged files keep their time.
       - run: python3 scripts/git_mtimes.py
       - id: xcode

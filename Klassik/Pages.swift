@@ -120,7 +120,7 @@ struct PageView: View {
         case .performers:
             PerformersView()
         case .composer(let name):
-            if let composer = index.composer(named: name) { ComposerView(composer: composer) } else { Gone() }
+            if let composer = index.composer(named: name) { ComposerPage(composer: composer) } else { Gone() }
         case .work(let id):
             if let work = index.work(id) { WorkView(work: work) } else { Gone() }
         case .recording(let work, let recording):

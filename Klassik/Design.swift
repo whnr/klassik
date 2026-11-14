@@ -97,7 +97,7 @@ extension View {
     }
 
     /// Puts an inset list on Klassik's grounds.
-    fileprivate func grounds() -> some View {
+    func grounds() -> some View {
         scrollContentBackground(.hidden)
             .background(Palette.backgroundGrouped)
     }

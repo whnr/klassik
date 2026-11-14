@@ -16,6 +16,7 @@ final class AppModel {
     let tracks: TrackStore
     let playback: PlaybackSession
     let enrichment: Enrichment
+    let people: PersonFactsStore
     let swipes = SwipeSettings()
     let libraryRows = LibraryRows()
     private let store: CredentialStore
@@ -28,12 +29,14 @@ final class AppModel {
         tracks = TrackStore()
         playback = PlaybackSession(engine: GaplessEngine(), store: tracks)
         enrichment = Enrichment.forLaunch()
+        people = PersonFactsStore()
         // UI tests start from the connect screen.
         if ProcessInfo.processInfo.arguments.contains("-resetServer") {
             store.clear()
             library.clear()
             tracks.clearAll()
             enrichment.clear()
+            people.clear()
             libraryRows.reset()
         }
         credentials = store.load()

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Settings</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="../tokens.css?v=47" />
+    <link rel="stylesheet" href="specimen.css?v=47" />
+    <script src="specimen.js?v=47"></script>
+  </head>
+  <body>
+    <script>
+      K.start(() => {
+        const { el, href } = K;
+        const { scroll } = K.page({
+          tab: "library",
+          title: "Settings",
+          back: { label: "Library", href: "index.html" },
+        });
+        scroll.append(
+          el("div", { class: "page-head" }, el("h1", { class: "t-largeTitle" }, "Settings")),
+          el(
+            "section",
+            { class: "section" },
+            el(
+              "div",
+              { class: "list" },
+              el(
+                "label",
+                { class: "row" },
+                "Timeline",
+                el(
+                  "select",
+                  {
+                    "aria-label": "Timeline",
+                    onchange: (event) => {
+                      const url = new URL(location.href);
+                      url.searchParams.set("side", event.target.value);
+                      location.href = url.href;
+                    },
+                  },
+                  ...["Right", "Left"].map((side) =>
+                    el(
+                      "option",
+                      {
+                        value: side.toLowerCase(),
+                        selected: (K.params.get("side") || "right") === side.toLowerCase(),
+                      },
+                      side,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            el("p", { class: "section-foot t-footnote" }, "The timeline follows the selected screen edge."),
+          ),
+          el(
+            "section",
+            { class: "section" },
+            el("a", { class: "row", href: href("tokens.html", { back: "Settings" }) }, "Specimen token sheet"),
+            el(
+              "p",
+              { class: "section-foot t-footnote" },
+              "This preview covers navigation and timeline placement. Other settings require the installed app.",
+            ),
+          ),
+        );
+      });
+    </script>
+  </body>
+</html>

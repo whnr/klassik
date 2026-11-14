@@ -102,7 +102,7 @@ struct SettingsView: View {
                 .accessibilityIdentifier("licences")
             }
         }
-        .navigationTitle("Settings")
+        .pageTitle("Settings")
     }
 
     /// Progress while the lookup runs, else the works that wait for the listener.
@@ -148,6 +148,6 @@ struct AlbumsView: View {
         .overlay {
             if albums.isEmpty { ContentUnavailableView("No Albums", systemImage: "square.stack") }
         }
-        .navigationTitle(classical ? "Classical Albums" : "Other Albums")
+        .pageTitle(classical ? "Classical Albums" : "Other Albums")
     }
 }

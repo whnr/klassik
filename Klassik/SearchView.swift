@@ -17,6 +17,6 @@ struct SearchView: View {
                 Text("Search for works, composers and albums arrives in a later update.")
             }
         }
-        .navigationTitle("Search")
+        .pageTitle("Search")
     }
 }

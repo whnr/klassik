@@ -35,7 +35,7 @@ struct GaplessTestView: View {
         .onSubmit(of: .search) {
             Task { await search() }
         }
-        .navigationTitle("Gapless Test")
+        .pageTitle("Gapless Test")
     }
 
     private func search() async {
@@ -98,7 +98,7 @@ struct GaplessAlbumView: View {
                 Button("Stop") { player.stop() }
             }
         }
-        .navigationTitle(name ?? "Album")
+        .pageTitle(name ?? "Album")
         .task {
             guard let client = model.client, songs.isEmpty else { return }
             guard let album = try? await client.album(id: albumID) else { return }

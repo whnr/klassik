@@ -198,7 +198,7 @@ struct WorkView: View {
                 SectionHeading("Recordings")
             }
         }
-        .navigationTitle(work.title)
+        .pageTitle(work.title)
     }
 }
 
@@ -401,7 +401,7 @@ struct RecordingView: View {
                 }
             }
         }
-        .navigationTitle(work.title)
+        .pageTitle(work.title)
         .toolbar {
             if !recording.isAlbum {
                 Button(

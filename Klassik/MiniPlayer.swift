@@ -7,6 +7,7 @@ struct MiniPlayer: View {
     @Environment(AppModel.self) private var model
     @Environment(AppNavigator.self) private var navigator
     let side: TimelineSide
+    let bottom: CGFloat
 
     /// The size of the button and the cover, as of the tab items beside them.
     nonisolated static let item: CGFloat = 48
@@ -38,35 +39,35 @@ struct MiniPlayer: View {
                 .accessibilityIdentifier("mini-player-pause")
                 if side == .right, !onPlayer { cover(of: item, page: page, edge: edge) }
             }
-            .background {
-                // The timeline runs on down the flat face, so the pill reads as its end.
-                Rectangle()
-                    .fill(Palette.timelineUnplayed)
-                    .frame(width: Measure.timeline)
-                    .frame(maxWidth: .infinity, alignment: side == .right ? .trailing : .leading)
-                    .clipShape(shape)
+            .background(alignment: .top) {
+                Color.clear
+                    .frame(height: TabRow.height + bottom)
+                    .glassEffect(.regular.interactive(), in: shape(onPlayer: onPlayer))
             }
-            .glassEffect(.regular.interactive(), in: shape)
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Mini player")
             .accessibilityIdentifier("mini-player")
         }
     }
 
+    nonisolated static func width(onPlayer: Bool) -> CGFloat {
+        onPlayer ? item + Space.xs.points + edgeInset : 2 * item + 2 * Space.xs.points + edgeInset
+    }
+
     /// The padding on the screen edge: the timeline strip and a gap. The button at the edge takes it into its
     /// own frame, so a tap at the screen edge still hits it.
-    private static let edgeInset = Space.xs.points + Measure.timeline
+    nonisolated private static let edgeInset = Space.xs.points + Measure.timeline
 
     /// Round on the content side, flat on the screen edge.
-    private var shape: ConcentricRectangle {
+    private func shape(onPlayer: Bool) -> ConcentricRectangle {
         let round = Self.item / 2 + Space.xs.points
         return side == .right
             ? ConcentricRectangle(
                 topLeadingCorner: .fixed(round), topTrailingCorner: .fixed(0),
-                bottomLeadingCorner: .fixed(round), bottomTrailingCorner: .concentric)
+                bottomLeadingCorner: .fixed(onPlayer ? 0 : round), bottomTrailingCorner: .concentric)
             : ConcentricRectangle(
                 topLeadingCorner: .fixed(0), topTrailingCorner: .fixed(round),
-                bottomLeadingCorner: .concentric, bottomTrailingCorner: .fixed(round))
+                bottomLeadingCorner: .concentric, bottomTrailingCorner: .fixed(onPlayer ? 0 : round))
     }
 
     /// Album art is square, so the cover is square; only play/pause is round.
@@ -115,5 +116,43 @@ struct CoverImage: View {
             guard let response = try? await URLSession.shared.data(from: url) else { return }
             image = UIImage(data: response.0)
         }
+    }
+}
+
+/// The bump follows the display corner. Two system-resolved contours keep the strip eight points wide.
+private struct DisplayCornerStrip: Shape {
+    let outer: Path
+    let inner: Path
+
+    func path(in rect: CGRect) -> Path {
+        var path = outer
+        path.addPath(inner)
+        return path
+    }
+}
+
+struct MiniPlayerCorner: View {
+    let side: TimelineSide
+    let top: CGFloat
+
+    var body: some View {
+        GeometryReader { geometry in
+            let bounds = CGRect(origin: .zero, size: geometry.size)
+            let inset = bounds.insetBy(dx: Measure.timeline, dy: Measure.timeline)
+            if let outer = geometry.concentricCornerRadii,
+                let inner = geometry.concentricCornerRadii(in: inset)
+            {
+                let radius = side == .right ? outer.bottomTrailing : outer.bottomLeading
+                DisplayCornerStrip(
+                    outer: Path(roundedRect: bounds, cornerRadii: outer, style: .continuous),
+                    inner: Path(roundedRect: inset, cornerRadii: inner, style: .continuous)
+                )
+                .fill(Palette.timelineUnplayed, style: FillStyle(eoFill: true))
+                .mask(alignment: side == .right ? .bottomTrailing : .bottomLeading) {
+                    Rectangle().frame(width: max(radius, Measure.timeline), height: max(0, bounds.height - top))
+                }
+            }
+        }
+        .accessibilityHidden(true)
     }
 }

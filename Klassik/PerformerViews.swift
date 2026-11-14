@@ -24,7 +24,7 @@ struct PerformersView: View {
             }
         }
         .searchable(text: $query)
-        .navigationTitle("Performers")
+        .pageTitle("Performers")
     }
 }
 
@@ -50,7 +50,7 @@ struct PerformerView: View {
                 }
             }
         }
-        .navigationTitle(performer.name)
+        .pageTitle(performer.name)
     }
 }
 

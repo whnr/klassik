@@ -82,6 +82,19 @@ struct NavigatorTests {
         #expect(navigator.backTarget(for: .chronology) == Origin(place: .library, page: "work"))
     }
 
+    @Test func aSecondTabTapReturnsToTheRoot() {
+        let navigator = Navigator<String>()
+        navigator.open("composer", in: .library)
+        navigator.selectTab(.chronology)
+        navigator.open("work", in: .chronology)
+        navigator.selectTab(.library)
+        #expect(navigator.pages(in: .library) == ["composer"])
+        navigator.selectTab(.library)
+        #expect(navigator.pages(in: .library).isEmpty)
+        #expect(navigator.pages(in: .chronology) == ["work"])
+        #expect(navigator.backTarget(for: .library) == Origin(place: .chronology, page: "work"))
+    }
+
     @Test func aSecondTapOnThePlaceKeepsTheBackTarget() {
         let navigator = Navigator<String>()
         navigator.open("composer", in: .library)

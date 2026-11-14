@@ -89,7 +89,7 @@ struct EnrichmentStatusView: View {
                 .ink()
             }
         }
-        .navigationTitle("MusicBrainz")
+        .pageTitle("MusicBrainz")
     }
 }
 
@@ -113,6 +113,6 @@ struct WorkListView: View {
                 .accessibilityIdentifier("status-work")
             }
         }
-        .navigationTitle(title)
+        .pageTitle(title)
     }
 }

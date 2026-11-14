@@ -43,7 +43,7 @@ struct TimelineBarView: View {
                                 finger: finger, labelHeight: labelHeight, top: 0,
                                 floor: proxy.size.height - Space.s.points) - labelHeight / 2
                         )
-                        .padding(side == .right ? .trailing : .leading, Measure.hitTarget + Space.xs.points)
+                        .padding(side == .right ? .trailing : .leading, Measure.hitTarget + Space.xs.points + 36)
                         .allowsHitTesting(false)
                 }
                 segments(of: bar, played: played)
@@ -107,7 +107,7 @@ struct TimelineBarView: View {
             Text(PlaybackProgress.time(place.seconds))
                 .foregroundStyle(Palette.textSecondary)
         }
-        .typeStyle(.footnote)
+        .typeStyle(.body)
         .padding(.vertical, Space.xs.points)
         .padding(.horizontal, Space.s.points)
         .background(Palette.backgroundElevated, in: .rect(cornerRadius: Radius.s))

@@ -24,7 +24,7 @@ struct LibraryView: View {
                 }
             }
         }
-        .navigationTitle("Library")
+        .pageTitle("Library")
         .toolbar {
             ToolbarItem(placement: .topBarLeading) { EditButton() }
             ToolbarItem(placement: .topBarTrailing) {
@@ -99,7 +99,7 @@ struct ComposersView: View {
                 ContentUnavailableView("No Composers", systemImage: "music.quarternote.3")
             }
         }
-        .navigationTitle("Composers")
+        .pageTitle("Composers")
     }
 }
 
@@ -135,6 +135,6 @@ struct FavouritesView: View {
                     description: Text("Swipe a recording and choose Reference to see it here."))
             }
         }
-        .navigationTitle("Favourites")
+        .pageTitle("Favourites")
     }
 }

@@ -8,7 +8,7 @@ const K = (() => {
   document.documentElement.dataset.page = location.pathname.split("/").pop().replace(".html", "") || "index";
   // Variant files carry the stamp of specimen.js, so Safari loads new copies with it.
   const STAMP = document.currentScript ? new URL(document.currentScript.src).searchParams.get("v") || "" : "";
-  const CARRIED = ["variant", "look", "theme", "paper", "contrast", "size", "playing", "side", "edge"];
+  const CARRIED = ["variant", "look", "theme", "paper", "contrast", "size", "playing", "side", "edge", "place"];
   const SIZES = [
     "xSmall",
     "small",
@@ -746,12 +746,29 @@ const K = (() => {
   const chrome = {};
 
   function tabbar(tab) {
-    // Chronology, Settings and Search keep a back arrow to the page they were opened from (Flo, 2026-11-08). Library is the root.
-    const backTo = (id) => (id === "library" ? {} : { back: tab === id ? params.get("back") : chrome.title || null });
-    const t = (id, name, path) =>
+    const roots = { library: "index.html", chronology: "chronology.html", search: "search.html" };
+    const item = (id, name) =>
       el("a", {
-        href: href(path, backTo(id)),
+        href: href(roots[id], { place: id }),
         class: tab === id ? "on" : null,
+        "aria-label": name,
+        "aria-current": tab === id ? "page" : null,
+        onclick: (event) => {
+          event.preventDefault();
+          store("stack." + tab, location.href);
+          const destination = new URL(
+            tab === id
+              ? href(roots[id], { place: id, back: params.get("back") })
+              : store("stack." + id) || href(roots[id], { place: id, back: chrome.title || tab }),
+            location.href,
+          );
+          for (const name of CARRIED) {
+            if (name === "place") continue;
+            if (params.has(name)) destination.searchParams.set(name, params.get(name));
+            else destination.searchParams.delete(name);
+          }
+          location.href = destination.href;
+        },
         html: ICON[id] + `<span class="t-caption2">${name}</span>`,
       });
     return el(
@@ -760,16 +777,10 @@ const K = (() => {
       el(
         "div",
         { class: "tabs glass" },
-        t("library", "Library", "index.html"),
-        t("chronology", "Chronology", "chronology.html"),
-        t("settings", "Settings", "tokens.html"),
+        item("library", "Library"),
+        item("chronology", "Chronology"),
+        item("search", "Search"),
       ),
-      el("a", {
-        href: href("search.html", backTo("search")),
-        class: "tab-search glass" + (tab === "search" ? " on" : ""),
-        "aria-label": "Search",
-        html: ICON.search,
-      }),
     );
   }
 
@@ -782,9 +793,12 @@ const K = (() => {
     actions = [],
     tabs = true,
   }) {
+    const filename = location.pathname.split("/").pop();
+    if (!["index.html", "chronology.html", "search.html", ""].includes(filename)) tab = params.get("place") || tab;
+    params.set("place", tab);
     const app = el("div", { class: "app" + (plain ? " plain" : "") });
     const backLabel = params.get("back") || back?.label;
-    // ADR 0023: the bar shows no title, so the back button names the page behind in full.
+    // ADR 0038 keeps the destination name in the accessibility label.
     const nav = el(
       "header",
       { class: "nav" },
@@ -795,7 +809,8 @@ const K = (() => {
               if (history.length > 1 && document.referrer) history.back();
               else location.href = href(back ? back.href : "index.html");
             },
-            html: ICON.back + `<span class="t-body"></span>`,
+            "aria-label": backLabel,
+            html: ICON.back,
           })
         : el("span"),
       el(
@@ -804,7 +819,16 @@ const K = (() => {
         ...actions.map((a) => el("button", { class: "t-body", onclick: a.onClick }, a.label)),
       ),
     );
-    if (backLabel) nav.querySelector(".back span").textContent = backLabel;
+    if (filename === "index.html" || filename === "") {
+      nav.querySelector(".actions").append(
+        el("a", {
+          class: "settings-link",
+          href: href("settings.html", { place: "library", back: "Library" }),
+          "aria-label": "Settings",
+          html: ICON.settings,
+        }),
+      );
+    }
     const scroll = el("main", { class: "scroll" });
     scroll.addEventListener("scroll", () => nav.classList.toggle("scrolled", scroll.scrollTop > 8), { passive: true });
     indicator(scroll);
@@ -846,7 +870,7 @@ const K = (() => {
     if (!current()) return;
     const tl = el("div", { class: "timeline", role: "slider", "aria-label": "Timeline" }, el("div", { class: "bar" }));
     document.documentElement.classList.add("has-timeline");
-    const label = el("div", { class: "scrub-label t-footnote" });
+    const label = el("div", { class: "scrub-label t-body" });
     document.body.append(tl, label);
     chrome.timeline = tl;
     chrome.scrubLabel = label;

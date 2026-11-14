@@ -68,6 +68,19 @@ final class PlacesScreens: ScreensTestCase {
         XCTAssertTrue(app.navigationBars["Frédéric Chopin"].waitForExistence(timeout: 10))
     }
 
+    @MainActor
+    func testSecondTabTapReturnsToRoot() throws {
+        let app = try launchAndConnect()
+        composer(app, "Felix Mendelssohn").tap()
+        XCTAssertTrue(app.navigationBars["Felix Mendelssohn"].waitForExistence(timeout: 10))
+        openPlace(app, "Search")
+        openPlace(app, "Library")
+        XCTAssertTrue(app.navigationBars["Felix Mendelssohn"].waitForExistence(timeout: 10))
+        tab(app, "Library").tap()
+        XCTAssertTrue(app.buttons["library-composers"].waitForExistence(timeout: 10))
+        snap(app, "02n-tab-root")
+    }
+
     /// A swipe from the left edge of a root with an arrow does what the arrow does.
     @MainActor
     func testEdgeSwipeGoesBack() throws {
@@ -382,10 +395,9 @@ final class TimelineScreens: ScreensTestCase {
         XCTAssertEqual(
             pill.buttons["mini-player-cover"].frame.maxX, app.frame.maxX, accuracy: 1,
             "A tap at the screen edge misses the cover")
-        XCTAssertGreaterThanOrEqual(app.frame.maxY - frame.maxY, 34, "The pill reaches the screen corner")
+        XCTAssertLessThan(frame.maxY, app.frame.maxY, "The playback controls have no bottom clearance")
         XCTAssertEqual(bar.frame.maxY, frame.minY, accuracy: 1, "The timeline does not run into the pill")
-        let row = app.descendants(matching: .any)["tab-row"].firstMatch
-        XCTAssertEqual(frame.minY, row.frame.minY, accuracy: 1, "The pill is not in the tab row")
+        XCTAssertEqual(frame.midY, tab(app, "Search").frame.midY, accuracy: 2, "The controls are not in the tab row")
         XCTAssertLessThanOrEqual(tab(app, "Search").frame.maxX, frame.minX, "The tabs run under the pill")
         XCTAssertTrue(pill.buttons["mini-player-cover"].exists)
         XCTAssertEqual(pill.buttons["mini-player-pause"].label, "Resume")
@@ -508,15 +520,15 @@ final class SettingsScreens: ScreensTestCase {
         XCTAssertTrue(concerto.waitForExistence(timeout: 10))
         let encores = app.buttons.matching(identifier: "album")
             .matching(NSPredicate(format: "label CONTAINS 'Romantic Encores'")).firstMatch
-        XCTAssertTrue(encores.waitForExistence(timeout: 10))
+        XCTAssertTrue(reveal(encores, in: app).isHittable)
         let performers = ["Carl Fixture", "Daniel Keys", "Sine Wave Chamber Orchestra"]
         for name in performers { XCTAssertTrue(encores.label.contains(name), encores.label) }
         snap(app, "10-classical-albums")
         // A tap opens the album. It does not start to play.
-        concerto.tap()
+        encores.tap()
         XCTAssertTrue(app.buttons["play-recording"].waitForExistence(timeout: 10))
         back(app)
-        XCTAssertTrue(encores.waitForExistence(timeout: 10))
+        XCTAssertTrue(reveal(encores, in: app).isHittable)
         for name in performers { XCTAssertTrue(encores.label.contains(name), encores.label) }
     }
 

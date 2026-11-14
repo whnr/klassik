@@ -234,11 +234,7 @@ final class PlaybackScreens: ScreensTestCase {
 
         recording.tap()
         XCTAssertTrue(app.buttons["play-recording"].waitForExistence(timeout: 10))
-        app.buttons["play-recording"].tap()
-        // The fixture movements last seconds, so the walk pauses before it looks at the page.
-        let pause = app.buttons["Pause"].firstMatch
-        XCTAssertTrue(pause.waitForExistence(timeout: 30), "No Pause button")
-        pause.tap()
+        playPaused(app)
         snap(app, "05-recording")
 
         // A paused player moves to the dragged position and stays paused.
@@ -265,15 +261,12 @@ final class PlaybackScreens: ScreensTestCase {
     func testNextEndsAtTheLastMovement() throws {
         let app = try launchAndConnect()
         openRecording(app)
-        app.buttons["play-recording"].tap()
+        startPlaying(app)
         let next = app.buttons["Next"].firstMatch
         XCTAssertTrue(next.waitForExistence(timeout: 30), "No Next button")
         next.tap()
         next.tap()
-        let pause = app.buttons["Pause"].firstMatch
-        XCTAssertTrue(pause.waitForExistence(timeout: 10), "No Pause button")
-        pause.tap()
-        XCTAssertTrue(app.buttons["Resume"].firstMatch.waitForExistence(timeout: 10))
+        pause(app)
         XCTAssertFalse(next.isEnabled, "Next stays on at the last movement")
         snap(app, "05d-next-ends")
     }
@@ -751,11 +744,34 @@ class ScreensTestCase: XCTestCase {
     /// Plays the open recording and pauses it. The fixture movements last seconds; paused, the player stays.
     @MainActor
     func playPaused(_ app: XCUIApplication) {
+        startPlaying(app)
+        pause(app)
+    }
+
+    /// Taps Play on the open recording and waits for the mini player, which exists from the first moment of a queue.
+    /// A tap that starts nothing fails here with the screen and the element tree, not later at a missing button.
+    @MainActor
+    func startPlaying(_ app: XCUIApplication) {
         app.buttons["play-recording"].tap()
-        let pause = app.buttons["Pause"].firstMatch
-        XCTAssertTrue(pause.waitForExistence(timeout: 30))
-        pause.tap()
-        XCTAssertTrue(app.buttons["Resume"].firstMatch.waitForExistence(timeout: 10))
+        let pill = app.descendants(matching: .any)["mini-player"].firstMatch
+        if !pill.waitForExistence(timeout: 15) {
+            snap(app, "failed-play")
+            let tree = XCTAttachment(string: app.debugDescription)
+            tree.name = "tree-after-play"
+            tree.lifetime = .keepAlways
+            add(tree)
+            XCTFail("Play did not start the queue")
+        }
+    }
+
+    /// Pauses with the button of the mini player, which stays in the tab row whatever the page shows. The fixture
+    /// movements last seconds, so the walk pauses at once.
+    @MainActor
+    func pause(_ app: XCUIApplication) {
+        let button = app.buttons["mini-player-pause"]
+        XCTAssertTrue(button.waitForExistence(timeout: 10), "No pause button in the mini player")
+        if button.label == "Pause" { button.tap() }
+        XCTAssertTrue(app.buttons["Resume"].firstMatch.waitForExistence(timeout: 10), "The player did not pause")
     }
 
     /// The frame of the mini player. Its buttons take its padding and fill it to its edges. XCUITest reports the

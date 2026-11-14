@@ -407,11 +407,11 @@ struct RecordingView: View {
                 }
             }
             // A finger on the page, or a scroll that it started, holds the rows. The spell begins when the page is still.
-            // A scroll by the app itself is not a touch.
+            // A scroll by the app itself is not a touch. The list has no tap gesture of its own, so row controls keep their
+            // taps. Each control touches the spell itself.
             .onScrollPhaseChange { _, phase in
                 spell.touching(phase == .tracking || phase == .interacting || phase == .decelerating)
             }
-            .simultaneousGesture(TapGesture().onEnded { spell.touch() })
             .onChange(of: model.isScrubbingTimeline) { _, scrubbing in spell.hold(scrubbing) }
             .task(id: isPlayingThis ? player.movement : nil) {
                 guard isPlayingThis, let movement = player.movement, recording.songs.indices.contains(movement)
@@ -479,6 +479,7 @@ struct RecordingView: View {
             isPlaying: isPlayingThis && model.playback.movement == index,
             isOpen: opened.contains(index),
             toggle: {
+                spell.touch()
                 if opened.contains(index) { opened.remove(index) } else { opened.insert(index) }
             },
             play: { play(from: index) }
@@ -487,6 +488,7 @@ struct RecordingView: View {
     }
 
     private func play(from index: Int) {
+        spell.touch()
         opened.removeAll()
         model.playback.play(QueueItem(work: work, recording: recording), from: index)
     }

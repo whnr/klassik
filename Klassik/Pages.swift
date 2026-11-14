@@ -25,6 +25,11 @@ enum Page: Hashable {
     case licences
     case gaplessTest
     case gaplessAlbum(String)
+
+    @MainActor init?(albumPart part: WorkIndex.Album.Part, in library: Library) {
+        guard library.index.work(part.workID) != nil else { return nil }
+        self = .recording(work: part.workID, recording: part.recordingID)
+    }
 }
 
 typealias AppNavigator = Navigator<Page>

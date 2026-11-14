@@ -461,15 +461,19 @@ struct RecordingView: View {
     /// The work of a block opens its recording page, so the listener reaches the work from the disc.
     @ViewBuilder private func heading(of block: WorkIndex.Album.Block) -> some View {
         if let part = block.part {
-            NavigationLink(value: Page.recording(work: part.workID, recording: part.recordingID)) {
-                HStack {
-                    SectionHeading(part.title)
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .foregroundStyle(Palette.textSecondary)
+            if let page = Page(albumPart: part, in: model.library) {
+                NavigationLink(value: page) {
+                    HStack {
+                        SectionHeading(part.title)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .foregroundStyle(Palette.textSecondary)
+                    }
                 }
+                .accessibilityIdentifier("album-work")
+            } else {
+                SectionHeading(part.title)
             }
-            .accessibilityIdentifier("album-work")
         }
     }
 

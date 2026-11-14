@@ -141,4 +141,39 @@ struct LibraryTests {
         Library(cacheURL: url, defaults: defaults).filter = filter
         #expect(Library(cacheURL: url, defaults: defaults).filter == filter)
     }
+
+    @MainActor @Test func otherAlbumWorkHeadingsHaveNoRecordingPage() async throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appending(path: "library.json")
+        let suite = UUID().uuidString
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let credentials = ServerCredentials(
+            url: URL(string: "https://music.example.org")!, username: "joe", password: "test")
+        let songs = [
+            Self.song("m1", work: "Sonata", movement: "Allegro", composer: "Composer"),
+            Self.song("m2", work: "Sonata", movement: "Adagio", composer: "Composer"),
+            Self.song("p1", genre: "Pop"),
+            Self.song("p2", genre: "Pop"),
+            Self.song("p3", genre: "Pop"),
+        ]
+        try LibraryCache(server: credentials.url, username: credentials.username, syncedAt: .now, songs: songs)
+            .write(to: url)
+        let library = Library(cacheURL: url, defaults: defaults)
+        await library.load(for: credentials)
+
+        let album = try #require(library.otherAlbums.first)
+        #expect(library.album(album.id)?.id == album.id)
+        #expect(album.showsWorkHeadings)
+        let part = try #require(album.blocks.first?.part)
+        #expect(Page(albumPart: part, in: library) == nil)
+
+        library.filter = ClassicalFilter(rules: [
+            Self.rule(.init(kind: .hasWork)), Self.rule(.init(kind: .genreContains, text: "Pop")),
+        ])
+        let page = Page(albumPart: part, in: library)
+        #expect(page == .recording(work: part.workID, recording: part.recordingID))
+        #expect(library.recording(work: part.workID, recording: part.recordingID) != nil)
+    }
 }

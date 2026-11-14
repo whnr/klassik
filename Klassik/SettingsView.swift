@@ -120,54 +120,33 @@ struct AlbumsView: View {
 
     @Environment(AppModel.self) private var model
 
-    private struct Row: Identifiable {
-        var id: String
-        var name: String
-        var item: QueueItem
-    }
-
-    private var songs: [Song] {
-        let library = model.library
-        if classical { return library.classical }
-        let classicalAlbums = Set(library.classical.map(\.albumKey))
-        return library.songs.filter { !classicalAlbums.contains($0.albumKey) }
-    }
-
-    private var rows: [Row] {
-        Dictionary(grouping: songs, by: \.albumKey)
-            .compactMap { key, tracks in
-                WorkIndex.album(tracks).map { album in
-                    Row(
-                        id: key, name: album.work.title,
-                        item: QueueItem(work: album.work, recording: album.recording))
-                }
-            }
-            .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+    private var albums: [WorkIndex.Album] {
+        classical ? model.library.index.albums : model.library.otherAlbums
     }
 
     var body: some View {
         PageList {
-            ForEach(rows) { row in
-                NavigationLink(value: Page.recording(work: row.item.work.id, recording: row.item.recording.id)) {
+            ForEach(albums) { album in
+                NavigationLink(value: Page.album(album.id)) {
                     VStack(alignment: .leading) {
                         HStack {
-                            Text(row.name)
+                            Text(album.title)
                                 .ink()
-                            OfflineHint(isOffline: model.tracks.isOffline(row.item.recording))
+                            OfflineHint(isOffline: model.tracks.isOffline(album.recording))
                         }
-                        RoleLines(lines: row.item.recording.names)
+                        RoleLines(lines: album.recording.names)
                             .ink()
-                        Text(row.item.recording.facts(includingAlbum: false))
+                        Text(album.recording.facts(includingAlbum: false))
                             .typeStyle(.subheadline)
                             .foregroundStyle(Palette.textSecondary)
                     }
                 }
-                .itemActions(row.item, downloads: true)
+                .itemActions(album.item, downloads: true)
                 .accessibilityIdentifier("album")
             }
         }
         .overlay {
-            if songs.isEmpty { ContentUnavailableView("No Albums", systemImage: "square.stack") }
+            if albums.isEmpty { ContentUnavailableView("No Albums", systemImage: "square.stack") }
         }
         .navigationTitle(classical ? "Classical Albums" : "Other Albums")
     }

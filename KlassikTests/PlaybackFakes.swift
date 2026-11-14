@@ -3,8 +3,43 @@ import Foundation
 @testable import Klassik
 
 /// A server that lives in memory. It answers with addresses and holds no audio.
-struct InMemoryServer: ServerPort {
-    func streamURL(songID: String) -> URL {
+actor InMemoryServer: ServerPort {
+    nonisolated let listeningDataKey = "queue.\(UUID().uuidString)"
+    var queue: ServerPlayQueue?
+    var scrobbles: [String] = []
+    var savedQueues: [[String]] = []
+    var failure = false
+    var restoreGate: CheckedContinuation<ServerPlayQueue?, Never>?
+    var holdRestore = false
+    var isRestoring: Bool { restoreGate != nil }
+
+    func getPlayQueue() async throws -> ServerPlayQueue? {
+        if holdRestore { return await withCheckedContinuation { restoreGate = $0 } }
+        if failure { throw URLError(.notConnectedToInternet) }
+        return queue
+    }
+
+    func savePlayQueue(ids: [String], current: String?, position: Int64) async throws {
+        if failure { throw URLError(.notConnectedToInternet) }
+        savedQueues.append(ids)
+        let songs = ids.map { Song(id: $0, title: $0, duration: 600) }
+        queue = ServerPlayQueue(current: current, position: position, entry: songs)
+    }
+
+    func scrobble(id: String, time: Date) async throws {
+        if failure { throw URLError(.notConnectedToInternet) }
+        scrobbles.append(id)
+    }
+
+    func setQueue(_ queue: ServerPlayQueue?) { self.queue = queue }
+    func setFailure(_ value: Bool) { failure = value }
+    func suspendRestore() { holdRestore = true }
+    func releaseRestore(_ queue: ServerPlayQueue?) {
+        restoreGate?.resume(returning: queue)
+        restoreGate = nil
+    }
+
+    nonisolated func streamURL(songID: String) -> URL {
         URL(string: "https://music.example.org/stream/\(songID)")!
     }
 }

@@ -462,6 +462,20 @@ final class TimelineScreens: ScreensTestCase {
 /// The settings pages and the diagnostic pages.
 final class SettingsScreens: ScreensTestCase {
     @MainActor
+    func testScrobbles() throws {
+        let app = try launchAndConnect()
+        openSettings(app)
+        let scrobbles = reveal(app.switches["scrobbles"], in: app)
+        XCTAssertTrue(scrobbles.isHittable)
+        let value = scrobbles.value as? String
+        scrobbles.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        XCTAssertNotEqual(scrobbles.value as? String, value)
+        snap(app, "08d-scrobbles")
+        scrobbles.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        XCTAssertEqual(scrobbles.value as? String, value)
+    }
+
+    @MainActor
     func testSettings() throws {
         let app = try launchAndConnect()
         // The mini player must leave the last rows free, so something must be playing.

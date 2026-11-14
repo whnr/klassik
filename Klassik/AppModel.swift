@@ -60,6 +60,8 @@ final class AppModel {
     func start() async {
         guard let credentials, let client else { return }
         await library.load(for: credentials)
+        // The UI walk requires a fresh player on each reset launch.
+        if !ProcessInfo.processInfo.arguments.contains("-resetServer") { await playback.restoreQueue() }
         await check()
         await library.syncIfChanged(with: client)
         await enrichment.enrich(library.index)
@@ -102,7 +104,7 @@ final class AppModel {
     }
 
     func signOut() {
-        playback.stop()
+        playback.server = nil
         tracks.clearAll()
         store.clear()
         library.clear()

@@ -42,6 +42,7 @@ struct KlassikApp: App {
 
 struct RootView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.scenePhase) private var scenePhase
     @AppStorage(TapIndicator.storageKey) private var showTaps = false
 
     var body: some View {
@@ -52,6 +53,9 @@ struct RootView: View {
                 PlacesView()
                     .task { await model.start() }
             }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background { Task { await model.playback.saveQueue() } }
         }
         .onChange(of: showTaps, initial: true) { TapIndicator.shared.setEnabled(showTaps) }
     }

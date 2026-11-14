@@ -2,13 +2,6 @@ import AVFoundation
 import MediaPlayer
 import Observation
 
-/// One thing in the queue: a recording of a work, or a whole album.
-struct QueueItem: Identifiable, Sendable {
-    let id = UUID()
-    var work: WorkIndex.Work
-    var recording: WorkIndex.Recording
-}
-
 /// Owns the server and the queue. A view says what to play and reads the state; it never passes a client
 /// and never asks an engine for progress.
 @MainActor @Observable
@@ -79,8 +72,32 @@ final class PlaybackSession {
         }
     }
 
-    /// Nil until the listener connects. Nothing plays without it.
-    @ObservationIgnored var server: (any ServerPort)?
+    var scrobblesEnabled: Bool {
+        willSet { savePosition() }
+        didSet { defaults.set(scrobblesEnabled, forKey: Self.scrobblesKey) }
+    }
+    private(set) var listeningError: String?
+
+    /// A different login must never receive the queue of this login.
+    @ObservationIgnored var server: (any ServerPort)? {
+        didSet {
+            savePosition()
+            if item != nil { persistQueue() }
+            reset()
+            upNext = []
+            canSaveQueue = false
+            queueRevision += 1
+            restored = false
+            history = server.map { PlaybackHistory(server: $0, defaults: defaults) }
+            listeningError = nil
+            let currentHistory = history
+            history?.onError = { [weak self, weak currentHistory] message in
+                guard let self, self.history === currentHistory else { return }
+                self.listeningError = message
+            }
+            MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+        }
+    }
 
     /// False on the last movement of the last item, where Next has nowhere to go.
     var hasNext: Bool {
@@ -105,6 +122,12 @@ final class PlaybackSession {
             durations: segments)
     }
 
+    private var history: PlaybackHistory?
+    private var queueRevision = 0
+    private var restored = false
+    private var canSaveQueue = false
+    private var lastQueueSave = ContinuousClock.now
+    private static let scrobblesKey = "player.scrobbles"
     private var playback = PlaybackState()
     private let notifications = PlaybackNotifications()
     private let remoteTargets = RemoteCommandTargets()
@@ -122,11 +145,55 @@ final class PlaybackSession {
         self.engine = engine
         self.store = store
         self.defaults = defaults
+        scrobblesEnabled = defaults.object(forKey: Self.scrobblesKey) as? Bool ?? true
         leveling = defaults.string(forKey: Self.levelingKey).flatMap(VolumeLeveling.init) ?? .album
         engine.onEvent = { [weak self] event in self?.engineEvent(event) }
         observeAudioSession()
         registerRemoteCommands()
         updateNextCommand()
+    }
+
+    // MARK: Server history
+
+    /// A slow launch response must not replace a queue that the listener has already started.
+    func restoreQueue() async {
+        guard !restored, item == nil, let history else { return }
+        let revision = queueRevision
+        do {
+            let saved = try await history.restore()
+            guard self.history === history, queueRevision == revision, item == nil else { return }
+            restored = true
+            listeningError = nil
+            guard let saved, let first = saved.items.first else { return }
+            upNext = Array(saved.items.dropFirst())
+            start(first, from: saved.movement, offset: saved.position, paused: true, save: false)
+        } catch {
+            if self.history === history, queueRevision == revision {
+                listeningError = "Could not restore the queue from the server."
+            }
+        }
+    }
+
+    /// Saves before the app enters the background, where iOS can suspend a paused session.
+    func saveQueue() async {
+        savePosition()
+        persistQueue()
+        await history?.flush()
+    }
+
+    private func persistQueue() {
+        guard canSaveQueue, let history else { return }
+        history.save(items: item.map { [$0] + upNext } ?? [], movement: movement ?? 0, position: position)
+        lastQueueSave = .now
+    }
+
+    private func hear(through found: (movement: Int, elapsed: Double)) {
+        guard let item, let movement, found.movement >= movement else { return }
+        for index in movement...found.movement where segments.indices.contains(index) {
+            history?.hear(
+                item: item, movement: index, position: index == found.movement ? found.elapsed : segments[index],
+                duration: segments[index], enabled: scrobblesEnabled)
+        }
     }
 
     // MARK: Queue
@@ -145,7 +212,7 @@ final class PlaybackSession {
     /// queue (ADR 0015). Any other item replaces the queue (ADR 0006).
     func play(_ item: QueueItem, from movement: Int, at position: Double = 0) {
         if let playing = self.item, playing.recording.id == item.recording.id {
-            start(playing, from: movement, offset: position)
+            start(playing, from: movement, offset: position, preserveListen: true)
         } else {
             play(queue: [item], from: movement, at: position)
         }
@@ -162,12 +229,14 @@ final class PlaybackSession {
     func playNext(_ item: QueueItem) {
         guard self.item != nil else { return play(queue: [item]) }
         upNext.insert(item, at: 0)
+        persistQueue()
     }
 
     /// Puts an item at the end of the queue. With nothing playing, it plays at once.
     func addToQueue(_ item: QueueItem) {
         guard self.item != nil else { return play(queue: [item]) }
         upNext.append(item)
+        persistQueue()
     }
 
     /// Skips to the next item in the queue.
@@ -186,10 +255,12 @@ final class PlaybackSession {
 
     func removeFromQueue(at offsets: IndexSet) {
         upNext.remove(atOffsets: offsets)
+        persistQueue()
     }
 
     func moveInQueue(from source: IndexSet, to destination: Int) {
         upNext.move(fromOffsets: source, toOffset: destination)
+        persistQueue()
     }
 
     // MARK: Transport
@@ -223,7 +294,7 @@ final class PlaybackSession {
     /// player stays paused.
     func seek(movement index: Int, to seconds: Double) {
         guard let item, item.recording.songs.indices.contains(index) else { return }
-        start(item, from: index, offset: seconds, paused: !playback.wantsPlayback)
+        start(item, from: index, offset: seconds, paused: !playback.wantsPlayback, preserveListen: true)
     }
 
     func togglePause() {
@@ -241,8 +312,13 @@ final class PlaybackSession {
 
     /// Stops playback and empties the queue.
     func stop() {
+        canSaveQueue = true
+        savePosition()
+        history?.endListening()
+        queueRevision += 1
         reset()
         upNext = []
+        persistQueue()
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
     }
 
@@ -255,6 +331,7 @@ final class PlaybackSession {
 
     /// Applies what the audio session reported. Tests call it with the events that the notifications map to.
     func handle(_ event: PlaybackState.Event) {
+        savePosition()
         let action = playback.handle(event)
         guard item != nil else { return }
         if recordingCompleted && playback.shouldPlay {
@@ -280,6 +357,7 @@ final class PlaybackSession {
             }
         }
         updateNowPlaying()
+        persistQueue()
     }
 
     private func perform(_ command: RemoteCommand) {
@@ -307,11 +385,14 @@ final class PlaybackSession {
     }
 
     private func finished(_ ended: Int) {
-        guard let item, let movement, ended >= movement else { return }
+        guard let item, let movement, ended >= movement, segments.indices.contains(ended) else { return }
+        hear(through: (ended, segments[ended]))
         if ended + 1 < item.recording.songs.count {
             checkpoint = (ended + 1, 0)
             position = 0
             self.movement = ended + 1
+            history?.begin(item: item, movement: ended + 1, position: 0)
+            persistQueue()
         } else {
             recordingCompleted = true
             if playback.shouldPlay { completeRecording() }
@@ -329,8 +410,14 @@ final class PlaybackSession {
 
     // MARK: Engine
 
-    private func start(_ item: QueueItem, from index: Int, offset: Double = 0, paused: Bool = false) {
-        guard server != nil else { return }
+    private func start(
+        _ item: QueueItem, from index: Int, offset: Double = 0, paused: Bool = false, save: Bool = true,
+        preserveListen: Bool = false
+    ) {
+        guard server != nil, item.recording.songs.indices.contains(index) else { return }
+        savePosition()
+        canSaveQueue = true
+        queueRevision += 1
         reset()
         _ = playback.handle(paused ? .pause : .play)
         self.item = item
@@ -338,8 +425,11 @@ final class PlaybackSession {
         position = offset
         refreshSegments()
         movement = index
+        if !preserveListen { history?.endListening() }
+        history?.begin(item: item, movement: index, position: offset)
         if playback.shouldPlay { rebuild() }
         updateNowPlaying()
+        if save { persistQueue() }
     }
 
     private func rebuild() {
@@ -357,6 +447,9 @@ final class PlaybackSession {
                 do { try await Task.sleep(for: .milliseconds(250)) } catch { return }
                 guard let self else { return }
                 self.savePosition()
+                if self.playback.shouldPlay, self.lastQueueSave.duration(to: .now) >= .seconds(5) {
+                    self.persistQueue()
+                }
             }
         }
     }
@@ -367,6 +460,7 @@ final class PlaybackSession {
         discardEngine()
         error = text
         updateNowPlaying()
+        persistQueue()
     }
 
     private func reset() {
@@ -397,6 +491,8 @@ final class PlaybackSession {
 
     private func savePosition() {
         guard let found = located(), let movement, found.movement >= movement else { return }
+        refreshSegments()
+        if playback.shouldPlay { hear(through: found) }
         checkpoint = (found.movement, found.elapsed)
         if position != found.elapsed { position = found.elapsed }
         refreshSegments()

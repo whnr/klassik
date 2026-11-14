@@ -48,6 +48,7 @@ struct QuietSpell: Sendable {
 
     private var lastTouch: ContinuousClock.Instant?
     private(set) var isHeld = false
+    private(set) var isTouched = false
 
     mutating func touch(at now: ContinuousClock.Instant = .now) {
         lastTouch = now
@@ -59,9 +60,17 @@ struct QuietSpell: Sendable {
         lastTouch = now
     }
 
+    /// A finger on the rows, or a scroll that it started, holds them. The spell begins when they are still.
+    /// A call with no change does nothing, so a scroll by the app itself starts no spell.
+    mutating func touching(_ on: Bool, at now: ContinuousClock.Instant = .now) {
+        guard on != isTouched else { return }
+        isTouched = on
+        lastTouch = now
+    }
+
     /// How long the page must still wait, or nil when it may scroll now.
     func wait(at now: ContinuousClock.Instant = .now) -> Duration? {
-        if isHeld { return Self.length }
+        if isHeld || isTouched { return Self.length }
         guard let lastTouch else { return nil }
         let rest = Self.length - (now - lastTouch)
         return rest > .zero ? rest : nil

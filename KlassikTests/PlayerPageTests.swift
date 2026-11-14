@@ -94,6 +94,21 @@ struct QuietSpellTests {
         #expect(spell.wait(at: start.advanced(by: QuietSpell.length)) == nil)
     }
 
+    @Test func aLongTouchHoldsTheRowsUntilThePageIsStill() {
+        var spell = QuietSpell()
+        spell.touching(true, at: start)
+        #expect(spell.wait(at: start.advanced(by: .seconds(60))) != nil)
+        spell.touching(false, at: start.advanced(by: .seconds(60)))
+        #expect(spell.wait(at: start.advanced(by: .seconds(61))) != nil)
+        #expect(spell.wait(at: start.advanced(by: .seconds(60) + QuietSpell.length)) == nil)
+    }
+
+    @Test func aScrollByTheAppStartsNoSpell() {
+        var spell = QuietSpell()
+        spell.touching(false, at: start)
+        #expect(spell.wait(at: start.advanced(by: .seconds(1))) == nil)
+    }
+
     @Test func aScrubHoldsTheRowsUntilTheFingerLiftsAndTheSpellEnds() {
         var spell = QuietSpell()
         spell.hold(true, at: start)

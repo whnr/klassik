@@ -3,9 +3,12 @@ import TipKit
 
 @main
 struct KlassikApp: App {
-    @State private var model = AppModel()
+    @State private var model: AppModel
 
     init() {
+        let model = AppModel()
+        _model = State(initialValue: model)
+        PersonSweepBackground.register(model)
         BundledFonts.register()
         // UIKit draws the large title of a navigation bar, and SwiftUI has no modifier for its font.
         let title = TypeStyle.pageTitle
@@ -55,7 +58,10 @@ struct RootView: View {
             }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .background { Task { await model.playback.saveQueue() } }
+            if phase == .background {
+                Task { await model.playback.saveQueue() }
+                PersonSweepBackground.schedule()
+            }
         }
         .onChange(of: showTaps, initial: true) { TapIndicator.shared.setEnabled(showTaps) }
     }

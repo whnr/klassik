@@ -27,4 +27,11 @@ struct InfoPlistTests {
     @Test func declaresNoCustomEncryption() {
         #expect(info["ITSAppUsesNonExemptEncryption"] as? Bool == false)
     }
+
+    /// The Wikidata pass runs as a background processing task (ADR 0042).
+    @Test func allowsTheWikidataPassInTheBackground() {
+        #expect((info["UIBackgroundModes"] as? [String])?.contains("processing") == true)
+        let identifiers = info["BGTaskSchedulerPermittedIdentifiers"] as? [String]
+        #expect(identifiers?.contains(PersonSweepBackground.identifier) == true)
+    }
 }

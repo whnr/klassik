@@ -88,8 +88,64 @@ struct EnrichmentStatusView: View {
                 )
                 .ink()
             }
+
+            PeopleSection(sweep: model.sweep, checked: model.people.cache.checked.count)
         }
         .pageTitle("MusicBrainz")
+    }
+}
+
+/// How far the Wikidata pass over the persons of the library got (ADR 0042).
+struct PeopleSection: View {
+    let sweep: PersonSweep
+    let checked: Int
+
+    var body: some View {
+        Section {
+            switch sweep.state {
+            case .running(let done, let total):
+                ProgressView(value: Double(done), total: Double(max(total, 1))) {
+                    Text("Looking up \(done) of \(total) people")
+                }
+                .accessibilityIdentifier("people-progress")
+            case .paused(.connection):
+                Label("Paused: no suitable connection", systemImage: "pause.circle")
+                    .foregroundStyle(Palette.textPrimary)
+                    .accessibilityIdentifier("people-paused")
+            case .paused(.slowDown(let until)):
+                let retry = until.formatted(.relative(presentation: .named))
+                Label(
+                    "Paused: Wikidata asked for a pause. Klassik tries again \(retry).", systemImage: "pause.circle"
+                )
+                .foregroundStyle(Palette.textPrimary)
+                .accessibilityIdentifier("people-paused")
+            case .upToDate:
+                LabeledContent("Status", value: "Up to date")
+                    .ink()
+                    .accessibilityIdentifier("people-status")
+            case .idle:
+                LabeledContent("Status", value: "Waiting")
+                    .ink()
+                    .accessibilityIdentifier("people-status")
+            }
+            LabeledContent("People Checked", value: checked.formatted())
+                .ink()
+            if sweep.newCount > 0 {
+                LabeledContent("New", value: sweep.newCount.formatted())
+                    .ink()
+            }
+            if sweep.dueCount > 0 {
+                LabeledContent("Due for a New Check", value: sweep.dueCount.formatted())
+                    .ink()
+            }
+        } header: {
+            Text("People from Wikidata")
+        } footer: {
+            Text(
+                "Klassik looks up every composer and performer of your library, new people first, one request every "
+                    + "1.1 seconds. It asks again for living people after \(PersonSweep.livingDays) days and for "
+                    + "others after a year. It waits for a connection that is not metered and not in Low Data Mode.")
+        }
     }
 }
 

@@ -19,6 +19,7 @@ final class AppModel {
     let playback: PlaybackSession
     let enrichment: Enrichment
     let people: PersonFactsStore
+    let sweep: PersonSweep
     let swipes = SwipeSettings()
     let libraryRows = LibraryRows()
     private let store: CredentialStore
@@ -32,6 +33,8 @@ final class AppModel {
         playback = PlaybackSession(engine: GaplessEngine(), store: tracks)
         enrichment = Enrichment.forLaunch()
         people = PersonFactsStore.forLaunch()
+        let connection = ConnectionMonitor()
+        sweep = PersonSweep(store: people, isConnectionGood: { connection.isGood })
         // UI tests start from the connect screen.
         if ProcessInfo.processInfo.arguments.contains("-resetServer") {
             store.clear()
@@ -70,6 +73,27 @@ final class AppModel {
         await check()
         await library.syncIfChanged(with: client)
         await enrichment.enrich(library.index)
+        sweepPeople()
+    }
+
+    /// The persons of the library, as the background pass reads them.
+    private var libraryPeople: [PersonSweep.Person] {
+        PersonSweep.people(of: library.index) { [enrichment] in enrichment.facts(of: $0)?.composerID }
+    }
+
+    /// Starts the background pass over the persons of the library. Nothing runs while it runs already.
+    func sweepPeople() {
+        let people = libraryPeople
+        sweep.measure(people)
+        sweep.start(people)
+    }
+
+    /// The pass that the system starts while Klassik is in the background. It ends when the pass ends or the
+    /// system takes the time away.
+    func sweepPeopleInBackground() async {
+        if library.index.composers.isEmpty, let credentials { await library.load(for: credentials) }
+        sweepPeople()
+        await sweep.finish()
     }
 
     func check() async {

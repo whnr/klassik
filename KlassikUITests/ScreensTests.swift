@@ -198,6 +198,20 @@ final class BrowseScreens: ScreensTestCase {
         snap(app, "02c-musicbrainz")
     }
 
+    /// The Wikidata pass looks up the people of the fixture library and ends up to date (ADR 0042).
+    @MainActor
+    func testPeopleFromWikidata() throws {
+        let app = try launchAndConnect()
+        openSettings(app)
+        XCTAssertTrue(app.buttons["musicbrainz"].waitForExistence(timeout: 30))
+        app.buttons["musicbrainz"].tap()
+        let status = app.descendants(matching: .any)["people-status"]
+        XCTAssertTrue(reveal(status, in: app).waitForExistence(timeout: 10))
+        let done = expectation(for: NSPredicate(format: "label CONTAINS 'Up to date'"), evaluatedWith: status)
+        XCTAssertEqual(XCTWaiter.wait(for: [done], timeout: 90), .completed, status.label)
+        snap(app, "02e-people-up-to-date")
+    }
+
     @MainActor
     func testSets() throws {
         let app = try launchAndConnect()
@@ -721,6 +735,8 @@ class ScreensTestCase: XCTestCase {
                 "Artist":{"value":"<a href=\\"//x\\">Fixture Studio</a>"},"LicenseShortName":{"value":"Public domain"}}}]}}}}
                 """,
             ],
+            // Any other name finds nobody.
+            ["list=search", #"{"query":{"search":[]}}"#],
         ]
         return String(decoding: try! JSONEncoder().encode(pairs), as: UTF8.self)
     }()

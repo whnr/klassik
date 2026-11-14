@@ -18,6 +18,10 @@ enum ComposerResolution: Codable, Equatable, Sendable {
 @MainActor @Observable
 final class PersonFactsStore {
     struct Cache: Codable, Sendable {
+        /// The shape of the saved facts. A lower number holds facts that are wrong, so the cache drops them.
+        /// 1: facts saved before the picture host of Commons was trusted have no picture.
+        static let version = 1
+        var version = Cache.version
         var people: [String: PersonFacts] = [:]
         /// The resolution of each composer tag.
         var composers: [String: ComposerResolution] = [:]
@@ -34,6 +38,7 @@ final class PersonFactsStore {
 
         init(from decoder: any Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
+            version = try container.decodeIfPresent(Int.self, forKey: .version) ?? 0
             people = try container.decode([String: PersonFacts].self, forKey: .people)
             composers = try container.decode([String: ComposerResolution].self, forKey: .composers)
             artists = try container.decode([String: String].self, forKey: .artists)
@@ -41,6 +46,12 @@ final class PersonFactsStore {
             inputs = try container.decode([String: [String]].self, forKey: .inputs)
             // A cache from before performer pages has no such key.
             performers = try container.decodeIfPresent([String: String].self, forKey: .performers) ?? [:]
+            // The resolutions stay. A tag without facts asks again on its next visit, and keeps its
+            // listener's choice.
+            if version < Cache.version {
+                people = [:]
+                version = Cache.version
+            }
         }
     }
 
@@ -241,5 +252,17 @@ final class PersonFactsStore {
                 at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             try? JSONEncoder().encode(cache).write(to: url, options: .atomic)
         }
+    }
+}
+
+extension PersonFactsStore {
+    /// The store of a launch. UI tests may give it answers through `PersonLaunchStub`.
+    static func forLaunch() -> PersonFactsStore {
+        #if DEBUG
+            if let fetch = PersonLaunchStub.fetch {
+                return PersonFactsStore(service: PersonFactsService(fetch: fetch, pacer: Pacer(interval: 0)))
+            }
+        #endif
+        return PersonFactsStore()
     }
 }

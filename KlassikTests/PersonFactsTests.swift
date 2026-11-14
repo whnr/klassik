@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import UIKit
 
 @testable import Klassik
 
@@ -56,7 +57,7 @@ final class PersonStub: @unchecked Sendable {
     static let artistRichard = "73c2ce7e-8ee9-4a5c-a3a1-37d4d4a31a52"
 
     static let commons = """
-        {"query":{"pages":{"1":{"imageinfo":[{"thumburl":"https://upload.wikimedia.org/bach-1200.jpg",\
+        {"query":{"pages":{"1":{"imageinfo":[{"thumburl":"https://thumb.wikimedia.org/bach-1200.jpg",\
         "descriptionurl":"https://commons.wikimedia.org/wiki/File:Bach.jpg","extmetadata":{\
         "Artist":{"value":"<a href=\\"//x\\">Elias Gottlob Haussmann</a> &amp; workshop"},\
         "LicenseShortName":{"value":"Public domain"}}}]}}}}
@@ -104,7 +105,7 @@ struct PersonFactsServiceTests {
         let facts = try #require(try await PersonStub(PersonStub.bachRules).service.facts(qid: "Q1339"))
         #expect(facts.born == 1685 && facts.died == 1750 && facts.activeFrom == 1703)
         #expect(facts.bio == "Johann Sebastian Bach was a German composer.")
-        #expect(facts.portrait?.url.absoluteString == "https://upload.wikimedia.org/bach-1200.jpg")
+        #expect(facts.portrait?.url.absoluteString == "https://thumb.wikimedia.org/bach-1200.jpg")
         #expect(Set(facts.credits.map(\.kind)) == [.facts, .text, .picture])
         let picture = try #require(facts.credits.first { $0.kind == .picture })
         #expect(picture.text == "Elias Gottlob Haussmann & workshop, Public domain, Wikimedia Commons")
@@ -150,6 +151,8 @@ struct PersonFactsServiceTests {
     @Test func onlyHttpsLinksOnTrustedHostsPass() {
         func trusted(_ text: String) -> Bool { PersonFactsService.trusted(URL(string: text)) != nil }
         #expect(trusted("https://upload.wikimedia.org/a.jpg"))
+        #expect(trusted("https://thumb.wikimedia.org/a.jpg"))
+        #expect(!trusted("https://thumb.wikimedia.org.evil.example/a.jpg"))
         #expect(trusted("https://commons.wikimedia.org/wiki/File:A.jpg"))
         #expect(trusted("https://en.wikipedia.org/wiki/A"))
         #expect(trusted("https://www.wikidata.org/wiki/Q1"))
@@ -162,7 +165,7 @@ struct PersonFactsServiceTests {
     }
 
     @Test func aPictureOnAnotherHostIsDropped() async throws {
-        let evil = PersonStub.commons.replacingOccurrences(of: "upload.wikimedia.org", with: "evil.example")
+        let evil = PersonStub.commons.replacingOccurrences(of: "thumb.wikimedia.org", with: "evil.example")
         let rules = PersonStub.bachRules.map { $0.contains == "commons.wikimedia.org" ? ($0.contains, evil) : $0 }
         let facts = try #require(try await PersonStub(rules).service.facts(qid: "Q1339"))
         #expect(facts.portrait == nil)
@@ -212,6 +215,43 @@ struct PersonFactsServiceTests {
     @Test func aBracketWithoutAYearStays() {
         #expect(PersonFacts.withoutYears("composer (Op. 100)") == "composer (Op. 100)")
         #expect(PersonFacts.withoutYears("composer (1685–1750)") == "composer")
+    }
+
+    // MARK: Recorded answers
+
+    private static let recordedRules: [(contains: String, body: String)] = [
+        ("ids=Q1339&props=labels|descriptions|claims", RecordedWikimedia.bachEntity),
+        ("commons.wikimedia.org/w/api.php", RecordedWikimedia.bachCommons),
+    ]
+
+    /// Bach has a picture on the live services. This ran without a picture for every composer, because the
+    /// Commons answer names a host that the app did not trust.
+    @Test func theRecordedAnswersGiveBachAPictureWithItsCredit() async throws {
+        let facts = try #require(try await PersonStub(Self.recordedRules).service.facts(qid: "Q1339"))
+        let portrait = try #require(facts.portrait)
+        #expect(portrait.url.host == "thumb.wikimedia.org")
+        #expect(portrait.page?.absoluteString == "https://commons.wikimedia.org/wiki/File:Johann_Sebastian_Bach.png")
+        let credit = try #require(facts.credits.first { $0.kind == .picture })
+        #expect(credit.text == "Elias Gottlob Haussmann, Public domain, Wikimedia Commons")
+        #expect(credit.url == portrait.page)
+        #expect(facts.born == 1685 && facts.died == 1750)
+    }
+
+    @Test func theRecordedPictureFileIsP18() throws {
+        let entity = try #require(PersonFactsService.entity("Q1339", in: Data(RecordedWikimedia.bachEntity.utf8)))
+        #expect(PersonFactsService.pictureFile(entity) == "Johann Sebastian Bach.png")
+    }
+
+    @Test func theLoaderTakesTheRecordedPictureUrl() async throws {
+        let facts = try #require(try await PersonStub(Self.recordedRules).service.facts(qid: "Q1339"))
+        let url = try #require(facts.portrait?.url)
+        let png = UIGraphicsImageRenderer(size: CGSize(width: 40, height: 60)).pngData { context in
+            UIColor.gray.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 40, height: 60))
+        }
+        // The loader asks for no URL outside the trusted list: a refused URL gives nil without a request.
+        let loaded = await PortraitLoader.load(url) { _ in (png, 200) }
+        #expect(loaded?.image.size == CGSize(width: 40, height: 60))
     }
 }
 
@@ -462,5 +502,17 @@ struct PerformerFactsTests {
         let old = Data(#"{"people":{},"composers":{},"artists":{},"chosen":[],"inputs":{}}"#.utf8)
         let cache = try JSONDecoder().decode(PersonFactsStore.Cache.self, from: old)
         #expect(cache.performers.isEmpty)
+    }
+
+    @Test func factsFromAnOlderCacheAreDroppedAndTheTagsStay() throws {
+        let old = Data(
+            ("{\"people\":{\"Q1339\":{\"qid\":\"Q1339\",\"name\":\"Johann Sebastian Bach\",\"credits\":[]}},"
+                + "\"composers\":{\"Johann Sebastian Bach\":{\"person\":{\"_0\":\"Q1339\"}}},"
+                + "\"artists\":{},\"chosen\":[\"Johann Sebastian Bach\"],\"inputs\":{}}").utf8)
+        let cache = try JSONDecoder().decode(PersonFactsStore.Cache.self, from: old)
+        #expect(cache.people.isEmpty)
+        #expect(cache.composers["Johann Sebastian Bach"] == .person("Q1339"))
+        #expect(cache.chosen == ["Johann Sebastian Bach"])
+        #expect(cache.version == PersonFactsStore.Cache.version)
     }
 }

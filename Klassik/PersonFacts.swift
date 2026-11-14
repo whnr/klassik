@@ -96,8 +96,10 @@ struct PersonFactsService: Sendable {
 
     /// Hosts that a link or a picture from Wikimedia JSON may point to. The JSON is untrusted: a URL outside
     /// this list is dropped, so that no request leaves the app for a host that a page editor chose.
+    /// Commons answers a scaled picture (`iiurlwidth`) with a URL on thumb.wikimedia.org, not upload.
     static let trustedHosts: Set<String> = [
-        "upload.wikimedia.org", "commons.wikimedia.org", "en.wikipedia.org", "www.wikidata.org",
+        "upload.wikimedia.org", "thumb.wikimedia.org", "commons.wikimedia.org", "en.wikipedia.org",
+        "www.wikidata.org",
     ]
     /// The seconds that one request may take.
     static let timeout: TimeInterval = 15

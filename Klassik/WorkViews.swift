@@ -339,8 +339,10 @@ struct RecordingView: View {
                             .accessibilityIdentifier("play-recording")
                         if let wholeAlbum {
                             Button("Play Whole Album", systemImage: "square.stack") {
+                                spell.touch()
                                 player.play(wholeAlbum)
                             }
+                            .accessibilityIdentifier("play-album")
                         }
                     }
                 }

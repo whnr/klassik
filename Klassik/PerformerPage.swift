@@ -77,7 +77,7 @@ struct PerformerPage: View {
     }
 
     /// The Wikidata description with the years. The tag roles stand in only when Wikidata has no description.
-    static func line(facts: PersonFacts?, roles: [String]) -> String? {
+    nonisolated static func line(facts: PersonFacts?, roles: [String]) -> String? {
         guard let facts else { return nil }
         if facts.description?.isEmpty == false { return facts.descriptionLine }
         let line = [roles.formatted(.list(type: .and, width: .narrow)), facts.years].compactMap { $0 }

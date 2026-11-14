@@ -325,7 +325,7 @@ final class PlaybackScreens: ScreensTestCase {
         add.tap()
 
         miniPlayer.buttons["mini-player-cover"].tap()
-        XCTAssertTrue(app.descendants(matching: .any)["playback-progress"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.sliders["position"].waitForExistence(timeout: 10))
         snap(app, "07-now-playing")
         let queued = app.buttons.matching(identifier: "up-next").firstMatch
         for _ in 0..<3 where !(queued.exists && queued.isHittable) { app.swipeUp() }
@@ -335,7 +335,7 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(
             app.navigationBars.matching(NSPredicate(format: "identifier CONTAINS 'Symphony No. 5'"))
                 .firstMatch.waitForExistence(timeout: 15))
-        XCTAssertTrue(app.descendants(matching: .any)["playback-progress"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.sliders["position"].waitForExistence(timeout: 10))
         XCTAssertFalse(miniPlayer.buttons["mini-player-cover"].exists)
         snap(app, "08d-next-player")
     }
@@ -398,7 +398,7 @@ final class TimelineScreens: ScreensTestCase {
 
         // The cover opens the page of what plays. There, the pill holds only play/pause.
         pill.buttons["mini-player-cover"].tap()
-        XCTAssertTrue(app.descendants(matching: .any)["playback-progress"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.sliders["position"].waitForExistence(timeout: 10))
         XCTAssertFalse(pill.buttons["mini-player-cover"].exists)
         snap(app, "15c-player-pill")
     }

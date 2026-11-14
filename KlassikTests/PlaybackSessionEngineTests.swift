@@ -43,9 +43,7 @@ struct PlaybackSessionEngineTests {
     }
 
     private let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
-    private let client = SubsonicClient(
-        credentials: ServerCredentials(
-            url: URL(string: "https://music.example.org")!, username: "fixture", password: "fixture"))
+    private let client = InMemoryServer()
 
     private func item(_ id: String, movements: Int = 1) -> QueueItem {
         let songs = (0..<movements).map {

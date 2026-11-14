@@ -61,6 +61,16 @@ struct SettingsView: View {
             }
 
             Section {
+                Toggle("Scrobbles", isOn: $player.scrobblesEnabled)
+                    .accessibilityIdentifier("scrobbles")
+                if let error = player.listeningError {
+                    Text(error).foregroundStyle(Palette.textSecondary)
+                }
+            } footer: {
+                Text("Count played movements on your server. Your server can send them to linked listening services.")
+            }
+
+            Section {
                 Picker("Timeline", selection: $timelineSide) {
                     ForEach(TimelineSide.allCases) { Text($0.title).tag($0) }
                 }

@@ -25,7 +25,7 @@ struct WorkIndex: Sendable {
         var looseWorks: [Work] { works.filter { $0.isTagged && $0.grouping == nil } }
     }
 
-    struct Work: Identifiable, Sendable {
+    struct Work: Codable, Identifiable, Sendable {
         var id: String
         var title: String
         var composer: String
@@ -50,7 +50,7 @@ struct WorkIndex: Sendable {
         }
     }
 
-    struct Recording: Identifiable, Sendable {
+    struct Recording: Codable, Identifiable, Sendable {
         var id: String
         var album: String
         var year: Int?

@@ -1,5 +1,13 @@
-import CryptoKit
 import Foundation
+
+#if canImport(CryptoKit)
+    import CryptoKit
+#else
+    import Crypto
+#endif
+#if canImport(FoundationNetworking)
+    import FoundationNetworking
+#endif
 
 /// Login data for one OpenSubsonic server.
 struct ServerCredentials: Equatable, Sendable {
@@ -116,6 +124,7 @@ struct Song: Codable, Sendable, Identifiable, Hashable {
     var replayGain: ReplayGain?
     /// The date when the user starred the track. The server omits it for other tracks.
     var starred: String?
+    var playCount: Int?
 }
 
 /// The `subsonic-response` object. Fields of all endpoints in use are optional members.
@@ -139,6 +148,8 @@ struct SubsonicResponse: Decodable, Sendable {
     var openSubsonicExtensions: [Extension]?
     var searchResult3: SearchResult?
     var album: Album?
+    var song: Song?
+    var playQueue: ServerPlayQueue?
     var indexes: Indexes?
     var scanStatus: ScanStatus?
 
@@ -215,6 +226,33 @@ struct SubsonicClient: Sendable {
         let indexes = try await get("getIndexes").indexes?.lastModified
         let scan = try? await get("getScanStatus").scanStatus?.lastScan
         return "\(indexes.map(String.init) ?? "-")|\(scan ?? "-")"
+    }
+
+    var listeningDataKey: String {
+        "player.queue.\(credentials.url.absoluteString)|\(credentials.username)"
+    }
+
+    func getPlayQueue() async throws -> ServerPlayQueue? {
+        try await get("getPlayQueue").playQueue
+    }
+
+    func savePlayQueue(ids: [String], current: String?, position: Int64) async throws {
+        var query = ids.map { URLQueryItem(name: "id", value: $0) }
+        if let current, !ids.isEmpty {
+            query.append(URLQueryItem(name: "current", value: current))
+            query.append(URLQueryItem(name: "position", value: String(position)))
+        }
+        _ = try await get("savePlayQueue", query)
+    }
+
+    func scrobble(id: String, time: Date) async throws {
+        _ = try await get(
+            "scrobble",
+            [
+                URLQueryItem(name: "id", value: id),
+                URLQueryItem(name: "time", value: String(Int64(time.timeIntervalSince1970 * 1000))),
+                URLQueryItem(name: "submission", value: "true"),
+            ])
     }
 
     func star(_ ids: [String]) async throws {

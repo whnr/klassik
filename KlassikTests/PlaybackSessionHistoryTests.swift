@@ -53,6 +53,42 @@ struct PlaybackSessionHistoryTests {
         relaunch.stop()
     }
 
+    @Test(arguments: [(["b", "a"], true), (["b"], true), (["b", "a"], false)])
+    func restoredPlayerUsesQueueMovements(ids: [String], classical: Bool) async throws {
+        let server = InMemoryServer()
+        let defaults = try defaults()
+        let songs = ["a", "b"].enumerated().map { index, id in
+            Song(
+                id: id, title: id, album: "Album", track: index + 1, duration: 600,
+                genres: [.init(name: classical ? "Classical" : "Pop")], works: [.init(name: "Work")])
+        }
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let cache = root.appending(path: "library.json")
+        let credentials = ServerCredentials(
+            url: URL(string: "https://music.example.org")!, username: "fixture", password: "fixture")
+        try LibraryCache(server: credentials.url, username: credentials.username, syncedAt: .now, songs: songs).write(
+            to: cache)
+        let library = Library(cacheURL: cache, defaults: defaults)
+        await library.load(for: credentials)
+        let queued = ids.compactMap { id in songs.first { $0.id == id } }
+        await server.setQueue(ServerPlayQueue(current: ids[0], position: 1000, entry: queued))
+        let (session, engine) = makeSession(server, defaults: defaults)
+        await session.restoreQueue()
+        let item = try #require(session.item)
+        #expect(Page(playing: item) == .recording(work: item.work.id, recording: item.recording.id))
+        let original = library.recording(work: item.work.id, recording: item.recording.id)
+        #expect(original?.recording.songs.map(\.id) == (classical ? ["a", "b"] : nil))
+        let page = try #require(library.recording(work: item.work.id, recording: item.recording.id, playing: item))
+        #expect(page.recording.songs.map(\.id) == ids)
+        for index in ids.indices {
+            session.play(QueueItem(work: page.work, recording: page.recording), from: index)
+            #expect(engine.loads.last?.songs[index] == ids[index])
+            #expect(engine.loads.last?.movement == index)
+        }
+        session.stop()
+    }
+
     @Test func anUntouchedLaunchDoesNotClearTheServerQueue() async throws {
         let server = InMemoryServer()
         let (session, _) = makeSession(server, defaults: try defaults())

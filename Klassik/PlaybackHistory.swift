@@ -22,11 +22,14 @@ final class PlaybackHistory {
         var position: Double
         var heard = 0.0
         var submitted = false
-        var started = Date.now
+        var started: Date?
     }
 
     private let server: any ServerPort
     private let defaults: UserDefaults
+    private let now: () -> Date
+    private var queueError: String?
+    private var scrobbleError: String?
     private var writes: Task<Void, Never>?
     private var listen: Listen?
     var onError: ((String?) -> Void)?
@@ -34,9 +37,10 @@ final class PlaybackHistory {
         didSet { onError?(error) }
     }
 
-    init(server: any ServerPort, defaults: UserDefaults) {
+    init(server: any ServerPort, defaults: UserDefaults, now: @escaping () -> Date = { .now }) {
         self.server = server
         self.defaults = defaults
+        self.now = now
     }
 
     func save(items: [QueueItem], movement: Int, position: Double) {
@@ -45,7 +49,7 @@ final class PlaybackHistory {
             items.first?.recording.songs.indices.contains(movement) == true
             ? items.first?.recording.songs[movement].id : nil
         if let data = try? JSONEncoder().encode(items) { defaults.set(data, forKey: server.listeningDataKey) }
-        enqueue { [server] in
+        enqueue(.queue) { [server] in
             try await server.savePlayQueue(
                 ids: songs.map(\.id), current: current, position: Int64(max(0, position) * 1000))
         }
@@ -113,14 +117,17 @@ final class PlaybackHistory {
         guard var sample = listen else { return }
         let delta = max(0, position - sample.position)
         sample.position = position
-        if enabled { sample.heard += delta }
+        if delta > 0 {
+            if sample.started == nil { sample.started = now() }
+            if enabled { sample.heard += delta }
+        }
         let threshold = min(duration / 2, 240)
         let submit = enabled && !sample.submitted && threshold > 0 && sample.heard >= threshold
         if submit { sample.submitted = true }
         listen = sample
-        if submit {
+        if submit, let started = sample.started {
             let id = item.recording.songs[movement].id
-            enqueue { [server] in try await server.scrobble(id: id, time: sample.started) }
+            enqueue(.scrobble) { [server] in try await server.scrobble(id: id, time: started) }
         }
     }
 
@@ -128,17 +135,25 @@ final class PlaybackHistory {
 
     func flush() async { await writes?.value }
 
+    private enum Write { case queue, scrobble }
+
     /// A response can fail after the server accepts it. Retrying a scrobble can count a play twice.
-    private func enqueue(_ operation: @escaping @MainActor () async throws -> Void) {
+    private func enqueue(_ kind: Write, _ operation: @escaping @MainActor () async throws -> Void) {
         let previous = writes
         writes = Task { [weak self] in
             await previous?.value
+            var message: String?
             do {
                 try await operation()
-                self?.error = nil
             } catch {
-                self?.error = "Could not save listening data to the server."
+                message = "Could not save listening data to the server."
             }
+            guard let self else { return }
+            switch kind {
+            case .queue: queueError = message
+            case .scrobble: scrobbleError = message
+            }
+            error = scrobbleError ?? queueError
         }
     }
 }

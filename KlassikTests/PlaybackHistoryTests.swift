@@ -136,6 +136,70 @@ struct PlaybackHistoryTests {
         #expect(await server.scrobbles.isEmpty)
     }
 
+    @Test func delayedResumeUsesTheFirstPlaybackAdvance() async throws {
+        let server = InMemoryServer()
+        var clock = Date(timeIntervalSince1970: 28_800)
+        let history = PlaybackHistory(server: server, defaults: try defaults(), now: { clock })
+        let item = item("first")
+        history.begin(item: item, movement: 0, position: 12)
+        clock = Date(timeIntervalSince1970: 64_800)
+        history.hear(item: item, movement: 0, position: 12, duration: 600, enabled: true)
+        #expect(await server.scrobbleTimes.isEmpty)
+        clock.addTimeInterval(1)
+        let started = clock
+        history.hear(item: item, movement: 0, position: 13, duration: 600, enabled: true)
+        history.begin(item: item, movement: 0, position: 30)
+        clock.addTimeInterval(300)
+        history.hear(item: item, movement: 0, position: 269, duration: 600, enabled: true)
+        await history.flush()
+        #expect(await server.scrobbleTimes == [started])
+    }
+
+    @Test func queueSavesPreserveFailedScrobbles() async throws {
+        let server = InMemoryServer()
+        let history = PlaybackHistory(server: server, defaults: try defaults())
+        let item = item("first")
+        var reported: String?
+        history.onError = { reported = $0 }
+        await server.setScrobbleFailure(true)
+        history.begin(item: item, movement: 0, position: 0)
+        history.hear(item: item, movement: 0, position: 240, duration: 600, enabled: true)
+        history.save(items: [item], movement: 0, position: 240)
+        await history.flush()
+        #expect(history.error != nil)
+        #expect(reported == history.error)
+        #expect(await server.queue?.position == 240_000)
+        await server.setScrobbleFailure(false)
+        history.hear(item: item, movement: 0, position: 500, duration: 600, enabled: true)
+        await history.flush()
+        #expect(await server.scrobbles.isEmpty)
+        #expect(history.error != nil)
+        history.begin(item: item, movement: 1, position: 0)
+        history.hear(item: item, movement: 1, position: 240, duration: 600, enabled: true)
+        await history.flush()
+        #expect(history.error == nil)
+        #expect(reported == nil)
+        #expect(await server.scrobbles == ["first-1"])
+    }
+
+    @Test func successfulScrobblesPreserveFailedQueueSaves() async throws {
+        let server = InMemoryServer()
+        let history = PlaybackHistory(server: server, defaults: try defaults())
+        let item = item("first")
+        await server.setFailure(true)
+        history.save(items: [item], movement: 0, position: 0)
+        await history.flush()
+        await server.setFailure(false)
+        history.begin(item: item, movement: 0, position: 0)
+        history.hear(item: item, movement: 0, position: 240, duration: 600, enabled: true)
+        await history.flush()
+        #expect(await server.scrobbles == ["first-0"])
+        #expect(history.error != nil)
+        history.save(items: [item], movement: 0, position: 240)
+        await history.flush()
+        #expect(history.error == nil)
+    }
+
     @Test func reportsFailureAndRecoversOnTheNextSave() async throws {
         let server = InMemoryServer()
         let history = PlaybackHistory(server: server, defaults: try defaults())

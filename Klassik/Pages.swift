@@ -54,9 +54,13 @@ extension WorkIndex {
 
 extension Library {
     /// A recording of the index, else a whole album: the pages of an album list name the album by its key.
-    func recording(work workID: String, recording recordingID: String) -> (
+    func recording(work workID: String, recording recordingID: String, playing: QueueItem? = nil) -> (
         work: WorkIndex.Work, recording: WorkIndex.Recording
     )? {
+        // The queue can hold only some movements, in another client's order.
+        if let playing, playing.work.id == workID, playing.recording.id == recordingID {
+            return (playing.work, playing.recording)
+        }
         if let work = index.work(workID), let recording = work.recordings.first(where: { $0.id == recordingID }) {
             return (work, recording)
         }
@@ -129,13 +133,13 @@ struct PageView: View {
         case .work(let id):
             if let work = index.work(id) { WorkView(work: work) } else { Gone() }
         case .recording(let work, let recording):
-            if let found = library.recording(work: work, recording: recording) {
+            if let found = library.recording(work: work, recording: recording, playing: model.playback.item) {
                 RecordingView(work: found.work, recording: found.recording)
             } else {
                 Gone()
             }
         case .rawTags(let work, let recording):
-            if let found = library.recording(work: work, recording: recording) {
+            if let found = library.recording(work: work, recording: recording, playing: model.playback.item) {
                 RawTagsView(work: found.work, recording: found.recording)
             } else {
                 Gone()

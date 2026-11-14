@@ -7,6 +7,8 @@ actor InMemoryServer: ServerPort {
     nonisolated let listeningDataKey = "queue.\(UUID().uuidString)"
     var queue: ServerPlayQueue?
     var scrobbles: [String] = []
+    var scrobbleTimes: [Date] = []
+    var scrobbleFailure = false
     var savedQueues: [[String]] = []
     var failure = false
     var restoreGate: CheckedContinuation<ServerPlayQueue?, Never>?
@@ -27,11 +29,14 @@ actor InMemoryServer: ServerPort {
     }
 
     func scrobble(id: String, time: Date) async throws {
+        if scrobbleFailure { throw URLError(.badServerResponse) }
         if failure { throw URLError(.notConnectedToInternet) }
         scrobbles.append(id)
+        scrobbleTimes.append(time)
     }
 
     func setQueue(_ queue: ServerPlayQueue?) { self.queue = queue }
+    func setScrobbleFailure(_ value: Bool) { scrobbleFailure = value }
     func setFailure(_ value: Bool) { failure = value }
     func suspendRestore() { holdRestore = true }
     func releaseRestore(_ queue: ServerPlayQueue?) {

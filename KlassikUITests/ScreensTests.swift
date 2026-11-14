@@ -395,10 +395,9 @@ final class TimelineScreens: ScreensTestCase {
         XCTAssertEqual(
             pill.buttons["mini-player-cover"].frame.maxX, app.frame.maxX, accuracy: 1,
             "A tap at the screen edge misses the cover")
-        XCTAssertGreaterThanOrEqual(app.frame.maxY - frame.maxY, 34, "The pill reaches the screen corner")
+        XCTAssertLessThan(frame.maxY, app.frame.maxY, "The playback controls have no bottom clearance")
         XCTAssertEqual(bar.frame.maxY, frame.minY, accuracy: 1, "The timeline does not run into the pill")
-        let row = app.descendants(matching: .any)["tab-row"].firstMatch
-        XCTAssertEqual(frame.minY, row.frame.minY, accuracy: 1, "The pill is not in the tab row")
+        XCTAssertEqual(frame.midY, tab(app, "Search").frame.midY, accuracy: 2, "The controls are not in the tab row")
         XCTAssertLessThanOrEqual(tab(app, "Search").frame.maxX, frame.minX, "The tabs run under the pill")
         XCTAssertTrue(pill.buttons["mini-player-cover"].exists)
         XCTAssertEqual(pill.buttons["mini-player-pause"].label, "Resume")

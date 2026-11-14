@@ -42,7 +42,7 @@ struct MiniPlayer: View {
             .background(alignment: .top) {
                 Color.clear
                     .frame(height: TabRow.height + bottom)
-                    .glassEffect(.regular.interactive(), in: shape)
+                    .glassEffect(.regular.interactive(), in: shape(onPlayer: onPlayer))
             }
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Mini player")
@@ -59,15 +59,15 @@ struct MiniPlayer: View {
     nonisolated private static let edgeInset = Space.xs.points + Measure.timeline
 
     /// Round on the content side, flat on the screen edge.
-    private var shape: ConcentricRectangle {
+    private func shape(onPlayer: Bool) -> ConcentricRectangle {
         let round = Self.item / 2 + Space.xs.points
         return side == .right
             ? ConcentricRectangle(
                 topLeadingCorner: .fixed(round), topTrailingCorner: .fixed(0),
-                bottomLeadingCorner: .fixed(round), bottomTrailingCorner: .concentric)
+                bottomLeadingCorner: .fixed(onPlayer ? 0 : round), bottomTrailingCorner: .concentric)
             : ConcentricRectangle(
                 topLeadingCorner: .fixed(0), topTrailingCorner: .fixed(round),
-                bottomLeadingCorner: .concentric, bottomTrailingCorner: .fixed(round))
+                bottomLeadingCorner: .concentric, bottomTrailingCorner: .fixed(onPlayer ? 0 : round))
     }
 
     /// Album art is square, so the cover is square; only play/pause is round.

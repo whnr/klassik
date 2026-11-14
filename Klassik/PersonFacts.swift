@@ -70,11 +70,11 @@ struct PersonFacts: Codable, Equatable, Identifiable, Sendable {
         return line.isEmpty ? nil : line
     }
 
-    /// Takes a bracket with a year, and a trailing span of years, out of a description.
+    /// Takes a bracket with a four-digit year, and a trailing span of years, out of a description.
     static func withoutYears(_ text: String) -> String {
         var result = text
         let patterns = [
-            #"\s*[\(\[][^\(\)\[\]]*\d{3,4}[^\(\)\[\]]*[\)\]]"#,
+            #"\s*[\(\[][^\(\)\[\]]*\b\d{4}\b[^\(\)\[\]]*[\)\]]"#,
             #"[\s,;]*\b(?:c\.|ca\.|born|b\.|died|d\.)?\s*\d{3,4}\s*[–—-]\s*(?:c\.|ca\.)?\s*\d{0,4}\s*$"#,
         ]
         for pattern in patterns {
@@ -94,14 +94,39 @@ struct PersonFactsService: Sendable {
     /// Wikidata items of occupation "composer".
     static let composerOccupation = "Q36834"
 
+    /// Hosts that a link or a picture from Wikimedia JSON may point to. The JSON is untrusted: a URL outside
+    /// this list is dropped, so that no request leaves the app for a host that a page editor chose.
+    static let trustedHosts: Set<String> = [
+        "upload.wikimedia.org", "commons.wikimedia.org", "en.wikipedia.org", "www.wikidata.org",
+    ]
+    /// The seconds that one request may take.
+    static let timeout: TimeInterval = 15
+
     var fetch: MusicBrainz.Fetch = MusicBrainz.network
     var pacer = Pacer.wikidata
+
+    /// The URL when it is https and its host is on the list, else nil.
+    static func trusted(_ url: URL?) -> URL? {
+        guard let url, url.scheme?.lowercased() == "https", let host = url.host?.lowercased(),
+            trustedHosts.contains(host)
+        else { return nil }
+        return url
+    }
+
+    private static func request(_ url: URL) -> URLRequest {
+        var request = URLRequest(url: url, timeoutInterval: timeout)
+        request.setValue(MusicBrainz.userAgent, forHTTPHeaderField: "User-Agent")
+        return request
+    }
 
     /// Composers by name. The search takes the occupation as a filter, so that "Strauss" finds composers only.
     func composers(named name: String) async throws -> [PersonMatch] {
         let text = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return [] }
-        return try await matches(search: "\(text) haswbstatement:P106=\(Self.composerOccupation)")
+        // Quotes make the name one phrase, so that search syntax in a tag stays text.
+        let phrase = text.filter { $0 != "\"" && $0 != "\\" }.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !phrase.isEmpty else { return [] }
+        return try await matches(search: "\"\(phrase)\" haswbstatement:P106=\(Self.composerOccupation)")
     }
 
     /// The person of a MusicBrainz artist ID, found by P434. This does not read an ID from the tags.
@@ -147,7 +172,7 @@ struct PersonFactsService: Sendable {
             Self.wikidata,
             [
                 .init(name: "action", value: "query"), .init(name: "list", value: "search"),
-                .init(name: "srsearch", value: search), .init(name: "srlimit", value: "5"),
+                .init(name: "srsearch", value: search), .init(name: "srlimit", value: "10"),
                 .init(name: "format", value: "json"),
             ])
         let titles = Self.searchTitles(data).filter(Self.isQID)
@@ -167,8 +192,11 @@ struct PersonFactsService: Sendable {
     }
 
     private func bio(title: String) async throws -> (text: String, page: URL?)? {
-        var request = URLRequest(url: Self.wikipedia.appending(path: title.replacingOccurrences(of: " ", with: "_")))
-        request.setValue(MusicBrainz.userAgent, forHTTPHeaderField: "User-Agent")
+        // A title is one path segment: a slash in it is text.
+        let segment = title.replacingOccurrences(of: " ", with: "_")
+            .addingPercentEncoding(withAllowedCharacters: Self.segmentCharacters)
+        guard let segment, let url = URL(string: Self.wikipedia.absoluteString + segment) else { return nil }
+        let request = Self.request(url)
         await pacer.wait()
         let (data, status) = try await fetch(request)
         if status == 404 { return nil }
@@ -178,7 +206,7 @@ struct PersonFactsService: Sendable {
             !text.isEmpty
         else { return nil }
         let page = ((object["content_urls"] as? [String: Any])?["desktop"] as? [String: Any])?["page"] as? String
-        return (text, page.flatMap { URL(string: $0) })
+        return (text, Self.trusted(page.flatMap { URL(string: $0) }))
     }
 
     private func portrait(file: String) async throws -> (portrait: PersonPortrait, credit: PersonCredit)? {
@@ -192,9 +220,10 @@ struct PersonFactsService: Sendable {
         return Self.parsePortrait(data)
     }
 
+    private static let segmentCharacters = CharacterSet.urlPathAllowed.subtracting(CharacterSet(charactersIn: "/"))
+
     private func get(_ base: URL, _ items: [URLQueryItem]) async throws -> Data {
-        var request = URLRequest(url: base.appending(queryItems: items))
-        request.setValue(MusicBrainz.userAgent, forHTTPHeaderField: "User-Agent")
+        let request = Self.request(base.appending(queryItems: items))
         await pacer.wait()
         let (data, status) = try await fetch(request)
         guard (200..<300).contains(status) else { throw MusicBrainz.Failure.http(status) }
@@ -226,14 +255,16 @@ struct PersonFactsService: Sendable {
         }
         let claims = entity["claims"] as? [String: Any] ?? [:]
         func value(_ property: String) -> Any? {
-            let statements = claims[property] as? [[String: Any]]
-            // A preferred statement wins; else the first.
+            // A preferred statement wins; else the first that is not deprecated.
+            let statements = (claims[property] as? [[String: Any]])?.filter { $0["rank"] as? String != "deprecated" }
             let best = statements?.first { $0["rank"] as? String == "preferred" } ?? statements?.first
-            guard best?["rank"] as? String != "deprecated" else { return nil }
             return ((best?["mainsnak"] as? [String: Any])?["datavalue"] as? [String: Any])?["value"]
         }
         func year(_ property: String) -> Int? {
-            ((value(property) as? [String: Any])?["time"] as? String).flatMap { YearSpan.year(of: $0) }
+            guard let object = value(property) as? [String: Any] else { return nil }
+            // Precision 9 is a year. A decade or a century (8, 7) would show a wrong year.
+            if let precision = object["precision"] as? Int, precision < 9 { return nil }
+            return (object["time"] as? String).flatMap { YearSpan.year(of: $0) }
         }
         return PersonFacts(
             qid: qid, name: text("labels") ?? qid, description: text("descriptions"), born: year("P569"),
@@ -242,7 +273,8 @@ struct PersonFactsService: Sendable {
 
     static func pictureFile(_ entity: [String: Any]) -> String? {
         let statements = (entity["claims"] as? [String: Any])?["P18"] as? [[String: Any]]
-        let best = statements?.first { $0["rank"] as? String == "preferred" } ?? statements?.first
+        let usable = statements?.filter { $0["rank"] as? String != "deprecated" }
+        let best = usable?.first { $0["rank"] as? String == "preferred" } ?? usable?.first
         return ((best?["mainsnak"] as? [String: Any])?["datavalue"] as? [String: Any])?["value"] as? String
     }
 
@@ -255,7 +287,8 @@ struct PersonFactsService: Sendable {
         let pages = (object?["query"] as? [String: Any])?["pages"] as? [String: Any]
         guard let page = pages?.values.first as? [String: Any],
             let info = (page["imageinfo"] as? [[String: Any]])?.first,
-            let link = (info["thumburl"] as? String) ?? (info["url"] as? String), let url = URL(string: link)
+            let link = (info["thumburl"] as? String) ?? (info["url"] as? String),
+            let url = trusted(URL(string: link))
         else { return nil }
         let meta = info["extmetadata"] as? [String: Any] ?? [:]
         func field(_ key: String) -> String? {
@@ -263,18 +296,48 @@ struct PersonFactsService: Sendable {
         }
         let author = field("Artist").map(plain).flatMap { $0.isEmpty ? nil : $0 }
         let licence = field("LicenseShortName").map(plain).flatMap { $0.isEmpty ? nil : $0 }
-        let filePage = (info["descriptionurl"] as? String).flatMap { URL(string: $0) }
+        let filePage = trusted((info["descriptionurl"] as? String).flatMap { URL(string: $0) })
         let text = [author ?? "Unknown author", licence, "Wikimedia Commons"].compactMap { $0 }.joined(separator: ", ")
         return (PersonPortrait(url: url, page: filePage), PersonCredit(kind: .picture, text: text, url: filePage))
     }
 
     /// Commons gives the author as HTML, sometimes as a file name. This keeps the words.
     static func plain(_ html: String) -> String {
-        var text = html.replacing(try! Regex("<[^>]*>"), with: "")
-        for (entity, character) in [("&amp;", "&"), ("&quot;", "\""), ("&#39;", "'"), ("&lt;", "<"), ("&gt;", ">")] {
-            text = text.replacingOccurrences(of: entity, with: character)
-        }
-        text = text.replacing(try! Regex(#"\s+"#), with: " ")
+        let text = decodeEntities(html.replacing(try! Regex("<[^>]*>"), with: ""))
+            .replacing(try! Regex(#"\s+"#), with: " ")
         return text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// One pass, so that "&amp;lt;" comes out as "&lt;" and not as "<".
+    static func decodeEntities(_ text: String) -> String {
+        let named = ["amp": "&", "quot": "\"", "apos": "'", "lt": "<", "gt": ">", "nbsp": " "]
+        var result = ""
+        var rest = Substring(text)
+        while let ampersand = rest.firstIndex(of: "&") {
+            result += rest[..<ampersand]
+            let tail = rest[rest.index(after: ampersand)...]
+            guard let end = tail.firstIndex(of: ";"), tail.distance(from: tail.startIndex, to: end) <= 8 else {
+                result.append("&")
+                rest = tail
+                continue
+            }
+            let name = String(tail[..<end])
+            var decoded: String?
+            if name.hasPrefix("#x") || name.hasPrefix("#X") {
+                decoded = UInt32(name.dropFirst(2), radix: 16).flatMap(Unicode.Scalar.init).map { String($0) }
+            } else if name.hasPrefix("#") {
+                decoded = UInt32(name.dropFirst()).flatMap(Unicode.Scalar.init).map { String($0) }
+            } else {
+                decoded = named[name]
+            }
+            if let decoded {
+                result += decoded
+                rest = tail[tail.index(after: end)...]
+            } else {
+                result.append("&")
+                rest = tail
+            }
+        }
+        return result + rest
     }
 }

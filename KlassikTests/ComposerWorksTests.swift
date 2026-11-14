@@ -153,3 +153,43 @@ struct PictureScrimTests {
         #expect(ratio >= 7 - 0.01)
     }
 }
+
+struct PortraitLoaderTests {
+    private func request(_ url: String) -> (URL, Counter) { (URL(string: url)!, Counter()) }
+
+    final class Counter: @unchecked Sendable {
+        private let lock = NSLock()
+        private var value = 0
+        var count: Int { lock.withLock { value } }
+        func hit() { lock.withLock { value += 1 } }
+    }
+
+    @Test func aPictureOnAnUntrustedHostIsNeverRequested() async {
+        for link in ["http://upload.wikimedia.org/a.jpg", "https://upload.example/a.jpg", "file:///etc/hosts"] {
+            let (url, counter) = request(link)
+            let loaded = await PortraitLoader.load(url) { _ in
+                counter.hit()
+                return (Data(), 200)
+            }
+            #expect(loaded == nil)
+            #expect(counter.count == 0)
+        }
+    }
+
+    @Test func anOversizeBodyGivesNoPicture() async {
+        let (url, counter) = request("https://upload.wikimedia.org/a.jpg")
+        let loaded = await PortraitLoader.load(url) { _ in
+            counter.hit()
+            return (Data(count: PortraitLoader.maxBytes + 1), 200)
+        }
+        #expect(loaded == nil)
+        #expect(counter.count == 1)
+    }
+
+    @Test func aFailedOrNonImageBodyGivesNoPicture() async {
+        let url = URL(string: "https://upload.wikimedia.org/a.jpg")!
+        #expect(await PortraitLoader.load(url) { _ in (Data("not an image".utf8), 200) } == nil)
+        #expect(await PortraitLoader.load(url) { _ in (Data(), 404) } == nil)
+        #expect(await PortraitLoader.load(url) { _ in throw URLError(.timedOut) } == nil)
+    }
+}

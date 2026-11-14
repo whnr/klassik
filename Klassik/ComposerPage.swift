@@ -128,6 +128,11 @@ struct ComposerPage: View {
                 .ink()
             LabeledContent("Works", value: composer.works.count.formatted())
                 .ink()
+            let people = model.people
+            if people.resolution(ofComposer: composer.name) != nil, !people.loading.contains(composer.name) {
+                Button("Choose Composer Again") { Task { await people.chooseAgain(composer: composer.name) } }
+                    .accessibilityIdentifier("composer-choose-again")
+            }
         } header: {
             SectionHeading("Your tags")
         }
@@ -169,7 +174,7 @@ private struct CreditRow: View {
     let credit: PersonCredit
 
     var body: some View {
-        if let url = credit.url {
+        if let url = PersonFactsService.trusted(credit.url) {
             Link(destination: url) { content }
         } else {
             content
@@ -322,21 +327,26 @@ private struct PersonHero: View {
                 .frame(width: framing.width, height: framing.height)
                 .position(x: framing.midX, y: framing.midY)
                 .accessibilityHidden(true)
+            if model.playback.item != nil {
+                // Under the timeline the picture blurs and fades towards the hall colour, as under a bar.
+                // The fade only darkens, so the scrim below, measured on the sharp picture, still covers it.
+                ZStack {
+                    image
+                        .frame(width: framing.width, height: framing.height)
+                        .position(x: framing.midX, y: framing.midY)
+                        .blur(radius: 14)
+                    hallColour.opacity(0.5)
+                }
+                .mask(edgeMask)
+                .accessibilityHidden(true)
+            }
+            // The scrim is the top layer, so that it lifts the text over the blurred strip as well.
             LinearGradient(
                 stops: [
                     .init(color: hallColour.opacity(0), location: 1 - Self.textShare * 1.4),
                     .init(color: hallColour.opacity(opacity), location: 1 - Self.textShare),
                     .init(color: hallColour.opacity(opacity), location: 1),
                 ], startPoint: .top, endPoint: .bottom)
-            if model.playback.item != nil {
-                // Under the timeline the picture blurs and fades out, as under a bar.
-                image
-                    .frame(width: framing.width, height: framing.height)
-                    .position(x: framing.midX, y: framing.midY)
-                    .blur(radius: 14)
-                    .mask(edgeMask)
-                    .accessibilityHidden(true)
-            }
         }
         .frame(width: frame.width, height: frame.height)
         .contentShape(Rectangle())
@@ -358,7 +368,7 @@ private struct PersonHero: View {
     }
 }
 
-/// The whole picture with its credit. A tap anywhere closes it.
+/// The whole picture with its credit. The Close button closes it.
 private struct WholePicture: View {
     let image: UIImage
     let credit: PersonCredit?

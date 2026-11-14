@@ -14,7 +14,7 @@ enum ComposerResolution: Codable, Equatable, Sendable {
 }
 
 /// The person facts of the device, cached by Wikidata item and by composer tag.
-/// A lookup that fails on the network leaves no trace in the cache, so the next visit asks again.
+/// A lookup that fails leaves no resolution in the cache, so the next visit asks again.
 @MainActor @Observable
 final class PersonFactsStore {
     struct Cache: Codable, Sendable {
@@ -68,15 +68,16 @@ final class PersonFactsStore {
     func resolve(composer tag: String, artistIDs: [String]) async {
         let inputs = Set(artistIDs).sorted()
         guard !loading.contains(tag), tag != Song.unknownComposer, !cache.chosen.contains(tag),
-            cache.composers[tag] == nil || cache.inputs[tag] != inputs
+            cache.composers[tag] == nil || cache.inputs[tag] != inputs || lacksFacts(tag)
         else { return }
         loading.insert(tag)
         defer { loading.remove(tag) }
         do {
-            let resolution = try await decide(tag, artistIDs: inputs)
+            var resolution = try await decide(tag, artistIDs: inputs)
+            // The resolution is saved only with its facts: a failed load leaves the tag open for the next visit.
+            if case .person(let qid) = resolution, try await load(qid) == false { resolution = .unknown }
             cache.composers[tag] = resolution
             cache.inputs[tag] = inputs
-            if case .person(let qid) = resolution { try await load(qid) }
             lastError = nil
         } catch {
             lastError = error.localizedDescription
@@ -86,7 +87,7 @@ final class PersonFactsStore {
 
     /// The listener's choice from a pick list. Nil is "None of these".
     func choose(_ match: PersonMatch?, forComposer tag: String) async {
-        cache.chosen.insert(tag)
+        pin(tag)
         guard let match else {
             cache.composers[tag] = .unknown
             save()
@@ -95,8 +96,7 @@ final class PersonFactsStore {
         loading.insert(tag)
         defer { loading.remove(tag) }
         do {
-            try await load(match.qid)
-            cache.composers[tag] = .person(match.qid)
+            cache.composers[tag] = try await load(match.qid) ? .person(match.qid) : .unknown
             lastError = nil
         } catch {
             lastError = error.localizedDescription
@@ -111,7 +111,7 @@ final class PersonFactsStore {
         do {
             let found = try await service.composers(named: tag)
             cache.composers[tag] = found.isEmpty ? .unknown : .pick(found)
-            cache.chosen.insert(tag)
+            pin(tag)
             lastError = nil
         } catch {
             lastError = error.localizedDescription
@@ -119,9 +119,23 @@ final class PersonFactsStore {
         save()
     }
 
-    private func load(_ qid: String) async throws {
-        guard cache.people[qid] == nil else { return }
-        if let facts = try await service.facts(qid: qid) { cache.people[qid] = facts }
+    /// True when the facts of the item are on the device after the call. False: Wikidata has no such item.
+    private func load(_ qid: String) async throws -> Bool {
+        if cache.people[qid] != nil { return true }
+        guard let facts = try await service.facts(qid: qid) else { return false }
+        cache.people[qid] = facts
+        return true
+    }
+
+    private func lacksFacts(_ tag: String) -> Bool {
+        guard case .person(let qid)? = cache.composers[tag] else { return false }
+        return cache.people[qid] == nil
+    }
+
+    /// Keeps the listener's decision against later lookups. A decision made while the works had no
+    /// MusicBrainz IDs yet stays open: the works may settle it when the IDs arrive.
+    private func pin(_ tag: String) {
+        if cache.inputs[tag]?.isEmpty != true { cache.chosen.insert(tag) }
     }
 
     private func decide(_ tag: String, artistIDs: [String]) async throws -> ComposerResolution {
@@ -135,10 +149,11 @@ final class PersonFactsStore {
         if persons.count > 1, surnameOnly {
             var names: [String] = []
             for qid in persons {
-                try await load(qid)
+                _ = try await load(qid)
                 names.append(cache.people[qid]?.name ?? qid)
             }
-            return .mixed(names)
+            // The names keep one order, whatever order the artist IDs have.
+            return .mixed(names.sorted { Self.fold($0) < Self.fold($1) })
         }
         let found = try await service.composers(named: tag)
         if found.isEmpty { return .unknown }

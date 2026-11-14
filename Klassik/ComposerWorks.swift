@@ -64,7 +64,7 @@ struct ComposerWorks: Sendable {
                 rows.append(.work(work))
             }
         }
-        for (name, works) in sets {
+        for (name, works) in sets.sorted(by: { Self.before($0.key, $1.key) }) {
             // A set of one work is a work: a row that opens to a single line says nothing.
             rows.append(works.count == 1 ? .work(works[0]) : .set(name: name, works: Self.sorted(works)))
         }

@@ -56,7 +56,7 @@ final class PersonStub: @unchecked Sendable {
     static let artistRichard = "73c2ce7e-8ee9-4a5c-a3a1-37d4d4a31a52"
 
     static let commons = """
-        {"query":{"pages":{"1":{"imageinfo":[{"thumburl":"https://upload.example/bach-1200.jpg",\
+        {"query":{"pages":{"1":{"imageinfo":[{"thumburl":"https://upload.wikimedia.org/bach-1200.jpg",\
         "descriptionurl":"https://commons.wikimedia.org/wiki/File:Bach.jpg","extmetadata":{\
         "Artist":{"value":"<a href=\\"//x\\">Elias Gottlob Haussmann</a> &amp; workshop"},\
         "LicenseShortName":{"value":"Public domain"}}}]}}}}
@@ -104,7 +104,7 @@ struct PersonFactsServiceTests {
         let facts = try #require(try await PersonStub(PersonStub.bachRules).service.facts(qid: "Q1339"))
         #expect(facts.born == 1685 && facts.died == 1750 && facts.activeFrom == 1703)
         #expect(facts.bio == "Johann Sebastian Bach was a German composer.")
-        #expect(facts.portrait?.url.absoluteString == "https://upload.example/bach-1200.jpg")
+        #expect(facts.portrait?.url.absoluteString == "https://upload.wikimedia.org/bach-1200.jpg")
         #expect(Set(facts.credits.map(\.kind)) == [.facts, .text, .picture])
         let picture = try #require(facts.credits.first { $0.kind == .picture })
         #expect(picture.text == "Elias Gottlob Haussmann & workshop, Public domain, Wikimedia Commons")
@@ -143,6 +143,75 @@ struct PersonFactsServiceTests {
 
     @Test func authorHtmlBecomesPlainText() {
         #expect(PersonFactsService.plain("<a href=\"x\">A  B</a> &amp; <b>C</b>") == "A B & C")
+        // One pass: an escaped entity stays text. Numeric and no-break entities decode.
+        #expect(PersonFactsService.plain("&amp;lt; &#233;&#x41; a&nbsp;b &unknown; &") == "&lt; éA a b &unknown; &")
+    }
+
+    @Test func onlyHttpsLinksOnTrustedHostsPass() {
+        func trusted(_ text: String) -> Bool { PersonFactsService.trusted(URL(string: text)) != nil }
+        #expect(trusted("https://upload.wikimedia.org/a.jpg"))
+        #expect(trusted("https://commons.wikimedia.org/wiki/File:A.jpg"))
+        #expect(trusted("https://en.wikipedia.org/wiki/A"))
+        #expect(trusted("https://www.wikidata.org/wiki/Q1"))
+        #expect(!trusted("http://upload.wikimedia.org/a.jpg"))
+        #expect(!trusted("https://upload.example/a.jpg"))
+        #expect(!trusted("https://upload.wikimedia.org.evil.example/a.jpg"))
+        #expect(!trusted("tel:+4912345"))
+        #expect(!trusted("javascript:alert(1)"))
+        #expect(PersonFactsService.trusted(nil) == nil)
+    }
+
+    @Test func aPictureOnAnotherHostIsDropped() async throws {
+        let evil = PersonStub.commons.replacingOccurrences(of: "upload.wikimedia.org", with: "evil.example")
+        let rules = PersonStub.bachRules.map { $0.contains == "commons.wikimedia.org" ? ($0.contains, evil) : $0 }
+        let facts = try #require(try await PersonStub(rules).service.facts(qid: "Q1339"))
+        #expect(facts.portrait == nil)
+        #expect(!facts.credits.contains { $0.kind == .picture })
+    }
+
+    @Test func aCreditLinkOnAnotherSchemeIsDropped() {
+        let page = Data(
+            """
+            {"query":{"pages":{"1":{"imageinfo":[{"thumburl":"https://upload.wikimedia.org/a.jpg",\
+            "descriptionurl":"tel:+4912345","extmetadata":{}}]}}}}
+            """.utf8)
+        let parsed = PersonFactsService.parsePortrait(page)
+        #expect(parsed?.portrait.page == nil)
+        #expect(parsed?.credit.url == nil)
+    }
+
+    @Test func aTagIsASearchPhrase() async throws {
+        let stub = PersonStub(PersonStub.bachRules)
+        _ = try await stub.service.composers(named: "Bach\" -haswbstatement:P31=Q5")
+        let search = "srsearch=\"Bach -haswbstatement:P31=Q5\" haswbstatement:P106=Q36834"
+        #expect(stub.requests.first?.contains(search) == true)
+        #expect(stub.requests.first?.contains("srlimit=10") == true)
+    }
+
+    @Test func aDeprecatedStatementLosesToANormalOne() {
+        let entity: [String: Any] = [
+            "claims": [
+                "P569": [
+                    ["rank": "deprecated", "mainsnak": ["datavalue": ["value": ["time": "+1600-01-01T00:00:00Z"]]]],
+                    ["rank": "normal", "mainsnak": ["datavalue": ["value": ["time": "+1685-03-31T00:00:00Z"]]]],
+                ],
+                "P570": [
+                    [
+                        "rank": "normal",
+                        "mainsnak": ["datavalue": ["value": ["time": "+1700-00-00T00:00:00Z", "precision": 8]]],
+                    ]
+                ],
+            ]
+        ]
+        let facts = PersonFactsService.parse(entity, qid: "Q1")
+        #expect(facts.born == 1685)
+        // A decade is no year.
+        #expect(facts.died == nil)
+    }
+
+    @Test func aBracketWithoutAYearStays() {
+        #expect(PersonFacts.withoutYears("composer (Op. 100)") == "composer (Op. 100)")
+        #expect(PersonFacts.withoutYears("composer (1685–1750)") == "composer")
     }
 }
 
@@ -206,7 +275,7 @@ struct PersonFactsStoreTests {
         ]
         let (store, _, _) = makeStore(rules)
         await store.resolve(composer: "Strauss", artistIDs: [PersonStub.artistRichard, PersonStub.artistJohann])
-        #expect(store.resolution(ofComposer: "Strauss") == .mixed(["Richard Strauss", "Johann Strauss II"]))
+        #expect(store.resolution(ofComposer: "Strauss") == .mixed(["Johann Strauss II", "Richard Strauss"]))
     }
 
     @Test func noMatchLeavesTheTagsOnly() async throws {
@@ -228,7 +297,74 @@ struct PersonFactsStoreTests {
         #expect(store.resolution(ofComposer: "Bach") == .unknown)
     }
 
-    @Test func aNetworkFailureIsNotCached() async throws {
+    /// Fails the facts request on the first run, then answers.
+    private final class FlakyStub: @unchecked Sendable {
+        private let lock = NSLock()
+        private var failing = true
+        let stub = PersonStub(PersonStub.bachRules)
+
+        func recover() { lock.withLock { failing = false } }
+
+        var fetch: MusicBrainz.Fetch {
+            { request in
+                let down = self.lock.withLock { self.failing }
+                let url = request.url!.absoluteString.removingPercentEncoding ?? ""
+                if down, url.contains("props=labels|descriptions|claims") {
+                    throw URLError(.notConnectedToInternet)
+                }
+                return try await self.stub.fetch(request)
+            }
+        }
+    }
+
+    @Test func aFailedFactsLoadLeavesTheTagOpenForTheNextVisit() async throws {
+        let flaky = FlakyStub()
+        let url = FileManager.default.temporaryDirectory.appending(path: "\(UUID().uuidString).json")
+        let store = PersonFactsStore(
+            service: PersonFactsService(fetch: flaky.fetch, pacer: Pacer(interval: 0)), cacheURL: url)
+        await store.resolve(composer: "Johann Sebastian Bach", artistIDs: [])
+        #expect(store.resolution(ofComposer: "Johann Sebastian Bach") == nil)
+        #expect(store.lastError != nil)
+        flaky.recover()
+        await store.resolve(composer: "Johann Sebastian Bach", artistIDs: [])
+        #expect(store.resolution(ofComposer: "Johann Sebastian Bach") == .person("Q1339"))
+        #expect(store.facts(ofComposer: "Johann Sebastian Bach")?.born == 1685)
+    }
+
+    @Test func aPickBeforeTheWorksHaveIDsDoesNotPinTheTag() async throws {
+        let (store, _, _) = makeStore(PersonStub.bachRules)
+        await store.resolve(composer: "Bach", artistIDs: [])
+        let match = PersonMatch(qid: "Q1339", name: "Johann Sebastian Bach", description: nil)
+        await store.choose(match, forComposer: "Bach")
+        #expect(!store.cache.chosen.contains("Bach"))
+        // The IDs arrive and the works decide.
+        await store.resolve(composer: "Bach", artistIDs: [PersonStub.artistBach])
+        #expect(store.cache.inputs["Bach"] == [PersonStub.artistBach])
+        #expect(store.resolution(ofComposer: "Bach") == .person("Q1339"))
+    }
+
+    @Test func choosingAgainOffersThePickListAgain() async throws {
+        let (store, _, _) = makeStore(PersonStub.bachRules)
+        await store.resolve(composer: "Johann Sebastian Bach", artistIDs: [PersonStub.artistBach])
+        await store.chooseAgain(composer: "Johann Sebastian Bach")
+        guard case .pick(let matches)? = store.resolution(ofComposer: "Johann Sebastian Bach") else {
+            Issue.record("expected a pick list")
+            return
+        }
+        #expect(matches.map(\.qid) == ["Q1339"])
+    }
+
+    @Test func aThrownNetworkErrorIsNotCached() async throws {
+        let url = FileManager.default.temporaryDirectory.appending(path: "\(UUID().uuidString).json")
+        let service = PersonFactsService(
+            fetch: { _ in throw URLError(.notConnectedToInternet) }, pacer: Pacer(interval: 0))
+        let store = PersonFactsStore(service: service, cacheURL: url)
+        await store.resolve(composer: "Johann Sebastian Bach", artistIDs: [])
+        #expect(store.resolution(ofComposer: "Johann Sebastian Bach") == nil)
+        #expect(store.lastError != nil)
+    }
+
+    @Test func anHttpErrorIsNotCached() async throws {
         let (store, _, _) = makeStore([])
         await store.resolve(composer: "Johann Sebastian Bach", artistIDs: [])
         #expect(store.resolution(ofComposer: "Johann Sebastian Bach") == nil)

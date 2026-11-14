@@ -51,12 +51,43 @@ struct LoadedPortrait: @unchecked Sendable {
 enum PortraitLoader {
     /// The longest side of the copy that the app keeps, in pixels.
     static let longestSide: CGFloat = 1600
+    /// The most bytes that a picture download may hold. A 1200 point Commons copy is far smaller.
+    static let maxBytes = 8_000_000
 
-    static func load(_ url: URL, fetch: MusicBrainz.Fetch = MusicBrainz.network) async -> LoadedPortrait? {
-        var request = URLRequest(url: url)
+    struct TooLarge: Error {}
+
+    /// Streams the body and stops at the cap, so that a huge file never sits in memory. A redirect to a host
+    /// outside the trusted list ends the request.
+    static let download: MusicBrainz.Fetch = { request in
+        let (bytes, response) = try await URLSession.shared.bytes(for: request, delegate: RedirectGuard())
+        guard response.expectedContentLength <= Int64(maxBytes) else { throw TooLarge() }
+        var data = Data()
+        for try await byte in bytes {
+            data.append(byte)
+            if data.count > maxBytes { throw TooLarge() }
+        }
+        return (data, (response as? HTTPURLResponse)?.statusCode ?? 0)
+    }
+
+    /// The picture, or nil: for a URL outside the trusted list, a failed or oversize download, or bytes that
+    /// are no image.
+    static func load(_ url: URL, fetch: MusicBrainz.Fetch = PortraitLoader.download) async -> LoadedPortrait? {
+        guard let url = PersonFactsService.trusted(url) else { return nil }
+        var request = URLRequest(url: url, timeoutInterval: PersonFactsService.timeout)
         request.setValue(MusicBrainz.userAgent, forHTTPHeaderField: "User-Agent")
-        guard let (data, status) = try? await fetch(request), (200..<300).contains(status) else { return nil }
+        guard let (data, status) = try? await fetch(request), (200..<300).contains(status),
+            data.count <= maxBytes
+        else { return nil }
         return await Task.detached(priority: .userInitiated) { upright(data) }.value
+    }
+
+    private final class RedirectGuard: NSObject, URLSessionTaskDelegate, Sendable {
+        func urlSession(
+            _ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
+            newRequest request: URLRequest
+        ) async -> URLRequest? {
+            PersonFactsService.trusted(request.url) == nil ? nil : request
+        }
     }
 
     private static func upright(_ data: Data) -> LoadedPortrait? {

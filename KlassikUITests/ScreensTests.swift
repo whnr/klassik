@@ -251,6 +251,20 @@ final class PlaybackScreens: ScreensTestCase {
     }
 
     @MainActor
+    func testOverlayLinkUsesTheUnderlyingStack() throws {
+        let app = try launchAndConnect()
+        openRecording(app)
+        playPaused(app)
+        openPlayer(app)
+        reveal(app.buttons["raw-tags"], in: app).tap()
+        expectPlayerClosed(app)
+        XCTAssertTrue(app.navigationBars["Tags"].waitForExistence(timeout: 10))
+        back(app)
+        XCTAssertTrue(app.buttons["raw-tags"].waitForExistence(timeout: 10))
+        XCTAssertTrue(tab(app, "Library").isSelected)
+    }
+
+    @MainActor
     func testOverlayLeavesThroughLibrary() throws {
         try checkPlayerTab("Library")
     }
@@ -299,7 +313,12 @@ final class PlaybackScreens: ScreensTestCase {
     @MainActor
     private func openPlayer(_ app: XCUIApplication) {
         app.buttons["mini-player-cover"].tap()
-        XCTAssertTrue(app.buttons["player-handle"].waitForExistence(timeout: 10))
+        let handle = app.buttons["player-handle"]
+        XCTAssertTrue(handle.waitForExistence(timeout: 10))
+        let reachable = expectation(for: NSPredicate(format: "isHittable == true"), evaluatedWith: handle)
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [reachable], timeout: 5), .completed,
+            "The player is behind the selected place")
     }
 
     @MainActor
@@ -490,6 +509,9 @@ final class TimelineScreens: ScreensTestCase {
         XCTAssertLessThan(frame.maxY, app.frame.maxY, "The playback controls have no bottom clearance")
         XCTAssertEqual(bar.frame.maxY, frame.minY, accuracy: 1, "The timeline does not run into the pill")
         XCTAssertEqual(frame.midY, tab(app, "Search").frame.midY, accuracy: 2, "The controls are not in the tab row")
+        XCTAssertEqual(
+            frame.height, tab(app, "Search").frame.height + 8, accuracy: 1,
+            "The pill does not match the native capsule height")
         XCTAssertLessThanOrEqual(tab(app, "Search").frame.maxX, frame.minX, "The tabs run under the pill")
         XCTAssertTrue(pill.buttons["mini-player-cover"].exists)
         XCTAssertEqual(pill.buttons["mini-player-pause"].label, "Resume")

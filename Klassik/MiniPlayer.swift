@@ -53,10 +53,23 @@ struct MiniPlayer: View {
     }
 
     /// The square cover clears the display bend with the same gap as the straight edge.
-    nonisolated static func coverInset(radius: CGFloat, bottom: CGFloat) -> CGFloat {
-        let below = max(0, radius - bottom - Space.xs.points)
-        let bend = radius - sqrt(max(0, radius * radius - below * below))
-        return Measure.timeline + Space.xs.points + bend
+    nonisolated static func coverInset(in geometry: GeometryProxy, side: TimelineSide, bottom: CGFloat, height: CGFloat)
+        -> CGFloat
+    {
+        let gap = Measure.timeline + Space.xs.points
+        let bounds = CGRect(origin: .zero, size: geometry.size).insetBy(dx: gap, dy: gap)
+        guard let corners = geometry.concentricCornerRadii(in: bounds) else { return gap }
+        let contour = Path(roundedRect: bounds, cornerRadii: corners, style: .continuous)
+        let padding = max(0, (height - itemSize(height: height)) / 2)
+        let y = geometry.size.height - bottom - padding
+        var low = gap
+        var high = geometry.size.width / 2
+        for _ in 0..<16 {
+            let inset = (low + high) / 2
+            let point = CGPoint(x: side == .right ? geometry.size.width - inset : inset, y: y)
+            if contour.contains(point) { high = inset } else { low = inset }
+        }
+        return high.rounded(.up)
     }
 
     private var shape: ConcentricRectangle {

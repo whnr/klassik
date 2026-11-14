@@ -303,6 +303,7 @@ private struct ComposedRow: View {
 /// Recording and album content also fills the player overlay (ADR 0014). Rows hold the differing names (ADR 0027).
 struct RecordingView: View {
     @Environment(AppModel.self) private var model
+    @Environment(AppNavigator.self) private var navigator
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let work: WorkIndex.Work
     let recording: WorkIndex.Recording
@@ -332,9 +333,9 @@ struct RecordingView: View {
                 Section {
                     if isOverlay {
                         VStack(spacing: Space.m.points) {
-                            CoverImage(id: recording.songs.first?.coverArt, points: 200)
-                                .frame(width: 200, height: 200)
-                                .clipShape(.rect(cornerRadius: Radius.s))
+                            CoverImage(id: recording.songs.first?.coverArt, points: Measure.coverPage)
+                                .frame(width: Measure.coverPage, height: Measure.coverPage)
+                                .clipShape(.rect(cornerRadius: Radius.l))
                             HStack(alignment: .firstTextBaseline) {
                                 Text(work.title)
                                     .accessibilityIdentifier("player-title")
@@ -387,9 +388,14 @@ struct RecordingView: View {
                 }
 
                 Section {
-                    NavigationLink(value: Page.rawTags(work: work.id, recording: recording.id)) {
-                        Text("Tags and Grouping")
-                            .ink()
+                    pageLink(to: .rawTags(work: work.id, recording: recording.id)) {
+                        HStack {
+                            Text("Tags and Grouping").ink()
+                            if isOverlay {
+                                Spacer()
+                                Image(systemName: "chevron.right").foregroundStyle(Palette.textSecondary)
+                            }
+                        }
                     }
                     .accessibilityIdentifier("raw-tags")
                 }
@@ -486,11 +492,26 @@ struct RecordingView: View {
         .frame(maxWidth: .infinity)
     }
 
+    /// A player link belongs to the place below the overlay. The player never owns a page stack.
+    @ViewBuilder private func pageLink<Label: View>(to page: Page, @ViewBuilder label: () -> Label) -> some View {
+        if isOverlay {
+            Button {
+                navigator.open(page, in: navigator.selection)
+                navigator.closePlayer()
+            } label: {
+                label()
+            }
+            .buttonStyle(.plain)
+        } else {
+            NavigationLink(value: page) { label() }
+        }
+    }
+
     /// The work of a block opens its recording page, so the listener reaches the work from the disc.
     @ViewBuilder private func heading(of block: WorkIndex.Album.Block) -> some View {
         if let part = block.part {
             if let page = Page(albumPart: part, in: model.library) {
-                NavigationLink(value: page) {
+                pageLink(to: page) {
                     HStack {
                         SectionHeading(part.title)
                         Spacer()

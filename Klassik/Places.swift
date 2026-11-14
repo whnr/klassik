@@ -52,13 +52,10 @@ struct PlacesView: View {
                 }
                 .ignoresSafeArea(.container)
                 .onGeometryChange(for: CGFloat.self) { geometry in
-                    let corners = geometry.concentricCornerRadii
-                    let radius = timelineSide == .right ? corners?.bottomTrailing : corners?.bottomLeading
                     let bottom =
-                        nativeFrame.map {
-                            max(0, geometry.size.height - $0.maxY)
-                        } ?? TabRow.gap(safeArea: insets.bottom)
-                    return MiniPlayer.coverInset(radius: radius ?? 0, bottom: bottom)
+                        nativeFrame.map { max(0, geometry.size.height - $0.maxY) }
+                        ?? TabRow.gap(safeArea: insets.bottom)
+                    return MiniPlayer.coverInset(in: geometry, side: timelineSide, bottom: bottom, height: rowHeight)
                 } action: {
                     pillInset = $0
                 }
@@ -106,7 +103,9 @@ private struct SystemPlaces: UIViewControllerRepresentable {
             return host
         }
         controller.installPlayer(
-            AnyView(PlayerOverlayLayer().environment(model).environment(navigator).tint(Palette.tint)))
+            AnyView(
+                PlayerOverlayLayer().environment(model).environment(navigator)
+                    .environment(controller.playerLayout).tint(Palette.tint)))
         return controller
     }
 
@@ -130,9 +129,11 @@ private struct SystemPlaces: UIViewControllerRepresentable {
 
         func tabBarController(_ controller: UITabBarController, shouldSelect viewController: UIViewController) -> Bool {
             guard let index = controller.viewControllers?.firstIndex(of: viewController) else { return false }
-            navigator.selectTab(Place.allCases[index])
+            let place = Place.allCases[index]
+            let dismissesCurrent = navigator.isPlayerOpen && navigator.selection == place
+            navigator.selectTab(place)
             // UIKit must not pop the selected stack when its tab dismisses the player.
-            return false
+            return !dismissesCurrent
         }
     }
 }
@@ -143,13 +144,14 @@ private final class PlacesController: UITabBarController {
     var onLayout: (@MainActor (CGRect) -> Void)?
     private var reportedFrame: CGRect?
     private(set) var playerHost: UIHostingController<AnyView>?
+    let playerLayout = PlayerOverlayLayout()
 
     func installPlayer(_ root: AnyView) {
         let host = UIHostingController(rootView: root)
         addChild(host)
         host.view.backgroundColor = .clear
         host.view.isUserInteractionEnabled = false
-        view.insertSubview(host.view, belowSubview: tabBar)
+        view.addSubview(host.view)
         host.didMove(toParent: self)
         playerHost = host
     }
@@ -161,12 +163,23 @@ private final class PlacesController: UITabBarController {
         frame.size.width = max(0, view.bounds.width - reservedWidth)
         tabBar.frame = frame
         playerHost?.view.frame = view.bounds
-        let bottom = max(0, view.bounds.maxY - frame.minY - view.safeAreaInsets.bottom)
-        if playerHost?.additionalSafeAreaInsets.bottom != bottom {
-            playerHost?.additionalSafeAreaInsets.bottom = bottom
+        let top = view.window?.safeAreaInsets.top ?? view.safeAreaInsets.top
+        let bottom = max(0, view.bounds.maxY - tabBar.convert(tabBar.bounds, to: view).minY)
+        if playerLayout.top != top || playerLayout.bottom != bottom {
+            Task { @MainActor [layout = playerLayout] in
+                layout.top = top
+                layout.bottom = bottom
+            }
         }
-        view.bringSubviewToFront(tabBar)
-        let content = tabBar.safeAreaLayoutGuide.layoutFrame.offsetBy(dx: frame.minX, dy: frame.minY)
+        // UIKit nests the native bar inside a container. The player belongs below that whole container.
+        var chrome: UIView = tabBar
+        while let parent = chrome.superview, parent !== view { chrome = parent }
+        if chrome.superview === view {
+            view.bringSubviewToFront(chrome)
+            if let playerHost { view.insertSubview(playerHost.view, belowSubview: chrome) }
+        }
+        let bar = tabBar.convert(tabBar.bounds, to: view)
+        let content = CGRect(x: bar.minX, y: bar.minY, width: bar.width, height: TabRow.height)
         if reportedFrame != content, let onLayout {
             reportedFrame = content
             Task { @MainActor in onLayout(content) }
@@ -186,7 +199,8 @@ extension Place {
 
 /// Playback controls align with the native tab bar; their safe-area gap keeps the square cover clear.
 enum TabRow {
-    nonisolated static let height = MiniPlayer.item + 2 * Space.xs.points
+    // The iOS 27 floating capsule is 62 points high. Its content guide is 49 points high.
+    nonisolated static let height: CGFloat = 62
 
     nonisolated static func gap(safeArea bottom: CGFloat) -> CGFloat {
         max(bottom, Space.s.points)

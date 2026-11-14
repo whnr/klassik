@@ -499,7 +499,8 @@ struct RecordingView: View {
                 navigator.open(page, in: navigator.selection)
                 navigator.closePlayer()
             } label: {
-                label()
+                // A plain button takes touches on drawn content only; the whole row must take them.
+                label().contentShape(.rect)
             }
             .buttonStyle(.plain)
         } else {

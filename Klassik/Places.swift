@@ -179,6 +179,8 @@ private final class PlacesController: UITabBarController {
             if let playerHost { view.insertSubview(playerHost.view, belowSubview: chrome) }
         }
         let bar = tabBar.convert(tabBar.bounds, to: view)
+        // The bar frame also holds the safe-area gap, so its height is not the capsule's. The pill height is the
+        // fixed capsule height; only the position and width come from the bar.
         let content = CGRect(x: bar.minX, y: bar.minY, width: bar.width, height: TabRow.height)
         if reportedFrame != content, let onLayout {
             reportedFrame = content

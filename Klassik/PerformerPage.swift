@@ -151,9 +151,9 @@ private struct AlbumCover: View {
             VStack(alignment: .leading, spacing: Space.xs.points) {
                 CoverImage(id: album.tracks.first?.coverArt, points: 160)
                     .aspectRatio(1, contentMode: .fit)
-                    .clipShape(RoundedRectangle(cornerRadius: Radius.s))
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.m))
                 Text(album.title)
-                    .typeStyle(.footnote)
+                    .typeStyle(.subheadline)
                     .foregroundStyle(Palette.textPrimary)
                     .lineLimit(2)
                 if let year = album.year {
@@ -165,6 +165,8 @@ private struct AlbumCover: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .buttonStyle(.plain)
+        // A link in a list row adds a chevron; the cover is the whole row.
+        .navigationLinkIndicatorVisibility(.hidden)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("performer-album")
     }

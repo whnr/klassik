@@ -67,8 +67,8 @@ private struct PerformerRow: View {
                     OfflineHint(isOffline: model.tracks.isOffline(entry.recording))
                 }
                 Text(entry.recording.facts())
-                .typeStyle(.subheadline)
-                .foregroundStyle(Palette.textSecondary)
+                    .typeStyle(.subheadline)
+                    .foregroundStyle(Palette.textSecondary)
             }
         }
         .itemActions(QueueItem(work: entry.work, recording: entry.recording), downloads: true, reference: true)

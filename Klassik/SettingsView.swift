@@ -158,8 +158,8 @@ struct AlbumsView: View {
                         RoleLines(lines: row.item.recording.names)
                             .ink()
                         Text(row.item.recording.facts(includingAlbum: false))
-                        .typeStyle(.subheadline)
-                        .foregroundStyle(Palette.textSecondary)
+                            .typeStyle(.subheadline)
+                            .foregroundStyle(Palette.textSecondary)
                     }
                 }
                 .itemActions(row.item, downloads: true)

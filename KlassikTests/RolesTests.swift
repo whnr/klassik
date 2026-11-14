@@ -118,8 +118,8 @@ struct RolesTests {
         let recording = WorkIndex.Recording(
             id: "r", album: "Album", year: 1972,
             songs: [Self.track("a", 1, Self.house, duration: 2518), Self.track("b", 2, Self.house, duration: 2)])
-        let text = [recording.summary, recording.facts()] + recording.names.flatMap { $0.rows(locale: Self.english) }
-            .flatMap { [$0.label, $0.text] }
+        let rows = recording.names.flatMap { $0.rows(locale: Self.english) }
+        let text = [recording.summary, recording.facts()] + rows.flatMap { [$0.label, $0.text] }
         for part in text {
             #expect(!part.contains("·") && !part.contains("•") && !part.contains("|") && !part.contains("+"))
         }

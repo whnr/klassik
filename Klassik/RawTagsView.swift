@@ -6,7 +6,7 @@ struct RawTagsView: View {
     let recording: WorkIndex.Recording
 
     var body: some View {
-        PageList {
+        GroupedPageList {
             Section {
                 Text(work.groupingReason)
                     .ink()

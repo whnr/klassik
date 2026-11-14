@@ -390,3 +390,77 @@ struct PersonFactsStoreTests {
         #expect(!PersonFactsStore.isSurnameOnly("Richard Strauss"))
     }
 }
+
+@MainActor
+struct PerformerFactsTests {
+    static let carl = "Q100"
+
+    private static func rules(
+        filtered: [String], unfiltered: [String], label: String = "Carl Fixture"
+    ) -> [(contains: String, body: String)] {
+        [
+            ("haswbstatement:P434", PersonStub.search(filtered)),
+            ("list=search", PersonStub.search(unfiltered)),
+            (
+                "ids=\(carl)&props=labels|descriptions|claims",
+                PersonStub.entity(
+                    carl, label: label, description: "Fixture conductor", born: "+1950-01-01T00:00:00Z")
+            ),
+            ("ids=\(carl)&props=labels|descriptions", PersonStub.entity(carl, label: label, description: nil)),
+        ]
+    }
+
+    private func makeStore(_ rules: [(contains: String, body: String)]) -> (PersonFactsStore, PersonStub) {
+        let stub = PersonStub(rules)
+        let url = FileManager.default.temporaryDirectory.appending(path: "\(UUID().uuidString).json")
+        return (PersonFactsStore(service: stub.service, cacheURL: url), stub)
+    }
+
+    @Test func theSearchFiltersByP434First() async throws {
+        let (store, stub) = makeStore(Self.rules(filtered: [Self.carl], unfiltered: []))
+        await store.resolve(performer: "Carl Fixture")
+        #expect(store.facts(ofPerformer: "Carl Fixture")?.born == 1950)
+        #expect(stub.requests.first?.contains("srsearch=\"Carl Fixture\" haswbstatement:P434") == true)
+        // The filtered search found the item: no unfiltered search ran.
+        #expect(stub.requests.filter { $0.contains("list=search") }.count == 1)
+    }
+
+    @Test func withoutP434TheSearchRunsAgainUnfiltered() async throws {
+        let (store, stub) = makeStore(Self.rules(filtered: [], unfiltered: [Self.carl]))
+        await store.resolve(performer: "Carl Fixture")
+        #expect(store.facts(ofPerformer: "Carl Fixture")?.qid == Self.carl)
+        let searches = stub.requests.filter { $0.contains("list=search") }
+        #expect(searches.count == 2)
+        #expect(searches.last?.contains("haswbstatement") == false)
+    }
+
+    @Test func noMatchLeavesTheTagsOnlyAndIsRememberedWithoutAskingAgain() async throws {
+        let (store, stub) = makeStore(Self.rules(filtered: [], unfiltered: []))
+        await store.resolve(performer: "Nobody Knownby")
+        #expect(store.facts(ofPerformer: "Nobody Knownby") == nil)
+        #expect(store.hasResolved(performer: "Nobody Knownby"))
+        let asked = stub.requests.count
+        await store.resolve(performer: "Nobody Knownby")
+        #expect(stub.requests.count == asked)
+    }
+
+    @Test func anUnfilteredHitWithAnotherNameIsNoMatch() async throws {
+        let (store, _) = makeStore(Self.rules(filtered: [], unfiltered: [Self.carl], label: "Carl Fixture Hall"))
+        await store.resolve(performer: "Carl Fixture")
+        #expect(store.facts(ofPerformer: "Carl Fixture") == nil)
+        #expect(store.hasResolved(performer: "Carl Fixture"))
+    }
+
+    @Test func aFailedLookupLeavesTheTagOpen() async throws {
+        let (store, _) = makeStore([])
+        await store.resolve(performer: "Carl Fixture")
+        #expect(!store.hasResolved(performer: "Carl Fixture"))
+        #expect(store.lastError != nil)
+    }
+
+    @Test func aCacheFromBeforePerformerPagesStillLoads() throws {
+        let old = Data(#"{"people":{},"composers":{},"artists":{},"chosen":[],"inputs":{}}"#.utf8)
+        let cache = try JSONDecoder().decode(PersonFactsStore.Cache.self, from: old)
+        #expect(cache.performers.isEmpty)
+    }
+}

@@ -129,6 +129,22 @@ struct PersonFactsService: Sendable {
         return try await matches(search: "\"\(phrase)\" haswbstatement:P106=\(Self.composerOccupation)")
     }
 
+    /// The Wikidata item of a performer. The search runs first for items that hold a MusicBrainz artist ID
+    /// (P434), then without that filter (ADR 0019). The first search takes its first hit. The second takes a hit
+    /// only when its name is the tag's name, because an unfiltered hit can be anything. Nil: no item.
+    func performer(named name: String) async throws -> PersonMatch? {
+        guard let phrase = Self.phrase(name) else { return nil }
+        if let found = try await matches(search: "\"\(phrase)\" haswbstatement:P434").first { return found }
+        let wanted = PersonFactsStore.fold(phrase)
+        return try await matches(search: "\"\(phrase)\"").first { PersonFactsStore.fold($0.name) == wanted }
+    }
+
+    /// A tag as one search phrase, so that search syntax in a tag stays text.
+    private static func phrase(_ name: String) -> String? {
+        let text = name.filter { $0 != "\"" && $0 != "\\" }.trimmingCharacters(in: .whitespacesAndNewlines)
+        return text.isEmpty ? nil : text
+    }
+
     /// The person of a MusicBrainz artist ID, found by P434. This does not read an ID from the tags.
     func person(musicBrainzArtist id: String) async throws -> PersonMatch? {
         guard UUID(uuidString: id) != nil else { return nil }

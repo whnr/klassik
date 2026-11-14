@@ -21,7 +21,8 @@ struct ComposerPage: View {
         GeometryReader { proxy in
             List {
                 PersonHero(
-                    name: composer.name, facts: facts, topInset: proxy.safeAreaInsets.top, width: proxy.size.width
+                    name: composer.name, facts: facts, line: facts?.descriptionLine, kind: "composer",
+                    topInset: proxy.safeAreaInsets.top, width: proxy.size.width
                 )
                 .listRowInsets(EdgeInsets())
                 .listRowSeparator(.hidden)
@@ -170,7 +171,7 @@ private struct GenreChips: View {
     }
 }
 
-private struct CreditRow: View {
+struct CreditRow: View {
     let credit: PersonCredit
 
     var body: some View {
@@ -250,12 +251,15 @@ private struct ResolutionNotice: View {
 }
 
 /// The picture, the name and the description line. Without a picture the page shows the name on the plain ground.
-private struct PersonHero: View {
+/// `kind` prefixes the accessibility identifiers. A performer's picture shows only when it is a portrait.
+struct PersonHero: View {
     @Environment(AppModel.self) private var model
     @Environment(\.colorSchemeContrast) private var contrast
     @AppStorage(TimelineSide.storageKey) private var side = TimelineSide.standard
     let name: String
     let facts: PersonFacts?
+    let line: String?
+    let kind: String
     let topInset: CGFloat
     let width: CGFloat
     @State private var portrait: LoadedPortrait?
@@ -278,11 +282,11 @@ private struct PersonHero: View {
                 Text(name)
                     .typeStyle(.pageTitle)
                     .foregroundStyle(portrait == nil ? Palette.textPrimary.color : paper)
-                if let line = facts?.descriptionLine {
+                if let line {
                     Text(line)
                         .typeStyle(.subheadline)
                         .foregroundStyle(portrait == nil ? Palette.textSecondary.color : paper)
-                        .accessibilityIdentifier("composer-description")
+                        .accessibilityIdentifier("\(kind)-description")
                 }
             }
             .padding(.horizontal, Space.l.points)
@@ -296,7 +300,8 @@ private struct PersonHero: View {
         .task(id: facts?.portrait?.url) {
             portrait = nil
             guard let url = facts?.portrait?.url else { return }
-            portrait = await PortraitLoader.load(url)
+            let loaded = await PortraitLoader.load(url)
+            portrait = kind == "performer" ? loaded.flatMap { $0.isPortrait ? $0 : nil } : loaded
         }
         .fullScreenCover(isPresented: $showsPicture) {
             if let portrait {
@@ -355,7 +360,7 @@ private struct PersonHero: View {
         .accessibilityLabel("Picture of \(name)")
         .accessibilityHint("Shows the whole picture with its credit.")
         .accessibilityAddTraits(.isButton)
-        .accessibilityIdentifier("composer-picture")
+        .accessibilityIdentifier("\(kind)-picture")
     }
 
     private var edgeMask: some View {
@@ -393,6 +398,6 @@ private struct WholePicture: View {
         }
         .padding(.vertical, Space.l.points)
         .background(Palette.backgroundPage)
-        .accessibilityIdentifier("composer-whole-picture")
+        .accessibilityIdentifier("whole-picture")
     }
 }

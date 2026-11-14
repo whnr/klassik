@@ -4,10 +4,19 @@ import SwiftUI
 /// header centres them.
 struct RoleLines: View {
     let lines: [Roles.Line]
-    var alignment: HorizontalAlignment = .leading
+    let alignment: HorizontalAlignment
+    let style: TypeStyle
     @ScaledMetric(space: .inGroup) private var gap: CGFloat
-    @ScaledMetric(relativeTo: .body) private var size = TypeStyle.body.size
+    @ScaledMetric private var size: CGFloat
     @Environment(\.dynamicTypeSize) private var typeSize
+
+    /// `style` sets the size of label and names. The explicit fonts here ignore a `typeStyle` of the caller.
+    init(lines: [Roles.Line], alignment: HorizontalAlignment = .leading, style: TypeStyle = .body) {
+        self.lines = lines
+        self.alignment = alignment
+        self.style = style
+        _size = ScaledMetric(wrappedValue: style.size, relativeTo: style.textStyle)
+    }
 
     var body: some View {
         let rows = lines.flatMap { $0.rows() }
@@ -31,19 +40,21 @@ struct RoleLines: View {
                 names(row)
             }
         } else {
-            // A no-break space ties the label to the first name.
-            (label(row.label) + Text("\u{00A0}") + names(row))
+            // A no-break space and a little kerning tie the label to the first name (about 0.45 em).
+            Text("\(label(row.label))\(tie)\(names(row))")
         }
     }
 
+    private var tie: Text { Text("\u{00A0}").kerning(size * 0.2) }
+
     private func label(_ text: String) -> Text {
         Text(text)
-            .font(TypeStyle.body.font(size: size).lowercaseSmallCaps())
+            .font(style.font(size: size).lowercaseSmallCaps())
             .tracking(size * 0.06)
             .foregroundStyle(Palette.textSecondary)
     }
 
     private func names(_ row: Roles.Line.Row) -> Text {
-        Text(row.text).font(TypeStyle.body.font(size: size))
+        Text(row.text).font(style.font(size: size))
     }
 }

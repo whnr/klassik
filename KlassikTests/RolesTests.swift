@@ -44,7 +44,7 @@ struct RolesTests {
 
     @Test func namesWithoutRoleComeLastAndOnlyWhenNothingMusicalIsTagged() {
         let weak = Roles.lines(of: [Self.track("a", 1, artist: "Some Quartet")])
-        #expect(weak.map(\.kind) == [.none])
+        #expect(weak.map(\.kind) == [.unlabelled])
         #expect(weak.first?.label == "")
         #expect(weak.first?.rows(locale: Self.english) == [Roles.Line.Row(label: "", text: "Some Quartet")])
     }
@@ -163,5 +163,70 @@ struct RolesTests {
             let names = Roles.lines(of: songs.sorted { ($0.track ?? 0) < ($1.track ?? 0) })
             #expect(names.flatMap(\.names) == ["Carl", "Daniel"])
         }
+    }
+
+    @Test func aRoleThatKlassikDoesNotKnowShowsUnderItsOwnTag() {
+        let lines = Roles.lines(of: [
+            Self.track("a", 1, [Self.who("director", "Dora Stage"), Self.who("producer", "Pat Booth")])
+        ])
+        #expect(lines.map(\.label) == ["director"])
+        #expect(lines.first?.kind == .other)
+        #expect(lines.flatMap(\.names) == ["Dora Stage"])
+    }
+
+    @Test func aNameThatHoldsAGroupWordIsAnEnsembleWhateverTheTagSays() {
+        for name in [
+            "Testing Philharmonic", "Berliner Philharmoniker", "Kammerorchester Basel", "London Symphony",
+            "Wiener Symphoniker", "Chor des Bayerischen Rundfunks", "Tokyo String Quartett",
+        ] {
+            let lines = Roles.lines(of: [Self.track("a", 1, [Self.who("performer", name)])])
+            #expect(lines.map(\.kind) == [.ensemble], "\(name)")
+        }
+    }
+
+    @Test func aPersonIsNotAnEnsemble() {
+        for name in ["Eva Bogen", "Anna Chorley", "Marie Kammerer"] {
+            let lines = Roles.lines(of: [Self.track("a", 1, [Self.who("performer", name)])])
+            #expect(lines.first?.kind == .soloist, "\(name)")
+        }
+    }
+
+    @Test func theArtistTagKeepsAnOrchestraThatContributorsLeaveOut() {
+        let song = Self.track("a", 1, artist: "Bavarian Radio Symphony Orchestra", [Self.who("conductor", "Carl")])
+        #expect(Roles.lines(of: [song]).map(\.kind) == [.conductor, .unlabelled])
+        #expect(Roles.lines(of: [song]).last?.names == ["Bavarian Radio Symphony Orchestra"])
+    }
+
+    @Test func theArtistTagDoesNotRepeatANameThatContributorsHold() {
+        let song = Self.track("a", 1, artist: "Carl Fixture", [Self.who("conductor", "Carl Fixture")])
+        #expect(Roles.lines(of: [song]).flatMap(\.names) == ["Carl Fixture"])
+        let withSoloist = Self.track(
+            "b", 1, artist: "Some Orchestra", [Self.who("conductor", "Carl"), Self.who("performer", "Eva", "viola")])
+        #expect(Roles.lines(of: [withSoloist]).flatMap(\.names) == ["Carl", "Eva"])
+    }
+
+    @Test func namesWithoutASortNameSortByTheirLastWordLikeSortNames() {
+        let people = [
+            Self.who("performer", "Mia Mid", "viola"),
+            Self.who("performer", "Rafael Kubelík", "viola", sort: "Kubelík, Rafael"),
+        ]
+        for contributors in [people, people.reversed()] {
+            #expect(Roles.lines(of: [Self.track("a", 1, contributors)]).first?.names == ["Rafael Kubelík", "Mia Mid"])
+        }
+    }
+
+    @Test func aRecordingKeepsItsNamesWhenItsTracksChange() {
+        var recording = WorkIndex.Recording(
+            id: "r", album: "A", songs: [Self.track("a", 1, [Self.who("conductor", "One")])])
+        #expect(recording.names.flatMap(\.names) == ["One"])
+        recording.songs = [Self.track("b", 1, [Self.who("conductor", "Two")])]
+        #expect(recording.names.flatMap(\.names) == ["Two"])
+    }
+
+    @Test func aRecordingReadsBackWithItsNames() throws {
+        let recording = WorkIndex.Recording(
+            id: "r", album: "A", year: 1990, songs: [Self.track("a", 1, [Self.who("conductor", "One")])], isAlbum: true)
+        let read = try JSONDecoder().decode(WorkIndex.Recording.self, from: JSONEncoder().encode(recording))
+        #expect(read.names == recording.names && read.isAlbum && read.year == 1990)
     }
 }

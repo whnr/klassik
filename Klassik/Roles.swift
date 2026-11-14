@@ -10,7 +10,9 @@ enum Roles {
         case ensemble
         case arranger
         case lyricist
-        case none
+        /// A role tag that Klassik does not know, such as "director". The tag is the label.
+        case other
+        case unlabelled
 
         static func < (lhs: Self, rhs: Self) -> Bool { lhs.rawValue < rhs.rawValue }
 
@@ -51,6 +53,12 @@ enum Roles {
         var tracks: [[Line]]
     }
 
+    /// Roles that never show in a name line. The raw tags view has them. A role not listed shows under its own tag.
+    /// "artist" and "albumartist" repeat the artist tag, which the fallback below reads.
+    private static let hidden: Set<String> = [
+        "composer", "producer", "engineer", "mixer", "djmixer", "remixer", "artist", "albumartist",
+    ]
+
     /// All names of the tracks. Technical roles (producer, engineer, mixer) are not here; the raw tags view has them.
     static func lines(of songs: [Song]) -> [Line] {
         lines(from: songs.flatMap(entries(of:)))
@@ -81,7 +89,8 @@ enum Roles {
             let name = contributor.artist.name
             guard !name.isEmpty else { continue }
             let sub = (contributor.subRole ?? "").trimmingCharacters(in: .whitespaces).lowercased()
-            switch contributor.role.lowercased() {
+            let role = contributor.role.trimmingCharacters(in: .whitespaces).lowercased()
+            switch role {
             case "conductor": result.append(Entry(kind: .conductor, label: "conductor", name: name))
             case "arranger": result.append(Entry(kind: .arranger, label: "arranger", name: name))
             case "lyricist": result.append(Entry(kind: .lyricist, label: "lyricist", name: name))
@@ -91,12 +100,17 @@ enum Roles {
                 } else {
                     result.append(Entry(kind: .soloist, label: sub.isEmpty ? "soloist" : sub, name: name))
                 }
-            default: continue
+            case _ where hidden.contains(role) || role.isEmpty: continue
+            default: result.append(Entry(kind: .other, label: sub.isEmpty ? role : "\(role) \(sub)", name: name))
             }
         }
-        // A track with no musical role names its artist, as tagged.
-        if result.isEmpty, let artist = song.artist, !artist.isEmpty {
-            result.append(Entry(kind: .none, label: "", name: artist))
+        // A track with no performer names its artist as tagged, unless a name above already stands in that tag.
+        // Navidrome often lists the conductor but not the orchestra that the artist tag names.
+        let hasPerformer = result.contains { $0.kind == .soloist || $0.kind == .ensemble }
+        if !hasPerformer, let artist = song.artist, !artist.isEmpty,
+            !result.contains(where: { Self.names($0.name, in: artist) })
+        {
+            result.append(Entry(kind: .unlabelled, label: "", name: artist))
         }
         return result
     }
@@ -104,12 +118,25 @@ enum Roles {
     /// Navidrome returns the contributors of a track in a different order after each scan. The order of the names in
     /// the track's artist tag comes first, then the sort name, then the name and the ID, so the result never changes.
     private static func precedes(_ lhs: Song.Contributor, _ rhs: Song.Contributor, in song: Song) -> Bool {
-        let left = (rank(lhs, in: song), lhs.artist.sortName ?? lhs.artist.name, lhs.artist.name, lhs.artist.id)
-        let right = (rank(rhs, in: song), rhs.artist.sortName ?? rhs.artist.name, rhs.artist.name, rhs.artist.id)
+        let left = (rank(lhs, in: song), sortKey(lhs.artist), lhs.artist.name, lhs.artist.id)
+        let right = (rank(rhs, in: song), sortKey(rhs.artist), rhs.artist.name, rhs.artist.id)
         if left.0 != right.0 { return left.0 < right.0 }
         if left.1 != right.1 { return left.1.localizedStandardCompare(right.1) == .orderedAscending }
         if left.2 != right.2 { return left.2.localizedStandardCompare(right.2) == .orderedAscending }
         return left.3 < right.3
+    }
+
+    private static func names(_ name: String, in tag: String) -> Bool {
+        tag.range(of: name, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+    }
+
+    /// One form for every name: the server's sort name, else the name with its last word first. Mixing forms would
+    /// compare "Kubelík, Rafael" with "Rafael Kubelík".
+    private static func sortKey(_ artist: Song.Artist) -> String {
+        if let sort = artist.sortName, !sort.isEmpty { return sort }
+        let words = artist.name.split(separator: " ")
+        guard let last = words.last, words.count > 1 else { return artist.name }
+        return "\(last), \(words.dropLast().joined(separator: " "))"
     }
 
     private static func rank(_ contributor: Song.Contributor, in song: Song) -> Int {
@@ -136,16 +163,23 @@ enum Roles {
 }
 
 extension Song.Contributor {
+    /// Words that start a group name: "orchestra", "Philharmoniker", "Kammerorchester", "Symphony".
+    private static let groupStems = [
+        "orchest", "philharmon", "symphon", "sinfon", "kammerorch", "kammerchor", "kammerens", "ensemble",
+        "quartet", "quintet", "sextet", "consort",
+        "choir", "chorus", "camerata", "collegium",
+    ]
+    /// Short words that count only as a whole word, so "Chorley" stays a person.
+    private static let groupWords: Set = ["chor", "trio", "duo", "band", "orchestre"]
+
     /// The tag names a group for an ensemble and an instrument for a soloist. Without a group in the tag, a group
     /// word in the name decides.
     var isEnsemble: Bool {
-        let words = [
-            "orchestra", "orchestre", "orchester", "choir", "chorus", "ensemble", "quartet", "quintet", "trio",
-            "consort",
-        ]
         let sub = (subRole ?? "").lowercased()
-        if words.contains(where: { sub.contains($0) }) { return true }
+        if Self.groupStems.contains(where: { sub.contains($0) }) { return true }
         let tokens = artist.name.lowercased().split { !$0.isLetter }.map(String.init)
-        return tokens.contains { words.contains($0) }
+        return tokens.contains { token in
+            Self.groupWords.contains(token) || Self.groupStems.contains { token.hasPrefix($0) }
+        }
     }
 }

@@ -118,8 +118,7 @@ struct FavouritesView: View {
                         Text(favourite.work.composer)
                             .typeStyle(.subheadline)
                             .foregroundStyle(Palette.textSecondary)
-                        RoleLines(lines: favourite.recording.principalNames)
-                            .typeStyle(.subheadline)
+                        RoleLines(lines: favourite.recording.principalNames, style: .subheadline)
                             .foregroundStyle(Palette.textSecondary)
                     }
                 }

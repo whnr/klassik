@@ -51,15 +51,34 @@ struct WorkIndex: Sendable {
         var album: String
         var year: Int?
         /// The movements in disc and track order.
-        var songs: [Song]
+        var songs: [Song] { didSet { names = Roles.lines(of: songs) } }
         /// True if this is a whole album, which can hold several works.
         var isAlbum = false
 
-        /// Every name of the tracks, one line per role.
-        var names: [Roles.Line] { Roles.lines(of: songs) }
+        /// Every name of the tracks, one line per role. Stored: the work list sorts by it and each row reads it on
+        /// every render, and reading all tracks is not free.
+        private(set) var names: [Roles.Line]
 
-        /// The names that every track shares, and the names that each track adds.
-        var split: Roles.Split { Roles.split(songs) }
+        init(id: String, album: String, year: Int? = nil, songs: [Song], isAlbum: Bool = false) {
+            self.id = id
+            self.album = album
+            self.year = year
+            self.songs = songs
+            self.isAlbum = isAlbum
+            names = Roles.lines(of: songs)
+        }
+
+        private enum CodingKeys: String, CodingKey { case id, album, year, songs, isAlbum }
+
+        init(from decoder: any Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            self.init(
+                id: try container.decode(String.self, forKey: .id),
+                album: try container.decode(String.self, forKey: .album),
+                year: try container.decodeIfPresent(Int.self, forKey: .year),
+                songs: try container.decode([Song].self, forKey: .songs),
+                isAlbum: try container.decodeIfPresent(Bool.self, forKey: .isAlbum) ?? false)
+        }
 
         /// The conductor, soloists and ensembles, which tell recordings apart.
         var principalNames: [Roles.Line] { names.filter { $0.kind.isPrincipal } }
@@ -122,7 +141,7 @@ struct WorkIndex: Sendable {
             works[key] = Work(
                 id: key, title: tag?.name ?? first.album ?? first.title, composer: first.composerName,
                 isTagged: tag != nil,
-                recordings: recordings.sorted { ($0.year ?? .max, $0.summary) < ($1.year ?? .max, $1.summary) },
+                recordings: Self.byYearThenNames(recordings),
                 grouping: tracks.lazy.compactMap { $0.groupings?.first { !$0.isEmpty } }.first)
         }
         composers = Dictionary(grouping: works.values, by: \.composer)
@@ -143,6 +162,13 @@ struct WorkIndex: Sendable {
         }
         performers = entries.map { Performer(name: $0.key, entries: $0.value) }
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+    }
+
+    /// The oldest first, then by names. The names text is built once for each recording, not once for each comparison.
+    private static func byYearThenNames(_ recordings: [Recording]) -> [Recording] {
+        recordings.map { (recording: $0, names: $0.summary) }
+            .sorted { ($0.recording.year ?? .max, $0.names) < ($1.recording.year ?? .max, $1.names) }
+            .map(\.recording)
     }
 
     /// The MusicBrainz work ID if there is one, then composer and work name, then composer and album.

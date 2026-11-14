@@ -278,11 +278,12 @@ private struct RecordingRow: View {
                     }
                     OfflineHint(isOffline: isOffline)
                 }
-                RoleLines(lines: others)
-                    .ink()
+                // The facts hold the year, so they come before the other names (spec: performers and year first).
                 Text(recording.facts())
                     .typeStyle(.subheadline)
                     .foregroundStyle(Palette.textSecondary)
+                RoleLines(lines: others)
+                    .ink()
             }
         }
     }
@@ -441,8 +442,7 @@ struct RecordingView: View {
                                 Text(item.work.composer)
                                     .typeStyle(.subheadline)
                                     .foregroundStyle(Palette.textSecondary)
-                                RoleLines(lines: item.recording.principalNames)
-                                    .typeStyle(.subheadline)
+                                RoleLines(lines: item.recording.principalNames, style: .subheadline)
                                     .foregroundStyle(Palette.textSecondary)
                             }
                         }

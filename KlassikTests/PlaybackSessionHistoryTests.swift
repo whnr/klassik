@@ -19,7 +19,7 @@ struct PlaybackSessionHistoryTests {
 
     private func item(_ id: String, album: Bool = false) -> QueueItem {
         let songs = (0..<2).map { Song(id: "\(id)-\($0)", title: "Movement \($0)", duration: 10) }
-        let recording = WorkIndex.Recording(id: id, album: id, performers: "Fixture", songs: songs, isAlbum: album)
+        let recording = WorkIndex.Recording(id: id, album: id, songs: songs, isAlbum: album)
         let work = WorkIndex.Work(id: id, title: id, composer: "Fixture", isTagged: false, recordings: [recording])
         return QueueItem(work: work, recording: recording)
     }

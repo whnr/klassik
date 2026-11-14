@@ -115,12 +115,11 @@ struct FavouritesView: View {
                     VStack(alignment: .leading) {
                         Text(favourite.work.title)
                             .ink()
-                        Text(
-                            [favourite.work.composer, favourite.recording.performers]
-                                .filter { !$0.isEmpty }.joined(separator: " · ")
-                        )
-                        .typeStyle(.subheadline)
-                        .foregroundStyle(Palette.textSecondary)
+                        Text(favourite.work.composer)
+                            .typeStyle(.subheadline)
+                            .foregroundStyle(Palette.textSecondary)
+                        RoleLines(lines: favourite.recording.principalNames, style: .subheadline)
+                            .foregroundStyle(Palette.textSecondary)
                     }
                 }
                 .itemActions(

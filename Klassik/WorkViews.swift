@@ -184,12 +184,14 @@ private struct WorkRow: View {
                         .ink()
                     OfflineHint(isOffline: work.recordings.contains { model.tracks.isOffline($0) })
                 }
-                Text(
-                    [work.context, work.recordings.count == 1 ? "1 recording" : "\(work.recordings.count) recordings"]
-                        .filter { !$0.isEmpty }.joined(separator: " · ")
-                )
-                .typeStyle(.subheadline)
-                .foregroundStyle(Palette.textSecondary)
+                if !work.context.isEmpty {
+                    Text(work.context)
+                        .typeStyle(.subheadline)
+                        .foregroundStyle(Palette.textSecondary)
+                }
+                Text(WorkIndex.Recording.count(work.recordings.count, "recording"))
+                    .typeStyle(.subheadline)
+                    .foregroundStyle(Palette.textSecondary)
             }
         }
         .itemActions(work.defaultRecording.map { QueueItem(work: work, recording: $0) })
@@ -228,28 +230,9 @@ struct WorkView: View {
             Section {
                 ForEach(work.recordings) { recording in
                     NavigationLink(value: Page.recording(work: work.id, recording: recording.id)) {
-                        VStack(alignment: .leading) {
-                            HStack {
-                                Text(recording.performers.isEmpty ? recording.album : recording.performers)
-                                    .ink()
-                                if recording.isReference {
-                                    Image(systemName: "star.fill")
-                                        .typeStyle(.caption1)
-                                        .foregroundStyle(Palette.favourite)
-                                        .accessibilityLabel("Reference recording")
-                                }
-                                OfflineHint(isOffline: model.tracks.isOffline(recording))
-                            }
-                            Text(
-                                [
-                                    recording.year.map(String.init), recording.album,
-                                    recording.completeness ?? "\(recording.songs.count) tracks",
-                                ]
-                                .compactMap(\.self).joined(separator: " · ")
-                            )
-                            .typeStyle(.subheadline)
-                            .foregroundStyle(Palette.textSecondary)
-                        }
+                        RecordingRow(
+                            recording: recording, isOffline: model.tracks.isOffline(recording),
+                            isReference: recording.isReference)
                     }
                     .itemActions(QueueItem(work: work, recording: recording), downloads: true, reference: true)
                     .accessibilityIdentifier("recording")
@@ -259,6 +242,50 @@ struct WorkView: View {
             }
         }
         .navigationTitle(work.title)
+    }
+}
+
+/// A recording on the work page: its own cover, the principal performers, every other name, and the facts in prose.
+private struct RecordingRow: View {
+    let recording: WorkIndex.Recording
+    let isOffline: Bool
+    let isReference: Bool
+    @ScaledMetric(relativeTo: .body) private var cover: CGFloat = 56
+    @ScaledMetric(space: .inGroup) private var gap: CGFloat
+
+    var body: some View {
+        let principal = recording.principalNames
+        let others = recording.otherNames
+        HStack(alignment: .top, spacing: Space.m.points) {
+            CoverImage(id: recording.songs.first?.coverArt, points: cover)
+                .frame(width: cover, height: cover)
+                .clipShape(.rect(cornerRadius: Radius.s))
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: gap) {
+                HStack(alignment: .firstTextBaseline) {
+                    if principal.isEmpty && others.isEmpty {
+                        Text(recording.album)
+                            .ink()
+                    } else {
+                        RoleLines(lines: principal)
+                            .ink()
+                    }
+                    if isReference {
+                        Image(systemName: "star.fill")
+                            .typeStyle(.caption1)
+                            .foregroundStyle(Palette.favourite)
+                            .accessibilityLabel("Reference recording")
+                    }
+                    OfflineHint(isOffline: isOffline)
+                }
+                // The facts hold the year, so they come before the other names (spec: performers and year first).
+                Text(recording.facts())
+                    .typeStyle(.subheadline)
+                    .foregroundStyle(Palette.textSecondary)
+                RoleLines(lines: others)
+                    .ink()
+            }
+        }
     }
 }
 
@@ -310,10 +337,8 @@ struct RecordingView: View {
             Section {
                 LabeledContent("Composer", value: work.composer)
                     .ink()
-                if !recording.performers.isEmpty {
-                    LabeledContent("Performers", value: recording.performers)
-                        .ink()
-                }
+                RoleLines(lines: recording.names)
+                    .ink()
                 LabeledContent("Album", value: recording.album)
                     .ink()
                 if let year = recording.year {
@@ -414,12 +439,11 @@ struct RecordingView: View {
                             VStack(alignment: .leading) {
                                 Text(item.work.title)
                                     .ink()
-                                Text(
-                                    [item.work.composer, item.recording.performers]
-                                        .filter { !$0.isEmpty }.joined(separator: " · ")
-                                )
-                                .typeStyle(.subheadline)
-                                .foregroundStyle(Palette.textSecondary)
+                                Text(item.work.composer)
+                                    .typeStyle(.subheadline)
+                                    .foregroundStyle(Palette.textSecondary)
+                                RoleLines(lines: item.recording.principalNames, style: .subheadline)
+                                    .foregroundStyle(Palette.textSecondary)
                             }
                         }
                         .accessibilityIdentifier("up-next")

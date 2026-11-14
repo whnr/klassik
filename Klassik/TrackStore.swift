@@ -119,7 +119,7 @@ final class TrackStore {
                 }
                 downloads.append(
                     Download(
-                        id: recording.id, title: title, detail: recording.performers,
+                        id: recording.id, title: title, detail: recording.summary,
                         songIDs: recording.songs.map(\.id), bytes: bytes, date: .now))
                 saveManifest()
             } catch {

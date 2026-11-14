@@ -38,15 +38,11 @@ struct WorkIndex: Sendable {
         /// The reference recording, else the oldest.
         var defaultRecording: Recording? { recordings.first { $0.isReference } ?? recordings.first }
 
-        /// What the track titles and albums say about the work. A WORK tag can be as short as "Op. 67".
+        /// What the track titles say about the work. A WORK tag can be as short as "Op. 67".
         var context: String {
             let first = recordings.first?.songs ?? []
-            let albums = Array(Set(recordings.map(\.album))).sorted()
-            let parts: [String?] =
-                [WorkIndex.commonTitle(first.map(\.title))] + albums.prefix(2).map(Optional.some)
-                + [albums.count > 2 ? "+\(albums.count - 2) more" : nil]
-            var seen: Set<String> = [title]
-            return parts.compactMap(\.self).filter { !$0.isEmpty && seen.insert($0).inserted }.joined(separator: " · ")
+            guard let common = WorkIndex.commonTitle(first.map(\.title)), common != title else { return "" }
+            return common
         }
     }
 
@@ -54,11 +50,47 @@ struct WorkIndex: Sendable {
         var id: String
         var album: String
         var year: Int?
-        var performers: String
         /// The movements in disc and track order.
-        var songs: [Song]
+        var songs: [Song] { didSet { names = Roles.lines(of: songs) } }
         /// True if this is a whole album, which can hold several works.
         var isAlbum = false
+
+        /// Every name of the tracks, one line per role. Stored: the work list sorts by it and each row reads it on
+        /// every render, and reading all tracks is not free.
+        private(set) var names: [Roles.Line]
+
+        init(id: String, album: String, year: Int? = nil, songs: [Song], isAlbum: Bool = false) {
+            self.id = id
+            self.album = album
+            self.year = year
+            self.songs = songs
+            self.isAlbum = isAlbum
+            names = Roles.lines(of: songs)
+        }
+
+        private enum CodingKeys: String, CodingKey { case id, album, year, songs, isAlbum }
+
+        init(from decoder: any Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            self.init(
+                id: try container.decode(String.self, forKey: .id),
+                album: try container.decode(String.self, forKey: .album),
+                year: try container.decodeIfPresent(Int.self, forKey: .year),
+                songs: try container.decode([Song].self, forKey: .songs),
+                isAlbum: try container.decodeIfPresent(Bool.self, forKey: .isAlbum) ?? false)
+        }
+
+        /// The conductor, soloists and ensembles, which tell recordings apart.
+        var principalNames: [Roles.Line] { names.filter { $0.kind.isPrincipal } }
+
+        /// The other names: arranger, lyricist and names without a role.
+        var otherNames: [Roles.Line] { names.filter { !$0.kind.isPrincipal } }
+
+        /// All names as one text, for the lock screen and other places that need one string.
+        var summary: String { Roles.Line.list(names.flatMap(\.names)) }
+
+        /// The conductor, soloists and ensembles, each once.
+        var performerNames: [String] { principalNames.flatMap(\.names) }
 
         /// The listener's reference recording of a work is the one with all tracks starred in the server.
         var isReference: Bool { !songs.isEmpty && songs.allSatisfy { $0.starred != nil } }
@@ -109,7 +141,7 @@ struct WorkIndex: Sendable {
             works[key] = Work(
                 id: key, title: tag?.name ?? first.album ?? first.title, composer: first.composerName,
                 isTagged: tag != nil,
-                recordings: recordings.sorted { ($0.year ?? .max, $0.performers) < ($1.year ?? .max, $1.performers) },
+                recordings: Self.byYearThenNames(recordings),
                 grouping: tracks.lazy.compactMap { $0.groupings?.first { !$0.isEmpty } }.first)
         }
         composers = Dictionary(grouping: works.values, by: \.composer)
@@ -123,13 +155,20 @@ struct WorkIndex: Sendable {
         var entries: [String: [Performer.Entry]] = [:]
         for work in composers.flatMap(\.works) {
             for recording in work.recordings {
-                for name in recording.songs.first?.performerNames ?? [] {
+                for name in recording.performerNames {
                     entries[name, default: []].append(Performer.Entry(work: work, recording: recording))
                 }
             }
         }
         performers = entries.map { Performer(name: $0.key, entries: $0.value) }
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+    }
+
+    /// The oldest first, then by names. The names text is built once for each recording, not once for each comparison.
+    private static func byYearThenNames(_ recordings: [Recording]) -> [Recording] {
+        recordings.map { (recording: $0, names: $0.summary) }
+            .sorted { ($0.recording.year ?? .max, $0.names) < ($1.recording.year ?? .max, $1.names) }
+            .map(\.recording)
     }
 
     /// The MusicBrainz work ID if there is one, then composer and work name, then composer and album.
@@ -150,8 +189,7 @@ struct WorkIndex: Sendable {
         let songs = ordered.filter { seen.insert("\($0.discNumber ?? 0)|\($0.track ?? 0)|\($0.title)").inserted }
         let first = songs[0]
         return Recording(
-            id: id, album: first.album ?? "", year: songs.compactMap(\.year).min(), performers: first.performers,
-            songs: songs)
+            id: id, album: first.album ?? "", year: songs.compactMap(\.year).min(), songs: songs)
     }
 
     /// A whole album as one work with one recording, to play it from start to end.
@@ -159,10 +197,6 @@ struct WorkIndex: Sendable {
         guard let first = tracks.first else { return nil }
         var whole = Self.recording(id: "album|\(first.albumKey)", tracks)
         whole.isAlbum = true
-        // Each performer appears once, at their first track in disc and track order.
-        var seen = Set<String>()
-        whole.performers = whole.songs.flatMap(\.performerNames)
-            .filter { seen.insert($0).inserted }.joined(separator: " • ")
         let work = Work(
             id: whole.id, title: whole.album.isEmpty ? first.title : whole.album,
             composer: first.composerName, isTagged: false, recordings: [whole])
@@ -195,27 +229,6 @@ extension Song {
         return names.isEmpty ? Self.unknownComposer : names.joined(separator: ", ")
     }
 
-    /// Soloists, then ensembles, then the conductor. Without these tags, the track artist.
-    /// Navidrome returns the contributors of a track in a different order after each scan, so each group sorts by name.
-    var performerNames: [String] {
-        let roles = contributors ?? []
-        let performers = roles.filter { $0.role == "performer" }
-        let ensembles = performers.filter(\.isEnsemble)
-        let groups = [
-            performers.filter { !$0.isEnsemble }, ensembles, roles.filter { $0.role == "conductor" },
-        ]
-        var names: [String] = []
-        for group in groups {
-            for name in group.map(\.artist.name).sorted(by: { $0.localizedStandardCompare($1) == .orderedAscending })
-            where !names.contains(name) {
-                names.append(name)
-            }
-        }
-        return names.isEmpty ? [artist].compactMap(\.self).filter { !$0.isEmpty } : names
-    }
-
-    var performers: String { performerNames.joined(separator: ", ") }
-
     /// The movement name if tagged, else the track title.
     var movementTitle: String {
         if let name = movements?.first?.name, !name.isEmpty { return name }
@@ -223,11 +236,36 @@ extension Song {
     }
 }
 
-extension Song.Contributor {
-    /// The tag names an instrument for a soloist and a group for an ensemble.
-    var isEnsemble: Bool {
-        let ensembleWords = ["orchestra", "choir", "chorus", "ensemble", "quartet", "quintet", "trio", "consort"]
-        let sub = (subRole ?? "").lowercased()
-        return ensembleWords.contains { sub.contains($0) }
+extension WorkIndex.Recording {
+    /// The quiet facts in prose (ADR 0031): "Recorded in 1972 on Dvořák Symphonies. 42 minutes, 4 movements."
+    /// The album goes out where the page already names it.
+    func facts(includingAlbum: Bool = true) -> String {
+        var sentences: [String] = []
+        let place = includingAlbum && !album.isEmpty ? "on \(album)" : nil
+        switch (year, place) {
+        case (let year?, let place?): sentences.append("Recorded in \(year) \(place).")
+        case (let year?, nil): sentences.append("Recorded in \(year).")
+        case (nil, let place?): sentences.append("Recorded \(place).")
+        case (nil, nil): break
+        }
+        var measures: [String] = []
+        if let minutes = Self.duration(songs.compactMap(\.duration).reduce(0, +)) { measures.append(minutes) }
+        measures.append(completeness ?? Self.count(songs.count, isAlbum ? "track" : "movement"))
+        sentences.append(measures.joined(separator: ", ") + ".")
+        return sentences.joined(separator: " ")
+    }
+
+    /// Rounds to the nearest minute, never under one: 41:58 is "42 minutes".
+    static func duration(_ seconds: Int) -> String? {
+        guard seconds > 0 else { return nil }
+        let minutes = max(1, Int((Double(seconds) / 60).rounded()))
+        guard minutes >= 60 else { return count(minutes, "minute") }
+        let hours = count(minutes / 60, "hour")
+        return minutes % 60 == 0 ? hours : "\(hours) \(count(minutes % 60, "minute"))"
+    }
+
+    /// A number never wraps away from its word (ADR 0030).
+    static func count(_ number: Int, _ noun: String) -> String {
+        "\(number)\u{00A0}\(noun)\(number == 1 ? "" : "s")"
     }
 }

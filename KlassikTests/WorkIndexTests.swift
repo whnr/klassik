@@ -69,7 +69,7 @@ struct WorkIndexTests {
         #expect(album.recording.isAlbum)
         #expect(album.recording.songs.map(\.id) == ["m1", "m2"])
         #expect(album.recording.title(of: movement) == "Track 2")
-        #expect(album.recording.performers == "Album Artist")
+        #expect(album.recording.names.flatMap(\.names) == ["Album Artist"])
         #expect(album.work.title == "Encores")
         #expect(WorkIndex.album([]) == nil)
     }
@@ -107,8 +107,9 @@ struct WorkIndexTests {
                 }
                 let album = try #require(WorkIndex.album(tracks))
                 #expect(
-                    album.recording.performers
-                        == "Sine Wave Chamber Orchestra • Carl Fixture • Daniel Keys • Guest Soloist")
+                    album.recording.names.flatMap(\.names)
+                        == ["Carl Fixture", "Daniel Keys", "Sine Wave Chamber Orchestra", "Guest Soloist"])
+                #expect(album.recording.summary.contains("•") == false)
                 #expect(album.recording.songs.map(\.id) == ["b", "m", "e"])
             }
         }
@@ -120,7 +121,7 @@ struct WorkIndexTests {
         second.title = "Other Track"
         for tracks in [[first, second], [second, first]] {
             let album = try #require(WorkIndex.album(tracks))
-            #expect(album.recording.performers == "First Soloist • Second Soloist")
+            #expect(album.recording.names.flatMap(\.names) == ["First Soloist", "Second Soloist"])
         }
     }
 
@@ -158,11 +159,11 @@ struct WorkIndexTests {
         #expect(index.composers.first?.works.first?.recordings.first?.songs.map(\.id) == ["s1"])
     }
 
-    @Test func performersBeforeConductorElseArtist() {
+    @Test func conductorLeadsAndTheTrackArtistStandsInWithoutRoles() {
         let tagged = Self.song(
             "t", album: "A", track: 1, performers: [("conductor", "Anna Probe"), ("performer", "Eva Bogen")])
-        #expect(tagged.performers == "Eva Bogen, Anna Probe")
-        #expect(Self.song("u", album: "A", track: 1).performers == "Album Artist")
+        #expect(Roles.lines(of: [tagged]).flatMap(\.names) == ["Anna Probe", "Eva Bogen"])
+        #expect(Roles.lines(of: [Self.song("u", album: "A", track: 1)]).flatMap(\.names) == ["Album Artist"])
     }
 
     @Test(
@@ -186,10 +187,10 @@ struct WorkIndexTests {
         first.title = "Symphonie Nr.5 c-moll (1)"
         second.title = "Symphonie Nr.5 c-moll (2)"
         let work = try #require(WorkIndex(songs: [first, second]).composers.first?.works.first)
-        #expect(work.context == "Symphonie Nr.5 c-moll · Symphonie Nr.5")
+        #expect(work.context == "Symphonie Nr.5 c-moll")
     }
 
-    @Test func performersListSoloistsThenEnsemblesThenConductor() {
+    @Test func namesKeepTheirOrderWhateverOrderTheServerSends() {
         func contributor(_ role: String, _ name: String, _ subRole: String? = nil) -> Song.Contributor {
             Song.Contributor(role: role, subRole: subRole, artist: Song.Artist(id: name, name: name))
         }
@@ -198,14 +199,15 @@ struct WorkIndexTests {
             contributor("performer", "Eva Bogen", "violin"), contributor("performer", "Adam Alto", "viola"),
         ]
         let song = Self.song("t", album: "A", track: 1, contributors: contributors)
-        #expect(song.performers == "Adam Alto, Eva Bogen, Testing Philharmonic, Anna Probe")
+        let names = Roles.lines(of: [song]).flatMap(\.names)
+        #expect(names == ["Anna Probe", "Adam Alto", "Eva Bogen", "Testing Philharmonic"])
         let shuffled = Self.song("t", album: "A", track: 1, contributors: contributors.reversed())
-        #expect(shuffled.performers == song.performers)
+        #expect(Roles.lines(of: [shuffled]).flatMap(\.names) == names)
     }
 
     @Test func completenessNamesMissingMovements() {
         let part = WorkIndex.Recording(
-            id: "r", album: "A", performers: "",
+            id: "r", album: "A",
             songs: [
                 Self.song("a", album: "A", track: 1, movement: (1, 5)),
                 Self.song("b", album: "A", track: 2, movement: (3, 5)),
@@ -213,8 +215,8 @@ struct WorkIndexTests {
             ])
         #expect(part.completeness == "3 of 5 movements")
         let whole = WorkIndex.Recording(
-            id: "r", album: "A", performers: "", songs: [Self.song("a", album: "A", track: 1, movement: (1, 1))])
+            id: "r", album: "A", songs: [Self.song("a", album: "A", track: 1, movement: (1, 1))])
         #expect(whole.completeness == nil)
-        #expect(WorkIndex.Recording(id: "r", album: "A", performers: "", songs: []).completeness == nil)
+        #expect(WorkIndex.Recording(id: "r", album: "A", songs: []).completeness == nil)
     }
 }

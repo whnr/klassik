@@ -62,16 +62,13 @@ private struct PerformerRow: View {
         NavigationLink(value: Page.recording(work: entry.work.id, recording: entry.recording.id)) {
             VStack(alignment: .leading) {
                 HStack {
-                    Text(entry.recording.performers)
+                    RoleLines(lines: entry.recording.names)
                         .ink()
                     OfflineHint(isOffline: model.tracks.isOffline(entry.recording))
                 }
-                Text(
-                    [entry.recording.year.map(String.init), entry.recording.album]
-                        .compactMap(\.self).joined(separator: " · ")
-                )
-                .typeStyle(.subheadline)
-                .foregroundStyle(Palette.textSecondary)
+                Text(entry.recording.facts())
+                    .typeStyle(.subheadline)
+                    .foregroundStyle(Palette.textSecondary)
             }
         }
         .itemActions(QueueItem(work: entry.work, recording: entry.recording), downloads: true, reference: true)

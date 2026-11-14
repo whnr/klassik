@@ -34,7 +34,7 @@ struct TrackStoreTests {
     func song(_ id: String) -> Song { Song(id: id, title: "Track \(id)", suffix: "mp3") }
 
     func recording(_ id: String, _ songIDs: [String]) -> WorkIndex.Recording {
-        WorkIndex.Recording(id: id, album: "Album", year: nil, performers: "Orchestra", songs: songIDs.map(song))
+        WorkIndex.Recording(id: id, album: "Album", songs: songIDs.map(song))
     }
 
     /// Waits until no download runs.

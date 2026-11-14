@@ -49,7 +49,7 @@ struct PlaybackSessionEngineTests {
         let songs = (0..<movements).map {
             Song(id: "\(id)-\($0)", title: "Movement \($0 + 1)", duration: 2, suffix: "wav")
         }
-        let recording = WorkIndex.Recording(id: id, album: id, performers: "Fixture", songs: songs)
+        let recording = WorkIndex.Recording(id: id, album: id, songs: songs)
         let work = WorkIndex.Work(id: id, title: id, composer: "Fixture", isTagged: false, recordings: [recording])
         return QueueItem(work: work, recording: recording)
     }

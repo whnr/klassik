@@ -52,7 +52,7 @@ struct PlaybackSessionTests {
                 id: "\(id)-\(index)", title: "Movement \(index + 1)", duration: 10, suffix: "mp3",
                 replayGain: (index < gains.count ? gains[index] : nil).map { Song.ReplayGain(trackGain: $0) })
         }
-        let recording = WorkIndex.Recording(id: id, album: id, performers: "Fixture", songs: songs)
+        let recording = WorkIndex.Recording(id: id, album: id, songs: songs)
         let work = WorkIndex.Work(id: id, title: id, composer: "Fixture", isTagged: false, recordings: [recording])
         return QueueItem(work: work, recording: recording)
     }

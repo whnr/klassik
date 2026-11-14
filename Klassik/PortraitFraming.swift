@@ -23,7 +23,8 @@ enum PortraitFraming {
             scale = min(max(fill, wanted), fill * maxZoom)
         }
         let size = CGSize(width: image.width * scale, height: image.height * scale)
-        let centre = face.map { CGPoint(x: $0.midX * size.width, y: $0.midY * size.height) }
+        let centre =
+            face.map { CGPoint(x: $0.midX * size.width, y: $0.midY * size.height) }
             ?? CGPoint(x: size.width / 2, y: size.height * 0.35)
         let x = min(0, max(frame.width - size.width, frame.width / 2 - centre.x))
         let y = min(0, max(frame.height - size.height, frame.height * faceLine - centre.y))

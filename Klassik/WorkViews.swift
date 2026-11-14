@@ -1,65 +1,5 @@
 import SwiftUI
 
-/// A composer's works. Albums without work tags come last, each as one work.
-struct ComposerView: View {
-    @Environment(AppModel.self) private var model
-    let composer: WorkIndex.Composer
-
-    var body: some View {
-        let sets = composer.sets
-        let loose = composer.looseWorks
-        let untagged = composer.works.filter { !$0.isTagged }
-        PageList {
-            if let facts = model.enrichment.composer(named: composer.name), facts.born != nil || facts.died != nil {
-                Section {
-                    LabeledContent(
-                        "Lived", value: "\(facts.born.map(String.init) ?? "?")–\(facts.died.map(String.init) ?? "")"
-                    )
-                    .ink()
-                    if let period = Timeline.Period.of(born: facts.born, died: facts.died) {
-                        LabeledContent("Period", value: period.title)
-                            .ink()
-                    }
-                }
-                .accessibilityIdentifier("composer-dates")
-            }
-            if !sets.isEmpty {
-                Section {
-                    ForEach(sets) { set in
-                        DisclosureGroup {
-                            ForEach(set.works) { WorkRow(work: $0) }
-                        } label: {
-                            LabeledContent(set.name, value: "\(set.works.count)")
-                                .ink()
-                        }
-                        .accessibilityIdentifier("set")
-                    }
-                } header: {
-                    SectionHeading("Sets")
-                }
-            }
-            if !loose.isEmpty {
-                Section {
-                    ForEach(loose) { WorkRow(work: $0) }
-                } header: {
-                    SectionHeading("Works")
-                }
-            }
-            if !untagged.isEmpty {
-                Section {
-                    ForEach(untagged) { WorkRow(work: $0) }
-                } header: {
-                    SectionHeading("Albums without work tags")
-                } footer: {
-                    Text("These tracks have no WORK tag, so Klassik shows each album as one work.")
-                }
-            }
-        }
-        .navigationTitle(composer.name)
-        .toolbar { ShuffleButton(works: composer.works) }
-    }
-}
-
 /// Plays works in random order. The movements of each work stay in order.
 struct ShuffleButton: View {
     @Environment(AppModel.self) private var model
@@ -172,7 +112,7 @@ struct OfflineHint: View {
     }
 }
 
-private struct WorkRow: View {
+struct WorkRow: View {
     @Environment(AppModel.self) private var model
     let work: WorkIndex.Work
 

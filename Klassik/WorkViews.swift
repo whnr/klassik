@@ -192,7 +192,7 @@ struct WorkView: View {
                             recording: recording, isOffline: model.tracks.isOffline(recording),
                             isReference: recording.isReference, isPlaying: isPlaying)
                     }
-                    // The row of what plays is tinted, so the listener sees it while browsing (ADR 0015).
+                    // The row of what plays is tinted, so the listener sees it while browsing (ADR 0014).
                     .listRowBackground(isPlaying ? Palette.tint.color.opacity(0.12) : Palette.backgroundRow.color)
                     .itemActions(QueueItem(work: work, recording: recording), downloads: true, reference: true)
                     .accessibilityIdentifier("recording")
@@ -300,8 +300,7 @@ private struct ComposedRow: View {
     }
 }
 
-/// The page of a recording or album. While it plays, it is the player (ADR 0015): the header holds what every track
-/// shares, a row holds what differs, and only the playing movement has a playback bar (ADR 0027).
+/// Recording and album content also fills the player overlay (ADR 0014). Rows hold the differing names (ADR 0027).
 struct RecordingView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -309,9 +308,11 @@ struct RecordingView: View {
     let recording: WorkIndex.Recording
     /// Set on the album page, which lists the tracks of the album.
     var album: WorkIndex.Album?
+    var isOverlay = false
     /// The rows that the listener opened, by track position.
     @State private var opened: Set<Int> = []
     @State private var spell = QuietSpell()
+    @State private var followsMovement = false
 
     private var isPlayingThis: Bool { model.playback.recording?.id == recording.id }
 
@@ -329,6 +330,24 @@ struct RecordingView: View {
         ScrollViewReader { proxy in
             PageList {
                 Section {
+                    if isOverlay {
+                        VStack(spacing: Space.m.points) {
+                            CoverImage(id: recording.songs.first?.coverArt, points: 200)
+                                .frame(width: 200, height: 200)
+                                .clipShape(.rect(cornerRadius: Radius.s))
+                            HStack(alignment: .firstTextBaseline) {
+                                Text(work.title)
+                                    .accessibilityIdentifier("player-title")
+                                    .typeStyle(.pageTitle)
+                                    .ink()
+                                if !recording.isAlbum { referenceButton }
+                            }
+                            .buttonStyle(.borderless)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .multilineTextAlignment(.center)
+                        .listRowBackground(Color.clear)
+                    }
                     header(page)
                     if isPlayingThis, let error = player.error {
                         Label(error, systemImage: "exclamationmark.triangle")
@@ -413,9 +432,15 @@ struct RecordingView: View {
                 spell.touching(phase == .tracking || phase == .interacting || phase == .decelerating)
             }
             .onChange(of: model.isScrubbingTimeline) { _, scrubbing in spell.hold(scrubbing) }
-            .task(id: isPlayingThis ? player.movement : nil) {
-                guard isPlayingThis, let movement = player.movement, recording.songs.indices.contains(movement)
+            .task(id: isOverlay && isPlayingThis ? player.movement : nil) {
+                guard isOverlay, isPlayingThis, let movement = player.movement,
+                    recording.songs.indices.contains(movement)
                 else { return }
+                // Opening the player shows its header. Only a later movement change follows the rows.
+                guard followsMovement else {
+                    followsMovement = true
+                    return
+                }
                 while let rest = spell.wait() {
                     try? await Task.sleep(for: rest)
                     if Task.isCancelled { return }
@@ -425,22 +450,25 @@ struct RecordingView: View {
                 }
             }
         }
-        .pageTitle(work.title)
+        .pageTitle(isOverlay ? "" : work.title)
         .toolbar {
-            if !recording.isAlbum {
-                // The page can show a queue copy. The state and the change come from the library.
-                let live = model.library.current(work: work, recording: recording)
-                Button(
-                    live.recording.isReference ? "Remove Reference" : "Reference",
-                    systemImage: live.recording.isReference ? "star.fill" : "star"
-                ) {
-                    Task {
-                        _ = await model.setReference(live.recording, of: live.work, to: !live.recording.isReference)
-                    }
-                }
-                .accessibilityIdentifier("reference")
+            if !isOverlay, !recording.isAlbum { referenceButton }
+        }
+    }
+
+    private var referenceButton: some View {
+        // The page can show a queue copy. The library supplies current Reference state.
+        let live = model.library.current(work: work, recording: recording)
+        return Button(
+            live.recording.isReference ? "Remove Reference" : "Reference",
+            systemImage: live.recording.isReference ? "star.fill" : "star"
+        ) {
+            Task {
+                _ = await model.setReference(live.recording, of: live.work, to: !live.recording.isReference)
             }
         }
+        .labelStyle(.iconOnly)
+        .accessibilityIdentifier("reference")
     }
 
     /// What every track shares, in centred lines.

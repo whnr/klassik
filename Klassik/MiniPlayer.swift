@@ -2,89 +2,89 @@ import SwiftUI
 import UIKit
 
 /// The mini player: a pill at the end of the timeline, in the tab row, flush with the screen edge (ADR 0028). It
-/// holds a round play/pause button and the square cover, and no text. The cover opens the page of what plays.
+/// holds a round play/pause button and the square cover, and no text. The cover opens the player overlay.
 struct MiniPlayer: View {
     @Environment(AppModel.self) private var model
     @Environment(AppNavigator.self) private var navigator
     let side: TimelineSide
-    let bottom: CGFloat
+    let height: CGFloat
+    let edgeInset: CGFloat
 
     /// The size of the button and the cover, as of the tab items beside them.
     nonisolated static let item: CGFloat = 48
+    private var itemSize: CGFloat { Self.itemSize(height: height) }
 
     var body: some View {
         let player = model.playback
         if let item = player.item {
-            let page = Page(playing: item)
-            // On the player page the pill holds only play/pause (ADR 0028).
-            let onPlayer = navigator.pages(in: navigator.selection).last == page
             let edge: Edge.Set = side == .right ? .trailing : .leading
             let content: Edge.Set = side == .right ? .leading : .trailing
             HStack(spacing: Space.xs.points) {
-                if side == .left, !onPlayer { cover(of: item, page: page, edge: edge) }
+                if side == .left { cover(of: item, edge: edge) }
                 Button {
                     player.togglePause()
                 } label: {
                     Image(systemName: player.isPaused ? "play.fill" : "pause.fill")
                         .typeStyle(.title3)
                         .foregroundStyle(Palette.textPrimary)
-                        .frame(width: Self.item, height: Self.item)
-                        .padding(.vertical, Space.xs.points)
+                        .frame(width: itemSize, height: itemSize)
+                        .padding(.vertical, max(0, (height - itemSize) / 2))
                         .padding(content, Space.xs.points)
-                        .padding(edge, onPlayer ? Self.edgeInset : 0)
                         .contentShape(.rect)
                 }
                 .buttonStyle(.borderless)
                 .accessibilityLabel(player.isPaused ? "Resume" : "Pause")
                 .accessibilityIdentifier("mini-player-pause")
-                if side == .right, !onPlayer { cover(of: item, page: page, edge: edge) }
+                if side == .right { cover(of: item, edge: edge) }
             }
-            .background(alignment: .top) {
-                Color.clear
-                    .frame(height: TabRow.height + bottom)
-                    .glassEffect(.regular.interactive(), in: shape(onPlayer: onPlayer))
-            }
+            .glassEffect(.regular.interactive(), in: shape)
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Mini player")
             .accessibilityIdentifier("mini-player")
         }
     }
 
-    nonisolated static func width(onPlayer: Bool) -> CGFloat {
-        onPlayer ? item + Space.xs.points + edgeInset : 2 * item + 2 * Space.xs.points + edgeInset
+    nonisolated static func width(height: CGFloat, edgeInset: CGFloat) -> CGFloat {
+        2 * itemSize(height: height) + 2 * Space.xs.points + edgeInset
     }
 
-    /// The padding on the screen edge: the timeline strip and a gap. The button at the edge takes it into its
-    /// own frame, so a tap at the screen edge still hits it.
-    nonisolated private static let edgeInset = Space.xs.points + Measure.timeline
+    nonisolated private static func itemSize(height: CGFloat) -> CGFloat {
+        min(item, max(Measure.hitTarget, height - 2 * Space.xs.points))
+    }
 
-    /// Round on the content side, flat on the screen edge.
-    private func shape(onPlayer: Bool) -> ConcentricRectangle {
-        let round = Self.item / 2 + Space.xs.points
+    /// The square cover clears the display bend with the same gap as the straight edge.
+    nonisolated static func coverInset(radius: CGFloat, bottom: CGFloat) -> CGFloat {
+        let below = max(0, radius - bottom - Space.xs.points)
+        let bend = radius - sqrt(max(0, radius * radius - below * below))
+        return Measure.timeline + Space.xs.points + bend
+    }
+
+    private var shape: ConcentricRectangle {
+        let round = height / 2
         return side == .right
             ? ConcentricRectangle(
                 topLeadingCorner: .fixed(round), topTrailingCorner: .fixed(0),
-                bottomLeadingCorner: .fixed(onPlayer ? 0 : round), bottomTrailingCorner: .concentric)
+                bottomLeadingCorner: .fixed(round), bottomTrailingCorner: .concentric)
             : ConcentricRectangle(
                 topLeadingCorner: .fixed(0), topTrailingCorner: .fixed(round),
-                bottomLeadingCorner: .concentric, bottomTrailingCorner: .fixed(onPlayer ? 0 : round))
+                bottomLeadingCorner: .concentric, bottomTrailingCorner: .fixed(round))
     }
 
     /// Album art is square, so the cover is square; only play/pause is round.
-    private func cover(of item: QueueItem, page: Page, edge: Edge.Set) -> some View {
+    private func cover(of item: QueueItem, edge: Edge.Set) -> some View {
         Button {
-            navigator.open(page, in: navigator.selection)
+            navigator.openPlayer()
         } label: {
-            CoverImage(id: item.recording.songs.first?.coverArt, points: Self.item)
-                .frame(width: Self.item, height: Self.item)
+            CoverImage(id: item.recording.songs.first?.coverArt, points: itemSize)
+                .frame(width: itemSize, height: itemSize)
                 .clipShape(.rect(cornerRadius: Radius.s))
-                .padding(.vertical, Space.xs.points)
-                .padding(edge, Self.edgeInset)
+                .padding(.vertical, max(0, (height - itemSize) / 2))
+                .padding(edge, edgeInset)
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(item.work.title)
-        .accessibilityHint("Opens the page of what plays.")
+        .accessibilityHint("Opens the player overlay.")
         .accessibilityIdentifier("mini-player-cover")
     }
 }

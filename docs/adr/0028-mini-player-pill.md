@@ -2,6 +2,8 @@
 
 Date: 2026-11-08. Decided by Flo after specimen round 7 on the phone. Bead: sz-rs30.1.83.9. Replaces the mini player of [0014](0014-player.md).
 
+Flo refined the overlay cover and tab alignment on 2026-11-14 (bead sz-rs30.1.105.57).
+
 The custom-tab fallback is replaced by [0041](0041-native-tabs-and-display-corners.md).
 
 ## Context
@@ -14,8 +16,10 @@ The card of ADR 0014 floated above the content in every place. It took a row of 
 - The timeline bar runs into the pill's flat face. The pill is the end of the timeline.
 - The pill shows no text. The scrub label and the player name what plays.
 - A tap on the cover opens the player overlay (ADR 0014). A tap on play/pause pauses or resumes, and stays on the page.
-- The tab bar gets narrower to make room for the pill. It keeps its height.
-- While the player overlay is open, the pill holds only play/pause. It stays visible above the overlay.
+- The native tab bar gets narrower to make room for the pill.
+- The pill and native tab capsule have the same top, bottom and height. The pill uses system glass.
+- The square cover keeps an even gap from the display bend, on either edge.
+- While the player overlay is open, the pill keeps play/pause and its cover. Its size and position stay unchanged.
 - When nothing plays, the pill and the timeline go away (ADR 0014).
 
 ## Consequences

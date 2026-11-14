@@ -180,42 +180,32 @@ struct NavigatorTests {
         #expect(navigator.pages(in: .chronology) == ["work"])
     }
 
-    @Test func thePlayerFollowsTheNextItemWithoutAddingAPage() {
+    @Test func slidingDownKeepsThePageUnderThePlayer() {
         let navigator = Navigator<String>()
-        navigator.setPages(["composer", "work", "recording-a"], in: .library)
-        navigator.followPlayback(from: "recording-a", to: "recording-b")
-        #expect(navigator.pages(in: .library) == ["composer", "work", "recording-b"])
-        navigator.back()
-        #expect(navigator.pages(in: .library) == ["composer", "work"])
+        navigator.setPages(["composer", "work", "recording"], in: .library)
+        navigator.openPlayer()
+        #expect(navigator.isPlayerOpen)
+        navigator.closePlayer()
+        #expect(!navigator.isPlayerOpen)
+        #expect(navigator.selection == .library)
+        #expect(navigator.pages(in: .library) == ["composer", "work", "recording"])
     }
 
-    @Test func aQueueAdvanceKeepsThePageThatTheListenerBrowses() {
+    @Test(arguments: Place.allCases, Place.allCases)
+    func everyTabLeavesThePlayerOnItsLastPage(underlying: Place, tapped: Place) {
         let navigator = Navigator<String>()
-        navigator.setPages(["recording-a", "composer"], in: .library)
-        navigator.followPlayback(from: "recording-a", to: "recording-b")
-        #expect(navigator.pages(in: .library) == ["recording-a", "composer"])
-    }
-
-    @Test func aQueueAdvanceDoesNotChangeAnotherPlacesStack() {
-        let navigator = Navigator<String>()
-        navigator.open("recording-a", in: .library)
-        navigator.select(.search)
-        navigator.followPlayback(from: "recording-a", to: "recording-b")
-        #expect(navigator.pages(in: .search).isEmpty)
-        #expect(navigator.pages(in: .library) == ["recording-a"])
-    }
-
-    @Test func theEndOfTheQueueKeepsThePlayerPage() {
-        let navigator = Navigator<String>()
-        navigator.open("recording-a", in: .library)
-        navigator.followPlayback(from: "recording-a", to: nil)
-        #expect(navigator.pages(in: .library) == ["recording-a"])
-    }
-
-    @Test func startingPlaybackKeepsTheOpenRecordingPage() {
-        let navigator = Navigator<String>()
-        navigator.open("recording-a", in: .library)
-        navigator.followPlayback(from: nil, to: "recording-b")
-        #expect(navigator.pages(in: .library) == ["recording-a"])
+        for place in Place.allCases {
+            navigator.setPages(["root-child", place.rawValue], in: place)
+        }
+        navigator.select(underlying)
+        navigator.openPlayer()
+        navigator.selectTab(tapped)
+        #expect(!navigator.isPlayerOpen)
+        #expect(navigator.selection == tapped)
+        for place in Place.allCases {
+            #expect(navigator.pages(in: place) == ["root-child", place.rawValue])
+        }
+        navigator.selectTab(tapped)
+        #expect(navigator.pages(in: tapped).isEmpty)
     }
 }

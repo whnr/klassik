@@ -8,7 +8,7 @@ struct GaplessTestView: View {
     @State private var error: String?
 
     var body: some View {
-        PageList {
+        GroupedPageList {
             Section {
                 ForEach(albums) { album in
                     NavigationLink(value: Page.gaplessAlbum(album.id)) {

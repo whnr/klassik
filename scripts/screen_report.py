@@ -24,6 +24,10 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 WALK = ROOT / "KlassikUITests" / "ScreensTests.swift"
 
 
+# A snap in a shared class has no area of its own; only the Places walk connects with a screenshot.
+SHARED_SNAPS = {"01-connect": "places"}
+
+
 def expected(source, ui):
     """The screenshots that a walk of the areas in `ui` takes, from the snap calls of each area class."""
     if ui in ("", "false"):
@@ -32,11 +36,12 @@ def expected(source, ui):
     names, area = [], None
     for line in source.splitlines():
         if match := re.match(r"\s*(?:final )?class (\w+)", line):
-            # A snap in a shared class, such as the connect screen, belongs to no area.
             name = match.group(1)
             area = name[: -len("Screens")].lower() if name.endswith("Screens") else None
-        elif (match := re.search(r'\bsnap\(app, "([\w-]+)"\)', line)) and area and (areas is None or area in areas):
-            names.append(match.group(1))
+        elif match := re.search(r'\bsnap\(app, "([\w-]+)"\)', line):
+            owner = area or SHARED_SNAPS.get(match.group(1))
+            if owner and (areas is None or owner in areas):
+                names.append(match.group(1))
     return sorted(set(names))
 
 
@@ -71,14 +76,17 @@ UI_REQUEST = re.compile(r"^\s*\[ui:([^\]]*)\]\s*$", re.IGNORECASE | re.MULTILINE
 def requested_areas(messages):
     """The union of the "[ui: <areas>]" lines in the commit messages of a pull request, or "false"."""
     known = [area for areas in UI_GROUPS.values() for area in areas.split(",")]
-    wanted = set()
+    wanted, everything = set(), False
     for match in UI_REQUEST.finditer(messages):
         request = match.group(1).replace(" ", "").lower()
-        if request in ("all", "true"):
-            return "all"
         if request in ("", "false"):
             continue
+        # Validate every request, also after an "all".
         wanted |= set(selected_areas(request, ",".join(known)).split(","))
+        if request in ("all", "true"):
+            everything = True
+    if everything:
+        return "all"
     return ",".join(area for area in known if area in wanted) or "false"
 
 

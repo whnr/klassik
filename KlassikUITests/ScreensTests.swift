@@ -497,7 +497,8 @@ final class PlaybackScreens: ScreensTestCase {
         add.tap()
 
         miniPlayer.buttons["mini-player-cover"].tap()
-        XCTAssertTrue(app.sliders["position"].waitForExistence(timeout: 10))
+        // The player opens at its header, and the playing movement may lie below the fold.
+        XCTAssertTrue(reveal(app.sliders["position"], in: app).exists, "No position slider in the player")
         snap(app, "07-now-playing")
         let queued = app.buttons.matching(identifier: "up-next").firstMatch
         for _ in 0..<3 where !(queued.exists && queued.isHittable) { app.swipeUp() }
@@ -575,7 +576,7 @@ final class TimelineScreens: ScreensTestCase {
 
         // The cover opens the overlay. The complete pill stays above it.
         pill.buttons["mini-player-cover"].tap()
-        XCTAssertTrue(app.sliders["position"].waitForExistence(timeout: 10))
+        XCTAssertTrue(reveal(app.sliders["position"], in: app).exists, "No position slider in the player")
         XCTAssertTrue(pill.buttons["mini-player-cover"].isHittable)
         snap(app, "15c-player-pill")
     }

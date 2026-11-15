@@ -85,9 +85,66 @@ struct PersonFacts: Codable, Equatable, Identifiable, Sendable {
     }
 }
 
-/// Reads person facts from Wikidata, Wikipedia and Wikimedia Commons. It takes the fetch closure of the
-/// MusicBrainz code, so that tests stub it. A missing part gives nil. A failed request throws.
+/// Paces the person requests to Wikimedia sites by Wikimedia's rules (ADR 0042). It spaces requests to 200 a
+/// minute, the limit for a client with a compliant User-Agent. After a throttle it holds every request back.
+actor WikimediaPacer {
+    static let shared = WikimediaPacer()
+    /// 60 seconds over 200 requests.
+    static let interval = Duration.milliseconds(300)
+    /// Wikimedia asks for at least 5 seconds after a lag error, and after a throttle without Retry-After.
+    static let minimumWait = 5.0
+    /// A request that would wait longer fails, and the caller backs off on its own scale.
+    static let longestWait = 60.0
+
+    private let interval: Duration
+    private let sleep: @Sendable (Duration) async -> Void
+    private var next = ContinuousClock.now
+    private var throttles = 0
+
+    init(
+        interval: Duration = WikimediaPacer.interval,
+        sleep: @escaping @Sendable (Duration) async -> Void = { try? await Task.sleep(for: $0) }
+    ) {
+        self.interval = interval
+        self.sleep = sleep
+    }
+
+    func wait() async {
+        let start = max(next, .now)
+        next = start + interval
+        let delay = start - .now
+        if delay > .zero { await sleep(delay) }
+    }
+
+    /// Records a throttle. Returns the seconds that the next request waits, or nil when the request must fail.
+    /// The wait is Retry-After, at least 5 seconds, and doubles for each throttle in a row.
+    func throttled(retryAfter: Double?) -> Double? {
+        throttles += 1
+        let wait = max(retryAfter ?? 0, Self.minimumWait * Double(1 << min(throttles - 1, 10)))
+        guard wait <= Self.longestWait else {
+            throttles = 0
+            return nil
+        }
+        next = max(next, .now + .seconds(wait))
+        return wait
+    }
+
+    func succeeded() {
+        throttles = 0
+    }
+}
+
+/// Reads person facts from Wikidata, Wikipedia and Wikimedia Commons, one person at a time. A test stubs the
+/// fetch closure. A missing part gives nil. A failed request throws.
 struct PersonFactsService: Sendable {
+    /// The body, the HTTP status and the seconds of a Retry-After header.
+    struct Response: Sendable {
+        var data: Data
+        var status: Int
+        var retryAfter: Double?
+    }
+    typealias Respond = @Sendable (URLRequest) async throws -> Response
+
     static let wikidata = URL(string: "https://www.wikidata.org/w/api.php")!
     static let commons = URL(string: "https://commons.wikimedia.org/w/api.php")!
     static let wikipedia = URL(string: "https://en.wikipedia.org/api/rest_v1/page/summary/")!
@@ -104,8 +161,40 @@ struct PersonFactsService: Sendable {
     /// The seconds that one request may take.
     static let timeout: TimeInterval = 15
 
-    var fetch: MusicBrainz.Fetch = MusicBrainz.network
-    var pacer = Pacer.wikidata
+    /// The replica lag in seconds above which the Action API refuses a request, as Wikimedia recommends.
+    static let maxlag = "5"
+    /// Wikimedia's User-Agent policy asks for the client, its version, contact information, and "bot" for an
+    /// automated client.
+    static let userAgent: String = {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
+        return "Klassik/\(version) (https://github.com/whnr/klassik) person-facts bot"
+    }()
+
+    var respond: Respond = PersonFactsService.network
+    var pacer = WikimediaPacer.shared
+
+    init() {}
+
+    init(respond: @escaping Respond, pacer: WikimediaPacer) {
+        self.respond = respond
+        self.pacer = pacer
+    }
+
+    /// A fetch without headers, as the stubs of tests and UI tests give it.
+    init(fetch: @escaping MusicBrainz.Fetch, pacer: WikimediaPacer) {
+        self.respond = { request in
+            let (data, status) = try await fetch(request)
+            return Response(data: data, status: status)
+        }
+        self.pacer = pacer
+    }
+
+    static let network: Respond = { request in
+        let (data, response) = try await URLSession.shared.data(for: request)
+        let http = response as? HTTPURLResponse
+        let retryAfter = http?.value(forHTTPHeaderField: "Retry-After").flatMap(Double.init)
+        return Response(data: data, status: http?.statusCode ?? 0, retryAfter: retryAfter)
+    }
 
     /// The URL when it is https and its host is on the list, else nil.
     static func trusted(_ url: URL?) -> URL? {
@@ -117,7 +206,7 @@ struct PersonFactsService: Sendable {
 
     private static func request(_ url: URL) -> URLRequest {
         var request = URLRequest(url: url, timeoutInterval: timeout)
-        request.setValue(MusicBrainz.userAgent, forHTTPHeaderField: "User-Agent")
+        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
         return request
     }
 
@@ -214,9 +303,7 @@ struct PersonFactsService: Sendable {
         let segment = title.replacingOccurrences(of: " ", with: "_")
             .addingPercentEncoding(withAllowedCharacters: Self.segmentCharacters)
         guard let segment, let url = URL(string: Self.wikipedia.absoluteString + segment) else { return nil }
-        let request = Self.request(url)
-        await pacer.wait()
-        let (data, status) = try await fetch(request)
+        let (data, status) = try await send(Self.request(url))
         if status == 404 { return nil }
         guard (200..<300).contains(status) else { throw MusicBrainz.Failure.http(status) }
         guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -240,12 +327,46 @@ struct PersonFactsService: Sendable {
 
     private static let segmentCharacters = CharacterSet.urlPathAllowed.subtracting(CharacterSet(charactersIn: "/"))
 
+    /// An Action API request. It carries maxlag, as Wikimedia asks of clients that run without a person waiting.
     private func get(_ base: URL, _ items: [URLQueryItem]) async throws -> Data {
-        let request = Self.request(base.appending(queryItems: items))
-        await pacer.wait()
-        let (data, status) = try await fetch(request)
+        let request = Self.request(base.appending(queryItems: items + [.init(name: "maxlag", value: Self.maxlag)]))
+        let (data, status) = try await send(request)
         guard (200..<300).contains(status) else { throw MusicBrainz.Failure.http(status) }
         return data
+    }
+
+    /// Sends a request when the pacer allows it. A throttle (429, a 503 with Retry-After, or a maxlag error)
+    /// sends it again after the pacer's wait. A 503 without Retry-After comes from the cache layer, and Wikimedia
+    /// asks clients not to repeat it at once.
+    private func send(_ request: URLRequest) async throws -> (Data, Int) {
+        while true {
+            await pacer.wait()
+            let response = try await respond(request)
+            guard Self.isThrottle(response) else {
+                await pacer.succeeded()
+                return (response.data, response.status)
+            }
+            guard await pacer.throttled(retryAfter: response.retryAfter) != nil else {
+                throw MusicBrainz.Failure.http(response.status == 200 ? 503 : response.status)
+            }
+        }
+    }
+
+    static func isThrottle(_ response: Response) -> Bool {
+        switch response.status {
+        case 429: return true
+        case 503: return response.retryAfter != nil
+        case 200..<300: return isLagError(response.data)
+        default: return false
+        }
+    }
+
+    /// The Action API answers a lag above maxlag with status 200 and the error code "maxlag".
+    static func isLagError(_ data: Data) -> Bool {
+        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let error = object["error"] as? [String: Any]
+        else { return false }
+        return error["code"] as? String == "maxlag"
     }
 
     // MARK: Parsing

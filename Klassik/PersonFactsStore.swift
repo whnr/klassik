@@ -34,6 +34,8 @@ final class PersonFactsStore {
         var performers: [String: String] = [:]
         /// When the background pass last settled each person: "composer:<tag>" or "performer:<tag>" (ADR 0042).
         var checked: [String: Date] = [:]
+        /// When each check of the background pass falls due, with its random spread (ADR 0042).
+        var due: [String: Date] = [:]
 
         init() {}
 
@@ -48,6 +50,7 @@ final class PersonFactsStore {
             // Performer mappings are optional for caches that hold composers only.
             performers = try container.decodeIfPresent([String: String].self, forKey: .performers) ?? [:]
             checked = try container.decodeIfPresent([String: Date].self, forKey: .checked) ?? [:]
+            due = try container.decodeIfPresent([String: Date].self, forKey: .due) ?? [:]
             // Resolutions and listener choices must survive facts invalidation.
             if version < Cache.version {
                 people = [:]
@@ -184,19 +187,28 @@ final class PersonFactsStore {
         }
     }
 
-    /// Lets the next lookup of an open tag ask again. A tag that the listener decided stays as it is.
-    func reopen(composer tag: String) {
-        guard !cache.chosen.contains(tag) else { return }
+    /// Finds the composer of a tag by the tag alone, for the background pass (ADR 0042). It uses no MusicBrainz
+    /// ID. A tag with a resolution keeps it, unless `again` asks Wikidata again. The listener's choice stays.
+    /// Returns false on a failed request.
+    @discardableResult
+    func lookUp(composer tag: String, again: Bool = false) async -> Bool {
+        if !again, case .person(let qid)? = cache.composers[tag] {
+            return cache.people[qid] != nil ? true : await refresh(qid)
+        }
+        guard again || cache.composers[tag] == nil, !cache.chosen.contains(tag) else { return true }
+        // `resolve` asks again only when the saved inputs differ from the new ones.
         cache.inputs[tag] = nil
+        return await resolve(composer: tag, artistIDs: [])
     }
 
     func reopen(performer tag: String) {
         cache.performers[tag] = nil
     }
 
-    /// Records that the background pass settled a person.
-    func markChecked(_ key: String, at date: Date) {
+    /// Records that the background pass settled a person, and when the person falls due again.
+    func markChecked(_ key: String, at date: Date, due: Date) {
         cache.checked[key] = date
+        cache.due[key] = due
         save()
     }
 
@@ -318,7 +330,8 @@ extension PersonFactsStore {
     static func forLaunch() -> PersonFactsStore {
         #if DEBUG
             if let fetch = PersonLaunchStub.fetch {
-                return PersonFactsStore(service: PersonFactsService(fetch: fetch, pacer: Pacer(interval: 0)))
+                let service = PersonFactsService(fetch: fetch, pacer: WikimediaPacer(interval: .zero))
+                return PersonFactsStore(service: service)
             }
         #endif
         return PersonFactsStore()

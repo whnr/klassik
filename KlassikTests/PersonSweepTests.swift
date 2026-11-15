@@ -36,7 +36,7 @@ struct PersonSweepTests {
         let url = FileManager.default.temporaryDirectory.appending(path: "\(UUID().uuidString).json")
         if let cache { try Data(cache.utf8).write(to: url) }
         let stub = PersonStub(PersonStub.bachRules)
-        let service = PersonFactsService(fetch: fetch ?? stub.fetch, pacer: Pacer(interval: 0))
+        let service = PersonFactsService(fetch: fetch ?? stub.fetch, pacer: WikimediaPacer(interval: .zero))
         return (PersonFactsStore(service: service, cacheURL: url), stub)
     }
 
@@ -169,7 +169,7 @@ struct PersonSweepTests {
     @Test func theSavedCheckSurvivesARestart() async throws {
         let url = FileManager.default.temporaryDirectory.appending(path: "\(UUID().uuidString).json")
         let stub = PersonStub(PersonStub.bachRules)
-        let service = PersonFactsService(fetch: stub.fetch, pacer: Pacer(interval: 0))
+        let service = PersonFactsService(fetch: stub.fetch, pacer: WikimediaPacer(interval: .zero))
         let first = PersonFactsStore(service: service, cacheURL: url)
         await PersonSweep(store: first, now: { Self.start }).run([Self.bach])
         for _ in 0..<100 where !FileManager.default.fileExists(atPath: url.path) {
@@ -177,5 +177,204 @@ struct PersonSweepTests {
         }
         let second = PersonFactsStore(service: PersonStub([]).service, cacheURL: url)
         #expect(PersonSweep(store: second, now: { Self.start }).plan([Self.bach]).new.isEmpty)
+    }
+
+    // MARK: Parallel start and one person per request
+
+    @Test func thePersonPassDoesNotWaitForTheMusicBrainzPass() async throws {
+        let gate = Gate()
+        let finished = Gate()
+        let musicBrainzCalls = Counter()
+        let blocked: MusicBrainz.Fetch = { _ in
+            _ = musicBrainzCalls.next()
+            while !gate.isOpen { try await Task.sleep(for: .milliseconds(10)) }
+            return (Data(), 404)
+        }
+        let enrichment = Enrichment(
+            musicBrainz: MusicBrainz(fetch: blocked, pacer: Pacer(interval: 0)),
+            wikidata: Wikidata(fetch: blocked, pacer: Pacer(interval: 0)),
+            cacheURL: FileManager.default.temporaryDirectory.appending(path: "\(UUID().uuidString).json"))
+        let (store, stub) = try makeStore()
+        let sweep = PersonSweep(store: store, now: { Self.start })
+        let index = WorkIndex(songs: [
+            EnrichmentTests.song("1", composer: "Johann Sebastian Bach", work: "Cello Suite No. 1")
+        ])
+        let pass = Task {
+            await AppModel.enrich(index, enrichment: enrichment, sweep: sweep)
+            finished.open()
+        }
+        for _ in 0..<300 where store.cache.checked[Self.bach.key] == nil {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        // The person is settled while the MusicBrainz pass still waits for its answer.
+        #expect(store.facts(ofComposer: Self.bach.tag) != nil)
+        #expect(store.cache.checked[Self.bach.key] != nil)
+        #expect(!finished.isOpen)
+        #expect(musicBrainzCalls.next() > 0)
+        #expect(!stub.requests.isEmpty)
+        gate.open()
+        await pass.value
+        #expect(finished.isOpen)
+    }
+
+    @Test func aLookupUsesTheNameOnlyAndAsksForOnePersonAtATime() async throws {
+        let mutter = PersonSweep.Person(kind: .performer, tag: "Anne-Sophie Mutter")
+        let (store, stub) = try makeStore()
+        let sweep = PersonSweep(store: store, now: { Self.start })
+        await sweep.run([Self.bach, mutter])
+        #expect(stub.requests.contains { $0.contains(Self.bach.tag) })
+        #expect(stub.requests.contains { $0.contains(mutter.tag) })
+        for request in stub.requests {
+            // No lookup by a MusicBrainz composer ID or work ID.
+            #expect(!request.contains("P434="))
+            #expect(!request.contains("P435"))
+            #expect([Self.bach.tag, mutter.tag].filter { request.contains($0) }.count <= 1)
+            if request.contains("props=labels|descriptions|claims") {
+                let ids = request.components(separatedBy: "ids=").dropFirst().first?
+                    .components(separatedBy: "&").first ?? ""
+                #expect(!ids.isEmpty)
+                #expect(!ids.contains("|"))
+            }
+        }
+    }
+
+    // MARK: Jitter
+
+    @Test func aDueTimeMovesByAtMostTenDays() async throws {
+        for (offset, expected) in [(10.0, 375.0), (-10.0, 355.0), (25.0, 375.0), (-25.0, 355.0), (0.0, 365.0)] {
+            let (store, _) = try makeStore()
+            let sweep = PersonSweep(store: store, now: { Self.start }, jitter: { offset })
+            await sweep.run([Self.bach])
+            let due = try #require(store.cache.due[Self.bach.key])
+            #expect(due == Self.start.addingTimeInterval(expected * 86_400))
+        }
+    }
+
+    @Test func theRandomJitterStaysInsideItsBounds() async throws {
+        #expect(PersonSweep.jitterDays == 10)
+        var spread: Set<Double> = []
+        for _ in 0..<20 {
+            let (store, _) = try makeStore()
+            await PersonSweep(store: store, now: { Self.start }).run([Self.bach])
+            let due = try #require(store.cache.due[Self.bach.key])
+            let days = due.timeIntervalSince(Self.start) / 86_400
+            #expect((355...375).contains(days))
+            spread.insert(days)
+        }
+        #expect(spread.count > 1)
+    }
+
+    @Test func thePlanUsesTheSavedDueTime() throws {
+        let stamp = Self.start.addingTimeInterval(25 * 86_400).timeIntervalSinceReferenceDate
+        let saved = cache(tag: "Alive", born: 1960, died: nil, checked: Self.start)
+            .replacingOccurrences(of: ",\"version\"", with: ",\"due\":{\"composer:Alive\":\(stamp)},\"version\"")
+        let clock = TestClock(Self.start)
+        let alive = PersonSweep.Person(kind: .composer, tag: "Alive")
+        let sweep = PersonSweep(store: try makeStore(cache: saved).store, now: { clock.now })
+        clock.advance(days: 24)
+        #expect(sweep.plan([alive]).due.isEmpty)
+        clock.advance(days: 2)
+        #expect(sweep.plan([alive]).due == [alive])
+    }
+}
+
+private final class Gate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var opened = false
+    var isOpen: Bool { lock.withLock { opened } }
+    func open() { lock.withLock { opened = true } }
+}
+
+/// Wikimedia's throttle signals: 429, 503 with Retry-After, and the maxlag error (ADR 0042).
+struct WikimediaPacingTests {
+    private final class Script: @unchecked Sendable {
+        private let lock = NSLock()
+        private var answers: [PersonFactsService.Response]
+        private var sent: [String] = []
+        private var slept: [Double] = []
+
+        init(_ answers: [PersonFactsService.Response]) { self.answers = answers }
+
+        var respond: PersonFactsService.Respond {
+            { request in
+                self.lock.withLock {
+                    self.sent.append(request.url?.absoluteString.removingPercentEncoding ?? "")
+                    return self.answers.count > 1 ? self.answers.removeFirst() : self.answers[0]
+                }
+            }
+        }
+
+        func sleep(_ duration: Duration) {
+            let (seconds, attoseconds) = duration.components
+            lock.withLock { slept.append(Double(seconds) + Double(attoseconds) / 1e18) }
+        }
+
+        var urls: [String] { lock.withLock { sent } }
+        /// The waits of a second or more, rounded. The pacer also waits microseconds between requests.
+        var waits: [Double] { lock.withLock { slept.filter { $0 >= 1 }.map { $0.rounded() } } }
+    }
+
+    private static let found = PersonFactsService.Response(data: Data(PersonStub.search([]).utf8), status: 200)
+    private static let lag = Data(#"{"error":{"code":"maxlag","info":"Waiting for db: 6 seconds lagged."}}"#.utf8)
+
+    private func service(_ script: Script) -> PersonFactsService {
+        PersonFactsService(
+            respond: script.respond, pacer: WikimediaPacer(interval: .zero, sleep: { script.sleep($0) }))
+    }
+
+    @Test func everyActionRequestCarriesMaxlagAndADescriptiveUserAgent() async throws {
+        let script = Script([Self.found])
+        _ = try await service(script).composers(named: "Johann Sebastian Bach")
+        #expect(!script.urls.isEmpty)
+        #expect(script.urls.allSatisfy { $0.contains("maxlag=5") })
+        #expect(PersonFactsService.userAgent.hasPrefix("Klassik/"))
+        #expect(PersonFactsService.userAgent.contains("(https://github.com/whnr/klassik)"))
+        #expect(PersonFactsService.userAgent.hasSuffix("bot"))
+    }
+
+    @Test func a429WaitsForRetryAfterAndTriesAgain() async throws {
+        let script = Script([.init(data: Data(), status: 429, retryAfter: 7), Self.found])
+        _ = try await service(script).composers(named: "Bach")
+        #expect(script.waits == [7])
+        #expect(script.urls.count == 2)
+    }
+
+    @Test func a429WithoutRetryAfterWaitsFiveSecondsThenDoubles() async throws {
+        let busy = PersonFactsService.Response(data: Data(), status: 429)
+        let script = Script([busy, busy, Self.found])
+        _ = try await service(script).composers(named: "Bach")
+        #expect(script.waits == [5, 10])
+    }
+
+    @Test func aShortRetryAfterStillWaitsFiveSeconds() async throws {
+        let script = Script([.init(data: Data(), status: 429, retryAfter: 1), Self.found])
+        _ = try await service(script).composers(named: "Bach")
+        #expect(script.waits == [5])
+    }
+
+    @Test func aMaxlagErrorWaitsForRetryAfterAndTriesAgain() async throws {
+        let script = Script([.init(data: Self.lag, status: 200, retryAfter: 6), Self.found])
+        _ = try await service(script).composers(named: "Bach")
+        #expect(script.waits == [6])
+        #expect(script.urls.count == 2)
+    }
+
+    @Test func a503TriesAgainOnlyWithRetryAfter() async throws {
+        let again = Script([.init(data: Data(), status: 503, retryAfter: 5), Self.found])
+        _ = try await service(again).composers(named: "Bach")
+        #expect(again.urls.count == 2)
+        let down = Script([.init(data: Data(), status: 503)])
+        await #expect(throws: MusicBrainz.Failure.http(503)) {
+            _ = try await service(down).composers(named: "Bach")
+        }
+        #expect(down.urls.count == 1)
+    }
+
+    @Test func aLongThrottleFailsTheRequestSoThatThePassBacksOff() async throws {
+        let script = Script([.init(data: Data(), status: 429)])
+        await #expect(throws: MusicBrainz.Failure.http(429)) {
+            _ = try await service(script).composers(named: "Bach")
+        }
+        #expect(script.waits == [5, 10, 20, 40])
     }
 }

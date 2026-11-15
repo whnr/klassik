@@ -6,12 +6,12 @@ import Observation
 /// facts that can change (ADR 0042). The saved state lives in `PersonFactsStore.Cache.checked`.
 @MainActor @Observable
 final class PersonSweep {
-    /// One person of the library: a composer tag with its MusicBrainz artist IDs, or a performer tag.
+    /// One person of the library: a composer tag or a performer tag. The lookup reads the name only, so the
+    /// pass needs nothing from the MusicBrainz pass and runs beside it.
     struct Person: Hashable, Sendable {
         enum Kind: String, Sendable { case composer, performer }
         var kind: Kind
         var tag: String
-        var artistIDs: [String] = []
         var key: String { "\(kind.rawValue):\(tag)" }
     }
 
@@ -32,6 +32,8 @@ final class PersonSweep {
     static let deadDays = 365
     /// A person that Wikidata does not know may get an item later.
     static let unknownDays = 90
+    /// Each due time moves by a random amount up to this many days, so that a library does not fall due at once.
+    nonisolated static let jitterDays = 10.0
 
     private(set) var state = State.idle
     /// The persons that have no check yet, and the persons whose check is due.
@@ -42,27 +44,30 @@ final class PersonSweep {
     private let isConnectionGood: @Sendable () -> Bool
     private let now: @Sendable () -> Date
     private let sleep: @Sendable (Duration) async -> Void
+    private let jitter: @Sendable () -> Double
     private var task: Task<Void, Never>?
 
     init(
         store: PersonFactsStore, isConnectionGood: @escaping @Sendable () -> Bool = { true },
         now: @escaping @Sendable () -> Date = { .now },
-        sleep: @escaping @Sendable (Duration) async -> Void = { try? await Task.sleep(for: $0) }
+        sleep: @escaping @Sendable (Duration) async -> Void = { try? await Task.sleep(for: $0) },
+        jitter: @escaping @Sendable () -> Double = {
+            Double.random(in: -PersonSweep.jitterDays...PersonSweep.jitterDays)
+        }
     ) {
         self.store = store
         self.isConnectionGood = isConnectionGood
         self.now = now
         self.sleep = sleep
+        self.jitter = jitter
     }
 
     // MARK: Plan
 
     /// The persons of the library, composers first, in the order the pass takes them.
-    static func people(of index: WorkIndex, artistIDs: (WorkIndex.Work) -> String?) -> [Person] {
-        let composers = index.composers.filter { $0.name != Song.unknownComposer }.map { composer in
-            Person(
-                kind: .composer, tag: composer.name,
-                artistIDs: Array(Set(composer.works.compactMap(artistIDs))).sorted())
+    static func people(of index: WorkIndex) -> [Person] {
+        let composers = index.composers.filter { $0.name != Song.unknownComposer }.map {
+            Person(kind: .composer, tag: $0.name)
         }
         return composers + index.performers.map { Person(kind: .performer, tag: $0.name) }
     }
@@ -84,7 +89,7 @@ final class PersonSweep {
                 new.append(person)
                 continue
             }
-            let expires = last.addingTimeInterval(Double(interval(of: person)) * 86_400)
+            let expires = store.cache.due[person.key] ?? last.addingTimeInterval(Double(interval(of: person)) * 86_400)
             if expires <= current { due.append((person, current.timeIntervalSince(expires))) }
         }
         return (new, due.sorted { $0.overdue > $1.overdue }.map(\.person))
@@ -175,14 +180,16 @@ final class PersonSweep {
         case .performer:
             ok = await settle(performer: person, isNew: isNew)
         }
-        if ok { store.markChecked(person.key, at: now()) }
+        if ok {
+            let days = Double(interval(of: person)) + min(max(jitter(), -Self.jitterDays), Self.jitterDays)
+            store.markChecked(person.key, at: now(), due: now().addingTimeInterval(days * 86_400))
+        }
         return ok
     }
 
     private func settle(composer person: Person, isNew: Bool) async -> Bool {
         if !isNew, let qid = store.qid(ofComposer: person.tag) { return await store.refresh(qid) }
-        if !isNew { store.reopen(composer: person.tag) }
-        return await store.resolve(composer: person.tag, artistIDs: person.artistIDs)
+        return await store.lookUp(composer: person.tag, again: !isNew)
     }
 
     private func settle(performer person: Person, isNew: Bool) async -> Bool {

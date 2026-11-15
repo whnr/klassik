@@ -24,7 +24,7 @@ final class PersonStub: @unchecked Sendable {
         }
     }
 
-    var service: PersonFactsService { PersonFactsService(fetch: fetch, pacer: Pacer(interval: 0)) }
+    var service: PersonFactsService { PersonFactsService(fetch: fetch, pacer: WikimediaPacer(interval: .zero)) }
 
     static func search(_ qids: [String]) -> String {
         "{\"query\":{\"search\":[" + qids.map { "{\"title\":\"\($0)\"}" }.joined(separator: ",") + "]}}"
@@ -368,7 +368,7 @@ struct PersonFactsStoreTests {
         let flaky = FlakyStub()
         let url = FileManager.default.temporaryDirectory.appending(path: "\(UUID().uuidString).json")
         let store = PersonFactsStore(
-            service: PersonFactsService(fetch: flaky.fetch, pacer: Pacer(interval: 0)), cacheURL: url)
+            service: PersonFactsService(fetch: flaky.fetch, pacer: WikimediaPacer(interval: .zero)), cacheURL: url)
         await store.resolve(composer: "Johann Sebastian Bach", artistIDs: [])
         #expect(store.resolution(ofComposer: "Johann Sebastian Bach") == nil)
         #expect(store.lastError != nil)
@@ -404,7 +404,7 @@ struct PersonFactsStoreTests {
     @Test func aThrownNetworkErrorIsNotCached() async throws {
         let url = FileManager.default.temporaryDirectory.appending(path: "\(UUID().uuidString).json")
         let service = PersonFactsService(
-            fetch: { _ in throw URLError(.notConnectedToInternet) }, pacer: Pacer(interval: 0))
+            fetch: { _ in throw URLError(.notConnectedToInternet) }, pacer: WikimediaPacer(interval: .zero))
         let store = PersonFactsStore(service: service, cacheURL: url)
         await store.resolve(composer: "Johann Sebastian Bach", artistIDs: [])
         #expect(store.resolution(ofComposer: "Johann Sebastian Bach") == nil)
@@ -472,7 +472,7 @@ struct PersonFactsStoreTests {
         let url = try oldPinnedCacheURL()
         let flaky = FlakyStub(missing: missing)
         let store = PersonFactsStore(
-            service: PersonFactsService(fetch: flaky.fetch, pacer: Pacer(interval: 0)), cacheURL: url)
+            service: PersonFactsService(fetch: flaky.fetch, pacer: WikimediaPacer(interval: .zero)), cacheURL: url)
         await store.resolve(composer: "Bach", artistIDs: [PersonStub.artistRichard])
         #expect(store.facts(ofComposer: "Bach") == nil)
         #expect(store.resolution(ofComposer: "Bach") == .person("Q1339"))

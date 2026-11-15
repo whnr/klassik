@@ -142,9 +142,10 @@ struct PeopleSection: View {
             Text("People from Wikidata")
         } footer: {
             Text(
-                "Klassik looks up every composer and performer of your library, new people first, one request every "
-                    + "1.1 seconds. It asks again for living people after \(PersonSweep.livingDays) days and for "
-                    + "others after a year. It waits for a connection that is not metered and not in Low Data Mode.")
+                "Klassik looks up every composer and performer of your library, new people first, one at a time "
+                    + "at the pace that Wikidata asks for. It asks again for living people after about "
+                    + "\(PersonSweep.livingDays) days and for others after about a year. It waits for a connection "
+                    + "that is not metered and not in Low Data Mode.")
         }
     }
 }

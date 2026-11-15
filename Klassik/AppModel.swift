@@ -64,7 +64,7 @@ final class AppModel {
     }
 
     /// Shows the cached library at once, then checks the server and syncs again.
-    /// Then looks up the works that MusicBrainz has not described yet.
+    /// Then looks up the works on MusicBrainz and the persons on Wikidata, side by side.
     func start() async {
         guard let credentials, let client else { return }
         await library.load(for: credentials)
@@ -72,18 +72,23 @@ final class AppModel {
         if !ProcessInfo.processInfo.arguments.contains("-resetServer") { await playback.restoreQueue() }
         await check()
         await library.syncIfChanged(with: client)
-        await enrichment.enrich(library.index)
-        sweepPeople()
+        await Self.enrich(library.index, enrichment: enrichment, sweep: sweep)
     }
 
-    /// The persons of the library, as the background pass reads them.
-    private var libraryPeople: [PersonSweep.Person] {
-        PersonSweep.people(of: library.index) { [enrichment] in enrichment.facts(of: $0)?.composerID }
+    /// Starts the Wikidata pass over the persons, then runs the MusicBrainz pass beside it (ADR 0042). The person
+    /// pass reads the names in the tags only, so it does not wait for MusicBrainz.
+    static func enrich(_ index: WorkIndex, enrichment: Enrichment, sweep: PersonSweep) async {
+        start(sweep, over: index)
+        await enrichment.enrich(index)
     }
 
     /// Starts the background pass over the persons of the library. Nothing runs while it runs already.
     func sweepPeople() {
-        let people = libraryPeople
+        Self.start(sweep, over: library.index)
+    }
+
+    private static func start(_ sweep: PersonSweep, over index: WorkIndex) {
+        let people = PersonSweep.people(of: index)
         sweep.measure(people)
         sweep.start(people)
     }

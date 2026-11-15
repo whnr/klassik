@@ -150,18 +150,7 @@ jobs:
           INPUT: ${{ inputs.ui }}
           AREAS: ${{ matrix.areas }}
         run: |
-          selected="$AREAS"
-          case "${INPUT:-all}" in
-            all | true) ;;
-            false) selected=false ;;
-            *)
-              selected=""
-              for area in ${AREAS//,/ }; do
-                if [[ ",${INPUT// /}," == *",$area,"* ]]; then selected="${selected:+$selected,}$area"; fi
-              done
-              selected=${selected:-false}
-              ;;
-          esac
+          selected=$(python3 scripts/screen_report.py select "$INPUT" "$AREAS")
           echo "ui=$selected" >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@v8
         with:
@@ -253,17 +242,13 @@ jobs:
             echo "ui_areas=${INPUT:-all}"
             echo "ui_required=$UI_TESTS_REQUIRED"
             echo "build=$([ "$BUILD" = success ] && echo passed || echo failed)"
-            grep '^unit=' reports/walk-unit/results.txt | tail -1
-            if grep -q '^ui=failed' reports/walk-*/results.txt; then
-              echo ui=failed
-            elif [ "${INPUT:-all}" = false ]; then
-              echo 'ui=not run'
-            else
-              echo ui=passed
-            fi
+            grep '^unit=' reports/walk-unit/results.txt | tail -1 || echo 'unit=not run'
           } > screens/results.txt
+          incomplete=0
+          python3 scripts/screen_report.py aggregate-ui reports "$INPUT" >> screens/results.txt || incomplete=$?
           python3 scripts/screen_report.py summary screens >> "$GITHUB_STEP_SUMMARY"
           if ls screens/*.png >/dev/null 2>&1; then echo screens=true; else echo screens=false; fi >> "$GITHUB_OUTPUT"
+          exit "$incomplete"
       - uses: actions/upload-artifact@v7
         if: always()
         with:

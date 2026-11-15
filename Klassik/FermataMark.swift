@@ -10,12 +10,12 @@ struct FermataShape: Shape {
         var path = Path()
         // The arc: an outer half ellipse, 8.5 by 10.5, and an inner one, 7.8 by 7.9, closed at the feet.
         path.move(to: point(0, 14.5))
-        stride(from: 0.0, through: 1.0, by: 1.0 / 48).forEach { step in
+        for step in stride(from: 0.0, through: 1.0, by: 1.0 / 48) {
             let angle = Double.pi * (1 - step)
             path.addLine(to: point(8.5 + 8.5 * cos(angle), 14.5 - 10.5 * sin(angle)))
         }
         path.addLine(to: point(16.3, 14.5))
-        stride(from: 0.0, through: 1.0, by: 1.0 / 48).forEach { step in
+        for step in stride(from: 0.0, through: 1.0, by: 1.0 / 48) {
             let angle = Double.pi * step
             path.addLine(to: point(8.5 + 7.8 * cos(angle), 14.5 - 7.9 * sin(angle)))
         }

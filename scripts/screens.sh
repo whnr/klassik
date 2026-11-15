@@ -52,7 +52,7 @@ common=(-project Klassik.xcodeproj -scheme Klassik -destination "platform=iOS Si
 # The index store and the preview dylibs serve only the editor.
 xcodebuild build-for-testing "${common[@]}" -showBuildTimingSummary CODE_SIGN_IDENTITY=- \
   COMPILER_INDEX_STORE_ENABLE=NO ENABLE_PREVIEWS=NO ENABLE_DEBUG_DYLIB=NO \
-  | $formatter
+  | tee "$out/build.log" | $formatter
 record build passed
 phase build
 wait $boot
@@ -70,7 +70,7 @@ run_tests() {
     "${common[@]}" \
     "$@" \
     -resultBundlePath "$out/$bundle.xcresult" \
-    | $formatter
+    | tee "$out/$bundle.log" | $formatter
 }
 
 # A failed test run still holds its attachments. A run that never started holds none.
@@ -106,7 +106,8 @@ case "${KLASSIK_UI:-false}" in
 esac
 if [ ${#suites[@]} -gt 0 ]; then
   # The bundle keeps the name that the workflow uploads after a failure.
-  run_tests screens "${suites[@]}" || ui=$?
+  # Three workers share the runner across area classes. Each test resets its own app on its simulator clone.
+  run_tests screens "${suites[@]}" -parallel-testing-enabled YES -parallel-testing-worker-count 3 || ui=$?
   record ui "$([ $ui -eq 0 ] && echo passed || echo failed)"
   phase ui
 fi

@@ -452,6 +452,11 @@ input {
 .row .round {
   margin: -6px 0;
 }
+/* A recording row keeps its cover and its trailing button on the top edge (sz-rs30.1.105.49). */
+.row.top,
+.row.top .trail {
+  align-items: flex-start;
+}
 
 /* ADR 0032: the arc is 0.64 em high and twice as wide, feet on the baseline. */
 .fermata {

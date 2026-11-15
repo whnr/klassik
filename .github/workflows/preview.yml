@@ -1,0 +1,136 @@
+# Publishes design/ to the gh-pages branch for every push, so each commit has a phone URL.
+# Pages serves that branch. The job runs no code from the pushed branch: it only copies static files.
+name: Preview
+
+on:
+  push:
+    branches-ignore: [gh-pages]
+  pull_request:
+    types: [opened, reopened]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+# One writer at a time: every run commits to the same branch.
+concurrency:
+  group: preview-pages
+  cancel-in-progress: false
+
+env:
+  KEEP_COMMITS: 40
+  SITE: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+
+jobs:
+  publish:
+    # A fork pull request has a read-only token and is never published.
+    if: >-
+      github.event_name == 'push' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BRANCH: ${{ github.head_ref || github.ref_name }}
+      SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        if: github.event_name == 'push'
+        with:
+          path: src
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        if: github.event_name == 'push'
+        with:
+          ref: gh-pages
+          path: pages
+      - name: Publish the specimen
+        if: github.event_name == 'push'
+        run: |
+          set -euo pipefail
+          case "$BRANCH" in
+            *..*|/*|*//*|*/) echo "Refusing branch name: $BRANCH" >&2; exit 1 ;;
+          esac
+          safe=$(printf '%s' "$BRANCH" | tr -c 'A-Za-z0-9._/-' '_')
+          ts=$(git -C src log -1 --format=%ct)
+          subject=$(git -C src log -1 --format=%s)
+
+          stage() {
+            mkdir -p "$1"
+            rm -rf "$1/specimen" "$1/fonts" "$1/tokens.css" "$1/revision.txt"
+            cp -R src/design/specimen src/design/fonts src/design/tokens.css "$1/"
+            printf '%s\n' "$SHA" > "$1/revision.txt"
+          }
+          meta() {
+            jq -n --arg sha "$SHA" --arg branch "$BRANCH" --arg path "$safe" \
+              --arg subject "$subject" --argjson ts "$ts" \
+              '{sha: $sha, branch: $branch, path: $path, subject: $subject, ts: $ts}' > "$1/meta.json"
+          }
+
+          stage "pages/c/$SHA"; meta "pages/c/$SHA"
+          stage "pages/b/$safe"; meta "pages/b/$safe"
+          # main keeps a stable root URL.
+          if [ "$BRANCH" = main ]; then stage pages; fi
+          cd pages
+
+          # Drop the oldest commit folders beyond the fixed count.
+          for f in c/*/meta.json; do
+            [ -e "$f" ] || continue
+            printf '%s %s\n' "$(jq -r .ts "$f")" "$(dirname "$f")"
+          done | sort -rn | tail -n +"$((KEEP_COMMITS + 1))" | cut -d' ' -f2 | xargs -r rm -rf
+
+          # Drop branch folders whose branch no longer exists.
+          gh api "repos/$GITHUB_REPOSITORY/branches" --paginate --jq '.[].name' | sort > "$RUNNER_TEMP/live.txt"
+          for f in $(find b -name meta.json); do
+            if ! grep -qxF -- "$(jq -r .branch "$f")" "$RUNNER_TEMP/live.txt"; then
+              rm -rf "$(dirname "$f")"
+            fi
+          done
+          find b -type d -empty -delete 2>/dev/null || true
+          mkdir -p b c
+
+          # Index page: branches by recent commit, then recent commits.
+          {
+            echo '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+            echo '<title>Klassik previews</title><h1>Klassik previews</h1>'
+            if [ -d specimen ]; then echo '<p><a href="specimen/index.html">main (stable)</a></p>'; fi
+            echo '<h2>Branches</h2><ul>'
+            find b -name meta.json -print0 | xargs -0 -r jq -s -r \
+              'sort_by(-.ts)[] | "<li><a href=\"b/\(.path)/specimen/index.html\">\(.branch | @html)</a> \(.sha[0:7]) \(.subject | @html)</li>"'
+            echo '</ul><h2>Recent commits</h2><ul>'
+            find c -name meta.json -print0 | xargs -0 -r jq -s -r \
+              'sort_by(-.ts)[] | "<li><a href=\"c/\(.sha)/specimen/index.html\">\(.sha[0:7])</a> \(.branch | @html) \(.subject | @html)</li>"'
+            echo '</ul>'
+          } > index.html
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -q -m "Preview ${SHA:0:7} of $safe"
+          for attempt in 1 2 3; do
+            git push origin HEAD:gh-pages && exit 0
+            git pull -q --rebase origin gh-pages
+          done
+          echo "Push to gh-pages failed" >&2
+          exit 1
+      - name: Comment the preview URL
+        run: |
+          set -euo pipefail
+          safe=$(printf '%s' "$BRANCH" | tr -c 'A-Za-z0-9._/-' '_')
+          marker='<!-- klassik-preview -->'
+          body="$marker
+          Specimen preview of \`${SHA:0:7}\`:
+          - Commit: $SITE/c/$SHA/specimen/
+          - Branch (newest push): $SITE/b/$safe/specimen/index.html"
+          numbers=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open \
+            --json number,isCrossRepository --jq '.[] | select(.isCrossRepository | not) | .number')
+          for n in $numbers; do
+            id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$n/comments" --paginate \
+              --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | head -n 1)
+            if [ -n "$id" ]; then
+              gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -f body="$body" > /dev/null
+            else
+              gh api "repos/$GITHUB_REPOSITORY/issues/$n/comments" -f body="$body" > /dev/null
+            fi
+          done

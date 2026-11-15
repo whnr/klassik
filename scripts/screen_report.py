@@ -1,6 +1,8 @@
 """Reports the result of a test run and of the screenshot comparison, for the job summary.
 
 Usage:
+    python3 scripts/screen_report.py plan <event> <dispatch-input> < <commit-messages>
+        Prints the UI areas of the run and the matrix of the walk job, for GITHUB_OUTPUT.
     python3 scripts/screen_report.py select <requested-areas> <group-areas>
         Prints the selected areas and rejects unknown names.
     python3 scripts/screen_report.py aggregate-ui <reports-dir> <requested-areas>
@@ -58,6 +60,39 @@ def selected_areas(request, available):
     if unknown := requested - known:
         raise ValueError("Unknown UI areas: " + ", ".join(sorted(unknown)))
     return ",".join(area for area in available.split(",") if area in requested) or "false"
+
+
+UI_REQUEST = re.compile(r"^\s*\[ui:([^\]]*)\]\s*$", re.IGNORECASE | re.MULTILINE)
+
+
+def requested_areas(messages):
+    """The union of the "[ui: <areas>]" lines in the commit messages of a pull request, or "false"."""
+    known = [area for areas in UI_GROUPS.values() for area in areas.split(",")]
+    wanted = set()
+    for match in UI_REQUEST.finditer(messages):
+        request = match.group(1).replace(" ", "").lower()
+        if request in ("all", "true"):
+            return "all"
+        if request in ("", "false"):
+            continue
+        wanted |= set(selected_areas(request, ",".join(known)).split(","))
+    return ",".join(area for area in known if area in wanted) or "false"
+
+
+def plan(event, dispatch_input, messages):
+    """A pull request walks only the areas that it requests. Pushes walk everything; runs by hand take the input."""
+    if event == "pull_request":
+        ui = requested_areas(messages)
+    elif event == "workflow_dispatch":
+        ui = dispatch_input.replace(" ", "").lower() or "all"
+        selected_areas(ui, "")
+    else:
+        ui = "all"
+    include = [{"group": "unit", "phase": "unit", "areas": "false", "fixture": "fixture-music"}]
+    for group, areas in UI_GROUPS.items():
+        if selected_areas(ui, areas) != "false":
+            include.append({"group": group, "phase": "ui", "areas": areas, "fixture": "fixture-ui-music"})
+    return ui, {"include": include}
 
 
 def aggregate_ui(reports, request):
@@ -135,6 +170,11 @@ def read_lines(path):
 
 def main(args):
     command = args[0]
+    if command == "plan":
+        ui, matrix = plan(args[1], args[2], sys.stdin.read())
+        print(f"ui={ui}")
+        print("matrix=" + json.dumps(matrix, separators=(",", ":")))
+        return
     if command == "select":
         print(selected_areas(args[1], args[2]))
         return

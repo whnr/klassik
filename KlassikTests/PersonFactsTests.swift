@@ -224,8 +224,7 @@ struct PersonFactsServiceTests {
         ("commons.wikimedia.org/w/api.php", RecordedWikimedia.bachCommons),
     ]
 
-    /// Bach has a picture on the live services. This ran without a picture for every composer, because the
-    /// Commons answer names a host that the app did not trust.
+    /// Keep the recorded thumbnail host intact to check the trust boundary against Commons responses.
     @Test func theRecordedAnswersGiveBachAPictureWithItsCredit() async throws {
         let facts = try #require(try await PersonStub(Self.recordedRules).service.facts(qid: "Q1339"))
         let portrait = try #require(facts.portrait)
@@ -343,7 +342,10 @@ struct PersonFactsStoreTests {
     private final class FlakyStub: @unchecked Sendable {
         private let lock = NSLock()
         private var failing = true
+        private let missing: Bool
         let stub = PersonStub(PersonStub.bachRules)
+
+        init(missing: Bool = false) { self.missing = missing }
 
         func recover() { lock.withLock { failing = false } }
 
@@ -352,6 +354,9 @@ struct PersonFactsStoreTests {
                 let down = self.lock.withLock { self.failing }
                 let url = request.url!.absoluteString.removingPercentEncoding ?? ""
                 if down, url.contains("props=labels|descriptions|claims") {
+                    if self.missing {
+                        return (Data(#"{"entities":{"Q1339":{"missing":""}}}"#.utf8), 200)
+                    }
                     throw URLError(.notConnectedToInternet)
                 }
                 return try await self.stub.fetch(request)
@@ -425,6 +430,63 @@ struct PersonFactsStoreTests {
         await second.resolve(composer: "Johann Sebastian Bach", artistIDs: [])
         #expect(second.facts(ofComposer: "Johann Sebastian Bach")?.name == "Johann Sebastian Bach")
         #expect(offline.requests.isEmpty)
+    }
+
+    private func oldPinnedCacheURL() throws -> URL {
+        let url = FileManager.default.temporaryDirectory.appending(path: "\(UUID().uuidString).json")
+        let old = Data(
+            #"""
+            {"people":{"Q1339":{"qid":"Q1339","name":"Johann Sebastian Bach","born":1685,"credits":[]}},
+            "composers":{"Bach":{"person":{"_0":"Q1339"}},"Nobody":{"unknown":{}}},
+            "artists":{},"chosen":["Bach","Nobody"],"inputs":{"Bach":["saved-artist-id"]}}
+            """#.utf8)
+        try old.write(to: url)
+        return url
+    }
+
+    @Test func aMigratedPinnedComposerReloadsFactsAndPicture() async throws {
+        let url = try oldPinnedCacheURL()
+        let stub = PersonStub(PersonStub.bachRules)
+        let store = PersonFactsStore(service: stub.service, cacheURL: url)
+        #expect(store.facts(ofComposer: "Bach") == nil)
+        await store.resolve(composer: "Bach", artistIDs: [PersonStub.artistRichard])
+        let facts = try #require(store.facts(ofComposer: "Bach"))
+        #expect(facts.born == 1685 && facts.died == 1750)
+        #expect(facts.bio == "Johann Sebastian Bach was a German composer.")
+        #expect(facts.portrait?.url.host == "thumb.wikimedia.org")
+        #expect(Set(facts.credits.map(\.kind)) == [.facts, .text, .picture])
+        #expect(store.resolution(ofComposer: "Bach") == .person("Q1339"))
+        #expect(store.cache.chosen == ["Bach", "Nobody"])
+        #expect(store.cache.inputs["Bach"] == ["saved-artist-id"])
+        #expect(store.lastError == nil)
+        let requests = stub.requests.count
+        await store.resolve(composer: "Bach", artistIDs: [])
+        await store.resolve(composer: "Nobody", artistIDs: [PersonStub.artistBach])
+        #expect(store.resolution(ofComposer: "Nobody") == .unknown)
+        #expect(stub.requests.count == requests)
+        #expect(!stub.requests.contains { $0.contains("list=search") })
+    }
+
+    @Test(arguments: [false, true])
+    func aMigratedPinSurvivesFailedReloadsAndRetries(missing: Bool) async throws {
+        let url = try oldPinnedCacheURL()
+        let flaky = FlakyStub(missing: missing)
+        let store = PersonFactsStore(
+            service: PersonFactsService(fetch: flaky.fetch, pacer: Pacer(interval: 0)), cacheURL: url)
+        await store.resolve(composer: "Bach", artistIDs: [PersonStub.artistRichard])
+        #expect(store.facts(ofComposer: "Bach") == nil)
+        #expect(store.resolution(ofComposer: "Bach") == .person("Q1339"))
+        #expect(store.cache.chosen == ["Bach", "Nobody"])
+        #expect(store.loading.isEmpty)
+        #expect((store.lastError != nil) == !missing)
+        flaky.recover()
+        await store.resolve(composer: "Bach", artistIDs: [PersonStub.artistRichard])
+        #expect(store.facts(ofComposer: "Bach")?.portrait?.url.host == "thumb.wikimedia.org")
+        #expect(store.resolution(ofComposer: "Bach") == .person("Q1339"))
+        #expect(store.cache.chosen == ["Bach", "Nobody"])
+        #expect(store.cache.inputs["Bach"] == ["saved-artist-id"])
+        #expect(store.lastError == nil)
+        #expect(!flaky.stub.requests.contains { $0.contains("list=search") })
     }
 
     @Test func surnameOnlyMeansOneWord() {

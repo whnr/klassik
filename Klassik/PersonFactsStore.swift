@@ -14,12 +14,11 @@ enum ComposerResolution: Codable, Equatable, Sendable {
 }
 
 /// The person facts of the device, cached by Wikidata item and by composer tag.
-/// A lookup that fails leaves no resolution in the cache, so the next visit asks again.
+/// Missing facts stay open for another lookup on the next visit.
 @MainActor @Observable
 final class PersonFactsStore {
     struct Cache: Codable, Sendable {
-        /// The shape of the saved facts. A lower number holds facts that are wrong, so the cache drops them.
-        /// 1: facts saved before the picture host of Commons was trusted have no picture.
+        /// Facts need a new version when parsing rules require another lookup.
         static let version = 1
         var version = Cache.version
         var people: [String: PersonFacts] = [:]
@@ -46,11 +45,10 @@ final class PersonFactsStore {
             artists = try container.decode([String: String].self, forKey: .artists)
             chosen = try container.decode(Set<String>.self, forKey: .chosen)
             inputs = try container.decode([String: [String]].self, forKey: .inputs)
-            // A cache from before performer pages has no such key.
+            // Performer mappings are optional for caches that hold composers only.
             performers = try container.decodeIfPresent([String: String].self, forKey: .performers) ?? [:]
             checked = try container.decodeIfPresent([String: Date].self, forKey: .checked) ?? [:]
-            // The resolutions stay. A tag without facts asks again on its next visit, and keeps its
-            // listener's choice.
+            // Resolutions and listener choices must survive facts invalidation.
             if version < Cache.version {
                 people = [:]
                 version = Cache.version
@@ -133,17 +131,23 @@ final class PersonFactsStore {
     @discardableResult
     func resolve(composer tag: String, artistIDs: [String]) async -> Bool {
         let inputs = Set(artistIDs).sorted()
-        guard !loading.contains(tag), tag != Song.unknownComposer, !cache.chosen.contains(tag),
-            cache.composers[tag] == nil || cache.inputs[tag] != inputs || lacksFacts(tag)
+        let chosen = cache.chosen.contains(tag)
+        guard !loading.contains(tag), tag != Song.unknownComposer,
+            chosen ? lacksFacts(tag) : cache.composers[tag] == nil || cache.inputs[tag] != inputs || lacksFacts(tag)
         else { return true }
         loading.insert(tag)
         defer { loading.remove(tag) }
         do {
-            var resolution = try await decide(tag, artistIDs: inputs)
-            // The resolution is saved only with its facts: a failed load leaves the tag open for the next visit.
-            if case .person(let qid) = resolution, try await load(qid) == false { resolution = .unknown }
-            cache.composers[tag] = resolution
-            cache.inputs[tag] = inputs
+            if chosen, case .person(let qid)? = cache.composers[tag] {
+                // A missing item or failed request must not replace the listener's choice.
+                _ = try await load(qid)
+            } else {
+                var resolution = try await decide(tag, artistIDs: inputs)
+                // The resolution is saved only with its facts: a failed load leaves the tag open for the next visit.
+                if case .person(let qid) = resolution, try await load(qid) == false { resolution = .unknown }
+                cache.composers[tag] = resolution
+                cache.inputs[tag] = inputs
+            }
             lastError = nil
             save()
             return true

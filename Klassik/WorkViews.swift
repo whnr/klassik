@@ -156,53 +156,71 @@ struct WorkRow: View {
     }
 }
 
-/// A work's recordings, oldest first, with the performers up front.
+/// A work's page as work.html draws it: composer under the title, a Play pill, then the recordings on plain rows.
 struct WorkView: View {
     @Environment(AppModel.self) private var model
     let work: WorkIndex.Work
 
+    /// Favourite recordings come first. The rest keep the order of the index.
+    private var recordings: [WorkIndex.Recording] {
+        work.recordings.filter(\.isReference) + work.recordings.filter { !$0.isReference }
+    }
+
     var body: some View {
         PageList {
-            Section {
-                NavigationLink(value: Page.composer(work.composer)) {
-                    LabeledContent("Composer", value: work.composer)
-                        .ink()
+            WorkHeader(work: work)
+                .listRowSeparator(.hidden)
+                .listRowInsets(Self.sideInsets)
+            if let recording = work.defaultRecording {
+                Button {
+                    model.playback.play(QueueItem(work: work, recording: recording))
+                } label: {
+                    Label(
+                        recording.isReference ? "Play Reference Recording" : "Play", systemImage: "play.fill"
+                    )
+                    .typeStyle(.headline)
+                    .foregroundStyle(Palette.onAccent)
+                    .frame(maxWidth: .infinity, minHeight: Measure.hitTarget)
+                    .background(Palette.accentFill, in: .capsule)
+                    .contentShape(.capsule)
                 }
-                .accessibilityIdentifier("work-composer")
-                if !work.context.isEmpty {
-                    Text(work.context)
-                        .foregroundStyle(Palette.textSecondary)
-                }
-                if work.isTagged {
-                    ComposedRow(work: work)
-                }
-                if let recording = work.defaultRecording {
-                    Button(recording.isReference ? "Play Reference Recording" : "Play", systemImage: "play.fill") {
-                        model.playback.play(QueueItem(work: work, recording: recording))
-                    }
-                    .accessibilityIdentifier("play-work")
-                }
+                .buttonStyle(.plain)
+                .listRowSeparator(.hidden)
+                .listRowInsets(Self.sideInsets)
+                .accessibilityIdentifier("play-work")
             }
 
             Section {
-                ForEach(work.recordings) { recording in
+                ForEach(recordings) { recording in
                     let isPlaying = plays(recording)
                     NavigationLink(value: Page.recording(work: work.id, recording: recording.id)) {
                         RecordingRow(
                             recording: recording, isOffline: model.tracks.isOffline(recording),
-                            isReference: recording.isReference, isPlaying: isPlaying)
+                            playsFirst: recording.id == work.defaultRecording?.id, isPlaying: isPlaying)
                     }
-                    // The row of what plays is tinted, so the listener sees it while browsing (ADR 0015).
-                    .listRowBackground(isPlaying ? Palette.tint.color.opacity(0.12) : Palette.backgroundRow.color)
+                    // The whole row of what plays is tinted, edge to edge, so the listener sees it while browsing.
+                    .listRowBackground(isPlaying ? Palette.tint.color.opacity(0.12) : Color.clear)
                     .itemActions(QueueItem(work: work, recording: recording), downloads: true, reference: true)
+                    .listRowInsets(Self.rowInsets)
                     .accessibilityIdentifier("recording")
                 }
+                Text("Favourite recordings come first. Then the oldest.")
+                    .typeStyle(.footnote)
+                    .foregroundStyle(Palette.textSecondary)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(Self.sideInsets)
             } header: {
-                SectionHeading("Recordings")
+                // A plain list indents its section header by 16 pt. The page title and rows sit at 20 pt.
+                CountedHeading("Recordings", count: work.recordings.count)
+                    .padding(.leading, 4)
             }
         }
         .pageTitle(work.title)
     }
+
+    private static let rowInsets = EdgeInsets(
+        top: Space.betweenGroups.points / 2, leading: 20, bottom: Space.betweenGroups.points / 2, trailing: 20)
+    private static let sideInsets = EdgeInsets(top: Space.m.points, leading: 20, bottom: Space.m.points, trailing: 20)
 
     private func plays(_ recording: WorkIndex.Recording) -> Bool {
         guard let item = model.playback.item else { return false }
@@ -210,50 +228,141 @@ struct WorkView: View {
     }
 }
 
-/// A recording on the work page: its own cover, the principal performers, every other name, and the facts in prose.
+/// A section heading with its count in a lighter step: "Recordings (3)".
+private struct CountedHeading: View {
+    let title: String
+    let count: Int
+
+    init(_ title: String, count: Int) {
+        self.title = title
+        self.count = count
+    }
+
+    var body: some View {
+        Text("\(title) \(Text("(\(count))").foregroundStyle(Palette.textSecondary))")
+            .typeStyle(.sectionHeading)
+            .foregroundStyle(Palette.textPrimary)
+            .textCase(nil)
+            .accessibilityElement(children: .combine)
+    }
+}
+
+/// Under the title: the composer as a link, when the work was composed, and what the tracks add to the title.
+private struct WorkHeader: View {
+    @Environment(AppModel.self) private var model
+    @Environment(AppNavigator.self) private var navigator
+    let work: WorkIndex.Work
+    @ScaledMetric(space: .inGroup) private var gap: CGFloat
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: gap) {
+            HStack(alignment: .firstTextBaseline, spacing: 0) {
+                Button(work.composer) {
+                    navigator.open(.composer(work.composer), in: navigator.selection)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Palette.tint)
+                .accessibilityIdentifier("work-composer")
+                if work.isTagged {
+                    composed
+                }
+            }
+            .typeStyle(.subheadline)
+            if !work.context.isEmpty {
+                Text(work.context)
+                    .typeStyle(.subheadline)
+                    .foregroundStyle(Palette.textSecondary)
+            }
+            if case .candidates = model.enrichment.link(of: work), work.isTagged {
+                Button("Confirm the MusicBrainz Work", systemImage: "questionmark.circle") {
+                    navigator.open(.sources(work: work.id), in: navigator.selection)
+                }
+                .typeStyle(.subheadline)
+                .buttonStyle(.plain)
+                .foregroundStyle(Palette.tint)
+                .accessibilityIdentifier("composed")
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// When the work was composed. It opens the sources of the date.
+    private var composed: some View {
+        let enrichment = model.enrichment
+        let text =
+            if let composed = enrichment.composed(work) {
+                composed.span.text
+            } else {
+                enrichment.isRunning ? "…" : "unknown"
+            }
+        return Button(", composed\u{00A0}\(text)") {
+            navigator.open(.sources(work: work.id), in: navigator.selection)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Palette.textSecondary)
+        .accessibilityIdentifier("composed")
+    }
+}
+
+/// A recording on the work page: the principal names first, then the ensembles and other names, then the facts in
+/// prose. No role labels, and no truncation: a long name wraps.
 private struct RecordingRow: View {
     let recording: WorkIndex.Recording
     let isOffline: Bool
-    let isReference: Bool
+    let playsFirst: Bool
     let isPlaying: Bool
     @Environment(AppModel.self) private var model
     @ScaledMetric(relativeTo: .body) private var cover: CGFloat = 56
     @ScaledMetric(space: .inGroup) private var gap: CGFloat
 
+    /// The conductor and soloists tell recordings apart. Without them the ensembles lead.
+    private var lead: [String] {
+        let people = recording.principalNames.filter { $0.kind != .ensemble }
+        return (people.isEmpty ? recording.principalNames : people).flatMap(\.names)
+    }
+
+    private var rest: [String] {
+        let people = recording.principalNames.filter { $0.kind != .ensemble }
+        let ensembles = people.isEmpty ? [] : recording.principalNames.filter { $0.kind == .ensemble }
+        return (ensembles + recording.otherNames).flatMap(\.names)
+    }
+
     var body: some View {
-        let principal = recording.principalNames
-        let others = recording.otherNames
         HStack(alignment: .top, spacing: Space.m.points) {
             CoverImage(id: recording.songs.first?.coverArt, points: cover)
                 .frame(width: cover, height: cover)
                 .clipShape(.rect(cornerRadius: Radius.s))
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: gap) {
-                HStack(alignment: .firstTextBaseline) {
-                    if principal.isEmpty && others.isEmpty {
-                        Text(recording.album)
-                            .ink()
-                    } else {
-                        RoleLines(lines: principal)
-                            .ink()
-                    }
-                    if isReference {
-                        Image(systemName: "star.fill")
-                            .typeStyle(.caption1)
-                            .foregroundStyle(Palette.favourite)
-                            .accessibilityLabel("Reference recording")
-                    }
-                    OfflineHint(isOffline: isOffline)
+                title
+                if !rest.isEmpty {
+                    Text(Roles.Line.list(rest))
+                        .typeStyle(.subheadline)
+                        .ink()
                 }
-                // The facts hold the year, so they come before the other names (spec: performers and year first).
                 Text(recording.facts())
                     .typeStyle(.subheadline)
                     .foregroundStyle(Palette.textSecondary)
-                RoleLines(lines: others)
-                    .ink()
+                if playsFirst {
+                    Text("Plays first")
+                        .typeStyle(.footnote)
+                        .foregroundStyle(Palette.tint)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             if isPlaying { slot }
+        }
+    }
+
+    private var title: some View {
+        HStack(alignment: .firstTextBaseline, spacing: Space.s.points) {
+            Text(lead.isEmpty ? recording.album : Roles.Line.list(lead))
+                .ink()
+                .fixedSize(horizontal: false, vertical: true)
+            if recording.isReference {
+                FermataMark(isSet: true)
+            }
+            OfflineHint(isOffline: isOffline)
         }
     }
 
@@ -272,31 +381,6 @@ private struct RecordingRow: View {
         .buttonStyle(.borderless)
         .accessibilityLabel(player.isPaused ? "Resume" : "Pause")
         .accessibilityIdentifier("recording-slot")
-    }
-}
-
-/// When the work was composed. It opens the sources, and asks the listener to confirm an unclear match.
-private struct ComposedRow: View {
-    @Environment(AppModel.self) private var model
-    let work: WorkIndex.Work
-
-    var body: some View {
-        let enrichment = model.enrichment
-        NavigationLink(value: Page.sources(work: work.id)) {
-            if case .candidates = enrichment.link(of: work) {
-                InkLabel("Confirm the MusicBrainz Work", systemImage: "questionmark.circle")
-            } else {
-                LabeledContent("Composed") {
-                    if let composed = enrichment.composed(work) {
-                        Text(composed.span.text)
-                    } else {
-                        Text(enrichment.isRunning ? "Looking up…" : "Unknown")
-                    }
-                }
-                .ink()
-            }
-        }
-        .accessibilityIdentifier("composed")
     }
 }
 

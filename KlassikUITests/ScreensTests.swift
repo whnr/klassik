@@ -15,6 +15,10 @@ final class PlacesScreens: ScreensTestCase {
         app.buttons["library-composers"].tap()
         XCTAssertTrue(composer(app, "Felix Mendelssohn").waitForExistence(timeout: 30))
         snap(app, "02d-composers")
+        // ADR 0030: the title sits right under the back arrow, as on the specimen.
+        let heading = app.staticTexts["page-heading"]
+        XCTAssertTrue(heading.exists)
+        XCTAssertLessThan(heading.frame.minY, 130)
     }
 
     @MainActor

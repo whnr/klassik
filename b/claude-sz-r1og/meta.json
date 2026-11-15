@@ -1,7 +1,7 @@
 {
-  "sha": "2913c472a7e3411b5927974a10face0d2ef2c554",
+  "sha": "653ab0a5a92238ced8cb670b5c98d685d79eae23",
   "branch": "claude-sz-r1og",
   "path": "claude-sz-r1og",
-  "subject": "[sz-r1og] Walk the UI on PRs only on request",
-  "ts": 1794773357
+  "subject": "Request the settings walk to show the request path",
+  "ts": 1794774551
 }

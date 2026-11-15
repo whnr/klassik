@@ -1,7 +1,7 @@
 {
-  "sha": "ae65f717d017cecf3684dc9718a36ee1de79ef74",
+  "sha": "625a50e3f6d49df560c66cb7b2fe806c7337774a",
   "branch": "claude-sz-rs30.1.105.62",
   "path": "claude-sz-rs30.1.105.62",
-  "subject": "[sz-rs30.1.105.62] Walk the Browse screens",
-  "ts": 1794707821
+  "subject": "[sz-rs30.1.105.62] Use the non-deprecated BGTask submit",
+  "ts": 1794709265
 }

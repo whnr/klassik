@@ -1,6 +1,6 @@
 # 0014. The player: rows beside one timeline
 
-Date: 2026-11-02. Decided by Flo after seven prototype rounds. Bead: sz-rs30.1.74.7. Changes the player part of sz-rs30.1.74.4: the player is no longer a system sheet, and the mini player is no longer the plain tab accessory. Flo annulled [0015](0015-player-page.md) on 2026-11-14 (bead sz-rs30.1.105.8.1), so the player is an overlay again. The player rules below are updated to that decision. The row and note rules are replaced by [0027](0027-player-rows.md). The mini player is replaced by [0028](0028-mini-player-pill.md). The shape of the timeline is in [0035](0035-timeline-shape.md).
+Date: 2026-11-02. Decided by Flo after seven prototype rounds. Bead: sz-rs30.1.74.7. Changes the player part of sz-rs30.1.74.4: the player is no longer a system sheet, and the mini player is no longer the plain tab accessory. Flo annulled [0015](0015-player-page.md) on 2026-11-14 (bead sz-rs30.1.105.8.1), so the player is an overlay again. The player rules include Flo’s specimen review and pill feedback from 2026-11-14. The row and note rules are replaced by [0027](0027-player-rows.md). The mini player is replaced by [0028](0028-mini-player-pill.md). The shape of the timeline is in [0035](0035-timeline-shape.md).
 
 ## Context
 
@@ -15,8 +15,12 @@ Each place has its own stack (ADR 0038). When the player was a page, one player 
 - The listener puts the timeline on the right or the left edge. Right is the default.
 - The **mini player** joins the timeline as one shape: a card with a flat face on the timeline's side. It shows the cover and three lines: movement, work, people (composer and conductor). A long movement title scrolls as a marquee. It has no progress line. A tap on it opens the player.
 - A surname comes from the artist's sort name. Without a sort name, the full name shows. No rule shortens a title or a name.
-- The **player** is an overlay. It slides up from the bottom and fills the screen. It shows the cover, the title and the performers that the whole work or album shares, then one row for each movement or track. Playing an album shows the album.
-- The listener leaves the player by a slide down, or by a tap on another tab. The tab bar and the play button of the mini player pill stay visible above it. The timeline stays on its edge.
+- The **player** is an overlay. It slides up from the bottom and fills the entire display, including both safe areas. It shows the cover, the title and the performers that the whole work or album shares, then one row for each movement or track. Playing an album shows the album.
+- A slide down closes the player and restores the page underneath, with its scroll position.
+- Any tab tap closes the player and restores that tab’s last page. This includes the tab underneath the player.
+- A tab tap that closes the player never returns to the tab’s root.
+- The native tab bar and the complete mini player pill stay visible above the overlay. The timeline stays on its edge.
+- The pill keeps its square cover, width and height while the player is open (bead sz-rs30.1.105.57).
 - The player is not a page. It never goes onto a stack. A recording page or album page stays a page of its place.
 - A row shows its full title and its duration. A tap on a row opens it; it never plays. An open row plays from a round button in the place of its chevron.
 - The playing row stays open. Below its title: the performers that differ from the whole, one row each; the movement's own bar with its controls; then its listening notes under the label "Notes".

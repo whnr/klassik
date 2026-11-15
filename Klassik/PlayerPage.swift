@@ -1,6 +1,6 @@
 import Foundation
 
-/// What the page of a recording or album shows (ADR 0015, 0027): the header holds what every track shares, and a
+/// What the page of a recording or album shows (ADR 0014, 0027): the header holds what every track shares, and a
 /// row holds only the names that differ for its track.
 struct PlayerPage: Sendable {
     /// The composer that every track names, if there is one.
@@ -41,7 +41,7 @@ struct PlayerPage: Sendable {
     }
 }
 
-/// When the player page may scroll by itself (ADR 0027): only after a quiet spell without touches, and never while
+/// When the player may scroll by itself (ADR 0027): only after a quiet spell without touches, and never while
 /// a scrub on the timeline holds the rows still.
 struct QuietSpell: Sendable {
     static let length = Duration.seconds(3)

@@ -8,49 +8,54 @@ struct PlacesView: View {
     @State private var navigator = AppNavigator()
     @AppStorage(TimelineSide.storageKey) private var side = TimelineSide.standard
     @State private var backTransition = PlaceBackTransition()
-    @State private var tabBarTop: CGFloat?
+    @State private var tabBarFrame: CGRect?
+    @State private var pillInset = Measure.timeline + Space.xs.points
 
     var body: some View {
         let playing = model.playback.item != nil
-        let onPlayer =
-            model.playback.item.map { navigator.pages(in: navigator.selection).last == Page(playing: $0) } ?? false
+        let rowHeight = tabBarFrame?.height ?? TabRow.height
         SystemPlaces(
             model: model, navigator: navigator, selection: navigator.selection, backTransition: backTransition,
-            side: side, reservedWidth: playing ? MiniPlayer.width(onPlayer: onPlayer) + Space.s.points : 0,
-            onLayout: { tabBarTop = $0 }
+            side: side,
+            reservedWidth: playing ? MiniPlayer.width(height: rowHeight, edgeInset: pillInset) + Space.s.points : 0,
+            playerOpen: navigator.isPlayerOpen,
+            onLayout: { tabBarFrame = $0 }
         )
         .ignoresSafeArea(.container)
         .background { PlaceBackSurface(transition: backTransition) }
-        .onChange(of: model.playback.item.map(Page.init(playing:))) { old, new in
-            navigator.followPlayback(from: old, to: new)
-        }
         .overlay {
             GeometryReader { safe in
                 let insets = safe.safeAreaInsets
                 GeometryReader { display in
                     let gap =
-                        tabBarTop.map {
-                            max(0, display.size.height - $0 - Space.xs.points - TabRow.height)
+                        tabBarFrame.map {
+                            max(0, display.frame(in: .global).maxY - $0.maxY)
                         } ?? TabRow.gap(safeArea: insets.bottom)
+                    // The bar frame stays pinned under a keyboard, so the row position comes from it, not the display.
                     let rowTop =
-                        tabBarTop.map { $0 + Space.xs.points } ?? display.size.height - gap - TabRow.height
-                    if playing {
-                        VStack(spacing: 0) {
-                            TimelineBarView(side: side)
-                            HStack(spacing: 0) {
-                                if side == .right { Spacer(minLength: 0) }
-                                MiniPlayer(side: side, bottom: gap)
-                                if side == .left { Spacer(minLength: 0) }
+                        tabBarFrame.map { $0.minY - display.frame(in: .global).minY }
+                        ?? display.size.height - gap - rowHeight
+                    let inset = MiniPlayer.coverInset(in: display, side: side, bottom: gap, height: rowHeight)
+                    ZStack(alignment: .top) {
+                        if playing {
+                            VStack(spacing: 0) {
+                                TimelineBarView(side: side)
+                                HStack(spacing: 0) {
+                                    if side == .right { Spacer(minLength: 0) }
+                                    MiniPlayer(side: side, height: rowHeight, edgeInset: pillInset)
+                                    if side == .left { Spacer(minLength: 0) }
+                                }
+                                .frame(height: rowHeight)
+                                .accessibilityElement(children: .contain)
                             }
-                            .frame(height: TabRow.height)
-                            .accessibilityElement(children: .contain)
+                            // Keyboard safe-area changes must not shorten the timeline above the native bar.
+                            .frame(height: max(0, rowTop + rowHeight - insets.top))
+                            .padding(.top, insets.top)
+                            MiniPlayerCorner(side: side, top: rowTop)
+                                .allowsHitTesting(false)
                         }
-                        // Keyboard safe-area changes must not shorten the timeline above the native bar.
-                        .frame(height: max(0, rowTop + TabRow.height - insets.top))
-                        .padding(.top, insets.top)
-                        MiniPlayerCorner(side: side, top: rowTop)
-                            .allowsHitTesting(false)
                     }
+                    .onChange(of: inset, initial: true) { _, value in pillInset = value }
                 }
                 .ignoresSafeArea(.container)
             }
@@ -68,7 +73,8 @@ private struct SystemPlaces: UIViewControllerRepresentable {
     let backTransition: PlaceBackTransition
     let side: TimelineSide
     let reservedWidth: CGFloat
-    let onLayout: @MainActor (CGFloat) -> Void
+    let playerOpen: Bool
+    let onLayout: @MainActor (CGRect) -> Void
 
     func makeUIViewController(context: Context) -> PlacesController {
         let controller = PlacesController()
@@ -95,12 +101,17 @@ private struct SystemPlaces: UIViewControllerRepresentable {
             host.tabBarItem.accessibilityIdentifier = "tab-\(place.rawValue)"
             return host
         }
+        controller.installPlayer(
+            AnyView(
+                PlayerOverlayLayer().environment(model).environment(navigator)
+                    .environment(controller.playerLayout).tint(Palette.tint)))
         return controller
     }
 
     func updateUIViewController(_ controller: PlacesController, context: Context) {
         let selected = Place.allCases.firstIndex(of: selection) ?? 0
         if controller.selectedIndex != selected { controller.selectedIndex = selected }
+        controller.playerHost?.view.isUserInteractionEnabled = playerOpen
         controller.onLayout = onLayout
         controller.reservedWidth = reservedWidth
         controller.side = side
@@ -117,8 +128,11 @@ private struct SystemPlaces: UIViewControllerRepresentable {
 
         func tabBarController(_ controller: UITabBarController, shouldSelect viewController: UIViewController) -> Bool {
             guard let index = controller.viewControllers?.firstIndex(of: viewController) else { return false }
-            navigator.selectTab(Place.allCases[index])
-            return true
+            let place = Place.allCases[index]
+            let dismissesCurrent = navigator.isPlayerOpen && navigator.selection == place
+            navigator.selectTab(place)
+            // UIKit must not pop the selected stack when its tab dismisses the player.
+            return !dismissesCurrent
         }
     }
 }
@@ -126,10 +140,22 @@ private struct SystemPlaces: UIViewControllerRepresentable {
 private final class PlacesController: UITabBarController {
     var reservedWidth: CGFloat = 0
     var side = TimelineSide.right
-    var onLayout: (@MainActor (CGFloat) -> Void)?
-    private var reportedTop: CGFloat?
+    var onLayout: (@MainActor (CGRect) -> Void)?
+    private var reportedFrame: CGRect?
     private var restingFrame: CGRect?
     private var keyboardVisible = false
+    private(set) var playerHost: UIHostingController<AnyView>?
+    let playerLayout = PlayerOverlayLayout()
+
+    func installPlayer(_ root: AnyView) {
+        let host = UIHostingController(rootView: root)
+        addChild(host)
+        host.view.backgroundColor = .clear
+        host.view.isUserInteractionEnabled = false
+        view.addSubview(host.view)
+        host.didMove(toParent: self)
+        playerHost = host
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -151,7 +177,8 @@ private final class PlacesController: UITabBarController {
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         var frame = tabBar.frame
-        // UIKit removes the home-indicator inset under a keyboard. Playback controls must keep the resting bar position.
+        // UIKit removes the home-indicator inset under a keyboard.
+        // Playback controls must keep the resting bar position.
         if keyboardVisible, let restingFrame {
             frame.origin.y = restingFrame.minY
             frame.size.height = restingFrame.height
@@ -161,9 +188,30 @@ private final class PlacesController: UITabBarController {
         frame.origin.x = side == .left ? reservedWidth : 0
         frame.size.width = max(0, view.bounds.width - reservedWidth)
         tabBar.frame = frame
-        if reportedTop != frame.minY, let onLayout {
-            reportedTop = frame.minY
-            Task { @MainActor in onLayout(frame.minY) }
+        playerHost?.view.frame = view.bounds
+        let top = view.window?.safeAreaInsets.top ?? view.safeAreaInsets.top
+        let bottom = max(0, view.bounds.maxY - tabBar.convert(tabBar.bounds, to: view).minY)
+        if playerLayout.top != top || playerLayout.bottom != bottom {
+            Task { @MainActor [layout = playerLayout] in
+                layout.top = top
+                layout.bottom = bottom
+            }
+        }
+        // UIKit nests the native bar inside a container. The player belongs below that whole container.
+        var chrome: UIView = tabBar
+        while let parent = chrome.superview, parent !== view { chrome = parent }
+        if chrome.superview === view {
+            view.bringSubviewToFront(chrome)
+            if let playerHost { view.insertSubview(playerHost.view, belowSubview: chrome) }
+        }
+        // SwiftUI's display reader measures in global coordinates, so the bar reports its window coordinates.
+        let bar = tabBar.convert(tabBar.bounds, to: nil)
+        // The bar frame also holds the safe-area gap, so its height is not the capsule's. The pill height is the
+        // fixed capsule height; only the position and width come from the bar.
+        let content = CGRect(x: bar.minX, y: bar.minY, width: bar.width, height: TabRow.height)
+        if reportedFrame != content, let onLayout {
+            reportedFrame = content
+            Task { @MainActor in onLayout(content) }
         }
     }
 }
@@ -180,7 +228,8 @@ extension Place {
 
 /// Playback controls align with the native tab bar; their safe-area gap keeps the square cover clear.
 enum TabRow {
-    nonisolated static let height = MiniPlayer.item + 2 * Space.xs.points
+    // The iOS 27 floating capsule is 62 points high. Its content guide is 49 points high.
+    nonisolated static let height: CGFloat = 62
 
     nonisolated static func gap(safeArea bottom: CGFloat) -> CGFloat {
         max(bottom, Space.s.points)
@@ -251,6 +300,7 @@ struct PlaceStack<Root: View>: View {
                         .environment(\.showsBackTip, (navigator.pages(in: place).firstIndex(of: page) ?? 0) >= 1)
                 }
         }
+        .accessibilityHidden(navigator.isPlayerOpen)
     }
 }
 

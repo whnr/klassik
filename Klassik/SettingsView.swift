@@ -110,7 +110,12 @@ struct SettingsView: View {
         let enrichment = model.enrichment
         if let progress = enrichment.progress { return "\(progress.done) of \(progress.total)" }
         let toConfirm = enrichment.summary(of: model.library.index).toConfirm.count
-        return toConfirm > 0 ? "\(toConfirm) to confirm" : ""
+        if toConfirm > 0 { return "\(toConfirm) to confirm" }
+        switch model.sweep.state {
+        case .running(let done, let total): return "People \(done) of \(total)"
+        case .paused: return "Paused"
+        case .idle, .upToDate: return ""
+        }
     }
 }
 

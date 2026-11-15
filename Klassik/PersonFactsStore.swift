@@ -32,6 +32,10 @@ final class PersonFactsStore {
         var inputs: [String: [String]] = [:]
         /// The Wikidata item of each performer tag. An empty text means that Wikidata has none.
         var performers: [String: String] = [:]
+        /// When the background pass last settled each person: "composer:<tag>" or "performer:<tag>" (ADR 0042).
+        var checked: [String: Date] = [:]
+        /// When each check of the background pass falls due, with its random spread (ADR 0042).
+        var due: [String: Date] = [:]
 
         init() {}
 
@@ -45,6 +49,8 @@ final class PersonFactsStore {
             inputs = try container.decode([String: [String]].self, forKey: .inputs)
             // Performer mappings are optional for caches that hold composers only.
             performers = try container.decodeIfPresent([String: String].self, forKey: .performers) ?? [:]
+            checked = try container.decodeIfPresent([String: Date].self, forKey: .checked) ?? [:]
+            due = try container.decodeIfPresent([String: Date].self, forKey: .due) ?? [:]
             // Resolutions and listener choices must survive facts invalidation.
             if version < Cache.version {
                 people = [:]
@@ -100,8 +106,10 @@ final class PersonFactsStore {
     // MARK: Lookup
 
     /// Finds the performer of a tag. A failed lookup leaves nothing in the cache, so the next visit asks again.
-    func resolve(performer tag: String) async {
-        guard !loading.contains(tag), !hasResolved(performer: tag) else { return }
+    /// The result is false for a failed request only: a tag that needs no lookup counts as done.
+    @discardableResult
+    func resolve(performer tag: String) async -> Bool {
+        guard !loading.contains(tag), !hasResolved(performer: tag) else { return true }
         loading.insert(tag)
         defer { loading.remove(tag) }
         do {
@@ -112,20 +120,24 @@ final class PersonFactsStore {
                 cache.performers[tag] = ""
             }
             lastError = nil
+            save()
+            return true
         } catch {
             lastError = error.localizedDescription
+            save()
+            return false
         }
-        save()
     }
 
     /// Finds the composer of a tag. `artistIDs` are the MusicBrainz composer IDs of the works under the tag:
     /// when they all lead to one Wikidata person, the works decide.
-    func resolve(composer tag: String, artistIDs: [String]) async {
+    @discardableResult
+    func resolve(composer tag: String, artistIDs: [String]) async -> Bool {
         let inputs = Set(artistIDs).sorted()
         let chosen = cache.chosen.contains(tag)
         guard !loading.contains(tag), tag != Song.unknownComposer,
             chosen ? lacksFacts(tag) : cache.composers[tag] == nil || cache.inputs[tag] != inputs || lacksFacts(tag)
-        else { return }
+        else { return true }
         loading.insert(tag)
         defer { loading.remove(tag) }
         do {
@@ -140,9 +152,68 @@ final class PersonFactsStore {
                 cache.inputs[tag] = inputs
             }
             lastError = nil
+            save()
+            return true
         } catch {
             lastError = error.localizedDescription
+            save()
+            return false
         }
+    }
+
+    // MARK: Background pass
+
+    /// The Wikidata item that a tag stands for now, if it has one.
+    func qid(ofComposer tag: String) -> String? {
+        if case .person(let qid)? = cache.composers[tag] { return qid }
+        return nil
+    }
+
+    func qid(ofPerformer tag: String) -> String? {
+        cache.performers[tag].flatMap { $0.isEmpty ? nil : $0 }
+    }
+
+    /// The seconds until Wikimedia lets the next person request go, after a throttle, or 0.
+    func throttleHold() async -> Double {
+        await service.pacer.hold
+    }
+
+    /// Loads the facts of an item again. The old facts stay when the request fails or the item is gone.
+    /// Returns false on a failed request.
+    func refresh(_ qid: String) async -> Bool {
+        do {
+            if let facts = try await service.facts(qid: qid) { cache.people[qid] = facts }
+            lastError = nil
+            save()
+            return true
+        } catch {
+            lastError = error.localizedDescription
+            return false
+        }
+    }
+
+    /// Finds the composer of a tag by the tag alone, for the background pass (ADR 0042). It uses no MusicBrainz
+    /// ID. A tag with a resolution keeps it, unless `again` asks Wikidata again. The listener's choice stays.
+    /// Returns false on a failed request.
+    @discardableResult
+    func lookUp(composer tag: String, again: Bool = false) async -> Bool {
+        if !again, case .person(let qid)? = cache.composers[tag] {
+            return cache.people[qid] != nil ? true : await refresh(qid)
+        }
+        guard again || cache.composers[tag] == nil, !cache.chosen.contains(tag) else { return true }
+        // `resolve` asks again only when the saved inputs differ from the new ones.
+        cache.inputs[tag] = nil
+        return await resolve(composer: tag, artistIDs: [])
+    }
+
+    func reopen(performer tag: String) {
+        cache.performers[tag] = nil
+    }
+
+    /// Records that the background pass settled a person, and when the person falls due again.
+    func markChecked(_ key: String, at date: Date, due: Date) {
+        cache.checked[key] = date
+        cache.due[key] = due
         save()
     }
 
@@ -264,7 +335,8 @@ extension PersonFactsStore {
     static func forLaunch() -> PersonFactsStore {
         #if DEBUG
             if let fetch = PersonLaunchStub.fetch {
-                return PersonFactsStore(service: PersonFactsService(fetch: fetch, pacer: Pacer(interval: 0)))
+                let service = PersonFactsService(fetch: fetch, pacer: WikimediaPacer(interval: .zero))
+                return PersonFactsStore(service: service)
             }
         #endif
         return PersonFactsStore()

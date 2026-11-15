@@ -22,7 +22,7 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0008](0008-offline-storage.md)                              | Downloads and the cache                                                                                | 2026-10-18 |
 | [0009](0009-reference-recording.md)                          | The reference recording is a star (replaced by 0013)                                                   | 2026-10-18 |
 | [0010](0010-incremental-sync.md)                             | Sync at start only when the server changed                                                             | 2026-10-18 |
-| [0011](0011-enrichment.md)                                   | Composition dates from MusicBrainz and Wikidata (partly replaced by 0012 and 0016)                     | 2026-10-19 |
+| [0011](0011-enrichment.md)                                   | Composition dates from MusicBrainz and Wikidata (partly replaced by 0012, 0016 and 0042)                     | 2026-10-19 |
 | [0012](0012-composer-lists.md)                               | Look up works composer by composer                                                                     | 2026-10-19 |
 | [0013](0013-favourites.md)                                   | Favourites and the recording order                                                                     | 2026-10-31 |
 | [0014](0014-player.md)                                       | The player: an overlay with rows beside one timeline (partly replaced by 0027 and 0028; 0015 annulled) | 2026-11-02 |
@@ -53,3 +53,4 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0039](0039-next-at-the-end-and-play-on-the-playing-item.md) | Next ends at the last movement; Play on the playing item pauses or resumes                             | 2026-11-11 |
 | [0040](0040-settings-from-the-library.md)                    | Settings opens from the Library toolbar                                                                | 2026-11-13 |
 | [0041](0041-native-tabs-and-display-corners.md)              | Native tabs and the display corner                                                                     | 2026-11-14 |
+| [0042](0042-wikidata-pass-in-the-background.md)              | A background pass loads Wikidata for the whole library                                                 | 2026-11-14 |

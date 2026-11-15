@@ -521,10 +521,11 @@ final class PlaybackSession {
     /// Fills the lock screen and Control Center.
     private func updateNowPlaying() {
         guard let work, let recording, let movement, segments.indices.contains(movement) else { return }
+        let text = NowPlayingText(song: recording.songs[movement], work: work)
         MPNowPlayingInfoCenter.default().nowPlayingInfo = [
-            MPMediaItemPropertyTitle: recording.title(of: recording.songs[movement]),
-            MPMediaItemPropertyArtist: recording.summary,
-            MPMediaItemPropertyAlbumTitle: work.title,
+            MPMediaItemPropertyTitle: text.title,
+            MPMediaItemPropertyArtist: text.artist,
+            MPMediaItemPropertyAlbumTitle: text.album,
             MPMediaItemPropertyPlaybackDuration: segments[movement],
             MPNowPlayingInfoPropertyElapsedPlaybackTime: position,
             MPNowPlayingInfoPropertyPlaybackRate: isPaused ? 0.0 : 1.0,
@@ -575,20 +576,21 @@ final class PlaybackSession {
     }
 
     private func observeAudioSession() {
-        notifications.observe(AVAudioSession.interruptionNotification) { [weak self] notification in
-            guard let raw = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
-                let type = AVAudioSession.InterruptionType(rawValue: raw)
+        notifications.observe(AVAudioSession.didBecomeInactiveNotification) { [weak self] notification in
+            guard
+                let context = notification.userInfo?[AVAudioSession.deactivationContextKey]
+                    as? AVAudioSession.DeactivationContext,
+                context.source == .system
             else { return }
-            let event: PlaybackState.Event
-            switch type {
-            case .began: event = .interruptionBegan
-            case .ended:
-                let rawOptions = notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
-                event = .interruptionEnded(
-                    shouldResume: AVAudioSession.InterruptionOptions(rawValue: rawOptions).contains(.shouldResume))
-            @unknown default: return
-            }
-            Task { @MainActor in self?.handle(event) }
+            Task { @MainActor in self?.handle(.interruptionBegan) }
+        }
+        notifications.observe(AVAudioSession.resumptionRecommendationNotification) { [weak self] notification in
+            guard
+                let context = notification.userInfo?[AVAudioSession.resumptionContextKey]
+                    as? AVAudioSession.ResumptionContext
+            else { return }
+            let shouldResume = context.recommendation == .shouldResume
+            Task { @MainActor in self?.handle(.interruptionEnded(shouldResume: shouldResume)) }
         }
         notifications.observe(AVAudioSession.routeChangeNotification) { [weak self] notification in
             let reason = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt

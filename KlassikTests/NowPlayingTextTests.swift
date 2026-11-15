@@ -53,4 +53,13 @@ struct NowPlayingTextTests {
         let work = WorkIndex.Work(id: "album", title: "Recital", composer: "Mozart", isTagged: false, recordings: [])
         #expect(NowPlayingText(song: song, work: work).album == "Bach, Concerto")
     }
+
+    @Test func albumTrackWithoutWorkTagKeepsItsFullTitle() {
+        let song = Song(
+            id: "b", title: "Sonata in A: I. Allegro", displayComposer: "Bach", movements: [.init(name: "I. Allegro")])
+        let work = WorkIndex.Work(id: "album", title: "Recital", composer: "Bach", isTagged: false, recordings: [])
+        let result = NowPlayingText(song: song, work: work)
+        #expect(result.title == "Sonata in A: I. Allegro")
+        #expect(result.album == "Bach")
+    }
 }

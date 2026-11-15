@@ -31,4 +31,4 @@ Klassik 0.13.0
 29. Open a composer, switch places, return. Expect that composer. Tap its selected tab. Expect its root. (sz-rs30.1.105.2.1)
 30. Open Library, tap the cog. Expect Settings and three tabs. Expect a system Back button to Library. (sz-rs30.1.105.32)
 31. Read wrapped page titles and section headings, including album work headings. Expect left alignment. (sz-rs30.1.105.59)
-32. Play music. Open Settings, Classical Filter, then tap Genre. Expect the keyboard to cover navigation without moving the timeline. (sz-rs30.1.105.61)
+32. Play music. Open Settings, Classical Filter, then tap the value beside Genre contains, for example Classical. Expect the keyboard to cover navigation without moving the timeline. (sz-rs30.1.105.61)

@@ -7,10 +7,12 @@ struct NowPlayingText {
     let album: String
 
     init(song: Song, work: WorkIndex.Work) {
-        title = song.movementTitle
+        let workName = song.works?.first?.name ?? (work.isTagged ? work.title : "")
+        // A movement name alone does not name the work, so an untagged work keeps the full track title.
+        title = workName.isEmpty ? song.title : song.movementTitle
         artist = Roles.lockScreenNames(of: song)
         let composer = song.composerName == Song.unknownComposer ? work.composer : song.composerName
-        let name = song.works?.first?.name ?? (work.isTagged ? work.title : "")
-        album = [composer == Song.unknownComposer ? "" : composer, name].filter { !$0.isEmpty }.joined(separator: ", ")
+        let composerName = composer == Song.unknownComposer ? "" : composer
+        album = [composerName, workName].filter { !$0.isEmpty }.joined(separator: ", ")
     }
 }

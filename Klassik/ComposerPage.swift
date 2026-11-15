@@ -40,7 +40,7 @@ struct ComposerPage: View {
     ) -> some View {
         PersonHero(
             name: composer.name, facts: facts, line: facts?.descriptionLine, kind: "composer",
-            topInset: proxy.safeAreaInsets.top, width: proxy.size.width
+            topInset: proxy.safeAreaInsets.top, width: proxy.size.width, spacesChronology: true
         )
         .listRowInsets(EdgeInsets())
         .listRowSeparator(.hidden)
@@ -56,8 +56,8 @@ struct ComposerPage: View {
                 .contentShape(.capsule)
         }
         .buttonStyle(.plain)
-        // The specimen keeps the picture a step further from the button than the button from the tabs.
-        .listRowInsets(Self.insets(top: Space.l.points + Space.m.points, bottom: 0))
+        // The gap above the button belongs to the hero, which knows whether a picture shows.
+        .listRowInsets(Self.insets(top: 0, bottom: 0))
         .listRowSeparator(.hidden)
         .accessibilityIdentifier("composer-chronology")
         Picker("Show", selection: $tab) {
@@ -303,6 +303,8 @@ struct PersonHero: View {
     let kind: String
     let topInset: CGFloat
     let width: CGFloat
+    /// True when the Chronology button follows. The hero then keeps the specimen gap below it.
+    var spacesChronology = false
     @State private var portrait: LoadedPortrait?
     @State private var loaded = false
     @State private var showsPicture = false
@@ -341,11 +343,14 @@ struct PersonHero: View {
                 }
                 .frame(width: width, height: frame.height, alignment: .bottomLeading)
                 .clipped()
+                .padding(.bottom, spacesChronology ? Space.l.points + Space.m.points : 0)
             } else {
                 // No picture: the name sits close under the back arrow, as a page title does.
+                // The width frame keeps the grouped list from insetting the name, as in the picture branch.
                 heading
+                    .frame(width: width, alignment: .leading)
                     .padding(.top, topInset + Space.xs.points)
-                    .padding(.bottom, Space.s.points)
+                    .padding(.bottom, spacesChronology ? 2 * Space.m.points : Space.s.points)
             }
         }
         .modifier(load)

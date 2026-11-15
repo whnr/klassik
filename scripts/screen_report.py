@@ -31,8 +31,10 @@ def expected(source, ui):
     areas = None if ui in ("true", "all") else {a.strip().lower() for a in ui.split(",") if a.strip()}
     names, area = [], None
     for line in source.splitlines():
-        if match := re.match(r"\s*(?:final )?class (\w+)Screens\b", line):
-            area = match.group(1).lower()
+        if match := re.match(r"\s*(?:final )?class (\w+)", line):
+            # A snap in a shared class, such as the connect screen, belongs to no area.
+            name = match.group(1)
+            area = name[: -len("Screens")].lower() if name.endswith("Screens") else None
         elif (match := re.search(r'\bsnap\(app, "([\w-]+)"\)', line)) and area and (areas is None or area in areas):
             names.append(match.group(1))
     return sorted(set(names))

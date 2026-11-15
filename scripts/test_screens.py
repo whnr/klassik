@@ -24,6 +24,9 @@ final class SettingsScreens: ScreensTestCase {
     }
 }
 class ScreensTestCase: XCTestCase {
+    func launch() {
+        if connect { snap(app, "01-connect") }
+    }
     func snap(_ app: XCUIApplication, _ name: String) {}
 }
 """
@@ -160,6 +163,9 @@ class MatrixTests(unittest.TestCase):
             )
             self.assertEqual(screen_report.unexplained_gaps(reports, "all", WALK), {})
             self.assertEqual(screen_report.aggregate_ui(reports, "all", WALK), "failed")
+
+    def test_a_shared_snap_belongs_to_no_area(self):
+        self.assertNotIn("01-connect", screen_report.expected(WALK, "all"))
 
     def test_the_command_names_the_gaps(self):
         with tempfile.TemporaryDirectory() as directory:

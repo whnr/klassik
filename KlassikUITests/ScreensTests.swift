@@ -256,7 +256,9 @@ final class PlaybackScreens: ScreensTestCase {
         openRecording(app)
         playPaused(app)
         openPlayer(app)
-        reveal(app.buttons["raw-tags"], in: app).tap()
+        // The page below the overlay builds the same row, so the query stays inside the overlay.
+        let overlay = app.descendants(matching: .any)["player-overlay"].firstMatch
+        reveal(overlay.buttons["raw-tags"], in: app).tap()
         expectPlayerClosed(app)
         XCTAssertTrue(app.navigationBars["Tags"].waitForExistence(timeout: 10))
         back(app)

@@ -56,7 +56,8 @@ struct ComposerPage: View {
                 .contentShape(.capsule)
         }
         .buttonStyle(.plain)
-        .listRowInsets(Self.insets(top: Space.l.points, bottom: 0))
+        // The specimen keeps the picture a step further from the button than the button from the tabs.
+        .listRowInsets(Self.insets(top: Space.l.points + Space.m.points, bottom: 0))
         .listRowSeparator(.hidden)
         .accessibilityIdentifier("composer-chronology")
         Picker("Show", selection: $tab) {
@@ -121,7 +122,6 @@ struct ComposerPage: View {
             // A plain list indents its section header by 16 pt. The page title and rows sit at 20 pt.
             CountedHeading("Works", count: rows.reduce(0) { $0 + $1.works.count })
                 .padding(.leading, 4)
-                .padding(.top, Space.betweenSections.points - Space.m.points)
         }
         if rows.isEmpty {
             Text("No works with these genres.")

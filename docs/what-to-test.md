@@ -8,7 +8,7 @@ Klassik 0.13.0
 6. Open a work with two recordings. Expect no work cover and one cover on each recording row. (sz-rs30.1.105.6)
 7. Read a recording row. Expect role lines (conductor, soloists), then facts in prose, no dots or "+n more". (sz-rs30.1.105.6)
 8. Open Classical Albums, note "Romantic Encores", browse a work, return. Expect the same names. (sz-rs30.1.69)
-9. Lock the phone while a recording plays. Expect the artist as one plain list of names. (sz-rs30.1.105.6)
+9. Play, then lock the phone. Expect movement, conductor and orchestra, then composer and work. Solo recordings show performers. (sz-rs30.1.105.60)
 10. Open a recording with a partial work. Expect "3 of 5 movements" style text. (sz-rs30.1.105.6)
 11. Open Classical Albums, then an album. Expect Play and tracks in disc order. (sz-rs30.1.105.7)
 12. Open an album with a two-movement work. Expect a work heading that opens its recording page. (sz-rs30.1.105.7)

@@ -1028,10 +1028,13 @@ class ScreensTestCase: XCTestCase {
 
     @MainActor
     func checkTabAndCoverFrames(_ app: XCUIApplication, side: PillEdge) {
-        let tabs = ["Library", "Chronology", "Search"].map { tab(app, $0).frame }
+        let buttons = ["Library", "Chronology", "Search"].map { tab(app, $0) }
+        // UIKit expands button frames beyond their slots. Image frames exclude this extra area.
+        let tabs = buttons.map { $0.images.firstMatch.frame }
+        for frame in tabs { XCTAssertGreaterThan(frame.width, 0, "A tab has no image") }
         for (left, right) in zip(tabs, tabs.dropFirst()) {
-            XCTAssertGreaterThan(left.width, 0, "A tab has no width")
-            XCTAssertLessThanOrEqual(left.maxX, right.minX, "The tab frames overlap")
+            XCTAssertLessThanOrEqual(left.maxX, right.minX, "The visible tab frames overlap")
+            XCTAssertGreaterThanOrEqual(right.midX - left.midX, 64, "The tab slots crowd their labels")
         }
         let cover = app.buttons["mini-player-cover"].frame
         // The button includes the edge padding; its inward edge is the square cover's inward edge.

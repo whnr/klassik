@@ -1,7 +1,7 @@
 {
-  "sha": "01b1f2ea97729e4bdc69e3597f1fe4ed61cc850d",
+  "sha": "d9f0b9a4503952b7e9146479e33e598eb3b2f55c",
   "branch": "claude-sz-rs30.1.105.67",
   "path": "claude-sz-rs30.1.105.67",
-  "subject": "[sz-rs30.1.105.67] Use only standard Wikimedia thumbnail steps",
-  "ts": 1794768509
+  "subject": "Merge remote-tracking branch 'origin/main' into claude-sz-rs30.1.105.67",
+  "ts": 1794771496
 }

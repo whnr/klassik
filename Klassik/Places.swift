@@ -32,6 +32,8 @@ struct PlacesView: View {
                         tabBarTop.map {
                             max(0, display.size.height - $0 - Space.xs.points - TabRow.height)
                         } ?? TabRow.gap(safeArea: insets.bottom)
+                    let rowTop =
+                        tabBarTop.map { $0 + Space.xs.points } ?? display.size.height - gap - TabRow.height
                     if playing {
                         VStack(spacing: 0) {
                             TimelineBarView(side: side)
@@ -43,16 +45,17 @@ struct PlacesView: View {
                             .frame(height: TabRow.height)
                             .accessibilityElement(children: .contain)
                         }
+                        // Keyboard safe-area changes must not shorten the timeline above the native bar.
+                        .frame(height: max(0, rowTop + TabRow.height - insets.top))
                         .padding(.top, insets.top)
-                        .padding(.bottom, gap)
-                        MiniPlayerCorner(side: side, top: display.size.height - gap - TabRow.height)
+                        MiniPlayerCorner(side: side, top: rowTop)
                             .allowsHitTesting(false)
                     }
                 }
                 .ignoresSafeArea(.container)
             }
-            .ignoresSafeArea(.keyboard)
         }
+        .ignoresSafeArea(.keyboard)
         .environment(navigator)
     }
 }
@@ -125,10 +128,36 @@ private final class PlacesController: UITabBarController {
     var side = TimelineSide.right
     var onLayout: (@MainActor (CGFloat) -> Void)?
     private var reportedTop: CGFloat?
+    private var restingFrame: CGRect?
+    private var keyboardVisible = false
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        for name in [UIResponder.keyboardWillShowNotification, UIResponder.keyboardDidHideNotification] {
+            NotificationCenter.default.addObserver(
+                self, selector: #selector(keyboardVisibilityChanged(_:)), name: name, object: nil)
+        }
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    @objc private func keyboardVisibilityChanged(_ notification: Notification) {
+        keyboardVisible = notification.name == UIResponder.keyboardWillShowNotification
+        view.setNeedsLayout()
+    }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         var frame = tabBar.frame
+        // UIKit removes the home-indicator inset under a keyboard. Playback controls must keep the resting bar position.
+        if keyboardVisible, let restingFrame {
+            frame.origin.y = restingFrame.minY
+            frame.size.height = restingFrame.height
+        } else {
+            restingFrame = frame
+        }
         frame.origin.x = side == .left ? reservedWidth : 0
         frame.size.width = max(0, view.bounds.width - reservedWidth)
         tabBar.frame = frame

@@ -64,6 +64,7 @@ The scrub label uses 17-point body text and adds 36 points of finger clearance o
 The composer link and fading header follow the app specification.
 
 The specimen shows decided flows for unfinished slices too. It does not prove their installed-app behavior.
+Every keyboard covers the tab bar, mini player and timeline. These controls keep their position.
 Native glass, display corners and system gestures require an installed-app check.
 With each UX change, update affected specimen flows and run the design check.
 

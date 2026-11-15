@@ -20,34 +20,13 @@ struct ComposerPage: View {
         let catalogue = ComposerWorks(composer)
         GeometryReader { proxy in
             List {
-                PersonHero(
-                    name: composer.name, facts: facts, line: facts?.descriptionLine, kind: "composer",
-                    topInset: proxy.safeAreaInsets.top, width: proxy.size.width
-                )
-                .listRowInsets(EdgeInsets())
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
-                BackTipRow()
-                Section {
-                    Button("Chronology", systemImage: "calendar") { navigator.select(.chronology) }
-                        .buttonStyle(.bordered)
-                        .accessibilityIdentifier("composer-chronology")
-                    Picker("Show", selection: $tab) {
-                        Text("Works").tag(Tab.works)
-                        Text("About").tag(Tab.about)
-                    }
-                    .pickerStyle(.segmented)
-                    .accessibilityIdentifier("composer-tabs")
-                }
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-                ResolutionNotice(tag: composer.name)
-                switch tab {
-                case .works: worksTab(catalogue)
-                case .about: aboutTab(facts)
-                }
+                Group { content(proxy: proxy, facts: facts, catalogue: catalogue) }
+                    .listRowBackground(Color.clear)
             }
-            .grounds()
+            .listStyle(.plain)
+            .environment(\.defaultMinListRowHeight, 0)
+            .scrollContentBackground(.hidden)
+            .background(Palette.backgroundPage)
             .ignoresSafeArea(.container, edges: .top)
         }
         .navigationTitle(composer.name)
@@ -56,13 +35,60 @@ struct ComposerPage: View {
         .task(id: artistIDs) { await people.resolve(composer: composer.name, artistIDs: artistIDs) }
     }
 
+    @ViewBuilder private func content(
+        proxy: GeometryProxy, facts: PersonFacts?, catalogue: ComposerWorks
+    ) -> some View {
+        PersonHero(
+            name: composer.name, facts: facts, line: facts?.descriptionLine, kind: "composer",
+            topInset: proxy.safeAreaInsets.top, width: proxy.size.width
+        )
+        .listRowInsets(EdgeInsets())
+        .listRowSeparator(.hidden)
+        BackTipRow()
+        Button {
+            navigator.select(.chronology)
+        } label: {
+            Text("Chronology")
+                .typeStyle(.headline)
+                .foregroundStyle(Palette.tint)
+                .frame(maxWidth: .infinity, minHeight: Measure.hitTarget)
+                .background(Palette.fillQuiet, in: .capsule)
+                .contentShape(.capsule)
+        }
+        .buttonStyle(.plain)
+        // The specimen keeps the picture a step further from the button than the button from the tabs.
+        .listRowInsets(Self.insets(top: Space.l.points + Space.m.points, bottom: 0))
+        .listRowSeparator(.hidden)
+        .accessibilityIdentifier("composer-chronology")
+        Picker("Show", selection: $tab) {
+            Text("Works").tag(Tab.works)
+            Text("About").tag(Tab.about)
+        }
+        .pickerStyle(.segmented)
+        .listRowInsets(Self.insets(top: Space.l.points, bottom: 0))
+        .listRowSeparator(.hidden)
+        .accessibilityIdentifier("composer-tabs")
+        ResolutionNotice(tag: composer.name)
+        switch tab {
+        case .works: worksTab(catalogue)
+        case .about: aboutTab(facts)
+        }
+    }
+
+    /// Rows and the page title sit 20 pt from the edges, as on the work page.
+    private static func insets(top: CGFloat, bottom: CGFloat) -> EdgeInsets {
+        EdgeInsets(top: top, leading: 20, bottom: bottom, trailing: 20)
+    }
+
+    private static let rowInsets = insets(
+        top: Space.betweenGroups.points / 2, bottom: Space.betweenGroups.points / 2)
+
     @ViewBuilder private func worksTab(_ catalogue: ComposerWorks) -> some View {
         let genres = catalogue.genres
         let rows = catalogue.rows(filter: chips)
         if !genres.isEmpty {
             GenreChips(genres: genres, selection: $chips)
-                .listRowInsets(EdgeInsets())
-                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets(top: Space.m.points, leading: 0, bottom: 0, trailing: 0))
                 .listRowSeparator(.hidden)
         }
         Section {
@@ -70,22 +96,37 @@ struct ComposerPage: View {
                 switch row {
                 case .work(let work):
                     WorkRow(work: work)
+                        .listRowInsets(Self.rowInsets)
                 case .set(let name, let works):
                     DisclosureGroup {
-                        ForEach(works) { WorkRow(work: $0) }
+                        ForEach(works) {
+                            WorkRow(work: $0)
+                                .listRowInsets(Self.rowInsets)
+                        }
                     } label: {
-                        LabeledContent(name, value: "\(works.count)")
-                            .ink()
+                        VStack(alignment: .leading, spacing: Space.inGroup.points) {
+                            Text(name)
+                                .typeStyle(.body)
+                                .ink()
+                            Text("\(works.count) works")
+                                .typeStyle(.footnote)
+                                .foregroundStyle(Palette.textSecondary)
+                        }
+                        .accessibilityElement(children: .combine)
                     }
+                    .listRowInsets(Self.rowInsets)
                     .accessibilityIdentifier("set")
                 }
             }
+        } header: {
+            // A plain list indents its section header by 16 pt. The page title and rows sit at 20 pt.
+            CountedHeading("Works", count: rows.reduce(0) { $0 + $1.works.count })
+                .padding(.leading, 4)
         }
-        .listRowBackground(Palette.backgroundRow.color)
         if rows.isEmpty {
             Text("No works with these genres.")
                 .foregroundStyle(Palette.textSecondary)
-                .listRowBackground(Color.clear)
+                .listRowInsets(Self.rowInsets)
         }
         if composer.works.contains(where: { !$0.isTagged }) {
             Section {
@@ -105,7 +146,6 @@ struct ComposerPage: View {
                 } header: {
                     SectionHeading("Biography")
                 }
-                .listRowBackground(Palette.backgroundRow.color)
             }
             if !facts.credits.isEmpty {
                 Section {
@@ -115,14 +155,12 @@ struct ComposerPage: View {
                 } header: {
                     SectionHeading("Credits")
                 }
-                .listRowBackground(Palette.backgroundRow.color)
             }
         } else {
             Section {
                 Text("Wikidata has no facts for this composer. Klassik shows your tags.")
                     .foregroundStyle(Palette.textSecondary)
             }
-            .listRowBackground(Palette.backgroundRow.color)
         }
         Section {
             LabeledContent("Name in your tags", value: composer.name)
@@ -137,7 +175,6 @@ struct ComposerPage: View {
         } header: {
             SectionHeading("Your tags")
         }
-        .listRowBackground(Palette.backgroundRow.color)
     }
 }
 
@@ -148,27 +185,32 @@ private struct GenreChips: View {
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: Space.s.points) {
+            HStack(spacing: Space.xs.points) {
                 ForEach(genres, id: \.self) { genre in
                     let isOn = selection.contains(genre)
                     Button {
                         if isOn { selection.remove(genre) } else { selection.insert(genre) }
                     } label: {
                         Text(genre)
-                            .typeStyle(.footnote)
+                            .typeStyle(.subheadline)
+                            .lineLimit(1)
                             .foregroundStyle(isOn ? Palette.onAccent : Palette.textPrimary)
                             .padding(.horizontal, Space.m.points)
-                            .frame(minHeight: Measure.hitTarget)
+                            .frame(minHeight: height)
                             .background(isOn ? Palette.accentFill : Palette.fillQuiet, in: Capsule())
+                            .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
                     .accessibilityAddTraits(isOn ? .isSelected : [])
                     .accessibilityIdentifier("genre-chip")
                 }
             }
-            .padding(.horizontal, Space.l.points)
+            .padding(.horizontal, 20)
         }
     }
+
+    /// The specimen chip: smaller than a row, so the chips read as a filter, not as buttons of the page.
+    @ScaledMetric(relativeTo: .subheadline) private var height: CGFloat = 30
 }
 
 struct CreditRow: View {
@@ -225,7 +267,6 @@ private struct ResolutionNotice: View {
             } footer: {
                 Text("Your tag gives only \"\(tag)\" and your works do not say which composer it is.")
             }
-            .listRowBackground(Palette.backgroundRow.color)
         case .mixed(let names):
             Section {
                 Text(
@@ -235,7 +276,6 @@ private struct ResolutionNotice: View {
                 .ink()
                 .accessibilityIdentifier("composer-mixed")
             }
-            .listRowBackground(Palette.backgroundRow.color)
         case .person:
             if !people.loading.contains(tag), people.facts(ofComposer: tag) == nil, people.lastError != nil {
                 Section {
@@ -264,62 +304,113 @@ struct PersonHero: View {
     let topInset: CGFloat
     let width: CGFloat
     @State private var portrait: LoadedPortrait?
+    @State private var loaded = false
     @State private var showsPicture = false
+    /// The height of the name and the facts line, which sets the blur and the scrim under them.
+    @State private var textHeight: CGFloat = 96
+    @ScaledMetric(space: .inGroup) private var gap: CGFloat
 
-    private static let bodyHeight: CGFloat = 300
-    /// The part of the frame, from the bottom, that holds the name and the facts line.
-    private static let textShare: CGFloat = 0.45
+    /// The picture runs under the bars and keeps the specimen's proportion: 118% of the width, at most 470 pt.
+    private var frame: CGSize {
+        CGSize(width: width, height: max(min(width * 1.18, 470), topInset + 260))
+    }
+
+    /// The space stays reserved while a picture loads, so the name does not jump when it arrives.
+    private var hasPicture: Bool {
+        portrait != nil || (facts?.portrait != nil && !loaded)
+    }
 
     var body: some View {
-        let frame = CGSize(width: width, height: topInset + Self.bodyHeight)
-        let framing = portrait.map {
-            PortraitFraming.rect(image: $0.image.size, frame: frame, face: $0.face)
-        }
-        ZStack(alignment: .bottomLeading) {
-            if let portrait, let framing {
-                picture(portrait, framing: framing, frame: frame)
-            }
-            VStack(alignment: .leading, spacing: Space.xs.points) {
-                Text(name)
-                    .typeStyle(.pageTitle)
-                    .foregroundStyle(portrait == nil ? Palette.textPrimary.color : paper)
-                if let line {
-                    Text(line)
-                        .typeStyle(.subheadline)
-                        .foregroundStyle(portrait == nil ? Palette.textSecondary.color : paper)
-                        .accessibilityIdentifier("\(kind)-description")
+        // The load sits on one container outside the branches: a switch between them must not restart it.
+        VStack(spacing: 0) {
+            if hasPicture {
+                let framing = portrait.map {
+                    PortraitFraming.rect(image: $0.image.size, frame: frame, face: $0.face)
                 }
+                ZStack(alignment: .bottomLeading) {
+                    if let portrait, let framing {
+                        picture(portrait, framing: framing, frame: frame)
+                    }
+                    heading
+                        .padding(.bottom, Space.m.points)
+                        .onGeometryChange(for: CGFloat.self) {
+                            $0.size.height
+                        } action: {
+                            textHeight = $0
+                        }
+                }
+                .frame(width: width, height: frame.height, alignment: .bottomLeading)
+                .clipped()
+            } else {
+                // No picture: the name sits close under the back arrow, as a page title does.
+                heading
+                    .padding(.top, topInset + Space.xs.points)
+                    .padding(.bottom, Space.s.points)
             }
-            .padding(.horizontal, Space.l.points)
-            .padding(.vertical, Space.l.points)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityElement(children: .combine)
-            .accessibilityAddTraits(.isHeader)
         }
-        .frame(width: width, height: frame.height, alignment: .bottomLeading)
-        .clipped()
-        .task(id: PortraitTask(portrait: facts?.portrait, screen: screen)) {
-            portrait = nil
-            guard let file = facts?.portrait else { return }
-            let loaded = await PortraitLoader.load(file, screen: screen)
-            portrait = kind == "performer" ? loaded.flatMap { $0.isPortrait ? $0 : nil } : loaded
-        }
-        .fullScreenCover(isPresented: $showsPicture) {
-            if let portrait {
-                WholePicture(
-                    image: portrait.image, credit: facts?.credits.first { $0.kind == .picture },
-                    isPresented: $showsPicture)
+        .modifier(load)
+    }
+
+    private var load: PortraitLoad {
+        PortraitLoad(
+            task: PortraitTask(portrait: facts?.portrait, screen: screen), facts: facts, kind: kind,
+            portrait: $portrait, loaded: $loaded, showsPicture: $showsPicture)
+    }
+
+    private var heading: some View {
+        VStack(alignment: .leading, spacing: gap) {
+            Text(name)
+                .typeStyle(.pageTitle)
+                .foregroundStyle(portrait == nil ? Palette.textPrimary.color : paper)
+            if let line {
+                Text(line)
+                    .typeStyle(.subheadline)
+                    .foregroundStyle(portrait == nil ? Palette.textSecondary.color : paper)
+                    .accessibilityIdentifier("\(kind)-description")
             }
         }
+        .padding(.horizontal, 20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
     }
 
     private var screen: PortraitSize.Screen {
-        PortraitSize.Screen(hero: CGSize(width: width, height: topInset + Self.bodyHeight), scale: displayScale)
+        PortraitSize.Screen(hero: frame, scale: displayScale)
     }
 
-    private struct PortraitTask: Equatable {
+    fileprivate struct PortraitTask: Equatable {
         var portrait: PersonPortrait?
         var screen: PortraitSize.Screen
+    }
+
+    /// Loads the picture and presents it whole. Both branches of the hero carry it, so a load survives the switch.
+    fileprivate struct PortraitLoad: ViewModifier {
+        let task: PortraitTask
+        let facts: PersonFacts?
+        let kind: String
+        @Binding var portrait: LoadedPortrait?
+        @Binding var loaded: Bool
+        @Binding var showsPicture: Bool
+
+        func body(content: Content) -> some View {
+            content
+                .task(id: task) {
+                    portrait = nil
+                    loaded = false
+                    defer { loaded = true }
+                    guard let file = facts?.portrait else { return }
+                    let result = await PortraitLoader.load(file, screen: task.screen)
+                    portrait = kind == "performer" ? result.flatMap { $0.isPortrait ? $0 : nil } : result
+                }
+                .fullScreenCover(isPresented: $showsPicture) {
+                    if let portrait {
+                        WholePicture(
+                            image: portrait.image, credit: facts?.credits.first { $0.kind == .picture },
+                            isPresented: $showsPicture)
+                    }
+                }
+        }
     }
 
     /// Picture pixels for each screen pixel in the hero. Only a UI test with stubbed facts reads it, as the
@@ -340,48 +431,68 @@ struct PersonHero: View {
     private func picture(_ portrait: LoadedPortrait, framing: CGRect, frame: CGSize) -> some View {
         // The scrim comes from the picture under the text, as the frame shows it.
         let visible = PortraitFraming.visible(of: framing, in: frame)
+        let height = max(frame.height, 1)
+        // From the bottom: the text block with a margin, the blur strip, and the fade of the scrim (person.html).
+        let under = min(1, (textHeight + Space.m.points) / height)
+        let blurTop = min(1, (textHeight + 60) / height)
+        let scrimTop = min(1, (textHeight + 140) / height)
         let region = CGRect(
-            x: visible.minX, y: visible.minY + visible.height * (1 - Self.textShare), width: visible.width,
-            height: visible.height * Self.textShare)
+            x: visible.minX, y: visible.minY + visible.height * (1 - under), width: visible.width,
+            height: visible.height * under)
         let opacity = PictureScrim.opacity(
             over: portrait.brightestColour(in: region), increasedContrast: contrast == .increased)
         let hall = PictureScrim.hall
         let hallColour = Color(red: hall.red, green: hall.green, blue: hall.blue)
         let image = Image(uiImage: portrait.image).resizable()
-        return ZStack {
-            image
-                .frame(width: framing.width, height: framing.height)
-                .position(x: framing.midX, y: framing.midY)
-                .accessibilityHidden(true)
-            if model.playback.item != nil {
-                // Under the timeline the picture blurs and fades towards the hall colour, as under a bar.
-                // The fade only darkens, so the scrim below, measured on the sharp picture, still covers it.
-                ZStack {
-                    image
-                        .frame(width: framing.width, height: framing.height)
-                        .position(x: framing.midX, y: framing.midY)
-                        .blur(radius: 14)
-                    hallColour.opacity(0.5)
+        return Button {
+            showsPicture = true
+        } label: {
+            ZStack {
+                image
+                    .frame(width: framing.width, height: framing.height)
+                    .position(x: framing.midX, y: framing.midY)
+                    .accessibilityHidden(true)
+                // The name sits on a blur, which averages a small bright patch away (ADR 0034).
+                image
+                    .frame(width: framing.width, height: framing.height)
+                    .position(x: framing.midX, y: framing.midY)
+                    .blur(radius: 16)
+                    .mask(
+                        LinearGradient(
+                            stops: [
+                                .init(color: .clear, location: 1 - blurTop),
+                                .init(color: .black, location: 1 - under),
+                            ], startPoint: .top, endPoint: .bottom)
+                    )
+                    .accessibilityHidden(true)
+                if model.playback.item != nil {
+                    // Under the timeline the picture blurs and fades towards the hall colour, as under a bar.
+                    // The fade only darkens, so the scrim below, measured on the sharp picture, still covers it.
+                    ZStack {
+                        image
+                            .frame(width: framing.width, height: framing.height)
+                            .position(x: framing.midX, y: framing.midY)
+                            .blur(radius: 14)
+                        hallColour.opacity(0.5)
+                    }
+                    .mask(edgeMask)
+                    .accessibilityHidden(true)
                 }
-                .mask(edgeMask)
-                .accessibilityHidden(true)
+                // The scrim is the top layer, so that it lifts the text over the blurred strip as well.
+                LinearGradient(
+                    stops: [
+                        .init(color: hallColour.opacity(0), location: 1 - scrimTop),
+                        .init(color: hallColour.opacity(opacity), location: 1 - under),
+                        .init(color: hallColour.opacity(opacity), location: 1),
+                    ], startPoint: .top, endPoint: .bottom)
             }
-            // The scrim is the top layer, so that it lifts the text over the blurred strip as well.
-            LinearGradient(
-                stops: [
-                    .init(color: hallColour.opacity(0), location: 1 - Self.textShare * 1.4),
-                    .init(color: hallColour.opacity(opacity), location: 1 - Self.textShare),
-                    .init(color: hallColour.opacity(opacity), location: 1),
-                ], startPoint: .top, endPoint: .bottom)
+            .frame(width: frame.width, height: frame.height)
+            .contentShape(Rectangle())
         }
-        .frame(width: frame.width, height: frame.height)
-        .contentShape(Rectangle())
-        .onTapGesture { showsPicture = true }
-        .accessibilityElement()
+        .buttonStyle(.plain)
         .accessibilityLabel("Picture of \(name)")
         .accessibilityValue(density(portrait, framing: framing))
         .accessibilityHint("Shows the whole picture with its credit.")
-        .accessibilityAddTraits(.isButton)
         .accessibilityIdentifier("\(kind)-picture")
     }
 

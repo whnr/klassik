@@ -230,6 +230,24 @@ final class BrowseScreens: ScreensTestCase {
         snap(app, "02a-sets")
     }
 
+    /// Chopin has no picture: his name sits under the back arrow. His works differ in genre, so chips show, and
+    /// two chips join with "or" (ADR 0017).
+    @MainActor
+    func testComposerWithoutPicture() throws {
+        let app = try launchAndConnect()
+        composer(app, "Frédéric Chopin").tap()
+        let chips = app.buttons.matching(identifier: "genre-chip")
+        XCTAssertTrue(chips.firstMatch.waitForExistence(timeout: 10), "The composer page shows no genre chips")
+        XCTAssertFalse(app.descendants(matching: .any)["composer-picture"].exists)
+        snap(app, "03d-composer-no-picture")
+
+        app.buttons.matching(NSPredicate(format: "identifier == 'genre-chip' AND label == 'Solo'")).firstMatch.tap()
+        XCTAssertTrue(app.buttons.matching(identifier: "work").firstMatch.waitForExistence(timeout: 10))
+        app.buttons.matching(NSPredicate(format: "identifier == 'genre-chip' AND label == 'Romantic'")).firstMatch
+            .tap()
+        snap(app, "03e-composer-chips")
+    }
+
     /// Two good matches in another language: the listener picks one once.
     @MainActor
     func testConfirmMatch() throws {

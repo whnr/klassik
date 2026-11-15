@@ -115,18 +115,19 @@ struct OfflineHint: View {
 struct WorkRow: View {
     @Environment(AppModel.self) private var model
     let work: WorkIndex.Work
+    @ScaledMetric(space: .inGroup) private var gap: CGFloat
 
     var body: some View {
         if let album = work.albumKey.flatMap({ model.library.index.album($0) }) {
             NavigationLink(value: Page.album(album.id)) {
-                VStack(alignment: .leading) {
+                VStack(alignment: .leading, spacing: gap) {
                     HStack {
                         Text(album.title)
                             .ink()
                         OfflineHint(isOffline: model.tracks.isOffline(album.recording))
                     }
                     Text(WorkIndex.Recording.count(album.tracks.count, "track"))
-                        .typeStyle(.subheadline)
+                        .typeStyle(.footnote)
                         .foregroundStyle(Palette.textSecondary)
                 }
             }
@@ -134,7 +135,7 @@ struct WorkRow: View {
             .accessibilityIdentifier("album")
         } else {
             NavigationLink(value: Page.work(work.id)) {
-                VStack(alignment: .leading) {
+                VStack(alignment: .leading, spacing: gap) {
                     HStack {
                         Text(work.title)
                             .ink()
@@ -142,17 +143,24 @@ struct WorkRow: View {
                     }
                     if !work.context.isEmpty {
                         Text(work.context)
-                            .typeStyle(.subheadline)
+                            .typeStyle(.footnote)
                             .foregroundStyle(Palette.textSecondary)
                     }
-                    Text(WorkIndex.Recording.count(work.recordings.count, "recording"))
-                        .typeStyle(.subheadline)
+                    Text(facts)
+                        .typeStyle(.footnote)
                         .foregroundStyle(Palette.textSecondary)
                 }
             }
             .itemActions(work.defaultRecording.map { QueueItem(work: work, recording: $0) })
             .accessibilityIdentifier("work")
         }
+    }
+
+    /// When the work was composed, then the recordings: "Composed 1844, 1 recording".
+    private var facts: String {
+        let recordings = WorkIndex.Recording.count(work.recordings.count, "recording")
+        guard let composed = model.enrichment.composed(work) else { return recordings }
+        return "Composed\u{00A0}\(composed.span.text), \(recordings)"
     }
 }
 
@@ -229,7 +237,7 @@ struct WorkView: View {
 }
 
 /// A section heading with its count in a lighter step: "Recordings (3)".
-private struct CountedHeading: View {
+struct CountedHeading: View {
     let title: String
     let count: Int
 

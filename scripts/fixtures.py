@@ -58,9 +58,10 @@ REPLAYGAIN = {
 }
 
 
-def piece(title, grouping, performer):
-    """A work of one piece with no movements, as in a Chopin edition. The GROUPING tag names its set."""
-    return (CHOPIN, title, "", 0, 0, [("piano", performer)], None, 2, grouping)
+def piece(title, grouping, performer, genres=()):
+    """A work of one piece with no movements, as in a Chopin edition. The GROUPING tag names its set.
+    Extra genres differ between the works, so the composer page shows genre chips."""
+    return (CHOPIN, title, "", 0, 0, [("piano", performer)], None, 2, grouping, list(genres))
 
 
 def work(composer, title, movements, performers, conductor, seconds=4, only=None):
@@ -129,8 +130,8 @@ ALBUMS = [
         [
             piece("Nocturne No. 1 in B-flat minor, Op. 9 No. 1", "Nocturnes, Op. 9", "Pia Nissimo"),
             piece("Nocturne No. 2 in E-flat major, Op. 9 No. 2", "Nocturnes, Op. 9", "Pia Nissimo"),
-            piece("Nocturne No. 4 in F major, Op. 15 No. 1", "Nocturnes, Op. 15", "Pia Nissimo"),
-            piece("Nocturne No. 20 in C-sharp minor, Op. posth.", None, "Pia Nissimo"),
+            piece("Nocturne No. 4 in F major, Op. 15 No. 1", "Nocturnes, Op. 15", "Pia Nissimo", ["Romantic"]),
+            piece("Nocturne No. 20 in C-sharp minor, Op. posth.", None, "Pia Nissimo", ["Romantic", "Solo"]),
         ],
     ),
 ]
@@ -192,7 +193,7 @@ def tag(path, album, album_artist, genre, recorded, released, number, total, tra
     tags = ID3()
     tags.add(TALB(encoding=3, text=album))
     tags.add(TPE2(encoding=3, text=album_artist.split("; ")))
-    tags.add(TCON(encoding=3, text=genre))
+    tags.add(TCON(encoding=3, text=[genre] + (rest[1] if len(rest) > 1 else [])))
     tags.add(TDRC(encoding=3, text=recorded))
     tags.add(TDRL(encoding=3, text=released))
     tags.add(TRCK(encoding=3, text=f"{number}/{total}"))

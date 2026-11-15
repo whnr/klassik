@@ -1,7 +1,7 @@
 {
-  "sha": "e1a959626d6a22ea2c685cc4c805648a245e8c22",
+  "sha": "01b1f2ea97729e4bdc69e3597f1fe4ed61cc850d",
   "branch": "claude-sz-rs30.1.105.67",
   "path": "claude-sz-rs30.1.105.67",
-  "subject": "[sz-rs30.1.105.67] Load pictures at the size the screen needs",
-  "ts": 1794765879
+  "subject": "[sz-rs30.1.105.67] Use only standard Wikimedia thumbnail steps",
+  "ts": 1794768509
 }

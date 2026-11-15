@@ -28,7 +28,7 @@ private final class Counter: @unchecked Sendable {
 @MainActor
 struct PersonSweepTests {
     static let bach = PersonSweep.Person(kind: .composer, tag: "Johann Sebastian Bach")
-    static let start = Date(timeIntervalSince1970: 1_800_000_000)
+    nonisolated static let start = Date(timeIntervalSince1970: 1_800_000_000)
 
     private func makeStore(
         cache: String? = nil, fetch: MusicBrainz.Fetch? = nil

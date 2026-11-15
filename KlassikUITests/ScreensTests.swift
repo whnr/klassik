@@ -363,10 +363,8 @@ final class PlaybackScreens: ScreensTestCase {
         app.buttons["mini-player-cover"].tap()
         let handle = app.buttons["player-handle"]
         XCTAssertTrue(handle.waitForExistence(timeout: 10))
-        let reachable = expectation(for: NSPredicate(format: "isHittable == true"), evaluatedWith: handle)
-        XCTAssertEqual(
-            XCTWaiter.wait(for: [reachable], timeout: 5), .completed,
-            "The player is behind the selected place")
+        // The overlay slides in below the tab row, so the handle becomes hittable only when the slide ends.
+        XCTAssertTrue(eventually(timeout: 5) { handle.isHittable }, "The player is behind the selected place")
     }
 
     @MainActor
@@ -471,8 +469,8 @@ final class PlaybackScreens: ScreensTestCase {
         snap(app, "05e-play-album")
     }
 
-    /// Next has nowhere to go on the last movement of the last item. The fixture movements last about three
-    /// seconds, so the walk pauses at once. A queue that ends removes the Next button.
+    /// Next has nowhere to go on the last movement of the last item. Next always plays, and a queue that ends
+    /// removes the Next button. So the walk pauses as soon as Next turns off, while the last movement plays.
     @MainActor
     func testNextEndsAtTheLastMovement() throws {
         let app = try launchAndConnect()
@@ -482,8 +480,9 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(next.waitForExistence(timeout: 30), "No Next button")
         next.tap()
         next.tap()
+        XCTAssertTrue(eventually(timeout: 10) { !next.isEnabled }, "Next stays on at the last movement")
         pause(app)
-        XCTAssertFalse(next.isEnabled, "Next stays on at the last movement")
+        XCTAssertFalse(next.isEnabled, "Next turned on again after the pause")
         snap(app, "05d-next-ends")
     }
 
@@ -914,7 +913,11 @@ class ScreensTestCase: XCTestCase {
 
         let app = XCUIApplication()
         app.launchArguments = ["-resetServer"] + arguments
+        // Xcode sets OS_ACTIVITY_DT_MODE, which copies each log message of the app to its stderr. XCTest logs
+        // every attribute that a query reads, inside the app. On a busy runner the main thread then blocks on the
+        // console pipe: queries time out, frames read as infinite, and the app does not terminate.
         app.launchEnvironment = [
+            "OS_ACTIVITY_DT_MODE": "NO",
             "KLASSIK_SERVER_URL": server,
             "KLASSIK_USERNAME": env["KLASSIK_USERNAME"] ?? "",
             "KLASSIK_PASSWORD": env["KLASSIK_PASSWORD"] ?? "",
@@ -1119,6 +1122,19 @@ class ScreensTestCase: XCTestCase {
             from.press(forDuration: 0.05, thenDragTo: to)
         }
         return element
+    }
+
+    /// Reads the condition until it holds or the time is over. The time ends only between two complete reads.
+    /// An XCTWaiter that times out interrupts the read in progress, and an interrupted frame read fails the test
+    /// with an invalid activation point instead of a false value.
+    @MainActor
+    func eventually(timeout: TimeInterval, _ condition: () -> Bool) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if condition() { return true }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        }
+        return condition()
     }
 
     @MainActor

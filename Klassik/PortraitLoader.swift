@@ -72,9 +72,17 @@ enum PortraitLoader {
         return (data, (response as? HTTPURLResponse)?.statusCode ?? 0)
     }
 
+    /// The download of the app. A UI test that stubs the facts also stubs the picture.
+    static var launchDownload: MusicBrainz.Fetch {
+        #if DEBUG
+            if PersonLaunchStub.fetch != nil { return PersonLaunchStub.picture }
+        #endif
+        return download
+    }
+
     /// The picture, or nil: for a URL outside the trusted list, a failed or oversize download, or bytes that
     /// are no image.
-    static func load(_ url: URL, fetch: MusicBrainz.Fetch = PortraitLoader.download) async -> LoadedPortrait? {
+    static func load(_ url: URL, fetch: MusicBrainz.Fetch = PortraitLoader.launchDownload) async -> LoadedPortrait? {
         guard let url = PersonFactsService.trusted(url) else { return nil }
         var request = URLRequest(url: url, timeoutInterval: PersonFactsService.timeout)
         request.setValue(MusicBrainz.userAgent, forHTTPHeaderField: "User-Agent")

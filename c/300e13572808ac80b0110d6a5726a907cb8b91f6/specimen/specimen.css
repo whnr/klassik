@@ -300,6 +300,7 @@ input {
 }
 .page-head h1 {
   overflow-wrap: anywhere;
+  text-align: start;
 }
 .page-head .meta {
   margin-top: var(--space-xxs);
@@ -311,6 +312,7 @@ input {
 }
 .section-head {
   padding: 0 var(--space-l) var(--space-xs);
+  text-align: start;
   color: var(--color-text-secondary);
   display: flex;
   justify-content: space-between;
@@ -451,6 +453,11 @@ input {
 /* A round button inside a row must not make the row taller than its text. */
 .row .round {
   margin: -6px 0;
+}
+/* A recording row keeps its cover and its trailing button on the top edge (sz-rs30.1.105.49). */
+.row.top,
+.row.top .trail {
+  align-items: flex-start;
 }
 
 /* ADR 0032: the arc is 0.64 em high and twice as wide, feet on the baseline. */
@@ -827,4 +834,24 @@ h1[class] {
 }
 .nav .back {
   color: var(--color-text-primary);
+}
+
+/* The progress bar of a running lookup (ADR 0042). */
+.bar {
+  display: block;
+  width: 100%;
+  height: var(--space-xs);
+  appearance: none;
+  border: 0;
+  border-radius: var(--space-xs);
+  background: var(--color-fill-quiet);
+  accent-color: var(--color-tint);
+}
+.bar::-webkit-progress-bar {
+  background: var(--color-fill-quiet);
+  border-radius: var(--space-xs);
+}
+.bar::-webkit-progress-value {
+  background: var(--color-tint);
+  border-radius: var(--space-xs);
 }

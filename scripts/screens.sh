@@ -60,6 +60,7 @@ phase boot
 
 # Runs one group of tests into its own result bundle, so the unit tests and the UI walk each have an exit status.
 # xcodebuild hands TEST_RUNNER_* variables to the test runner without the prefix.
+# Simulator diagnostic archives add minutes after test execution. Result bundles keep test logs and attachments without them.
 run_tests() {
   local bundle=$1
   shift
@@ -68,6 +69,7 @@ run_tests() {
   TEST_RUNNER_KLASSIK_PASSWORD=fixture \
   xcodebuild test-without-building \
     "${common[@]}" \
+    -collect-test-diagnostics never \
     "$@" \
     -resultBundlePath "$out/$bundle.xcresult" \
     | tee "$out/$bundle.log" | $formatter

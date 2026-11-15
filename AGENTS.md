@@ -66,6 +66,10 @@ Rules for coding agents in this repository.
 - End every PR body with `## Test plan`: numbered on-device checks, one per app change, with expected results.
 - For process-only changes, state the installed-app regression check and explain the process validation before the test plan.
 - Copy the same test plan to the bead.
+- A PR that changes the UI shows before and after screenshots of each changed screen inline in the PR description. Before comes from the newest green walk on `main`, after from the walk on the PR head.
+- Each later push that changes the UI adds a PR comment with the new screenshots, inline, and the head SHA.
+- Report on the PR and on the bead. A bead comment alone is not enough.
+- Put the images on branch `screenshots`, at `pr-<number>/<short sha>/<name>.png`. Link them as `https://raw.githubusercontent.com/whnr/klassik/screenshots/pr-<number>/<short sha>/<name>.png`. Never put them on `gh-pages`: the preview workflow prunes it. A link to the `screens` artifact zip does not show inline, so it is not enough.
 
 ## Writing
 

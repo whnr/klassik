@@ -321,8 +321,8 @@ struct PersonHero: View {
     }
 
     var body: some View {
-        // The load sits outside the branches: a switch between them must not restart it.
-        Group {
+        // The load sits on one container outside the branches: a switch between them must not restart it.
+        VStack(spacing: 0) {
             if hasPicture {
                 let framing = portrait.map {
                     PortraitFraming.rect(image: $0.image.size, frame: frame, face: $0.face)
@@ -444,53 +444,55 @@ struct PersonHero: View {
         let hall = PictureScrim.hall
         let hallColour = Color(red: hall.red, green: hall.green, blue: hall.blue)
         let image = Image(uiImage: portrait.image).resizable()
-        return ZStack {
-            image
-                .frame(width: framing.width, height: framing.height)
-                .position(x: framing.midX, y: framing.midY)
-                .accessibilityHidden(true)
-            // The name sits on a blur, which averages a small bright patch away (ADR 0034).
-            image
-                .frame(width: framing.width, height: framing.height)
-                .position(x: framing.midX, y: framing.midY)
-                .blur(radius: 16)
-                .mask(
-                    LinearGradient(
-                        stops: [
-                            .init(color: .clear, location: 1 - blurTop),
-                            .init(color: .black, location: 1 - under),
-                        ], startPoint: .top, endPoint: .bottom)
-                )
-                .accessibilityHidden(true)
-            if model.playback.item != nil {
-                // Under the timeline the picture blurs and fades towards the hall colour, as under a bar.
-                // The fade only darkens, so the scrim below, measured on the sharp picture, still covers it.
-                ZStack {
-                    image
-                        .frame(width: framing.width, height: framing.height)
-                        .position(x: framing.midX, y: framing.midY)
-                        .blur(radius: 14)
-                    hallColour.opacity(0.5)
+        return Button {
+            showsPicture = true
+        } label: {
+            ZStack {
+                image
+                    .frame(width: framing.width, height: framing.height)
+                    .position(x: framing.midX, y: framing.midY)
+                    .accessibilityHidden(true)
+                // The name sits on a blur, which averages a small bright patch away (ADR 0034).
+                image
+                    .frame(width: framing.width, height: framing.height)
+                    .position(x: framing.midX, y: framing.midY)
+                    .blur(radius: 16)
+                    .mask(
+                        LinearGradient(
+                            stops: [
+                                .init(color: .clear, location: 1 - blurTop),
+                                .init(color: .black, location: 1 - under),
+                            ], startPoint: .top, endPoint: .bottom)
+                    )
+                    .accessibilityHidden(true)
+                if model.playback.item != nil {
+                    // Under the timeline the picture blurs and fades towards the hall colour, as under a bar.
+                    // The fade only darkens, so the scrim below, measured on the sharp picture, still covers it.
+                    ZStack {
+                        image
+                            .frame(width: framing.width, height: framing.height)
+                            .position(x: framing.midX, y: framing.midY)
+                            .blur(radius: 14)
+                        hallColour.opacity(0.5)
+                    }
+                    .mask(edgeMask)
+                    .accessibilityHidden(true)
                 }
-                .mask(edgeMask)
-                .accessibilityHidden(true)
+                // The scrim is the top layer, so that it lifts the text over the blurred strip as well.
+                LinearGradient(
+                    stops: [
+                        .init(color: hallColour.opacity(0), location: 1 - scrimTop),
+                        .init(color: hallColour.opacity(opacity), location: 1 - under),
+                        .init(color: hallColour.opacity(opacity), location: 1),
+                    ], startPoint: .top, endPoint: .bottom)
             }
-            // The scrim is the top layer, so that it lifts the text over the blurred strip as well.
-            LinearGradient(
-                stops: [
-                    .init(color: hallColour.opacity(0), location: 1 - scrimTop),
-                    .init(color: hallColour.opacity(opacity), location: 1 - under),
-                    .init(color: hallColour.opacity(opacity), location: 1),
-                ], startPoint: .top, endPoint: .bottom)
+            .frame(width: frame.width, height: frame.height)
+            .contentShape(Rectangle())
         }
-        .frame(width: frame.width, height: frame.height)
-        .contentShape(Rectangle())
-        .onTapGesture { showsPicture = true }
-        .accessibilityElement()
+        .buttonStyle(.plain)
         .accessibilityLabel("Picture of \(name)")
         .accessibilityValue(density(portrait, framing: framing))
         .accessibilityHint("Shows the whole picture with its credit.")
-        .accessibilityAddTraits(.isButton)
         .accessibilityIdentifier("\(kind)-picture")
     }
 

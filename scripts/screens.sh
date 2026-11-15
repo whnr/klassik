@@ -34,6 +34,13 @@ phase() {
   phase_start=$SECONDS
 }
 
+# A narrowed walk can leave a UI group empty; it needs no simulator.
+if [ "$mode" = ui ] && { [ -z "${KLASSIK_UI:-}" ] || [ "$KLASSIK_UI" = false ]; }; then
+  record build passed
+  phase skipped
+  exit 0
+fi
+
 if [ "$mode" = all ] || [ "$mode" = build ]; then
   xcodegen generate
 fi

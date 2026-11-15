@@ -1,6 +1,7 @@
 name: Test
 
-# One build supplies parallel unit and UI jobs against fixture Navidrome on every run. During the interface rebuild the walk is a warning, never a red check: a failed walk shows in the job summary
+# One build supplies parallel unit and UI jobs against fixture Navidrome on every run.
+# During the interface rebuild a failed walk shows in the job summary
 # and fails the run only if the repository variable UI_TESTS_REQUIRED is "true". The screenshots always upload.
 # After a walk, screens-diff compares each screenshot with the newest walk on the same branch, else on ci.
 # A failed build or unit test fails the run. The "ui" input of a run by hand narrows the walk, such as "browse,settings".
@@ -57,6 +58,13 @@ jobs:
       - run: ffmpeg -version | head -1
       - run: pip install mutagen
       - run: python3 scripts/fixtures.py fixture/music && tar czf fixture-music.tgz -C fixture music
+      - name: Generate audio for the UI walk
+        run: python3 scripts/fixtures.py fixture-ui/music 120 && tar czf fixture-ui-music.tgz -C fixture-ui music
+      - uses: actions/upload-artifact@v7
+        with:
+          name: fixture-ui-music
+          path: fixture-ui-music.tgz
+          retention-days: 1
       - name: Test the screenshot scripts
         run: python3 -m unittest discover -s scripts -p "test_screens.py"
       - uses: actions/upload-artifact@v7
@@ -119,15 +127,19 @@ jobs:
           - group: unit
             phase: unit
             areas: "false"
+            fixture: fixture-music
           - group: playback
             phase: ui
             areas: playback
-          - group: places
+            fixture: fixture-ui-music
+          - group: places-browse
             phase: ui
-            areas: places
-          - group: browse-settings-timeline
+            areas: places,browse
+            fixture: fixture-ui-music
+          - group: settings-timeline
             phase: ui
-            areas: browse,settings,timeline
+            areas: settings,timeline
+            fixture: fixture-ui-music
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
     steps:
@@ -158,9 +170,9 @@ jobs:
       - run: mkdir -p build/DerivedData/Build && tar xzf "$RUNNER_TEMP/test-products.tgz" -C build/DerivedData/Build
       - uses: actions/download-artifact@v8
         with:
-          name: fixture-music
+          name: ${{ matrix.fixture }}
           path: ${{ runner.temp }}
-      - run: mkdir -p "$RUNNER_TEMP/fixture" && tar xzf "$RUNNER_TEMP/fixture-music.tgz" -C "$RUNNER_TEMP/fixture"
+      - run: mkdir -p "$RUNNER_TEMP/fixture" && tar xzf "$RUNNER_TEMP/${{ matrix.fixture }}.tgz" -C "$RUNNER_TEMP/fixture"
       - name: Start Navidrome on the fixture library
         run: scripts/fixture-server.sh "$RUNNER_TEMP/fixture"
       - name: Run the tests
@@ -209,6 +221,10 @@ jobs:
         with:
           pattern: walk-*
           path: reports
+      - uses: actions/download-artifact@v8
+        with:
+          name: build-report
+          path: reports/build-report
       - name: Collect screenshots and results
         id: report
         env:
@@ -219,10 +235,20 @@ jobs:
         run: |
           mkdir -p screens
           find reports -name '*.png' -exec cp {} screens/ \;
-          for report in reports/walk-*; do
-            cp "$report/results.txt" "screens/$(basename "$report")-results.txt"
-            cp "$report/timings.txt" "screens/$(basename "$report")-timings.txt"
+          for report in reports/*; do
+            [ -d "$report" ] || continue
+            for file in "$report"/*.txt "$report"/*.log; do
+              [ -f "$file" ] || continue
+              cp "$file" "screens/$(basename "$report")-$(basename "$file")"
+            done
+            if [ -f "$report/timings.txt" ]; then
+              echo "### $(basename "$report")" >> "$GITHUB_STEP_SUMMARY"
+              cat "$report/timings.txt" >> "$GITHUB_STEP_SUMMARY"
+            fi
           done
+          if [ -f reports/walk-unit/gapless-report.txt ]; then
+            cp reports/walk-unit/gapless-report.txt screens/
+          fi
           {
             echo "ui_areas=${INPUT:-all}"
             echo "ui_required=$UI_TESTS_REQUIRED"

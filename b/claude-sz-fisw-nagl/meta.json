@@ -1,7 +1,7 @@
 {
-  "sha": "251f6f2e7b257abf4eb023f149bbdf1ba2429f9c",
+  "sha": "c5f2ccdd7294f8cf8b6f9a5fb8afc8de415d68e8",
   "branch": "claude-sz-fisw-nagl",
   "path": "claude-sz-fisw-nagl",
-  "subject": "Fail plan on parser errors; cover connect snap",
-  "ts": 1794786200
+  "subject": "Format the screenshot test",
+  "ts": 1794786459
 }

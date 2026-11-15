@@ -61,10 +61,13 @@ In the folder above the specimen, run `python3 -m http.server 8765 --bind 0.0.0.
 
 The frame has three places, a Library Settings cog and a chevron Back button (ADRs 0038 and 0040).
 A first tab tap restores its page. A second tap returns to its root.
+Above the player, every tab tap closes the overlay and restores that tab’s last page.
+A slide down restores the page underneath. The full pill stays visible.
 The scrub label uses 17-point body text and adds 36 points of finger clearance on each edge.
 The composer link and fading header follow the app specification.
 
 The specimen shows decided flows for unfinished slices too. It does not prove their installed-app behavior.
+Every keyboard covers the tab bar, mini player and timeline. These controls keep their position.
 Native glass, display corners and system gestures require an installed-app check.
 With each UX change, update affected specimen flows and run the design check.
 

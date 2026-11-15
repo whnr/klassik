@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Work page</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="../tokens.css?v=47" />
-    <link rel="stylesheet" href="specimen.css?v=47" />
-    <script src="specimen.js?v=47"></script>
+    <link rel="stylesheet" href="../tokens.css?v=48" />
+    <link rel="stylesheet" href="specimen.css?v=48" />
+    <script src="specimen.js?v=48"></script>
   </head>
   <body>
     <script>
@@ -105,7 +105,7 @@
               return el(
                 "a",
                 {
-                  class: "row" + (isPlaying ? " playing" : ""),
+                  class: "row top" + (isPlaying ? " playing" : ""),
                   href: href("player.html", { recording: r.id, back: work.name }),
                   style: "--sep-inset: calc(var(--space-l) + var(--size-coverRow) + var(--space-m))",
                 },

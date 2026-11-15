@@ -93,39 +93,55 @@ actor WikimediaPacer {
     static let interval = Duration.milliseconds(300)
     /// Wikimedia asks for at least 5 seconds after a lag error, and after a throttle without Retry-After.
     static let minimumWait = 5.0
-    /// A request that would wait longer fails, and the caller backs off on its own scale.
+    /// A request that would wait longer fails at once, and the caller backs off on its own scale. The hold
+    /// stays: no request goes before it ends.
     static let longestWait = 60.0
 
     private let interval: Duration
     private let sleep: @Sendable (Duration) async -> Void
-    private var next = ContinuousClock.now
+    private let now: @Sendable () -> ContinuousClock.Instant
+    private var next: ContinuousClock.Instant
     private var throttles = 0
 
     init(
         interval: Duration = WikimediaPacer.interval,
-        sleep: @escaping @Sendable (Duration) async -> Void = { try? await Task.sleep(for: $0) }
+        sleep: @escaping @Sendable (Duration) async -> Void = { try? await Task.sleep(for: $0) },
+        now: @escaping @Sendable () -> ContinuousClock.Instant = { .now }
     ) {
         self.interval = interval
         self.sleep = sleep
+        self.now = now
+        self.next = now()
     }
 
-    func wait() async {
-        let start = max(next, .now)
+    /// Waits for the request's turn. Returns false, and takes no turn, when a throttle holds requests back
+    /// for longer than `longestWait`.
+    func wait() async -> Bool {
+        let start = max(next, now())
+        let delay = start - now()
+        guard delay <= .seconds(Self.longestWait) else { return false }
         next = start + interval
-        let delay = start - .now
         if delay > .zero { await sleep(delay) }
+        return true
     }
 
-    /// Records a throttle. Returns the seconds that the next request waits, or nil when the request must fail.
+    /// The seconds until a throttle lets the next request go, or 0.
+    var hold: Double {
+        let (seconds, attoseconds) = (next - now()).components
+        return max(0, Double(seconds) + Double(attoseconds) / 1e18)
+    }
+
+    /// Records a throttle and holds every request back for its wait. Returns the wait in seconds, or nil when
+    /// the wait is longer than `longestWait` and the request must fail.
     /// The wait is Retry-After, at least 5 seconds, and doubles for each throttle in a row.
     func throttled(retryAfter: Double?) -> Double? {
         throttles += 1
         let wait = max(retryAfter ?? 0, Self.minimumWait * Double(1 << min(throttles - 1, 10)))
+        next = max(next, now() + .seconds(wait))
         guard wait <= Self.longestWait else {
             throttles = 0
             return nil
         }
-        next = max(next, .now + .seconds(wait))
         return wait
     }
 
@@ -336,11 +352,11 @@ struct PersonFactsService: Sendable {
     }
 
     /// Sends a request when the pacer allows it. A throttle (429, a 503 with Retry-After, or a maxlag error)
-    /// sends it again after the pacer's wait. A 503 without Retry-After comes from the cache layer, and Wikimedia
+    /// sends it again after the pacer's wait. A long hold fails the request with 429 and sends nothing. A 503 without Retry-After comes from the cache layer, and Wikimedia
     /// asks clients not to repeat it at once.
     private func send(_ request: URLRequest) async throws -> (Data, Int) {
         while true {
-            await pacer.wait()
+            guard await pacer.wait() else { throw MusicBrainz.Failure.http(429) }
             let response = try await respond(request)
             guard Self.isThrottle(response) else {
                 await pacer.succeeded()

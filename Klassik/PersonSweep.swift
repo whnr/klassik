@@ -155,7 +155,9 @@ final class PersonSweep {
                     break
                 }
                 failures += 1
-                let wait = min(3600, 60 * (1 << min(failures - 1, 6)))
+                // A Retry-After longer than the back-off wins: Wikimedia asks for no request before it ends.
+                let backoff = min(3600, 60 * (1 << min(failures - 1, 6)))
+                let wait = max(backoff, Int((await store.throttleHold()).rounded(.up)))
                 state = .paused(.slowDown(until: now().addingTimeInterval(Double(wait))))
                 await sleep(.seconds(wait))
             }

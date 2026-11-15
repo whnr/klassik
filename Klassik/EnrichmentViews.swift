@@ -144,8 +144,9 @@ struct PeopleSection: View {
             Text(
                 "Klassik looks up every composer and performer of your library, new people first, one at a time "
                     + "at the pace that Wikidata asks for. It asks again for living people after about "
-                    + "\(PersonSweep.livingDays) days and for others after about a year. It waits for a connection "
-                    + "that is not metered and not in Low Data Mode.")
+                    + "\(PersonSweep.livingDays) days and for others after about a year, or after about 3 months "
+                    + "when Wikidata does not know them. It waits for a connection that is not metered and not in "
+                    + "Low Data Mode.")
         }
     }
 }

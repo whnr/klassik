@@ -173,6 +173,11 @@ final class PersonFactsStore {
         cache.performers[tag].flatMap { $0.isEmpty ? nil : $0 }
     }
 
+    /// The seconds until Wikimedia lets the next person request go, after a throttle, or 0.
+    func throttleHold() async -> Double {
+        await service.pacer.hold
+    }
+
     /// Loads the facts of an item again. The old facts stay when the request fails or the item is gone.
     /// Returns false on a failed request.
     func refresh(_ qid: String) async -> Bool {

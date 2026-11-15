@@ -45,7 +45,8 @@ time, so that the facts of living people do not stay old.
     ask for at least 5 seconds when `Retry-After` is missing.
   - A 503 without `Retry-After` comes from the cache layer. The maxlag manual asks clients not to repeat it at
     once, so it counts as a failed request.
-  - When a throttle wait would pass one minute, the request fails. The pass then uses its own back-off below.
+  - When a throttle wait would pass one minute, the request fails, and each request in the wait fails without
+    being sent. The pass waits the longer of its own back-off below and the rest of the wait.
 - The SPARQL queries for the dates of works belong to the MusicBrainz pass. They keep the rules of 0011.
 - The pass runs while the app is open and as a background processing task that the system starts. The system
   stops that task when it wants the time back. The saved state lets the next pass continue.

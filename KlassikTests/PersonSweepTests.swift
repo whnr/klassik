@@ -156,6 +156,34 @@ struct PersonSweepTests {
         #expect(sweep.state == .upToDate)
     }
 
+    @Test func aLongRetryAfterHoldsThePassUntilItEnds() async throws {
+        let clock = PacerClock()
+        let stub = PersonStub(PersonStub.bachRules)
+        let sent = Counter()
+        let waits = Counter()
+        let sentBeforeWait = Counter()
+        let service = PersonFactsService(
+            respond: { request in
+                if sent.next() == 0 { return .init(data: Data(), status: 429, retryAfter: 600) }
+                let (data, status) = try await stub.fetch(request)
+                return .init(data: data, status: status)
+            }, pacer: WikimediaPacer(interval: .zero, now: { clock.now }))
+        let url = FileManager.default.temporaryDirectory.appending(path: "\(UUID().uuidString).json")
+        let store = PersonFactsStore(service: service, cacheURL: url)
+        let sweep = PersonSweep(
+            store: store, now: { Self.start },
+            sleep: { duration in
+                let seconds = Int(duration.components.seconds)
+                waits.record(seconds)
+                sentBeforeWait.record(stub.requests.count)
+                clock.advance(seconds: seconds)
+            })
+        await sweep.run([Self.bach])
+        #expect(waits.seconds == [600])
+        #expect(sentBeforeWait.seconds == [0])
+        #expect(store.facts(ofComposer: Self.bach.tag) != nil)
+    }
+
     @Test func aFailedPersonIsNotMarkedChecked() async throws {
         let (store, _) = try makeStore(fetch: { _ in throw URLError(.notConnectedToInternet) })
         let sweep = PersonSweep(store: store, now: { Self.start })
@@ -278,6 +306,15 @@ struct PersonSweepTests {
     }
 }
 
+/// A pacer clock that moves only when the test moves it.
+private final class PacerClock: @unchecked Sendable {
+    private let lock = NSLock()
+    private let start = ContinuousClock.now
+    private var offset = Duration.zero
+    var now: ContinuousClock.Instant { lock.withLock { start + offset } }
+    func advance(seconds: Int) { lock.withLock { offset += .seconds(seconds) } }
+}
+
 private final class Gate: @unchecked Sendable {
     private let lock = NSLock()
     private var opened = false
@@ -368,6 +405,19 @@ struct WikimediaPacingTests {
             _ = try await service(down).composers(named: "Bach")
         }
         #expect(down.urls.count == 1)
+    }
+
+    @Test func aLongRetryAfterHoldsEveryLaterRequest() async throws {
+        let script = Script([.init(data: Data(), status: 429, retryAfter: 600), Self.found])
+        let service = service(script)
+        await #expect(throws: MusicBrainz.Failure.http(429)) {
+            _ = try await service.composers(named: "Bach")
+        }
+        await #expect(throws: MusicBrainz.Failure.http(429)) {
+            _ = try await service.facts(qid: "Q1339")
+        }
+        #expect(script.urls.count == 1)
+        #expect(await service.pacer.hold > 599)
     }
 
     @Test func aLongThrottleFailsTheRequestSoThatThePassBacksOff() async throws {

@@ -245,7 +245,9 @@ struct PersonFactsServiceTests {
     @Test func theLoaderTakesTheRecordedPictureUrl() async throws {
         let facts = try #require(try await PersonStub(Self.recordedRules).service.facts(qid: "Q1339"))
         let url = try #require(facts.portrait?.url)
-        let png = UIGraphicsImageRenderer(size: CGSize(width: 40, height: 60)).pngData { context in
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let png = UIGraphicsImageRenderer(size: CGSize(width: 40, height: 60), format: format).pngData { context in
             UIColor.gray.setFill()
             context.fill(CGRect(x: 0, y: 0, width: 40, height: 60))
         }

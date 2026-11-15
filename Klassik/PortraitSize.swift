@@ -6,7 +6,7 @@ import Foundation
 /// the picture width that stays visible after the crop. The largest need of the views decides.
 enum PortraitSize {
     /// Thumbnail widths that Wikimedia keeps in its cache. Another width misses the cache or gets a refusal.
-    static let steps = [500, 960, 1280, 1920, 2560, 3840]
+    static let steps = [500, 960, 1280, 1920, 3840]
     /// Original formats that UIImage reads. Commons serves other formats only as thumbnails.
     static let readable: Set<String> = ["jpg", "jpeg", "png", "webp"]
 

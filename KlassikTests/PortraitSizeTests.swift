@@ -36,7 +36,7 @@ struct PortraitSizeTests {
         let tall = CGSize(width: screen.hero.width, height: screen.hero.width * 2.2)
         for aspect in Self.aspects {
             let fit = min(tall.width, tall.height * aspect) * screen.scale
-            #expect(PortraitSize.width(aspect: aspect, screen: screen) >= fit)
+            #expect(PortraitSize.wholeWidth(screen: screen) >= fit)
         }
     }
 
@@ -51,6 +51,11 @@ struct PortraitSizeTests {
         #expect(PortraitSize.step(1280) == 1280)
         #expect(PortraitSize.step(1320) == 1920)
         #expect(PortraitSize.step(2640) == 3840)
+        // An iPhone 16 or 17 Pro (402 points at 3x): the hero need of 2412 pixels is no standard step.
+        let pro = PortraitSize.Screen(hero: CGSize(width: 402, height: 330), scale: 3)
+        #expect(PortraitSize.heroWidth(aspect: 1, screen: pro) == 2412)
+        #expect(PortraitSize.step(PortraitSize.heroWidth(aspect: 1, screen: pro)) == 3840)
+        #expect(!PortraitSize.steps.contains(2560))
         #expect(PortraitSize.step(9000) == 3840)
     }
 
@@ -65,10 +70,10 @@ struct PortraitSizeTests {
 
     @Test func theRecordedCommonsThumbnailKeepsItsHostAndQuery() throws {
         let parsed = try #require(PersonFactsService.parsePortrait(Data(RecordedWikimedia.bachCommons.utf8)))
-        let url = try #require(PortraitSize.thumbnail(parsed.portrait.url, width: 2560))
+        let url = try #require(PortraitSize.thumbnail(parsed.portrait.url, width: 1920))
         #expect(url.host == parsed.portrait.url.host)
         #expect(url.query == parsed.portrait.url.query)
-        #expect(url.lastPathComponent == "2560px-Johann_Sebastian_Bach.png")
+        #expect(url.lastPathComponent == "1920px-Johann_Sebastian_Bach.png")
     }
 
     @Test func aURLThatIsNoThumbnailStaysAsItIs() {
@@ -116,6 +121,17 @@ struct PortraitSizeTests {
         #expect(portrait.original == Self.original)
         #expect(portrait.width == 3000 && portrait.height == 4000)
         #expect(portrait.aspect == 0.75)
+    }
+
+    @Test func anOriginalOutsideTheTrustedHostsIsDropped() throws {
+        for original in ["http://upload.wikimedia.org/a.jpg", "https://evil.example/a.jpg"] {
+            let json = """
+                {"query":{"pages":{"1":{"imageinfo":[{"thumburl":"\(Self.thumb.absoluteString)",\
+                "url":"\(original)","width":3000,"height":4000}]}}}}
+                """
+            let portrait = try #require(PersonFactsService.parsePortrait(Data(json.utf8))).portrait
+            #expect(portrait.original == nil, "\(original)")
+        }
     }
 
     @Test func factsStoredWithoutASizeStillDecode() throws {

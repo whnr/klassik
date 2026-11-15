@@ -241,6 +241,132 @@ final class BrowseScreens: ScreensTestCase {
 /// A recording, the player, the queue and the downloads.
 final class PlaybackScreens: ScreensTestCase {
     @MainActor
+    func testOverlayOpensAndSlidesDown() throws {
+        let app = try launchAndConnect()
+        openRecording(app)
+        playPaused(app)
+        let tags = reveal(app.buttons["raw-tags"], in: app)
+        let before = tags.frame
+        checkTabAndCoverFrames(app, side: .right)
+        snap(app, "16-pill-right")
+        let pill = app.descendants(matching: .any)["mini-player"].firstMatch
+        let pillBefore = pillFrame(pill)
+        openPlayer(app)
+        XCTAssertEqual(pillFrame(pill), pillBefore, "Opening the overlay moved the pill")
+        XCTAssertTrue(app.buttons["mini-player-cover"].isHittable)
+        for name in ["Library", "Chronology", "Search"] { XCTAssertTrue(tab(app, name).isHittable) }
+        checkTabAndCoverFrames(app, side: .right)
+        snap(app, "16a-overlay-right")
+        slidePlayerDown(app)
+        XCTAssertTrue(tags.waitForExistence(timeout: 10))
+        XCTAssertEqual(tags.frame.minY, before.minY, accuracy: 2, "The underlying page scrolled")
+        snap(app, "16b-overlay-dismissed")
+    }
+
+    @MainActor
+    func testOverlayOnTheLeft() throws {
+        let app = try launchAndConnect(arguments: ["-\(timelineSideKey)", "left"])
+        openRecording(app)
+        playPaused(app)
+        checkTabAndCoverFrames(app, side: .left)
+        snap(app, "16c-pill-left")
+        let before = pillFrame(app.descendants(matching: .any)["mini-player"].firstMatch)
+        openPlayer(app)
+        XCTAssertEqual(pillFrame(app.descendants(matching: .any)["mini-player"].firstMatch), before)
+        checkTabAndCoverFrames(app, side: .left)
+        snap(app, "16d-overlay-left")
+        slidePlayerDown(app)
+    }
+
+    @MainActor
+    func testOverlayLinkUsesTheUnderlyingStack() throws {
+        let app = try launchAndConnect()
+        openRecording(app)
+        playPaused(app)
+        openPlayer(app)
+        // The page below the overlay builds the same row, so the query stays inside the overlay.
+        let overlay = app.descendants(matching: .any)["player-overlay"].firstMatch
+        reveal(overlay.buttons["raw-tags"], in: app).tap()
+        expectPlayerClosed(app)
+        XCTAssertTrue(app.navigationBars["Tags"].waitForExistence(timeout: 10))
+        back(app)
+        // The page returns at its top; a list builds the row below the fold only once it scrolls near.
+        XCTAssertTrue(reveal(app.buttons["raw-tags"], in: app).exists)
+        XCTAssertTrue(tab(app, "Library").isSelected)
+    }
+
+    @MainActor
+    func testOverlayLeavesThroughLibrary() throws {
+        try checkPlayerTab("Library")
+    }
+
+    @MainActor
+    func testOverlayLeavesThroughChronology() throws {
+        try checkPlayerTab("Chronology")
+    }
+
+    @MainActor
+    func testOverlayLeavesThroughSearch() throws {
+        try checkPlayerTab("Search")
+    }
+
+    /// Both the underlying tab and another tab must restore their pushed page.
+    @MainActor
+    private func checkPlayerTab(_ name: String) throws {
+        let app = try launchAndConnect()
+        openRecording(app)
+        playPaused(app)
+        back(app)
+        openPlace(app, "Chronology")
+        let work = app.buttons.matching(identifier: "timeline-work").firstMatch
+        XCTAssertTrue(work.waitForExistence(timeout: 30))
+        work.tap()
+        XCTAssertTrue(app.buttons.matching(identifier: "recording").firstMatch.waitForExistence(timeout: 10))
+        openPlace(app, "Search")
+        app.buttons["performers"].tap()
+        XCTAssertTrue(app.navigationBars["Performers"].waitForExistence(timeout: 10))
+        if name != "Search" { openPlace(app, name) }
+        let heading = app.staticTexts.matching(identifier: "page-heading").firstMatch.label
+        openPlayer(app)
+        tab(app, name).tap()
+        expectPlayerClosed(app)
+        XCTAssertTrue(tab(app, name).isSelected)
+        XCTAssertEqual(app.staticTexts.matching(identifier: "page-heading").firstMatch.label, heading)
+        let other = name == "Library" ? "Search" : "Library"
+        openPlace(app, other)
+        openPlayer(app)
+        tab(app, name).tap()
+        expectPlayerClosed(app)
+        XCTAssertTrue(tab(app, name).isSelected)
+        XCTAssertEqual(app.staticTexts.matching(identifier: "page-heading").firstMatch.label, heading)
+    }
+
+    @MainActor
+    private func openPlayer(_ app: XCUIApplication) {
+        app.buttons["mini-player-cover"].tap()
+        let handle = app.buttons["player-handle"]
+        XCTAssertTrue(handle.waitForExistence(timeout: 10))
+        let reachable = expectation(for: NSPredicate(format: "isHittable == true"), evaluatedWith: handle)
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [reachable], timeout: 5), .completed,
+            "The player is behind the selected place")
+    }
+
+    @MainActor
+    private func slidePlayerDown(_ app: XCUIApplication) {
+        let handle = app.buttons["player-handle"]
+        handle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(
+            forDuration: 0.1,
+            thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7)))
+        expectPlayerClosed(app)
+    }
+
+    @MainActor
+    private func expectPlayerClosed(_ app: XCUIApplication) {
+        XCTAssertTrue(app.buttons["player-handle"].waitForNonExistence(timeout: 10))
+    }
+
+    @MainActor
     func testRecording() throws {
         let app = try launchAndConnect()
         composer(app, "Felix Mendelssohn").tap()
@@ -395,18 +521,21 @@ final class PlaybackScreens: ScreensTestCase {
         add.tap()
 
         miniPlayer.buttons["mini-player-cover"].tap()
-        XCTAssertTrue(app.sliders["position"].waitForExistence(timeout: 10))
+        // The player opens at its header, and the playing movement may lie below the fold.
+        XCTAssertTrue(reveal(app.sliders["position"], in: app).exists, "No position slider in the player")
         snap(app, "07-now-playing")
         let queued = app.buttons.matching(identifier: "up-next").firstMatch
         for _ in 0..<3 where !(queued.exists && queued.isHittable) { app.swipeUp() }
         XCTAssertTrue(queued.label.contains("Symphony No. 5"))
         snap(app, "08-up-next")
         reveal(app.buttons["Next Work"].firstMatch, in: app).tap()
-        XCTAssertTrue(
-            app.navigationBars.matching(NSPredicate(format: "identifier CONTAINS 'Symphony No. 5'"))
-                .firstMatch.waitForExistence(timeout: 15))
+        let title = app.staticTexts.matching(
+            NSPredicate(format: "identifier == 'player-title' AND label CONTAINS 'Symphony No. 5'")
+        ).firstMatch
+        XCTAssertTrue(title.waitForExistence(timeout: 15))
+        pause(app)
         XCTAssertTrue(app.sliders["position"].waitForExistence(timeout: 10))
-        XCTAssertFalse(miniPlayer.buttons["mini-player-cover"].exists)
+        XCTAssertTrue(miniPlayer.buttons["mini-player-cover"].exists)
         snap(app, "08d-next-player")
     }
 
@@ -461,15 +590,19 @@ final class TimelineScreens: ScreensTestCase {
         XCTAssertLessThan(frame.maxY, app.frame.maxY, "The playback controls have no bottom clearance")
         XCTAssertEqual(bar.frame.maxY, frame.minY, accuracy: 1, "The timeline does not run into the pill")
         XCTAssertEqual(frame.midY, tab(app, "Search").frame.midY, accuracy: 2, "The controls are not in the tab row")
+        XCTAssertEqual(
+            frame.height, tab(app, "Search").frame.height + 8, accuracy: 1,
+            "The pill does not match the native capsule height")
         XCTAssertLessThanOrEqual(tab(app, "Search").frame.maxX, frame.minX, "The tabs run under the pill")
         XCTAssertTrue(pill.buttons["mini-player-cover"].exists)
         XCTAssertEqual(pill.buttons["mini-player-pause"].label, "Resume")
+        checkTabAndCoverFrames(app, side: .right)
         snap(app, "15b-timeline-right")
 
-        // The cover opens the page of what plays. There, the pill holds only play/pause.
+        // The cover opens the overlay. The complete pill stays above it.
         pill.buttons["mini-player-cover"].tap()
-        XCTAssertTrue(app.sliders["position"].waitForExistence(timeout: 10))
-        XCTAssertFalse(pill.buttons["mini-player-cover"].exists)
+        XCTAssertTrue(reveal(app.sliders["position"], in: app).exists, "No position slider in the player")
+        XCTAssertTrue(pill.buttons["mini-player-cover"].isHittable)
         snap(app, "15c-player-pill")
     }
 
@@ -505,6 +638,7 @@ final class TimelineScreens: ScreensTestCase {
         XCTAssertEqual(bar.frame.minX, 0, accuracy: 1, "The timeline is not on the left edge")
         let pill = app.descendants(matching: .any)["mini-player"].firstMatch
         XCTAssertEqual(pillFrame(pill).minX, 0, accuracy: 1, "The pill is not flush with the left edge")
+        checkTabAndCoverFrames(app, side: .left)
         snap(app, "15e-timeline-left")
 
         let place = bar.value as? String ?? ""
@@ -888,6 +1022,30 @@ class ScreensTestCase: XCTestCase {
     @MainActor
     func pillFrame(_ pill: XCUIElement) -> CGRect {
         pill.buttons.allElementsBoundByIndex.map(\.frame).reduce(CGRect.null) { $0.union($1) }
+    }
+
+    enum PillEdge { case left, right }
+
+    @MainActor
+    func checkTabAndCoverFrames(_ app: XCUIApplication, side: PillEdge) {
+        let buttons = ["Library", "Chronology", "Search"].map { tab(app, $0) }
+        // UIKit expands button frames beyond their slots. Image frames exclude this extra area.
+        let tabs = buttons.map { $0.images.firstMatch.frame }
+        for frame in tabs { XCTAssertGreaterThan(frame.width, 0, "A tab has no image") }
+        for (left, right) in zip(tabs, tabs.dropFirst()) {
+            XCTAssertLessThanOrEqual(left.maxX, right.minX, "The visible tab frames overlap")
+            XCTAssertGreaterThanOrEqual(right.midX - left.midX, 64, "The tab slots crowd their labels")
+        }
+        let cover = app.buttons["mini-player-cover"].frame
+        // The button includes the edge padding; its inward edge is the square cover's inward edge.
+        let distance = side == .right ? app.frame.maxX - cover.minX : cover.maxX - app.frame.minX
+        XCTAssertGreaterThan(cover.width, 0, "The cover has no width")
+        XCTAssertLessThanOrEqual(distance, 96, "The cover is too far from the display edge")
+        if side == .right {
+            XCTAssertLessThanOrEqual(tabs.last!.maxX, cover.minX, "The tabs run under the cover")
+        } else {
+            XCTAssertGreaterThanOrEqual(tabs.first!.minX, cover.maxX, "The tabs run under the cover")
+        }
     }
 
     /// Opens a recording, leaves it paused in the player and goes back to the list of composers.

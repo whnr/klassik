@@ -385,17 +385,21 @@ private struct RecordingRow: View {
 }
 
 /// The page of a recording or album. While it plays, it is the player (ADR 0015): the header holds what every track
-/// shares, a row holds what differs, and only the playing movement has a playback bar (ADR 0027).
+/// shares, a row holds what differs, and only the playing movement has a playback bar (ADR 0027). The same content
+/// fills the player overlay (ADR 0014).
 struct RecordingView: View {
     @Environment(AppModel.self) private var model
+    @Environment(AppNavigator.self) private var navigator
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let work: WorkIndex.Work
     let recording: WorkIndex.Recording
     /// Set on the album page, which lists the tracks of the album.
     var album: WorkIndex.Album?
+    var isOverlay = false
     /// The rows that the listener opened, by track position.
     @State private var opened: Set<Int> = []
     @State private var spell = QuietSpell()
+    @State private var followsMovement = false
 
     private var isPlayingThis: Bool { model.playback.recording?.id == recording.id }
 
@@ -413,6 +417,24 @@ struct RecordingView: View {
         ScrollViewReader { proxy in
             PageList {
                 Section {
+                    if isOverlay {
+                        VStack(spacing: Space.m.points) {
+                            CoverImage(id: recording.songs.first?.coverArt, points: Measure.coverPage)
+                                .frame(width: Measure.coverPage, height: Measure.coverPage)
+                                .clipShape(.rect(cornerRadius: Radius.l))
+                            HStack(alignment: .firstTextBaseline) {
+                                Text(work.title)
+                                    .accessibilityIdentifier("player-title")
+                                    .typeStyle(.pageTitle)
+                                    .ink()
+                                if !recording.isAlbum { referenceButton }
+                            }
+                            .buttonStyle(.borderless)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .multilineTextAlignment(.center)
+                        .listRowBackground(Color.clear)
+                    }
                     header(page)
                     if isPlayingThis, let error = player.error {
                         Label(error, systemImage: "exclamationmark.triangle")
@@ -454,9 +476,14 @@ struct RecordingView: View {
                 }
 
                 Section {
-                    NavigationLink(value: Page.rawTags(work: work.id, recording: recording.id)) {
-                        Text("Tags and Grouping")
-                            .ink()
+                    pageLink(to: .rawTags(work: work.id, recording: recording.id)) {
+                        HStack {
+                            Text("Tags and Grouping").ink()
+                            if isOverlay {
+                                Spacer()
+                                Image(systemName: "chevron.right").foregroundStyle(Palette.textSecondary)
+                            }
+                        }
                     }
                     .accessibilityIdentifier("raw-tags")
                 }
@@ -499,9 +526,15 @@ struct RecordingView: View {
                 spell.touching(phase == .tracking || phase == .interacting || phase == .decelerating)
             }
             .onChange(of: model.isScrubbingTimeline) { _, scrubbing in spell.hold(scrubbing) }
-            .task(id: isPlayingThis ? player.movement : nil) {
-                guard isPlayingThis, let movement = player.movement, recording.songs.indices.contains(movement)
+            .task(id: isOverlay && isPlayingThis ? player.movement : nil) {
+                guard isOverlay, isPlayingThis, let movement = player.movement,
+                    recording.songs.indices.contains(movement)
                 else { return }
+                // Opening the player shows its header. Only a later movement change follows the rows.
+                guard followsMovement else {
+                    followsMovement = true
+                    return
+                }
                 while let rest = spell.wait() {
                     try? await Task.sleep(for: rest)
                     if Task.isCancelled { return }
@@ -511,22 +544,25 @@ struct RecordingView: View {
                 }
             }
         }
-        .pageTitle(work.title)
+        .pageTitle(isOverlay ? "" : work.title)
         .toolbar {
-            if !recording.isAlbum {
-                // The page can show a queue copy. The state and the change come from the library.
-                let live = model.library.current(work: work, recording: recording)
-                Button(
-                    live.recording.isReference ? "Remove Reference" : "Reference",
-                    systemImage: live.recording.isReference ? "star.fill" : "star"
-                ) {
-                    Task {
-                        _ = await model.setReference(live.recording, of: live.work, to: !live.recording.isReference)
-                    }
-                }
-                .accessibilityIdentifier("reference")
+            if !isOverlay, !recording.isAlbum { referenceButton }
+        }
+    }
+
+    private var referenceButton: some View {
+        // The page can show a queue copy. The library supplies current Reference state.
+        let live = model.library.current(work: work, recording: recording)
+        return Button(
+            live.recording.isReference ? "Remove Reference" : "Reference",
+            systemImage: live.recording.isReference ? "star.fill" : "star"
+        ) {
+            Task {
+                _ = await model.setReference(live.recording, of: live.work, to: !live.recording.isReference)
             }
         }
+        .labelStyle(.iconOnly)
+        .accessibilityIdentifier("reference")
     }
 
     /// What every track shares, in centred lines.
@@ -544,11 +580,27 @@ struct RecordingView: View {
         .frame(maxWidth: .infinity)
     }
 
+    /// A player link belongs to the place below the overlay. The player never owns a page stack.
+    @ViewBuilder private func pageLink<Label: View>(to page: Page, @ViewBuilder label: () -> Label) -> some View {
+        if isOverlay {
+            Button {
+                navigator.open(page, in: navigator.selection)
+                navigator.closePlayer()
+            } label: {
+                // A plain button takes touches on drawn content only; the whole row must take them.
+                label().contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+        } else {
+            NavigationLink(value: page) { label() }
+        }
+    }
+
     /// The work of a block opens its recording page, so the listener reaches the work from the disc.
     @ViewBuilder private func heading(of block: WorkIndex.Album.Block) -> some View {
         if let part = block.part {
             if let page = Page(albumPart: part, in: model.library) {
-                NavigationLink(value: page) {
+                pageLink(to: page) {
                     HStack {
                         SectionHeading(part.title)
                         Spacer()

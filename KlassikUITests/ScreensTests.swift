@@ -260,7 +260,8 @@ final class PlaybackScreens: ScreensTestCase {
         expectPlayerClosed(app)
         XCTAssertTrue(app.navigationBars["Tags"].waitForExistence(timeout: 10))
         back(app)
-        XCTAssertTrue(app.buttons["raw-tags"].waitForExistence(timeout: 10))
+        // The page returns at its top; a list builds the row below the fold only once it scrolls near.
+        XCTAssertTrue(reveal(app.buttons["raw-tags"], in: app).exists)
         XCTAssertTrue(tab(app, "Library").isSelected)
     }
 

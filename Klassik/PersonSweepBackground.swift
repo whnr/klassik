@@ -34,6 +34,6 @@ enum PersonSweepBackground {
         request.requiresNetworkConnectivity = true
         request.requiresExternalPower = false
         request.earliestBeginDate = .now.addingTimeInterval(15 * 60)
-        try? BGTaskScheduler.shared.submit(request)
+        BGTaskScheduler.shared.submitTaskRequest(request) { _ in }
     }
 }

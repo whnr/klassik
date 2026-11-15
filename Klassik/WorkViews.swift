@@ -170,6 +170,7 @@ struct WorkView: View {
         PageList {
             WorkHeader(work: work)
                 .listRowSeparator(.hidden)
+                .listRowInsets(Self.sideInsets)
             if let recording = work.defaultRecording {
                 Button {
                     model.playback.play(QueueItem(work: work, recording: recording))
@@ -200,19 +201,25 @@ struct WorkView: View {
                     // The whole row of what plays is tinted, edge to edge, so the listener sees it while browsing.
                     .listRowBackground(isPlaying ? Palette.tint.color.opacity(0.12) : Color.clear)
                     .itemActions(QueueItem(work: work, recording: recording), downloads: true, reference: true)
+                    .listRowInsets(Self.rowInsets)
                     .accessibilityIdentifier("recording")
                 }
                 Text("Favourite recordings come first. Then the oldest.")
                     .typeStyle(.footnote)
                     .foregroundStyle(Palette.textSecondary)
                     .listRowSeparator(.hidden)
+                    .listRowInsets(Self.sideInsets)
             } header: {
+                // A plain list indents its section header by 16 pt. The page title and rows sit at 20 pt.
                 CountedHeading("Recordings", count: work.recordings.count)
+                    .padding(.leading, 4)
             }
         }
         .pageTitle(work.title)
     }
 
+    private static let rowInsets = EdgeInsets(
+        top: Space.betweenGroups.points / 2, leading: 20, bottom: Space.betweenGroups.points / 2, trailing: 20)
     private static let sideInsets = EdgeInsets(top: Space.m.points, leading: 20, bottom: Space.m.points, trailing: 20)
 
     private func plays(_ recording: WorkIndex.Recording) -> Bool {

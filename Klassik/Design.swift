@@ -110,14 +110,33 @@ extension ScaledMetric where Value == CGFloat {
     }
 }
 
-/// A `List` on Klassik's grounds. The system gives a list its own colours, and each row its own ground.
+/// The plain list of a content page (ADR 0030): rows and hairlines on the paper ground, no cards.
 struct PageList<Content: View>: View {
     @Environment(\.pageHeading) private var heading
     @ViewBuilder let content: Content
 
     var body: some View {
         List {
-            PageHeading(title: heading)
+            PageHeading(title: heading, plain: true)
+            BackTipRow()
+                .listRowBackground(Color.clear)
+            content.listRowBackground(Color.clear)
+        }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .background(Palette.backgroundPage)
+    }
+}
+
+/// The inset grouped list of Settings and sheets (ADR 0030), on Klassik's grounds.
+/// The system gives a list its own colours, and each row its own ground.
+struct GroupedPageList<Content: View>: View {
+    @Environment(\.pageHeading) private var heading
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        List {
+            PageHeading(title: heading, plain: false)
             BackTipRow()
             content.listRowBackground(Palette.backgroundRow.color)
         }
@@ -132,7 +151,7 @@ struct PageForm<Content: View>: View {
 
     var body: some View {
         Form {
-            PageHeading(title: heading)
+            PageHeading(title: heading, plain: false)
             BackTipRow()
             content.listRowBackground(Palette.backgroundRow.color)
         }
@@ -178,6 +197,11 @@ struct SectionHeading: View {
 /// The heading scrolls as content, so UIKit cannot collapse it before it crosses the soft edge.
 private struct PageHeading: View {
     let title: String
+    /// A plain list sets the heading as the specimen does: close under the back arrow.
+    let plain: Bool
+
+    private static let plainInsets = EdgeInsets(
+        top: Space.xs.points, leading: 20, bottom: Space.s.points, trailing: 20)
 
     var body: some View {
         if !title.isEmpty {
@@ -188,6 +212,7 @@ private struct PageHeading: View {
                 .accessibilityIdentifier("page-heading")
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
+                .listRowInsets(plain ? Self.plainInsets : nil)
         }
     }
 }

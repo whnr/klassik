@@ -8,7 +8,7 @@ struct SettingsView: View {
     var body: some View {
         let library = model.library
         @Bindable var player = model.playback
-        PageList {
+        GroupedPageList {
             Section {
                 if library.syncedAt == nil {
                     if library.isSyncing {

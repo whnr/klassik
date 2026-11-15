@@ -300,6 +300,7 @@ input {
 }
 .page-head h1 {
   overflow-wrap: anywhere;
+  text-align: start;
 }
 .page-head .meta {
   margin-top: var(--space-xxs);
@@ -311,6 +312,7 @@ input {
 }
 .section-head {
   padding: 0 var(--space-l) var(--space-xs);
+  text-align: start;
   color: var(--color-text-secondary);
   display: flex;
   justify-content: space-between;
@@ -832,4 +834,24 @@ h1[class] {
 }
 .nav .back {
   color: var(--color-text-primary);
+}
+
+/* The progress bar of a running lookup (ADR 0042). */
+.bar {
+  display: block;
+  width: 100%;
+  height: var(--space-xs);
+  appearance: none;
+  border: 0;
+  border-radius: var(--space-xs);
+  background: var(--color-fill-quiet);
+  accent-color: var(--color-tint);
+}
+.bar::-webkit-progress-bar {
+  background: var(--color-fill-quiet);
+  border-radius: var(--space-xs);
+}
+.bar::-webkit-progress-value {
+  background: var(--color-tint);
+  border-radius: var(--space-xs);
 }

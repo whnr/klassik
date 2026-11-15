@@ -62,6 +62,8 @@ struct MiniPlayer: View {
         let contour = Path(roundedRect: bounds, cornerRadii: corners, style: .continuous)
         let padding = max(0, (height - itemSize(height: height)) / 2)
         let y = geometry.size.height - bottom - padding
+        // An empty contour row has no edge to find; it must not consume the tab bar's width.
+        guard contour.contains(CGPoint(x: geometry.size.width / 2, y: y)) else { return gap }
         var low = gap
         var high = geometry.size.width / 2
         for _ in 0..<16 {

@@ -14,8 +14,6 @@ struct PlacesView: View {
     var body: some View {
         let playing = model.playback.item != nil
         let rowHeight = tabBarFrame?.height ?? TabRow.height
-        let timelineSide = side
-        let nativeFrame = tabBarFrame
         SystemPlaces(
             model: model, navigator: navigator, selection: navigator.selection, backTransition: backTransition,
             side: side,
@@ -31,34 +29,30 @@ struct PlacesView: View {
                 GeometryReader { display in
                     let gap =
                         tabBarFrame.map {
-                            max(0, display.size.height - $0.maxY)
+                            max(0, display.frame(in: .global).maxY - $0.maxY)
                         } ?? TabRow.gap(safeArea: insets.bottom)
-                    if playing {
-                        VStack(spacing: 0) {
-                            TimelineBarView(side: side)
-                            HStack(spacing: 0) {
-                                if side == .right { Spacer(minLength: 0) }
-                                MiniPlayer(side: side, height: rowHeight, edgeInset: pillInset)
-                                if side == .left { Spacer(minLength: 0) }
+                    let inset = MiniPlayer.coverInset(in: display, side: side, bottom: gap, height: rowHeight)
+                    ZStack {
+                        if playing {
+                            VStack(spacing: 0) {
+                                TimelineBarView(side: side)
+                                HStack(spacing: 0) {
+                                    if side == .right { Spacer(minLength: 0) }
+                                    MiniPlayer(side: side, height: rowHeight, edgeInset: pillInset)
+                                    if side == .left { Spacer(minLength: 0) }
+                                }
+                                .frame(height: rowHeight)
+                                .accessibilityElement(children: .contain)
                             }
-                            .frame(height: rowHeight)
-                            .accessibilityElement(children: .contain)
+                            .padding(.top, insets.top)
+                            .padding(.bottom, gap)
+                            MiniPlayerCorner(side: side, top: display.size.height - gap - rowHeight)
+                                .allowsHitTesting(false)
                         }
-                        .padding(.top, insets.top)
-                        .padding(.bottom, gap)
-                        MiniPlayerCorner(side: side, top: display.size.height - gap - rowHeight)
-                            .allowsHitTesting(false)
                     }
+                    .onChange(of: inset, initial: true) { _, value in pillInset = value }
                 }
                 .ignoresSafeArea(.container)
-                .onGeometryChange(for: CGFloat.self) { geometry in
-                    let bottom =
-                        nativeFrame.map { max(0, geometry.size.height - $0.maxY) }
-                        ?? TabRow.gap(safeArea: insets.bottom)
-                    return MiniPlayer.coverInset(in: geometry, side: timelineSide, bottom: bottom, height: rowHeight)
-                } action: {
-                    pillInset = $0
-                }
             }
             .ignoresSafeArea(.keyboard)
         }
@@ -178,7 +172,8 @@ private final class PlacesController: UITabBarController {
             view.bringSubviewToFront(chrome)
             if let playerHost { view.insertSubview(playerHost.view, belowSubview: chrome) }
         }
-        let bar = tabBar.convert(tabBar.bounds, to: view)
+        // SwiftUI's display reader measures in global coordinates, so the bar reports its window coordinates.
+        let bar = tabBar.convert(tabBar.bounds, to: nil)
         // The bar frame also holds the safe-area gap, so its height is not the capsule's. The pill height is the
         // fixed capsule height; only the position and width come from the bar.
         let content = CGRect(x: bar.minX, y: bar.minY, width: bar.width, height: TabRow.height)

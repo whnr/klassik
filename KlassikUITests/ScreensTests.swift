@@ -247,6 +247,7 @@ final class PlaybackScreens: ScreensTestCase {
         playPaused(app)
         let tags = reveal(app.buttons["raw-tags"], in: app)
         let before = tags.frame
+        checkTabAndCoverFrames(app, side: .right)
         snap(app, "16-pill-right")
         let pill = app.descendants(matching: .any)["mini-player"].firstMatch
         let pillBefore = pillFrame(pill)
@@ -254,6 +255,7 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertEqual(pillFrame(pill), pillBefore, "Opening the overlay moved the pill")
         XCTAssertTrue(app.buttons["mini-player-cover"].isHittable)
         for name in ["Library", "Chronology", "Search"] { XCTAssertTrue(tab(app, name).isHittable) }
+        checkTabAndCoverFrames(app, side: .right)
         snap(app, "16a-overlay-right")
         slidePlayerDown(app)
         XCTAssertTrue(tags.waitForExistence(timeout: 10))
@@ -266,10 +268,12 @@ final class PlaybackScreens: ScreensTestCase {
         let app = try launchAndConnect(arguments: ["-\(timelineSideKey)", "left"])
         openRecording(app)
         playPaused(app)
+        checkTabAndCoverFrames(app, side: .left)
         snap(app, "16c-pill-left")
         let before = pillFrame(app.descendants(matching: .any)["mini-player"].firstMatch)
         openPlayer(app)
         XCTAssertEqual(pillFrame(app.descendants(matching: .any)["mini-player"].firstMatch), before)
+        checkTabAndCoverFrames(app, side: .left)
         snap(app, "16d-overlay-left")
         slidePlayerDown(app)
     }
@@ -592,6 +596,7 @@ final class TimelineScreens: ScreensTestCase {
         XCTAssertLessThanOrEqual(tab(app, "Search").frame.maxX, frame.minX, "The tabs run under the pill")
         XCTAssertTrue(pill.buttons["mini-player-cover"].exists)
         XCTAssertEqual(pill.buttons["mini-player-pause"].label, "Resume")
+        checkTabAndCoverFrames(app, side: .right)
         snap(app, "15b-timeline-right")
 
         // The cover opens the overlay. The complete pill stays above it.
@@ -633,6 +638,7 @@ final class TimelineScreens: ScreensTestCase {
         XCTAssertEqual(bar.frame.minX, 0, accuracy: 1, "The timeline is not on the left edge")
         let pill = app.descendants(matching: .any)["mini-player"].firstMatch
         XCTAssertEqual(pillFrame(pill).minX, 0, accuracy: 1, "The pill is not flush with the left edge")
+        checkTabAndCoverFrames(app, side: .left)
         snap(app, "15e-timeline-left")
 
         let place = bar.value as? String ?? ""
@@ -1016,6 +1022,27 @@ class ScreensTestCase: XCTestCase {
     @MainActor
     func pillFrame(_ pill: XCUIElement) -> CGRect {
         pill.buttons.allElementsBoundByIndex.map(\.frame).reduce(CGRect.null) { $0.union($1) }
+    }
+
+    enum PillEdge { case left, right }
+
+    @MainActor
+    func checkTabAndCoverFrames(_ app: XCUIApplication, side: PillEdge) {
+        let tabs = ["Library", "Chronology", "Search"].map { tab(app, $0).frame }
+        for (left, right) in zip(tabs, tabs.dropFirst()) {
+            XCTAssertGreaterThan(left.width, 0, "A tab has no width")
+            XCTAssertLessThanOrEqual(left.maxX, right.minX, "The tab frames overlap")
+        }
+        let cover = app.buttons["mini-player-cover"].frame
+        // The button includes the edge padding; its inward edge is the square cover's inward edge.
+        let distance = side == .right ? app.frame.maxX - cover.minX : cover.maxX - app.frame.minX
+        XCTAssertGreaterThan(cover.width, 0, "The cover has no width")
+        XCTAssertLessThanOrEqual(distance, 96, "The cover is too far from the display edge")
+        if side == .right {
+            XCTAssertLessThanOrEqual(tabs.last!.maxX, cover.minX, "The tabs run under the cover")
+        } else {
+            XCTAssertGreaterThanOrEqual(tabs.first!.minX, cover.maxX, "The tabs run under the cover")
+        }
     }
 
     /// Opens a recording, leaves it paused in the player and goes back to the list of composers.

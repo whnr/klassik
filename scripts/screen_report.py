@@ -6,7 +6,8 @@ Usage:
     python3 scripts/screen_report.py select <requested-areas> <group-areas>
         Prints the selected areas and rejects unknown names.
     python3 scripts/screen_report.py aggregate-ui <reports-dir> <requested-areas>
-        Prints the UI result and fails if a selected group has no completed result.
+        Prints the UI result. Fails if a selected group has no completed result, or passed without all its
+        screenshots.
     python3 scripts/screen_report.py summary <screens-dir>
         Prints the results of scripts/screens.sh as Markdown and writes <screens-dir>/missing.txt.
     python3 scripts/screen_report.py diff <screens-dir> <diff-dir> [<baseline-dir>]
@@ -95,7 +96,29 @@ def plan(event, dispatch_input, messages):
     return ui, {"include": include}
 
 
-def aggregate_ui(reports, request):
+def unexplained_gaps(reports, request, source):
+    """The screenshots that each passed group did not take, by group.
+
+    A failed group explains its own gaps: the summary lists them, and UI_TESTS_REQUIRED decides if they block.
+    A passed group has no such explanation, for example when the export of its attachments failed.
+    """
+    gaps = {}
+    for group, areas in UI_GROUPS.items():
+        selected = selected_areas(request, areas)
+        if selected == "false":
+            continue
+        report = reports / f"walk-{group}"
+        path = report / "results.txt"
+        if not path.exists() or read_results(path.read_text()).get("ui") != "passed":
+            continue
+        captured = {p.stem for p in report.glob("*.png")}
+        if missing := sorted(set(expected(source, selected)) - captured):
+            gaps[group] = missing
+    return gaps
+
+
+def aggregate_ui(reports, request, source=None):
+    source = WALK.read_text() if source is None else source
     states = []
     for group, areas in UI_GROUPS.items():
         if selected_areas(request, areas) == "false":
@@ -106,6 +129,8 @@ def aggregate_ui(reports, request):
         if results.get("build") != "passed" or state not in ("passed", "failed"):
             return "incomplete"
         states.append(state)
+    if unexplained_gaps(reports, request, source):
+        return "incomplete"
     return "failed" if "failed" in states else "passed" if states else "not run"
 
 
@@ -179,7 +204,10 @@ def main(args):
         print(selected_areas(args[1], args[2]))
         return
     if command == "aggregate-ui":
-        state = aggregate_ui(pathlib.Path(args[1]), args[2])
+        reports = pathlib.Path(args[1])
+        state = aggregate_ui(reports, args[2])
+        for group, missing in unexplained_gaps(reports, args[2], WALK.read_text()).items():
+            print(f"::error::walk-{group} passed without screenshots: {', '.join(missing)}", file=sys.stderr)
         print(f"ui={state}")
         sys.exit(1 if state == "incomplete" else 0)
     screens = pathlib.Path(args[1])

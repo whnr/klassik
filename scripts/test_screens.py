@@ -117,17 +117,62 @@ class MatrixTests(unittest.TestCase):
                 path = reports / f"walk-{group}"
                 path.mkdir()
                 (path / "results.txt").write_text("build=passed\nui=not run\nui=passed\n")
-            self.assertEqual(screen_report.aggregate_ui(reports, "all"), "passed")
+            self.assertEqual(screen_report.aggregate_ui(reports, "all", ""), "passed")
             path = reports / "walk-playback" / "results.txt"
             path.unlink()
-            self.assertEqual(screen_report.aggregate_ui(reports, "all"), "incomplete")
-            self.assertEqual(screen_report.aggregate_ui(reports, "Browse,Settings"), "passed")
+            self.assertEqual(screen_report.aggregate_ui(reports, "all", ""), "incomplete")
+            self.assertEqual(screen_report.aggregate_ui(reports, "Browse,Settings", ""), "passed")
             for text in ("", "build=passed\n", "build=passed\nui=not run\n", "build=failed\nui=passed\n"):
                 path.write_text(text)
-                self.assertEqual(screen_report.aggregate_ui(reports, "all"), "incomplete")
+                self.assertEqual(screen_report.aggregate_ui(reports, "all", ""), "incomplete")
             path.write_text("build=passed\nui=not run\nui=failed\n")
-            self.assertEqual(screen_report.aggregate_ui(reports, "all"), "failed")
-            self.assertEqual(screen_report.aggregate_ui(reports, "false"), "not run")
+            self.assertEqual(screen_report.aggregate_ui(reports, "all", ""), "failed")
+            self.assertEqual(screen_report.aggregate_ui(reports, "false", ""), "not run")
+
+    def walk_reports(self, directory, shots, browse="passed"):
+        reports = pathlib.Path(directory)
+        for group in screen_report.UI_GROUPS:
+            path = reports / f"walk-{group}"
+            path.mkdir()
+            state = browse if group == "places-browse" else "passed"
+            (path / "results.txt").write_text(f"build=passed\nui={state}\n")
+        for group, name in shots:
+            (reports / f"walk-{group}" / f"{name}.png").write_bytes(b"")
+        return reports
+
+    def test_a_passed_walk_must_keep_every_screenshot(self):
+        every = [("places-browse", "02-home"), ("settings-timeline", "09-filter"), ("settings-timeline", "10-albums")]
+        with tempfile.TemporaryDirectory() as directory:
+            reports = self.walk_reports(directory, every)
+            self.assertEqual(screen_report.aggregate_ui(reports, "all", WALK), "passed")
+            self.assertEqual(screen_report.unexplained_gaps(reports, "all", WALK), {})
+        with tempfile.TemporaryDirectory() as directory:
+            reports = self.walk_reports(directory, every[:2])
+            self.assertEqual(screen_report.aggregate_ui(reports, "all", WALK), "incomplete")
+            self.assertEqual(screen_report.unexplained_gaps(reports, "all", WALK), {"settings-timeline": ["10-albums"]})
+            # A walk that skips the settings area expects none of its screenshots.
+            self.assertEqual(screen_report.aggregate_ui(reports, "browse", WALK), "passed")
+
+    def test_a_failed_walk_explains_its_own_gaps(self):
+        with tempfile.TemporaryDirectory() as directory:
+            reports = self.walk_reports(
+                directory, [("settings-timeline", "09-filter"), ("settings-timeline", "10-albums")], browse="failed"
+            )
+            self.assertEqual(screen_report.unexplained_gaps(reports, "all", WALK), {})
+            self.assertEqual(screen_report.aggregate_ui(reports, "all", WALK), "failed")
+
+    def test_the_command_names_the_gaps(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self.walk_reports(directory, [])
+            result = subprocess.run(
+                [sys.executable, str(pathlib.Path(screen_report.__file__)), "aggregate-ui", directory, "all"],
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "ui=incomplete\n")
+            self.assertIn("walk-settings-timeline passed without screenshots: ", result.stderr)
+            self.assertIn("15g-timeline-setting", result.stderr)
 
     def test_incomplete_aggregation_command_fails_closed(self):
         with tempfile.TemporaryDirectory() as directory:

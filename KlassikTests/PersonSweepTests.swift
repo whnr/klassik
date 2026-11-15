@@ -230,8 +230,8 @@ struct PersonSweepTests {
             #expect(!request.contains("P435"))
             #expect([Self.bach.tag, mutter.tag].filter { request.contains($0) }.count <= 1)
             if request.contains("props=labels|descriptions|claims") {
-                let ids = request.components(separatedBy: "ids=").dropFirst().first?
-                    .components(separatedBy: "&").first ?? ""
+                let tail = request.components(separatedBy: "ids=").dropFirst().first ?? ""
+                let ids = tail.components(separatedBy: "&").first ?? ""
                 #expect(!ids.isEmpty)
                 #expect(!ids.contains("|"))
             }

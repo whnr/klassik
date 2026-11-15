@@ -15,7 +15,12 @@ private final class Counter: @unchecked Sendable {
     private let lock = NSLock()
     private var value = 0
     private var log: [Int] = []
-    func next() -> Int { lock.withLock { defer { value += 1 }; return value } }
+    func next() -> Int {
+        lock.withLock {
+            defer { value += 1 }
+            return value
+        }
+    }
     func record(_ seconds: Int) { lock.withLock { log.append(seconds) } }
     var seconds: [Int] { lock.withLock { log } }
 }

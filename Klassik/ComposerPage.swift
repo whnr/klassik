@@ -333,7 +333,9 @@ struct PersonHero: View {
                     }
                     heading
                         .padding(.bottom, Space.m.points)
-                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { textHeight = $0 }
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: {
+                            textHeight = $0
+                        }
                 }
                 .frame(width: width, height: frame.height, alignment: .bottomLeading)
                 .clipped()

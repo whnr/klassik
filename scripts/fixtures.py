@@ -1,6 +1,7 @@
 """Generates a small classical fixture library: sine-tone MP3s with classical tags.
 
-Usage: python3 scripts/fixtures.py <output-dir>
+Usage: python3 scripts/fixtures.py <output-dir> [minimum-seconds]
+The optional minimum keeps playback active while UI automation finds and taps its controls.
 Needs ffmpeg on PATH and mutagen. The audio is generated, so the repo carries no copyrighted
 material. Tags follow the convention in the library epic: Navidrome 0.64 drops the ID3 MVIN
 frame, so movement number and total go into TXXX:MOVEMENT and TXXX:MOVEMENTTOTAL.
@@ -246,7 +247,7 @@ def roman(n):
     return ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"][n - 1]
 
 
-def main(out):
+def main(out, minimum_seconds=0):
     out = pathlib.Path(out)
     frequency = 220
     for album, album_artist, genre, recorded, released, tracks in ALBUMS + [JAZZ]:
@@ -254,7 +255,7 @@ def main(out):
         folder.mkdir(parents=True, exist_ok=True)
         for number, track in enumerate(tracks, 1):
             path = folder / f"{number:02d} {track[2] or track[1]}.mp3".replace("/", "-")
-            seconds = track[7]
+            seconds = max(track[7] or 0, minimum_seconds)
             encode(path, f"sine=frequency={frequency}:duration={seconds}" if seconds else glide(track[3]))
             tag(path, album, album_artist, genre, recorded, released, number, len(tracks), track)
             frequency += 20
@@ -268,4 +269,4 @@ def main(out):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    main(sys.argv[1], int(sys.argv[2]) if len(sys.argv) > 2 else 0)

@@ -5,6 +5,7 @@
 # UI_TESTS_REQUIRED: "true" makes a failed UI walk fail the script. Else the script reports the failure and passes.
 # A failed build or a failed unit test always fails the script.
 # Exports the screenshots, the gapless report, the time of each phase and results.txt (build, unit, ui).
+# KLASSIK_PHASE: all (local default), build, unit, or ui. Test phases consume archived Build/Products.
 # Usage: [KLASSIK_UI=...] [UI_TESTS_REQUIRED=...] scripts/screens.sh <output-dir>
 # Start scripts/fixture-server.sh first.
 set -euo pipefail
@@ -13,6 +14,8 @@ cd "$(dirname "$0")/.."
 out=$(mkdir -p "$1" && cd "$1" && pwd)
 rm -rf "$out"/*.xcresult "$out/timings.txt" "$out/results.txt"
 required=${UI_TESTS_REQUIRED:-false}
+mode=${KLASSIK_PHASE:-all}
+case "$mode" in all | build | unit | ui) ;; *) echo "Unknown phase: $mode" >&2; exit 2 ;; esac
 # The last line of a key holds its state, so an early exit leaves "failed" or "not run" behind.
 record() { echo "$1=$2" >> "$out/results.txt"; }
 record ui_areas "${KLASSIK_UI:-false}"
@@ -31,35 +34,56 @@ phase() {
   phase_start=$SECONDS
 }
 
-xcodegen generate
+# A narrowed walk can leave a UI group empty; it needs no simulator.
+if [ "$mode" = ui ] && { [ -z "${KLASSIK_UI:-}" ] || [ "$KLASSIK_UI" = false ]; }; then
+  record build passed
+  phase skipped
+  exit 0
+fi
+
+if [ "$mode" = all ] || [ "$mode" = build ]; then
+  xcodegen generate
+fi
 phase project
 udid=$(scripts/simulator.sh)
 echo "Simulator: $udid"
 phase simulator
 # The first boot of a simulator takes about 3 minutes, so it runs during the build. An earlier start slows the
 # other CI steps, because the boot takes the whole runner.
-(
-  xcrun simctl bootstatus "$udid" -b >/dev/null
-  # A fixed status bar keeps the clock out of the screenshot diff.
-  xcrun simctl status_bar "$udid" override --time 9:41 --dataNetwork wifi --wifiBars 3 --cellularMode notSupported \
-    --batteryState charged --batteryLevel 100 || echo "No status bar override: the screenshot diff shows the clock."
-) &
-boot=$!
+if [ "$mode" != build ]; then
+  (
+    xcrun simctl bootstatus "$udid" -b >/dev/null
+    # A fixed status bar keeps the clock out of the screenshot diff.
+    xcrun simctl status_bar "$udid" override --time 9:41 --dataNetwork wifi --wifiBars 3 --cellularMode notSupported \
+      --batteryState charged --batteryLevel 100 || echo "No status bar override: the screenshot diff shows the clock."
+  ) &
+  boot=$!
+fi
 
 # The simulator answers in two architectures; naming one spares xcodebuild the choice.
 common=(-project Klassik.xcodeproj -scheme Klassik -destination "platform=iOS Simulator,id=$udid,arch=arm64"
   -derivedDataPath build/DerivedData)
 # The index store and the preview dylibs serve only the editor.
-xcodebuild build-for-testing "${common[@]}" -showBuildTimingSummary CODE_SIGN_IDENTITY=- \
-  COMPILER_INDEX_STORE_ENABLE=NO ENABLE_PREVIEWS=NO ENABLE_DEBUG_DYLIB=NO \
-  | $formatter
-record build passed
-phase build
-wait $boot
+if [ "$mode" = all ] || [ "$mode" = build ]; then
+  xcodebuild build-for-testing "${common[@]}" -showBuildTimingSummary CODE_SIGN_IDENTITY=- \
+    COMPILER_INDEX_STORE_ENABLE=NO ENABLE_PREVIEWS=NO ENABLE_DEBUG_DYLIB=NO \
+    | tee "$out/build.log" | $formatter
+  record build passed
+  phase build
+fi
+[ "$mode" != build ] || exit 0
+if [ "$mode" != all ]; then
+  # Test products use __TESTROOT__, so the archive can move between runners.
+  plans=(build/DerivedData/Build/Products/*.xctestrun)
+  common=(-xctestrun "${plans[0]}" -destination "platform=iOS Simulator,id=$udid,arch=arm64")
+  record build passed
+fi
+wait "$boot"
 phase boot
 
 # Runs one group of tests into its own result bundle, so the unit tests and the UI walk each have an exit status.
 # xcodebuild hands TEST_RUNNER_* variables to the test runner without the prefix.
+# Simulator diagnostic archives add minutes after test execution. Result bundles keep test logs and attachments without them.
 run_tests() {
   local bundle=$1
   shift
@@ -68,9 +92,10 @@ run_tests() {
   TEST_RUNNER_KLASSIK_PASSWORD=fixture \
   xcodebuild test-without-building \
     "${common[@]}" \
+    -collect-test-diagnostics never \
     "$@" \
     -resultBundlePath "$out/$bundle.xcresult" \
-    | $formatter
+    | tee "$out/$bundle.log" | $formatter
 }
 
 # A failed test run still holds its attachments. A run that never started holds none.
@@ -86,9 +111,11 @@ export_attachments() {
 }
 
 unit=0
-run_tests unit -only-testing:KlassikTests || unit=$?
-record unit "$([ $unit -eq 0 ] && echo passed || echo failed)"
-phase test
+if [ "$mode" = all ] || [ "$mode" = unit ]; then
+  run_tests unit -only-testing:KlassikTests -parallel-testing-enabled NO || unit=$?
+  record unit "$([ $unit -eq 0 ] && echo passed || echo failed)"
+  phase test
+fi
 
 ui=0
 suites=()
@@ -104,9 +131,10 @@ case "${KLASSIK_UI:-false}" in
     done
     ;;
 esac
-if [ ${#suites[@]} -gt 0 ]; then
+if [ "$mode" != unit ] && [ ${#suites[@]} -gt 0 ]; then
   # The bundle keeps the name that the workflow uploads after a failure.
-  run_tests screens "${suites[@]}" || ui=$?
+  # Each runner owns one simulator, so UI automation does not compete for its resources.
+  run_tests screens "${suites[@]}" -parallel-testing-enabled NO || ui=$?
   record ui "$([ $ui -eq 0 ] && echo passed || echo failed)"
   phase ui
 fi

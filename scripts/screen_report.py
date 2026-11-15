@@ -1,6 +1,10 @@
 """Reports the result of a test run and of the screenshot comparison, for the job summary.
 
 Usage:
+    python3 scripts/screen_report.py select <requested-areas> <group-areas>
+        Prints the selected areas and rejects unknown names.
+    python3 scripts/screen_report.py aggregate-ui <reports-dir> <requested-areas>
+        Prints the UI result and fails if a selected group has no completed result.
     python3 scripts/screen_report.py summary <screens-dir>
         Prints the results of scripts/screens.sh as Markdown and writes <screens-dir>/missing.txt.
     python3 scripts/screen_report.py diff <screens-dir> <diff-dir> [<baseline-dir>]
@@ -36,9 +40,45 @@ def read_results(text):
     return dict(line.split("=", 1) for line in text.splitlines() if "=" in line)
 
 
+UI_GROUPS = {
+    "playback": "playback",
+    "places-browse": "places,browse",
+    "settings-timeline": "settings,timeline",
+}
+
+
+def selected_areas(request, available):
+    request = request.replace(" ", "").lower() or "all"
+    known = {area for areas in UI_GROUPS.values() for area in areas.split(",")}
+    if request in ("all", "true"):
+        return available
+    if request == "false":
+        return "false"
+    requested = set(request.split(","))
+    if unknown := requested - known:
+        raise ValueError("Unknown UI areas: " + ", ".join(sorted(unknown)))
+    return ",".join(area for area in available.split(",") if area in requested) or "false"
+
+
+def aggregate_ui(reports, request):
+    states = []
+    for group, areas in UI_GROUPS.items():
+        if selected_areas(request, areas) == "false":
+            continue
+        path = reports / f"walk-{group}" / "results.txt"
+        results = read_results(path.read_text()) if path.exists() else {}
+        state = results.get("ui")
+        if results.get("build") != "passed" or state not in ("passed", "failed"):
+            return "incomplete"
+        states.append(state)
+    return "failed" if "failed" in states else "passed" if states else "not run"
+
+
 def ui_result(results):
     """The UI line of the summary. A tolerated failure must read as a failure."""
     state = results.get("ui", "not run")
+    if state == "incomplete":
+        return "**FAILED** (incomplete UI results)"
     if state != "failed":
         return state
     if results.get("ui_required") == "true":
@@ -94,7 +134,15 @@ def read_lines(path):
 
 
 def main(args):
-    command, screens = args[0], pathlib.Path(args[1])
+    command = args[0]
+    if command == "select":
+        print(selected_areas(args[1], args[2]))
+        return
+    if command == "aggregate-ui":
+        state = aggregate_ui(pathlib.Path(args[1]), args[2])
+        print(f"ui={state}")
+        sys.exit(1 if state == "incomplete" else 0)
+    screens = pathlib.Path(args[1])
     if command == "summary":
         results_file = screens / "results.txt"
         results = read_results(results_file.read_text()) if results_file.exists() else {}

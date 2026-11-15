@@ -1,7 +1,9 @@
 """Tests for the screenshot scripts: python3 -m unittest discover -s scripts -p "test_screens.py"."""
 
 import pathlib
+import subprocess
 import sys
+import tempfile
 import unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
@@ -90,6 +92,57 @@ class SummaryTests(unittest.TestCase):
         self.assertIn("| Screenshots missing | none |", text)
         self.assertIn("https://example.org/run#artifacts", text)
         self.assertEqual(missing, [])
+
+
+class MatrixTests(unittest.TestCase):
+    def test_area_names_ignore_case_and_spaces(self):
+        self.assertEqual(screen_report.selected_areas("Browse, Settings", "places,browse"), "browse")
+        self.assertEqual(screen_report.selected_areas("Browse, Settings", "settings,timeline"), "settings")
+        self.assertEqual(screen_report.selected_areas("Browse, Settings", "playback"), "false")
+
+    def test_unknown_area_is_rejected_even_with_known_area(self):
+        for request in ("unknown", "browse,unknown", "browse,"):
+            with self.subTest(request=request), self.assertRaises(ValueError):
+                screen_report.selected_areas(request, "playback")
+
+    def test_all_and_disabled(self):
+        for request in ("", "all", "true"):
+            self.assertEqual(screen_report.selected_areas(request, "places,browse"), "places,browse")
+        self.assertEqual(screen_report.selected_areas("false", "places,browse"), "false")
+
+    def test_aggregation_requires_completed_selected_groups(self):
+        with tempfile.TemporaryDirectory() as directory:
+            reports = pathlib.Path(directory)
+            for group in screen_report.UI_GROUPS:
+                path = reports / f"walk-{group}"
+                path.mkdir()
+                (path / "results.txt").write_text("build=passed\nui=not run\nui=passed\n")
+            self.assertEqual(screen_report.aggregate_ui(reports, "all"), "passed")
+            path = reports / "walk-playback" / "results.txt"
+            path.unlink()
+            self.assertEqual(screen_report.aggregate_ui(reports, "all"), "incomplete")
+            self.assertEqual(screen_report.aggregate_ui(reports, "Browse,Settings"), "passed")
+            for text in ("", "build=passed\n", "build=passed\nui=not run\n", "build=failed\nui=passed\n"):
+                path.write_text(text)
+                self.assertEqual(screen_report.aggregate_ui(reports, "all"), "incomplete")
+            path.write_text("build=passed\nui=not run\nui=failed\n")
+            self.assertEqual(screen_report.aggregate_ui(reports, "all"), "failed")
+            self.assertEqual(screen_report.aggregate_ui(reports, "false"), "not run")
+
+    def test_incomplete_aggregation_command_fails_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result = subprocess.run(
+                [sys.executable, str(pathlib.Path(screen_report.__file__)), "aggregate-ui", directory, "all"],
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "ui=incomplete\n")
+
+    def test_incomplete_results_block_without_required_policy(self):
+        text = screen_report.ui_result({"ui": "incomplete", "ui_required": "false"})
+        self.assertIn("**FAILED**", text)
+        self.assertNotIn("tolerated", text)
 
 
 class DiffSummaryTests(unittest.TestCase):

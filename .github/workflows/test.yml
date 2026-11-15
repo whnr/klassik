@@ -1,7 +1,6 @@
 name: Test
 
-# Unit, library sync and gapless tests against a fixture Navidrome, then the UI walk and its screenshots on every
-# run. During the interface rebuild the walk is a warning, never a red check: a failed walk shows in the job summary
+# One build supplies parallel unit and UI jobs against fixture Navidrome on every run. During the interface rebuild the walk is a warning, never a red check: a failed walk shows in the job summary
 # and fails the run only if the repository variable UI_TESTS_REQUIRED is "true". The screenshots always upload.
 # After a walk, screens-diff compares each screenshot with the newest walk on the same branch, else on ci.
 # A failed build or unit test fails the run. The "ui" input of a run by hand narrows the walk, such as "browse,settings".
@@ -32,7 +31,7 @@ jobs:
       - uses: actions/checkout@v7
       - run: scripts/lint.sh
 
-  # ffmpeg installs quickly on Linux; the macOS job only needs the finished files.
+  # Generate audio on Linux to keep package installation off the macOS runners.
   # The tarball keeps the colons in the file names, which artifact paths reject.
   fixtures:
     runs-on: ubuntu-latest
@@ -66,27 +65,18 @@ jobs:
           path: fixture-music.tgz
           retention-days: 1
 
-  test:
-    needs: [lint, fixtures]
+  build:
+    needs: lint
     runs-on: xcode-27
     timeout-minutes: 40
     # The xcode-27 image holds the iOS 27 SDK. Its default Xcode 27.1 has one simulator on its own iOS;
     # Xcode 27.2 matches the newest simulator runtime.
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
-    outputs:
-      ui: ${{ steps.ui.outputs.ui }}
-      screens: ${{ steps.report.outputs.screens }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: Choose the UI areas
-        id: ui
-        env:
-          INPUT: ${{ inputs.ui }}
-        run: |
-          echo "ui=${INPUT:-all}" | tee -a "$GITHUB_OUTPUT"
       # The cached DerivedData helps only if unchanged files keep their time.
       - run: python3 scripts/git_mtimes.py
       - id: xcode
@@ -96,21 +86,89 @@ jobs:
           path: build/DerivedData
           key: deriveddata-${{ steps.xcode.outputs.version }}-${{ hashFiles('project.yml', 'Klassik/**', 'KlassikTests/**', 'KlassikUITests/**') }}
           restore-keys: deriveddata-${{ steps.xcode.outputs.version }}-
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Build test products
+        env:
+          KLASSIK_PHASE: build
+        run: |
+          scripts/screens.sh "$RUNNER_TEMP/build-report"
+          tar czf "$RUNNER_TEMP/test-products.tgz" -C build/DerivedData/Build Products
+      - uses: actions/upload-artifact@v7
+        with:
+          name: test-products
+          path: ${{ runner.temp }}/test-products.tgz
+          retention-days: 1
+      - name: Build timing
+        if: always()
+        run: cat "$RUNNER_TEMP/build-report/timings.txt" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: build-report
+          path: ${{ runner.temp }}/build-report
+
+  walk:
+    needs: [build, fixtures]
+    runs-on: xcode-27
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - group: unit
+            phase: unit
+            areas: "false"
+          - group: playback
+            phase: ui
+            areas: playback
+          - group: places
+            phase: ui
+            areas: places
+          - group: browse-settings-timeline
+            phase: ui
+            areas: browse,settings,timeline
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v7
+      - name: Choose the UI areas
+        id: ui
+        env:
+          INPUT: ${{ inputs.ui }}
+          AREAS: ${{ matrix.areas }}
+        run: |
+          selected="$AREAS"
+          case "${INPUT:-all}" in
+            all | true) ;;
+            false) selected=false ;;
+            *)
+              selected=""
+              for area in ${AREAS//,/ }; do
+                if [[ ",${INPUT// /}," == *",$area,"* ]]; then selected="${selected:+$selected,}$area"; fi
+              done
+              selected=${selected:-false}
+              ;;
+          esac
+          echo "ui=$selected" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@v8
+        with:
+          name: test-products
+          path: ${{ runner.temp }}
+      - run: mkdir -p build/DerivedData/Build && tar xzf "$RUNNER_TEMP/test-products.tgz" -C build/DerivedData/Build
       - uses: actions/download-artifact@v8
         with:
           name: fixture-music
           path: ${{ runner.temp }}
       - run: mkdir -p "$RUNNER_TEMP/fixture" && tar xzf "$RUNNER_TEMP/fixture-music.tgz" -C "$RUNNER_TEMP/fixture"
-      - name: Install XcodeGen
-        run: brew install xcodegen
       - name: Start Navidrome on the fixture library
         run: scripts/fixture-server.sh "$RUNNER_TEMP/fixture"
       - name: Run the tests
         env:
+          KLASSIK_PHASE: ${{ matrix.phase }}
           KLASSIK_UI: ${{ steps.ui.outputs.ui }}
           UI_TESTS_REQUIRED: ${{ vars.UI_TESTS_REQUIRED || 'false' }}
         run: scripts/screens.sh "$RUNNER_TEMP/screens"
-      # The script passes after a tolerated UI failure, so this step tells the truth about each result.
       - name: Results and time of each phase
         id: report
         if: always()
@@ -118,26 +176,78 @@ jobs:
           out="$RUNNER_TEMP/screens"
           mkdir -p "$out"
           python3 scripts/screen_report.py summary "$out" >> "$GITHUB_STEP_SUMMARY"
-          (echo '```'; cat "$out/timings.txt"; echo '```') >> "$GITHUB_STEP_SUMMARY" || true
+          cat "$out/timings.txt" >> "$GITHUB_STEP_SUMMARY" || true
           echo "ui=$(grep '^ui=' "$out/results.txt" | tail -1 | cut -d= -f2)" >> "$GITHUB_OUTPUT" || true
-          if ls "$out"/*.png >/dev/null 2>&1; then echo "screens=true"; else echo "screens=false"; fi >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: screens
+          name: walk-${{ matrix.group }}
           path: |
             ${{ runner.temp }}/screens/*.png
             ${{ runner.temp }}/screens/*.txt
             ${{ runner.temp }}/screens/*.log
-          if-no-files-found: warn
       - name: Navidrome log
-        if: failure()
+        if: failure() || steps.report.outputs.ui == 'failed'
         run: tail -50 "$RUNNER_TEMP/fixture/navidrome.log"
       - uses: actions/upload-artifact@v7
         if: failure() || steps.report.outputs.ui == 'failed'
         with:
-          name: screens-xcresult
+          name: screens-xcresult-${{ matrix.group }}
           path: ${{ runner.temp }}/screens/*.xcresult
+
+  # Keep the public artifact and check names stable for comparisons and release checks.
+  test:
+    needs: [build, walk]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      screens: ${{ steps.report.outputs.screens }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: walk-*
+          path: reports
+      - name: Collect screenshots and results
+        id: report
+        env:
+          INPUT: ${{ inputs.ui }}
+          BUILD: ${{ needs.build.result }}
+          WALK: ${{ needs.walk.result }}
+          UI_TESTS_REQUIRED: ${{ vars.UI_TESTS_REQUIRED || 'false' }}
+        run: |
+          mkdir -p screens
+          find reports -name '*.png' -exec cp {} screens/ \;
+          for report in reports/walk-*; do
+            cp "$report/results.txt" "screens/$(basename "$report")-results.txt"
+            cp "$report/timings.txt" "screens/$(basename "$report")-timings.txt"
+          done
+          {
+            echo "ui_areas=${INPUT:-all}"
+            echo "ui_required=$UI_TESTS_REQUIRED"
+            echo "build=$([ "$BUILD" = success ] && echo passed || echo failed)"
+            grep '^unit=' reports/walk-unit/results.txt | tail -1
+            if grep -q '^ui=failed' reports/walk-*/results.txt; then
+              echo ui=failed
+            elif [ "${INPUT:-all}" = false ]; then
+              echo 'ui=not run'
+            else
+              echo ui=passed
+            fi
+          } > screens/results.txt
+          python3 scripts/screen_report.py summary screens >> "$GITHUB_STEP_SUMMARY"
+          if ls screens/*.png >/dev/null 2>&1; then echo screens=true; else echo screens=false; fi >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: screens
+          path: screens
+      - name: Require build and test jobs
+        env:
+          BUILD: ${{ needs.build.result }}
+          WALK: ${{ needs.walk.result }}
+        run: test "$BUILD" = success && test "$WALK" = success
 
   # The diff informs; it never fails the run. It runs when screenshots exist, also after a failed test job.
   # Without screenshots the job shows as skipped, and the summary of test says why.

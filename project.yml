@@ -58,7 +58,4 @@ schemes:
       targets:
         Klassik: all
     test:
-      targets:
-        - KlassikTests
-        - name: KlassikUITests
-          parallelizable: true
+      targets: [KlassikTests, KlassikUITests]

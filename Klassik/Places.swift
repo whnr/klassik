@@ -31,8 +31,12 @@ struct PlacesView: View {
                         tabBarFrame.map {
                             max(0, display.frame(in: .global).maxY - $0.maxY)
                         } ?? TabRow.gap(safeArea: insets.bottom)
+                    // The bar frame stays pinned under a keyboard, so the row position comes from it, not the display.
+                    let rowTop =
+                        tabBarFrame.map { $0.minY - display.frame(in: .global).minY }
+                        ?? display.size.height - gap - rowHeight
                     let inset = MiniPlayer.coverInset(in: display, side: side, bottom: gap, height: rowHeight)
-                    ZStack {
+                    ZStack(alignment: .top) {
                         if playing {
                             VStack(spacing: 0) {
                                 TimelineBarView(side: side)
@@ -44,9 +48,10 @@ struct PlacesView: View {
                                 .frame(height: rowHeight)
                                 .accessibilityElement(children: .contain)
                             }
+                            // Keyboard safe-area changes must not shorten the timeline above the native bar.
+                            .frame(height: max(0, rowTop + rowHeight - insets.top))
                             .padding(.top, insets.top)
-                            .padding(.bottom, gap)
-                            MiniPlayerCorner(side: side, top: display.size.height - gap - rowHeight)
+                            MiniPlayerCorner(side: side, top: rowTop)
                                 .allowsHitTesting(false)
                         }
                     }
@@ -54,8 +59,8 @@ struct PlacesView: View {
                 }
                 .ignoresSafeArea(.container)
             }
-            .ignoresSafeArea(.keyboard)
         }
+        .ignoresSafeArea(.keyboard)
         .environment(navigator)
     }
 }
@@ -137,6 +142,8 @@ private final class PlacesController: UITabBarController {
     var side = TimelineSide.right
     var onLayout: (@MainActor (CGRect) -> Void)?
     private var reportedFrame: CGRect?
+    private var restingFrame: CGRect?
+    private var keyboardVisible = false
     private(set) var playerHost: UIHostingController<AnyView>?
     let playerLayout = PlayerOverlayLayout()
 
@@ -150,9 +157,34 @@ private final class PlacesController: UITabBarController {
         playerHost = host
     }
 
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        for name in [UIResponder.keyboardWillShowNotification, UIResponder.keyboardDidHideNotification] {
+            NotificationCenter.default.addObserver(
+                self, selector: #selector(keyboardVisibilityChanged(_:)), name: name, object: nil)
+        }
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    @objc private func keyboardVisibilityChanged(_ notification: Notification) {
+        keyboardVisible = notification.name == UIResponder.keyboardWillShowNotification
+        view.setNeedsLayout()
+    }
+
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         var frame = tabBar.frame
+        // UIKit removes the home-indicator inset under a keyboard.
+        // Playback controls must keep the resting bar position.
+        if keyboardVisible, let restingFrame {
+            frame.origin.y = restingFrame.minY
+            frame.size.height = restingFrame.height
+        } else {
+            restingFrame = frame
+        }
         frame.origin.x = side == .left ? reservedWidth : 0
         frame.size.width = max(0, view.bounds.width - reservedWidth)
         tabBar.frame = frame

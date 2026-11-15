@@ -11,6 +11,7 @@ iOS 27 offers two Search tabs (WWDC26 session 292). A standard tab opens a page 
 ## Decision
 
 - The tab bar stays as on every page. The field sits at the top of the Search page, under the back arrow, with no large title. Only the results scroll.
+- Every keyboard covers the tab bar, mini player and timeline. These controls keep their position, including during note entry.
 - Beside the field: the Filters button, then an x pill. The x pill clears the text and every condition. The x in the field clears the text only. The x pill stays in place when there is nothing to clear.
 - Filters closes the keyboard as the sheet rises. The sheet rides on the keyboard only for its own field.
 - A pick in the filter sheet clears its narrowing field, so the listener can add the next term at once.

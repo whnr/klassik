@@ -191,6 +191,8 @@ struct SectionHeading: View {
             .typeStyle(.sectionHeading)
             .foregroundStyle(Palette.textPrimary)
             .textCase(nil)
+            .multilineTextAlignment(.leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -208,6 +210,8 @@ private struct PageHeading: View {
             Text(title)
                 .typeStyle(.pageTitle)
                 .foregroundStyle(Palette.textPrimary)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityAddTraits(.isHeader)
                 .accessibilityIdentifier("page-heading")
                 .listRowBackground(Color.clear)

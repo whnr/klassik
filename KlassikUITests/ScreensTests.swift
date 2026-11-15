@@ -715,10 +715,31 @@ final class SettingsScreens: ScreensTestCase {
     @MainActor
     func testFilter() throws {
         let app = try launchAndConnect()
+        _ = pausedPlayerInLibrary(app)
         openSettings(app)
         reveal(app.buttons["classical-filter"], in: app).tap()
-        XCTAssertTrue(app.textFields.matching(identifier: "condition-text").firstMatch.waitForExistence(timeout: 10))
+        let field = app.textFields.matching(identifier: "condition-text").firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        let bar = app.tabBars["tab-row"]
+        let barFrame = bar.frame
+        let lineFrame = timeline(app).frame
+        let pill = app.descendants(matching: .any)["mini-player"].firstMatch
+        let controlsFrame = pillFrame(pill)
         snap(app, "09-filter")
+        field.tap()
+        let keyboard = app.keyboards.firstMatch
+        XCTAssertTrue(keyboard.waitForExistence(timeout: 10))
+        XCTAssertEqual(bar.frame.minY, barFrame.minY, accuracy: 2)
+        XCTAssertEqual(timeline(app).frame.minY, lineFrame.minY, accuracy: 2)
+        XCTAssertEqual(timeline(app).frame.maxY, lineFrame.maxY, accuracy: 2)
+        XCTAssertEqual(pillFrame(pill).minY, controlsFrame.minY, accuracy: 2)
+        XCTAssertLessThan(keyboard.frame.minY, barFrame.minY)
+        XCTAssertLessThanOrEqual(field.frame.maxY, keyboard.frame.minY)
+        snap(app, "09a-filter-keyboard")
+        back(app)
+        XCTAssertTrue(keyboard.waitForNonExistence(timeout: 10))
+        XCTAssertEqual(timeline(app).frame.maxY, lineFrame.maxY, accuracy: 2)
+        snap(app, "09b-keyboard-closed")
     }
 
     @MainActor

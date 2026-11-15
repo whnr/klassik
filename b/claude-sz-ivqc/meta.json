@@ -1,0 +1,7 @@
+{
+  "sha": "f0bb93f94ad8e73e6a2946bf410cc41a7b406f5a",
+  "branch": "claude-sz-ivqc",
+  "path": "claude-sz-ivqc",
+  "subject": "[sz-ivqc] Clamp Retry-After before Duration.seconds",
+  "ts": 1794771527
+}

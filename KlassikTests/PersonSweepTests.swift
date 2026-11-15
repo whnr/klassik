@@ -407,6 +407,29 @@ struct WikimediaPacingTests {
         #expect(down.urls.count == 1)
     }
 
+    @Test(arguments: [Double.infinity, 1e300, Double(Int64.max)])
+    func aHugeRetryAfterHoldsForTheLongestHoldWithoutCrashing(retryAfter: Double) async throws {
+        let script = Script([.init(data: Data(), status: 429, retryAfter: retryAfter), Self.found])
+        let service = service(script)
+        await #expect(throws: MusicBrainz.Failure.http(429)) {
+            _ = try await service.composers(named: "Bach")
+        }
+        let hold = await service.pacer.hold
+        #expect(hold > 3500 && hold <= WikimediaPacer.longestHold)
+    }
+
+    @Test func aNanRetryAfterCountsAsAbsent() async throws {
+        let script = Script([.init(data: Data(), status: 429, retryAfter: .nan), Self.found])
+        _ = try await service(script).composers(named: "Bach")
+        #expect(script.waits == [5])
+    }
+
+    @Test func aNegativeRetryAfterCountsAsAbsent() async throws {
+        let script = Script([.init(data: Data(), status: 429, retryAfter: -30), Self.found])
+        _ = try await service(script).composers(named: "Bach")
+        #expect(script.waits == [5])
+    }
+
     @Test func aLongRetryAfterHoldsEveryLaterRequest() async throws {
         let script = Script([.init(data: Data(), status: 429, retryAfter: 600), Self.found])
         let service = service(script)

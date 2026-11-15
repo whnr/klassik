@@ -96,6 +96,9 @@ actor WikimediaPacer {
     /// A request that would wait longer fails at once, and the caller backs off on its own scale. The hold
     /// stays: no request goes before it ends.
     static let longestWait = 60.0
+    /// The longest hold a Retry-After can set. The header comes from the network, and `Duration.seconds`
+    /// traps on a value that is not finite or too large.
+    static let longestHold = 3600.0
 
     private let interval: Duration
     private let sleep: @Sendable (Duration) async -> Void
@@ -134,9 +137,11 @@ actor WikimediaPacer {
     /// Records a throttle and holds every request back for its wait. Returns the wait in seconds, or nil when
     /// the wait is longer than `longestWait` and the request must fail.
     /// The wait is Retry-After, at least 5 seconds, and doubles for each throttle in a row.
+    /// A Retry-After that is not a number or is negative counts as absent. One above `longestHold` is cut to it.
     func throttled(retryAfter: Double?) -> Double? {
         throttles += 1
-        let wait = max(retryAfter ?? 0, Self.minimumWait * Double(1 << min(throttles - 1, 10)))
+        let header = retryAfter.flatMap { $0.isNaN ? nil : min(max($0, 0), Self.longestHold) } ?? 0
+        let wait = max(header, Self.minimumWait * Double(1 << min(throttles - 1, 10)))
         next = max(next, now() + .seconds(wait))
         guard wait <= Self.longestWait else {
             throttles = 0
@@ -352,8 +357,8 @@ struct PersonFactsService: Sendable {
     }
 
     /// Sends a request when the pacer allows it. A throttle (429, a 503 with Retry-After, or a maxlag error)
-    /// sends it again after the pacer's wait. A long hold fails the request with 429 and sends nothing. A 503 without Retry-After comes from the cache layer, and Wikimedia
-    /// asks clients not to repeat it at once.
+    /// sends it again after the pacer's wait. A long hold fails the request with 429 and sends nothing.
+    /// A 503 without Retry-After comes from the cache layer, and Wikimedia asks clients not to repeat it at once.
     private func send(_ request: URLRequest) async throws -> (Data, Int) {
         while true {
             guard await pacer.wait() else { throw MusicBrainz.Failure.http(429) }

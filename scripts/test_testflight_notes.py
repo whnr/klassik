@@ -45,6 +45,10 @@ class NotesTests(unittest.TestCase):
             "Queue another recording. Expect playback to continue after the final movement.",
             "Open Search. Add a genre condition. Expect matching recordings.",
             "Open an album. Expect each performer name once, in track order.",
+            "Play, pause, close Klassik, reopen, tap the mini player cover. "
+            "Expect the same movement. Resume; expect matching audio.",
+            "Open Classical Albums and remember an album name. Open a work, then return. Expect the same album name.",
+            "Swipe an album, Play Next. Finish the current recording. Expect all tracks of that album in disc order.",
         )
         for instruction in cases:
             with self.subTest(instruction=instruction):

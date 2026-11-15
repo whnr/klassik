@@ -144,7 +144,12 @@ class MatrixTests(unittest.TestCase):
         return reports
 
     def test_a_passed_walk_must_keep_every_screenshot(self):
-        every = [("places-browse", "01-connect"), ("places-browse", "02-home"), ("settings-timeline", "09-filter"), ("settings-timeline", "10-albums")]
+        every = [
+            ("places-browse", "01-connect"),
+            ("places-browse", "02-home"),
+            ("settings-timeline", "09-filter"),
+            ("settings-timeline", "10-albums"),
+        ]
         with tempfile.TemporaryDirectory() as directory:
             reports = self.walk_reports(directory, every)
             self.assertEqual(screen_report.aggregate_ui(reports, "all", WALK), "passed")

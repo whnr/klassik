@@ -31,7 +31,7 @@ final class AppModel {
         tracks = TrackStore()
         playback = PlaybackSession(engine: GaplessEngine(), store: tracks)
         enrichment = Enrichment.forLaunch()
-        people = PersonFactsStore()
+        people = PersonFactsStore.forLaunch()
         // UI tests start from the connect screen.
         if ProcessInfo.processInfo.arguments.contains("-resetServer") {
             store.clear()

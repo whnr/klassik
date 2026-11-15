@@ -168,6 +168,26 @@ final class BrowseScreens: ScreensTestCase {
         snap(app, "02b-timeline")
     }
 
+    /// Mendelssohn has a picture in the fixture answers: it shows under the name, and a tap shows it whole with
+    /// its credit (ADR 0017). Chopin has none, so his page shows the name on the plain ground.
+    @MainActor
+    func testComposerPicture() throws {
+        let app = try launchAndConnect()
+        composer(app, "Felix Mendelssohn").tap()
+        let picture = app.descendants(matching: .any)["composer-picture"]
+        XCTAssertTrue(picture.waitForExistence(timeout: 30), "The composer page shows no picture")
+        snap(app, "03b-composer-picture")
+
+        picture.tap()
+        let whole = app.descendants(matching: .any)["whole-picture"]
+        XCTAssertTrue(whole.waitForExistence(timeout: 10))
+        let credit = app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Public domain'")).firstMatch
+        XCTAssertTrue(credit.exists, "The whole picture shows no credit")
+        snap(app, "03c-whole-picture")
+        app.buttons["Close"].tap()
+        XCTAssertTrue(picture.waitForExistence(timeout: 10))
+    }
+
     @MainActor
     func testMusicBrainz() throws {
         let app = try launchAndConnect()
@@ -806,6 +826,37 @@ class ScreensTestCase: XCTestCase {
         return String(decoding: try! JSONEncoder().encode(bodies), as: UTF8.self)
     }()
 
+    /// Wikidata, Commons and Wikipedia answers for Mendelssohn, shaped like the live ones, as pairs of the text
+    /// that the URL holds and the body. The Commons answer names thumb.wikimedia.org, as the live one does.
+    /// Every other person gets no answer, as if Wikidata had none.
+    static let people: String = {
+        let mendelssohn = "0e85eb79-1c05-44ba-827c-7b259a3d941a"
+        let entity = """
+            {"entities":{"Q46096":{"id":"Q46096","labels":{"en":{"value":"Felix Mendelssohn"}},\
+            "descriptions":{"en":{"value":"German composer and conductor"}},\
+            "claims":{"P569":[{"rank":"normal","mainsnak":{"datavalue":{"value":{"time":"+1809-02-03T00:00:00Z","precision":11}}}}],\
+            "P570":[{"rank":"normal","mainsnak":{"datavalue":{"value":{"time":"+1847-11-04T00:00:00Z","precision":11}}}}],\
+            "P18":[{"rank":"normal","mainsnak":{"datavalue":{"value":"Fixture portrait.png"}}}]},\
+            "sitelinks":{"enwiki":{"title":"Felix Mendelssohn"}}}}}
+            """
+        let pairs: [[String]] = [
+            ["haswbstatement:P434=\(mendelssohn)", #"{"query":{"search":[{"title":"Q46096"}]}}"#],
+            // The first rule that matches answers: the longer text goes first. A search reads the same body.
+            ["ids=Q46096&props=labels|descriptions|claims", entity],
+            ["ids=Q46096&props=labels|descriptions", entity],
+            ["page/summary/Felix_Mendelssohn", #"{"extract":"Felix Mendelssohn was a German composer."}"#],
+            [
+                "commons.wikimedia.org/w/api.php",
+                """
+                {"query":{"pages":{"1":{"imageinfo":[{"thumburl":"https://thumb.wikimedia.org/fixture/portrait-1200.png",\
+                "descriptionurl":"https://commons.wikimedia.org/wiki/File:Fixture_portrait.png","extmetadata":{\
+                "Artist":{"value":"<a href=\\"//x\\">Fixture Studio</a>"},"LicenseShortName":{"value":"Public domain"}}}]}}}}
+                """,
+            ],
+        ]
+        return String(decoding: try! JSONEncoder().encode(pairs), as: UTF8.self)
+    }()
+
     @MainActor
     func launchAndConnect(
         snapConnect: Bool = false, openComposers: Bool = true, arguments: [String] = []
@@ -820,6 +871,7 @@ class ScreensTestCase: XCTestCase {
             "KLASSIK_USERNAME": env["KLASSIK_USERNAME"] ?? "",
             "KLASSIK_PASSWORD": env["KLASSIK_PASSWORD"] ?? "",
             "KLASSIK_MUSICBRAINZ_STUB": Self.musicBrainz,
+            "KLASSIK_PERSON_STUB": Self.people,
         ]
         app.launch()
 

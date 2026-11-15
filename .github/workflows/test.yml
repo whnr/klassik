@@ -1,6 +1,8 @@
 name: Test
 
-# One build supplies parallel unit and UI jobs against fixture Navidrome on every run.
+# One build supplies parallel unit and UI jobs against fixture Navidrome.
+# Every push to main and ci walks all screens. A pull request walks only the areas that a line
+# "[ui: <areas>]" in one of its commit messages requests; without one it runs no UI job.
 # During the interface rebuild a failed walk shows in the job summary
 # and fails the run only if the repository variable UI_TESTS_REQUIRED is "true". The screenshots always upload.
 # After a walk, screens-diff compares each screenshot with the newest walk on the same branch, else on ci.
@@ -23,6 +25,32 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Decides which UI groups run, so an unrequested walk starts no macOS runner.
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      ui: ${{ steps.plan.outputs.ui }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          INPUT: ${{ inputs.ui }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          if [ "$EVENT" = pull_request ]; then
+            gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/commits" --jq '.[].commit.message' > "$RUNNER_TEMP/messages"
+          else
+            : > "$RUNNER_TEMP/messages"
+          fi
+          python3 scripts/screen_report.py plan "$EVENT" "$INPUT" < "$RUNNER_TEMP/messages" | tee -a "$GITHUB_OUTPUT"
+
   # Runs on Linux, because macOS runner time is expensive. The macOS job starts only on clean code.
   lint:
     runs-on: ubuntu-latest
@@ -116,30 +144,14 @@ jobs:
           name: build-report
           path: ${{ runner.temp }}/build-report
 
+  # The groups are UI_GROUPS in scripts/screen_report.py; the plan job drops the unrequested ones.
   walk:
-    needs: [build, fixtures]
+    needs: [plan, build, fixtures]
     runs-on: xcode-27
     timeout-minutes: 30
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - group: unit
-            phase: unit
-            areas: "false"
-            fixture: fixture-music
-          - group: playback
-            phase: ui
-            areas: playback
-            fixture: fixture-ui-music
-          - group: places-browse
-            phase: ui
-            areas: places,browse
-            fixture: fixture-ui-music
-          - group: settings-timeline
-            phase: ui
-            areas: settings,timeline
-            fixture: fixture-ui-music
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
     steps:
@@ -147,7 +159,7 @@ jobs:
       - name: Choose the UI areas
         id: ui
         env:
-          INPUT: ${{ inputs.ui }}
+          INPUT: ${{ needs.plan.outputs.ui }}
           AREAS: ${{ matrix.areas }}
         run: |
           selected=$(python3 scripts/screen_report.py select "$INPUT" "$AREAS")
@@ -198,7 +210,7 @@ jobs:
 
   # Keep the public artifact and check names stable for comparisons and release checks.
   test:
-    needs: [build, walk]
+    needs: [plan, build, walk]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -217,7 +229,7 @@ jobs:
       - name: Collect screenshots and results
         id: report
         env:
-          INPUT: ${{ inputs.ui }}
+          INPUT: ${{ needs.plan.outputs.ui }}
           BUILD: ${{ needs.build.result }}
           WALK: ${{ needs.walk.result }}
           UI_TESTS_REQUIRED: ${{ vars.UI_TESTS_REQUIRED || 'false' }}
@@ -239,7 +251,7 @@ jobs:
             cp reports/walk-unit/gapless-report.txt screens/
           fi
           {
-            echo "ui_areas=${INPUT:-all}"
+            echo "ui_areas=$INPUT"
             echo "ui_required=$UI_TESTS_REQUIRED"
             echo "build=$([ "$BUILD" = success ] && echo passed || echo failed)"
             grep '^unit=' reports/walk-unit/results.txt | tail -1 || echo 'unit=not run'
@@ -254,11 +266,12 @@ jobs:
         with:
           name: screens
           path: screens
-      - name: Require build and test jobs
+      - name: Require plan, build and test jobs
         env:
+          PLAN: ${{ needs.plan.result }}
           BUILD: ${{ needs.build.result }}
           WALK: ${{ needs.walk.result }}
-        run: test "$BUILD" = success && test "$WALK" = success
+        run: test "$PLAN" = success && test "$BUILD" = success && test "$WALK" = success
 
   # The diff informs; it never fails the run. It runs when screenshots exist, also after a failed test job.
   # Without screenshots the job shows as skipped, and the summary of test says why.

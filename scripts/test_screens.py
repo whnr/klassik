@@ -145,6 +145,43 @@ class MatrixTests(unittest.TestCase):
         self.assertNotIn("tolerated", text)
 
 
+class PlanTests(unittest.TestCase):
+    def groups(self, event, dispatch_input="", messages=""):
+        ui, matrix = screen_report.plan(event, dispatch_input, messages)
+        return ui, [entry["group"] for entry in matrix["include"]]
+
+    def test_pull_request_without_request_runs_only_unit_tests(self):
+        self.assertEqual(
+            self.groups("pull_request", messages="Fix parsing\n\nui: is not a request"), ("false", ["unit"])
+        )
+
+    def test_pull_request_walks_the_union_of_its_requests(self):
+        messages = "First\n\n[ui: browse]\n\nSecond\n\n[UI: Playback, browse]\n"
+        self.assertEqual(
+            self.groups("pull_request", messages=messages), ("playback,browse", ["unit", "playback", "places-browse"])
+        )
+
+    def test_pull_request_can_request_everything(self):
+        ui, groups = self.groups("pull_request", messages="[ui: browse]\n[ui: all]")
+        self.assertEqual((ui, len(groups)), ("all", 4))
+
+    def test_pull_request_rejects_unknown_areas(self):
+        with self.assertRaises(ValueError):
+            screen_report.plan("pull_request", "", "[ui: brwse]")
+
+    def test_pushes_walk_everything(self):
+        self.assertEqual(self.groups("push"), ("all", ["unit", "playback", "places-browse", "settings-timeline"]))
+
+    def test_run_by_hand_takes_the_input(self):
+        self.assertEqual(
+            self.groups("workflow_dispatch"), ("all", ["unit", "playback", "places-browse", "settings-timeline"])
+        )
+        self.assertEqual(self.groups("workflow_dispatch", "Settings"), ("settings", ["unit", "settings-timeline"]))
+        self.assertEqual(self.groups("workflow_dispatch", "false"), ("false", ["unit"]))
+        with self.assertRaises(ValueError):
+            screen_report.plan("workflow_dispatch", "brwse", "")
+
+
 class DiffSummaryTests(unittest.TestCase):
     def test_counts(self):
         report = {

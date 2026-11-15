@@ -52,17 +52,26 @@ struct LoadedPortrait: @unchecked Sendable {
 }
 
 enum PortraitLoader {
-    /// The longest side of the copy that the app keeps, in pixels.
-    static let longestSide: CGFloat = 1600
-    /// The most bytes that a picture download may hold. A 1200 point Commons copy is far smaller.
-    static let maxBytes = 8_000_000
+    /// The longest side of the copy that the app keeps when it does not know the screen, in pixels.
+    static let longestSide = CGFloat(PortraitSize.steps[PortraitSize.steps.count - 1])
+    /// The most bytes that a picture download may hold. A Commons JPEG at the largest step is far smaller.
+    static let maxBytes = 16_000_000
 
     struct TooLarge: Error {}
+
+    /// A disk cache of its own, so that a large picture loads once and other downloads do not push it out.
+    static let session: URLSession = {
+        let configuration = URLSessionConfiguration.default
+        let folder = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?
+            .appending(path: "Portraits")
+        configuration.urlCache = URLCache(memoryCapacity: 0, diskCapacity: 200_000_000, directory: folder)
+        return URLSession(configuration: configuration)
+    }()
 
     /// Streams the body and stops at the cap, so that a huge file never sits in memory. A redirect to a host
     /// outside the trusted list ends the request.
     static let download: MusicBrainz.Fetch = { request in
-        let (bytes, response) = try await URLSession.shared.bytes(for: request, delegate: RedirectGuard())
+        let (bytes, response) = try await session.bytes(for: request, delegate: RedirectGuard())
         guard response.expectedContentLength <= Int64(maxBytes) else { throw TooLarge() }
         var data = Data()
         for try await byte in bytes {
@@ -80,16 +89,34 @@ enum PortraitLoader {
         return download
     }
 
+    /// The picture at the size that the screen needs (`PortraitSize`), or nil when no candidate loads. A
+    /// candidate that fails gives way to the next one, so Low Data Mode and cellular get a screen-width file.
+    static func load(
+        _ portrait: PersonPortrait, screen: PortraitSize.Screen,
+        fetch: MusicBrainz.Fetch = PortraitLoader.launchDownload
+    ) async -> LoadedPortrait? {
+        for candidate in PortraitSize.candidates(portrait, screen: screen) {
+            let loaded = await load(candidate.url, wifiOnly: candidate.wifiOnly, screen: screen, fetch: fetch)
+            if let loaded { return loaded }
+        }
+        return nil
+    }
+
     /// The picture, or nil: for a URL outside the trusted list, a failed or oversize download, or bytes that
-    /// are no image.
-    static func load(_ url: URL, fetch: MusicBrainz.Fetch = PortraitLoader.launchDownload) async -> LoadedPortrait? {
+    /// are no image. With a screen, the copy keeps only the pixels that the screen needs.
+    static func load(
+        _ url: URL, wifiOnly: Bool = false, screen: PortraitSize.Screen? = nil,
+        fetch: MusicBrainz.Fetch = PortraitLoader.launchDownload
+    ) async -> LoadedPortrait? {
         guard let url = PersonFactsService.trusted(url) else { return nil }
         var request = URLRequest(url: url, timeoutInterval: PersonFactsService.timeout)
         request.setValue(MusicBrainz.userAgent, forHTTPHeaderField: "User-Agent")
+        request.allowsExpensiveNetworkAccess = !wifiOnly
+        request.allowsConstrainedNetworkAccess = !wifiOnly
         guard let (data, status) = try? await fetch(request), (200..<300).contains(status),
             data.count <= maxBytes
         else { return nil }
-        return await Task.detached(priority: .userInitiated) { upright(data) }.value
+        return await Task.detached(priority: .userInitiated) { upright(data, screen: screen) }.value
     }
 
     private final class RedirectGuard: NSObject, URLSessionTaskDelegate, Sendable {
@@ -101,10 +128,16 @@ enum PortraitLoader {
         }
     }
 
-    private static func upright(_ data: Data) -> LoadedPortrait? {
-        guard let source = UIImage(data: data) else { return nil }
-        let scale = min(1, longestSide / max(source.size.width, source.size.height, 1))
-        let size = CGSize(width: source.size.width * scale, height: source.size.height * scale)
+    private static func upright(_ data: Data, screen: PortraitSize.Screen?) -> LoadedPortrait? {
+        guard let source = UIImage(data: data), source.size.width > 0, source.size.height > 0 else { return nil }
+        // A copy wider than the need wastes memory; a narrower one shows fewer pixels than the screen has.
+        let scale =
+            screen.map {
+                let need = PortraitSize.width(aspect: source.size.width / source.size.height, screen: $0)
+                return min(1, need.rounded(.up) / source.size.width)
+            } ?? min(1, longestSide / max(source.size.width, source.size.height))
+        let size = CGSize(
+            width: (source.size.width * scale).rounded(), height: (source.size.height * scale).rounded())
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
         // Drawing applies the orientation, so every later step reads the pixels as they show.

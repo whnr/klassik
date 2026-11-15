@@ -176,6 +176,9 @@ final class BrowseScreens: ScreensTestCase {
         composer(app, "Felix Mendelssohn").tap()
         let picture = app.descendants(matching: .any)["composer-picture"]
         XCTAssertTrue(picture.waitForExistence(timeout: 30), "The composer page shows no picture")
+        // The value gives the picture pixels for each screen pixel at the crop.
+        let density = Double(picture.value as? String ?? "") ?? 0
+        XCTAssertGreaterThanOrEqual(density, 1, "The hero shows fewer picture pixels than screen pixels")
         snap(app, "03b-composer-picture")
 
         picture.tap()
@@ -715,10 +718,31 @@ final class SettingsScreens: ScreensTestCase {
     @MainActor
     func testFilter() throws {
         let app = try launchAndConnect()
+        _ = pausedPlayerInLibrary(app)
         openSettings(app)
         reveal(app.buttons["classical-filter"], in: app).tap()
-        XCTAssertTrue(app.textFields.matching(identifier: "condition-text").firstMatch.waitForExistence(timeout: 10))
+        let field = app.textFields.matching(identifier: "condition-text").firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        let bar = app.tabBars["tab-row"]
+        let barFrame = bar.frame
+        let lineFrame = timeline(app).frame
+        let pill = app.descendants(matching: .any)["mini-player"].firstMatch
+        let controlsFrame = pillFrame(pill)
         snap(app, "09-filter")
+        field.tap()
+        let keyboard = app.keyboards.firstMatch
+        XCTAssertTrue(keyboard.waitForExistence(timeout: 10))
+        XCTAssertEqual(bar.frame.minY, barFrame.minY, accuracy: 2)
+        XCTAssertEqual(timeline(app).frame.minY, lineFrame.minY, accuracy: 2)
+        XCTAssertEqual(timeline(app).frame.maxY, lineFrame.maxY, accuracy: 2)
+        XCTAssertEqual(pillFrame(pill).minY, controlsFrame.minY, accuracy: 2)
+        XCTAssertLessThan(keyboard.frame.minY, barFrame.minY)
+        XCTAssertLessThanOrEqual(field.frame.maxY, keyboard.frame.minY)
+        snap(app, "09a-filter-keyboard")
+        back(app)
+        XCTAssertTrue(keyboard.waitForNonExistence(timeout: 10))
+        XCTAssertEqual(timeline(app).frame.maxY, lineFrame.maxY, accuracy: 2)
+        snap(app, "09b-keyboard-closed")
     }
 
     @MainActor
@@ -868,7 +892,9 @@ class ScreensTestCase: XCTestCase {
             [
                 "commons.wikimedia.org/w/api.php",
                 """
-                {"query":{"pages":{"1":{"imageinfo":[{"thumburl":"https://thumb.wikimedia.org/fixture/portrait-1200.png",\
+                {"query":{"pages":{"1":{"imageinfo":[{"thumburl":\
+                "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f0/Fixture_portrait.jpg/1280px-Fixture_portrait.jpg",\
+                "url":"https://upload.wikimedia.org/wikipedia/commons/f/f0/Fixture_portrait.jpg","width":3000,"height":4000,\
                 "descriptionurl":"https://commons.wikimedia.org/wiki/File:Fixture_portrait.png","extmetadata":{\
                 "Artist":{"value":"<a href=\\"//x\\">Fixture Studio</a>"},"LicenseShortName":{"value":"Public domain"}}}]}}}}
                 """,

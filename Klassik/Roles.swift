@@ -73,6 +73,23 @@ enum Roles {
         return Split(shared: shared, tracks: tracks)
     }
 
+    /// The lock screen has little room. Explicit role tags choose the names without interpreting an artist string.
+    static func lockScreenNames(of song: Song) -> String {
+        let contributors = (song.contributors ?? []).sorted { precedes($0, $1, in: song) }
+        let conductors = contributors.filter { $0.role.lowercased() == "conductor" }
+        let performers = contributors.filter { $0.role.lowercased() == "performer" }
+        let ensembles = performers.filter(\.hasEnsembleRole)
+        let principals = conductors + ensembles
+        let selected = principals.isEmpty ? performers : principals
+        var seen = Set<String>()
+        let names = selected.map(\.artist.name).filter { !$0.isEmpty && seen.insert($0).inserted }
+        let remaining = names.count - 3
+        let shown = Array(names.prefix(3))
+        guard remaining > 0 else { return Line.list(shown) }
+        let count = remaining == 1 ? String(localized: "1 other") : String(localized: "\(remaining) others")
+        return Line.list(shown + [count])
+    }
+
     // MARK: - Reading the tags
 
     /// A name in a role. The label is the instrument or group that the tag names; it does not make a name different.
@@ -181,5 +198,10 @@ extension Song.Contributor {
         return tokens.contains { token in
             Self.groupWords.contains(token) || Self.groupStems.contains { token.hasPrefix($0) }
         }
+    }
+
+    var hasEnsembleRole: Bool {
+        let sub = (subRole ?? "").lowercased()
+        return Self.groupStems.contains(where: { sub.contains($0) }) || Self.groupWords.contains(sub)
     }
 }

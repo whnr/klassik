@@ -22,10 +22,20 @@ struct PersonCredit: Codable, Equatable, Hashable, Sendable {
 
 /// A portrait on Wikimedia Commons.
 struct PersonPortrait: Codable, Equatable, Sendable {
-    /// A file about 1200 points wide.
+    /// A Commons thumbnail 1280 pixels wide, or the original when it is narrower.
     var url: URL
     /// The file page on Commons.
     var page: URL?
+    /// The original file and its size in pixels. Facts stored before the app read them have none.
+    var original: URL?
+    var width: Int?
+    var height: Int?
+
+    /// Width over height, when Commons gave the size.
+    var aspect: CGFloat? {
+        guard let width, let height, width > 0, height > 0 else { return nil }
+        return CGFloat(width) / CGFloat(height)
+    }
 }
 
 /// A Wikidata item that a search found.
@@ -340,8 +350,8 @@ struct PersonFactsService: Sendable {
             Self.commons,
             [
                 .init(name: "action", value: "query"), .init(name: "titles", value: "File:\(file)"),
-                .init(name: "prop", value: "imageinfo"), .init(name: "iiprop", value: "url|extmetadata"),
-                .init(name: "iiurlwidth", value: "1200"), .init(name: "format", value: "json"),
+                .init(name: "prop", value: "imageinfo"), .init(name: "iiprop", value: "url|size|extmetadata"),
+                .init(name: "iiurlwidth", value: "1280"), .init(name: "format", value: "json"),
             ])
         return Self.parsePortrait(data)
     }
@@ -458,7 +468,10 @@ struct PersonFactsService: Sendable {
         let licence = field("LicenseShortName").map(plain).flatMap { $0.isEmpty ? nil : $0 }
         let filePage = trusted((info["descriptionurl"] as? String).flatMap { URL(string: $0) })
         let text = [author ?? "Unknown author", licence, "Wikimedia Commons"].compactMap { $0 }.joined(separator: ", ")
-        return (PersonPortrait(url: url, page: filePage), PersonCredit(kind: .picture, text: text, url: filePage))
+        let portrait = PersonPortrait(
+            url: url, page: filePage, original: trusted((info["url"] as? String).flatMap { URL(string: $0) }),
+            width: info["width"] as? Int, height: info["height"] as? Int)
+        return (portrait, PersonCredit(kind: .picture, text: text, url: filePage))
     }
 
     /// Commons gives the author as HTML, sometimes as a file name. This keeps the words.

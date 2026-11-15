@@ -176,6 +176,9 @@ final class BrowseScreens: ScreensTestCase {
         composer(app, "Felix Mendelssohn").tap()
         let picture = app.descendants(matching: .any)["composer-picture"]
         XCTAssertTrue(picture.waitForExistence(timeout: 30), "The composer page shows no picture")
+        // The value gives the picture pixels for each screen pixel at the crop.
+        let density = Double(picture.value as? String ?? "") ?? 0
+        XCTAssertGreaterThanOrEqual(density, 1, "The hero shows fewer picture pixels than screen pixels")
         snap(app, "03b-composer-picture")
 
         picture.tap()
@@ -889,7 +892,9 @@ class ScreensTestCase: XCTestCase {
             [
                 "commons.wikimedia.org/w/api.php",
                 """
-                {"query":{"pages":{"1":{"imageinfo":[{"thumburl":"https://thumb.wikimedia.org/fixture/portrait-1200.png",\
+                {"query":{"pages":{"1":{"imageinfo":[{"thumburl":\
+                "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f0/Fixture_portrait.jpg/1280px-Fixture_portrait.jpg",\
+                "url":"https://upload.wikimedia.org/wikipedia/commons/f/f0/Fixture_portrait.jpg","width":3000,"height":4000,\
                 "descriptionurl":"https://commons.wikimedia.org/wiki/File:Fixture_portrait.png","extmetadata":{\
                 "Artist":{"value":"<a href=\\"//x\\">Fixture Studio</a>"},"LicenseShortName":{"value":"Public domain"}}}]}}}}
                 """,

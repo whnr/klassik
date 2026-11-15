@@ -255,6 +255,7 @@ private struct ResolutionNotice: View {
 struct PersonHero: View {
     @Environment(AppModel.self) private var model
     @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.displayScale) private var displayScale
     @AppStorage(TimelineSide.storageKey) private var side = TimelineSide.standard
     let name: String
     let facts: PersonFacts?
@@ -297,10 +298,10 @@ struct PersonHero: View {
         }
         .frame(width: width, height: frame.height, alignment: .bottomLeading)
         .clipped()
-        .task(id: facts?.portrait?.url) {
+        .task(id: PortraitTask(portrait: facts?.portrait, screen: screen)) {
             portrait = nil
-            guard let url = facts?.portrait?.url else { return }
-            let loaded = await PortraitLoader.load(url)
+            guard let file = facts?.portrait else { return }
+            let loaded = await PortraitLoader.load(file, screen: screen)
             portrait = kind == "performer" ? loaded.flatMap { $0.isPortrait ? $0 : nil } : loaded
         }
         .fullScreenCover(isPresented: $showsPicture) {
@@ -310,6 +311,26 @@ struct PersonHero: View {
                     isPresented: $showsPicture)
             }
         }
+    }
+
+    private var screen: PortraitSize.Screen {
+        PortraitSize.Screen(hero: CGSize(width: width, height: topInset + Self.bodyHeight), scale: displayScale)
+    }
+
+    private struct PortraitTask: Equatable {
+        var portrait: PersonPortrait?
+        var screen: PortraitSize.Screen
+    }
+
+    /// Picture pixels for each screen pixel in the hero. Only a UI test with stubbed facts reads it, as the
+    /// accessibility value, so VoiceOver never speaks it.
+    private func density(_ portrait: LoadedPortrait, framing: CGRect) -> String {
+        #if DEBUG
+            if PersonLaunchStub.fetch != nil {
+                return String(format: "%.2f", portrait.image.size.width / (framing.width * displayScale))
+            }
+        #endif
+        return ""
     }
 
     private var paper: Color {
@@ -358,6 +379,7 @@ struct PersonHero: View {
         .onTapGesture { showsPicture = true }
         .accessibilityElement()
         .accessibilityLabel("Picture of \(name)")
+        .accessibilityValue(density(portrait, framing: framing))
         .accessibilityHint("Shows the whole picture with its credit.")
         .accessibilityAddTraits(.isButton)
         .accessibilityIdentifier("\(kind)-picture")

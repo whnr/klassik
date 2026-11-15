@@ -1,7 +1,7 @@
 {
-  "sha": "445b03b9165662a222c49b3c8b284383615ec7fa",
+  "sha": "ca7466612c46196b001940d03a0f4afdc95796f0",
   "branch": "main",
   "path": "main",
-  "subject": "Merge pull request #43 from whnr/claude-sz-rs30.1.105.55",
-  "ts": 1794715541
+  "subject": "[sz-rs30.1.105.68] Shorten CI with separate runners (#47)",
+  "ts": 1794755670
 }

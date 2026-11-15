@@ -300,6 +300,7 @@ input {
 }
 .page-head h1 {
   overflow-wrap: anywhere;
+  text-align: start;
 }
 .page-head .meta {
   margin-top: var(--space-xxs);
@@ -311,6 +312,7 @@ input {
 }
 .section-head {
   padding: 0 var(--space-l) var(--space-xs);
+  text-align: start;
   color: var(--color-text-secondary);
   display: flex;
   justify-content: space-between;

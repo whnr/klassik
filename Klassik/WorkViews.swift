@@ -243,6 +243,8 @@ private struct CountedHeading: View {
             .typeStyle(.sectionHeading)
             .foregroundStyle(Palette.textPrimary)
             .textCase(nil)
+            .multilineTextAlignment(.leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
     }
 }

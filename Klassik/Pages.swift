@@ -43,20 +43,6 @@ extension LibraryRow {
     }
 }
 
-extension WorkIndex {
-    func composer(named name: String) -> Composer? {
-        composers.first { $0.id == name }
-    }
-
-    func work(_ id: String) -> Work? {
-        composers.lazy.flatMap(\.works).first { $0.id == id }
-    }
-
-    func performer(named name: String) -> Performer? {
-        performers.first { $0.id == name }
-    }
-}
-
 extension Library {
     /// A recording of the index, else a whole album: the pages of an album list name the album by its key.
     func recording(work workID: String, recording recordingID: String, playing: QueueItem? = nil) -> (
@@ -72,25 +58,6 @@ extension Library {
         let prefix = "album|"
         guard recordingID.hasPrefix(prefix) else { return nil }
         return album(String(recordingID.dropFirst(prefix.count))).map { ($0.work, $0.recording) }
-    }
-}
-
-extension Library {
-    /// A work and recording as the library holds them now. A queue copy lacks later stars and can lack movements
-    /// or other recordings, so Reference state and changes must not read it.
-    func current(work: WorkIndex.Work, recording: WorkIndex.Recording) -> (
-        work: WorkIndex.Work, recording: WorkIndex.Recording
-    ) {
-        if let live = index.work(work.id), let found = live.recordings.first(where: { $0.id == recording.id }) {
-            return (live, found)
-        }
-        // An unindexed work keeps its copy, with the stars of the library.
-        let stars = Dictionary(songs.map { ($0.id, $0.starred) }, uniquingKeysWith: { first, _ in first })
-        var copy = recording
-        for position in copy.songs.indices {
-            if let starred = stars[copy.songs[position].id] { copy.songs[position].starred = starred }
-        }
-        return (work, copy)
     }
 }
 

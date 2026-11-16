@@ -65,18 +65,13 @@ struct LibraryView: View {
 }
 
 extension WorkIndex {
-    /// One recording that the listener marked. Today the mark is the star on all its tracks.
+    /// One recording that the listener marked. The server stars all its tracks.
     struct Favourite: Identifiable {
         var work: Work
         var recording: Recording
         var id: String { recording.id }
     }
 
-    var favourites: [Favourite] {
-        composers.flatMap(\.works).flatMap { work in
-            work.recordings.filter(\.isReference).map { Favourite(work: work, recording: $0) }
-        }
-    }
 }
 
 /// Every composer of the library.
@@ -108,8 +103,16 @@ struct FavouritesView: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        let favourites = model.library.index.favourites
+        let works = model.library.index.composers.flatMap(\.works)
+        let favourites = works.flatMap { work in
+            model.recordingOrder.rows(of: work).filter(\.isFavourite).map {
+                WorkIndex.Favourite(work: work, recording: $0.recording)
+            }
+        }
         PageList {
+            ForEach(works.filter { model.recordingOrder.isFavourite($0) }) { work in
+                WorkRow(work: work)
+            }
             ForEach(favourites) { favourite in
                 NavigationLink(value: Page.recording(work: favourite.work.id, recording: favourite.recording.id)) {
                     VStack(alignment: .leading) {
@@ -123,16 +126,16 @@ struct FavouritesView: View {
                     }
                 }
                 .itemActions(
-                    QueueItem(work: favourite.work, recording: favourite.recording), downloads: true, reference: true
+                    QueueItem(work: favourite.work, recording: favourite.recording), downloads: true, favourite: true
                 )
                 .accessibilityIdentifier("favourite")
             }
         }
         .overlay {
-            if favourites.isEmpty {
+            if favourites.isEmpty && !works.contains(where: { model.recordingOrder.isFavourite($0) }) {
                 ContentUnavailableView(
                     "No Favourites", systemImage: "star",
-                    description: Text("Swipe a recording and choose Reference to see it here."))
+                    description: Text("Swipe a recording and choose Favourite to see it here."))
             }
         }
         .pageTitle("Favourites")

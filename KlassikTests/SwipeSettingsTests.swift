@@ -9,16 +9,16 @@ struct SwipeSettingsTests {
 
     @Test func startsWithTheDefaults() throws {
         let settings = SwipeSettings(defaults: try defaults())
-        #expect(SwipeSettings.actions(settings.leading) == [.download, .reference])
+        #expect(SwipeSettings.actions(settings.leading) == [.download, .favourite])
         #expect(SwipeSettings.actions(settings.trailing) == [.addToQueue, .playNext])
     }
 
     @Test func choiceIsKeptOnDevice() throws {
         let suite = try defaults()
-        SwipeSettings(defaults: suite).trailing = [.reference, nil]
+        SwipeSettings(defaults: suite).trailing = [.favourite, nil]
         let again = SwipeSettings(defaults: suite)
-        #expect(again.trailing == [.reference, nil])
-        #expect(SwipeSettings.actions(again.trailing) == [.reference])
+        #expect(again.trailing == [.favourite, nil])
+        #expect(SwipeSettings.actions(again.trailing) == [.favourite])
     }
 
     @Test func actionNeverRepeatsOnOneEdge() {

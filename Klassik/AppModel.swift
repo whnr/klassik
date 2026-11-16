@@ -15,6 +15,7 @@ final class AppModel {
     var isScrubbingTimeline = false
 
     let library: Library
+    private(set) var recordingOrder: RecordingOrder
     let tracks: TrackStore
     let playback: PlaybackSession
     let enrichment: Enrichment
@@ -29,6 +30,7 @@ final class AppModel {
     init(store: CredentialStore = CredentialStore(), library: Library = Library()) {
         self.store = store
         self.library = library
+        recordingOrder = RecordingOrder(library: library)
         tracks = TrackStore()
         playback = PlaybackSession(engine: GaplessEngine(), store: tracks)
         enrichment = Enrichment.forLaunch()
@@ -72,6 +74,7 @@ final class AppModel {
         if !ProcessInfo.processInfo.arguments.contains("-resetServer") { await playback.restoreQueue() }
         await check()
         await library.syncIfChanged(with: client)
+        await recordingOrder.refresh()
         await Self.enrich(library.index, enrichment: enrichment, sweep: sweep)
     }
 
@@ -113,30 +116,6 @@ final class AppModel {
         }
     }
 
-    /// Makes a recording the reference of its work: the server stars its tracks and unstars the other recordings.
-    /// Returns the error text if the server fails.
-    func setReference(_ recording: WorkIndex.Recording, of work: WorkIndex.Work, to reference: Bool) async -> String? {
-        guard let client else { return "Not connected." }
-        let own = recording.songs.map(\.id)
-        let others = work.recordings.filter { $0.id != recording.id }.flatMap(\.songs).filter { $0.starred != nil }
-            .map(\.id)
-        do {
-            if reference {
-                try await client.star(own)
-                if !others.isEmpty { try await client.unstar(others) }
-                library.setStarred(Set(own), true)
-                library.setStarred(Set(others), false)
-            } else {
-                try await client.unstar(own)
-                library.setStarred(Set(own), false)
-            }
-            return nil
-        } catch {
-            record(error)
-            return error.localizedDescription
-        }
-    }
-
     func signOut() {
         playback.server = nil
         tracks.clearAll()
@@ -150,6 +129,10 @@ final class AppModel {
     /// The playback session reaches the server through the saved login.
     private func updateServer() {
         playback.server = client
+        let deviceStore = credentials.map { DeviceStore(server: $0.url, username: $0.username) }
+        // Each UI walk must start with the same local favourites and order.
+        if ProcessInfo.processInfo.arguments.contains("-resetServer") { try? deviceStore?.delete() }
+        recordingOrder = RecordingOrder(library: library, store: deviceStore, server: client)
     }
 
     private func record(_ error: Error) {

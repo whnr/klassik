@@ -199,6 +199,7 @@ struct SectionHeading: View {
 /// The heading scrolls as content, so UIKit cannot collapse it before it crosses the soft edge.
 private struct PageHeading: View {
     let title: String
+    @Environment(\.pageFavourite) private var favourite
     /// A plain list sets the heading as the specimen does: close under the back arrow.
     let plain: Bool
 
@@ -207,16 +208,22 @@ private struct PageHeading: View {
 
     var body: some View {
         if !title.isEmpty {
-            Text(title)
-                .typeStyle(.pageTitle)
-                .foregroundStyle(Palette.textPrimary)
-                .multilineTextAlignment(.leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityAddTraits(.isHeader)
-                .accessibilityIdentifier("page-heading")
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-                .listRowInsets(plain ? Self.plainInsets : nil)
+            Group {
+                if let favourite {
+                    FavouriteTitle(title: title, isSet: favourite.isSet, action: favourite.action)
+                        .accessibilityIdentifier(favourite.identifier)
+                } else {
+                    Text(title).accessibilityIdentifier("page-heading")
+                }
+            }
+            .typeStyle(.pageTitle)
+            .foregroundStyle(Palette.textPrimary)
+            .multilineTextAlignment(.leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityAddTraits(.isHeader)
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .listRowInsets(plain ? Self.plainInsets : nil)
         }
     }
 }
@@ -230,6 +237,13 @@ extension View {
     }
 }
 
+struct FavouriteHeading {
+    var isSet: Bool
+    var action: @MainActor () -> Void
+    var identifier: String
+}
+
 extension EnvironmentValues {
+    @Entry var pageFavourite: FavouriteHeading? = nil
     @Entry var pageHeading = ""
 }

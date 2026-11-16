@@ -573,18 +573,53 @@ final class PlaybackScreens: ScreensTestCase {
         snap(app, "08d-next-player")
     }
 
-    /// The server keeps the reference recording, so this test changes what the later ones see.
+    /// A swipe favourite moves ahead of a newer recording before the listener plays the work.
     @MainActor
-    func testReference() throws {
+    func testFavouriteRecordingOrder() throws {
         let app = try launchAndConnect()
-        openRecording(app)
-        app.buttons["reference"].tap()
-        back(app)
-        let reference = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Play Reference Recording'"))
-            .firstMatch
-        XCTAssertTrue(reference.waitForExistence(timeout: 10))
+        composer(app, "Ludwig van Beethoven").tap()
+        app.buttons.matching(identifier: "work").firstMatch.tap()
+        let rows = app.buttons.matching(identifier: "recording")
+        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 10))
+        let workMark = app.buttons["favourite-work"]
+        workMark.tap()
+        XCTAssertEqual(workMark.value as? String, "Favourite")
+        snap(app, "05a-work-favourite")
+
+        // Server stars survive UI test launches. Clear both before checking the default order.
+        for position in 0..<2 {
+            rows.element(boundBy: position).tap()
+            let mark = app.buttons["favourite-recording"]
+            XCTAssertTrue(mark.waitForExistence(timeout: 10))
+            if mark.value as? String == "Favourite" { mark.tap() }
+            back(app)
+        }
+        XCTAssertTrue(rows.firstMatch.label.contains("Carl Fixture"))
+        let older = rows.matching(NSPredicate(format: "label CONTAINS 'Anna Probe'")).firstMatch
+        older.swipeRight()
+        app.buttons["Favourite"].firstMatch.tap()
+        let moved = expectation(for: NSPredicate(format: "label CONTAINS 'Anna Probe'"), evaluatedWith: rows.firstMatch)
+        XCTAssertEqual(XCTWaiter.wait(for: [moved], timeout: 10), .completed)
         snap(app, "05b-work-reference")
+
+        rows.element(boundBy: 1).tap()
+        app.buttons["favourite-recording"].tap()
+        snap(app, "05c-recording-favourite")
+        back(app)
+        XCTAssertTrue(rows.firstMatch.label.contains("Anna Probe"))
+        app.buttons["Edit"].tap()
+        let source = rows.element(boundBy: 1).coordinate(withNormalizedOffset: CGVector(dx: 0.94, dy: 0.5))
+        let target = rows.element(boundBy: 0).coordinate(withNormalizedOffset: CGVector(dx: 0.94, dy: 0.25))
+        source.press(forDuration: 0.6, thenDragTo: target)
+        app.buttons["Done"].tap()
+        XCTAssertTrue(rows.firstMatch.label.contains("Carl Fixture"))
+        snap(app, "05d-recordings-reordered")
+        app.buttons["play-work"].tap()
+        XCTAssertTrue(app.buttons["recording-slot"].waitForExistence(timeout: 10))
+        XCTAssertTrue(rows.firstMatch.buttons["recording-slot"].exists)
+        pause(app)
     }
+
 }
 
 /// The timeline on the screen edge and the mini player in the tab row (ADR 0014, 0028, 0035).

@@ -154,6 +154,7 @@ struct SubsonicResponse: Decodable, Sendable {
     var playQueue: ServerPlayQueue?
     var indexes: Indexes?
     var scanStatus: ScanStatus?
+    var starred2: Starred?
 
     struct Indexes: Decodable, Sendable {
         /// Milliseconds since 1970 of the last change to the artist index.

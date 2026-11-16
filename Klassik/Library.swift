@@ -115,11 +115,25 @@ final class Library {
         for index in changed.indices where ids.contains(changed[index].id) {
             changed[index].starred = starred ? ISO8601DateFormatter().string(from: .now) : nil
         }
-        show(changed, syncedAt: syncedAt)
+        saveStars(changed, owner: owner, syncedAt: syncedAt)
+    }
+
+    func replaceStars(_ ids: Set<String>) {
+        guard let owner, let syncedAt else { return }
+        let stamp = ISO8601DateFormatter().string(from: .now)
+        var changed = songs
+        for index in changed.indices {
+            changed[index].starred = ids.contains(changed[index].id) ? (changed[index].starred ?? stamp) : nil
+        }
+        saveStars(changed, owner: owner, syncedAt: syncedAt)
+    }
+
+    private func saveStars(_ songs: [Song], owner: (server: URL, username: String), syncedAt: Date) {
+        show(songs, syncedAt: syncedAt)
         let cache = LibraryCache(
-            server: owner.server, username: owner.username, syncedAt: syncedAt, songs: changed, marker: marker)
-        let url = cacheURL
-        Task.detached { try? cache.write(to: url) }
+            server: owner.server, username: owner.username, syncedAt: syncedAt, songs: songs, marker: marker)
+        // Star writes must reach disk in the same order as the listener's actions.
+        do { try cache.write(to: cacheURL) } catch { syncError = error.localizedDescription }
     }
 
     func clear() {
@@ -167,5 +181,24 @@ struct LibraryCache: Codable, Sendable {
     func write(to url: URL) throws {
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try JSONEncoder().encode(self).write(to: url, options: .atomic)
+    }
+}
+
+extension Library {
+    /// A work and recording as the library holds them now. A queue copy lacks later stars and can lack movements
+    /// or other recordings, so favourite state and changes must not read it.
+    func current(work: WorkIndex.Work, recording: WorkIndex.Recording) -> (
+        work: WorkIndex.Work, recording: WorkIndex.Recording
+    ) {
+        if let live = index.work(work.id), let found = live.recordings.first(where: { $0.id == recording.id }) {
+            return (live, found)
+        }
+        // An unindexed work keeps its copy, with the stars of the library.
+        let stars = Dictionary(songs.map { ($0.id, $0.starred) }, uniquingKeysWith: { first, _ in first })
+        var copy = recording
+        for position in copy.songs.indices {
+            if let starred = stars[copy.songs[position].id] { copy.songs[position].starred = starred }
+        }
+        return (work, copy)
     }
 }

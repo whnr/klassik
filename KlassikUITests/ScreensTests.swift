@@ -19,6 +19,7 @@ final class PlacesScreens: ScreensTestCase {
         let heading = app.staticTexts["page-heading"]
         XCTAssertTrue(heading.exists)
         XCTAssertLessThan(heading.frame.minY, 130)
+        expectPageEdges(heading, in: app, "Composers title")
     }
 
     @MainActor
@@ -240,6 +241,7 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertTrue(chips.firstMatch.waitForExistence(timeout: 10), "The composer page shows no genre chips")
         XCTAssertFalse(app.descendants(matching: .any)["composer-picture"].exists)
         snap(app, "03d-composer-no-picture")
+        checkComposerPage(app)
 
         app.buttons.matching(NSPredicate(format: "identifier == 'genre-chip' AND label == 'Solo'")).firstMatch.tap()
         XCTAssertTrue(app.buttons.matching(identifier: "work").firstMatch.waitForExistence(timeout: 10))
@@ -414,6 +416,7 @@ final class PlaybackScreens: ScreensTestCase {
         let composed = app.buttons.matching(NSPredicate(format: "identifier == 'composed' AND label CONTAINS '1844'"))
         XCTAssertTrue(composed.firstMatch.waitForExistence(timeout: 30), app.buttons["composed"].label)
         snap(app, "04-work")
+        checkWorkPage(app)
 
         recording.tap()
         XCTAssertTrue(app.buttons["play-recording"].waitForExistence(timeout: 10))
@@ -681,6 +684,9 @@ final class TimelineScreens: ScreensTestCase {
             app.buttons.matching(identifier: "recording").firstMatch.waitForExistence(timeout: 10),
             "The swipe did not go back to the work")
         XCTAssertEqual(bar.value as? String, place, "The swipe scrubbed")
+        // The timeline side takes the wider inset, so the content keeps clear of the bar.
+        expectPageEdges(app.staticTexts["page-heading"], in: app, side: .left, "Work title on the left")
+        expectPageEdges(app.buttons["play-work"], in: app, side: .left, trailing: true, "Play on the left")
 
         back(app, times: 2)
         openPlace(app, "Chronology")
@@ -1109,6 +1115,74 @@ class ScreensTestCase: XCTestCase {
         } else {
             XCTAssertGreaterThanOrEqual(tabs.first!.minX, cover.maxX, "The tabs run under the cover")
         }
+    }
+
+    /// The distance of an element from the display edges against the page edges of Layout.swift. The timeline side
+    /// takes the wider inset. A text checks only its leading edge: its frame can run to the trailing inset.
+    @MainActor
+    func expectPageEdges(
+        _ element: XCUIElement, in app: XCUIApplication, side: PillEdge = .right, trailing: Bool = false,
+        _ name: String, file: StaticString = #filePath, line: UInt = #line
+    ) {
+        XCTAssertTrue(element.waitForExistence(timeout: 10), "No \(name)", file: file, line: line)
+        let left = side == .left ? Layout.timelineEdge : Layout.edge
+        let right = side == .left ? Layout.edge : Layout.timelineEdge
+        let frame = element.frame
+        XCTAssertEqual(
+            frame.minX - app.frame.minX, left, accuracy: 1, "\(name): left inset, frame \(frame)", file: file,
+            line: line)
+        if trailing {
+            XCTAssertEqual(
+                app.frame.maxX - frame.maxX, right, accuracy: 1, "\(name): right inset, frame \(frame)",
+                file: file, line: line)
+        }
+    }
+
+    /// The vertical gap from the foot of one element to the top of the next, against a gap of Layout.swift.
+    @MainActor
+    func expectGap(
+        from upper: XCUIElement, to lower: XCUIElement, _ gap: CGFloat, _ name: String,
+        file: StaticString = #filePath, line: UInt = #line
+    ) {
+        XCTAssertTrue(upper.exists && lower.exists, "\(name): an element is missing", file: file, line: line)
+        let measured = lower.frame.minY - upper.frame.maxY
+        XCTAssertEqual(
+            measured, gap, accuracy: 1.5, "\(name): gap \(measured), \(upper.frame) to \(lower.frame)",
+            file: file, line: line)
+    }
+
+    /// The work page against work.html: title, meta line, Play, then the Recordings heading.
+    @MainActor
+    func checkWorkPage(_ app: XCUIApplication) {
+        let title = app.staticTexts["page-heading"]
+        let composer = app.buttons["work-composer"]
+        let play = app.buttons["play-work"]
+        let heading = app.descendants(matching: .any)["section-heading"].firstMatch
+        expectPageEdges(title, in: app, "Work title")
+        expectPageEdges(composer, in: app, "Composer line")
+        expectPageEdges(play, in: app, trailing: true, "Play")
+        expectPageEdges(heading, in: app, "Recordings heading")
+        expectGap(from: title, to: composer, Layout.metaTop, "Title to meta")
+        // The composer and the date share the meta line; the lower of the two ends it.
+        let meta = [composer, app.buttons["composed"].firstMatch].filter(\.exists).max { $0.frame.maxY < $1.frame.maxY }
+        expectGap(from: meta ?? composer, to: play, Layout.headBottom + Layout.buttonRowTop, "Meta to Play")
+        expectGap(from: play, to: heading, Layout.sectionTop, "Play to Recordings")
+    }
+
+    /// The composer page without a picture against person.html: Chronology, the tabs, the chips, the Works heading.
+    @MainActor
+    func checkComposerPage(_ app: XCUIApplication) {
+        let chronology = app.buttons["composer-chronology"]
+        let tabs = app.descendants(matching: .any)["composer-tabs"].firstMatch
+        let chip = app.buttons.matching(identifier: "genre-chip").firstMatch
+        let heading = app.descendants(matching: .any)["section-heading"].firstMatch
+        expectPageEdges(chronology, in: app, trailing: true, "Chronology")
+        expectPageEdges(tabs, in: app, trailing: true, "Works and About")
+        expectPageEdges(chip, in: app, "First chip")
+        expectPageEdges(heading, in: app, "Works heading")
+        expectGap(from: chronology, to: tabs, Layout.segmentedTop, "Chronology to tabs")
+        expectGap(from: tabs, to: chip, Layout.chipsTop, "Tabs to chips")
+        expectGap(from: chip, to: heading, Layout.sectionTop, "Chips to Works")
     }
 
     /// Opens a recording, leaves it paused in the player and goes back to the list of composers.

@@ -92,8 +92,8 @@ struct PerformerPage: View {
                 .listRowBackground(Color.clear)
         } else {
             LazyVGrid(
-                columns: [GridItem(.flexible(), spacing: Space.m.points), GridItem(.flexible())],
-                alignment: .leading, spacing: Space.l.points
+                columns: [GridItem(.flexible(), spacing: Layout.albumColumnGap), GridItem(.flexible())],
+                alignment: .leading, spacing: Layout.albumRowGap
             ) {
                 ForEach(albums) { AlbumCover(album: $0) }
             }
@@ -148,14 +148,15 @@ private struct AlbumCover: View {
 
     var body: some View {
         NavigationLink(value: Page.album(album.id)) {
-            VStack(alignment: .leading, spacing: Space.xs.points) {
+            VStack(alignment: .leading, spacing: 0) {
                 CoverImage(id: album.tracks.first?.coverArt, points: 160)
                     .aspectRatio(1, contentMode: .fit)
-                    .clipShape(RoundedRectangle(cornerRadius: Radius.m))
+                    .clipShape(RoundedRectangle(cornerRadius: Layout.albumCorner))
                 Text(album.title)
                     .typeStyle(.subheadline)
                     .foregroundStyle(Palette.textPrimary)
                     .lineLimit(2)
+                    .padding(.top, Layout.albumTitleGap)
                 if let year = album.year {
                     Text(year.formatted(.number.grouping(.never)))
                         .typeStyle(.footnote)

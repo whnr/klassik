@@ -47,7 +47,8 @@ targets:
   KlassikUITests:
     type: bundle.ui-testing
     platform: iOS
-    sources: [KlassikUITests]
+    # The walk measures the screens against the same layout tokens as the app.
+    sources: [KlassikUITests, Klassik/Tokens.swift, Klassik/Layout.swift]
     dependencies:
       - target: Klassik
     settings:

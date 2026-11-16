@@ -22,9 +22,12 @@ struct ComposerPage: View {
             List {
                 Group { content(proxy: proxy, facts: facts, catalogue: catalogue) }
                     .listRowBackground(Color.clear)
+                    .pageRow()
             }
             .listStyle(.plain)
             .environment(\.defaultMinListRowHeight, 0)
+            .environment(\.defaultMinListHeaderHeight, 0)
+            .environment(\.isPageList, true)
             .scrollContentBackground(.hidden)
             .background(Palette.backgroundPage)
             .ignoresSafeArea(.container, edges: .top)
@@ -49,15 +52,15 @@ struct ComposerPage: View {
             navigator.select(.chronology)
         } label: {
             Text("Chronology")
-                .typeStyle(.headline)
+                .typeStyle(Layout.capsuleLabel)
                 .foregroundStyle(Palette.tint)
-                .frame(maxWidth: .infinity, minHeight: Measure.hitTarget)
+                .frame(maxWidth: .infinity, minHeight: Layout.capsuleHeight)
                 .background(Palette.fillQuiet, in: .capsule)
                 .contentShape(.capsule)
         }
         .buttonStyle(.plain)
         // The gap above the button belongs to the hero, which knows whether a picture shows.
-        .listRowInsets(Self.insets(top: 0, bottom: 0))
+        .pageEdges()
         .listRowSeparator(.hidden)
         .accessibilityIdentifier("composer-chronology")
         Picker("Show", selection: $tab) {
@@ -65,7 +68,7 @@ struct ComposerPage: View {
             Text("About").tag(Tab.about)
         }
         .pickerStyle(.segmented)
-        .listRowInsets(Self.insets(top: Space.l.points, bottom: 0))
+        .pageEdges(top: Layout.segmentedTop)
         .listRowSeparator(.hidden)
         .accessibilityIdentifier("composer-tabs")
         ResolutionNotice(tag: composer.name)
@@ -75,20 +78,12 @@ struct ComposerPage: View {
         }
     }
 
-    /// Rows and the page title sit 20 pt from the edges, as on the work page.
-    private static func insets(top: CGFloat, bottom: CGFloat) -> EdgeInsets {
-        EdgeInsets(top: top, leading: 20, bottom: bottom, trailing: 20)
-    }
-
-    private static let rowInsets = insets(
-        top: Space.betweenGroups.points / 2, bottom: Space.betweenGroups.points / 2)
-
     @ViewBuilder private func worksTab(_ catalogue: ComposerWorks) -> some View {
         let genres = catalogue.genres
         let rows = catalogue.rows(filter: chips)
         if !genres.isEmpty {
             GenreChips(genres: genres, selection: $chips)
-                .listRowInsets(EdgeInsets(top: Space.m.points, leading: 0, bottom: 0, trailing: 0))
+                .listRowInsets(EdgeInsets(top: Layout.chipsTop, leading: 0, bottom: 0, trailing: 0))
                 .listRowSeparator(.hidden)
         }
         Section {
@@ -96,15 +91,14 @@ struct ComposerPage: View {
                 switch row {
                 case .work(let work):
                     WorkRow(work: work)
-                        .listRowInsets(Self.rowInsets)
                 case .set(let name, let works):
                     DisclosureGroup {
                         ForEach(works) {
                             WorkRow(work: $0)
-                                .listRowInsets(Self.rowInsets)
+                                .pageRow()
                         }
                     } label: {
-                        VStack(alignment: .leading, spacing: Space.inGroup.points) {
+                        VStack(alignment: .leading, spacing: Layout.rowLineGap) {
                             Text(name)
                                 .typeStyle(.body)
                                 .ink()
@@ -114,19 +108,15 @@ struct ComposerPage: View {
                         }
                         .accessibilityElement(children: .combine)
                     }
-                    .listRowInsets(Self.rowInsets)
                     .accessibilityIdentifier("set")
                 }
             }
         } header: {
-            // A plain list indents its section header by 16 pt. The page title and rows sit at 20 pt.
             CountedHeading("Works", count: rows.reduce(0) { $0 + $1.works.count })
-                .padding(.leading, 4)
         }
         if rows.isEmpty {
             Text("No works with these genres.")
                 .foregroundStyle(Palette.textSecondary)
-                .listRowInsets(Self.rowInsets)
         }
         if composer.works.contains(where: { !$0.isTagged }) {
             Section {
@@ -185,17 +175,17 @@ private struct GenreChips: View {
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: Space.xs.points) {
+            HStack(spacing: Layout.chipGap) {
                 ForEach(genres, id: \.self) { genre in
                     let isOn = selection.contains(genre)
                     Button {
                         if isOn { selection.remove(genre) } else { selection.insert(genre) }
                     } label: {
                         Text(genre)
-                            .typeStyle(.subheadline)
+                            .typeStyle(Layout.chipLabel)
                             .lineLimit(1)
                             .foregroundStyle(isOn ? Palette.onAccent : Palette.textPrimary)
-                            .padding(.horizontal, Space.m.points)
+                            .padding(.horizontal, Layout.chipPadding)
                             .frame(minHeight: height)
                             .background(isOn ? Palette.accentFill : Palette.fillQuiet, in: Capsule())
                             .contentShape(Capsule())
@@ -205,12 +195,11 @@ private struct GenreChips: View {
                     .accessibilityIdentifier("genre-chip")
                 }
             }
-            .padding(.horizontal, 20)
+            .pagePadding()
         }
     }
 
-    /// The specimen chip: smaller than a row, so the chips read as a filter, not as buttons of the page.
-    @ScaledMetric(relativeTo: .subheadline) private var height: CGFloat = 30
+    @ScaledMetric(relativeTo: .subheadline) private var height = Layout.chipHeight
 }
 
 struct CreditRow: View {
@@ -313,8 +302,13 @@ struct PersonHero: View {
     @ScaledMetric(space: .inGroup) private var gap: CGFloat
 
     /// The picture runs under the bars and keeps the specimen's proportion: 118% of the width, at most 470 pt.
+    /// The fade over the name and the room above it set the least height.
     private var frame: CGSize {
-        CGSize(width: width, height: max(min(width * 1.18, 470), topInset + 260))
+        CGSize(
+            width: width,
+            height: max(
+                min(width * Layout.pictureRatio, Layout.pictureMaxHeight),
+                textHeight + Layout.pictureFade + Layout.pictureAboveFade))
     }
 
     /// The space stays reserved while a picture loads, so the name does not jump when it arrives.
@@ -334,7 +328,7 @@ struct PersonHero: View {
                         picture(portrait, framing: framing, frame: frame)
                     }
                     heading
-                        .padding(.bottom, Space.m.points)
+                        .padding(.bottom, Layout.personHeadBottom)
                         .onGeometryChange(for: CGFloat.self) {
                             $0.size.height
                         } action: {
@@ -343,14 +337,14 @@ struct PersonHero: View {
                 }
                 .frame(width: width, height: frame.height, alignment: .bottomLeading)
                 .clipped()
-                .padding(.bottom, spacesChronology ? Space.l.points + Space.m.points : 0)
+                .padding(.bottom, spacesChronology ? Layout.pictureBottom + Layout.buttonRowTop : 0)
             } else {
                 // No picture: the name sits close under the back arrow, as a page title does.
                 // The width frame keeps the grouped list from insetting the name, as in the picture branch.
                 heading
                     .frame(width: width, alignment: .leading)
-                    .padding(.top, topInset + Space.xs.points)
-                    .padding(.bottom, spacesChronology ? 2 * Space.m.points : Space.s.points)
+                    .padding(.top, topInset + Layout.headTop)
+                    .padding(.bottom, Layout.personHeadBottom + (spacesChronology ? Layout.buttonRowTop : 0))
             }
         }
         .modifier(load)
@@ -365,16 +359,16 @@ struct PersonHero: View {
     private var heading: some View {
         VStack(alignment: .leading, spacing: gap) {
             Text(name)
-                .typeStyle(.pageTitle)
+                .typeStyle(Layout.pageTitle)
                 .foregroundStyle(portrait == nil ? Palette.textPrimary.color : paper)
             if let line {
                 Text(line)
-                    .typeStyle(.subheadline)
+                    .typeStyle(Layout.metaLine)
                     .foregroundStyle(portrait == nil ? Palette.textSecondary.color : paper)
                     .accessibilityIdentifier("\(kind)-description")
             }
         }
-        .padding(.horizontal, 20)
+        .pagePadding()
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)

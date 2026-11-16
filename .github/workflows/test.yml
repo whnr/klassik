@@ -65,6 +65,17 @@ jobs:
       - uses: actions/checkout@v7
       - run: scripts/lint.sh
 
+  # The view code takes its layout numbers from Klassik/Layout.swift, and each of those cites the specimen CSS.
+  # The swift image has no Python, so these checks run on their own runner.
+  layout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - run: python3 scripts/layout_tokens.py --check
+      - run: python3 scripts/layout_lint.py
+      - run: python3 -m unittest discover -s scripts -p "test_layout.py"
+
   # Generate audio on Linux to keep package installation off the macOS runners.
   # The tarball keeps the colons in the file names, which artifact paths reject.
   fixtures:
@@ -107,7 +118,7 @@ jobs:
           retention-days: 1
 
   build:
-    needs: lint
+    needs: [lint, layout]
     runs-on: xcode-27
     timeout-minutes: 40
     # The xcode-27 image holds the iOS 27 SDK. Its default Xcode 27.1 has one simulator on its own iOS;

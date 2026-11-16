@@ -50,7 +50,7 @@ struct RoleLines: View {
     private func label(_ text: String) -> Text {
         Text(text)
             .font(style.font(size: size).lowercaseSmallCaps())
-            .tracking(size * 0.06)
+            .tracking(size * Layout.roleLabelTracking)
             .foregroundStyle(Palette.textSecondary)
     }
 

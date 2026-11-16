@@ -31,7 +31,9 @@ struct TimelineBarView: View {
             ZStack(alignment: side == .right ? .topTrailing : .topLeading) {
                 if let scrubbed {
                     label(scrubbed)
-                        .frame(maxWidth: proxy.size.width * 0.7, alignment: side == .right ? .trailing : .leading)
+                        .frame(
+                            maxWidth: proxy.size.width * Layout.scrubLabelWidth,
+                            alignment: side == .right ? .trailing : .leading)
                         .fixedSize(horizontal: false, vertical: true)
                         .onGeometryChange(for: Double.self) {
                             Double($0.size.height)
@@ -43,7 +45,7 @@ struct TimelineBarView: View {
                                 finger: finger, labelHeight: labelHeight, top: 0,
                                 floor: proxy.size.height - Space.s.points) - labelHeight / 2
                         )
-                        .padding(side == .right ? .trailing : .leading, Measure.hitTarget + Space.xs.points + 36)
+                        .padding(side == .right ? .trailing : .leading, Layout.scrubLabelEdge)
                         .allowsHitTesting(false)
                 }
                 segments(of: bar, played: played)
@@ -111,9 +113,9 @@ struct TimelineBarView: View {
                 .foregroundStyle(Palette.textSecondary)
         }
         .typeStyle(.body)
-        .padding(.vertical, Space.xs.points)
-        .padding(.horizontal, Space.s.points)
-        .background(Palette.backgroundElevated, in: .rect(cornerRadius: Radius.s))
+        .padding(.vertical, Layout.scrubLabelVertical)
+        .padding(.horizontal, Layout.scrubLabelHorizontal)
+        .background(Palette.backgroundElevated, in: .rect(cornerRadius: Layout.scrubLabelCorner))
         .shadow(radius: 5, y: 2)
         .accessibilityHidden(true)
     }

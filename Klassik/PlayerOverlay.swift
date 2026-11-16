@@ -46,7 +46,7 @@ private struct PlayerOverlay: View {
             } label: {
                 Capsule()
                     .fill(Palette.textTertiary)
-                    .frame(width: 36, height: 5)
+                    .frame(width: Layout.grabberWidth, height: Layout.grabberHeight)
                     .frame(maxWidth: .infinity)
                     .frame(height: Measure.hitTarget)
                     .contentShape(.rect)

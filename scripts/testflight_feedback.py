@@ -1,6 +1,7 @@
 """Prints TestFlight feedback (screenshots + crashes) for Klassik from App Store Connect.
 
-Env: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 (key text). Screenshots land in ./feedback/.
+Env: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 (key text). Screenshots and full crash logs land in ./feedback/.
+The run log shows only the head of each crash log; symbolication needs the crashing thread and binary images.
 """
 
 import json
@@ -82,5 +83,8 @@ for doc in pages(f"/v1/apps/{app}/betaFeedbackCrashSubmissions", include="build"
                 or ""
             )
             print("crash log (head):\n" + "\n".join(log.splitlines()[:120]))
+            name = out / f"{item['attributes']['createdDate'][:19].replace(':', '')}-{item['id']}.crash"
+            name.write_text(log)
+            print(f"crash log: {name}")
         except Exception as e:  # crash log may not be processed yet
             print(f"crash log unavailable: {e}")

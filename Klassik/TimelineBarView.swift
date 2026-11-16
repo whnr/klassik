@@ -33,7 +33,8 @@ struct TimelineBarView: View {
                     label(scrubbed)
                         .frame(
                             maxWidth: proxy.size.width * Layout.scrubLabelWidth,
-                            alignment: side == .right ? .trailing : .leading)
+                            alignment: side == .right ? .trailing : .leading
+                        )
                         .fixedSize(horizontal: false, vertical: true)
                         .onGeometryChange(for: Double.self) {
                             Double($0.size.height)

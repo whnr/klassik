@@ -325,14 +325,17 @@ final class PlaybackScreens: ScreensTestCase {
         let player = app.descendants(matching: .any)["player-overlay"].firstMatch
         // The pill leaves when the queue ends. A list makes the end row only near the screen, so it is no signal.
         let pill = app.descendants(matching: .any)["mini-player"].firstMatch
-        // The walk fixture movements last minutes. A seek near the end of each movement ends the queue in seconds.
+        // The walk fixture movements last minutes. A seek near the end of each movement ends it in seconds. The
+        // slider can keep the value of the last drag, so each seek passes through the middle first.
         for _ in 0..<4 where pill.exists {
             let position = reveal(player.sliders["position"].firstMatch, in: app)
-            XCTAssertTrue(position.exists, "No position bar in the player")
+            guard position.exists else { break }
+            position.adjust(toNormalizedSliderPosition: 0.5)
             position.adjust(toNormalizedSliderPosition: 0.97)
             _ = pill.waitForNonExistence(timeout: 15)
         }
-        XCTAssertFalse(pill.exists, "The queue did not end")
+        // The last movement also ends by itself, within its fixture length.
+        XCTAssertTrue(pill.waitForNonExistence(timeout: 150), "The queue did not end")
         let ended = reveal(player.staticTexts["player-ended"], in: app)
         XCTAssertTrue(ended.exists, "No end message in the player")
         XCTAssertEqual(ended.label, "The queue has ended.")

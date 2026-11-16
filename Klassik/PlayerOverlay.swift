@@ -62,11 +62,6 @@ private struct PlayerOverlay: View {
                             navigator.closePlayer()
                         }
                     })
-            if model.playback.item == nil {
-                Text(model.playback.queueEnded ? "The queue has ended" : "Playback stopped")
-                    .foregroundStyle(Palette.textSecondary)
-                    .accessibilityIdentifier("player-ended")
-            }
             RecordingView(
                 work: item.work, recording: item.recording,
                 album: item.recording.albumKey.flatMap { model.library.album($0) }, isOverlay: true

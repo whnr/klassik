@@ -522,6 +522,16 @@ struct RecordingView: View {
                         .onMove { player.moveInQueue(from: $0, to: $1) }
                     }
                 }
+
+                // The end takes the place of the next items, at the foot of the player (specimen player.html).
+                if isOverlay, player.item == nil {
+                    Section {
+                        Text(player.queueEnded ? "The queue has ended." : "Playback stopped.")
+                            .typeStyle(.subheadline)
+                            .foregroundStyle(Palette.textSecondary)
+                            .accessibilityIdentifier("player-ended")
+                    }
+                }
             }
             // A finger on the page, or a scroll that it started, holds the rows. The spell begins when the page is still.
             // A scroll by the app itself is not a touch. The list has no tap gesture of its own, so row controls keep their

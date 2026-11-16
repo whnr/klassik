@@ -315,6 +315,34 @@ final class PlaybackScreens: ScreensTestCase {
         slidePlayerDown(app)
     }
 
+    /// The end of the queue takes the place of the next items, at the foot of the player (specimen player.html).
+    @MainActor
+    func testQueueEndsAtTheFootOfThePlayer() throws {
+        let app = try launchAndConnect()
+        openRecording(app)
+        startPlaying(app)
+        let next = app.buttons["Next"].firstMatch
+        XCTAssertTrue(next.waitForExistence(timeout: 30), "No Next button")
+        next.tap()
+        next.tap()
+        XCTAssertTrue(eventually(timeout: 10) { !next.isEnabled }, "Next stays on at the last movement")
+        openPlayer(app)
+        let player = app.descendants(matching: .any)["player-overlay"].firstMatch
+        // A seek near the end of the last movement ends the queue in seconds, not after the whole fixture movement.
+        let position = reveal(player.sliders["position"].firstMatch, in: app)
+        XCTAssertTrue(position.exists, "No position bar in the player")
+        position.adjust(toNormalizedSliderPosition: 0.97)
+        let ended = player.staticTexts["player-ended"]
+        XCTAssertTrue(ended.waitForExistence(timeout: 30), "The queue did not end in the player")
+        XCTAssertEqual(ended.label, "The queue has ended.")
+        reveal(ended, in: app)
+        let tags = player.buttons["raw-tags"]
+        XCTAssertTrue(tags.exists, "No Tags and Grouping row above the end")
+        XCTAssertGreaterThan(ended.frame.minY, tags.frame.maxY, "The end shows above the rows, not at the foot")
+        snap(app, "16e-queue-ended")
+        slidePlayerDown(app)
+    }
+
     @MainActor
     func testOverlayLinkUsesTheUnderlyingStack() throws {
         let app = try launchAndConnect()

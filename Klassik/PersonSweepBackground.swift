@@ -10,7 +10,16 @@ protocol LaunchedTask: AnyObject {
 
 extension BGTask: LaunchedTask {}
 
-extension BGTaskScheduler: @retroactive TaskRegistry {}
+/// `BGTaskScheduler` behind the Swift 5 boundary of `TaskRegistry`.
+private struct SystemScheduler: TaskRegistry {
+    func register(
+        forTaskWithIdentifier identifier: String,
+        using queue: DispatchQueue?,
+        launchHandler: @escaping (BGTask) -> Void
+    ) -> Bool {
+        BGTaskScheduler.shared.register(forTaskWithIdentifier: identifier, using: queue, launchHandler: launchHandler)
+    }
+}
 
 /// Lets the system run the Wikidata pass (ADR 0042) while Klassik is in the background. The system picks the
 /// time, usually when the phone sleeps. The identifier is in `BGTaskSchedulerPermittedIdentifiers`.
@@ -26,7 +35,7 @@ enum PersonSweepBackground {
     @MainActor
     static func register(_ model: AppModel) {
         register(
-            on: BGTaskScheduler.shared,
+            on: SystemScheduler(),
             run: { await model.sweepPeopleInBackground() },
             stop: { model.sweep.stop() }
         )

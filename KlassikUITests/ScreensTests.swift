@@ -315,6 +315,25 @@ final class PlaybackScreens: ScreensTestCase {
         slidePlayerDown(app)
     }
 
+    /// The favourite mark ends the player title, on the line of its last word (specimen player.html, sz-swi9.2).
+    @MainActor
+    func testFavouriteInThePlayerTitle() throws {
+        let app = try launchAndConnect()
+        openRecording(app)
+        playPaused(app)
+        openPlayer(app)
+        let title = app.descendants(matching: .any)["player-overlay"].firstMatch.buttons["player-title"]
+        XCTAssertTrue(title.waitForExistence(timeout: 10), "No player title")
+        XCTAssertEqual(title.value as? String, "Not a favourite")
+        title.tap()
+        XCTAssertTrue(
+            eventually(timeout: 10) { title.value as? String == "Favourite" }, "The mark did not set the favourite")
+        snap(app, "16f-player-favourite")
+        title.tap()
+        XCTAssertTrue(
+            eventually(timeout: 10) { title.value as? String == "Not a favourite" }, "The mark did not clear")
+    }
+
     /// The end of the queue takes the place of the next items, at the foot of the player (specimen player.html).
     @MainActor
     func testQueueEndsAtTheFootOfThePlayer() throws {
@@ -594,7 +613,7 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(queued.label.contains("Symphony No. 5"))
         snap(app, "08-up-next")
         reveal(app.buttons["Next Work"].firstMatch, in: app).tap()
-        let title = app.staticTexts.matching(
+        let title = app.descendants(matching: .any).matching(
             NSPredicate(format: "identifier == 'player-title' AND label CONTAINS 'Symphony No. 5'")
         ).firstMatch
         XCTAssertTrue(title.waitForExistence(timeout: 15))

@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// The engraved fermata of ADR 0033, on its 17 × 10.5 grid, as `design/marks/fermata.svg` draws it.
 struct FermataShape: Shape {
@@ -38,5 +39,42 @@ struct FermataMark: View {
             .fill(isSet ? Palette.favourite : Palette.favouriteOff)
             .frame(width: em * Layout.fermataWidth, height: em * Layout.fermataHeight)
             .accessibilityLabel(isSet ? "Favourite" : "Not a favourite")
+    }
+}
+
+extension FermataShape {
+    /// The mark as a template image for a line of text, with the gap before it, so text can carry it inline.
+    @MainActor static func image(em: CGFloat) -> UIImage {
+        let gap = em * Layout.fermataGap
+        let mark = CGRect(x: gap, y: 0, width: em * Layout.fermataWidth, height: em * Layout.fermataHeight)
+        let image = UIGraphicsImageRenderer(size: CGSize(width: mark.maxX, height: mark.height)).image { _ in
+            UIBezierPath(cgPath: FermataShape().path(in: mark).cgPath).fill()
+        }
+        return image.withRenderingMode(.alwaysTemplate)
+    }
+}
+
+/// A title that ends in the favourite mark. The mark stays on the line of the last word and sits on the baseline,
+/// as specimen.js `titled` sets it (ADR 0032).
+struct FavouriteTitle: View {
+    let title: String
+    let isSet: Bool
+    let style: TypeStyle
+    @ScaledMetric private var em: CGFloat
+
+    init(_ title: String, isSet: Bool, style: TypeStyle) {
+        self.title = title
+        self.isSet = isSet
+        self.style = style
+        _em = ScaledMetric(wrappedValue: style.size, relativeTo: style.textStyle)
+    }
+
+    var body: some View {
+        let mark = Text(Image(uiImage: FermataShape.image(em: em)))
+            .foregroundStyle(isSet ? Palette.favourite.color : Palette.favouriteOff.color)
+        // The word joiner keeps the mark with the last word.
+        Text("\(title)\u{2060}\(mark)")
+            .typeStyle(style)
+            .ink()
     }
 }

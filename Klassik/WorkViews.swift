@@ -428,14 +428,7 @@ struct RecordingView: View {
                             CoverImage(id: recording.songs.first?.coverArt, points: Layout.bigCover)
                                 .frame(width: Layout.bigCover, height: Layout.bigCover)
                                 .clipShape(.rect(cornerRadius: Layout.bigCoverCorner))
-                            HStack(alignment: .firstTextBaseline) {
-                                Text(work.title)
-                                    .accessibilityIdentifier("player-title")
-                                    .typeStyle(Layout.pageTitle)
-                                    .ink()
-                                if !recording.isAlbum { referenceButton }
-                            }
-                            .buttonStyle(.borderless)
+                            playerTitle
                         }
                         .frame(maxWidth: .infinity)
                         .multilineTextAlignment(.center)
@@ -565,18 +558,41 @@ struct RecordingView: View {
     }
 
     private var referenceButton: some View {
-        // The page can show a queue copy. The library supplies current Reference state.
+        // The page can show a queue copy. The library supplies the current favourite state.
         let live = model.library.current(work: work, recording: recording)
         return Button(
-            live.recording.isReference ? "Remove Reference" : "Reference",
+            live.recording.isReference ? "Remove Favourite" : "Favourite",
             systemImage: live.recording.isReference ? "star.fill" : "star"
         ) {
-            Task {
-                _ = await model.setReference(live.recording, of: live.work, to: !live.recording.isReference)
-            }
+            toggleFavourite()
         }
         .labelStyle(.iconOnly)
         .accessibilityIdentifier("reference")
+    }
+
+    /// The player title ends in the favourite mark, which sets and clears the favourite (specimen player.html).
+    @ViewBuilder private var playerTitle: some View {
+        if recording.isAlbum {
+            Text(work.title)
+                .typeStyle(Layout.pageTitle)
+                .ink()
+                .accessibilityIdentifier("player-title")
+        } else {
+            let isSet = model.library.current(work: work, recording: recording).recording.isReference
+            Button(action: toggleFavourite) {
+                FavouriteTitle(work.title, isSet: isSet, style: Layout.pageTitle)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(work.title)
+            .accessibilityValue(isSet ? "Favourite" : "Not a favourite")
+            .accessibilityHint(isSet ? "Removes the favourite" : "Makes the recording a favourite")
+            .accessibilityIdentifier("player-title")
+        }
+    }
+
+    private func toggleFavourite() {
+        let live = model.library.current(work: work, recording: recording)
+        Task { _ = await model.setReference(live.recording, of: live.work, to: !live.recording.isReference) }
     }
 
     /// What every track shares, in centred lines.

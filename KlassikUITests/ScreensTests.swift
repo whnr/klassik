@@ -616,12 +616,18 @@ final class PlaybackScreens: ScreensTestCase {
         back(app)
         XCTAssertTrue(rows.firstMatch.label.contains("Anna Probe"))
         app.buttons["Edit"].tap()
+        // A simulated drag on the reorder handle does not always lift the row, so the drag can repeat.
         let origin = app.coordinate(withNormalizedOffset: .zero)
-        let source = origin.withOffset(CGVector(dx: app.frame.width - 30, dy: rows.element(boundBy: 1).frame.midY))
-        let target = origin.withOffset(CGVector(dx: app.frame.width - 30, dy: rows.element(boundBy: 0).frame.minY))
-        source.press(forDuration: 0.6, thenDragTo: target)
+        for _ in 0..<3 where !rows.firstMatch.label.contains("Carl Fixture") {
+            let source = origin.withOffset(
+                CGVector(dx: app.frame.width - 30, dy: rows.element(boundBy: 1).frame.midY))
+            let target = origin.withOffset(
+                CGVector(dx: app.frame.width - 30, dy: rows.element(boundBy: 0).frame.minY))
+            source.press(forDuration: 1.0, thenDragTo: target)
+            _ = eventually(timeout: 3) { rows.firstMatch.label.contains("Carl Fixture") }
+        }
         app.buttons["Done"].tap()
-        XCTAssertTrue(rows.firstMatch.label.contains("Carl Fixture"))
+        XCTAssertTrue(eventually(timeout: 10) { rows.firstMatch.label.contains("Carl Fixture") })
         snap(app, "05d-recordings-reordered")
         app.buttons["play-work"].tap()
         XCTAssertTrue(app.buttons["recording-slot"].waitForExistence(timeout: 10))

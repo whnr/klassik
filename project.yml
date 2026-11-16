@@ -13,6 +13,8 @@ targets:
     type: application
     platform: iOS
     sources: [Klassik]
+    dependencies:
+      - target: TaskRegistry
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: de.whnr.klassik
@@ -35,12 +37,23 @@ targets:
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
         ITSAppUsesNonExemptEncryption: false
+  TaskRegistry:
+    type: library.static
+    platform: iOS
+    sources: [TaskRegistry]
+    settings:
+      base:
+        # Swift 6 checks handler isolation only at a boundary to Swift 5 code, as at the Objective-C API.
+        SWIFT_VERSION: "5.0"
   KlassikTests:
     type: bundle.unit-test
     platform: iOS
     sources: [KlassikTests]
     dependencies:
       - target: Klassik
+      # The app links the library. A second copy in the tests would give the fake another protocol.
+      - target: TaskRegistry
+        link: false
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES

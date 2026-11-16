@@ -799,21 +799,28 @@ const K = (() => {
         "aria-current": tab === id ? "page" : null,
         onclick: (event) => {
           event.preventDefault();
-          // Another tab slides the player down; the place then changes (ADR 0014).
-          if (chrome.overlay?.isOpen()) return chrome.overlay.close(() => link.click());
-          store("stack." + tab, location.href);
-          const destination = new URL(
-            tab === id
-              ? href(roots[id], { place: id, back: params.get("back") })
-              : store("stack." + id) || href(roots[id], { place: id, back: chrome.title || tab }),
-            location.href,
-          );
-          for (const name of CARRIED) {
-            if (name === "place") continue;
-            if (params.has(name)) destination.searchParams.set(name, params.get(name));
-            else destination.searchParams.delete(name);
-          }
-          location.href = destination.href;
+          const leavingPlayer = chrome.overlay?.isOpen();
+          const go = () => {
+            if (leavingPlayer && tab === id) return;
+            const current = new URL(location.href);
+            current.searchParams.delete("overlay");
+            store("stack." + tab, current.href);
+            const destination = new URL(
+              tab === id && !leavingPlayer
+                ? href(roots[id], { place: id, back: params.get("back") })
+                : store("stack." + id) || href(roots[id], { place: id, back: chrome.title || tab }),
+              location.href,
+            );
+            destination.searchParams.delete("overlay");
+            for (const name of CARRIED) {
+              if (name === "place") continue;
+              if (params.has(name)) destination.searchParams.set(name, params.get(name));
+              else destination.searchParams.delete(name);
+            }
+            location.href = destination.href;
+          };
+          if (leavingPlayer) chrome.overlay.close(go);
+          else go();
         },
         html: ICON[id] + `<span class="t-caption2">${name}</span>`,
       });
@@ -939,11 +946,9 @@ const K = (() => {
     });
   }
 
-  // While the player overlay is open, the pill holds only play/pause: the cover is on the player (ADR 0028).
+  // The complete pill stays in place above the player overlay (ADR 0028).
   function setPlayerOpen(open) {
     chrome.player = open;
-    MINI.remove();
-    MINI.build();
     layoutChrome();
   }
 

@@ -499,7 +499,12 @@ final class PlaybackScreens: ScreensTestCase {
         let play = app.buttons["play-work"]
         XCTAssertTrue(play.waitForExistence(timeout: 10))
         play.tap()
-        pause(app)
+        // While a recording of the work plays, the pill pauses it (sz-swi9.4).
+        XCTAssertTrue(eventually(timeout: 15) { play.label == "Pause" }, "The pill reads \(play.label) while it plays")
+        snap(app, "04c-work-playing")
+        play.tap()
+        XCTAssertTrue(eventually(timeout: 10) { play.label == "Resume" }, "The pill reads \(play.label) after a pause")
+        XCTAssertEqual(app.buttons["mini-player-pause"].label, "Resume", "The pill did not pause the playback")
     }
 
     /// Play Whole Album on a recording page starts the album, not only the recording (build 48, item 11).

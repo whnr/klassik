@@ -35,7 +35,7 @@ private struct ItemActions: ViewModifier {
                 ForEach(SwipeSettings.actions(model.swipes.leading)) { button(for: $0) }
             }
             .contextMenu {
-                Button("Play", systemImage: "play") { model.playback.play(item) }
+                playButton
                 Button("Play Next", systemImage: "text.line.first.and.arrowtriangle.forward") { playNext() }
                 Button("Add to Queue", systemImage: "text.line.last.and.arrowtriangle.forward") { addToQueue() }
                 if downloads { downloadButton }
@@ -71,6 +71,18 @@ private struct ItemActions: ViewModifier {
                     tracks.download(item.recording, title: item.work.title, client: client)
                 }
             }
+        }
+    }
+
+    /// The playing recording pauses and resumes, so its label says that.
+    private var playButton: some View {
+        let player = model.playback
+        let isPlaying = player.recording?.id == item.recording.id
+        return Button(
+            isPlaying ? (player.isPaused ? "Resume" : "Pause") : "Play",
+            systemImage: isPlaying && !player.isPaused ? "pause" : "play"
+        ) {
+            player.play(item)
         }
     }
 
@@ -180,11 +192,21 @@ struct WorkView: View {
                 .listRowSeparator(.hidden)
                 .pageEdges(bottom: Layout.headBottom)
             if let recording = work.defaultRecording {
+                let player = model.playback
+                // While any recording of the work plays, the pill pauses it. Else it plays the top of the list.
+                let playsThisWork = player.item?.work.id == work.id
                 Button {
-                    model.playback.play(QueueItem(work: work, recording: recording))
+                    if playsThisWork {
+                        player.togglePause()
+                    } else {
+                        player.play(queue: [QueueItem(work: work, recording: recording)])
+                    }
                 } label: {
                     Label(
-                        recording.isReference ? "Play Reference Recording" : "Play", systemImage: "play.fill"
+                        playsThisWork
+                            ? (player.isPaused ? "Resume" : "Pause")
+                            : (recording.isReference ? "Play Reference Recording" : "Play"),
+                        systemImage: playsThisWork && !player.isPaused ? "pause.fill" : "play.fill"
                     )
                     .typeStyle(Layout.capsuleLabel)
                     .foregroundStyle(Palette.onAccent)
@@ -443,7 +465,13 @@ struct RecordingView: View {
                         Button("Play", systemImage: "play.fill") { play(from: 0) }
                             .accessibilityIdentifier("play-recording")
                         if let wholeAlbum {
-                            Button("Play Whole Album", systemImage: "square.stack") {
+                            // The playing album pauses and resumes, so the button says that.
+                            let playsAlbum = player.recording?.id == wholeAlbum.recording.id
+                            Button(
+                                playsAlbum ? (player.isPaused ? "Resume Whole Album" : "Pause Whole Album")
+                                    : "Play Whole Album",
+                                systemImage: playsAlbum && !player.isPaused ? "pause.fill" : "square.stack"
+                            ) {
                                 spell.touch()
                                 player.play(wholeAlbum)
                             }

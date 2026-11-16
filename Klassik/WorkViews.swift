@@ -716,7 +716,8 @@ private struct MovementRow: View {
                 .foregroundStyle(Palette.textSecondary)
                 .frame(width: Layout.roundButton, height: Layout.roundButton)
                 .background(Palette.fillQuiet, in: .circle)
-                .frame(width: Measure.hitTarget, height: Measure.hitTarget)
+                // The circle, not its hit frame, ends on the page edge, as the specimen `.round` does.
+                .frame(width: Measure.hitTarget, height: Measure.hitTarget, alignment: .trailing)
                 .contentShape(.rect)
         }
         .buttonStyle(.borderless)

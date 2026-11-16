@@ -53,7 +53,9 @@ private struct TypeStyleModifier: ViewModifier {
     }
 
     func body(content: Content) -> some View {
-        content.font(style.font(size: size))
+        content
+            .font(style.font(size: size))
+            .lineHeight(style.face == nil ? nil : .exact(points: size * style.lineHeight))
     }
 }
 
@@ -260,13 +262,17 @@ extension Layout {
 }
 
 /// Sets the specimen page insets on a list row, for the timeline side that the listener chose.
+/// The hairline spans the content, from the leading to the trailing page edge, as in the specimen.
 private struct PageEdges: ViewModifier {
     @AppStorage(TimelineSide.storageKey) private var side = TimelineSide.standard
     let top: CGFloat
     let bottom: CGFloat
 
     func body(content: Content) -> some View {
-        content.listRowInsets(Layout.edges(side: side, top: top, bottom: bottom))
+        content
+            .listRowInsets(Layout.edges(side: side, top: top, bottom: bottom))
+            .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
+            .alignmentGuide(.listRowSeparatorTrailing) { $0.width }
     }
 }
 
@@ -297,6 +303,7 @@ extension View {
     @ViewBuilder func pageSectionHeader(_ isPageList: Bool) -> some View {
         if isPageList {
             pageEdges(top: Layout.sectionTop, bottom: Layout.sectionHeadBottom)
+                .accessibilityAddTraits(.isHeader)
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
         } else {

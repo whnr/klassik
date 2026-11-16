@@ -20,9 +20,12 @@ on:
         type: string
         default: ""
 
+# A newer push cancels only a pull request's older run. Any other run has its own group:
+# a shared group would drop a queued run when a newer one arrives, and TestFlight needs
+# a complete run for each commit on main.
 concurrency:
-  group: test-${{ github.ref }}
-  cancel-in-progress: true
+  group: test-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # Decides which UI groups run, so an unrequested walk starts no macOS runner.

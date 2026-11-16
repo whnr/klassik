@@ -1,7 +1,7 @@
 {
-  "sha": "6bd63b752a22385347d8dd03a1c1525c66413b61",
+  "sha": "6ed82516bebc9604a9839fadabf3bf4814c7c669",
   "branch": "claude-sz-swi9.1",
   "path": "claude-sz-swi9.1",
-  "subject": "Seek to the queue end in the queue-end test",
-  "ts": 1794853429
+  "subject": "Pause from Play while the work plays",
+  "ts": 1794854280
 }

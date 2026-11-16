@@ -602,7 +602,8 @@ final class PlaybackScreens: ScreensTestCase {
             .press(
                 forDuration: 0.1,
                 thenDragTo: older.coordinate(withNormalizedOffset: CGVector(dx: 0.65, dy: 0.5)))
-        let favourite = app.buttons["Favourite"].firstMatch
+        snap(app, "05a-recording-swipe")
+        let favourite = app.buttons["favourite-action"].firstMatch
         XCTAssertTrue(favourite.waitForExistence(timeout: 5))
         favourite.tap()
         let moved = expectation(for: NSPredicate(format: "label CONTAINS 'Anna Probe'"), evaluatedWith: rows.firstMatch)

@@ -80,19 +80,15 @@ private struct ItemActions: ViewModifier {
             favouriteWork
             ? model.recordingOrder.isFavourite(item.work)
             : model.recordingOrder.isFavourite(item.recording, of: item.work)
-        return Button {
+        return Button("Favourite") {
             if favouriteWork {
                 model.recordingOrder.toggle(item.work)
             } else {
                 Task { await model.recordingOrder.toggle(item.recording, of: item.work) }
             }
-        } label: {
-            Label {
-                Text("Favourite")
-            } icon: {
-                FermataMark(isSet: isSet)
-            }
         }
+        .accessibilityIdentifier("favourite-action")
+        .accessibilityValue(isSet ? "Favourite" : "Not a favourite")
         .disabled(model.recordingOrder.isSaving)
     }
 

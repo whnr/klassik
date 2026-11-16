@@ -11,5 +11,6 @@ npx --yes prettier@3.9.10 --check "design/**/*.{html,css,js,json}"
 npx --yes @biomejs/biome@2.6.3 lint --error-on-warnings
 uv run --no-project design/scripts/palette.py --check
 uv run --no-project design/scripts/tokens.py --check
+uv run --no-project scripts/layout_tokens.py --check
 uv run --no-project design/scripts/check.py
 uv run --no-project --with playwright==1.64.1 design/scripts/specimen_check.py

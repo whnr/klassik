@@ -9,6 +9,7 @@ on:
       - "docs/adr/**"
       - "scripts/**.py"
       - "Klassik/Tokens.swift"
+      - "Klassik/Layout.swift"
       - "Klassik/Assets.xcassets/Colors/**"
       - "ruff.toml"
       - ".prettierrc.json"

@@ -11,7 +11,7 @@ struct MiniPlayer: View {
     let edgeInset: CGFloat
 
     /// The size of the button and the cover, as of the tab items beside them.
-    nonisolated static let item: CGFloat = 48
+    nonisolated static let item = Layout.pillItem
     private var itemSize: CGFloat { Self.itemSize(height: height) }
 
     var body: some View {
@@ -19,7 +19,7 @@ struct MiniPlayer: View {
         if let item = player.item {
             let edge: Edge.Set = side == .right ? .trailing : .leading
             let content: Edge.Set = side == .right ? .leading : .trailing
-            HStack(spacing: Space.xs.points) {
+            HStack(spacing: Layout.pillGap) {
                 if side == .left { cover(of: item, edge: edge) }
                 Button {
                     player.togglePause()
@@ -29,7 +29,7 @@ struct MiniPlayer: View {
                         .foregroundStyle(Palette.textPrimary)
                         .frame(width: itemSize, height: itemSize)
                         .padding(.vertical, max(0, (height - itemSize) / 2))
-                        .padding(content, Space.xs.points)
+                        .padding(content, Layout.pillPadding)
                         .contentShape(.rect)
                 }
                 .buttonStyle(.borderless)
@@ -92,7 +92,7 @@ struct MiniPlayer: View {
         } label: {
             CoverImage(id: item.recording.songs.first?.coverArt, points: itemSize)
                 .frame(width: itemSize, height: itemSize)
-                .clipShape(.rect(cornerRadius: Radius.s))
+                .clipShape(.rect(cornerRadius: Layout.pillCoverCorner))
                 .padding(.vertical, max(0, (height - itemSize) / 2))
                 .padding(edge, edgeInset)
                 .contentShape(.rect)

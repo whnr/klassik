@@ -601,9 +601,8 @@ final class PlaybackScreens: ScreensTestCase {
         // The player opens at its header, and the playing movement may lie below the fold.
         XCTAssertTrue(reveal(app.sliders["position"], in: app).exists, "No position slider in the player")
         snap(app, "07-now-playing")
-        let queued = app.buttons.matching(identifier: "up-next").firstMatch
-        for _ in 0..<3 where !(queued.exists && queued.isHittable) { app.swipeUp() }
-        XCTAssertTrue(queued.label.contains("Symphony No. 5"))
+        let queued = reveal(app.descendants(matching: .any).matching(identifier: "up-next").firstMatch, in: app)
+        XCTAssertTrue(queued.label.contains("Symphony No. 5"), queued.label)
         snap(app, "08-up-next")
         reveal(app.buttons["Next Work"].firstMatch, in: app).tap()
         let title = app.buttons.matching(identifier: "favourite-recording")
@@ -613,6 +612,28 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(app.sliders["position"].waitForExistence(timeout: 10))
         XCTAssertTrue(miniPlayer.buttons["mini-player-cover"].exists)
         snap(app, "08d-next-player")
+    }
+
+    /// The player ends with the row of the next queue item, or says where the queue ends. When the last item
+    /// plays to its end, the open player stays and says that the queue has ended (ADR 0014).
+    @MainActor
+    func testQueueEnds() throws {
+        let app = try launchAndConnect()
+        openRecording(app)
+        playPaused(app)
+        openPlayer(app)
+        let endsHere = reveal(app.descendants(matching: .any)["up-next-end"].firstMatch, in: app)
+        XCTAssertTrue(endsHere.exists, "The player does not say where the queue ends")
+        snap(app, "08e-queue-ends-here")
+
+        app.buttons["mini-player-pause"].tap()
+        let next = reveal(app.buttons["Next"].firstMatch, in: app)
+        for _ in 0..<5 where next.exists && next.isEnabled { next.tap() }
+        let ended = app.descendants(matching: .any)["player-ended"].firstMatch
+        XCTAssertTrue(ended.waitForExistence(timeout: 60), "The player does not say that the queue has ended")
+        XCTAssertTrue(app.buttons["player-handle"].exists, "The player closed at the end of the queue")
+        reveal(ended, in: app)
+        snap(app, "08f-queue-ended")
     }
 
     /// A swipe favourite moves ahead of a newer recording before the listener plays the work.

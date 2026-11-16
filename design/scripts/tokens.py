@@ -340,8 +340,10 @@ def swift_colours(resolver, tokens):
         "",
         "    var color: Color { Color(assetName()) }",
         "",
+        "    /// A ground that is not in the asset catalog, such as the player wash, replaces colours through the",
+        "    /// environment (ADR 0034).",
         "    func resolve(in environment: EnvironmentValues) -> Color.Resolved {",
-        "        color.resolve(in: environment)",
+        "        environment.paletteOverrides[self] ?? color.resolve(in: environment)",
         "    }",
         "}",
     ]

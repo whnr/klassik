@@ -39,6 +39,10 @@ private struct PlayerOverlay: View {
     let item: QueueItem
     @GestureState private var dragged: CGFloat = 0
 
+    /// The specimen's rise: the old content leaves 40 points up, the new one comes from 120 points below.
+    private static let rise = AnyTransition.asymmetric(
+        insertion: .offset(y: 120).combined(with: .opacity), removal: .offset(y: -40).combined(with: .opacity))
+
     var body: some View {
         VStack(spacing: 0) {
             Button {
@@ -62,16 +66,24 @@ private struct PlayerOverlay: View {
                             navigator.closePlayer()
                         }
                     })
-            RecordingView(
-                work: item.work, recording: item.recording,
-                album: item.recording.albumKey.flatMap { model.library.album($0) }, isOverlay: true
-            )
-            .id(item.id)
+            ZStack {
+                // When an item ends, its content leaves upwards and the next item rises in its place.
+                RecordingView(
+                    work: item.work, recording: item.recording,
+                    album: item.recording.albumKey.flatMap { model.library.album($0) }, isOverlay: true
+                )
+                .id(item.id)
+                .transition(reduceMotion ? .opacity : Self.rise)
+            }
+            .animation(Motion.rise.animation(reduceMotion: reduceMotion), value: item.id)
         }
         .padding(.top, layout.top)
         .padding(.bottom, layout.bottom)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Palette.backgroundGrouped.color.ignoresSafeArea())
+        .background {
+            Rectangle().fill(Palette.backgroundGrouped).ignoresSafeArea()
+        }
+        .coverWash(cover: item.recording.songs.first?.coverArt, isPlaying: model.playback.item?.id == item.id)
         .offset(y: dragged)
         .animation(Motion.rise.animation(reduceMotion: reduceMotion), value: dragged == 0)
         .accessibilityElement(children: .contain)

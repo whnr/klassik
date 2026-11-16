@@ -561,40 +561,7 @@ struct RecordingView: View {
                     OfflineControls(recording: recording, title: work.title)
                 }
 
-                if isPlayingThis, !player.upNext.isEmpty {
-                    Section {
-                        SectionHeading("Up next")
-                        ForEach(player.upNext) { item in
-                            Button {
-                                player.playQueued(item.id)
-                            } label: {
-                                VStack(alignment: .leading) {
-                                    Text(item.work.title)
-                                        .ink()
-                                    Text(item.work.composer)
-                                        .typeStyle(.subheadline)
-                                        .foregroundStyle(Palette.textSecondary)
-                                    RoleLines(lines: item.recording.principalNames, style: .subheadline)
-                                        .foregroundStyle(Palette.textSecondary)
-                                }
-                            }
-                            .accessibilityIdentifier("up-next")
-                        }
-                        .onDelete { player.removeFromQueue(at: $0) }
-                        .onMove { player.moveInQueue(from: $0, to: $1) }
-                    }
-                }
-
-                // The end takes the place of the next items, at the foot of the player (specimen player.html).
-                if isOverlay, player.item == nil {
-                    Section {
-                        Text(player.queueEnded ? "The queue has ended." : "Playback stopped.")
-                            .typeStyle(.subheadline)
-                            .foregroundStyle(Palette.textSecondary)
-                            .listRowSeparator(.hidden)
-                            .accessibilityIdentifier("player-ended")
-                    }
-                }
+                if isOverlay { tail }
             }
             // A finger on the page, or a scroll that it started, holds the rows. The spell begins when the page is still.
             // A scroll by the app itself is not a touch. The list has no tap gesture of its own, so row controls keep their
@@ -640,6 +607,42 @@ struct RecordingView: View {
         )
         .disabled(model.recordingOrder.isSaving)
         .accessibilityIdentifier("favourite-recording")
+    }
+
+    /// The end of the player: the next queue item, or where the queue ends (ADR 0014, specimen player.html).
+    @ViewBuilder private var tail: some View {
+        let player = model.playback
+        switch PlayerTail(isPlaying: isPlayingThis, upNext: player.upNext.map(\.id), ended: player.item == nil) {
+        case .next:
+            if let next = player.upNext.first {
+                Section {
+                    SectionHeading("Next")
+                    NextItemRow(item: next)
+                        .pageRow()
+                }
+            }
+        case .endsHere:
+            Section {
+                SectionHeading("Next")
+                Text("The queue ends here.")
+                    .typeStyle(.body)
+                    .foregroundStyle(Palette.textSecondary)
+                    .frame(maxWidth: .infinity, minHeight: Measure.hitTarget, alignment: .leading)
+                    .pageRow()
+                    .accessibilityIdentifier("up-next-end")
+            }
+        case .ended:
+            // The end takes the place of the next item, at the foot of the player.
+            Section {
+                Text(player.queueEnded ? "The queue has ended." : "Playback stopped.")
+                    .typeStyle(.subheadline)
+                    .foregroundStyle(Palette.textSecondary)
+                    .listRowSeparator(.hidden)
+                    .accessibilityIdentifier("player-ended")
+            }
+        case .nothing:
+            EmptyView()
+        }
     }
 
     /// What every track shares, in centred lines.
@@ -950,5 +953,33 @@ private struct OfflineControls: View {
 
     static func size(_ bytes: Int64) -> String {
         bytes.formatted(.byteCount(style: .file))
+    }
+}
+
+/// The row of the next queue item at the end of the player (ADR 0014): its cover, its title and its album, as the
+/// specimen's `.row` draws them. It only shows what comes; the item starts when the playing one ends.
+private struct NextItemRow: View {
+    let item: QueueItem
+
+    var body: some View {
+        HStack(spacing: Space.m.points) {
+            CoverImage(id: item.recording.songs.first?.coverArt, points: Measure.coverRow)
+                .frame(width: Measure.coverRow, height: Measure.coverRow)
+                .clipShape(.rect(cornerRadius: Radius.s))
+            VStack(alignment: .leading, spacing: Space.inGroup.points) {
+                Text(item.work.title)
+                    .typeStyle(.body)
+                    .foregroundStyle(Palette.textPrimary)
+                if !item.recording.album.isEmpty {
+                    Text(item.recording.album)
+                        .typeStyle(.subheadline)
+                        .foregroundStyle(Palette.textSecondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(minHeight: Measure.hitTarget)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("up-next")
     }
 }

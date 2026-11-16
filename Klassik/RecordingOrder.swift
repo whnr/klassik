@@ -15,7 +15,8 @@ struct Starred: Decodable, Sendable {
 
 extension SubsonicClient: FavouriteServer {
     func getStarred() async throws -> Starred {
-        try await get("getStarred2").starred2 ?? Starred()
+        guard let stars = try await get("getStarred2").starred2 else { throw SubsonicError.notSubsonic }
+        return stars
     }
 }
 

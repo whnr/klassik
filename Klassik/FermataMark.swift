@@ -53,10 +53,12 @@ struct FavouriteTitle: View {
     var textIdentifier = "page-heading"
     @ScaledMetric(relativeTo: .title) private var em = TypeStyle.pageTitle.size
     @Environment(\.displayScale) private var scale
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
         Button(action: action) {
-            (Text(title) + Text("\u{00A0}") + Text(Image(uiImage: mark)))
+            Text("\(title)\u{00A0}\(Image(uiImage: mark))")
                 .typeStyle(.pageTitle)
                 .foregroundStyle(Palette.textPrimary)
                 .accessibilityIdentifier(textIdentifier)
@@ -70,8 +72,13 @@ struct FavouriteTitle: View {
         let size = CGSize(width: em * 0.64 * 17 / 10.5, height: em * 0.64)
         let format = UIGraphicsImageRendererFormat()
         format.scale = scale
+        let traits = UITraitCollection {
+            $0.userInterfaceStyle = scheme == .dark ? .dark : .light
+            $0.accessibilityContrast = contrast == .increased ? .high : .normal
+        }
+        let colour = (isSet ? Palette.favourite : Palette.favouriteOff).uiColor.resolvedColor(with: traits)
         return UIGraphicsImageRenderer(size: size, format: format).image { _ in
-            (isSet ? Palette.favourite : Palette.favouriteOff).uiColor.setFill()
+            colour.setFill()
             UIBezierPath(cgPath: FermataShape().path(in: CGRect(origin: .zero, size: size)).cgPath).fill()
         }
     }

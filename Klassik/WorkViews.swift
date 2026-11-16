@@ -36,7 +36,7 @@ private struct ItemActions: ViewModifier {
                 ForEach(SwipeSettings.actions(model.swipes.leading)) { button(for: $0) }
             }
             .contextMenu {
-                Button("Play", systemImage: "play") { model.playback.play(item) }
+                playButton
                 Button("Play Next", systemImage: "text.line.first.and.arrowtriangle.forward") { playNext() }
                 Button("Add to Queue", systemImage: "text.line.last.and.arrowtriangle.forward") { addToQueue() }
                 if downloads { downloadButton }
@@ -72,6 +72,18 @@ private struct ItemActions: ViewModifier {
                     tracks.download(item.recording, title: item.work.title, client: client)
                 }
             }
+        }
+    }
+
+    /// The playing recording pauses and resumes, so its label says that.
+    private var playButton: some View {
+        let player = model.playback
+        let isPlaying = player.recording?.id == item.recording.id
+        return Button(
+            isPlaying ? (player.isPaused ? "Resume" : "Pause") : "Play",
+            systemImage: isPlaying && !player.isPaused ? "pause" : "play"
+        ) {
+            player.play(item)
         }
     }
 
@@ -195,15 +207,25 @@ struct WorkView: View {
                 .listRowSeparator(.hidden)
                 .pageEdges(bottom: Layout.headBottom)
             if let recording = model.recordingOrder.reference(of: work) {
+                let player = model.playback
+                // While any recording of the work plays, the pill pauses it. Else it plays the top of the list.
+                let playsThisWork = player.item?.work.id == work.id
                 Button {
-                    model.playback.play(QueueItem(work: work, recording: recording))
+                    if playsThisWork {
+                        player.togglePause()
+                    } else {
+                        player.play(queue: [QueueItem(work: work, recording: recording)])
+                    }
                 } label: {
-                    Label("Play", systemImage: "play.fill")
-                        .typeStyle(Layout.capsuleLabel)
-                        .foregroundStyle(Palette.onAccent)
-                        .frame(maxWidth: .infinity, minHeight: Layout.capsuleHeight)
-                        .background(Palette.accentFill, in: .capsule)
-                        .contentShape(.capsule)
+                    Label(
+                        playsThisWork ? (player.isPaused ? "Resume" : "Pause") : "Play",
+                        systemImage: playsThisWork && !player.isPaused ? "pause.fill" : "play.fill"
+                    )
+                    .typeStyle(Layout.capsuleLabel)
+                    .foregroundStyle(Palette.onAccent)
+                    .frame(maxWidth: .infinity, minHeight: Layout.capsuleHeight)
+                    .background(Palette.accentFill, in: .capsule)
+                    .contentShape(.capsule)
                 }
                 .buttonStyle(.plain)
                 .listRowSeparator(.hidden)
@@ -443,7 +465,6 @@ struct RecordingView: View {
     /// The rows that the listener opened, by track position.
     @State private var opened: Set<Int> = []
     @State private var spell = QuietSpell()
-    @State private var followsMovement = false
 
     private var isPlayingThis: Bool { model.playback.recording?.id == recording.id }
 
@@ -486,7 +507,13 @@ struct RecordingView: View {
                         Button("Play", systemImage: "play.fill") { play(from: 0) }
                             .accessibilityIdentifier("play-recording")
                         if let wholeAlbum {
-                            Button("Play Whole Album", systemImage: "square.stack") {
+                            // The playing album pauses and resumes, so the button says that.
+                            let playsAlbum = player.recording?.id == wholeAlbum.recording.id
+                            let verb = playsAlbum ? (player.isPaused ? "Resume" : "Pause") : "Play"
+                            Button(
+                                "\(verb) Whole Album",
+                                systemImage: playsAlbum && !player.isPaused ? "pause.fill" : "square.stack"
+                            ) {
                                 spell.touch()
                                 player.play(wholeAlbum)
                             }
@@ -557,6 +584,17 @@ struct RecordingView: View {
                         .onMove { player.moveInQueue(from: $0, to: $1) }
                     }
                 }
+
+                // The end takes the place of the next items, at the foot of the player (specimen player.html).
+                if isOverlay, player.item == nil {
+                    Section {
+                        Text(player.queueEnded ? "The queue has ended." : "Playback stopped.")
+                            .typeStyle(.subheadline)
+                            .foregroundStyle(Palette.textSecondary)
+                            .listRowSeparator(.hidden)
+                            .accessibilityIdentifier("player-ended")
+                    }
+                }
             }
             // A finger on the page, or a scroll that it started, holds the rows. The spell begins when the page is still.
             // A scroll by the app itself is not a touch. The list has no tap gesture of its own, so row controls keep their
@@ -565,23 +603,24 @@ struct RecordingView: View {
                 spell.touching(phase == .tracking || phase == .interacting || phase == .decelerating)
             }
             .onChange(of: model.isScrubbingTimeline) { _, scrubbing in spell.hold(scrubbing) }
-            .task(id: isOverlay && isPlayingThis ? player.movement : nil) {
-                guard isOverlay, isPlayingThis, let movement = player.movement,
-                    recording.songs.indices.contains(movement)
-                else { return }
-                // Opening the player shows its header. Only a later movement change follows the rows.
-                guard followsMovement else {
-                    followsMovement = true
-                    return
-                }
-                while let rest = spell.wait() {
-                    try? await Task.sleep(for: rest)
-                    if Task.isCancelled { return }
-                }
-                withAnimation(Motion.glide.animation(reduceMotion: reduceMotion)) {
-                    proxy.scrollTo(recording.songs[movement].id, anchor: UnitPoint(x: 0.5, y: 0.2))
+            // specimen player.html: each second, after a quiet spell, the player brings the playing row back.
+            .task(id: isOverlay && isPlayingThis) {
+                guard isOverlay, isPlayingThis else { return }
+                // Opening the player counts as a touch, so its header shows for one spell.
+                spell.touch()
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: .seconds(1))
+                    guard let movement = player.movement, recording.songs.indices.contains(movement),
+                        spell.follow(movement)
+                    else { continue }
+                    withAnimation(Motion.glide.animation(reduceMotion: reduceMotion)) {
+                        proxy.scrollTo(recording.songs[movement].id, anchor: UnitPoint(x: 0.5, y: 0.2))
+                    }
                 }
             }
+            // The bar moves from row to row in one motion, so the rows do not jump when a movement starts.
+            .animation(
+                Motion.inPlace.animation(reduceMotion: reduceMotion), value: isPlayingThis ? player.movement : nil)
         }
         .pageTitle(isOverlay ? "" : work.title)
         .environment(

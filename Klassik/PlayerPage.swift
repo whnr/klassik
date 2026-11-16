@@ -44,9 +44,13 @@ struct PlayerPage: Sendable {
 /// When the player may scroll by itself (ADR 0027): only after a quiet spell without touches, and never while
 /// a scrub on the timeline holds the rows still.
 struct QuietSpell: Sendable {
-    static let length = Duration.seconds(3)
+    /// specimen player.html waits 8000 ms.
+    static let length = Duration.seconds(8)
 
     private var lastTouch: ContinuousClock.Instant?
+    /// The movement and the touch of the last follow. The page follows again only when one of them changes,
+    /// so a still page does not scroll each second.
+    private var followed: (movement: Int, touch: ContinuousClock.Instant?)?
     private(set) var isHeld = false
     private(set) var isTouched = false
 
@@ -74,5 +78,13 @@ struct QuietSpell: Sendable {
         guard let lastTouch else { return nil }
         let rest = Self.length - (now - lastTouch)
         return rest > .zero ? rest : nil
+    }
+
+    /// True when the page should bring the playing row back now. Then the follow counts as done.
+    mutating func follow(_ movement: Int, at now: ContinuousClock.Instant = .now) -> Bool {
+        guard wait(at: now) == nil else { return false }
+        if let followed, followed.movement == movement, followed.touch == lastTouch { return false }
+        followed = (movement, lastTouch)
+        return true
     }
 }

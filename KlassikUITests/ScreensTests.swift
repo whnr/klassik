@@ -318,6 +318,31 @@ final class PlaybackScreens: ScreensTestCase {
         slidePlayerDown(app)
     }
 
+    /// The end of the queue takes the place of the next items, at the foot of the player (specimen player.html).
+    /// Stop ends the queue in the same place. On the walk simulator a natural end does not arrive reliably.
+    @MainActor
+    func testQueueEndsAtTheFootOfThePlayer() throws {
+        let app = try launchAndConnect()
+        openRecording(app)
+        startPlaying(app)
+        openPlayer(app)
+        let player = app.descendants(matching: .any)["player-overlay"].firstMatch
+        let stop = reveal(player.buttons["Stop"].firstMatch, in: app)
+        XCTAssertTrue(stop.exists, "No Stop button in the player")
+        stop.tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)["mini-player"].firstMatch.waitForNonExistence(timeout: 10),
+            "Stop did not end the queue")
+        let ended = reveal(player.staticTexts["player-ended"], in: app)
+        XCTAssertTrue(ended.exists, "No end message in the player")
+        XCTAssertEqual(ended.label, "Playback stopped.")
+        let tags = player.buttons["raw-tags"]
+        XCTAssertTrue(tags.exists, "No Tags and Grouping row above the end")
+        XCTAssertGreaterThan(ended.frame.minY, tags.frame.maxY, "The end shows above the rows, not at the foot")
+        snap(app, "16e-queue-ended")
+        slidePlayerDown(app)
+    }
+
     @MainActor
     func testOverlayLinkUsesTheUnderlyingStack() throws {
         let app = try launchAndConnect()
@@ -459,7 +484,12 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(first.waitForExistence(timeout: 10))
         let before = first.frame
         play.tap()
-        pause(app)
+        // While a recording of the work plays, the pill pauses it (sz-swi9.4).
+        XCTAssertTrue(eventually(timeout: 15) { play.label == "Pause" }, "The pill reads \(play.label) while it plays")
+        snap(app, "04c-work-playing")
+        play.tap()
+        XCTAssertTrue(eventually(timeout: 10) { play.label == "Resume" }, "The pill reads \(play.label) after a pause")
+        XCTAssertEqual(app.buttons["mini-player-pause"].label, "Resume", "The pill did not pause the playback")
         // The playing row tints in place: the row keeps its frame.
         XCTAssertEqual(first.frame, before, "The playing row moved or changed its size")
         snap(app, "04d-work-playing")

@@ -199,6 +199,7 @@ struct WorkView: View {
             }
 
             Section {
+                CountedHeading("Recordings", count: work.recordings.count)
                 ForEach(recordings) { recording in
                     let isPlaying = plays(recording)
                     NavigationLink(value: Page.recording(work: work.id, recording: recording.id)) {
@@ -216,8 +217,6 @@ struct WorkView: View {
                     .foregroundStyle(Palette.textSecondary)
                     .listRowSeparator(.hidden)
                     .pageEdges(top: Layout.workFootTop + Layout.footTop)
-            } header: {
-                CountedHeading("Recordings", count: work.recordings.count)
             }
         }
         .pageTitle(work.title)
@@ -464,22 +463,21 @@ struct RecordingView: View {
                 if let album, album.showsWorkHeadings {
                     ForEach(album.blocks) { block in
                         Section {
+                            heading(of: block)
+                                .pageSectionHeader(true)
                             ForEach(Array(block.tracks.enumerated()), id: \.element.id) { offset, song in
                                 movementRow(
                                     song, at: block.start + offset, page: page,
                                     title: album.title(of: song, in: block))
                             }
-                        } header: {
-                            heading(of: block)
                         }
                     }
                 } else {
                     Section {
+                        SectionHeading(recording.isAlbum ? "Tracks" : "Movements")
                         ForEach(Array(recording.songs.enumerated()), id: \.element.id) { index, song in
                             movementRow(song, at: index, page: page, title: recording.title(of: song))
                         }
-                    } header: {
-                        SectionHeading(recording.isAlbum ? "Tracks" : "Movements")
                     }
                 }
 
@@ -497,13 +495,13 @@ struct RecordingView: View {
                 }
 
                 Section {
-                    OfflineControls(recording: recording, title: work.title)
-                } header: {
                     SectionHeading("Offline")
+                    OfflineControls(recording: recording, title: work.title)
                 }
 
                 if isPlayingThis, !player.upNext.isEmpty {
                     Section {
+                        SectionHeading("Up next")
                         ForEach(player.upNext) { item in
                             Button {
                                 player.playQueued(item.id)
@@ -522,8 +520,6 @@ struct RecordingView: View {
                         }
                         .onDelete { player.removeFromQueue(at: $0) }
                         .onMove { player.moveInQueue(from: $0, to: $1) }
-                    } header: {
-                        SectionHeading("Up next")
                     }
                 }
             }

@@ -186,6 +186,8 @@ struct InkLabel: View {
 }
 
 /// The heading of a section on a content page, in sentence case. Settings keep the system header.
+/// A content page sets it as the first row of its section, not as the section header: a plain list adds padding of
+/// its own above a header and pins the header while the page scrolls, and the specimen has neither.
 struct SectionHeading: View {
     @Environment(\.isPageList) private var isPageList
     let title: String
@@ -291,10 +293,12 @@ extension View {
         pageEdges(top: Layout.rowPadding, bottom: Layout.rowPadding)
     }
 
-    /// The insets of a section heading on a content page. A grouped list keeps the system insets.
+    /// The row of a section heading on a content page. A grouped list keeps the system insets.
     @ViewBuilder func pageSectionHeader(_ isPageList: Bool) -> some View {
         if isPageList {
             pageEdges(top: Layout.sectionTop, bottom: Layout.sectionHeadBottom)
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
         } else {
             self
         }

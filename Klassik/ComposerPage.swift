@@ -87,6 +87,7 @@ struct ComposerPage: View {
                 .listRowSeparator(.hidden)
         }
         Section {
+            CountedHeading("Works", count: rows.reduce(0) { $0 + $1.works.count })
             ForEach(rows) { row in
                 switch row {
                 case .work(let work):
@@ -111,8 +112,6 @@ struct ComposerPage: View {
                     .accessibilityIdentifier("set")
                 }
             }
-        } header: {
-            CountedHeading("Works", count: rows.reduce(0) { $0 + $1.works.count })
         }
         if rows.isEmpty {
             Text("No works with these genres.")
@@ -130,20 +129,18 @@ struct ComposerPage: View {
         if let facts {
             if let bio = facts.bio {
                 Section {
+                    SectionHeading("Biography")
                     Text(bio)
                         .ink()
                         .accessibilityIdentifier("composer-bio")
-                } header: {
-                    SectionHeading("Biography")
                 }
             }
             if !facts.credits.isEmpty {
                 Section {
+                    SectionHeading("Credits")
                     ForEach(facts.credits, id: \.self) { credit in
                         CreditRow(credit: credit)
                     }
-                } header: {
-                    SectionHeading("Credits")
                 }
             }
         } else {
@@ -153,6 +150,7 @@ struct ComposerPage: View {
             }
         }
         Section {
+            SectionHeading("Your tags")
             LabeledContent("Name in your tags", value: composer.name)
                 .ink()
             LabeledContent("Works", value: composer.works.count.formatted())
@@ -162,8 +160,6 @@ struct ComposerPage: View {
                 Button("Choose Composer Again") { Task { await people.chooseAgain(composer: composer.name) } }
                     .accessibilityIdentifier("composer-choose-again")
             }
-        } header: {
-            SectionHeading("Your tags")
         }
     }
 }
@@ -235,6 +231,7 @@ private struct ResolutionNotice: View {
         switch people.resolution(ofComposer: tag) {
         case .pick(let matches):
             Section {
+                SectionHeading("Which composer is this?")
                 ForEach(matches) { match in
                     Button {
                         Task { await people.choose(match, forComposer: tag) }
@@ -251,8 +248,6 @@ private struct ResolutionNotice: View {
                     .accessibilityIdentifier("composer-match")
                 }
                 Button("None of These") { Task { await people.choose(nil, forComposer: tag) } }
-            } header: {
-                SectionHeading("Which composer is this?")
             } footer: {
                 Text("Your tag gives only \"\(tag)\" and your works do not say which composer it is.")
             }

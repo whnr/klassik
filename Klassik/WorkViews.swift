@@ -357,7 +357,11 @@ private struct RecordingRow: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            if isPlaying { slot }
+            // Every row keeps the room of the slot, so the playing row tints in place and its text does not rewrap.
+            slot
+                .opacity(isPlaying ? 1 : 0)
+                .disabled(!isPlaying)
+                .accessibilityHidden(!isPlaying)
         }
     }
 

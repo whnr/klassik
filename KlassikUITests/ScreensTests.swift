@@ -455,8 +455,14 @@ final class PlaybackScreens: ScreensTestCase {
         work.tap()
         let play = app.buttons["play-work"]
         XCTAssertTrue(play.waitForExistence(timeout: 10))
+        let first = app.buttons.matching(identifier: "recording").firstMatch
+        XCTAssertTrue(first.waitForExistence(timeout: 10))
+        let before = first.frame
         play.tap()
         pause(app)
+        // The playing row tints in place: the row keeps its frame.
+        XCTAssertEqual(first.frame, before, "The playing row moved or changed its size")
+        snap(app, "04d-work-playing")
     }
 
     /// Play Whole Album on a recording page starts the album, not only the recording (build 48, item 11).
@@ -1350,6 +1356,12 @@ class ScreensTestCase: XCTestCase {
         expectGap(
             from: meta, to: play, Layout.headBottom + Layout.buttonRowTop, "Meta to Play", upperText: Layout.metaLine)
         expectGap(from: play, to: heading, Layout.sectionTop, "Play to Recordings", lowerText: Layout.sectionHeading)
+        let recordings = app.buttons.matching(identifier: "recording")
+        if recordings.count > 1 {
+            expectHairline(
+                between: recordings.element(boundBy: 0), and: recordings.element(boundBy: 1), in: app,
+                "Recording hairline")
+        }
     }
 
     /// The composer page without a picture against person.html: Chronology, the tabs, the chips, the Works heading.

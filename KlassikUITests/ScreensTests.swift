@@ -619,6 +619,11 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(app.buttons["recording-slot"].waitForExistence(timeout: 10))
         XCTAssertTrue(rows.firstMatch.buttons["recording-slot"].exists)
         pause(app)
+        back(app, times: 3)
+        app.buttons["library-favourites"].tap()
+        XCTAssertEqual(app.buttons.matching(identifier: "favourite").count, 2)
+        XCTAssertTrue(app.buttons.matching(identifier: "work").firstMatch.exists)
+        snap(app, "06d-favourites")
     }
 
 }

@@ -30,6 +30,24 @@ final class RecordingOrder {
         var id: String { recording.id }
     }
 
+    struct Favourite: Identifiable {
+        var work: WorkIndex.Work
+        var recording: WorkIndex.Recording
+        var id: String { recording.id }
+    }
+
+    var favouriteWorks: [WorkIndex.Work] {
+        library.index.composers.flatMap(\.works).filter { isFavourite($0) }
+    }
+
+    var favouriteRecordings: [Favourite] {
+        library.index.composers.flatMap(\.works).flatMap { work in
+            rows(of: work).filter(\.isFavourite).map { Favourite(work: work, recording: $0.recording) }
+        }
+    }
+
+    var favouriteCount: Int { favouriteWorks.count + favouriteRecordings.count }
+
     private let library: Library
     private let store: DeviceStore?
     private let server: (any FavouriteServer)?

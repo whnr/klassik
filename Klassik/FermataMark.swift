@@ -32,11 +32,10 @@ struct FermataShape: Shape {
 /// The favourite mark after a line of text. It is 0.64 em high and sits on the baseline (ADR 0032).
 struct FermataMark: View {
     let isSet: Bool
-    var isTitle = false
     @ScaledMetric(relativeTo: .body) private var em: CGFloat = 17
 
     var body: some View {
-        let height = em * (isTitle ? 16.0 / 9 : 1) * 0.64
+        let height = em * 0.64
         FermataShape()
             .fill(isSet ? Palette.favourite : Palette.favouriteOff)
             .frame(width: height * 17 / 10.5, height: height)

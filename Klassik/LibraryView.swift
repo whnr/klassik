@@ -48,7 +48,7 @@ struct LibraryView: View {
     private func count(of row: LibraryRow) -> Int {
         switch row {
         case .composers: model.library.index.composers.count
-        case .favourites: model.library.index.favourites.count
+        case .favourites: model.recordingOrder.favouriteCount
         }
     }
 
@@ -62,16 +62,6 @@ struct LibraryView: View {
             ? "Syncing… \(library.received) tracks"
             : "Synced \(syncedAt.formatted(.relative(presentation: .named)))."
     }
-}
-
-extension WorkIndex {
-    /// One recording that the listener marked. The server stars all its tracks.
-    struct Favourite: Identifiable {
-        var work: Work
-        var recording: Recording
-        var id: String { recording.id }
-    }
-
 }
 
 /// Every composer of the library.
@@ -103,14 +93,10 @@ struct FavouritesView: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        let works = model.library.index.composers.flatMap(\.works)
-        let favourites = works.flatMap { work in
-            model.recordingOrder.rows(of: work).filter(\.isFavourite).map {
-                WorkIndex.Favourite(work: work, recording: $0.recording)
-            }
-        }
+        let works = model.recordingOrder.favouriteWorks
+        let favourites = model.recordingOrder.favouriteRecordings
         PageList {
-            ForEach(works.filter { model.recordingOrder.isFavourite($0) }) { work in
+            ForEach(works) { work in
                 WorkRow(work: work)
             }
             ForEach(favourites) { favourite in
@@ -132,7 +118,7 @@ struct FavouritesView: View {
             }
         }
         .overlay {
-            if favourites.isEmpty && !works.contains(where: { model.recordingOrder.isFavourite($0) }) {
+            if favourites.isEmpty && works.isEmpty {
                 ContentUnavailableView(
                     "No Favourites", systemImage: "star",
                     description: Text("Swipe a recording and choose Favourite to see it here."))

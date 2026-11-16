@@ -12,13 +12,13 @@ struct WorkTimelineView: View {
         PageList {
             ForEach(timeline.sections) { section in
                 Section {
-                    ForEach(section.entries) { TimelineRow(entry: $0) }
-                } header: {
                     SectionHeading("\(section.period.title) · \(section.period.years)")
+                    ForEach(section.entries) { TimelineRow(entry: $0) }
                 }
             }
             if !timeline.undated.isEmpty {
                 Section {
+                    SectionHeading("Undated")
                     ForEach(timeline.undated) { work in
                         NavigationLink(value: Page.work(work.id)) {
                             VStack(alignment: .leading) {
@@ -30,8 +30,6 @@ struct WorkTimelineView: View {
                             }
                         }
                     }
-                } header: {
-                    SectionHeading("Undated")
                 } footer: {
                     Text("MusicBrainz has no dates for these works or their composers.")
                 }

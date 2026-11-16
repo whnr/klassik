@@ -111,6 +111,7 @@ extension ScaledMetric where Value == CGFloat {
 }
 
 /// The plain list of a content page (ADR 0030): rows and hairlines on the paper ground, no cards.
+/// Every row takes the specimen row insets. A row that sets its own insets keeps them.
 struct PageList<Content: View>: View {
     @Environment(\.pageHeading) private var heading
     @ViewBuilder let content: Content
@@ -120,9 +121,15 @@ struct PageList<Content: View>: View {
             PageHeading(title: heading, plain: true)
             BackTipRow()
                 .listRowBackground(Color.clear)
-            content.listRowBackground(Color.clear)
+            content
+                .listRowBackground(Color.clear)
+                .pageRow()
         }
         .listStyle(.plain)
+        // The specimen gaps are the whole distance between two lines. A system minimum would add to them.
+        .environment(\.defaultMinListRowHeight, 0)
+        .environment(\.defaultMinListHeaderHeight, 0)
+        .environment(\.isPageList, true)
         .scrollContentBackground(.hidden)
         .background(Palette.backgroundPage)
     }
@@ -179,7 +186,10 @@ struct InkLabel: View {
 }
 
 /// The heading of a section on a content page, in sentence case. Settings keep the system header.
+/// A content page sets it as the first row of its section, not as the section header: a plain list adds padding of
+/// its own above a header and pins the header while the page scrolls, and the specimen has neither.
 struct SectionHeading: View {
+    @Environment(\.isPageList) private var isPageList
     let title: String
 
     init(_ title: String) {
@@ -188,23 +198,24 @@ struct SectionHeading: View {
 
     var body: some View {
         Text(title)
-            .typeStyle(.sectionHeading)
+            .typeStyle(Layout.sectionHeading)
             .foregroundStyle(Palette.textPrimary)
             .textCase(nil)
             .multilineTextAlignment(.leading)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityIdentifier("section-heading")
+            .pageSectionHeader(isPageList)
     }
 }
 
 /// The heading scrolls as content, so UIKit cannot collapse it before it crosses the soft edge.
 private struct PageHeading: View {
+    @AppStorage(TimelineSide.storageKey) private var side = TimelineSide.standard
+    @Environment(\.pageHeadingBottom) private var bottom
     let title: String
     @Environment(\.pageFavourite) private var favourite
     /// A plain list sets the heading as the specimen does: close under the back arrow.
     let plain: Bool
-
-    private static let plainInsets = EdgeInsets(
-        top: Space.xs.points, leading: 20, bottom: Space.s.points, trailing: 20)
 
     var body: some View {
         if !title.isEmpty {
@@ -216,14 +227,14 @@ private struct PageHeading: View {
                     Text(title).accessibilityIdentifier("page-heading")
                 }
             }
-            .typeStyle(.pageTitle)
+            .typeStyle(Layout.pageTitle)
             .foregroundStyle(Palette.textPrimary)
             .multilineTextAlignment(.leading)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityAddTraits(.isHeader)
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
-            .listRowInsets(plain ? Self.plainInsets : nil)
+            .listRowInsets(plain ? Layout.edges(side: side, top: Layout.headTop, bottom: bottom) : nil)
         }
     }
 }
@@ -246,4 +257,69 @@ struct FavouriteHeading {
 extension EnvironmentValues {
     @Entry var pageFavourite: FavouriteHeading? = nil
     @Entry var pageHeading = ""
+    /// The gap under the page title. A page with meta lines under its title sets the specimen gap to them.
+    @Entry var pageHeadingBottom = Layout.headBottom
+    /// True inside `PageList`. A grouped list keeps the system insets of its headers.
+    @Entry var isPageList = false
+}
+
+extension Layout {
+    /// The page insets for a timeline on `side`: the timeline side keeps clear of the timeline.
+    /// Each content page uses them. Settings and sheets keep the system insets.
+    static func edges(side: TimelineSide, top: CGFloat = 0, bottom: CGFloat = 0) -> EdgeInsets {
+        EdgeInsets(
+            top: top, leading: side == .left ? timelineEdge : edge,
+            bottom: bottom, trailing: side == .left ? edge : timelineEdge)
+    }
+}
+
+/// Sets the specimen page insets on a list row, for the timeline side that the listener chose.
+private struct PageEdges: ViewModifier {
+    @AppStorage(TimelineSide.storageKey) private var side = TimelineSide.standard
+    let top: CGFloat
+    let bottom: CGFloat
+
+    func body(content: Content) -> some View {
+        content.listRowInsets(Layout.edges(side: side, top: top, bottom: bottom))
+    }
+}
+
+/// The page edges of the timeline side without a list row, such as a scrolling row of chips.
+private struct PagePadding: ViewModifier {
+    @AppStorage(TimelineSide.storageKey) private var side = TimelineSide.standard
+
+    func body(content: Content) -> some View {
+        let insets = Layout.edges(side: side)
+        content
+            .padding(.leading, insets.leading)
+            .padding(.trailing, insets.trailing)
+    }
+}
+
+extension View {
+    /// The row insets of a content page.
+    func pageEdges(top: CGFloat = 0, bottom: CGFloat = 0) -> some View {
+        modifier(PageEdges(top: top, bottom: bottom))
+    }
+
+    /// The insets of a row of a content page.
+    func pageRow() -> some View {
+        pageEdges(top: Layout.rowPadding, bottom: Layout.rowPadding)
+    }
+
+    /// The row of a section heading on a content page. A grouped list keeps the system insets.
+    @ViewBuilder func pageSectionHeader(_ isPageList: Bool) -> some View {
+        if isPageList {
+            pageEdges(top: Layout.sectionTop, bottom: Layout.sectionHeadBottom)
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+        } else {
+            self
+        }
+    }
+
+    /// Leading and trailing page edges as padding.
+    func pagePadding() -> some View {
+        modifier(PagePadding())
+    }
 }

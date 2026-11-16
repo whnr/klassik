@@ -19,6 +19,7 @@ final class PlacesScreens: ScreensTestCase {
         let heading = app.staticTexts["page-heading"]
         XCTAssertTrue(heading.exists)
         XCTAssertLessThan(heading.frame.minY, 130)
+        expectPageEdges(drawn(heading, in: app, top: Layout.headTop), in: app, "Composers title")
     }
 
     @MainActor
@@ -240,6 +241,7 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertTrue(chips.firstMatch.waitForExistence(timeout: 10), "The composer page shows no genre chips")
         XCTAssertFalse(app.descendants(matching: .any)["composer-picture"].exists)
         snap(app, "03d-composer-no-picture")
+        checkComposerPage(app)
 
         app.buttons.matching(NSPredicate(format: "identifier == 'genre-chip' AND label == 'Solo'")).firstMatch.tap()
         XCTAssertTrue(app.buttons.matching(identifier: "work").firstMatch.waitForExistence(timeout: 10))
@@ -414,6 +416,7 @@ final class PlaybackScreens: ScreensTestCase {
         let composed = app.buttons.matching(NSPredicate(format: "identifier == 'composed' AND label CONTAINS '1844'"))
         XCTAssertTrue(composed.firstMatch.waitForExistence(timeout: 30), app.buttons["composed"].label)
         snap(app, "04-work")
+        checkWorkPage(app)
 
         recording.tap()
         XCTAssertTrue(app.buttons["play-recording"].waitForExistence(timeout: 10))
@@ -736,6 +739,11 @@ final class TimelineScreens: ScreensTestCase {
             app.buttons.matching(identifier: "recording").firstMatch.waitForExistence(timeout: 10),
             "The swipe did not go back to the work")
         XCTAssertEqual(bar.value as? String, place, "The swipe scrubbed")
+        // The timeline side takes the wider inset, so the content keeps clear of the bar.
+        let title = drawn(app.staticTexts["page-heading"], in: app, side: .left)
+        let play = drawn(app.buttons["play-work"], in: app, side: .left)
+        expectPageEdges(title, in: app, side: .left, "Work title on the left")
+        expectPageEdges(play, in: app, side: .left, trailing: true, "Play on the left")
 
         back(app, times: 2)
         openPlace(app, "Chronology")
@@ -1164,6 +1172,141 @@ class ScreensTestCase: XCTestCase {
         } else {
             XCTAssertGreaterThanOrEqual(tabs.first!.minX, cover.maxX, "The tabs run under the cover")
         }
+    }
+
+    /// What an element draws on the screen. SwiftUI merges a list row that holds one accessible element into its
+    /// cell, and the element then reports the whole cell. For such a cell the drawn columns give the horizontal
+    /// extent, and the row insets that the view sets inside the cell, `top` and `bottom`, give the vertical extent.
+    /// So a gap that the system adds between two cells still shows. Any other element reports its own frame.
+    @MainActor
+    func drawn(
+        _ element: XCUIElement, in app: XCUIApplication, side: PillEdge = .right, top: CGFloat = 0,
+        bottom: CGFloat = 0
+    ) -> CGRect {
+        let frame = element.frame
+        guard frame.width >= app.frame.width - 1, let ink = inkColumns(of: element, side: side) else { return frame }
+        return CGRect(
+            x: frame.minX + ink.lowerBound, y: frame.minY + top, width: ink.upperBound - ink.lowerBound,
+            height: frame.height - top - bottom)
+    }
+
+    /// The span of the columns of an element screenshot that differ from the page ground, in points from its
+    /// leading edge. The ground is sampled on the side away from the timeline; the timeline side skips the columns
+    /// of the timeline bar. The top and bottom point are skipped, so a row hairline does not count.
+    @MainActor
+    func inkColumns(of element: XCUIElement, side: PillEdge) -> Range<CGFloat>? {
+        guard let image = element.screenshot().image.cgImage, element.frame.width > 0 else { return nil }
+        let width = image.width
+        let height = image.height
+        let scale = CGFloat(width) / element.frame.width
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        let drawn = pixels.withUnsafeMutableBytes { buffer -> Bool in
+            guard
+                let context = CGContext(
+                    data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8,
+                    bytesPerRow: width * 4, space: CGColorSpaceCreateDeviceRGB(),
+                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+            else { return false }
+            context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+            return true
+        }
+        guard drawn else { return nil }
+        // Each row has its own ground, so a soft edge that shades the screen from the top does not count as ink.
+        func differs(_ x: Int, _ y: Int, from groundX: Int) -> Bool {
+            let index = (y * width + x) * 4
+            let ground = (y * width + groundX) * 4
+            return (0..<3).reduce(0) { $0 + abs(Int(pixels[index + $1]) - Int(pixels[ground + $1])) } > 30
+        }
+        let rows = Array(stride(from: Int(scale), to: height - Int(scale), by: 1))
+        let groundColumn = side == .right ? Int(scale) : width - 1 - Int(scale)
+        let skip = Int(((Measure.timeline + Measure.timelineCap) * scale).rounded(.up))
+        let columns = side == .right ? 0..<(width - skip) : skip..<width
+        let ink = columns.filter { x in rows.contains { differs(x, $0, from: groundColumn) } }
+        guard let first = ink.first, let last = ink.last else { return nil }
+        return CGFloat(first) / scale..<CGFloat(last + 1) / scale
+    }
+
+    /// The distance of a drawn frame from the display edges against the page edges of Layout.swift. The timeline
+    /// side takes the wider inset. A text checks only its leading edge: its frame can run to the trailing inset.
+    /// The drawn edge of a letter sits up to a point inside its frame, so a text takes a wider tolerance.
+    @MainActor
+    func expectPageEdges(
+        _ frame: CGRect, in app: XCUIApplication, side: PillEdge = .right, trailing: Bool = false,
+        _ name: String, file: StaticString = #filePath, line: UInt = #line
+    ) {
+        XCTAssertGreaterThan(frame.width, 0, "No \(name)", file: file, line: line)
+        let left = side == .left ? Layout.timelineEdge : Layout.edge
+        let right = side == .left ? Layout.edge : Layout.timelineEdge
+        XCTAssertEqual(
+            frame.minX - app.frame.minX, left, accuracy: trailing ? 1 : 2, "\(name): left inset, frame \(frame)",
+            file: file, line: line)
+        if trailing {
+            XCTAssertEqual(
+                app.frame.maxX - frame.maxX, right, accuracy: 1, "\(name): right inset, frame \(frame)",
+                file: file, line: line)
+        }
+    }
+
+    /// The vertical gap from the foot of one drawn frame to the top of the next, against a gap of Layout.swift.
+    @MainActor
+    func expectGap(
+        from upper: CGRect, to lower: CGRect, _ gap: CGFloat, _ name: String,
+        file: StaticString = #filePath, line: UInt = #line
+    ) {
+        XCTAssertFalse(upper.isEmpty || lower.isEmpty, "\(name): an element is missing", file: file, line: line)
+        let measured = lower.minY - upper.maxY
+        XCTAssertEqual(
+            measured, gap, accuracy: 1.5, "\(name): gap \(measured), \(upper) to \(lower)",
+            file: file, line: line)
+    }
+
+    /// The work page against work.html: title, meta line, Play, then the Recordings heading.
+    @MainActor
+    func checkWorkPage(_ app: XCUIApplication) {
+        let titleElement = app.staticTexts["page-heading"]
+        let composerElement = app.buttons["work-composer"]
+        let playElement = app.buttons["play-work"]
+        let headingElement = app.descendants(matching: .any)["section-heading"].firstMatch
+        for element in [titleElement, composerElement, playElement, headingElement] {
+            XCTAssertTrue(element.waitForExistence(timeout: 10), "No \(element)")
+        }
+        let title = drawn(titleElement, in: app, top: Layout.headTop, bottom: Layout.metaTop)
+        let composer = drawn(composerElement, in: app)
+        let play = drawn(playElement, in: app, top: Layout.buttonRowTop)
+        let heading = drawn(headingElement, in: app, top: Layout.sectionTop, bottom: Layout.sectionHeadBottom)
+        expectPageEdges(title, in: app, "Work title")
+        expectPageEdges(composer, in: app, "Composer line")
+        expectPageEdges(play, in: app, trailing: true, "Play")
+        expectPageEdges(heading, in: app, "Recordings heading")
+        expectGap(from: title, to: composer, Layout.metaTop, "Title to meta")
+        // The composer and the date share the meta line; the lower of the two ends it.
+        let date = app.buttons["composed"].firstMatch
+        let meta = date.exists && date.frame.maxY > composer.maxY ? drawn(date, in: app) : composer
+        expectGap(from: meta, to: play, Layout.headBottom + Layout.buttonRowTop, "Meta to Play")
+        expectGap(from: play, to: heading, Layout.sectionTop, "Play to Recordings")
+    }
+
+    /// The composer page without a picture against person.html: Chronology, the tabs, the chips, the Works heading.
+    @MainActor
+    func checkComposerPage(_ app: XCUIApplication) {
+        let chronologyElement = app.buttons["composer-chronology"]
+        let tabsElement = app.descendants(matching: .any)["composer-tabs"].firstMatch
+        let chipElement = app.buttons.matching(identifier: "genre-chip").firstMatch
+        let headingElement = app.descendants(matching: .any)["section-heading"].firstMatch
+        for element in [chronologyElement, tabsElement, chipElement, headingElement] {
+            XCTAssertTrue(element.waitForExistence(timeout: 10), "No \(element)")
+        }
+        let chronology = drawn(chronologyElement, in: app)
+        let tabs = drawn(tabsElement, in: app, top: Layout.segmentedTop)
+        let chip = drawn(chipElement, in: app)
+        let heading = drawn(headingElement, in: app, top: Layout.sectionTop, bottom: Layout.sectionHeadBottom)
+        expectPageEdges(chronology, in: app, trailing: true, "Chronology")
+        expectPageEdges(tabs, in: app, trailing: true, "Works and About")
+        expectPageEdges(chip, in: app, "First chip")
+        expectPageEdges(heading, in: app, "Works heading")
+        expectGap(from: chronology, to: tabs, Layout.segmentedTop, "Chronology to tabs")
+        expectGap(from: tabs, to: chip, Layout.chipsTop, "Tabs to chips")
+        expectGap(from: chip, to: heading, Layout.sectionTop, "Chips to Works")
     }
 
     /// Opens a recording, leaves it paused in the player and goes back to the list of composers.

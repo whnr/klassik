@@ -193,25 +193,26 @@ struct WorkView: View {
         PageList {
             WorkHeader(work: work)
                 .listRowSeparator(.hidden)
-                .listRowInsets(Self.sideInsets)
+                .pageEdges(bottom: Layout.headBottom)
             if let recording = model.recordingOrder.reference(of: work) {
                 Button {
                     model.playback.play(QueueItem(work: work, recording: recording))
                 } label: {
                     Label("Play", systemImage: "play.fill")
-                        .typeStyle(.headline)
+                        .typeStyle(Layout.capsuleLabel)
                         .foregroundStyle(Palette.onAccent)
-                        .frame(maxWidth: .infinity, minHeight: Measure.hitTarget)
+                        .frame(maxWidth: .infinity, minHeight: Layout.capsuleHeight)
                         .background(Palette.accentFill, in: .capsule)
                         .contentShape(.capsule)
                 }
                 .buttonStyle(.plain)
                 .listRowSeparator(.hidden)
-                .listRowInsets(Self.sideInsets)
+                .pageEdges(top: Layout.buttonRowTop)
                 .accessibilityIdentifier("play-work")
             }
 
             Section {
+                CountedHeading("Recordings", count: work.recordings.count)
                 ForEach(recordings) { row in
                     let recording = row.recording
                     let isPlaying = plays(recording)
@@ -225,23 +226,19 @@ struct WorkView: View {
                     // Tint identifies the playing recording while the listener browses.
                     .listRowBackground(isPlaying ? Palette.tint.color.opacity(0.12) : Color.clear)
                     .itemActions(QueueItem(work: work, recording: recording), downloads: true, favourite: true)
-                    .listRowInsets(Self.rowInsets)
                     .accessibilityIdentifier("recording")
                     .moveDisabled(!row.isFavourite)
                 }
                 .onMove { model.recordingOrder.moveFavourites(of: work, from: $0, to: $1) }
                 Text("Favourite recordings come first, in your order. Then the newest.")
-                    .typeStyle(.footnote)
+                    .typeStyle(Layout.footnote)
                     .foregroundStyle(Palette.textSecondary)
                     .listRowSeparator(.hidden)
-                    .listRowInsets(Self.sideInsets)
-            } header: {
-                // A plain list indents its section header by 16 pt. The page title and rows sit at 20 pt.
-                CountedHeading("Recordings", count: work.recordings.count)
-                    .padding(.leading, 4)
+                    .pageEdges(top: Layout.workFootTop + Layout.footTop)
             }
         }
         .pageTitle(work.title)
+        .environment(\.pageHeadingBottom, Layout.metaTop)
         .environment(
             \.pageFavourite,
             FavouriteHeading(
@@ -251,10 +248,6 @@ struct WorkView: View {
         .toolbar { if recordings.filter(\.isFavourite).count > 1 { EditButton() } }
     }
 
-    private static let rowInsets = EdgeInsets(
-        top: Space.betweenGroups.points / 2, leading: 20, bottom: Space.betweenGroups.points / 2, trailing: 20)
-    private static let sideInsets = EdgeInsets(top: Space.m.points, leading: 20, bottom: Space.m.points, trailing: 20)
-
     private func plays(_ recording: WorkIndex.Recording) -> Bool {
         guard let item = model.playback.item else { return false }
         return item.work.id == work.id && item.recording.id == recording.id
@@ -263,6 +256,7 @@ struct WorkView: View {
 
 /// A section heading with its count in a lighter step: "Recordings (3)".
 struct CountedHeading: View {
+    @Environment(\.isPageList) private var isPageList
     let title: String
     let count: Int
 
@@ -273,12 +267,14 @@ struct CountedHeading: View {
 
     var body: some View {
         Text("\(title) \(Text("(\(count))").foregroundStyle(Palette.textSecondary))")
-            .typeStyle(.sectionHeading)
+            .typeStyle(Layout.sectionHeading)
             .foregroundStyle(Palette.textPrimary)
             .textCase(nil)
             .multilineTextAlignment(.leading)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("section-heading")
+            .pageSectionHeader(isPageList)
     }
 }
 
@@ -349,8 +345,9 @@ private struct RecordingRow: View {
     let playsFirst: Bool
     let isPlaying: Bool
     @Environment(AppModel.self) private var model
-    @ScaledMetric(relativeTo: .body) private var cover: CGFloat = 56
+    @ScaledMetric(relativeTo: .body) private var cover = Layout.rowCover
     @ScaledMetric(space: .inGroup) private var gap: CGFloat
+    @ScaledMetric(relativeTo: .body) private var fermataGap = Layout.fermataGap * TypeStyle.body.size
 
     /// The conductor and soloists tell recordings apart. Without them the ensembles lead.
     private var lead: [String] {
@@ -365,10 +362,10 @@ private struct RecordingRow: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: Space.m.points) {
+        HStack(alignment: .top, spacing: Layout.rowGap) {
             CoverImage(id: recording.songs.first?.coverArt, points: cover)
                 .frame(width: cover, height: cover)
-                .clipShape(.rect(cornerRadius: Radius.s))
+                .clipShape(.rect(cornerRadius: Layout.coverCorner))
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: gap) {
                 title
@@ -395,7 +392,7 @@ private struct RecordingRow: View {
     }
 
     private var title: some View {
-        HStack(alignment: .firstTextBaseline, spacing: Space.s.points) {
+        HStack(alignment: .firstTextBaseline, spacing: fermataGap) {
             Text(lead.isEmpty ? recording.album : Roles.Line.list(lead))
                 .ink()
                 .fixedSize(horizontal: false, vertical: true)
@@ -458,12 +455,13 @@ struct RecordingView: View {
             PageList {
                 Section {
                     if isOverlay {
-                        VStack(spacing: Space.m.points) {
-                            CoverImage(id: recording.songs.first?.coverArt, points: Measure.coverPage)
-                                .frame(width: Measure.coverPage, height: Measure.coverPage)
-                                .clipShape(.rect(cornerRadius: Radius.l))
+                        VStack(spacing: Layout.bigCoverBottom) {
+                            CoverImage(id: recording.songs.first?.coverArt, points: Layout.bigCover)
+                                .frame(width: Layout.bigCover, height: Layout.bigCover)
+                                .clipShape(.rect(cornerRadius: Layout.bigCoverCorner))
                             if recording.isAlbum {
-                                Text(work.title).typeStyle(.pageTitle).ink().accessibilityIdentifier("player-title")
+                                Text(work.title).typeStyle(Layout.pageTitle).ink()
+                                    .accessibilityIdentifier("player-title")
                             } else {
                                 favouriteButton
                             }
@@ -493,22 +491,21 @@ struct RecordingView: View {
                 if let album, album.showsWorkHeadings {
                     ForEach(album.blocks) { block in
                         Section {
+                            heading(of: block)
+                                .pageSectionHeader(true)
                             ForEach(Array(block.tracks.enumerated()), id: \.element.id) { offset, song in
                                 movementRow(
                                     song, at: block.start + offset, page: page,
                                     title: album.title(of: song, in: block))
                             }
-                        } header: {
-                            heading(of: block)
                         }
                     }
                 } else {
                     Section {
+                        SectionHeading(recording.isAlbum ? "Tracks" : "Movements")
                         ForEach(Array(recording.songs.enumerated()), id: \.element.id) { index, song in
                             movementRow(song, at: index, page: page, title: recording.title(of: song))
                         }
-                    } header: {
-                        SectionHeading(recording.isAlbum ? "Tracks" : "Movements")
                     }
                 }
 
@@ -526,13 +523,13 @@ struct RecordingView: View {
                 }
 
                 Section {
-                    OfflineControls(recording: recording, title: work.title)
-                } header: {
                     SectionHeading("Offline")
+                    OfflineControls(recording: recording, title: work.title)
                 }
 
                 if isPlayingThis, !player.upNext.isEmpty {
                     Section {
+                        SectionHeading("Up next")
                         ForEach(player.upNext) { item in
                             Button {
                                 player.playQueued(item.id)
@@ -551,8 +548,6 @@ struct RecordingView: View {
                         }
                         .onDelete { player.removeFromQueue(at: $0) }
                         .onMove { player.moveInQueue(from: $0, to: $1) }
-                    } header: {
-                        SectionHeading("Up next")
                     }
                 }
             }
@@ -603,7 +598,7 @@ struct RecordingView: View {
 
     /// What every track shares, in centred lines.
     private func header(_ page: PlayerPage) -> some View {
-        VStack(spacing: Space.xs.points) {
+        VStack(spacing: Layout.heroGap) {
             if let composer = page.composer {
                 Text(composer)
                     .typeStyle(.headline)
@@ -746,7 +741,7 @@ private struct MovementRow: View {
             Image(systemName: "play.fill")
                 .typeStyle(.caption1)
                 .foregroundStyle(Palette.textSecondary)
-                .frame(width: Measure.hitTarget * 0.7, height: Measure.hitTarget * 0.7)
+                .frame(width: Layout.roundButton, height: Layout.roundButton)
                 .background(Palette.fillQuiet, in: .circle)
                 .frame(width: Measure.hitTarget, height: Measure.hitTarget)
                 .contentShape(.rect)

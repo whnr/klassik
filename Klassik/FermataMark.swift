@@ -32,13 +32,12 @@ struct FermataShape: Shape {
 /// The favourite mark after a line of text. It is 0.64 em high and sits on the baseline (ADR 0032).
 struct FermataMark: View {
     let isSet: Bool
-    @ScaledMetric(relativeTo: .body) private var em: CGFloat = 17
+    @ScaledMetric(relativeTo: .body) private var em = TypeStyle.body.size
 
     var body: some View {
-        let height = em * 0.64
         FermataShape()
             .fill(isSet ? Palette.favourite : Palette.favouriteOff)
-            .frame(width: height * 17 / 10.5, height: height)
+            .frame(width: em * Layout.fermataWidth, height: em * Layout.fermataHeight)
             .alignmentGuide(.firstTextBaseline) { $0[.bottom] }
             .accessibilityLabel(isSet ? "Favourite" : "Not a favourite")
     }

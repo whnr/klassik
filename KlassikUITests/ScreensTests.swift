@@ -361,19 +361,19 @@ final class PlaybackScreens: ScreensTestCase {
         app.buttons["performers"].tap()
         XCTAssertTrue(app.navigationBars["Performers"].waitForExistence(timeout: 10))
         if name != "Search" { openPlace(app, name) }
-        let heading = app.staticTexts.matching(identifier: "page-heading").firstMatch.label
+        let heading = app.navigationBars.firstMatch.identifier
         openPlayer(app)
         tab(app, name).tap()
         expectPlayerClosed(app)
         XCTAssertTrue(tab(app, name).isSelected)
-        XCTAssertEqual(app.staticTexts.matching(identifier: "page-heading").firstMatch.label, heading)
+        XCTAssertEqual(app.navigationBars.firstMatch.identifier, heading)
         let other = name == "Library" ? "Search" : "Library"
         openPlace(app, other)
         openPlayer(app)
         tab(app, name).tap()
         expectPlayerClosed(app)
         XCTAssertTrue(tab(app, name).isSelected)
-        XCTAssertEqual(app.staticTexts.matching(identifier: "page-heading").firstMatch.label, heading)
+        XCTAssertEqual(app.navigationBars.firstMatch.identifier, heading)
     }
 
     @MainActor
@@ -563,9 +563,8 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(queued.label.contains("Symphony No. 5"))
         snap(app, "08-up-next")
         reveal(app.buttons["Next Work"].firstMatch, in: app).tap()
-        let title = app.staticTexts.matching(
-            NSPredicate(format: "identifier == 'player-title' AND label CONTAINS 'Symphony No. 5'")
-        ).firstMatch
+        let title = app.buttons.matching(identifier: "favourite-recording")
+            .matching(NSPredicate(format: "label CONTAINS 'Symphony No. 5'")).firstMatch
         XCTAssertTrue(title.waitForExistence(timeout: 15))
         pause(app)
         XCTAssertTrue(app.sliders["position"].waitForExistence(timeout: 10))
@@ -587,17 +586,25 @@ final class PlaybackScreens: ScreensTestCase {
         snap(app, "05a-work-favourite")
 
         // Server stars survive UI test launches. Clear both before checking the default order.
-        for position in 0..<2 {
-            rows.element(boundBy: position).tap()
+        for name in ["Carl Fixture", "Anna Probe"] {
+            rows.matching(NSPredicate(format: "label CONTAINS %@", name)).firstMatch.tap()
             let mark = app.buttons["favourite-recording"]
             XCTAssertTrue(mark.waitForExistence(timeout: 10))
-            if mark.value as? String == "Favourite" { mark.tap() }
+            if mark.value as? String == "Favourite" {
+                mark.tap()
+                XCTAssertTrue(eventually(timeout: 10) { mark.value as? String == "Not a favourite" })
+            }
             back(app)
         }
         XCTAssertTrue(rows.firstMatch.label.contains("Carl Fixture"))
         let older = rows.matching(NSPredicate(format: "label CONTAINS 'Anna Probe'")).firstMatch
-        older.swipeRight()
-        app.buttons["Favourite"].firstMatch.tap()
+        older.coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.5))
+            .press(
+                forDuration: 0.1,
+                thenDragTo: older.coordinate(withNormalizedOffset: CGVector(dx: 0.65, dy: 0.5)))
+        let favourite = app.buttons["Favourite"].firstMatch
+        XCTAssertTrue(favourite.waitForExistence(timeout: 5))
+        favourite.tap()
         let moved = expectation(for: NSPredicate(format: "label CONTAINS 'Anna Probe'"), evaluatedWith: rows.firstMatch)
         XCTAssertEqual(XCTWaiter.wait(for: [moved], timeout: 10), .completed)
         snap(app, "05b-work-reference")

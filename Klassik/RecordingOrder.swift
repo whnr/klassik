@@ -78,7 +78,10 @@ final class RecordingOrder {
             if !recording.isFavourite {
                 let names = recording.performerNames.filter { name in artists.contains { $0.name == name } }
                 let ids = recording.songs.flatMap { $0.contributors ?? [] }
-                    .filter { $0.role != "composer" }.map(\.artist.id)
+                    .filter {
+                        ["conductor", "performer"].contains($0.role.trimmingCharacters(in: .whitespaces).lowercased())
+                    }
+                    .map(\.artist.id)
                 let performer = artists.first { ids.contains($0.id) }?.name ?? names.first
                 if let performer {
                     reason = "Favourite performer: \(performer)"

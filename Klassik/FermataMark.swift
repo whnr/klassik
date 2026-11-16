@@ -64,6 +64,7 @@ struct FavouriteTitle: View {
         }
         .buttonStyle(.plain)
         .frame(minHeight: Measure.hitTarget)
+        .accessibilityLabel(title)
         .accessibilityValue(isSet ? "Favourite" : "Not a favourite")
     }
 

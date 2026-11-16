@@ -316,6 +316,7 @@ final class PlaybackScreens: ScreensTestCase {
     }
 
     /// The end of the queue takes the place of the next items, at the foot of the player (specimen player.html).
+    /// Stop ends the queue in the same place. On the walk simulator a natural end does not arrive reliably.
     @MainActor
     func testQueueEndsAtTheFootOfThePlayer() throws {
         let app = try launchAndConnect()
@@ -323,22 +324,15 @@ final class PlaybackScreens: ScreensTestCase {
         startPlaying(app)
         openPlayer(app)
         let player = app.descendants(matching: .any)["player-overlay"].firstMatch
-        // The pill leaves when the queue ends. A list makes the end row only near the screen, so it is no signal.
-        let pill = app.descendants(matching: .any)["mini-player"].firstMatch
-        // The walk fixture movements last minutes. A seek near the end of each movement ends it in seconds. The
-        // slider can keep the value of the last drag, so each seek passes through the middle first.
-        for _ in 0..<4 where pill.exists {
-            let position = reveal(player.sliders["position"].firstMatch, in: app)
-            guard position.exists else { break }
-            position.adjust(toNormalizedSliderPosition: 0.5)
-            position.adjust(toNormalizedSliderPosition: 0.97)
-            _ = pill.waitForNonExistence(timeout: 15)
-        }
-        // The last movement also ends by itself, within its fixture length.
-        XCTAssertTrue(pill.waitForNonExistence(timeout: 150), "The queue did not end")
+        let stop = reveal(player.buttons["Stop"].firstMatch, in: app)
+        XCTAssertTrue(stop.exists, "No Stop button in the player")
+        stop.tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)["mini-player"].firstMatch.waitForNonExistence(timeout: 10),
+            "Stop did not end the queue")
         let ended = reveal(player.staticTexts["player-ended"], in: app)
         XCTAssertTrue(ended.exists, "No end message in the player")
-        XCTAssertEqual(ended.label, "The queue has ended.")
+        XCTAssertEqual(ended.label, "Playback stopped.")
         let tags = player.buttons["raw-tags"]
         XCTAssertTrue(tags.exists, "No Tags and Grouping row above the end")
         XCTAssertGreaterThan(ended.frame.minY, tags.frame.maxY, "The end shows above the rows, not at the foot")

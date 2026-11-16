@@ -213,21 +213,28 @@ private struct PageHeading: View {
     @AppStorage(TimelineSide.storageKey) private var side = TimelineSide.standard
     @Environment(\.pageHeadingBottom) private var bottom
     let title: String
+    @Environment(\.pageFavourite) private var favourite
     /// A plain list sets the heading as the specimen does: close under the back arrow.
     let plain: Bool
 
     var body: some View {
         if !title.isEmpty {
-            Text(title)
-                .typeStyle(Layout.pageTitle)
-                .foregroundStyle(Palette.textPrimary)
-                .multilineTextAlignment(.leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityAddTraits(.isHeader)
-                .accessibilityIdentifier("page-heading")
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-                .listRowInsets(plain ? Layout.edges(side: side, top: Layout.headTop, bottom: bottom) : nil)
+            Group {
+                if let favourite {
+                    FavouriteTitle(title: title, isSet: favourite.isSet, action: favourite.action)
+                        .accessibilityIdentifier(favourite.identifier)
+                } else {
+                    Text(title).accessibilityIdentifier("page-heading")
+                }
+            }
+            .typeStyle(Layout.pageTitle)
+            .foregroundStyle(Palette.textPrimary)
+            .multilineTextAlignment(.leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityAddTraits(.isHeader)
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .listRowInsets(plain ? Layout.edges(side: side, top: Layout.headTop, bottom: bottom) : nil)
         }
     }
 }
@@ -241,7 +248,14 @@ extension View {
     }
 }
 
+struct FavouriteHeading {
+    var isSet: Bool
+    var action: @MainActor () -> Void
+    var identifier: String
+}
+
 extension EnvironmentValues {
+    @Entry var pageFavourite: FavouriteHeading? = nil
     @Entry var pageHeading = ""
     /// The gap under the page title. A page with meta lines under its title sets the specimen gap to them.
     @Entry var pageHeadingBottom = Layout.headBottom

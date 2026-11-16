@@ -38,9 +38,6 @@ struct WorkIndex: Sendable {
         /// The album that an untagged work stands for. A tagged work has no album page of its own.
         var albumKey: String? { isTagged ? nil : recordings.first?.songs.first?.albumKey }
 
-        /// The reference recording, else the oldest.
-        var defaultRecording: Recording? { recordings.first { $0.isReference } ?? recordings.first }
-
         /// What the track titles say about the work. A WORK tag can be as short as "Op. 67".
         var context: String {
             let first = recordings.first?.songs ?? []
@@ -98,8 +95,8 @@ struct WorkIndex: Sendable {
         /// The conductor, soloists and ensembles, each once.
         var performerNames: [String] { principalNames.flatMap(\.names) }
 
-        /// The listener's reference recording of a work is the one with all tracks starred in the server.
-        var isReference: Bool { !songs.isEmpty && songs.allSatisfy { $0.starred != nil } }
+        /// A recording is a favourite only when the server stars every track.
+        var isFavourite: Bool { !songs.isEmpty && songs.allSatisfy { $0.starred != nil } }
 
         /// How many movements the tags name for the work, if the tags say.
         var movementTotal: Int? {
@@ -374,5 +371,19 @@ extension WorkIndex.Recording {
     /// A number never wraps away from its word (ADR 0030).
     static func count(_ number: Int, _ noun: String) -> String {
         "\(number)\u{00A0}\(noun)\(number == 1 ? "" : "s")"
+    }
+}
+
+extension WorkIndex {
+    func composer(named name: String) -> Composer? {
+        composers.first { $0.id == name }
+    }
+
+    func work(_ id: String) -> Work? {
+        composers.lazy.flatMap(\.works).first { $0.id == id }
+    }
+
+    func performer(named name: String) -> Performer? {
+        performers.first { $0.id == name }
     }
 }

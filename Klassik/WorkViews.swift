@@ -8,7 +8,7 @@ struct ShuffleButton: View {
     var body: some View {
         Button("Shuffle Works", systemImage: "shuffle") {
             let items = works.shuffled().compactMap { work in
-                work.defaultRecording.map { QueueItem(work: work, recording: $0) }
+                model.recordingOrder.reference(of: work).map { QueueItem(work: work, recording: $0) }
             }
             model.playback.play(queue: items)
         }
@@ -18,13 +18,14 @@ struct ShuffleButton: View {
 }
 
 /// The actions of a row that stands for one recording or one album. Trailing swipe: the queue. Leading swipe:
-/// download and reference recording. The context menu holds all of them, as in Apple Music.
+/// download and favourites. The context menu holds all of them, as in Apple Music.
 private struct ItemActions: ViewModifier {
     @Environment(AppModel.self) private var model
     let item: QueueItem
     /// Only recordings and albums download, never a whole work.
     let downloads: Bool
-    let reference: Bool
+    let favourite: Bool
+    let favouriteWork: Bool
 
     func body(content: Content) -> some View {
         content
@@ -39,11 +40,11 @@ private struct ItemActions: ViewModifier {
                 Button("Play Next", systemImage: "text.line.first.and.arrowtriangle.forward") { playNext() }
                 Button("Add to Queue", systemImage: "text.line.last.and.arrowtriangle.forward") { addToQueue() }
                 if downloads { downloadButton }
-                if reference { referenceButton }
+                if favourite { favouriteButton }
             }
     }
 
-    /// A row that cannot do an action leaves it out: works never download, albums have no reference.
+    /// A row that cannot do an action leaves it out: works never download, albums have no recording favourite.
     @ViewBuilder private func button(for action: SwipeAction) -> some View {
         switch action {
         case .playNext:
@@ -54,8 +55,8 @@ private struct ItemActions: ViewModifier {
                 .tint(Palette.swipeAddToQueue.color)
         case .download:
             if downloads { downloadButton.tint(Palette.swipeDownload.color) }
-        case .reference:
-            if reference { referenceButton.tint(Palette.swipeFavourite.color) }
+        case .favourite:
+            if favourite { favouriteButton.tint(Palette.swipeFavourite.color) }
         }
     }
 
@@ -86,13 +87,21 @@ private struct ItemActions: ViewModifier {
         }
     }
 
-    private var referenceButton: some View {
-        let isReference = item.recording.isReference
-        return Button(
-            isReference ? "Remove Reference" : "Reference", systemImage: isReference ? "star.slash" : "star"
-        ) {
-            Task { _ = await model.setReference(item.recording, of: item.work, to: !isReference) }
+    private var favouriteButton: some View {
+        let isSet =
+            favouriteWork
+            ? model.recordingOrder.isFavourite(item.work)
+            : model.recordingOrder.isFavourite(item.recording, of: item.work)
+        return Button("Favourite") {
+            if favouriteWork {
+                model.recordingOrder.toggle(item.work)
+            } else {
+                Task { await model.recordingOrder.toggle(item.recording, of: item.work) }
+            }
         }
+        .accessibilityIdentifier("favourite-action")
+        .accessibilityValue(isSet ? "Favourite" : "Not a favourite")
+        .disabled(model.recordingOrder.isSaving)
     }
 
     private func playNext() {
@@ -105,8 +114,14 @@ private struct ItemActions: ViewModifier {
 }
 
 extension View {
-    @ViewBuilder func itemActions(_ item: QueueItem?, downloads: Bool = false, reference: Bool = false) -> some View {
-        if let item { modifier(ItemActions(item: item, downloads: downloads, reference: reference)) } else { self }
+    @ViewBuilder func itemActions(
+        _ item: QueueItem?, downloads: Bool = false, favourite: Bool = false, favouriteWork: Bool = false
+    ) -> some View {
+        if let item {
+            modifier(ItemActions(item: item, downloads: downloads, favourite: favourite, favouriteWork: favouriteWork))
+        } else {
+            self
+        }
     }
 }
 
@@ -163,7 +178,10 @@ struct WorkRow: View {
                         .foregroundStyle(Palette.textSecondary)
                 }
             }
-            .itemActions(work.defaultRecording.map { QueueItem(work: work, recording: $0) })
+            .itemActions(
+                model.recordingOrder.reference(of: work).map { QueueItem(work: work, recording: $0) }, favourite: true,
+                favouriteWork: true
+            )
             .accessibilityIdentifier("work")
         }
     }
@@ -181,17 +199,14 @@ struct WorkView: View {
     @Environment(AppModel.self) private var model
     let work: WorkIndex.Work
 
-    /// Favourite recordings come first. The rest keep the order of the index.
-    private var recordings: [WorkIndex.Recording] {
-        work.recordings.filter(\.isReference) + work.recordings.filter { !$0.isReference }
-    }
+    private var recordings: [RecordingOrder.Row] { model.recordingOrder.rows(of: work) }
 
     var body: some View {
         PageList {
             WorkHeader(work: work)
                 .listRowSeparator(.hidden)
                 .pageEdges(bottom: Layout.headBottom)
-            if let recording = work.defaultRecording {
+            if let recording = model.recordingOrder.reference(of: work) {
                 let player = model.playback
                 // While any recording of the work plays, the pill pauses it. Else it plays the top of the list.
                 let playsThisWork = player.item?.work.id == work.id
@@ -203,9 +218,7 @@ struct WorkView: View {
                     }
                 } label: {
                     Label(
-                        playsThisWork
-                            ? (player.isPaused ? "Resume" : "Pause")
-                            : (recording.isReference ? "Play Reference Recording" : "Play"),
+                        playsThisWork ? (player.isPaused ? "Resume" : "Pause") : "Play",
                         systemImage: playsThisWork && !player.isPaused ? "pause.fill" : "play.fill"
                     )
                     .typeStyle(Layout.capsuleLabel)
@@ -222,19 +235,24 @@ struct WorkView: View {
 
             Section {
                 CountedHeading("Recordings", count: work.recordings.count)
-                ForEach(recordings) { recording in
+                ForEach(recordings) { row in
+                    let recording = row.recording
                     let isPlaying = plays(recording)
                     NavigationLink(value: Page.recording(work: work.id, recording: recording.id)) {
                         RecordingRow(
-                            recording: recording, isOffline: model.tracks.isOffline(recording),
-                            playsFirst: recording.id == work.defaultRecording?.id, isPlaying: isPlaying)
+                            recording: recording, isFavourite: row.isFavourite, reason: row.reason,
+                            isOffline: model.tracks.isOffline(recording),
+                            playsFirst: recording.id == model.recordingOrder.reference(of: work)?.id,
+                            isPlaying: isPlaying)
                     }
-                    // The whole row of what plays is tinted, edge to edge, so the listener sees it while browsing.
+                    // Tint identifies the playing recording while the listener browses.
                     .listRowBackground(isPlaying ? Palette.tint.color.opacity(0.12) : Color.clear)
-                    .itemActions(QueueItem(work: work, recording: recording), downloads: true, reference: true)
+                    .itemActions(QueueItem(work: work, recording: recording), downloads: true, favourite: true)
                     .accessibilityIdentifier("recording")
+                    .moveDisabled(!row.isFavourite)
                 }
-                Text("Favourite recordings come first. Then the oldest.")
+                .onMove { model.recordingOrder.moveFavourites(of: work, from: $0, to: $1) }
+                Text("Favourite recordings come first, in your order. Then the newest.")
                     .typeStyle(Layout.footnote)
                     .foregroundStyle(Palette.textSecondary)
                     .listRowSeparator(.hidden)
@@ -243,6 +261,13 @@ struct WorkView: View {
         }
         .pageTitle(work.title)
         .environment(\.pageHeadingBottom, Layout.metaTop)
+        .environment(
+            \.pageFavourite,
+            FavouriteHeading(
+                isSet: model.recordingOrder.isFavourite(work),
+                action: { model.recordingOrder.toggle(work) }, identifier: "favourite-work")
+        )
+        .toolbar { if recordings.filter(\.isFavourite).count > 1 { EditButton() } }
     }
 
     private func plays(_ recording: WorkIndex.Recording) -> Bool {
@@ -336,6 +361,8 @@ private struct WorkHeader: View {
 /// prose. No role labels, and no truncation: a long name wraps.
 private struct RecordingRow: View {
     let recording: WorkIndex.Recording
+    let isFavourite: Bool
+    let reason: String?
     let isOffline: Bool
     let playsFirst: Bool
     let isPlaying: Bool
@@ -372,6 +399,9 @@ private struct RecordingRow: View {
                 Text(recording.facts())
                     .typeStyle(.subheadline)
                     .foregroundStyle(Palette.textSecondary)
+                if let reason {
+                    Text(reason).typeStyle(.footnote).foregroundStyle(Palette.textSecondary)
+                }
                 if playsFirst {
                     Text("Plays first")
                         .typeStyle(.footnote)
@@ -388,7 +418,7 @@ private struct RecordingRow: View {
             Text(lead.isEmpty ? recording.album : Roles.Line.list(lead))
                 .ink()
                 .fixedSize(horizontal: false, vertical: true)
-            if recording.isReference {
+            if isFavourite {
                 FermataMark(isSet: true)
             }
             OfflineHint(isOffline: isOffline)
@@ -450,7 +480,12 @@ struct RecordingView: View {
                             CoverImage(id: recording.songs.first?.coverArt, points: Layout.bigCover)
                                 .frame(width: Layout.bigCover, height: Layout.bigCover)
                                 .clipShape(.rect(cornerRadius: Layout.bigCoverCorner))
-                            playerTitle
+                            if recording.isAlbum {
+                                Text(work.title).typeStyle(Layout.pageTitle).ink()
+                                    .accessibilityIdentifier("player-title")
+                            } else {
+                                favouriteButton
+                            }
                         }
                         .frame(maxWidth: .infinity)
                         .multilineTextAlignment(.center)
@@ -580,47 +615,23 @@ struct RecordingView: View {
                 Motion.inPlace.animation(reduceMotion: reduceMotion), value: isPlayingThis ? player.movement : nil)
         }
         .pageTitle(isOverlay ? "" : work.title)
-        .toolbar {
-            if !isOverlay, !recording.isAlbum { referenceButton }
-        }
+        .environment(
+            \.pageFavourite,
+            !isOverlay && !recording.isAlbum
+                ? FavouriteHeading(
+                    isSet: model.recordingOrder.isFavourite(recording, of: work),
+                    action: { Task { await model.recordingOrder.toggle(recording, of: work) } },
+                    identifier: "favourite-recording") : nil)
     }
 
-    private var referenceButton: some View {
-        // The page can show a queue copy. The library supplies the current favourite state.
-        let live = model.library.current(work: work, recording: recording)
-        return Button(
-            live.recording.isReference ? "Remove Favourite" : "Favourite",
-            systemImage: live.recording.isReference ? "star.fill" : "star"
-        ) {
-            toggleFavourite()
-        }
-        .labelStyle(.iconOnly)
-        .accessibilityIdentifier("reference")
-    }
-
-    /// The player title ends in the favourite mark, which sets and clears the favourite (specimen player.html).
-    @ViewBuilder private var playerTitle: some View {
-        if recording.isAlbum {
-            Text(work.title)
-                .typeStyle(Layout.pageTitle)
-                .ink()
-                .accessibilityIdentifier("player-title")
-        } else {
-            let isSet = model.library.current(work: work, recording: recording).recording.isReference
-            Button(action: toggleFavourite) {
-                FavouriteTitle(work.title, isSet: isSet, style: Layout.pageTitle)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(work.title)
-            .accessibilityValue(isSet ? "Favourite" : "Not a favourite")
-            .accessibilityHint(isSet ? "Removes the favourite" : "Makes the recording a favourite")
-            .accessibilityIdentifier("player-title")
-        }
-    }
-
-    private func toggleFavourite() {
-        let live = model.library.current(work: work, recording: recording)
-        Task { _ = await model.setReference(live.recording, of: live.work, to: !live.recording.isReference) }
+    private var favouriteButton: some View {
+        FavouriteTitle(
+            title: work.title, isSet: model.recordingOrder.isFavourite(recording, of: work),
+            action: { Task { await model.recordingOrder.toggle(recording, of: work) } },
+            textIdentifier: "player-title"
+        )
+        .disabled(model.recordingOrder.isSaving)
+        .accessibilityIdentifier("favourite-recording")
     }
 
     /// What every track shares, in centred lines.

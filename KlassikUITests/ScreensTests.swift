@@ -315,25 +315,6 @@ final class PlaybackScreens: ScreensTestCase {
         slidePlayerDown(app)
     }
 
-    /// The favourite mark ends the player title, on the line of its last word (specimen player.html, sz-swi9.2).
-    @MainActor
-    func testFavouriteInThePlayerTitle() throws {
-        let app = try launchAndConnect()
-        openRecording(app)
-        playPaused(app)
-        openPlayer(app)
-        let title = app.descendants(matching: .any)["player-overlay"].firstMatch.buttons["player-title"]
-        XCTAssertTrue(title.waitForExistence(timeout: 10), "No player title")
-        XCTAssertEqual(title.value as? String, "Not a favourite")
-        title.tap()
-        XCTAssertTrue(
-            eventually(timeout: 10) { title.value as? String == "Favourite" }, "The mark did not set the favourite")
-        snap(app, "16f-player-favourite")
-        title.tap()
-        XCTAssertTrue(
-            eventually(timeout: 10) { title.value as? String == "Not a favourite" }, "The mark did not clear")
-    }
-
     /// The end of the queue takes the place of the next items, at the foot of the player (specimen player.html).
     @MainActor
     func testQueueEndsAtTheFootOfThePlayer() throws {
@@ -410,19 +391,19 @@ final class PlaybackScreens: ScreensTestCase {
         app.buttons["performers"].tap()
         XCTAssertTrue(app.navigationBars["Performers"].waitForExistence(timeout: 10))
         if name != "Search" { openPlace(app, name) }
-        let heading = app.staticTexts.matching(identifier: "page-heading").firstMatch.label
+        let heading = app.navigationBars.firstMatch.identifier
         openPlayer(app)
         tab(app, name).tap()
         expectPlayerClosed(app)
         XCTAssertTrue(tab(app, name).isSelected)
-        XCTAssertEqual(app.staticTexts.matching(identifier: "page-heading").firstMatch.label, heading)
+        XCTAssertEqual(app.navigationBars.firstMatch.identifier, heading)
         let other = name == "Library" ? "Search" : "Library"
         openPlace(app, other)
         openPlayer(app)
         tab(app, name).tap()
         expectPlayerClosed(app)
         XCTAssertTrue(tab(app, name).isSelected)
-        XCTAssertEqual(app.staticTexts.matching(identifier: "page-heading").firstMatch.label, heading)
+        XCTAssertEqual(app.navigationBars.firstMatch.identifier, heading)
     }
 
     @MainActor
@@ -618,9 +599,8 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(queued.label.contains("Symphony No. 5"))
         snap(app, "08-up-next")
         reveal(app.buttons["Next Work"].firstMatch, in: app).tap()
-        let title = app.descendants(matching: .any).matching(
-            NSPredicate(format: "identifier == 'player-title' AND label CONTAINS 'Symphony No. 5'")
-        ).firstMatch
+        let title = app.buttons.matching(identifier: "favourite-recording")
+            .matching(NSPredicate(format: "label CONTAINS 'Symphony No. 5'")).firstMatch
         XCTAssertTrue(title.waitForExistence(timeout: 15))
         pause(app)
         XCTAssertTrue(app.sliders["position"].waitForExistence(timeout: 10))
@@ -628,18 +608,74 @@ final class PlaybackScreens: ScreensTestCase {
         snap(app, "08d-next-player")
     }
 
-    /// The server keeps the reference recording, so this test changes what the later ones see.
+    /// A swipe favourite moves ahead of a newer recording before the listener plays the work.
     @MainActor
-    func testReference() throws {
+    func testFavouriteRecordingOrder() throws {
         let app = try launchAndConnect()
-        openRecording(app)
-        app.buttons["reference"].tap()
-        back(app)
-        let reference = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Play Reference Recording'"))
-            .firstMatch
-        XCTAssertTrue(reference.waitForExistence(timeout: 10))
+        composer(app, "Ludwig van Beethoven").tap()
+        app.buttons.matching(identifier: "work").firstMatch.tap()
+        let rows = app.buttons.matching(identifier: "recording")
+        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 10))
+        let workMark = app.buttons["favourite-work"]
+        workMark.tap()
+        XCTAssertEqual(workMark.value as? String, "Favourite")
+        snap(app, "05a-work-favourite")
+
+        // Server stars survive UI test launches. Clear both before checking the default order.
+        for name in ["Carl Fixture", "Anna Probe"] {
+            rows.matching(NSPredicate(format: "label CONTAINS %@", name)).firstMatch.tap()
+            let mark = app.buttons["favourite-recording"]
+            XCTAssertTrue(mark.waitForExistence(timeout: 10))
+            if mark.value as? String == "Favourite" {
+                mark.tap()
+                XCTAssertTrue(eventually(timeout: 10) { mark.value as? String == "Not a favourite" })
+            }
+            back(app)
+        }
+        XCTAssertTrue(rows.firstMatch.label.contains("Carl Fixture"))
+        let older = rows.matching(NSPredicate(format: "label CONTAINS 'Anna Probe'")).firstMatch
+        older.coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.5))
+            .press(
+                forDuration: 0.1,
+                thenDragTo: older.coordinate(withNormalizedOffset: CGVector(dx: 0.65, dy: 0.5)))
+        snap(app, "05a-recording-swipe")
+        let favourite = app.buttons["favourite-action"].firstMatch
+        XCTAssertTrue(favourite.waitForExistence(timeout: 5))
+        favourite.tap()
+        let moved = expectation(for: NSPredicate(format: "label CONTAINS 'Anna Probe'"), evaluatedWith: rows.firstMatch)
+        XCTAssertEqual(XCTWaiter.wait(for: [moved], timeout: 10), .completed)
         snap(app, "05b-work-reference")
+
+        rows.element(boundBy: 1).tap()
+        app.buttons["favourite-recording"].tap()
+        snap(app, "05c-recording-favourite")
+        back(app)
+        XCTAssertTrue(rows.firstMatch.label.contains("Anna Probe"))
+        app.buttons["Edit"].tap()
+        // A simulated drag on the reorder handle does not always lift the row, so the drag can repeat.
+        let origin = app.coordinate(withNormalizedOffset: .zero)
+        for _ in 0..<3 where !rows.firstMatch.label.contains("Carl Fixture") {
+            let source = origin.withOffset(
+                CGVector(dx: app.frame.width - 30, dy: rows.element(boundBy: 1).frame.midY))
+            let target = origin.withOffset(
+                CGVector(dx: app.frame.width - 30, dy: rows.element(boundBy: 0).frame.minY))
+            source.press(forDuration: 1.0, thenDragTo: target)
+            _ = eventually(timeout: 3) { rows.firstMatch.label.contains("Carl Fixture") }
+        }
+        app.buttons["Done"].tap()
+        XCTAssertTrue(eventually(timeout: 10) { rows.firstMatch.label.contains("Carl Fixture") })
+        snap(app, "05d-recordings-reordered")
+        app.buttons["play-work"].tap()
+        XCTAssertTrue(app.buttons["recording-slot"].waitForExistence(timeout: 10))
+        XCTAssertTrue(rows.firstMatch.buttons["recording-slot"].exists)
+        pause(app)
+        back(app, times: 3)
+        app.buttons["library-favourites"].tap()
+        XCTAssertEqual(app.buttons.matching(identifier: "favourite").count, 2)
+        XCTAssertTrue(app.buttons.matching(identifier: "work").firstMatch.exists)
+        snap(app, "06d-favourites")
     }
+
 }
 
 /// The timeline on the screen edge and the mini player in the tab row (ADR 0014, 0028, 0035).
@@ -737,7 +773,7 @@ final class TimelineScreens: ScreensTestCase {
             "The swipe did not go back to the work")
         XCTAssertEqual(bar.value as? String, place, "The swipe scrubbed")
         // The timeline side takes the wider inset, so the content keeps clear of the bar.
-        let title = drawn(app.staticTexts["page-heading"], in: app, side: .left)
+        let title = drawn(app.buttons["favourite-work"], in: app, side: .left)
         let play = drawn(app.buttons["play-work"], in: app, side: .left)
         expectPageEdges(title, in: app, side: .left, "Work title on the left")
         expectPageEdges(play, in: app, side: .left, trailing: true, "Play on the left")
@@ -1260,7 +1296,8 @@ class ScreensTestCase: XCTestCase {
     /// The work page against work.html: title, meta line, Play, then the Recordings heading.
     @MainActor
     func checkWorkPage(_ app: XCUIApplication) {
-        let titleElement = app.staticTexts["page-heading"]
+        // The work title is the favourite button, which hides its text from static-text queries.
+        let titleElement = app.buttons["favourite-work"]
         let composerElement = app.buttons["work-composer"]
         let playElement = app.buttons["play-work"]
         let headingElement = app.descendants(matching: .any)["section-heading"].firstMatch

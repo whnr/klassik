@@ -38,43 +38,47 @@ struct FermataMark: View {
         FermataShape()
             .fill(isSet ? Palette.favourite : Palette.favouriteOff)
             .frame(width: em * Layout.fermataWidth, height: em * Layout.fermataHeight)
+            .alignmentGuide(.firstTextBaseline) { $0[.bottom] }
             .accessibilityLabel(isSet ? "Favourite" : "Not a favourite")
     }
 }
 
-extension FermataShape {
-    /// The mark as a template image for a line of text, with the gap before it, so text can carry it inline.
-    @MainActor static func image(em: CGFloat) -> UIImage {
-        let gap = em * Layout.fermataGap
-        let mark = CGRect(x: gap, y: 0, width: em * Layout.fermataWidth, height: em * Layout.fermataHeight)
-        let image = UIGraphicsImageRenderer(size: CGSize(width: mark.maxX, height: mark.height)).image { _ in
-            UIBezierPath(cgPath: FermataShape().path(in: mark).cgPath).fill()
-        }
-        return image.withRenderingMode(.alwaysTemplate)
-    }
-}
-
-/// A title that ends in the favourite mark. The mark stays on the line of the last word and sits on the baseline,
-/// as specimen.js `titled` sets it (ADR 0032).
+/// Text lays out the mark with the final word, including when the title wraps.
 struct FavouriteTitle: View {
     let title: String
     let isSet: Bool
-    let style: TypeStyle
-    @ScaledMetric private var em: CGFloat
-
-    init(_ title: String, isSet: Bool, style: TypeStyle) {
-        self.title = title
-        self.isSet = isSet
-        self.style = style
-        _em = ScaledMetric(wrappedValue: style.size, relativeTo: style.textStyle)
-    }
+    let action: @MainActor () -> Void
+    var textIdentifier = "page-heading"
+    @ScaledMetric(relativeTo: .title) private var em = TypeStyle.pageTitle.size
+    @Environment(\.displayScale) private var scale
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
-        let mark = Text(Image(uiImage: FermataShape.image(em: em)))
-            .foregroundStyle(isSet ? Palette.favourite.color : Palette.favouriteOff.color)
-        // The word joiner keeps the mark with the last word.
-        Text("\(title)\u{2060}\(mark)")
-            .typeStyle(style)
-            .ink()
+        Button(action: action) {
+            Text("\(title)\u{00A0}\(Image(uiImage: mark))")
+                .typeStyle(.pageTitle)
+                .foregroundStyle(Palette.textPrimary)
+                .accessibilityIdentifier(textIdentifier)
+        }
+        .buttonStyle(.plain)
+        .frame(minHeight: Measure.hitTarget)
+        .accessibilityLabel(title)
+        .accessibilityValue(isSet ? "Favourite" : "Not a favourite")
+    }
+
+    private var mark: UIImage {
+        let size = CGSize(width: em * 0.64 * 17 / 10.5, height: em * 0.64)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = scale
+        let traits = UITraitCollection {
+            $0.userInterfaceStyle = scheme == .dark ? .dark : .light
+            $0.accessibilityContrast = contrast == .increased ? .high : .normal
+        }
+        let colour = (isSet ? Palette.favourite : Palette.favouriteOff).uiColor.resolvedColor(with: traits)
+        return UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            colour.setFill()
+            UIBezierPath(cgPath: FermataShape().path(in: CGRect(origin: .zero, size: size)).cgPath).fill()
+        }
     }
 }

@@ -6,7 +6,7 @@ enum SwipeAction: String, CaseIterable, Identifiable, Codable, Sendable {
     case playNext
     case addToQueue
     case download
-    case reference
+    case favourite = "reference"
 
     var id: Self { self }
 
@@ -15,7 +15,7 @@ enum SwipeAction: String, CaseIterable, Identifiable, Codable, Sendable {
         case .playNext: "Play Next"
         case .addToQueue: "Add to Queue"
         case .download: "Download"
-        case .reference: "Reference Recording"
+        case .favourite: "Favourite"
         }
     }
 }
@@ -23,7 +23,7 @@ enum SwipeAction: String, CaseIterable, Identifiable, Codable, Sendable {
 /// Which actions sit on which swipe edge of a row. Two actions fit on each edge.
 @MainActor @Observable
 final class SwipeSettings {
-    static let defaultLeading: [SwipeAction] = [.download, .reference]
+    static let defaultLeading: [SwipeAction] = [.download, .favourite]
     static let defaultTrailing: [SwipeAction] = [.addToQueue, .playNext]
     static let slots = 2
 

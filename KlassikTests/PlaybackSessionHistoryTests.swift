@@ -89,7 +89,7 @@ struct PlaybackSessionHistoryTests {
         session.stop()
     }
 
-    @Test func referenceStateFollowsTheLibraryWhileThePageShowsAQueueCopy() async throws {
+    @Test func favouriteStateFollowsTheLibraryWhileThePageShowsAQueueCopy() async throws {
         let songs = ["a", "b"].enumerated().map { index, id in
             Song(
                 id: id, title: id, album: "Album", track: index + 1, duration: 600,
@@ -109,11 +109,11 @@ struct PlaybackSessionHistoryTests {
         var copy = try #require(work.recordings.first)
         copy.songs = [copy.songs[1]]
         #expect(library.current(work: work, recording: copy).recording.songs.map(\.id) == ["a", "b"])
-        #expect(!library.current(work: work, recording: copy).recording.isReference)
+        #expect(!library.current(work: work, recording: copy).recording.isFavourite)
         library.setStarred(["a", "b"], true)
-        #expect(library.current(work: work, recording: copy).recording.isReference)
+        #expect(library.current(work: work, recording: copy).recording.isFavourite)
         library.setStarred(["a", "b"], false)
-        #expect(!library.current(work: work, recording: copy).recording.isReference)
+        #expect(!library.current(work: work, recording: copy).recording.isFavourite)
     }
 
     @Test func anUntouchedLaunchDoesNotClearTheServerQueue() async throws {

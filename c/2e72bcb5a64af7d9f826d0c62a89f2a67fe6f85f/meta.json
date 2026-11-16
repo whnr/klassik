@@ -1,0 +1,7 @@
+{
+  "sha": "2e72bcb5a64af7d9f826d0c62a89f2a67fe6f85f",
+  "branch": "sz-swi9.7-bgtask",
+  "path": "sz-swi9.7-bgtask",
+  "subject": "[sz-swi9.7] Wrap BGTaskScheduler in an adapter",
+  "ts": 1794871245
+}

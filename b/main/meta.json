@@ -1,7 +1,7 @@
 {
-  "sha": "aef34df01c2ad6b6b943bc40a9977c34b4cd0c4e",
+  "sha": "dc7c0cad377dc97152f6c1125add8c82438b2e13",
   "branch": "main",
   "path": "main",
-  "subject": "Merge pull request #62 from whnr/claude-sz-ol00",
-  "ts": 1794860534
+  "subject": "[sz-swi9.7] Save full TestFlight crash logs (#63)",
+  "ts": 1794870929
 }

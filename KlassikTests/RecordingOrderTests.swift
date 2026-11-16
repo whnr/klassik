@@ -179,11 +179,14 @@ struct RecordingOrderTests {
         let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
         var older = song("old", year: 1900)
+        let composer = Song.Contributor(role: "composer", artist: .init(id: "composer", name: "Composer"))
         older.contributors = [
-            .init(role: "composer", artist: .init(id: "composer", name: "Composer")),
+            composer,
             .init(role: "producer", artist: .init(id: "producer", name: "Producer")),
         ]
-        let library = try await library([older, song("new", year: 2020)], root: root)
+        var newer = song("new", year: 2020)
+        newer.contributors?.append(composer)
+        let library = try await library([older, newer], root: root)
         let work = try #require(library.index.composers.first?.works.first)
         let server = FavouriteFixture()
         await server.configure(

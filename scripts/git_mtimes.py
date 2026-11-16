@@ -12,7 +12,10 @@ tracked = set(
     subprocess.run(["git", "ls-files", "-z"], capture_output=True, text=True, check=True).stdout.split("\0")
 ) - {""}
 log = subprocess.run(
-    ["git", "log", "--format=@%ct", "--name-only", "--no-renames"], capture_output=True, text=True, check=True
+    ["git", "log", "--diff-merges=first-parent", "--format=@%ct", "--name-only", "--no-renames"],
+    capture_output=True,
+    text=True,
+    check=True,
 ).stdout
 done = set()
 for line in log.splitlines():

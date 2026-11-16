@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// The engraved fermata of ADR 0033, on its 17 × 10.5 grid, as `design/marks/fermata.svg` draws it.
 struct FermataShape: Shape {
@@ -37,6 +38,47 @@ struct FermataMark: View {
         FermataShape()
             .fill(isSet ? Palette.favourite : Palette.favouriteOff)
             .frame(width: em * Layout.fermataWidth, height: em * Layout.fermataHeight)
+            .alignmentGuide(.firstTextBaseline) { $0[.bottom] }
             .accessibilityLabel(isSet ? "Favourite" : "Not a favourite")
+    }
+}
+
+/// Text lays out the mark with the final word, including when the title wraps.
+struct FavouriteTitle: View {
+    let title: String
+    let isSet: Bool
+    let action: @MainActor () -> Void
+    var textIdentifier = "page-heading"
+    @ScaledMetric(relativeTo: .title) private var em = TypeStyle.pageTitle.size
+    @Environment(\.displayScale) private var scale
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    var body: some View {
+        Button(action: action) {
+            Text("\(title)\u{00A0}\(Image(uiImage: mark))")
+                .typeStyle(.pageTitle)
+                .foregroundStyle(Palette.textPrimary)
+                .accessibilityIdentifier(textIdentifier)
+        }
+        .buttonStyle(.plain)
+        .frame(minHeight: Measure.hitTarget)
+        .accessibilityLabel(title)
+        .accessibilityValue(isSet ? "Favourite" : "Not a favourite")
+    }
+
+    private var mark: UIImage {
+        let size = CGSize(width: em * 0.64 * 17 / 10.5, height: em * 0.64)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = scale
+        let traits = UITraitCollection {
+            $0.userInterfaceStyle = scheme == .dark ? .dark : .light
+            $0.accessibilityContrast = contrast == .increased ? .high : .normal
+        }
+        let colour = (isSet ? Palette.favourite : Palette.favouriteOff).uiColor.resolvedColor(with: traits)
+        return UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            colour.setFill()
+            UIBezierPath(cgPath: FermataShape().path(in: CGRect(origin: .zero, size: size)).cgPath).fill()
+        }
     }
 }

@@ -48,7 +48,7 @@ struct LibraryView: View {
     private func count(of row: LibraryRow) -> Int {
         switch row {
         case .composers: model.library.index.composers.count
-        case .favourites: model.library.index.favourites.count
+        case .favourites: model.recordingOrder.favouriteCount
         }
     }
 
@@ -61,21 +61,6 @@ struct LibraryView: View {
         return library.isSyncing
             ? "Syncing… \(library.received) tracks"
             : "Synced \(syncedAt.formatted(.relative(presentation: .named)))."
-    }
-}
-
-extension WorkIndex {
-    /// One recording that the listener marked. Today the mark is the star on all its tracks.
-    struct Favourite: Identifiable {
-        var work: Work
-        var recording: Recording
-        var id: String { recording.id }
-    }
-
-    var favourites: [Favourite] {
-        composers.flatMap(\.works).flatMap { work in
-            work.recordings.filter(\.isReference).map { Favourite(work: work, recording: $0) }
-        }
     }
 }
 
@@ -108,8 +93,12 @@ struct FavouritesView: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        let favourites = model.library.index.favourites
+        let works = model.recordingOrder.favouriteWorks
+        let favourites = model.recordingOrder.favouriteRecordings
         PageList {
+            ForEach(works) { work in
+                WorkRow(work: work)
+            }
             ForEach(favourites) { favourite in
                 NavigationLink(value: Page.recording(work: favourite.work.id, recording: favourite.recording.id)) {
                     VStack(alignment: .leading) {
@@ -123,16 +112,16 @@ struct FavouritesView: View {
                     }
                 }
                 .itemActions(
-                    QueueItem(work: favourite.work, recording: favourite.recording), downloads: true, reference: true
+                    QueueItem(work: favourite.work, recording: favourite.recording), downloads: true, favourite: true
                 )
                 .accessibilityIdentifier("favourite")
             }
         }
         .overlay {
-            if favourites.isEmpty {
+            if favourites.isEmpty && works.isEmpty {
                 ContentUnavailableView(
                     "No Favourites", systemImage: "star",
-                    description: Text("Swipe a recording and choose Reference to see it here."))
+                    description: Text("Swipe a recording and choose Favourite to see it here."))
             }
         }
         .pageTitle("Favourites")

@@ -58,10 +58,24 @@ struct RootView: View {
             }
         }
         .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                Task { await model.recordingOrder.refresh() }
+            }
             if phase == .background {
                 Task { await model.playback.saveQueue() }
                 PersonSweepBackground.schedule()
             }
+        }
+        .alert(
+            "Could Not Save Favourite",
+            isPresented: Binding(
+                get: { model.recordingOrder.error != nil },
+                set: { if !$0 { model.recordingOrder.error = nil } }
+            )
+        ) {
+            Button("OK") { model.recordingOrder.error = nil }
+        } message: {
+            Text(model.recordingOrder.error ?? "")
         }
         .onChange(of: showTaps, initial: true) { TapIndicator.shared.setEnabled(showTaps) }
     }

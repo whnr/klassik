@@ -406,7 +406,6 @@ struct RecordingView: View {
     /// The rows that the listener opened, by track position.
     @State private var opened: Set<Int> = []
     @State private var spell = QuietSpell()
-    @State private var followsMovement = false
 
     private var isPlayingThis: Bool { model.playback.recording?.id == recording.id }
 
@@ -540,23 +539,24 @@ struct RecordingView: View {
                 spell.touching(phase == .tracking || phase == .interacting || phase == .decelerating)
             }
             .onChange(of: model.isScrubbingTimeline) { _, scrubbing in spell.hold(scrubbing) }
-            .task(id: isOverlay && isPlayingThis ? player.movement : nil) {
-                guard isOverlay, isPlayingThis, let movement = player.movement,
-                    recording.songs.indices.contains(movement)
-                else { return }
-                // Opening the player shows its header. Only a later movement change follows the rows.
-                guard followsMovement else {
-                    followsMovement = true
-                    return
-                }
-                while let rest = spell.wait() {
-                    try? await Task.sleep(for: rest)
-                    if Task.isCancelled { return }
-                }
-                withAnimation(Motion.glide.animation(reduceMotion: reduceMotion)) {
-                    proxy.scrollTo(recording.songs[movement].id, anchor: UnitPoint(x: 0.5, y: 0.2))
+            // specimen player.html: each second, after a quiet spell, the player brings the playing row back.
+            .task(id: isOverlay && isPlayingThis) {
+                guard isOverlay, isPlayingThis else { return }
+                // Opening the player counts as a touch, so its header shows for one spell.
+                spell.touch()
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: .seconds(1))
+                    guard let movement = player.movement, recording.songs.indices.contains(movement),
+                        spell.follow(movement)
+                    else { continue }
+                    withAnimation(Motion.glide.animation(reduceMotion: reduceMotion)) {
+                        proxy.scrollTo(recording.songs[movement].id, anchor: UnitPoint(x: 0.5, y: 0.2))
+                    }
                 }
             }
+            // The bar moves from row to row in one motion, so the rows do not jump when a movement starts.
+            .animation(
+                Motion.inPlace.animation(reduceMotion: reduceMotion), value: isPlayingThis ? player.movement : nil)
         }
         .pageTitle(isOverlay ? "" : work.title)
         .toolbar {

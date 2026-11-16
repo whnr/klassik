@@ -103,6 +103,30 @@ struct QuietSpellTests {
         #expect(spell.wait(at: start.advanced(by: .seconds(60) + QuietSpell.length)) == nil)
     }
 
+    @Test func theSpellLastsEightSeconds() {
+        #expect(QuietSpell.length == .seconds(8))
+    }
+
+    @Test func followsOnceForEachMovementAndEachTouch() {
+        var spell = QuietSpell()
+        spell.touch(at: start)
+        #expect(!spell.follow(0, at: start.advanced(by: .seconds(7))))
+        #expect(spell.follow(0, at: start.advanced(by: .seconds(8))))
+        #expect(!spell.follow(0, at: start.advanced(by: .seconds(9))))
+        #expect(spell.follow(1, at: start.advanced(by: .seconds(10))))
+        spell.touch(at: start.advanced(by: .seconds(11)))
+        #expect(!spell.follow(1, at: start.advanced(by: .seconds(12))))
+        #expect(spell.follow(1, at: start.advanced(by: .seconds(19))))
+    }
+
+    @Test func neverFollowsDuringATouch() {
+        var spell = QuietSpell()
+        spell.touching(true, at: start)
+        #expect(!spell.follow(1, at: start.advanced(by: .seconds(60))))
+        spell.touching(false, at: start.advanced(by: .seconds(60)))
+        #expect(spell.follow(1, at: start.advanced(by: .seconds(68))))
+    }
+
     @Test func aScrollByTheAppStartsNoSpell() {
         var spell = QuietSpell()
         spell.touching(false, at: start)

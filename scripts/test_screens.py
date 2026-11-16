@@ -42,8 +42,8 @@ class ExpectedTests(unittest.TestCase):
         self.assertEqual(screen_report.expected(WALK, ""), [])
 
     def test_all_areas(self):
-        self.assertEqual(screen_report.expected(WALK, "all"), ["02-home", "09-filter", "10-albums"])
-        self.assertEqual(screen_report.expected(WALK, "true"), ["02-home", "09-filter", "10-albums"])
+        self.assertEqual(screen_report.expected(WALK, "all"), ["01-connect", "02-home", "09-filter", "10-albums"])
+        self.assertEqual(screen_report.expected(WALK, "true"), ["01-connect", "02-home", "09-filter", "10-albums"])
 
     def test_named_areas(self):
         self.assertEqual(screen_report.expected(WALK, "settings"), ["09-filter", "10-albums"])
@@ -144,13 +144,18 @@ class MatrixTests(unittest.TestCase):
         return reports
 
     def test_a_passed_walk_must_keep_every_screenshot(self):
-        every = [("places-browse", "02-home"), ("settings-timeline", "09-filter"), ("settings-timeline", "10-albums")]
+        every = [
+            ("places-browse", "01-connect"),
+            ("places-browse", "02-home"),
+            ("settings-timeline", "09-filter"),
+            ("settings-timeline", "10-albums"),
+        ]
         with tempfile.TemporaryDirectory() as directory:
             reports = self.walk_reports(directory, every)
             self.assertEqual(screen_report.aggregate_ui(reports, "all", WALK), "passed")
             self.assertEqual(screen_report.unexplained_gaps(reports, "all", WALK), {})
         with tempfile.TemporaryDirectory() as directory:
-            reports = self.walk_reports(directory, every[:2])
+            reports = self.walk_reports(directory, every[:3])
             self.assertEqual(screen_report.aggregate_ui(reports, "all", WALK), "incomplete")
             self.assertEqual(screen_report.unexplained_gaps(reports, "all", WALK), {"settings-timeline": ["10-albums"]})
             # A walk that skips the settings area expects none of its screenshots.
@@ -164,8 +169,18 @@ class MatrixTests(unittest.TestCase):
             self.assertEqual(screen_report.unexplained_gaps(reports, "all", WALK), {})
             self.assertEqual(screen_report.aggregate_ui(reports, "all", WALK), "failed")
 
-    def test_a_shared_snap_belongs_to_no_area(self):
-        self.assertNotIn("01-connect", screen_report.expected(WALK, "all"))
+    def test_the_connect_snap_belongs_to_places(self):
+        self.assertEqual(screen_report.expected(WALK, "all"), ["01-connect", "02-home", "09-filter", "10-albums"])
+        self.assertEqual(screen_report.expected(WALK, "places"), ["01-connect"])
+        self.assertNotIn("01-connect", screen_report.expected(WALK, "settings"))
+
+    def test_a_passed_walk_must_keep_the_connect_screenshot(self):
+        shots = [("places-browse", "02-home"), ("settings-timeline", "09-filter"), ("settings-timeline", "10-albums")]
+        with tempfile.TemporaryDirectory() as directory:
+            reports = self.walk_reports(directory, shots)
+            self.assertEqual(screen_report.unexplained_gaps(reports, "all", WALK), {"places-browse": ["01-connect"]})
+            self.assertEqual(screen_report.aggregate_ui(reports, "all", WALK), "incomplete")
+            self.assertEqual(screen_report.aggregate_ui(reports, "settings", WALK), "passed")
 
     def test_the_command_names_the_gaps(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -219,6 +234,10 @@ class PlanTests(unittest.TestCase):
     def test_pull_request_rejects_unknown_areas(self):
         with self.assertRaises(ValueError):
             screen_report.plan("pull_request", "", "[ui: brwse]")
+
+    def test_every_request_is_validated_after_all(self):
+        with self.assertRaises(ValueError):
+            screen_report.plan("pull_request", "", "[ui: all]\n[ui: brwse]")
 
     def test_pushes_walk_everything(self):
         self.assertEqual(self.groups("push"), ("all", ["unit", "playback", "places-browse", "settings-timeline"]))

@@ -43,6 +43,8 @@ jobs:
           EVENT: ${{ github.event_name }}
           INPUT: ${{ inputs.ui }}
           PR: ${{ github.event.pull_request.number }}
+        # Explicit bash adds pipefail, so a parser error fails this job and not only the walk's matrix.
+        shell: bash
         run: |
           if [ "$EVENT" = pull_request ]; then
             gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/commits" --jq '.[].commit.message' > "$RUNNER_TEMP/messages"

@@ -502,9 +502,9 @@ struct RecordingView: View {
                         if let wholeAlbum {
                             // The playing album pauses and resumes, so the button says that.
                             let playsAlbum = player.recording?.id == wholeAlbum.recording.id
+                            let verb = playsAlbum ? (player.isPaused ? "Resume" : "Pause") : "Play"
                             Button(
-                                playsAlbum ? (player.isPaused ? "Resume Whole Album" : "Pause Whole Album")
-                                    : "Play Whole Album",
+                                "\(verb) Whole Album",
                                 systemImage: playsAlbum && !player.isPaused ? "pause.fill" : "square.stack"
                             ) {
                                 spell.touch()

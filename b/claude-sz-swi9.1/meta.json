@@ -1,7 +1,7 @@
 {
-  "sha": "ab064ee6ac2239f174882a01be2764e53bf130df",
+  "sha": "7c8bc2aa62885b2ed8046eb2ab365ab03ffa2752",
   "branch": "claude-sz-swi9.1",
   "path": "claude-sz-swi9.1",
-  "subject": "Stop the queue in the foot-of-player test",
-  "ts": 1794859617
+  "subject": "Drop the hairline under the queue end",
+  "ts": 1794861189
 }

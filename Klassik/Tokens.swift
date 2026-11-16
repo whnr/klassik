@@ -82,6 +82,25 @@ enum TypeStyle: CaseIterable, Sendable {
         }
     }
 
+    /// The line pitch as a multiple of the size, as CSS line-height.
+    var lineHeight: CGFloat {
+        switch self {
+        case .largeTitle: 1.2059
+        case .title1: 1.2143
+        case .title2: 1.2727
+        case .title3: 1.25
+        case .headline: 1.2941
+        case .body: 1.2941
+        case .callout: 1.3125
+        case .subheadline: 1.3333
+        case .footnote: 1.3846
+        case .caption1: 1.3333
+        case .caption2: 1.1818
+        case .pageTitle: 1.15
+        case .sectionHeading: 1.2
+        }
+    }
+
     /// The system text style whose metrics scale the size.
     var textStyle: Font.TextStyle {
         switch self {

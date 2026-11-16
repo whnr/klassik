@@ -19,7 +19,10 @@ final class PlacesScreens: ScreensTestCase {
         let heading = app.staticTexts["page-heading"]
         XCTAssertTrue(heading.exists)
         XCTAssertLessThan(heading.frame.minY, 130)
-        expectPageEdges(drawn(heading, in: app, top: Layout.headTop), in: app, "Composers title")
+        expectPageEdges(drawn(heading, in: app), in: app, "Composers title")
+        let rows = app.buttons.matching(identifier: "composer")
+        XCTAssertGreaterThan(rows.count, 1, "The list has no two composers")
+        expectHairline(between: rows.element(boundBy: 0), and: rows.element(boundBy: 1), in: app, "Composer hairline")
     }
 
     @MainActor
@@ -439,6 +442,7 @@ final class PlaybackScreens: ScreensTestCase {
         let playing = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS 'Now playing'"))
             .firstMatch
         XCTAssertTrue(reveal(playing, in: app).exists, "No movement shows the playing mark")
+        expectMovementPlayEdge(app)
     }
 
     /// Play on the work page plays the reference recording and the pill shows the playing state (item 25).
@@ -451,8 +455,14 @@ final class PlaybackScreens: ScreensTestCase {
         work.tap()
         let play = app.buttons["play-work"]
         XCTAssertTrue(play.waitForExistence(timeout: 10))
+        let first = app.buttons.matching(identifier: "recording").firstMatch
+        XCTAssertTrue(first.waitForExistence(timeout: 10))
+        let before = first.frame
         play.tap()
         pause(app)
+        // The playing row tints in place: the row keeps its frame.
+        XCTAssertEqual(first.frame, before, "The playing row moved or changed its size")
+        snap(app, "04d-work-playing")
     }
 
     /// Play Whole Album on a recording page starts the album, not only the recording (build 48, item 11).
@@ -732,6 +742,7 @@ final class TimelineScreens: ScreensTestCase {
         XCTAssertEqual(pillFrame(pill).minX, 0, accuracy: 1, "The pill is not flush with the left edge")
         checkTabAndCoverFrames(app, side: .left)
         snap(app, "15e-timeline-left")
+        expectMovementPlayEdge(app, side: .left)
 
         let place = bar.value as? String ?? ""
         swipeFromLeftEdge(app)
@@ -1174,56 +1185,118 @@ class ScreensTestCase: XCTestCase {
         }
     }
 
-    /// What an element draws on the screen. SwiftUI merges a list row that holds one accessible element into its
-    /// cell, and the element then reports the whole cell. For such a cell the drawn columns give the horizontal
-    /// extent, and the row insets that the view sets inside the cell, `top` and `bottom`, give the vertical extent.
-    /// So a gap that the system adds between two cells still shows. Any other element reports its own frame.
+    /// What an element draws on the screen: the bounds of its ink, in screen points. SwiftUI merges a list row that
+    /// holds one accessible element into its cell, and the element then reports the whole cell, row insets included.
+    /// The ink shows where the view draws inside that frame, so a wrong row inset changes the measured gaps.
+    /// An element without ink reports its frame.
     @MainActor
-    func drawn(
-        _ element: XCUIElement, in app: XCUIApplication, side: PillEdge = .right, top: CGFloat = 0,
-        bottom: CGFloat = 0
-    ) -> CGRect {
+    func drawn(_ element: XCUIElement, in app: XCUIApplication, side: PillEdge = .right) -> CGRect {
         let frame = element.frame
-        guard frame.width >= app.frame.width - 1, let ink = inkColumns(of: element, side: side) else { return frame }
-        return CGRect(
-            x: frame.minX + ink.lowerBound, y: frame.minY + top, width: ink.upperBound - ink.lowerBound,
-            height: frame.height - top - bottom)
+        return ink(in: frame, of: app, side: side) ?? frame
     }
 
-    /// The span of the columns of an element screenshot that differ from the page ground, in points from its
-    /// leading edge. The ground is sampled on the side away from the timeline; the timeline side skips the columns
-    /// of the timeline bar. The top and bottom point are skipped, so a row hairline does not count.
-    @MainActor
-    func inkColumns(of element: XCUIElement, side: PillEdge) -> Range<CGFloat>? {
-        guard let image = element.screenshot().image.cgImage, element.frame.width > 0 else { return nil }
-        let width = image.width
-        let height = image.height
-        let scale = CGFloat(width) / element.frame.width
-        var pixels = [UInt8](repeating: 0, count: width * height * 4)
-        let drawn = pixels.withUnsafeMutableBytes { buffer -> Bool in
-            guard
-                let context = CGContext(
-                    data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8,
-                    bytesPerRow: width * 4, space: CGColorSpaceCreateDeviceRGB(),
-                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
-            else { return false }
-            context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
-            return true
+    /// The screen of the app as bytes, to compare pixels with the page ground.
+    struct ScreenPixels {
+        let width: Int
+        let height: Int
+        /// Pixels for each point.
+        let scale: CGFloat
+        private var bytes: [UInt8]
+
+        @MainActor
+        init?(_ app: XCUIApplication) {
+            guard let image = app.screenshot().image.cgImage, app.frame.width > 0 else { return nil }
+            width = image.width
+            height = image.height
+            scale = CGFloat(width) / app.frame.width
+            bytes = [UInt8](repeating: 0, count: width * height * 4)
+            let (pixelWidth, pixelHeight) = (image.width, image.height)
+            let drawn = bytes.withUnsafeMutableBytes { buffer -> Bool in
+                guard
+                    let context = CGContext(
+                        data: buffer.baseAddress, width: pixelWidth, height: pixelHeight, bitsPerComponent: 8,
+                        bytesPerRow: pixelWidth * 4, space: CGColorSpaceCreateDeviceRGB(),
+                        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+                else { return false }
+                context.draw(image, in: CGRect(x: 0, y: 0, width: pixelWidth, height: pixelHeight))
+                return true
+            }
+            guard drawn else { return nil }
         }
-        guard drawn else { return nil }
-        // Each row has its own ground, so a soft edge that shades the screen from the top does not count as ink.
+
+        /// True when the pixel differs from the pixel of the same row in the ground column.
+        /// Each row has its own ground, so a soft edge that shades the screen from the top does not count as ink.
         func differs(_ x: Int, _ y: Int, from groundX: Int) -> Bool {
             let index = (y * width + x) * 4
             let ground = (y * width + groundX) * 4
-            return (0..<3).reduce(0) { $0 + abs(Int(pixels[index + $1]) - Int(pixels[ground + $1])) } > 30
+            return (0..<3).reduce(0) { $0 + abs(Int(bytes[index + $1]) - Int(bytes[ground + $1])) } > 30
         }
-        let rows = Array(stride(from: Int(scale), to: height - Int(scale), by: 1))
-        let groundColumn = side == .right ? Int(scale) : width - 1 - Int(scale)
-        let skip = Int(((Measure.timeline + Measure.timelineCap) * scale).rounded(.up))
-        let columns = side == .right ? 0..<(width - skip) : skip..<width
-        let ink = columns.filter { x in rows.contains { differs(x, $0, from: groundColumn) } }
-        guard let first = ink.first, let last = ink.last else { return nil }
-        return CGFloat(first) / scale..<CGFloat(last + 1) / scale
+
+        /// The pixel columns that content may use: the columns of the timeline bar are not content.
+        func contentColumns(side: PillEdge) -> Range<Int> {
+            let skip = Int(((Measure.timeline + Measure.timelineCap) * scale).rounded(.up))
+            return side == .right ? 0..<(width - skip) : skip..<width
+        }
+
+        /// A column of page ground on the side away from the timeline, inside every page edge.
+        func groundColumn(side: PillEdge) -> Int {
+            side == .right ? Int(scale) : width - 1 - Int(scale)
+        }
+
+        func pixels(_ range: ClosedRange<CGFloat>) -> Range<Int> {
+            Int((range.lowerBound * scale).rounded())..<Int((range.upperBound * scale).rounded())
+        }
+    }
+
+    /// The bounds of the pixels inside `frame` that differ from the page ground, in screen points. A list cell spans
+    /// the screen; its top and bottom point are skipped, so a row hairline does not count.
+    @MainActor
+    func ink(in frame: CGRect, of app: XCUIApplication, side: PillEdge) -> CGRect? {
+        guard let screen = ScreenPixels(app), frame.width > 0, frame.height > 2 else { return nil }
+        let local = frame.offsetBy(dx: -app.frame.minX, dy: -app.frame.minY)
+        let allowed = screen.contentColumns(side: side)
+        let columns = screen.pixels(local.minX...local.maxX).clamped(to: allowed)
+        let hairline: CGFloat = frame.width >= app.frame.width - 1 ? 1 : 0
+        let rows = screen.pixels((local.minY + hairline)...(local.maxY - hairline)).clamped(to: 0..<screen.height)
+        let ground = screen.groundColumn(side: side)
+        var (minX, maxX, minY, maxY) = (Int.max, Int.min, Int.max, Int.min)
+        for y in rows {
+            for x in columns where screen.differs(x, y, from: ground) {
+                (minX, maxX, minY, maxY) = (min(minX, x), max(maxX, x), min(minY, y), max(maxY, y))
+            }
+        }
+        guard minX <= maxX else { return nil }
+        let scale = screen.scale
+        return CGRect(
+            x: app.frame.minX + CGFloat(minX) / scale, y: app.frame.minY + CGFloat(minY) / scale,
+            width: CGFloat(maxX + 1 - minX) / scale, height: CGFloat(maxY + 1 - minY) / scale)
+    }
+
+    /// The hairline between two adjacent list rows, from its drawn pixels, against the page edges: the specimen
+    /// hairline spans the row content from the leading to the trailing page edge.
+    @MainActor
+    func expectHairline(
+        between upper: XCUIElement, and lower: XCUIElement, in app: XCUIApplication, side: PillEdge = .right,
+        _ name: String, file: StaticString = #filePath, line: UInt = #line
+    ) {
+        guard let screen = ScreenPixels(app) else { return XCTFail("\(name): no screenshot", file: file, line: line) }
+        let border = lower.frame.minY - app.frame.minY
+        XCTAssertEqual(upper.frame.maxY, lower.frame.minY, accuracy: 1, "\(name): the rows are not adjacent")
+        let ground = screen.groundColumn(side: side)
+        let columns = screen.contentColumns(side: side)
+        // The hairline is the row near the border with the longest run of ink.
+        let spans = screen.pixels((border - 1)...(border + 1)).compactMap { y -> Range<Int>? in
+            let ink = columns.filter { screen.differs($0, y, from: ground) }
+            guard let first = ink.first, let last = ink.last else { return nil }
+            return first..<(last + 1)
+        }
+        guard let span = spans.max(by: { $0.count < $1.count }) else {
+            return XCTFail("\(name): no hairline", file: file, line: line)
+        }
+        let frame = CGRect(
+            x: app.frame.minX + CGFloat(span.lowerBound) / screen.scale, y: lower.frame.minY,
+            width: CGFloat(span.count) / screen.scale, height: 1 / screen.scale)
+        expectPageEdges(frame, in: app, side: side, trailing: true, name, file: file, line: line)
     }
 
     /// The distance of a drawn frame from the display edges against the page edges of Layout.swift. The timeline
@@ -1247,16 +1320,63 @@ class ScreensTestCase: XCTestCase {
         }
     }
 
+    /// The most room that a text line leaves between its line box and its ink on one side: half of the line
+    /// box less the cap height. Ascenders and descenders only make the room smaller.
+    func bearing(_ style: TypeStyle?) -> CGFloat {
+        guard let style else { return 0 }
+        return style.size * max(style.lineHeight - Self.capHeight, 0) / 2
+    }
+
+    /// The cap height of the faces, in em. It is a little lower than the faces measure, so the bearing is an upper
+    /// limit.
+    static let capHeight: CGFloat = 0.66
+
+    /// The round play button of a movement row ends on the trailing page edge, as the specimen `.round` does.
+    @MainActor
+    func expectMovementPlayEdge(
+        _ app: XCUIApplication, side: PillEdge = .right, file: StaticString = #filePath, line: UInt = #line
+    ) {
+        // The identifier of the movement row covers the identifiers inside it, so the label finds the button.
+        let button = app.buttons["Play from here"].firstMatch
+        XCTAssertTrue(reveal(button, in: app).exists, "No movement play button", file: file, line: line)
+        guard let circle = ink(in: button.frame, of: app, side: side) else {
+            return XCTFail("The movement play button draws nothing", file: file, line: line)
+        }
+        let right = side == .left ? Layout.edge : Layout.timelineEdge
+        XCTAssertEqual(
+            app.frame.maxX - circle.maxX, right, accuracy: 1, "Movement play: right inset, circle \(circle)",
+            file: file, line: line)
+        XCTAssertEqual(
+            circle.width, Layout.roundButton, accuracy: 1, "Movement play: circle \(circle)", file: file, line: line)
+    }
+
     /// The vertical gap from the foot of one drawn frame to the top of the next, against a gap of Layout.swift.
+    /// The gap of the specimen runs between line boxes; ink sits inside them. So a text side of the gap may add its
+    /// bearing, and a shape side adds nothing.
     @MainActor
     func expectGap(
-        from upper: CGRect, to lower: CGRect, _ gap: CGFloat, _ name: String,
-        file: StaticString = #filePath, line: UInt = #line
+        from upper: CGRect, to lower: CGRect, _ gap: CGFloat, _ name: String, upperText: TypeStyle? = nil,
+        lowerText: TypeStyle? = nil, file: StaticString = #filePath, line: UInt = #line
     ) {
         XCTAssertFalse(upper.isEmpty || lower.isEmpty, "\(name): an element is missing", file: file, line: line)
         let measured = lower.minY - upper.maxY
+        let most = gap + bearing(upperText) + bearing(lowerText)
+        XCTAssertGreaterThanOrEqual(
+            measured, gap - 1.5, "\(name): gap \(measured) below \(gap), \(upper) to \(lower)", file: file, line: line)
+        XCTAssertLessThanOrEqual(
+            measured, most + 1.5, "\(name): gap \(measured) above \(most), \(upper) to \(lower)", file: file,
+            line: line)
+    }
+
+    /// The height of a text in whole line pitches of its style, as the CSS line-height gives them.
+    @MainActor
+    func expectLinePitch(
+        _ height: CGFloat, _ style: TypeStyle, _ name: String, file: StaticString = #filePath, line: UInt = #line
+    ) {
+        let pitch = style.size * style.lineHeight
+        let lines = max((height / pitch).rounded(), 1)
         XCTAssertEqual(
-            measured, gap, accuracy: 1.5, "\(name): gap \(measured), \(upper) to \(lower)",
+            height, lines * pitch, accuracy: 1.5, "\(name): height \(height), not \(lines) lines of \(pitch)",
             file: file, line: line)
     }
 
@@ -1271,20 +1391,35 @@ class ScreensTestCase: XCTestCase {
         for element in [titleElement, composerElement, playElement, headingElement] {
             XCTAssertTrue(element.waitForExistence(timeout: 10), "No \(element)")
         }
-        let title = drawn(titleElement, in: app, top: Layout.headTop, bottom: Layout.metaTop)
+        let title = drawn(titleElement, in: app)
         let composer = drawn(composerElement, in: app)
-        let play = drawn(playElement, in: app, top: Layout.buttonRowTop)
-        let heading = drawn(headingElement, in: app, top: Layout.sectionTop, bottom: Layout.sectionHeadBottom)
+        let play = drawn(playElement, in: app)
+        let heading = drawn(headingElement, in: app)
+        // The title cell holds the row insets of the page heading around the text.
+        let titleCell = titleElement.frame
+        let titleBox =
+            titleCell.width >= app.frame.width - 1
+            ? titleCell.height - Layout.headTop - Layout.metaTop : titleCell.height
+        expectLinePitch(titleBox, Layout.pageTitle, "Work title")
         expectPageEdges(title, in: app, "Work title")
         expectPageEdges(composer, in: app, "Composer line")
         expectPageEdges(play, in: app, trailing: true, "Play")
         expectPageEdges(heading, in: app, "Recordings heading")
-        expectGap(from: title, to: composer, Layout.metaTop, "Title to meta")
+        expectGap(
+            from: title, to: composer, Layout.metaTop, "Title to meta", upperText: Layout.pageTitle,
+            lowerText: Layout.metaLine)
         // The composer and the date share the meta line; the lower of the two ends it.
         let date = app.buttons["composed"].firstMatch
         let meta = date.exists && date.frame.maxY > composer.maxY ? drawn(date, in: app) : composer
-        expectGap(from: meta, to: play, Layout.headBottom + Layout.buttonRowTop, "Meta to Play")
-        expectGap(from: play, to: heading, Layout.sectionTop, "Play to Recordings")
+        expectGap(
+            from: meta, to: play, Layout.headBottom + Layout.buttonRowTop, "Meta to Play", upperText: Layout.metaLine)
+        expectGap(from: play, to: heading, Layout.sectionTop, "Play to Recordings", lowerText: Layout.sectionHeading)
+        let recordings = app.buttons.matching(identifier: "recording")
+        if recordings.count > 1 {
+            expectHairline(
+                between: recordings.element(boundBy: 0), and: recordings.element(boundBy: 1), in: app,
+                "Recording hairline")
+        }
     }
 
     /// The composer page without a picture against person.html: Chronology, the tabs, the chips, the Works heading.
@@ -1298,16 +1433,16 @@ class ScreensTestCase: XCTestCase {
             XCTAssertTrue(element.waitForExistence(timeout: 10), "No \(element)")
         }
         let chronology = drawn(chronologyElement, in: app)
-        let tabs = drawn(tabsElement, in: app, top: Layout.segmentedTop)
+        let tabs = drawn(tabsElement, in: app)
         let chip = drawn(chipElement, in: app)
-        let heading = drawn(headingElement, in: app, top: Layout.sectionTop, bottom: Layout.sectionHeadBottom)
+        let heading = drawn(headingElement, in: app)
         expectPageEdges(chronology, in: app, trailing: true, "Chronology")
         expectPageEdges(tabs, in: app, trailing: true, "Works and About")
         expectPageEdges(chip, in: app, "First chip")
         expectPageEdges(heading, in: app, "Works heading")
         expectGap(from: chronology, to: tabs, Layout.segmentedTop, "Chronology to tabs")
         expectGap(from: tabs, to: chip, Layout.chipsTop, "Tabs to chips")
-        expectGap(from: chip, to: heading, Layout.sectionTop, "Chips to Works")
+        expectGap(from: chip, to: heading, Layout.sectionTop, "Chips to Works", lowerText: Layout.sectionHeading)
     }
 
     /// Opens a recording, leaves it paused in the player and goes back to the list of composers.

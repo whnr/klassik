@@ -1193,15 +1193,16 @@ class ScreensTestCase: XCTestCase {
         }
     }
 
-    /// The bounds of the pixels inside `frame` that differ from the page ground, in screen points. The top and the
-    /// bottom point of the frame are skipped, so a row hairline does not count.
+    /// The bounds of the pixels inside `frame` that differ from the page ground, in screen points. A list cell spans
+    /// the screen; its top and bottom point are skipped, so a row hairline does not count.
     @MainActor
     func ink(in frame: CGRect, of app: XCUIApplication, side: PillEdge) -> CGRect? {
         guard let screen = ScreenPixels(app), frame.width > 0, frame.height > 2 else { return nil }
         let local = frame.offsetBy(dx: -app.frame.minX, dy: -app.frame.minY)
         let allowed = screen.contentColumns(side: side)
         let columns = screen.pixels(local.minX...local.maxX).clamped(to: allowed)
-        let rows = screen.pixels((local.minY + 1)...(local.maxY - 1)).clamped(to: 0..<screen.height)
+        let hairline: CGFloat = frame.width >= app.frame.width - 1 ? 1 : 0
+        let rows = screen.pixels((local.minY + hairline)...(local.maxY - hairline)).clamped(to: 0..<screen.height)
         let ground = screen.groundColumn(side: side)
         var (minX, maxX, minY, maxY) = (Int.max, Int.min, Int.max, Int.min)
         for y in rows {
@@ -1280,7 +1281,8 @@ class ScreensTestCase: XCTestCase {
     func expectMovementPlayEdge(
         _ app: XCUIApplication, side: PillEdge = .right, file: StaticString = #filePath, line: UInt = #line
     ) {
-        let button = app.buttons["play-movement"].firstMatch
+        // The identifier of the movement row covers the identifiers inside it, so the label finds the button.
+        let button = app.buttons["Play from here"].firstMatch
         XCTAssertTrue(reveal(button, in: app).exists, "No movement play button", file: file, line: line)
         guard let circle = ink(in: button.frame, of: app, side: side) else {
             return XCTFail("The movement play button draws nothing", file: file, line: line)

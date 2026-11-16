@@ -10,6 +10,7 @@ The design reference of Klassik: every decision of the design map sz-rs30.1.83 a
 - `chronology.html`: one composer among the contemporaries, and the overview (`?level=overview`).
 - `search.html`: the field finds works, names and albums; filters on demand in a sheet (ADR 0025). The field and the Filters button sit at the top under the back arrow, which returns to the page Search was opened from. The x in the field clears the text; the x pill beside Filters clears the text and every condition. The empty page lists recent searches, newest first, each with its filters; One search session is one entry: Enter, Done on the filters, opening a result and leaving the page update it; the x pill ends the session. Back from a result keeps the search; a tab or a link opens Search fresh. A tap restores the text and the filters. A pick in the filters clears their narrowing field. Filters closes the keyboard as the sheet rises (sz-rs30.1.83.13).
 - `person.html`: a composer or performer page with the screen-wide picture (ADR 0017, 0019). The name sits on the picture over a blur and a measured scrim (ADR 0034). `?name=<artist name>`.
+- `lookup.html`: the MusicBrainz page of Settings with the Wikidata pass (ADR 0042). `?state=running`, `upToDate`, `waiting`, `connection` or `slowDown`. Settings links to it.
 - `tokens.html`: the token sheet. Every colour in the four themes side by side, contrast on rows, the type scale at each Dynamic Type size, spacing, radius, size and each animation alone. The Library cog opens Settings. Settings links to the token sheet.
 
 The flows follow ADR 0013 to 0029. Nothing comes from the UX prototypes.
@@ -60,10 +61,13 @@ In the folder above the specimen, run `python3 -m http.server 8765 --bind 0.0.0.
 
 The frame has three places, a Library Settings cog and a chevron Back button (ADRs 0038 and 0040).
 A first tab tap restores its page. A second tap returns to its root.
+Above the player, every tab tap closes the overlay and restores that tab’s last page.
+A slide down restores the page underneath. The full pill stays visible.
 The scrub label uses 17-point body text and adds 36 points of finger clearance on each edge.
 The composer link and fading header follow the app specification.
 
 The specimen shows decided flows for unfinished slices too. It does not prove their installed-app behavior.
+Every keyboard covers the tab bar, mini player and timeline. These controls keep their position.
 Native glass, display corners and system gestures require an installed-app check.
 With each UX change, update affected specimen flows and run the design check.
 

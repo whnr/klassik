@@ -1,7 +1,7 @@
 {
-  "sha": "a86ef7f952eeea111f2f2bcbbe786fef23a27e9d",
+  "sha": "d0b758c4ce0316acf0ea4a23701ba8a2bb525926",
   "branch": "codex-sz-rs30.1.105.10",
   "path": "codex-sz-rs30.1.105.10",
-  "subject": "Merge origin/main into codex-sz-rs30.1.105.10",
-  "ts": 1794849307
+  "subject": "[sz-rs30.1.105.10] Keep pages still on an unchanged star refresh",
+  "ts": 1794851548
 }

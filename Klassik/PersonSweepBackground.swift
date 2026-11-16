@@ -43,6 +43,7 @@ enum PersonSweepBackground {
 
     /// The system calls the launch handler on a background queue. The handler must not inherit the main actor:
     /// Swift 6 checks that isolation on entry and traps.
+    @MainActor
     static func register<Registry: TaskRegistry>(
         on registry: Registry,
         run: @escaping @MainActor @Sendable () async -> Void,

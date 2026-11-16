@@ -358,10 +358,14 @@ private struct RecordingRow: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             // Every row keeps the room of the slot, so the playing row tints in place and its text does not rewrap.
-            slot
-                .opacity(isPlaying ? 1 : 0)
-                .disabled(!isPlaying)
-                .accessibilityHidden(!isPlaying)
+            // The offline mark sits in that room too: playback stores the recording, and the mark then appears.
+            VStack(spacing: gap) {
+                slot
+                    .opacity(isPlaying ? 1 : 0)
+                    .disabled(!isPlaying)
+                    .accessibilityHidden(!isPlaying)
+                OfflineHint(isOffline: isOffline)
+            }
         }
     }
 
@@ -373,7 +377,6 @@ private struct RecordingRow: View {
             if recording.isReference {
                 FermataMark(isSet: true)
             }
-            OfflineHint(isOffline: isOffline)
         }
     }
 

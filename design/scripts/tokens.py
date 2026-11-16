@@ -359,6 +359,7 @@ def swift_type_styles(tokens):
             {
                 "name": path.removeprefix("type."),
                 "size": number(value["fontSize"]["value"]),
+                "lineHeight": number(value["lineHeight"]),
                 "textStyle": "." + token["$extensions"]["de.whnr.klassik"]["textStyle"],
                 "weight": "." + weight,
                 # A family that starts with "-" is a CSS keyword for the system face.
@@ -378,6 +379,13 @@ def swift_type_styles(tokens):
         ),
         "",
         *swift_switch("size", "CGFloat", "The size in points at the default Dynamic Type size.", cases("size")),
+        "",
+        *swift_switch(
+            "lineHeight",
+            "CGFloat",
+            "The line pitch as a multiple of the size, as CSS line-height.",
+            cases("lineHeight"),
+        ),
         "",
         *swift_switch(
             "textStyle", "Font.TextStyle", "The system text style whose metrics scale the size.", cases("textStyle")

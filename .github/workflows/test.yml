@@ -30,7 +30,7 @@ concurrency:
 jobs:
   # Decides which UI groups run, so an unrequested walk starts no macOS runner.
   plan:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: read
@@ -58,7 +58,7 @@ jobs:
 
   # Runs on Linux, because macOS runner time is expensive. The macOS job starts only on clean code.
   lint:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     container: swift:6.2
     timeout-minutes: 10
     steps:
@@ -68,7 +68,7 @@ jobs:
   # The view code takes its layout numbers from Klassik/Layout.swift, and each of those cites the specimen CSS.
   # The swift image has no Python, so these checks run on their own runner.
   layout:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
@@ -79,7 +79,7 @@ jobs:
   # Generate audio on Linux to keep package installation off the macOS runners.
   # The tarball keeps the colons in the file names, which artifact paths reject.
   fixtures:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
@@ -228,7 +228,7 @@ jobs:
   test:
     needs: [plan, build, walk]
     if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
       screens: ${{ steps.report.outputs.screens }}
@@ -294,7 +294,7 @@ jobs:
   screens-diff:
     needs: test
     if: ${{ !cancelled() && needs.test.outputs.screens == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     continue-on-error: true
     permissions:

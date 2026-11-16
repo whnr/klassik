@@ -19,7 +19,7 @@ concurrency:
 jobs:
   # Cheap Linux job that decides whether the macOS upload runs.
   due:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       actions: read
       contents: read
@@ -129,7 +129,7 @@ jobs:
   # Linux job: it only waits for App Store Connect to finish processing the build.
   notes:
     needs: upload
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}

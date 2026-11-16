@@ -409,7 +409,15 @@ private struct RecordingRow: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            if isPlaying { slot }
+            // Every row keeps the room of the slot, so the playing row tints in place and its text does not rewrap.
+            // The offline mark sits in that room too: playback stores the recording, and the mark then appears.
+            VStack(spacing: gap) {
+                slot
+                    .opacity(isPlaying ? 1 : 0)
+                    .disabled(!isPlaying)
+                    .accessibilityHidden(!isPlaying)
+                OfflineHint(isOffline: isOffline)
+            }
         }
     }
 
@@ -421,7 +429,6 @@ private struct RecordingRow: View {
             if isFavourite {
                 FermataMark(isSet: true)
             }
-            OfflineHint(isOffline: isOffline)
         }
     }
 
@@ -782,7 +789,8 @@ private struct MovementRow: View {
                 .foregroundStyle(Palette.textSecondary)
                 .frame(width: Layout.roundButton, height: Layout.roundButton)
                 .background(Palette.fillQuiet, in: .circle)
-                .frame(width: Measure.hitTarget, height: Measure.hitTarget)
+                // The circle, not its hit frame, ends on the page edge, as the specimen `.round` does.
+                .frame(width: Measure.hitTarget, height: Measure.hitTarget, alignment: .trailing)
                 .contentShape(.rect)
         }
         .buttonStyle(.borderless)

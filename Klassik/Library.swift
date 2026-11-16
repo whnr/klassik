@@ -125,6 +125,8 @@ final class Library {
         for index in changed.indices {
             changed[index].starred = ids.contains(changed[index].id) ? (changed[index].starred ?? stamp) : nil
         }
+        // An unchanged refresh must not rebuild the index: the rebuild re-renders every page under a tap.
+        guard changed.map(\.starred) != songs.map(\.starred) else { return }
         saveStars(changed, owner: owner, syncedAt: syncedAt)
     }
 

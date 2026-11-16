@@ -740,7 +740,7 @@ final class TimelineScreens: ScreensTestCase {
             "The swipe did not go back to the work")
         XCTAssertEqual(bar.value as? String, place, "The swipe scrubbed")
         // The timeline side takes the wider inset, so the content keeps clear of the bar.
-        let title = drawn(app.staticTexts["page-heading"], in: app, side: .left)
+        let title = drawn(app.buttons["favourite-work"], in: app, side: .left)
         let play = drawn(app.buttons["play-work"], in: app, side: .left)
         expectPageEdges(title, in: app, side: .left, "Work title on the left")
         expectPageEdges(play, in: app, side: .left, trailing: true, "Play on the left")
@@ -1263,7 +1263,8 @@ class ScreensTestCase: XCTestCase {
     /// The work page against work.html: title, meta line, Play, then the Recordings heading.
     @MainActor
     func checkWorkPage(_ app: XCUIApplication) {
-        let titleElement = app.staticTexts["page-heading"]
+        // The work title is the favourite button, which hides its text from static-text queries.
+        let titleElement = app.buttons["favourite-work"]
         let composerElement = app.buttons["work-composer"]
         let playElement = app.buttons["play-work"]
         let headingElement = app.descendants(matching: .any)["section-heading"].firstMatch

@@ -170,6 +170,7 @@ final class RecordingOrder {
     }
 
     private func save(_ changed: DeviceStore.Data) {
+        guard changed != data else { return }
         do {
             try store?.save(changed)
             data = changed

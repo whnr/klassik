@@ -584,6 +584,7 @@ struct RecordingView: View {
                         Text(player.queueEnded ? "The queue has ended." : "Playback stopped.")
                             .typeStyle(.subheadline)
                             .foregroundStyle(Palette.textSecondary)
+                            .listRowSeparator(.hidden)
                             .accessibilityIdentifier("player-ended")
                     }
                 }

@@ -140,11 +140,16 @@ struct PerformerPage: View {
 }
 
 /// A cover with the album title and year. It opens the album page.
+/// The grid is one list row, and a row with several links follows all of them on one tap. So each cover is a
+/// button that pushes its own page.
 private struct AlbumCover: View {
+    @Environment(AppNavigator.self) private var navigator
     let album: WorkIndex.Album
 
     var body: some View {
-        NavigationLink(value: Page.album(album.id)) {
+        Button {
+            navigator.open(.album(album.id), in: navigator.selection)
+        } label: {
             VStack(alignment: .leading, spacing: 0) {
                 CoverImage(id: album.tracks.first?.coverArt, points: 160)
                     .aspectRatio(1, contentMode: .fit)
@@ -161,10 +166,9 @@ private struct AlbumCover: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        // A link in a list row adds a chevron; the cover is the whole row.
-        .navigationLinkIndicatorVisibility(.hidden)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("performer-album")
     }

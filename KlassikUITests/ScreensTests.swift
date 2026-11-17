@@ -1588,7 +1588,11 @@ class ScreensTestCase: XCTestCase {
             XCTAssertTrue(element.waitForExistence(timeout: 10), "No \(element)")
         }
         XCTAssertFalse(app.descendants(matching: .any)["performer-picture"].exists)
-        let name = drawn(nameElement, in: app)
+        // The name element reaches up under the back button, so the ink is read on the title line only.
+        let element = nameElement.frame
+        let line = Layout.pageTitle.size * Layout.pageTitle.lineHeight
+        let band = CGRect(x: element.minX, y: element.maxY - line, width: element.width, height: line)
+        let name = ink(in: band, of: app, side: .right) ?? element
         let tabs = drawn(tabsElement, in: app)
         // The name sits where the title of every other page sits (sz-3hcq.13). The name element reaches up under
         // the bar, so only the bottoms of the two lines compare.

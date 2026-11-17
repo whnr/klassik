@@ -63,18 +63,33 @@ enum PortraitLoader {
 
     struct TooLarge: Error {}
 
-    /// A disk cache of its own, so that a large picture loads once and other downloads do not push it out.
+    /// The pictures stay in `ImageStore.pictures`, which the listener can see and limit (ADR 0051). A URL cache
+    /// beside it would hold each picture twice.
     static let session: URLSession = {
         let configuration = URLSessionConfiguration.default
-        let folder = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?
-            .appending(path: "Portraits")
-        configuration.urlCache = URLCache(memoryCapacity: 0, diskCapacity: 200_000_000, directory: folder)
+        configuration.urlCache = nil
         return URLSession(configuration: configuration)
     }()
 
+    /// The download of the app: a picture that is on the device loads from there.
+    static let download: MusicBrainz.Fetch = stored(network) { ImageStore.pictures }
+
+    /// A fetch that reads the store first and keeps each successful answer in it.
+    static func stored(_ fetch: @escaping MusicBrainz.Fetch, in store: @escaping @MainActor @Sendable () -> ImageStore)
+        -> MusicBrainz.Fetch
+    {
+        { request in
+            let key = request.url?.absoluteString ?? ""
+            if let data = await store().data(for: key) { return (data, 200) }
+            let (data, status) = try await fetch(request)
+            if (200..<300).contains(status), !data.isEmpty { await store().store(data, for: key) }
+            return (data, status)
+        }
+    }
+
     /// Streams the body and stops at the cap, so that a huge file never sits in memory. A redirect to a host
     /// outside the trusted list ends the request.
-    static let download: MusicBrainz.Fetch = { request in
+    static let network: MusicBrainz.Fetch = { request in
         let (bytes, response) = try await session.bytes(for: request, delegate: RedirectGuard())
         guard response.expectedContentLength <= Int64(maxBytes) else { throw TooLarge() }
         var data = Data()

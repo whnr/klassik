@@ -19,6 +19,9 @@ final class AppModel {
     private(set) var recordingOrder: RecordingOrder
     let tracks: TrackStore
     let covers = CoverArt.Cache()
+    let pictures = ImageStore.pictures
+    let albumArt = ImageStore.albumArt
+    @ObservationIgnored private var albumArtPass: Task<Void, Never>?
     let playback: PlaybackSession
     /// The timeline and the mini player show while an item is in playback; the page insets follow them.
     var showsTimeline: Bool { playback.item != nil }
@@ -46,12 +49,18 @@ final class AppModel {
             store.clear()
             library.clear()
             tracks.clearAll()
+            albumArt.clear()
+            pictures.clear()
             enrichment.clear()
             people.clear()
             libraryRows.reset()
         }
         credentials = store.load()
         updateServer()
+        // No build reads the URL cache folder of the pictures, so its space goes back to the device.
+        Task.detached(priority: .utility) {
+            try? FileManager.default.removeItem(at: .cachesDirectory.appending(path: "Portraits"))
+        }
     }
 
     /// Returns the error text if the server rejects the login; nothing is saved then.
@@ -78,6 +87,7 @@ final class AppModel {
         if !ProcessInfo.processInfo.arguments.contains("-resetServer") { await playback.restoreQueue() }
         await check()
         await library.syncIfChanged(with: client)
+        keepAlbumArt()
         await recordingOrder.refresh()
         await Self.enrich(library.index, enrichment: enrichment, sweep: sweep)
     }
@@ -108,6 +118,17 @@ final class AppModel {
         await sweep.finish()
     }
 
+    /// Starts the pass that keeps the art of every album on the device (ADR 0051). Classical albums go first,
+    /// because Klassik shows them. Nothing runs while it runs already.
+    func keepAlbumArt() {
+        guard albumArtPass == nil, let credentials else { return }
+        let songs = library.classical + library.songs
+        albumArtPass = Task {
+            await CoverArt.keepAll(songs, credentials: credentials, store: albumArt)
+            albumArtPass = nil
+        }
+    }
+
     func check() async {
         guard let credentials, !isChecking else { return }
         isChecking = true
@@ -122,7 +143,10 @@ final class AppModel {
 
     func signOut() {
         playback.server = nil
+        albumArtPass?.cancel()
+        albumArtPass = nil
         tracks.clearAll()
+        albumArt.clear()
         store.clear()
         library.clear()
         credentials = nil

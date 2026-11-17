@@ -117,7 +117,8 @@ struct CoverImage: View {
         guard let song else { return CoverArt.Source(local: [], coverID: nil, pixels: 0, credentials: nil) }
         return CoverArt.Source(
             local: model.library.artworkSources(for: song).filter { model.tracks.isOffline($0) },
-            coverID: song.coverArt, pixels: Int((points * scale).rounded(.up)), credentials: model.credentials)
+            coverID: song.coverArt, pixels: Int((points * scale).rounded(.up)), credentials: model.credentials,
+            album: song.albumKey)
     }
 
     var body: some View {
@@ -139,7 +140,9 @@ struct CoverImage: View {
         .task(id: source) {
             let files = await model.tracks.localFiles(for: source.local)
             guard !Task.isCancelled else { return }
-            let loaded = await CoverArt.load(files: files, remote: source.remote)
+            let kept = source.storeKey.map { (store: model.albumArt, key: $0) }
+            let loaded = await CoverArt.load(
+                files: files, remote: kept == nil ? source.remote : source.stored, pixels: source.pixels, kept: kept)
             guard !Task.isCancelled else { return }
             if let loaded {
                 model.covers.store(loaded, for: source)

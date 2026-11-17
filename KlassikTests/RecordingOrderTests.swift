@@ -6,25 +6,38 @@ import Testing
 actor FavouriteFixture: FavouriteServer {
     var stars = Starred()
     var writes: [[String]] = []
-    var fails = false
+    var failure: (any Error)?
 
-    func configure(_ stars: Starred, fails: Bool = false) {
+    static let offline = URLError(.notConnectedToInternet)
+    static let refusal = SubsonicError.server(code: 50, message: "The user is not authorised")
+
+    func configure(_ stars: Starred, failure: (any Error)? = nil) {
         self.stars = stars
-        self.fails = fails
+        self.failure = failure
     }
 
     func star(_ ids: [String]) throws {
-        if fails { throw URLError(.notConnectedToInternet) }
+        if let failure { throw failure }
         writes.append(ids)
     }
 
     func unstar(_ ids: [String]) throws {
-        if fails { throw URLError(.notConnectedToInternet) }
+        if let failure { throw failure }
         writes.append(ids.map { "-" + $0 })
     }
 
+    func starAlbum(_ id: String) throws {
+        if let failure { throw failure }
+        writes.append(["album:" + id])
+    }
+
+    func unstarAlbum(_ id: String) throws {
+        if let failure { throw failure }
+        writes.append(["-album:" + id])
+    }
+
     func getStarred() throws -> Starred {
-        if fails { throw URLError(.notConnectedToInternet) }
+        if let failure { throw failure }
         return stars
     }
 }
@@ -124,6 +137,137 @@ struct RecordingOrderTests {
         #expect(!order.isFavourite(b, of: work))
         #expect(order.rows(of: work).filter(\.isFavourite).map(\.recording.album) == ["a"])
         #expect(await server.writes == [["b-1", "b-2"], ["-b-1", "-b-2"]])
+    }
+
+    /// The mark and the order change before the server answers, so a tap shows its result at once.
+    @Test func aFavouriteChangesStateAndPlaceBeforeTheServerAnswers() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let library = try await library([song("a", year: 2001), song("b", year: 1990)], root: root)
+        let work = try #require(library.index.composers.first?.works.first)
+        let b = try #require(work.recordings.first { $0.album == "b" })
+        let server = FavouriteFixture()
+        let order = RecordingOrder(library: library, store: store(root), server: server)
+        #expect(order.rows(of: work).map(\.recording.album) == ["a", "b"])
+        let confirm = try #require(order.begin(b, of: work))
+        #expect(order.isFavourite(b, of: work))
+        #expect(order.rows(of: work).map(\.recording.album) == ["b", "a"])
+        #expect(await server.writes.isEmpty)
+        #expect(try store(root).load() == DeviceStore.Data())
+        await confirm()
+        #expect(await server.writes == [["b-1"]])
+        #expect(try store(root).load().recordingOrder[work.id] == [b.id])
+        #expect(!order.isSaving)
+    }
+
+    @Test func aRefusedFavouriteGoesBackToItsPlace() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let library = try await library([song("a", year: 2001), song("b", year: 1990)], root: root)
+        let work = try #require(library.index.composers.first?.works.first)
+        let b = try #require(work.recordings.first { $0.album == "b" })
+        let server = FavouriteFixture()
+        await server.configure(Starred(), failure: FavouriteFixture.refusal)
+        let order = RecordingOrder(library: library, store: store(root), server: server)
+        let confirm = try #require(order.begin(b, of: work))
+        #expect(order.rows(of: work).first?.recording.album == "b")
+        await confirm()
+        #expect(!order.isFavourite(b, of: work))
+        #expect(order.rows(of: work).map(\.recording.album) == ["a", "b"])
+        #expect(order.error != nil)
+    }
+
+    /// Only a refusal from the server shows the modal. Offline, the change goes back without one (sz-3hcq.15).
+    @Test func anOfflineFavouriteGoesBackWithoutAModal() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let library = try await library([song("a", year: 2001), song("b", year: 1990)], root: root)
+        let work = try #require(library.index.composers.first?.works.first)
+        let b = try #require(work.recordings.first { $0.album == "b" })
+        let server = FavouriteFixture()
+        await server.configure(Starred(), failure: FavouriteFixture.offline)
+        let order = RecordingOrder(library: library, store: store(root), server: server)
+        await order.toggle(b, of: work)
+        #expect(!order.isFavourite(b, of: work))
+        #expect(order.rows(of: work).map(\.recording.album) == ["a", "b"])
+        #expect(order.error == nil)
+        await order.refresh()
+        #expect(order.error == nil)
+    }
+
+    /// A work favourite or a new order made while the server call runs stays, on the device too.
+    @Test func changesDuringAFavouriteCallAreKept() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let library = try await library(
+            [song("a", year: 2001, starred: true), song("b", year: 1990), song("c", year: 1980)], root: root)
+        let work = try #require(library.index.composers.first?.works.first)
+        let a = try #require(work.recordings.first { $0.album == "a" })
+        let b = try #require(work.recordings.first { $0.album == "b" })
+        let c = try #require(work.recordings.first { $0.album == "c" })
+        let server = FavouriteFixture()
+        let order = RecordingOrder(library: library, store: store(root), server: server)
+
+        let confirm = try #require(order.begin(b, of: work))
+        order.toggle(work)
+        order.moveFavourites(of: work, from: [1], to: 0)
+        await confirm()
+        #expect(order.isFavourite(work))
+        #expect(order.rows(of: work).map(\.recording.album) == ["b", "a", "c"])
+        #expect(try store(root).load().favouriteWorks == [work.id])
+        #expect(try store(root).load().recordingOrder[work.id] == [b.id, a.id])
+
+        await server.configure(Starred(), failure: FavouriteFixture.refusal)
+        let refused = try #require(order.begin(c, of: work))
+        order.toggle(work)
+        order.moveFavourites(of: work, from: [0], to: 2)
+        await refused()
+        #expect(!order.isFavourite(work))
+        #expect(!order.isFavourite(c, of: work))
+        #expect(order.rows(of: work).map(\.recording.album) == ["a", "b", "c"])
+        #expect(try store(root).load().favouriteWorks.isEmpty)
+        #expect(try store(root).load().recordingOrder[work.id] == [a.id, b.id])
+    }
+
+    /// An album favourite is a star on the album, not on its tracks, and it raises its recordings (ADR 0013).
+    @Test func anAlbumFavouriteStarsTheAlbumAtOnceAndRaisesItsRecordings() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let library = try await library([song("a", year: 2001), song("b", year: 1990)], root: root)
+        let work = try #require(library.index.composers.first?.works.first)
+        let server = FavouriteFixture()
+        let order = RecordingOrder(library: library, store: store(root), server: server)
+        let confirm = try #require(order.begin(album: "b"))
+        #expect(order.isFavourite(album: "b"))
+        #expect(order.rows(of: work).first?.reason == "Favourite album: b")
+        await confirm()
+        #expect(await server.writes == [["album:b"]])
+        #expect(order.rows(of: work).allSatisfy { !$0.isFavourite })
+        await order.toggle(album: "b")
+        #expect(!order.isFavourite(album: "b"))
+        #expect(await server.writes == [["album:b"], ["-album:b"]])
+    }
+
+    @Test func aRefusedAlbumFavouriteIsTakenBack() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let library = try await library([song("a")], root: root)
+        let server = FavouriteFixture()
+        await server.configure(Starred(), failure: FavouriteFixture.offline)
+        let order = RecordingOrder(library: library, store: store(root), server: server)
+        await order.toggle(album: "a")
+        #expect(!order.isFavourite(album: "a"))
+        #expect(order.error == nil)
+        await server.configure(Starred(), failure: FavouriteFixture.refusal)
+        await order.toggle(album: "a")
+        #expect(!order.isFavourite(album: "a"))
+        #expect(order.error != nil)
+        #expect(!order.isSaving)
+    }
+
+    @Test func theFavouriteActionOfAFavouriteSaysUnfavourite() {
+        #expect(FavouriteAction.title(isSet: true) == "Unfavourite")
+        #expect(FavouriteAction.title(isSet: false) == "Favourite")
     }
 
     @Test func workFavouriteIsLocalAndSurvivesSignOut() async throws {
@@ -229,7 +373,7 @@ struct RecordingOrderTests {
         let work = try #require(library.index.composers.first?.works.first)
         let recording = try #require(work.recordings.first)
         let server = FavouriteFixture()
-        await server.configure(Starred(), fails: true)
+        await server.configure(Starred(), failure: FavouriteFixture.refusal)
         let order = RecordingOrder(library: library, store: store(root), server: server)
         await order.toggle(recording, of: work)
         #expect(order.error != nil)

@@ -456,11 +456,17 @@ final class PlaybackScreens: ScreensTestCase {
         // A paused player moves to the dragged position and stays paused.
         let position = app.sliders["position"]
         XCTAssertTrue(position.waitForExistence(timeout: 10))
-        position.adjust(toNormalizedSliderPosition: 0)
+        let beginning = position.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.5))
+        let end = position.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5))
+        beginning.tap()
         let start = position.value as? String ?? ""
-        position.adjust(toNormalizedSliderPosition: 0.9)
-        let moved = expectation(for: NSPredicate(format: "value != %@", start), evaluatedWith: position)
-        XCTAssertEqual(XCTWaiter.wait(for: [moved], timeout: 5), .completed, start)
+        beginning.press(forDuration: 0.1, thenDragTo: end)
+        // Read at once after the lift: a snap-back shows the start until the player arrives at the new place.
+        let landed = position.value as? String ?? ""
+        XCTAssertNotEqual(landed, start, "The position bar snapped back to the start")
+        XCTAssertGreaterThan(Self.seconds(landed), Self.seconds(start))
+        // The bar stays where the finger let go: it does not snap back while the movement starts again.
+        XCTAssertFalse(eventually(timeout: 2) { position.value as? String != landed }, "The position bar snapped back")
         XCTAssertTrue(app.buttons["Resume"].firstMatch.exists)
         snap(app, "05c-seek")
 
@@ -527,6 +533,16 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(reveal(encores, in: app).isHittable)
         encores.tap()
         XCTAssertTrue(app.buttons["play-recording"].waitForExistence(timeout: 10))
+        // The album page has the favourite mark after its title (ADR 0017). Stars survive launches, so the
+        // check sets the mark and takes it away again.
+        let mark = app.buttons["favourite-album"]
+        XCTAssertTrue(mark.waitForExistence(timeout: 10), "The album page has no favourite mark")
+        let before = mark.value as? String
+        mark.tap()
+        XCTAssertTrue(eventually(timeout: 2) { mark.value as? String != before }, "The album mark did not change")
+        snap(app, "05e-album-favourite")
+        mark.tap()
+        XCTAssertTrue(eventually(timeout: 10) { mark.value as? String == before })
         startPlaying(app)
         pause(app)
         snap(app, "05e-play-album")
@@ -657,10 +673,20 @@ final class PlaybackScreens: ScreensTestCase {
         snap(app, "05a-recording-swipe")
         let favourite = app.buttons["favourite-action"].firstMatch
         XCTAssertTrue(favourite.waitForExistence(timeout: 5))
+        XCTAssertEqual(favourite.label, "Favourite")
         favourite.tap()
+        // The favourite moves up at once; it does not wait for the server.
         let moved = expectation(for: NSPredicate(format: "label CONTAINS 'Anna Probe'"), evaluatedWith: rows.firstMatch)
-        XCTAssertEqual(XCTWaiter.wait(for: [moved], timeout: 10), .completed)
+        XCTAssertEqual(XCTWaiter.wait(for: [moved], timeout: 2), .completed)
         snap(app, "05b-work-reference")
+        // The menu of a favourite takes it away.
+        rows.firstMatch.press(forDuration: 1.2)
+        let unfavourite = app.buttons["favourite-action"].firstMatch
+        XCTAssertTrue(unfavourite.waitForExistence(timeout: 5))
+        XCTAssertEqual(unfavourite.label, "Unfavourite")
+        snap(app, "05b-unfavourite-menu")
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
+        XCTAssertTrue(eventually(timeout: 5) { !unfavourite.exists }, "The menu did not close")
 
         rows.element(boundBy: 1).tap()
         app.buttons["favourite-recording"].tap()
@@ -1552,6 +1578,11 @@ class ScreensTestCase: XCTestCase {
             from.press(forDuration: 0.05, thenDragTo: to)
         }
         return element
+    }
+
+    /// The seconds of a shown time such as 1:48 or 1:02:03.
+    static func seconds(_ time: String) -> Double {
+        time.split(separator: ":").reduce(0) { $0 * 60 + (Double($1) ?? 0) }
     }
 
     /// Reads the condition until it holds or the time is over. The time ends only between two complete reads.

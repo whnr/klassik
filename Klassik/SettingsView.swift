@@ -146,7 +146,7 @@ struct AlbumsView: View {
                             .foregroundStyle(Palette.textSecondary)
                     }
                 }
-                .itemActions(album.item, downloads: true)
+                .itemActions(album.item, downloads: true, favouriteAlbum: true)
                 .accessibilityIdentifier("album")
             }
         }

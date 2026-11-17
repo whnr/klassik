@@ -1,3 +1,7 @@
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["pyjwt[crypto]"]
+# ///
 """Prints TestFlight feedback (screenshots + crashes) for Klassik from App Store Connect.
 
 Env: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 (key text). Screenshots and full crash logs land in ./feedback/.
@@ -11,13 +15,13 @@ import time
 import urllib.parse
 import urllib.request
 
-import jwt  # pyjwt[crypto]
-
 API = "https://api.appstoreconnect.apple.com"
 BUNDLE_ID = "de.whnr.klassik"
 
 
 def token():
+    import jwt
+
     now = int(time.time())
     return jwt.encode(
         {"iss": os.environ["ASC_ISSUER_ID"], "iat": now, "exp": now + 1200, "aud": "appstoreconnect-v1"},
@@ -59,32 +63,44 @@ def header(kind, item, versions):
     print("attributes: " + json.dumps({k: v for k, v in a.items() if k not in ("comment", "screenshots")}))
 
 
-TOKEN = token()
-app = get("/v1/apps", **{"filter[bundleId]": BUNDLE_ID})["data"][0]["id"]
-out = pathlib.Path("feedback")
-out.mkdir(exist_ok=True)
+def export_crash(item, out):
+    try:
+        log = get(f"/v1/betaFeedbackCrashSubmissions/{item['id']}/crashLog")["data"]["attributes"].get("logText")
+    except Exception as error:  # Apple can defer processing a crash log.
+        print(f"crash log unavailable: {error}")
+        return
+    if not isinstance(log, str) or not log.strip():
+        print("crash log unavailable: empty logText")
+        return
+    print("crash log (head):\n" + "\n".join(log.splitlines()[:120]))
+    name = out / f"{item['attributes']['createdDate'][:19].replace(':', '')}-{item['id']}.crash"
+    # An export failure must fail the run: a missing artifact cannot support crash diagnosis.
+    name.write_text(log, encoding="utf-8")
+    print(f"crash log: {name}")
 
-for doc in pages(f"/v1/apps/{app}/betaFeedbackScreenshotSubmissions", include="build", limit=50):
-    versions = builds(doc)
-    for item in doc["data"]:
-        header("SCREENSHOT", item, versions)
-        for i, shot in enumerate(item["attributes"].get("screenshots") or []):
-            name = out / f"{item['attributes']['createdDate'][:19].replace(':', '')}-{i}.png"
-            urllib.request.urlretrieve(shot["url"], name)
-            print(f"screenshot: {name}")
 
-for doc in pages(f"/v1/apps/{app}/betaFeedbackCrashSubmissions", include="build", limit=50):
-    versions = builds(doc)
-    for item in doc["data"]:
-        header("CRASH", item, versions)
-        try:
-            log = (
-                get(f"/v1/betaFeedbackCrashSubmissions/{item['id']}/crashLog")["data"]["attributes"].get("logText")
-                or ""
-            )
-            print("crash log (head):\n" + "\n".join(log.splitlines()[:120]))
-            name = out / f"{item['attributes']['createdDate'][:19].replace(':', '')}-{item['id']}.crash"
-            name.write_text(log)
-            print(f"crash log: {name}")
-        except Exception as e:  # crash log may not be processed yet
-            print(f"crash log unavailable: {e}")
+def main():
+    global TOKEN
+    TOKEN = token()
+    app = get("/v1/apps", **{"filter[bundleId]": BUNDLE_ID})["data"][0]["id"]
+    out = pathlib.Path("feedback")
+    out.mkdir(exist_ok=True)
+
+    for doc in pages(f"/v1/apps/{app}/betaFeedbackScreenshotSubmissions", include="build", limit=50):
+        versions = builds(doc)
+        for item in doc["data"]:
+            header("SCREENSHOT", item, versions)
+            for i, shot in enumerate(item["attributes"].get("screenshots") or []):
+                name = out / f"{item['attributes']['createdDate'][:19].replace(':', '')}-{i}.png"
+                urllib.request.urlretrieve(shot["url"], name)
+                print(f"screenshot: {name}")
+
+    for doc in pages(f"/v1/apps/{app}/betaFeedbackCrashSubmissions", include="build", limit=50):
+        versions = builds(doc)
+        for item in doc["data"]:
+            header("CRASH", item, versions)
+            export_crash(item, out)
+
+
+if __name__ == "__main__":
+    main()

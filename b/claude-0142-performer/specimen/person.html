@@ -142,7 +142,7 @@
         const kind = composer ? "composer" : "performer";
         const { app, scroll } = K.page({ tab: "library", back: { label: "Library", href: "index.html" } });
 
-        // ADR 0019: only a picture with a person shows; the specimen cannot detect faces, so every P18 picture shows.
+        // ADR 0043: every P18 picture shows, cropped to fill the frame.
         const pic = facts.picture;
         const hero = el("div", { class: "hero" });
         scroll.append(hero);

@@ -629,6 +629,7 @@
             // A scrub must not take focus, so an open note field stays open while the listener finds the end.
             e.preventDefault();
             bar.setPointerCapture(e.pointerId);
+            K.P.holding = true;
             const move = (ev) => {
               const r = bar.getBoundingClientRect();
               K.seek(i, Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width)) * s.duration);
@@ -637,6 +638,7 @@
             bar.onpointermove = move;
             bar.onpointerup = bar.onpointercancel = () => {
               bar.onpointermove = null;
+              K.P.holding = false;
             };
           });
           const times = el(

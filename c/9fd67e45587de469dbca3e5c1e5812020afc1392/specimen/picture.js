@@ -48,8 +48,12 @@
     const s = Math.max(box.width / iw, box.height / ih);
     const ox = (box.width - iw * s) * 0.5,
       oy = (box.height - ih * s) * 0.22;
+    // Only the text needs the contrast: the region ends at the longest line, as the scrim does.
+    const right =
+      parseFloat(getComputedStyle(document.querySelector(".hero")).getPropertyValue("--text-right")) ||
+      hb.right - box.left;
     const x0 = (hb.left - box.left - ox) / s,
-      x1 = (hb.right - box.left - ox) / s;
+      x1 = (Math.min(right, hb.right - box.left) - ox) / s;
     const y0 = (hb.top - box.top - 8 - oy) / s,
       y1 = (box.bottom - box.top - oy) / s;
     // Sample at one pixel per 6 points, then average blocks of 5 by 5: a 30 point cell stands in for the 16 pt blur.

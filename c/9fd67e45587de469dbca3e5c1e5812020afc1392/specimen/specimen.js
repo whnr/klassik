@@ -950,6 +950,7 @@ const K = (() => {
   function setPlayerOpen(open) {
     chrome.player = open;
     layoutChrome();
+    updatePlayingChrome();
   }
 
   function layoutChrome() {
@@ -969,7 +970,7 @@ const K = (() => {
   function updatePlayingChrome() {
     drawTimelineProgress();
     if (!current()) {
-      // At the end of the queue the open player stays and says so; elsewhere the mini player and the timeline go.
+      // When nothing plays, the mini player and the timeline go. The open player closes first (ADR 0043).
       if (!chrome.player) {
         MINI.remove();
         if (chrome.timeline) chrome.timeline.remove();

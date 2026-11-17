@@ -1,7 +1,7 @@
 {
-  "sha": "c51a34d0cd30a0f770f8a64f667e6f023a3f74a6",
+  "sha": "9fd67e45587de469dbca3e5c1e5812020afc1392",
   "branch": "claude-0142-player",
   "path": "claude-0142-player",
-  "subject": "[sz-3hcq] Preserve row lines and edge drags",
-  "ts": 1794897233
+  "subject": "[sz-3hcq] Keep timeline checks self-contained",
+  "ts": 1794897520
 }

@@ -1058,7 +1058,8 @@ final class SettingsScreens: ScreensTestCase {
 
         let showTaps = reveal(app.switches["show-taps"], in: app)
         showTaps.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
-        XCTAssertEqual(showTaps.value as? String, "1")
+        let on = expectation(for: NSPredicate(format: "value == '1'"), evaluatedWith: showTaps)
+        XCTAssertEqual(XCTWaiter.wait(for: [on], timeout: 10), .completed, "\(showTaps.value ?? "nil")")
         snap(app, "12a-show-taps")
     }
 

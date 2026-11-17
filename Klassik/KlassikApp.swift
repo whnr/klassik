@@ -28,6 +28,8 @@ struct KlassikApp: App {
     private static func configureTips() {
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("-resetServer") {
+            // A test run reuses the simulator, and the tap switch survives a relaunch. Each run starts with it off.
+            UserDefaults.standard.removeObject(forKey: TapIndicator.storageKey)
             try? Tips.resetDatastore()
             if arguments.contains("-showTips") { Tips.showAllTipsForTesting() } else { Tips.hideAllTipsForTesting() }
         }

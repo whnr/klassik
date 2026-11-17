@@ -267,6 +267,7 @@ struct WorkView: View {
                 } label: {
                     HStack(spacing: Layout.capsuleGap) {
                         Image(systemName: playsThisWork && !player.isPaused ? "pause.fill" : "play.fill")
+                            .accessibilityHidden(true)
                         Text(playsThisWork ? (player.isPaused ? "Resume" : "Pause") : "Play")
                     }
                     .typeStyle(Layout.capsuleLabel)

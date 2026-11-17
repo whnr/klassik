@@ -513,6 +513,7 @@ final class PlaybackScreens: ScreensTestCase {
             work.tap()
             let play = app.buttons["play-work"]
             XCTAssertTrue(play.waitForExistence(timeout: 10))
+            XCTAssertEqual(play.label, "Play")
             let leading = side == "left" ? Layout.timelineEdge : Layout.edge
             let trailing = side == "left" ? Layout.edge : Layout.timelineEdge
             XCTAssertEqual(play.frame.minX, app.frame.minX + leading, accuracy: 1)

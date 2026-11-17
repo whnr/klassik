@@ -342,7 +342,8 @@ struct PersonFactsService: Sendable {
             !text.isEmpty
         else { return nil }
         let page = ((object["content_urls"] as? [String: Any])?["desktop"] as? [String: Any])?["page"] as? String
-        return (text, Self.trusted(page.flatMap { URL(string: $0) }))
+        let article = URL(string: "https://en.wikipedia.org/wiki/" + segment)
+        return (text, Self.trusted(page.flatMap { URL(string: $0) }) ?? article)
     }
 
     private func portrait(file: String) async throws -> (portrait: PersonPortrait, credit: PersonCredit)? {

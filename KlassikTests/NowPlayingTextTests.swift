@@ -30,8 +30,8 @@ struct NowPlayingTextTests {
 
     @Test func soleTaggedSoloistShowsWithoutGuessingTheArtistTag() {
         let result = text([RolesTests.who("performer", "Daniel Keys", "piano")], artist: "Unsorted Names")
-        #expect(result.artist == "Daniel Keys")
-        #expect(text([], artist: "Unsorted Names").artist.isEmpty)
+        #expect(result.artist == "Composer, Symphony, Daniel Keys")
+        #expect(text([], artist: "Unsorted Names").artist == "Composer, Symphony")
     }
 
     @Test(arguments: [4, 6])
@@ -44,8 +44,22 @@ struct NowPlayingTextTests {
 
     @Test func namesFollowTheCurrentMovementAndAppearOnce() {
         let one = RolesTests.who("conductor", "Carl Fixture")
-        #expect(text([one, one]).artist == "Carl Fixture")
-        #expect(text([RolesTests.who("conductor", "Clara Fixture")]).artist == "Clara Fixture")
+        #expect(text([one, one]).artist == "Composer, Symphony, Carl Fixture")
+        #expect(text([RolesTests.who("conductor", "Clara Fixture")]).artist == "Composer, Symphony, Clara Fixture")
+    }
+
+    @Test func artistFieldNamesComposerThenWorkThenPerformers() {
+        let result = text([
+            RolesTests.who("conductor", "Carl Fixture"),
+            RolesTests.who("performer", "Sine Orchestra", "orchestra"),
+        ])
+        let composer = result.artist.range(of: "Composer")
+        let work = result.artist.range(of: "Symphony")
+        let performer = result.artist.range(of: "Carl Fixture")
+        #expect(result.artist.hasPrefix("Composer, Symphony, "))
+        #expect(composer!.lowerBound < work!.lowerBound)
+        #expect(work!.lowerBound < performer!.lowerBound)
+        #expect(result.artist.hasSuffix("Sine Orchestra"))
     }
 
     @Test func albumMovementKeepsItsOwnComposerAndWork() {

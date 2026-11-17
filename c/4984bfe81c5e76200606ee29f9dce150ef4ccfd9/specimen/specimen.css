@@ -144,12 +144,18 @@ input {
 }
 
 /* The listener puts the timeline on the right or the left edge (ADR 0014). Content keeps clear of it. */
+/* The content beside the timeline has even margins; the scroll indicator does not count. Without a timeline the
+   content keeps that width, centred, so the timeline causes no layout shift. */
 :root {
-  --pad-left: var(--space-l);
-  --pad-right: calc(var(--space-l) + var(--size-timeline) + var(--space-s));
+  --pad-left: calc(var(--space-l) + var(--size-timeline) / 2);
+  --pad-right: calc(var(--space-l) + var(--size-timeline) / 2);
 }
-:root[data-side="left"] {
-  --pad-left: calc(var(--space-l) + var(--size-timeline) + var(--space-s));
+:root.has-timeline {
+  --pad-left: var(--space-l);
+  --pad-right: calc(var(--space-l) + var(--size-timeline));
+}
+:root.has-timeline[data-side="left"] {
+  --pad-left: calc(var(--space-l) + var(--size-timeline));
   --pad-right: var(--space-l);
 }
 [data-side="left"] .nav {

@@ -379,9 +379,10 @@ const K = (() => {
     } else Object.assign(P, { item: 0, index: q.start[0], pos: q.start[1], paused: false });
     P.name = name;
     normalise();
-    // The place under the overlay owns the clock; the overlay frame follows it through the shared session.
-    if (embedded) addEventListener("storage", follow);
-    else
+    // The place under the overlay owns the clock. Each page follows what the other writes to the shared session,
+    // so a seek in the overlay frame moves the clock and the next tick does not undo it.
+    addEventListener("storage", follow);
+    if (!embedded)
       setInterval(() => {
         if (!P.paused && current()) {
           P.pos += 0.5;
@@ -393,7 +394,8 @@ const K = (() => {
   }
 
   function follow(event) {
-    if (event.key !== "specimen.play" || !event.newValue) return;
+    // A finger on the playback bar owns the position until it lifts.
+    if (event.key !== "specimen.play" || !event.newValue || P.holding) return;
     const saved = JSON.parse(event.newValue);
     const ended = saved.item > P.item;
     if (saved.queue) P.queue = saved.queue.map(resolveItem);

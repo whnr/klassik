@@ -861,17 +861,12 @@ final class SettingsScreens: ScreensTestCase {
         XCTAssertLessThanOrEqual(field.frame.maxY, keyboard.frame.minY)
         snap(app, "09a-filter-keyboard")
         let original = field.value as? String
-        app.buttons["dismiss-filter-keyboard"].tap()
+        field.typeText("\n")
         XCTAssertTrue(keyboard.waitForNonExistence(timeout: 10))
         XCTAssertTrue(field.isHittable)
         XCTAssertEqual(field.value as? String, original)
         XCTAssertEqual(timeline(app).frame.maxY, lineFrame.maxY, accuracy: 2)
         snap(app, "09b-keyboard-closed")
-        field.tap()
-        XCTAssertTrue(keyboard.waitForExistence(timeout: 10))
-        field.typeText("\n")
-        XCTAssertTrue(keyboard.waitForNonExistence(timeout: 10))
-        XCTAssertEqual(field.value as? String, original)
     }
 
     @MainActor

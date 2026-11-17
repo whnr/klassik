@@ -52,12 +52,6 @@ struct FilterView: View {
             }
         }
         .pageTitle("Classical Filter")
-        .toolbar {
-            ToolbarItem(placement: .keyboard) {
-                Button("Done") { focusedCondition = nil }
-                    .accessibilityIdentifier("dismiss-filter-keyboard")
-            }
-        }
     }
 }
 

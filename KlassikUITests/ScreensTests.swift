@@ -981,8 +981,8 @@ final class SettingsScreens: ScreensTestCase {
         snap(app, "08g-local-storage-limits")
         // The limit stays in the settings of the simulator, so the next walk must find No Limit again.
         pictures.buttons["Increment"].tap()
-        XCTAssertFalse(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "50 GB"))
-            .firstMatch.waitForExistence(timeout: 2))
+        let limit = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "50 GB"))
+        XCTAssertFalse(limit.firstMatch.waitForExistence(timeout: 2))
     }
 
     @MainActor

@@ -1,7 +1,7 @@
 {
-  "sha": "25c847a9a6ba6940d6118ea9c96b0cffe7ea06e2",
+  "sha": "4cdadf3bc5bdce08ed833b6c9d0e33476f504ed9",
   "branch": "main",
   "path": "main",
-  "subject": "Merge pull request #65 from whnr/claude-release-0.14.1",
-  "ts": 1794874476
+  "subject": "[sz-rs30.1.105.72] Composer page fixes for 0.14.2 (#67)",
+  "ts": 1794890489
 }

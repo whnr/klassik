@@ -5,7 +5,8 @@ import UIKit
 @MainActor enum CoverArt {
     /// Authentication salts change per request, so a signed URL must not identify a view's loading task.
     struct Source: Equatable {
-        var files: [URL]
+        /// Tracks on the device that can hold embedded art. Their files resolve in the loading task, off the body.
+        var local: [Song]
         var coverID: String?
         var pixels: Int
         var credentials: ServerCredentials?
@@ -13,7 +14,7 @@ import UIKit
         var cacheKey: NSString? {
             let fields = [
                 credentials?.url.absoluteString ?? "", credentials?.username ?? "", credentials?.password ?? "",
-                coverID ?? files.first?.absoluteString ?? "", String(pixels),
+                coverID ?? local.first?.id ?? "", String(pixels),
             ]
             guard let data = try? JSONEncoder().encode(fields) else { return nil }
             return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() as NSString

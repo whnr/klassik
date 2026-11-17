@@ -46,6 +46,9 @@ struct CoverArtTests {
         var changed = source
         changed.files = [URL(filePath: "/downloaded.mp3")]
         #expect(cache.image(for: changed) === cover)
+        let replacement = picture()
+        cache.store(replacement, for: changed)
+        #expect(cache.image(for: source) === replacement)
         changed = source
         changed.coverID = "another album"
         #expect(cache.image(for: changed) == nil)

@@ -130,7 +130,8 @@ struct CoverImage: View {
     var body: some View {
         let source = source
         let cached = model.covers.image(for: source)
-        let visible = cached ?? (imageKey == source.cacheKey ? image : nil)
+        let loaded = imageKey == source.cacheKey ? image : nil
+        let visible = cached ?? loaded
         ZStack {
             Rectangle().fill(Palette.fillQuiet)
             if let image = visible {

@@ -423,7 +423,8 @@ struct PageTipStyle: TipViewStyle {
             .accessibilityLabel("Close Tip")
             .accessibilityIdentifier("back-tip-close")
         }
-        .padding(Space.l.points)
+        // The row insets of the list give the page edges; the tip adds only its height.
+        .padding(.vertical, Space.l.points)
         .accessibilityElement(children: .contain)
     }
 }

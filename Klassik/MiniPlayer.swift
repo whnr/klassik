@@ -90,7 +90,7 @@ struct MiniPlayer: View {
         Button {
             navigator.openPlayer()
         } label: {
-            CoverImage(id: item.recording.songs.first?.coverArt, points: itemSize)
+            CoverImage(song: item.recording.songs.first, points: itemSize)
                 .frame(width: itemSize, height: itemSize)
                 .clipShape(.rect(cornerRadius: Layout.pillCoverCorner))
                 .padding(.vertical, max(0, (height - itemSize) / 2))
@@ -104,13 +104,33 @@ struct MiniPlayer: View {
     }
 }
 
-/// The cover of a song. It loads once for each cover ID; without one, a note stands in.
+/// Local audio supplies embedded artwork before the server. Without artwork, a note stands in.
 struct CoverImage: View {
     @Environment(AppModel.self) private var model
     @Environment(\.displayScale) private var scale
-    let id: String?
+    let song: Song?
     let points: CGFloat
     @State private var image: UIImage?
+
+    private struct Source: Equatable {
+        var files: [URL]
+        var remote: URL?
+    }
+
+    private var source: Source {
+        guard let song else { return Source(files: [], remote: nil) }
+        // Another downloaded movement can hold the album art when the first movement is not on the device.
+        let related = model.library.songs.filter {
+            $0.id != song.id && ($0.albumKey == song.albumKey || (song.coverArt != nil && $0.coverArt == song.coverArt))
+        }
+        let files = ([song] + related).filter { model.tracks.isOffline($0) }.compactMap {
+            model.tracks.localFile(for: $0)
+        }
+        let remote = song.coverArt.flatMap {
+            model.client?.coverArtURL(id: $0, size: Int((points * scale).rounded(.up)))
+        }
+        return Source(files: files, remote: remote)
+    }
 
     var body: some View {
         ZStack {
@@ -124,12 +144,12 @@ struct CoverImage: View {
                     .foregroundStyle(Palette.textSecondary)
             }
         }
-        .task(id: id) {
+        .task(id: source) {
+            let source = source
             image = nil
-            guard let id, let client = model.client else { return }
-            let url = client.coverArtURL(id: id, size: Int((points * scale).rounded(.up)))
-            guard let response = try? await URLSession.shared.data(from: url) else { return }
-            image = UIImage(data: response.0)
+            let loaded = await CoverArt.load(files: source.files, remote: source.remote)
+            guard !Task.isCancelled else { return }
+            image = loaded
         }
     }
 }

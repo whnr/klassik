@@ -151,7 +151,7 @@ private struct AlbumCover: View {
             navigator.open(.album(album.id), in: navigator.selection)
         } label: {
             VStack(alignment: .leading, spacing: 0) {
-                CoverImage(id: album.tracks.first?.coverArt, points: 160)
+                CoverImage(song: album.tracks.first, points: 160)
                     .aspectRatio(1, contentMode: .fit)
                     .clipShape(RoundedRectangle(cornerRadius: Layout.albumCorner))
                 Text(album.title)

@@ -503,6 +503,30 @@ final class PlaybackScreens: ScreensTestCase {
         snap(app, "04d-work-playing")
     }
 
+    @MainActor
+    func testWorkPlayUsesTheContentInsetsOnEitherSide() throws {
+        for side in ["right", "left"] {
+            let app = try launchAndConnect(arguments: ["-\(timelineSideKey)", side])
+            composer(app, "Felix Mendelssohn").tap()
+            let work = app.buttons.matching(identifier: "work").firstMatch
+            XCTAssertTrue(work.waitForExistence(timeout: 10))
+            work.tap()
+            let play = app.buttons["play-work"]
+            XCTAssertTrue(play.waitForExistence(timeout: 10))
+            let leading = side == "left" ? Layout.timelineEdge : Layout.edge
+            let trailing = side == "left" ? Layout.edge : Layout.timelineEdge
+            XCTAssertEqual(play.frame.minX, app.frame.minX + leading, accuracy: 1)
+            XCTAssertEqual(play.frame.maxX, app.frame.maxX - trailing, accuracy: 1)
+            XCTAssertEqual(play.frame.midX, app.frame.midX + (leading - trailing) / 2, accuracy: 1)
+            if side == "right" {
+                snap(app, "04e-work-play-right")
+            } else {
+                snap(app, "04f-work-play-left")
+            }
+            app.terminate()
+        }
+    }
+
     /// Play Whole Album on a recording page starts the album, not only the recording (build 48, item 11).
     /// The Brahms movement lives on a recital disc that holds a second work, so its page offers the whole disc.
     @MainActor

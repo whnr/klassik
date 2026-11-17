@@ -177,8 +177,7 @@ struct RecordingOrderTests {
         #expect(order.error != nil)
     }
 
-    /// Only a refusal from the server shows the modal. Offline, the change goes back without one (sz-3hcq.15).
-    @Test func anOfflineFavouriteGoesBackWithoutAModal() async throws {
+    @Test func offlineSavesShowOneNoticeUntilTheServerAnswers() async throws {
         let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
         let library = try await library([song("a", year: 2001), song("b", year: 1990)], root: root)
@@ -190,8 +189,22 @@ struct RecordingOrderTests {
         await order.toggle(b, of: work)
         #expect(!order.isFavourite(b, of: work))
         #expect(order.rows(of: work).map(\.recording.album) == ["a", "b"])
+        #expect(order.error == FavouriteFixture.offline.localizedDescription)
+        order.error = nil
+        await order.toggle(b, of: work)
+        await order.toggle(album: "a")
+        #expect(!order.isFavourite(b, of: work))
+        #expect(!order.isFavourite(album: "a"))
         #expect(order.error == nil)
         await order.refresh()
+        #expect(order.error == nil)
+        await server.configure(Starred())
+        await order.refresh()
+        await server.configure(Starred(), failure: FavouriteFixture.offline)
+        await order.toggle(album: "a")
+        #expect(order.error == FavouriteFixture.offline.localizedDescription)
+        order.error = nil
+        await order.toggle(b, of: work)
         #expect(order.error == nil)
     }
 
@@ -257,7 +270,8 @@ struct RecordingOrderTests {
         let order = RecordingOrder(library: library, store: store(root), server: server)
         await order.toggle(album: "a")
         #expect(!order.isFavourite(album: "a"))
-        #expect(order.error == nil)
+        #expect(order.error == FavouriteFixture.offline.localizedDescription)
+        order.error = nil
         await server.configure(Starred(), failure: FavouriteFixture.refusal)
         await order.toggle(album: "a")
         #expect(!order.isFavourite(album: "a"))

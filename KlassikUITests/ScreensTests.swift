@@ -34,10 +34,13 @@ final class PlacesScreens: ScreensTestCase {
         app.buttons["Edit"].tap()
         XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 5))
         snap(app, "02e-library-edit")
-        // The reorder handle sits at the trailing end of the row. A drag on it puts Favourites first.
-        let handle = favourites.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5))
-        let target = composers.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.1))
-        handle.press(forDuration: 0.5, thenDragTo: target)
+        // The reorder handle sits beside the row, outside its frame, near the trailing screen edge. A drag on it
+        // puts Favourites first.
+        let origin = app.coordinate(withNormalizedOffset: .zero)
+        let handleX = app.frame.width - 35
+        let handle = origin.withOffset(CGVector(dx: handleX, dy: favourites.frame.midY))
+        let target = origin.withOffset(CGVector(dx: handleX, dy: composers.frame.minY))
+        handle.press(forDuration: 0.5, thenDragTo: target, withVelocity: .slow, thenHoldForDuration: 0.5)
         app.buttons["Done"].tap()
         XCTAssertTrue(app.buttons["Edit"].waitForExistence(timeout: 5))
         XCTAssertLessThan(favourites.frame.minY, composers.frame.minY, "The drag did not move Favourites up")

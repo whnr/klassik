@@ -164,7 +164,8 @@ jobs:
   walk:
     needs: [plan, build, fixtures]
     runs-on: xcode-27
-    timeout-minutes: 30
+    # Cold simulator startup and one fresh-runner retry need room beyond the normal walk.
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}

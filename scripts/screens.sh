@@ -134,7 +134,10 @@ esac
 if [ "$mode" != unit ] && [ ${#suites[@]} -gt 0 ]; then
   # The bundle keeps the name that the workflow uploads after a failure.
   # Each runner owns one simulator, so UI automation does not compete for its resources.
-  run_tests screens "${suites[@]}" -parallel-testing-enabled NO || ui=$?
+  # XCTest can retain a dead app's process state after a launch or termination failure.
+  # One retry in a new test runner clears that state; the result bundle keeps both attempts.
+  run_tests screens "${suites[@]}" -parallel-testing-enabled NO \
+    -retry-tests-on-failure -test-iterations 2 -test-repetition-relaunch-enabled YES || ui=$?
   record ui "$([ $ui -eq 0 ] && echo passed || echo failed)"
   phase ui
 fi

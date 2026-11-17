@@ -200,6 +200,7 @@ struct CreditRow: View {
     var body: some View {
         if let url = PersonFactsService.trusted(credit.url) {
             Link(destination: url) { content }
+                .accessibilityIdentifier("credit-\(credit.kind.rawValue)")
         } else {
             content
         }
@@ -212,6 +213,11 @@ struct CreditRow: View {
                 .foregroundStyle(Palette.textSecondary)
             Text(credit.text)
                 .ink()
+            if credit.kind == .text, PersonFactsService.trusted(credit.url) != nil {
+                Text("Article")
+                    .typeStyle(Layout.footnote)
+                    .foregroundStyle(Palette.tint)
+            }
         }
         .accessibilityElement(children: .combine)
     }

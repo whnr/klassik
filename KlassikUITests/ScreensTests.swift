@@ -193,6 +193,13 @@ final class BrowseScreens: ScreensTestCase {
         snap(app, "03c-whole-picture")
         app.buttons["Close"].tap()
         XCTAssertTrue(picture.waitForExistence(timeout: 10))
+        let tabs = app.descendants(matching: .any)["composer-tabs"].firstMatch
+        tabs.buttons["About"].tap()
+        let article = app.descendants(matching: .any)["credit-text"].firstMatch
+        XCTAssertTrue(reveal(article, in: app).waitForExistence(timeout: 10))
+        XCTAssertTrue(article.label.contains("Wikipedia, CC BY-SA 4.0"))
+        XCTAssertTrue(article.label.contains("Article"))
+        snap(app, "03g-composer-article")
     }
 
     @MainActor
@@ -488,6 +495,8 @@ final class PlaybackScreens: ScreensTestCase {
         work.tap()
         let play = app.buttons["play-work"]
         XCTAssertTrue(play.waitForExistence(timeout: 10))
+        XCTAssertEqual(play.label, "Play top recording")
+        XCTAssertFalse(app.staticTexts["Plays first"].exists)
         let first = app.buttons.matching(identifier: "recording").firstMatch
         XCTAssertTrue(first.waitForExistence(timeout: 10))
         let before = first.frame
@@ -514,7 +523,7 @@ final class PlaybackScreens: ScreensTestCase {
             work.tap()
             let play = app.buttons["play-work"]
             XCTAssertTrue(play.waitForExistence(timeout: 10))
-            XCTAssertEqual(play.label, "Play")
+            XCTAssertEqual(play.label, "Play top recording")
             let edge: PillEdge = side == "left" ? .left : .right
             // Without a timeline both margins are equal; a shown timeline adds its width on its side only.
             XCTAssertFalse(app.descendants(matching: .any)["timeline"].exists, "A timeline shows before playback")

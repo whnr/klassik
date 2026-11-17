@@ -58,13 +58,15 @@ final class RecordingOrder {
     private var albums: Set<String> = []
     private(set) var isSaving = false
     var error: String?
+    private(set) var loadError: String?
+    private(set) var refreshError: String?
     private var reportedConnectionFailure = false
 
     init(library: Library, store: DeviceStore? = nil, server: (any FavouriteServer)? = nil) {
         self.library = library
         self.store = store
         self.server = server
-        do { data = try store?.load() ?? DeviceStore.Data() } catch { self.error = error.localizedDescription }
+        do { data = try store?.load() ?? DeviceStore.Data() } catch { loadError = error.localizedDescription }
     }
 
     func isFavourite(_ work: WorkIndex.Work) -> Bool { data.favouriteWorks.contains(work.id) }
@@ -130,6 +132,10 @@ final class RecordingOrder {
     /// call tells the server and keeps the change on the device. When the server refuses, it takes the change back.
     func begin(_ recording: WorkIndex.Recording, of work: WorkIndex.Work) -> (@MainActor () async -> Void)? {
         guard !isSaving, let server else { return nil }
+        guard loadError == nil else {
+            error = loadError
+            return nil
+        }
         let live = library.current(work: work, recording: recording).recording
         let ids = live.songs.map(\.id)
         guard !ids.isEmpty else { return nil }
@@ -207,6 +213,7 @@ final class RecordingOrder {
         defer { isSaving = false }
         do {
             let stars = try await server.getStarred()
+            refreshError = nil
             reportedConnectionFailure = false
             artists = stars.artist ?? []
             albums = Set((stars.album ?? []).map(\.id))
@@ -215,14 +222,14 @@ final class RecordingOrder {
             for work in library.index.composers.flatMap(\.works) {
                 changed.recordingOrder[work.id] = rows(of: work).filter(\.isFavourite).map(\.id)
             }
-            save(changed)
-        } catch { report(error, saving: false) }
+            if loadError == nil { save(changed) }
+        } catch { refreshError = error.localizedDescription }
     }
 
     /// One failed save explains the rollback. Repeated taps need no further notice until the server answers.
-    private func report(_ error: any Error, saving: Bool = true) {
+    private func report(_ error: any Error) {
         if error is URLError {
-            guard saving, !reportedConnectionFailure else { return }
+            guard !reportedConnectionFailure else { return }
             reportedConnectionFailure = true
         } else if !(error is SubsonicError) {
             return
@@ -231,10 +238,18 @@ final class RecordingOrder {
     }
 
     private func persist() {
+        guard loadError == nil else {
+            error = loadError
+            return
+        }
         do { try store?.save(data) } catch { self.error = error.localizedDescription }
     }
 
     private func save(_ changed: DeviceStore.Data) {
+        guard loadError == nil else {
+            error = loadError
+            return
+        }
         guard changed != data else { return }
         do {
             try store?.save(changed)

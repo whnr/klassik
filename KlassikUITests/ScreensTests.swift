@@ -505,6 +505,10 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(recording.waitForExistence(timeout: 10))
         let workCover = app.descendants(matching: .any)["work-cover"].firstMatch
         XCTAssertTrue(workCover.exists, "The work page shows no reference cover")
+        XCTAssertTrue(
+            eventually(timeout: 10) {
+                ScreenPixels(app)?.hasFixtureCover(in: workCover.frame) == true
+            }, "The work cover did not load the fixture artwork")
         let workAlbum = app.buttons["play-work-album"]
         XCTAssertTrue(workAlbum.exists, "The work page offers no Play Album")
         let workPlay = app.buttons["play-work"]
@@ -750,7 +754,8 @@ final class TimelineScreens: ScreensTestCase {
         XCTAssertTrue(reveal(app.sliders["position"], in: app).exists, "No position slider in the player")
         XCTAssertTrue(pill.buttons["mini-player-cover"].isHittable)
         snap(app, "15c-player-pill")
-        slidePlayerDown(app)
+        app.buttons["player-handle"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["player-overlay"].firstMatch.waitForNonExistence(timeout: 10))
         checkInteractiveBack(app)
         snap(app, "15h-interactive-back-right")
     }
@@ -1294,6 +1299,19 @@ class ScreensTestCase: XCTestCase {
                 return true
             }
             guard drawn else { return nil }
+        }
+
+        /// The generated fixture cover has saturated blue pixels; the loading placeholder is neutral.
+        func hasFixtureCover(in frame: CGRect) -> Bool {
+            let mergedRow = frame.width > Layout.workCover + 1
+            let left = mergedRow ? Layout.edge : frame.minX
+            let top = frame.minY + (mergedRow ? Layout.headTop : 0)
+            let x = Int((left + Layout.workCover / 4) * scale)
+            let y = Int((top + Layout.workCover / 2) * scale)
+            guard (0..<width).contains(x), (0..<height).contains(y) else { return false }
+            let index = (y * width + x) * 4
+            let channels = bytes[index..<(index + 3)].map(Int.init)
+            return (channels.max() ?? 0) - (channels.min() ?? 0) > 80
         }
 
         /// True when the pixel differs from the pixel of the same row in the ground column.

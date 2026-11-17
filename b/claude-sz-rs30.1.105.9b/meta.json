@@ -1,7 +1,7 @@
 {
-  "sha": "625da66be38341c69fe767a6203ea149ad135dc3",
+  "sha": "4423a89e558e86751e3eaecdc46b73e4871b672e",
   "branch": "claude-sz-rs30.1.105.9b",
   "path": "claude-sz-rs30.1.105.9b",
-  "subject": "[sz-rs30.1.105.9] Open the next item's wash at the top A page list reports its scroll only when the list moves. The list of the next item starts at its top, but the wash kept the offset of the old list. The wash then lost its full colour below the details.",
-  "ts": 1794884102
+  "subject": "[sz-rs30.1.105.9] Name the player cover for the wash call",
+  "ts": 1794884189
 }

@@ -1,7 +1,7 @@
 {
-  "sha": "b613d29ecf2193aa6bc330f941ed579cec892bfd",
+  "sha": "6b284461e7677f6bff17c1c900d5ff5833a84df2",
   "branch": "main",
   "path": "main",
-  "subject": "[sz-6yw4] Retry only UI tests that fail to launch or end (#77)",
-  "ts": 1794943468
+  "subject": "[sz-rs30.1.105.76] Separate partial works on the composer page (#81)",
+  "ts": 1794943477
 }

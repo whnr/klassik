@@ -573,6 +573,7 @@ final class PlaybackScreens: ScreensTestCase {
         let performer = app.buttons.matching(identifier: "performer").firstMatch
         XCTAssertTrue(performer.waitForExistence(timeout: 10))
         snap(app, "06a-performers")
+        let title = drawn(app.staticTexts["page-heading"].firstMatch, in: app)
         let cover = app.buttons.matching(identifier: "performer-album").firstMatch
         // A tap while the list still settles does not open the row, so the walk taps again.
         for _ in 0..<3 where !cover.exists {
@@ -581,11 +582,16 @@ final class PlaybackScreens: ScreensTestCase {
         }
         XCTAssertTrue(cover.exists)
         snap(app, "06b-performer")
-        checkPerformerHead(app)
+        checkPerformerHead(app, titleTop: title.minY)
         cover.tap()
         reveal(app.buttons["raw-tags"], in: app).tap()
         XCTAssertTrue(app.navigationBars["Tags"].waitForExistence(timeout: 10))
         snap(app, "06c-tags")
+        // One tap on a cover pushes one album: two steps back reach the performer (sz-rs30.1.105.85).
+        back(app, times: 2)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["performer-tabs"].firstMatch.waitForExistence(timeout: 10),
+            "Back from the album did not reach the performer")
     }
 
     @MainActor
@@ -1484,7 +1490,7 @@ class ScreensTestCase: XCTestCase {
     /// A performer without a picture: the name sits where a page title sits, and the tabs follow at the specimen
     /// gap, with no room for a Chronology button (sz-rs30.1.105.77).
     @MainActor
-    func checkPerformerHead(_ app: XCUIApplication) {
+    func checkPerformerHead(_ app: XCUIApplication, titleTop: CGFloat) {
         let nameElement = app.descendants(matching: .any)["performer-name"].firstMatch
         let tabsElement = app.descendants(matching: .any)["performer-tabs"].firstMatch
         for element in [nameElement, tabsElement] {
@@ -1493,8 +1499,8 @@ class ScreensTestCase: XCTestCase {
         XCTAssertFalse(app.descendants(matching: .any)["performer-picture"].exists)
         let name = drawn(nameElement, in: app)
         let tabs = drawn(tabsElement, in: app)
-        // As the Composers title in testLibrary: right under the back arrow.
-        XCTAssertLessThan(name.minY, 130, "Performer name sits too low: \(name)")
+        // The name sits where the title of every other page sits (sz-3hcq.13).
+        XCTAssertEqual(name.minY, titleTop, accuracy: 2, "Performer name is not at the page title: \(name)")
         expectPageEdges(name, in: app, "Performer name")
         expectPageEdges(tabs, in: app, trailing: true, "Albums and About")
         expectGap(

@@ -149,8 +149,11 @@ struct WorkIndex: Sendable {
             var id: Int { start }
         }
 
-        /// The key that groups the tracks, as `Song.albumKey` says.
+        /// The smallest of `keys`.
         var id: String
+        /// Every `Song.albumKey` of the tracks. The server gives one album several keys when its tracks carry
+        /// different release dates.
+        var keys: [String]
         /// The whole album as one work with one recording: one queue item.
         var work: Work
         var recording: Recording
@@ -191,8 +194,10 @@ struct WorkIndex: Sendable {
         }
 
         init?(tracks: [Song]) {
-            guard let first = tracks.first, let whole = WorkIndex.album(tracks) else { return nil }
-            id = first.albumKey
+            let albumKeys = Set(tracks.map(\.albumKey)).sorted()
+            guard let first = albumKeys.first, let whole = WorkIndex.album(tracks, key: first) else { return nil }
+            id = first
+            keys = albumKeys
             work = whole.work
             recording = whole.recording
             let keys = recording.songs.map(Self.workKey)
@@ -202,7 +207,7 @@ struct WorkIndex: Sendable {
                 guard let key, let tag = song.works?.first, !parts.contains(where: { $0.workID == key }) else {
                     continue
                 }
-                parts.append(Part(workID: key, title: tag.name, recordingID: "\(key)|\(first.albumKey)"))
+                parts.append(Part(workID: key, title: tag.name, recordingID: "\(key)|\(song.albumKey)"))
             }
             self.parts = parts
         }
@@ -225,16 +230,26 @@ struct WorkIndex: Sendable {
         albumPositions[key].map { albums[$0] }
     }
 
-    /// The albums of some tracks, by title.
+    /// The albums of some tracks, by title. Tracks with one album name and one album artist form one album.
     static func albums(of songs: [Song]) -> [Album] {
-        Dictionary(grouping: songs, by: \.albumKey).values
+        Dictionary(grouping: songs, by: albumIdentity).values
             .compactMap { Album(tracks: $0) }
             .sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
     }
 
+    /// Navidrome puts the release date into its album ID, so the tracks of one album can carry several IDs.
+    /// Without an album artist, a shared name does not prove one album: the ID decides.
+    private static func albumIdentity(_ song: Song) -> String {
+        guard let name = song.album, !name.isEmpty, let artist = song.displayAlbumArtist, !artist.isEmpty else {
+            return "key|\(song.albumKey)"
+        }
+        return "name|\(name)|\(artist)"
+    }
+
     init(songs: [Song]) {
         albums = Self.albums(of: songs)
-        albumPositions = Dictionary(uniqueKeysWithValues: albums.enumerated().map { ($1.id, $0) })
+        albumPositions = Dictionary(
+            uniqueKeysWithValues: albums.enumerated().flatMap { position, album in album.keys.map { ($0, position) } })
         var works: [String: Work] = [:]
         for (key, tracks) in Dictionary(grouping: songs, by: Self.workKey) {
             let first = tracks[0]
@@ -297,9 +312,9 @@ struct WorkIndex: Sendable {
     }
 
     /// A whole album as one work with one recording, to play it from start to end.
-    static func album(_ tracks: [Song]) -> (work: Work, recording: Recording)? {
+    static func album(_ tracks: [Song], key: String? = nil) -> (work: Work, recording: Recording)? {
         guard let first = tracks.first else { return nil }
-        var whole = Self.recording(id: "album|\(first.albumKey)", tracks)
+        var whole = Self.recording(id: "album|\(key ?? first.albumKey)", tracks)
         whole.isAlbum = true
         let work = Work(
             id: whole.id, title: whole.album.isEmpty ? first.title : whole.album,

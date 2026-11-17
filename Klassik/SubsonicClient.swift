@@ -108,6 +108,8 @@ struct Song: Codable, Sendable, Identifiable, Hashable {
     var album: String?
     var albumId: String?
     var artist: String?
+    /// The album artist as the server shows it (OpenSubsonic).
+    var displayAlbumArtist: String?
     var track: Int?
     var discNumber: Int?
     var year: Int?

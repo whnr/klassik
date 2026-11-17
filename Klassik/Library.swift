@@ -32,7 +32,7 @@ final class Library {
     /// The albums that the filter keeps out of the index. Built when first read, because few pages need them.
     var otherAlbums: [WorkIndex.Album] {
         if let otherAlbumCache { return otherAlbumCache }
-        let classicalKeys = Set(index.albums.map(\.id))
+        let classicalKeys = Set(index.albums.flatMap(\.keys))
         let built = WorkIndex.albums(of: songs.filter { !classicalKeys.contains($0.albumKey) })
         otherAlbumCache = built
         return built
@@ -40,7 +40,7 @@ final class Library {
 
     /// An album of the index, else one that the filter keeps out of it.
     func album(_ key: String) -> WorkIndex.Album? {
-        index.album(key) ?? otherAlbums.first { $0.id == key }
+        index.album(key) ?? otherAlbums.first { $0.keys.contains(key) }
     }
 
     var albumCount: Int { Set(songs.map(\.albumKey)).count }

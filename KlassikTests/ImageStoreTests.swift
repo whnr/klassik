@@ -217,7 +217,7 @@ struct ImageStoreTests {
         }
         let first = try await makeStore(limit: limit, defaults: defaults)
         await CoverArt.keepAll(songs, credentials: credentials, store: first, fetch: fetch)
-        #expect(requests == 3)
+        #expect(requests == 2)
         #expect(first.contains(keys[0]))
         #expect(first.contains(keys[1]))
         #expect(!first.contains(keys[2]))
@@ -226,7 +226,7 @@ struct ImageStoreTests {
         requests = 0
         let next = try await makeStore(defaults: defaults)
         await CoverArt.keepAll(songs, credentials: credentials, store: next, fetch: fetch)
-        #expect(requests == 1)
+        #expect(requests == 0)
         #expect(next.contains(keys[0]))
         #expect(next.contains(keys[1]))
         #expect(next.bytes == 2 * Int64(data.count))

@@ -24,6 +24,10 @@ final class ImageStore {
     /// True when no file fits under the limit.
     var isFull: Bool { limit.map { bytes >= $0 } ?? false }
 
+    /// False when the room under the limit is smaller than the mean kept file. A fetch would then most likely end
+    /// in a file that does not fit, and on a cellular connection that costs data for nothing.
+    var hasRoomForTypicalFile: Bool { fits(bytes / Int64(max(1, entries.count))) }
+
     /// True when a file of `size` bytes fits under the limit without pushing out an older one.
     func fits(_ size: Int64) -> Bool { limit.map { bytes + size <= $0 } ?? true }
 

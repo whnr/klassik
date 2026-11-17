@@ -454,9 +454,11 @@ final class PlaybackScreens: ScreensTestCase {
         // A paused player moves to the dragged position and stays paused.
         let position = app.sliders["position"]
         XCTAssertTrue(position.waitForExistence(timeout: 10))
-        position.adjust(toNormalizedSliderPosition: 0)
+        let beginning = position.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.5))
+        let end = position.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5))
+        beginning.tap()
         let start = position.value as? String ?? ""
-        position.adjust(toNormalizedSliderPosition: 0.9)
+        beginning.press(forDuration: 0.1, thenDragTo: end)
         let moved = expectation(for: NSPredicate(format: "value != %@", start), evaluatedWith: position)
         XCTAssertEqual(XCTWaiter.wait(for: [moved], timeout: 5), .completed, start)
         // The bar stays where the finger let go: it does not snap back while the movement starts again.

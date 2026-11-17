@@ -956,8 +956,8 @@ private struct OfflineControls: View {
     }
 }
 
-/// The row of the next queue item at the end of the player (ADR 0014): its cover, its title and its album, as the
-/// specimen's `.row` draws them. It only shows what comes; the item starts when the playing one ends.
+/// The row of the next queue item at the end of the player (ADR 0014). It shows the cover, title and album.
+/// It only shows what comes. The item starts when the playing one ends.
 private struct NextItemRow: View {
     let item: QueueItem
 

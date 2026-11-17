@@ -36,11 +36,21 @@ final class PlacesScreens: ScreensTestCase {
         snap(app, "02e-library-edit")
         // The reorder handle sits beside the row, outside its frame, near the trailing screen edge. A drag on it
         // puts Favourites first.
+        let control = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Reorder'")).element(boundBy: 1)
         let origin = app.coordinate(withNormalizedOffset: .zero)
         let handleX = app.frame.width - 35
-        let handle = origin.withOffset(CGVector(dx: handleX, dy: favourites.frame.midY))
-        let target = origin.withOffset(CGVector(dx: handleX, dy: composers.frame.minY))
-        handle.press(forDuration: 0.5, thenDragTo: target, withVelocity: .slow, thenHoldForDuration: 0.5)
+        let handle =
+            control.exists
+            ? control.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            : origin.withOffset(CGVector(dx: handleX, dy: favourites.frame.midY))
+        let target = origin.withOffset(CGVector(dx: handleX, dy: composers.frame.minY - 20))
+        handle.press(forDuration: 1, thenDragTo: target, withVelocity: .slow, thenHoldForDuration: 1)
+        if favourites.frame.minY > composers.frame.minY {
+            let tree = XCTAttachment(string: app.debugDescription)
+            tree.name = "tree-after-drag"
+            tree.lifetime = .keepAlways
+            add(tree)
+        }
         app.buttons["Done"].tap()
         XCTAssertTrue(app.buttons["Edit"].waitForExistence(timeout: 5))
         XCTAssertLessThan(favourites.frame.minY, composers.frame.minY, "The drag did not move Favourites up")

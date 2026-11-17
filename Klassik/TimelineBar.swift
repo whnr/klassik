@@ -86,16 +86,12 @@ enum TimelineTouch: Equatable, Sendable {
 
     /// How far a finger moves before the touch is no longer a tap, in points.
     static let slop = 8.0
-    /// The length of a swipe that goes back, in points. The edge swipe of ADR 0038 uses the same.
-    static let backSwipe = 60.0
 
     /// What the timeline does when the finger lifts.
     enum Action: Equatable, Sendable {
         case nothing
         case play(movement: Int)
         case seek(TimelineBar.Place)
-        /// The timeline on the left edge covers the start of the system back swipe, so it goes back itself.
-        case back
     }
 
     /// The touch after the finger moved by `dx` and `dy` from where it went down. Once decided, it stays.
@@ -106,11 +102,12 @@ enum TimelineTouch: Equatable, Sendable {
         return .undecided
     }
 
-    func end(dx: Double, side: TimelineSide, at place: TimelineBar.Place?) -> Action {
+    func end(at place: TimelineBar.Place?) -> Action {
         switch self {
         case .undecided: place.map { .play(movement: $0.movement) } ?? .nothing
         case .scrub: place.map { .seek($0) } ?? .nothing
-        case .sideways: side == .left && dx > Self.backSwipe ? .back : .nothing
+        // The window handles horizontal Back gestures, including their cancellation (ADR 0046).
+        case .sideways: .nothing
         }
     }
 }

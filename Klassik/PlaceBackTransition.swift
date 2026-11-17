@@ -16,7 +16,7 @@ final class PlaceBackTransition {
     func begin(bottom: CGFloat, action: () -> (() -> Void)) -> Bool {
         guard !isRunning, let window = surface?.window else { return false }
         var rect = window.bounds.inset(by: window.safeAreaInsets).insetBy(dx: Measure.timeline, dy: 0)
-        rect.size.height = max(0, rect.height - bottom)
+        rect.size.height = max(0, window.bounds.maxY - bottom - rect.minY)
         guard let snapshot = window.resizableSnapshotView(from: rect, afterScreenUpdates: false, withCapInsets: .zero)
         else { return false }
         let overlay = UIView(frame: rect)

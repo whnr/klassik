@@ -137,7 +137,7 @@ struct TimelineBarView: View {
             }
             .onEnded { value in
                 let action = touch.moved(dx: value.translation.width, dy: value.translation.height)
-                    .end(dx: value.translation.width, side: side, at: bar.place(at: value.location.y))
+                    .end(at: bar.place(at: value.location.y))
                 touch = .undecided
                 touchStart = nil
                 perform(action)
@@ -151,7 +151,6 @@ struct TimelineBarView: View {
         case .nothing: break
         case .play(let movement): play(movement)
         case .seek(let place): player.seek(movement: place.movement, to: place.seconds)
-        case .back: break
         }
     }
 

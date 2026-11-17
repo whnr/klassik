@@ -1,7 +1,0 @@
-{
-  "sha": "f8f98f3f738b61df87daa4495517edb363d12ba5",
-  "branch": "claude-sz-rs30.1.105.70",
-  "path": "claude-sz-rs30.1.105.70",
-  "subject": "[sz-rs30.1.105.70] Take layout values from the specimen Each view picked its own insets and gaps by eye, so screens drifted from the specimen (20 pt edges where the specimen has 16 and 32 pt, a 36 pt gap where it has 24 pt). Klassik/Layout.swift now holds every inset, gap, corner, fixed size and text role, each with the CSS rule it comes from. A check proves each citation against the specimen CSS, and a lint refuses a new literal layout number in the app.",
-  "ts": 1794803800
-}

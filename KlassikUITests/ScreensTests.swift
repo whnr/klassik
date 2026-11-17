@@ -190,8 +190,19 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertTrue(whole.waitForExistence(timeout: 10))
         let credit = app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Public domain'")).firstMatch
         XCTAssertTrue(credit.exists, "The whole picture shows no credit")
+        let close = app.buttons["whole-picture-close"]
+        XCTAssertTrue(close.exists, "The whole picture shows no close button")
+        XCTAssertLessThan(close.frame.maxY, app.frame.height / 4, "The close button is not at the top")
         snap(app, "03c-whole-picture")
-        app.buttons["Close"].tap()
+        // A swipe down closes the picture, as any full-screen overlay.
+        let middle = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4))
+        middle.press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)))
+        XCTAssertTrue(whole.waitForNonExistence(timeout: 10), "A swipe down does not close the whole picture")
+        XCTAssertTrue(picture.waitForExistence(timeout: 10))
+        picture.tap()
+        XCTAssertTrue(whole.waitForExistence(timeout: 10))
+        app.buttons["whole-picture-close"].tap()
+        XCTAssertTrue(whole.waitForNonExistence(timeout: 10), "The close button does not close the whole picture")
         XCTAssertTrue(picture.waitForExistence(timeout: 10))
         let tabs = app.descendants(matching: .any)["composer-tabs"].firstMatch
         tabs.buttons["About"].tap()

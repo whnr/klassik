@@ -44,31 +44,36 @@ struct PerformerPage: View {
         let albums = index.albums(ofPerformer: performer.name)
         let roles = index.roles(ofPerformer: performer)
         GeometryReader { proxy in
+            // The same plain list as the composer page: a grouped list adds its own top margin and section gaps.
             List {
-                PersonHero(
-                    name: performer.name, facts: facts, line: Self.line(facts: facts, roles: roles),
-                    kind: "performer", topInset: proxy.safeAreaInsets.top, width: proxy.size.width
-                )
-                .listRowInsets(EdgeInsets())
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
-                BackTipRow()
-                Section {
-                    Picker("Show", selection: $tab) {
-                        Text("Albums").tag(Tab.albums)
-                        Text("About").tag(Tab.about)
-                    }
-                    .pickerStyle(.segmented)
+                Group {
+                    PersonHero(
+                        name: performer.name, facts: facts, line: Self.line(facts: facts, roles: roles),
+                        kind: "performer", topInset: proxy.safeAreaInsets.top, width: proxy.size.width
+                    )
+                    .listRowInsets(EdgeInsets())
+                    .listRowSeparator(.hidden)
+                    BackTipRow()
+                    PageTabs(
+                        tabs: [Tab.albums, .about], title: { $0 == .albums ? "Albums" : "About" }, selection: $tab
+                    )
+                    .pageEdges(top: Layout.segmentedTop)
+                    .listRowSeparator(.hidden)
                     .accessibilityIdentifier("performer-tabs")
+                    switch tab {
+                    case .albums: albumsTab(albums)
+                    case .about: aboutTab(facts)
+                    }
                 }
                 .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-                switch tab {
-                case .albums: albumsTab(albums)
-                case .about: aboutTab(facts)
-                }
+                .pageRow()
             }
-            .grounds()
+            .listStyle(.plain)
+            .environment(\.defaultMinListRowHeight, 0)
+            .environment(\.defaultMinListHeaderHeight, 0)
+            .environment(\.isPageList, true)
+            .scrollContentBackground(.hidden)
+            .background(Palette.backgroundPage)
             .ignoresSafeArea(.container, edges: .top)
         }
         .navigationTitle(performer.name)
@@ -89,7 +94,6 @@ struct PerformerPage: View {
         if albums.isEmpty {
             Text("No albums name this performer.")
                 .foregroundStyle(Palette.textSecondary)
-                .listRowBackground(Color.clear)
         } else {
             LazyVGrid(
                 columns: [GridItem(.flexible(), spacing: Layout.albumColumnGap), GridItem(.flexible())],
@@ -97,9 +101,9 @@ struct PerformerPage: View {
             ) {
                 ForEach(albums) { AlbumCover(album: $0) }
             }
-            .listRowInsets(EdgeInsets(top: 0, leading: Space.l.points, bottom: 0, trailing: Space.l.points))
+            // person.html: the grid is a .section, which keeps the section gap above it.
+            .pageEdges(top: Layout.sectionTop)
             .listRowSeparator(.hidden)
-            .listRowBackground(Color.clear)
         }
     }
 
@@ -107,38 +111,31 @@ struct PerformerPage: View {
         if let facts {
             if let bio = facts.bio {
                 Section {
+                    SectionHeading("Biography")
                     Text(bio)
                         .ink()
                         .accessibilityIdentifier("performer-bio")
-                } header: {
-                    SectionHeading("Biography")
                 }
-                .listRowBackground(Palette.backgroundRow.color)
             }
             if !facts.credits.isEmpty {
                 Section {
-                    ForEach(facts.credits, id: \.self) { CreditRow(credit: $0) }
-                } header: {
                     SectionHeading("Credits")
+                    ForEach(facts.credits, id: \.self) { CreditRow(credit: $0) }
                 }
-                .listRowBackground(Palette.backgroundRow.color)
             }
         } else {
             Section {
                 Text("Wikidata has no facts for this performer. Klassik shows your tags.")
                     .foregroundStyle(Palette.textSecondary)
             }
-            .listRowBackground(Palette.backgroundRow.color)
         }
         Section {
+            SectionHeading("Your tags")
             LabeledContent("Name in your tags", value: performer.name)
                 .ink()
             LabeledContent("Recordings", value: performer.entries.count.formatted())
                 .ink()
-        } header: {
-            SectionHeading("Your tags")
         }
-        .listRowBackground(Palette.backgroundRow.color)
     }
 }
 

@@ -931,6 +931,8 @@ final class SettingsScreens: ScreensTestCase {
         let lineFrame = timeline(app).frame
         let pill = app.descendants(matching: .any)["mini-player"].firstMatch
         let controlsFrame = pillFrame(pill)
+        let chronology = bar.buttons["tab-chronology"]
+        let labelsBefore = ScreenPixels(app)
         snap(app, "09-filter")
         field.tap()
         let keyboard = app.keyboards.firstMatch
@@ -948,6 +950,17 @@ final class SettingsScreens: ScreensTestCase {
         XCTAssertTrue(field.isHittable)
         XCTAssertEqual(field.value as? String, original)
         XCTAssertEqual(timeline(app).frame.maxY, lineFrame.maxY, accuracy: 2)
+        // The tab labels show in full again: the label row of the Chronology tab looks as before the keyboard.
+        let labelRow = chronology.frame.divided(atDistance: chronology.frame.height * 0.35, from: .maxYEdge).slice
+        var share = 1.0
+        for _ in 0..<6 {
+            if let before = labelsBefore, let after = ScreenPixels(app) {
+                share = after.differingShare(in: labelRow, from: before)
+            }
+            if share < 0.02 { break }
+            Thread.sleep(forTimeInterval: 0.5)
+        }
+        XCTAssertLessThan(share, 0.02, "The Chronology tab label changed after the keyboard closed")
         snap(app, "09b-keyboard-closed")
     }
 
@@ -1366,6 +1379,25 @@ class ScreensTestCase: XCTestCase {
             let index = (y * width + x) * 4
             let ground = (y * width + groundX) * 4
             return (0..<3).reduce(0) { $0 + abs(Int(bytes[index + $1]) - Int(bytes[ground + $1])) } > 30
+        }
+
+        /// The share of pixels in a rect, in points, that differ from the same pixels of another screenshot.
+        func differingShare(in rect: CGRect, from other: ScreenPixels) -> Double {
+            let xs = max(0, Int(rect.minX * scale))..<min(width, other.width, Int(rect.maxX * scale))
+            let ys = max(0, Int(rect.minY * scale))..<min(height, other.height, Int(rect.maxY * scale))
+            guard !xs.isEmpty, !ys.isEmpty else { return 1 }
+            var differing = 0
+            for y in ys {
+                for x in xs {
+                    let index = (y * width + x) * 4
+                    let otherIndex = (y * other.width + x) * 4
+                    let distance = (0..<3).reduce(0) {
+                        $0 + abs(Int(bytes[index + $1]) - Int(other.bytes[otherIndex + $1]))
+                    }
+                    if distance > 30 { differing += 1 }
+                }
+            }
+            return Double(differing) / Double(xs.count * ys.count)
         }
 
         /// The pixel columns that content may use: the columns of the timeline bar are not content.

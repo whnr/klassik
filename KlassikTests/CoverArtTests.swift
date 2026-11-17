@@ -10,8 +10,8 @@ struct CoverArtTests {
 
     @Test func requestAuthenticationDoesNotChangeTheLoadingIdentity() throws {
         let credentials = ServerCredentials(url: remote, username: "fixture", password: "fixture")
-        let source = CoverArt.Source(files: [], coverID: "album", pixels: 160, credentials: credentials)
-        let again = CoverArt.Source(files: [], coverID: "album", pixels: 160, credentials: credentials)
+        let source = CoverArt.Source(local: [], coverID: "album", pixels: 160, credentials: credentials)
+        let again = CoverArt.Source(local: [], coverID: "album", pixels: 160, credentials: credentials)
         let request = try #require(source.remote)
         #expect(
             URLComponents(url: request, resolvingAgainstBaseURL: false)?.queryItems?.contains { $0.name == "s" } == true
@@ -21,7 +21,7 @@ struct CoverArtTests {
         changed.pixels = 320
         #expect(source != changed)
         changed = again
-        changed.files = [URL(filePath: "/downloaded.mp3")]
+        changed.local = [Song(id: "downloaded", title: "Downloaded")]
         #expect(source != changed)
         changed = again
         changed.credentials?.password = "replacement"
@@ -40,11 +40,11 @@ struct CoverArtTests {
     @Test func cachedCoversSurviveLocalFileChangesAndStayWithinTheirAccount() {
         let cache = CoverArt.Cache()
         let credentials = ServerCredentials(url: remote, username: "fixture", password: "fixture")
-        let source = CoverArt.Source(files: [], coverID: "album", pixels: 160, credentials: credentials)
+        let source = CoverArt.Source(local: [], coverID: "album", pixels: 160, credentials: credentials)
         let cover = picture()
         cache.store(cover, for: source)
         var changed = source
-        changed.files = [URL(filePath: "/downloaded.mp3")]
+        changed.local = [Song(id: "downloaded", title: "Downloaded")]
         #expect(cache.image(for: changed) === cover)
         let replacement = picture()
         cache.store(replacement, for: changed)

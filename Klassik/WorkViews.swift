@@ -752,7 +752,7 @@ private struct MovementRow: View {
     @ViewBuilder private var head: some View {
         if opens {
             Button(action: toggle) { label }
-                .buttonStyle(.borderless)
+                .buttonStyle(.still)
                 .accessibilityHint(isOpen ? "Hides the names" : "Shows the names")
         } else {
             label
@@ -761,9 +761,7 @@ private struct MovementRow: View {
 
     private var label: some View {
         HStack {
-            Text(title)
-                .ink()
-            Spacer()
+            MovementTitle(title: title, style: .body)
             OfflineHint(isOffline: model.tracks.isOffline(song))
             if let duration = song.duration {
                 Text(Duration.seconds(duration).formatted(.time(pattern: .minuteSecond)))
@@ -803,10 +801,7 @@ private struct MovementRow: View {
         let player = model.playback
         return VStack(alignment: .leading, spacing: gap) {
             HStack {
-                Text(title)
-                    .typeStyle(.headline)
-                    .ink()
-                Spacer()
+                MovementTitle(title: title, style: .headline)
                 if player.isLoading {
                     ProgressView()
                 } else {
@@ -843,6 +838,34 @@ private struct MovementRow: View {
         }
         .accessibilityIdentifier("movement")
     }
+}
+
+/// The title of a movement row. A long title wraps into plain left-aligned lines and never ends in an ellipsis, also
+/// while the row opens or starts to play.
+private struct MovementTitle: View {
+    let title: String
+    let style: TypeStyle
+
+    var body: some View {
+        Text(title)
+            .typeStyle(style)
+            .ink()
+            .multilineTextAlignment(.leading)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// A button that does not dim its label while a finger is down. A row that opens must not flash its duration and its
+/// offline mark (specimen player.html `.track .row`).
+struct StillButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+    }
+}
+
+extension ButtonStyle where Self == StillButtonStyle {
+    static var still: StillButtonStyle { StillButtonStyle() }
 }
 
 /// How far the playing movement has played.

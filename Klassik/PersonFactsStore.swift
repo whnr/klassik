@@ -217,6 +217,12 @@ final class PersonFactsStore {
         save()
     }
 
+    /// Records when the background pass tries a failed person again. The person stays unchecked.
+    func postpone(_ key: String, due: Date) {
+        cache.due[key] = due
+        save()
+    }
+
     /// The listener's choice from a pick list. Nil is "None of these".
     func choose(_ match: PersonMatch?, forComposer tag: String) async {
         pin(tag)

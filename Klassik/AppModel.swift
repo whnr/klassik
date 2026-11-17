@@ -20,6 +20,8 @@ final class AppModel {
     let tracks: TrackStore
     let covers = CoverArt.Cache()
     let playback: PlaybackSession
+    /// The timeline and the mini player show while an item is in playback; the page insets follow them.
+    var showsTimeline: Bool { playback.item != nil }
     let enrichment: Enrichment
     let people: PersonFactsStore
     let sweep: PersonSweep

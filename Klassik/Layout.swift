@@ -13,12 +13,24 @@ import SwiftUI
 enum Layout {
     // MARK: Page edges
 
-    /// The content inset on the side away from the timeline.
+    /// The content inset on both sides without a timeline. The content keeps its width with a timeline.
     /// css: specimen.css :root | --pad-left
+    static let centredEdge = Space.l.points + Measure.timeline / 2
+    /// The content inset on the side away from a shown timeline.
+    /// css: specimen.css :root.has-timeline | --pad-left
     static let edge = Space.l.points
-    /// The content inset on the timeline side, clear of the timeline.
-    /// css: specimen.css :root | --pad-right
-    static let timelineEdge = Space.l.points + Measure.timeline + Space.s.points
+    /// The content inset on the side of a shown timeline: the margin of the other side plus the timeline.
+    /// css: specimen.css :root.has-timeline | --pad-right
+    static let timelineEdge = Space.l.points + Measure.timeline
+
+    /// The left and right page insets. `timelineOnLeft` is nil when no timeline shows.
+    static func sideInsets(timelineOnLeft: Bool?) -> (left: CGFloat, right: CGFloat) {
+        switch timelineOnLeft {
+        case nil: (centredEdge, centredEdge)
+        case true?: (timelineEdge, edge)
+        case false?: (edge, timelineEdge)
+        }
+    }
 
     // MARK: Page heading
 

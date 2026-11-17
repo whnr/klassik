@@ -12,7 +12,7 @@ struct PlacesView: View {
     @State private var pillInset = Measure.timeline + Space.xs.points
 
     var body: some View {
-        let playing = model.playback.item != nil
+        let playing = model.showsTimeline
         let rowHeight = tabBarFrame?.height ?? TabRow.height
         SystemPlaces(
             model: model, navigator: navigator, selection: navigator.selection, backTransition: backTransition,

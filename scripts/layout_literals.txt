@@ -3,7 +3,6 @@
 Klassik/MiniPlayer.swift | .padding(.vertical, max(0, (height - itemSize) / 2)) | Centres the item in the row of the tab bar: half of the free height.
 Klassik/PersonLaunchStub.swift | static let originalWidth: CGFloat = 3000 | The pixel width of a fixture picture, not a layout value.
 Klassik/Places.swift | nonisolated static let height: CGFloat = 62 | The height of the iOS 27 tab bar capsule. The system draws it; the specimen only approximates it.
-Klassik/Places.swift | Color.clear.frame(width: 1, height: 1).accessibilityHidden(true) | An invisible placeholder that hides the inline title. It has no visible size.
 Klassik/PortraitFraming.swift | static let maxZoom: CGFloat = 2 | A zoom limit of the picture crop (ADR 0017), not a distance.
 Klassik/PortraitFraming.swift | static let faceHeight: CGFloat = 0.3 | A share of the frame for the face in the crop (ADR 0017), not a distance.
 Klassik/PortraitFraming.swift | static let faceLine: CGFloat = 0.4 | A share of the frame for the face centre in the crop (ADR 0017), not a distance.

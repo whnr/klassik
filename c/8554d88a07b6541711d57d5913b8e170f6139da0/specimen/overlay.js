@@ -88,5 +88,10 @@
     if (K.current() && ["open", "opening", "closing"].includes(state)) pose(state);
   }
 
+  // The player shows what plays: when the queue ends, it closes and leaves no end message (ADR 0043).
+  K.onPlay(() => {
+    if (sheet && !K.current()) close();
+  });
+
   chrome.overlay = { open, close, init, isOpen: () => Boolean(sheet) };
 })();

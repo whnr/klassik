@@ -10,6 +10,15 @@
     <script src="specimen.js?v=48"></script>
   </head>
   <body>
+    <style>
+      .work-cover {
+        padding: var(--space-xs) var(--pad-right) var(--space-m) var(--pad-left);
+      }
+      .work-cover .cover {
+        width: var(--size-coverRow);
+        height: var(--size-coverRow);
+      }
+    </style>
     <script>
       K.start(() => {
         const { el, href, ICON, M } = K;
@@ -21,6 +30,7 @@
           back: { label: work.composer, href: "index.html" },
         });
 
+        const reference = () => K.orderedRecordings(work)[0];
         const head = el("div", { class: "page-head" });
         const workFav = "work:" + work.id;
         const mark = el(
@@ -46,15 +56,30 @@
           ),
         );
 
-        const playBtn = el("button", {
-          class: "capsule filled t-headline",
-          html: ICON.play.replace("<svg", '<svg width="14" height="14"') + "<span>Play</span>",
-        });
+        const playBtn = el("button", { class: "capsule filled t-headline" });
+        // While any recording of the work plays, the pill pauses it. Else it plays the top of the list (sz-swi9.4).
+        const playsWork = () => {
+          const playing = K.current()?.recording;
+          return Boolean(playing && K.orderedRecordings(work).some((r) => r.id === playing.id));
+        };
+        const pill = () => {
+          const pause = playsWork() && !K.P.paused;
+          const label = playsWork() ? (K.P.paused ? "Resume" : "Pause") : "Play";
+          playBtn.innerHTML =
+            (pause ? ICON.pause : ICON.play).replace("<svg", '<svg width="14" height="14"') + `<span>${label}</span>`;
+        };
         playBtn.addEventListener("click", () => {
+          if (playsWork()) return K.togglePause();
           const rec = K.orderedRecordings(work)[0];
           K.playItem(K.resolveItem(["recording", rec.album.id, rec.work]));
         });
-        const buttons = el("div", { class: "button-row" }, playBtn);
+        const albumBtn = el("button", {
+          class: "capsule t-headline",
+          html: ICON.play.replace("<svg", '<svg width="14" height="14"') + "<span>Play Album</span>",
+          onclick: () => K.playItem(K.resolveItem(["album", reference().album.id])),
+        });
+        const cover = el("div", { class: "work-cover" });
+        const buttons = el("div", { class: "button-row" }, playBtn, albumBtn);
 
         const listBox = el("div", { class: "list" });
         const section = el(
@@ -86,6 +111,14 @@
           ].join(" ");
 
         function render() {
+          pill();
+          const rec = reference();
+          cover.replaceChildren(K.coverImage(rec.album));
+          albumBtn.hidden = rec.album.song.length <= rec.songs.length;
+          const playsAlbum = K.current()?.id === K.resolveItem(["album", rec.album.id]).id;
+          const albumLabel = playsAlbum ? (K.P.paused ? "Resume Album" : "Pause Album") : "Play Album";
+          const albumIcon = playsAlbum && !K.P.paused ? ICON.pause : ICON.play;
+          albumBtn.innerHTML = albumIcon.replace("<svg", '<svg width="14" height="14"') + `<span>${albumLabel}</span>`;
           const playing = K.current()?.recording;
           listBox.replaceChildren(
             ...K.orderedRecordings(work).map((r, i) => {
@@ -139,6 +172,7 @@
         render();
 
         scroll.append(
+          cover,
           head,
           buttons,
           section,

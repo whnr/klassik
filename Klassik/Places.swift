@@ -138,7 +138,7 @@ private struct SystemPlaces: UIViewControllerRepresentable {
     }
 }
 
-private final class PlacesController: UITabBarController {
+private final class PlacesController: UITabBarController, UIGestureRecognizerDelegate {
     var navigator: AppNavigator?
     var backTransition: PlaceBackTransition?
     private var edgePan: UIScreenEdgePanGestureRecognizer?
@@ -192,6 +192,7 @@ private final class PlacesController: UITabBarController {
         if edgePan == nil {
             let pan = UIScreenEdgePanGestureRecognizer(target: self, action: #selector(dragBack(_:)))
             pan.edges = .left
+            pan.delegate = self
             window.addGestureRecognizer(pan)
             edgePan = pan
         }
@@ -205,6 +206,19 @@ private final class PlacesController: UITabBarController {
             nativePanView = pan.view
             window.addGestureRecognizer(pan)
         }
+    }
+
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        guard let pan = gestureRecognizer as? UIScreenEdgePanGestureRecognizer else { return false }
+        let velocity = pan.velocity(in: view)
+        return velocity.x > abs(velocity.y)
+    }
+
+    /// The timeline keeps taps and vertical scrubs; its horizontal drag must not block a cross-tab Back gesture.
+    func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
+    ) -> Bool {
+        gestureRecognizer === edgePan || other === edgePan
     }
 
     private func navigationController(in controller: UIViewController?) -> UINavigationController? {
@@ -402,6 +416,7 @@ struct BackTipRow: View {
         if showsBackTip {
             TipView(BackTip())
                 .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
         }
     }
 }

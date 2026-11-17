@@ -126,7 +126,6 @@ struct PageList<Content: View>: View {
                 .listRowSeparator(.hidden)
             content
                 .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
                 .listSectionSeparator(.hidden)
                 .pageRow()
         }

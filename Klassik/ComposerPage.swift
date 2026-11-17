@@ -22,7 +22,6 @@ struct ComposerPage: View {
             List {
                 Group { content(proxy: proxy, facts: facts, catalogue: catalogue) }
                     .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
                     .listSectionSeparator(.hidden)
                     .pageRow()
             }
@@ -71,6 +70,7 @@ struct ComposerPage: View {
             .listRowSeparator(.hidden)
             .accessibilityIdentifier("composer-tabs")
         ResolutionNotice(tag: composer.name)
+            .listRowSeparator(.hidden)
         switch tab {
         case .works: worksTab(catalogue)
         case .about: aboutTab(facts)
@@ -119,6 +119,7 @@ struct ComposerPage: View {
         if rows.isEmpty {
             Text("No works with these genres.")
                 .foregroundStyle(Palette.textSecondary)
+                .listRowSeparator(.hidden)
         }
         if composer.works.contains(where: { !$0.isTagged }) {
             Section {
@@ -136,6 +137,7 @@ struct ComposerPage: View {
                     Text(bio)
                         .ink()
                         .accessibilityIdentifier("composer-bio")
+                        .listRowSeparator(.hidden)
                 }
             }
             if !facts.credits.isEmpty {
@@ -151,12 +153,14 @@ struct ComposerPage: View {
             Section {
                 Text("Wikidata has no facts for this composer. Klassik shows your tags.")
                     .foregroundStyle(Palette.textSecondary)
+                    .listRowSeparator(.hidden)
             }
         }
         Section {
             SectionHeading("Your tags")
             LabeledContent("Name in your tags", value: composer.name)
                 .ink()
+                .listRowSeparator(.hidden)
             LabeledContent("Works", value: composer.works.count.formatted())
                 .ink()
                 .itemSeparator(after: true)

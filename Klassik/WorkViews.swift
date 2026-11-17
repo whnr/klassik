@@ -521,10 +521,13 @@ struct RecordingView: View {
                     .frame(maxWidth: .infinity)
                     .multilineTextAlignment(.center)
                     .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
                     header(page)
+                        .listRowSeparator(.hidden)
                     if isPlayingThis, let error = player.error {
                         Label(error, systemImage: "exclamationmark.triangle")
                             .foregroundStyle(Palette.textPrimary)
+                            .listRowSeparator(.hidden)
                     }
                     if !isPlayingThis {
                         // Play is the accent capsule; Play Album is muted beside it (sz-3hcq.2).
@@ -593,11 +596,13 @@ struct RecordingView: View {
                         }
                     }
                     .accessibilityIdentifier("raw-tags")
+                    .listRowSeparator(.hidden)
                 }
 
                 Section {
                     SectionHeading("Offline")
                     OfflineControls(recording: recording, title: work.title)
+                        .listRowSeparator(.hidden)
                 }
 
                 if isPlayingThis, !player.upNext.isEmpty {

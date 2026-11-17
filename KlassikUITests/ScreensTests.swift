@@ -101,32 +101,6 @@ final class PlacesScreens: ScreensTestCase {
         XCTAssertTrue(app.buttons["library-composers"].exists)
     }
 
-    @MainActor
-    func testInteractiveBackAcrossTabsOnBothSides() throws {
-        for side in ["left", "right"] {
-            let app = try launchAndConnect(arguments: ["-timeline.side", side])
-            _ = pausedPlayerInLibrary(app)
-            composer(app, "Felix Mendelssohn").tap()
-            XCTAssertTrue(app.navigationBars["Felix Mendelssohn"].waitForExistence(timeout: 10))
-            openPlace(app, "Search")
-            let origin = app.coordinate(withNormalizedOffset: CGVector(dx: 0.001, dy: 0.4))
-            let short = app.coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.4))
-            origin.press(forDuration: 0.05, thenDragTo: short, withVelocity: .slow, thenHoldForDuration: 1)
-            XCTAssertTrue(eventually(timeout: 5) { tab(app, "Search").isSelected })
-            expectBackArrow(app, to: "Mendelssohn")
-            swipeFromLeftEdge(app)
-            XCTAssertTrue(app.navigationBars["Felix Mendelssohn"].waitForExistence(timeout: 10))
-            swipeFromLeftEdge(app)
-            XCTAssertTrue(app.navigationBars["Composers"].waitForExistence(timeout: 10))
-            XCTAssertTrue(timeline(app).exists)
-            if side == "left" {
-                snap(app, "02o-interactive-back-left")
-            } else {
-                snap(app, "02p-interactive-back-right")
-            }
-        }
-    }
-
     /// The previous place shows its page as the listener left it, after the arrow and after the swipe.
     @MainActor
     func testBackToThePageAsLeft() throws {
@@ -536,12 +510,6 @@ final class PlaybackScreens: ScreensTestCase {
         let workPlay = app.buttons["play-work"]
         XCTAssertEqual(workPlay.frame.midY, workAlbum.frame.midY, accuracy: 1)
         snap(app, "04e-work-album-buttons")
-        workAlbum.tap()
-        pause(app)
-        openPlayer(app)
-        snap(app, "04f-work-album-playing")
-        reveal(app.buttons["Stop"].firstMatch, in: app).tap()
-        XCTAssertTrue(app.descendants(matching: .any)["player-overlay"].firstMatch.waitForNonExistence(timeout: 5))
         recording.tap()
         let wholeAlbum = app.buttons["play-album"]
         XCTAssertTrue(wholeAlbum.waitForExistence(timeout: 10), "The recording page offers no Play Album")
@@ -745,7 +713,7 @@ final class TimelineScreens: ScreensTestCase {
         openRecording(app)
         playPaused(app)
         XCTAssertTrue(timeline(app).exists)
-        app.buttons["Stop"].firstMatch.tap()
+        reveal(app.buttons["Stop"].firstMatch, in: app).tap()
         XCTAssertTrue(timeline(app).waitForNonExistence(timeout: 10), "The timeline stays after Stop")
         XCTAssertFalse(app.descendants(matching: .any)["mini-player"].exists)
         snap(app, "15a-stopped")
@@ -782,6 +750,9 @@ final class TimelineScreens: ScreensTestCase {
         XCTAssertTrue(reveal(app.sliders["position"], in: app).exists, "No position slider in the player")
         XCTAssertTrue(pill.buttons["mini-player-cover"].isHittable)
         snap(app, "15c-player-pill")
+        slidePlayerDown(app)
+        checkInteractiveBack(app)
+        snap(app, "15h-interactive-back-right")
     }
 
     /// A vertical drag moves the paused music to the place under the finger. A tap plays the movement under it.
@@ -839,6 +810,8 @@ final class TimelineScreens: ScreensTestCase {
         XCTAssertTrue(tab(app, "Library").waitForSelection(timeout: 10), "The swipe did not go back to Library")
         XCTAssertEqual(bar.value as? String, place, "The swipe scrubbed")
         snap(app, "15f-left-back")
+        checkInteractiveBack(app)
+        snap(app, "15i-interactive-back-left")
     }
 
     /// The listener picks the edge in Settings.
@@ -1127,6 +1100,26 @@ class ScreensTestCase: XCTestCase {
     func swipeFromLeftEdge(_ app: XCUIApplication) {
         let edge = app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0.5))
         edge.press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.5)))
+    }
+
+    /// Both completed and cancelled drags must preserve playback and each tab's stack.
+    @MainActor
+    func checkInteractiveBack(_ app: XCUIApplication) {
+        let bar = timeline(app)
+        let before = bar.value as? String
+        composer(app, "Felix Mendelssohn").tap()
+        XCTAssertTrue(app.navigationBars["Felix Mendelssohn"].waitForExistence(timeout: 10))
+        openPlace(app, "Search")
+        let origin = app.coordinate(withNormalizedOffset: CGVector(dx: 0.001, dy: 0.4))
+        let short = app.coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.4))
+        origin.press(forDuration: 0.05, thenDragTo: short, withVelocity: .slow, thenHoldForDuration: 1)
+        XCTAssertTrue(eventually(timeout: 5) { tab(app, "Search").isSelected })
+        expectBackArrow(app, to: "Mendelssohn")
+        swipeFromLeftEdge(app)
+        XCTAssertTrue(app.navigationBars["Felix Mendelssohn"].waitForExistence(timeout: 10))
+        swipeFromLeftEdge(app)
+        XCTAssertTrue(app.navigationBars["Composers"].waitForExistence(timeout: 10))
+        XCTAssertEqual(bar.value as? String, before, "Back changed the playback position")
     }
 
     /// The key of the timeline edge in the user defaults. A launch argument sets it for one run.

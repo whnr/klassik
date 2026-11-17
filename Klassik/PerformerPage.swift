@@ -66,7 +66,6 @@ struct PerformerPage: View {
                     }
                 }
                 .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
                 .listSectionSeparator(.hidden)
                 .pageRow()
             }
@@ -97,6 +96,7 @@ struct PerformerPage: View {
         if albums.isEmpty {
             Text("No albums name this performer.")
                 .foregroundStyle(Palette.textSecondary)
+                .listRowSeparator(.hidden)
         } else {
             LazyVGrid(
                 columns: [GridItem(.flexible(), spacing: Layout.albumColumnGap), GridItem(.flexible())],
@@ -118,6 +118,7 @@ struct PerformerPage: View {
                     Text(bio)
                         .ink()
                         .accessibilityIdentifier("performer-bio")
+                        .listRowSeparator(.hidden)
                 }
             }
             if !facts.credits.isEmpty {
@@ -133,12 +134,14 @@ struct PerformerPage: View {
             Section {
                 Text("Wikidata has no facts for this performer. Klassik shows your tags.")
                     .foregroundStyle(Palette.textSecondary)
+                    .listRowSeparator(.hidden)
             }
         }
         Section {
             SectionHeading("Your tags")
             LabeledContent("Name in your tags", value: performer.name)
                 .ink()
+                .listRowSeparator(.hidden)
             LabeledContent("Recordings", value: performer.entries.count.formatted())
                 .ink()
                 .itemSeparator(after: true)

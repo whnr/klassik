@@ -13,6 +13,7 @@ struct SearchView: View {
                         .ink()
                 }
                 .accessibilityIdentifier("performers")
+                .listRowSeparator(.hidden)
             } footer: {
                 Text("Search for works, composers and albums arrives in a later update.")
             }

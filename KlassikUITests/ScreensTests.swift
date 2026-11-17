@@ -1049,6 +1049,12 @@ final class SettingsScreens: ScreensTestCase {
 /// What every area needs: the fixture server, the MusicBrainz answers, and the steps that several tests share.
 /// The screens workflow passes the server through TEST_RUNNER_KLASSIK_* variables.
 class ScreensTestCase: XCTestCase {
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        // A failed launch must stop before later queries use an invalid app process.
+        continueAfterFailure = false
+    }
+
     /// MusicBrainz answers for the fixture works, shaped like real ones, by the keys of `Enrichment.stubKey`.
     /// Bach, Brahms and the nocturnes get no answer, as if MusicBrainz had no match.
     static let musicBrainz: String = {

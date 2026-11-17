@@ -73,4 +73,6 @@ schemes:
       targets:
         Klassik: all
     test:
+      # Automatic video capture competes with UI automation on the simulator.
+      preferredScreenCaptureFormat: screenshots
       targets: [KlassikTests, KlassikUITests]

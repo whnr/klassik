@@ -12,7 +12,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 out=$(mkdir -p "$1" && cd "$1" && pwd)
-rm -rf "$out"/*.xcresult "$out/timings.txt" "$out/results.txt"
+rm -rf "$out"/*.xcresult "$out/timings.txt" "$out/results.txt" "$out/retries.txt" "$out/retry-warnings.txt"
 required=${UI_TESTS_REQUIRED:-false}
 mode=${KLASSIK_PHASE:-all}
 case "$mode" in all | build | unit | ui) ;; *) echo "Unknown phase: $mode" >&2; exit 2 ;; esac
@@ -131,16 +131,39 @@ case "${KLASSIK_UI:-false}" in
     done
     ;;
 esac
+# XCTest can keep a dead app's process state after a launch or termination failure. A new test runner clears it.
+# So only the tests that failed in that way run once more, and only when no test of the run failed in another way.
+# The retry writes its own bundle, so screens.xcresult keeps the first attempt.
+retry_launch_failures() {
+  if ! xcrun xcresulttool get test-results tests --path "$out/screens.xcresult" > "$out/screens-tests.json"; then
+    echo "::warning::No retry: no test results read from screens.xcresult."
+    return 0
+  fi
+  local plan only=() test
+  plan=$(python3 scripts/screen_report.py retry-plan "$out/screens-tests.json")
+  [ -n "$plan" ] || return 0
+  while IFS= read -r test; do only+=("-only-testing:KlassikUITests/$test"); done <<< "$plan"
+  ui=0
+  run_tests screens-retry "${only[@]}" -parallel-testing-enabled NO || ui=$?
+  [ $ui -eq 0 ] || return 0
+  python3 scripts/screen_report.py retries "$out/screens-tests.json" "$out"
+  record ui_retried "$(paste -sd, "$out/retries.txt" | sed 's/,/, /g')"
+}
+
 if [ "$mode" != unit ] && [ ${#suites[@]} -gt 0 ]; then
   # The bundle keeps the name that the workflow uploads after a failure.
   # Each runner owns one simulator, so UI automation does not compete for its resources.
   run_tests screens "${suites[@]}" -parallel-testing-enabled NO || ui=$?
+  # In an "||" list, set -e would not stop a failed report inside the function.
+  if [ $ui -ne 0 ]; then retry_launch_failures; fi
   record ui "$([ $ui -eq 0 ] && echo passed || echo failed)"
   phase ui
 fi
 
 export_attachments unit
 export_attachments screens
+# The screenshots of a passed retry replace those of the failed attempt.
+export_attachments screens-retry
 phase export
 
 if [ $unit -ne 0 ]; then

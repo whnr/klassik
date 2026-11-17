@@ -136,7 +136,9 @@ struct PageList<Content: View>: View {
         .scrollContentBackground(.hidden)
         // The player draws its wash behind the list, so the list keeps a clear ground and reports its scroll.
         .background(wash == nil ? AnyShapeStyle(Palette.backgroundPage) : AnyShapeStyle(.clear))
-        .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y + $0.contentInsets.top } action: { _, offset in
+        .onScrollGeometryChange(for: CGFloat.self) { geometry in
+            geometry.contentOffset.y + geometry.contentInsets.top
+        } action: { _, offset in
             wash?.scroll.offset = offset
         }
     }

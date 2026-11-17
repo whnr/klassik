@@ -111,6 +111,7 @@ struct CoverImage: View {
     let song: Song?
     let points: CGFloat
     @State private var image: UIImage?
+    @State private var imageKey: NSString?
 
     private var source: CoverArt.Source {
         guard let song else { return CoverArt.Source(files: [], coverID: nil, pixels: 0, credentials: nil) }
@@ -127,9 +128,12 @@ struct CoverImage: View {
     }
 
     var body: some View {
+        let source = source
+        let cached = model.covers.image(for: source)
+        let visible = cached ?? (imageKey == source.cacheKey ? image : nil)
         ZStack {
             Rectangle().fill(Palette.fillQuiet)
-            if let image {
+            if let image = visible {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
@@ -139,11 +143,13 @@ struct CoverImage: View {
             }
         }
         .task(id: source) {
-            let source = source
-            image = nil
             let loaded = await CoverArt.load(files: source.files, remote: source.remote)
             guard !Task.isCancelled else { return }
-            image = loaded
+            if let loaded {
+                model.covers.store(loaded, for: source)
+                image = loaded
+                imageKey = source.cacheKey
+            }
         }
     }
 }

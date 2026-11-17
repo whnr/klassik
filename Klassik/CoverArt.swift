@@ -1,4 +1,5 @@
 import AVFoundation
+import CryptoKit
 import UIKit
 
 @MainActor enum CoverArt {
@@ -9,10 +10,38 @@ import UIKit
         var pixels: Int
         var credentials: ServerCredentials?
 
+        var cacheKey: NSString? {
+            let fields = [
+                credentials?.url.absoluteString ?? "", credentials?.username ?? "", credentials?.password ?? "",
+                coverID ?? files.first?.absoluteString ?? "", String(pixels),
+            ]
+            guard let data = try? JSONEncoder().encode(fields) else { return nil }
+            return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() as NSString
+        }
+
         var remote: URL? {
             guard let coverID, let credentials else { return nil }
             return SubsonicClient(credentials: credentials).coverArtURL(id: coverID, size: pixels)
         }
+    }
+
+    /// List updates must keep loaded covers visible while local files and server artwork load again.
+    final class Cache {
+        private let images = NSCache<NSString, UIImage>()
+
+        init() { images.totalCostLimit = 32 * 1_024 * 1_024 }
+
+        func image(for source: Source) -> UIImage? {
+            source.cacheKey.flatMap { images.object(forKey: $0) }
+        }
+
+        func store(_ image: UIImage, for source: Source) {
+            guard let key = source.cacheKey else { return }
+            let cost = image.cgImage.map { $0.bytesPerRow * $0.height } ?? 1
+            images.setObject(image, forKey: key, cost: cost)
+        }
+
+        func clear() { images.removeAllObjects() }
     }
 
     /// The audio file keeps its artwork available for as long as the track stays on the device.

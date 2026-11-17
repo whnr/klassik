@@ -37,6 +37,28 @@ struct CoverArtTests {
         }
     }
 
+    @Test func cachedCoversSurviveLocalFileChangesAndStayWithinTheirAccount() {
+        let cache = CoverArt.Cache()
+        let credentials = ServerCredentials(url: remote, username: "fixture", password: "fixture")
+        let source = CoverArt.Source(files: [], coverID: "album", pixels: 160, credentials: credentials)
+        let cover = picture()
+        cache.store(cover, for: source)
+        var changed = source
+        changed.files = [URL(filePath: "/downloaded.mp3")]
+        #expect(cache.image(for: changed) === cover)
+        changed = source
+        changed.coverID = "another album"
+        #expect(cache.image(for: changed) == nil)
+        changed = source
+        changed.credentials?.password = "replacement"
+        #expect(cache.image(for: changed) == nil)
+        changed = source
+        changed.pixels = 320
+        #expect(cache.image(for: changed) == nil)
+        cache.clear()
+        #expect(cache.image(for: source) == nil)
+    }
+
     @Test func localArtworkWorksWithoutANetworkRequest() async throws {
         let first = URL(filePath: "/missing.mp3")
         let second = URL(filePath: "/downloaded.mp3")

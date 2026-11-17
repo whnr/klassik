@@ -1,7 +1,7 @@
 {
-  "sha": "be36b35a8848910341eacd6571d524df4ed3ebea",
+  "sha": "b613d29ecf2193aa6bc330f941ed579cec892bfd",
   "branch": "main",
   "path": "main",
-  "subject": "Merge pull request #80 from whnr/claude-release-0.14.2",
-  "ts": 1794938641
+  "subject": "[sz-6yw4] Retry only UI tests that fail to launch or end (#77)",
+  "ts": 1794943468
 }

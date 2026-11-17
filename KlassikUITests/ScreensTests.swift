@@ -611,6 +611,7 @@ final class PlaybackScreens: ScreensTestCase {
         pause(app)
         XCTAssertTrue(app.sliders["position"].waitForExistence(timeout: 10))
         XCTAssertTrue(miniPlayer.buttons["mini-player-cover"].exists)
+        expectWashFromTheTop(app)
         snap(app, "08d-next-player")
     }
 
@@ -1287,9 +1288,45 @@ class ScreensTestCase: XCTestCase {
             side == .right ? Int(scale) : width - 1 - Int(scale)
         }
 
+        /// True when two pixels differ in colour.
+        func differs(_ a: (x: Int, y: Int), _ b: (x: Int, y: Int)) -> Bool {
+            let (first, second) = ((a.y * width + a.x) * 4, (b.y * width + b.x) * 4)
+            return (0..<3).reduce(0) { $0 + abs(Int(bytes[first + $1]) - Int(bytes[second + $1])) } > 30
+        }
+
         func pixels(_ range: ClosedRange<CGFloat>) -> Range<Int> {
             Int((range.lowerBound * scale).rounded())..<Int((range.upperBound * scale).rounded())
         }
+    }
+
+    /// The player of a new item opens at its top, so its wash keeps the full colour below the details and fades into
+    /// the page ground at `Layout.washHeight` (specimen player.html resets scrollTop when the item changes).
+    /// The wash comes after its cover loads, so the check waits for it.
+    @MainActor
+    func expectWashFromTheTop(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+        let player = app.descendants(matching: .any)["player-overlay"].firstMatch
+        XCTAssertTrue(player.exists, "No player", file: file, line: line)
+        let top = player.frame.minY - app.frame.minY
+        let points = (
+            top: top + 24, solid: top + Layout.washHeight * Layout.washSolid - 16, ground: top + Layout.washHeight + 16
+        )
+        guard points.ground < app.frame.height else {
+            return XCTFail("The screen is shorter than the wash", file: file, line: line)
+        }
+        let deadline = Date().addingTimeInterval(10)
+        var found = "no screenshot"
+        repeat {
+            if let screen = ScreenPixels(app) {
+                let x = screen.groundColumn(side: .right)
+                let pixel = { (y: CGFloat) in (x: x, y: Int((y * screen.scale).rounded())) }
+                let even = !screen.differs(pixel(points.top), pixel(points.solid))
+                let washed = screen.differs(pixel(points.solid), pixel(points.ground))
+                if even, washed { return }
+                found = "full colour to the solid stop: \(even), wash above the ground: \(washed)"
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        } while Date() < deadline
+        XCTFail("The wash of the next item does not start at the top: \(found)", file: file, line: line)
     }
 
     /// The bounds of the pixels inside `frame` that differ from the page ground, in screen points. A list cell spans

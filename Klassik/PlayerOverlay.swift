@@ -82,7 +82,8 @@ private struct PlayerOverlay: View {
         .padding(.bottom, layout.bottom)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background { PlayerGround() }
-        .coverWash(cover: item.recording.songs.first?.coverArt, isPlaying: model.playback.item?.id == item.id)
+        .coverWash(
+            item: item.id, cover: item.recording.songs.first?.coverArt, isPlaying: model.playback.item?.id == item.id)
         .offset(y: dragged)
         .animation(Motion.rise.animation(reduceMotion: reduceMotion), value: dragged == 0)
         .accessibilityElement(children: .contain)

@@ -352,6 +352,8 @@ struct CoverWashModifier: ViewModifier {
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.displayScale) private var scale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The item that the player shows. Each item has its own list, which opens at its top.
+    let item: UUID
     /// The cover of the item, or nil when the item has no cover.
     let cover: String?
     let isPlaying: Bool
@@ -377,6 +379,8 @@ struct CoverWashModifier: ViewModifier {
             .environment(\.paletteOverrides, colours)
             .environment(\.playerWash, wash.map { PlayerWash(colour: $0.ground.resolved, scroll: scroll) })
             .animation(Motion.inPlace.animation(reduceMotion: reduceMotion), value: wash == nil)
+            // The list of the next item reports its scroll only when it moves, so the offset of the old list stays.
+            .onChange(of: item) { scroll.offset = 0 }
             .task(id: cover) {
                 let pick = await Self.pick(cover: cover, model: model, points: Measure.coverPage * scale)
                 if Task.isCancelled { return }
@@ -397,7 +401,7 @@ struct CoverWashModifier: ViewModifier {
 
 extension View {
     /// Washes the view in its cover's hue while its item plays (ADR 0034).
-    func coverWash(cover: String?, isPlaying: Bool) -> some View {
-        modifier(CoverWashModifier(cover: cover, isPlaying: isPlaying))
+    func coverWash(item: UUID, cover: String?, isPlaying: Bool) -> some View {
+        modifier(CoverWashModifier(item: item, cover: cover, isPlaying: isPlaying))
     }
 }

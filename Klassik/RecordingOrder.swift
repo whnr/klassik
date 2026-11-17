@@ -133,27 +133,30 @@ final class RecordingOrder {
         let ids = live.songs.map(\.id)
         guard !ids.isEmpty else { return nil }
         let isSet = !live.isFavourite
-        let before = data
-        var changed = data
-        var order = rows(of: work).filter(\.isFavourite).map(\.id)
+        let previous = rows(of: work).filter(\.isFavourite).map(\.id)
+        var order = previous
         order.removeAll { $0 == live.id }
         if isSet { order.append(live.id) }
-        changed.recordingOrder[work.id] = order
         isSaving = true
         library.setStarred(Set(ids), isSet)
-        data = changed
+        data.recordingOrder[work.id] = order
         return { [self] in
             defer { isSaving = false }
             do {
                 if isSet { try await server.star(ids) } else { try await server.unstar(ids) }
-                // The device file gets the change only after the server took it.
-                data = before
-                save(changed)
             } catch {
+                // Other favourite changes can arrive while the server call runs, so only this recording goes back.
                 library.setStarred(Set(ids), !isSet)
-                data = before
-                self.error = error.localizedDescription
+                var reverted = data.recordingOrder[work.id] ?? []
+                reverted.removeAll { $0 == live.id }
+                if !isSet, let index = previous.firstIndex(of: live.id) {
+                    reverted.insert(live.id, at: min(index, reverted.count))
+                }
+                data.recordingOrder[work.id] = reverted.isEmpty ? nil : reverted
+                report(error)
             }
+            // A save while the call ran wrote the unconfirmed order too, so the file always gets the outcome.
+            persist()
         }
     }
 
@@ -176,7 +179,7 @@ final class RecordingOrder {
                 if isSet { try await server.starAlbum(id) } else { try await server.unstarAlbum(id) }
             } catch {
                 if isSet { albums.remove(id) } else { albums.insert(id) }
-                self.error = error.localizedDescription
+                report(error)
             }
         }
     }
@@ -209,7 +212,17 @@ final class RecordingOrder {
                 changed.recordingOrder[work.id] = rows(of: work).filter(\.isFavourite).map(\.id)
             }
             save(changed)
-        } catch { self.error = error.localizedDescription }
+        } catch { report(error) }
+    }
+
+    /// Only an answer from the server is a refusal. Without a connection the change goes back with no modal.
+    private func report(_ error: any Error) {
+        guard error is SubsonicError else { return }
+        self.error = error.localizedDescription
+    }
+
+    private func persist() {
+        do { try store?.save(data) } catch { self.error = error.localizedDescription }
     }
 
     private func save(_ changed: DeviceStore.Data) {

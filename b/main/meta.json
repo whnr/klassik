@@ -1,7 +1,7 @@
 {
-  "sha": "465bb46aad68aa779a71e1054885663375d8617c",
+  "sha": "17cb3f93ec166ffc84dea7c9ae78569b49d4cc6e",
   "branch": "main",
   "path": "main",
-  "subject": "[sz-3hcq.12] Offline and layout fixes for 0.14.2 (#71)",
-  "ts": 1794916725
+  "subject": "[sz-3hcq.17] Cover lookup off the main thread (#72)",
+  "ts": 1794921086
 }

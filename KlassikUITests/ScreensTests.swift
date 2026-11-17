@@ -528,6 +528,16 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(reveal(encores, in: app).isHittable)
         encores.tap()
         XCTAssertTrue(app.buttons["play-recording"].waitForExistence(timeout: 10))
+        // The album page has the favourite mark after its title (ADR 0017). Stars survive launches, so the
+        // check sets the mark and takes it away again.
+        let mark = app.buttons["favourite-album"]
+        XCTAssertTrue(mark.waitForExistence(timeout: 10), "The album page has no favourite mark")
+        let before = mark.value as? String
+        mark.tap()
+        XCTAssertTrue(eventually(timeout: 2) { mark.value as? String != before }, "The album mark did not change")
+        snap(app, "05e-album-favourite")
+        mark.tap()
+        XCTAssertTrue(eventually(timeout: 10) { mark.value as? String == before })
         startPlaying(app)
         pause(app)
         snap(app, "05e-play-album")
@@ -651,10 +661,20 @@ final class PlaybackScreens: ScreensTestCase {
         snap(app, "05a-recording-swipe")
         let favourite = app.buttons["favourite-action"].firstMatch
         XCTAssertTrue(favourite.waitForExistence(timeout: 5))
+        XCTAssertEqual(favourite.label, "Favourite")
         favourite.tap()
+        // The favourite moves up at once; it does not wait for the server.
         let moved = expectation(for: NSPredicate(format: "label CONTAINS 'Anna Probe'"), evaluatedWith: rows.firstMatch)
-        XCTAssertEqual(XCTWaiter.wait(for: [moved], timeout: 10), .completed)
+        XCTAssertEqual(XCTWaiter.wait(for: [moved], timeout: 2), .completed)
         snap(app, "05b-work-reference")
+        // The menu of a favourite takes it away.
+        rows.firstMatch.press(forDuration: 1.2)
+        let unfavourite = app.buttons["favourite-action"].firstMatch
+        XCTAssertTrue(unfavourite.waitForExistence(timeout: 5))
+        XCTAssertEqual(unfavourite.label, "Unfavourite")
+        snap(app, "05b-unfavourite-menu")
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
+        XCTAssertTrue(eventually(timeout: 5) { !unfavourite.exists }, "The menu did not close")
 
         rows.element(boundBy: 1).tap()
         app.buttons["favourite-recording"].tap()

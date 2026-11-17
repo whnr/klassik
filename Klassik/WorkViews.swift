@@ -17,6 +17,11 @@ struct ShuffleButton: View {
     }
 }
 
+/// The name of the favourite action. On a favourite it takes the favourite away.
+enum FavouriteAction {
+    static func title(isSet: Bool) -> String { isSet ? "Unfavourite" : "Favourite" }
+}
+
 /// The actions of a row that stands for one recording or one album. Trailing swipe: the queue. Leading swipe:
 /// download and favourites. The context menu holds all of them, as in Apple Music.
 private struct ItemActions: ViewModifier {
@@ -26,6 +31,10 @@ private struct ItemActions: ViewModifier {
     let downloads: Bool
     let favourite: Bool
     let favouriteWork: Bool
+    let favouriteAlbum: Bool
+
+    private var hasFavourite: Bool { favourite || favouriteWork || favouriteAlbum }
+    private var albumID: String? { favouriteAlbum ? item.recording.songs.first?.albumId : nil }
 
     func body(content: Content) -> some View {
         content
@@ -40,11 +49,11 @@ private struct ItemActions: ViewModifier {
                 Button("Play Next", systemImage: "text.line.first.and.arrowtriangle.forward") { playNext() }
                 Button("Add to Queue", systemImage: "text.line.last.and.arrowtriangle.forward") { addToQueue() }
                 if downloads { downloadButton }
-                if favourite { favouriteButton }
+                if hasFavourite { favouriteButton }
             }
     }
 
-    /// A row that cannot do an action leaves it out: works never download, albums have no recording favourite.
+    /// A row that cannot do an action leaves it out: works never download.
     @ViewBuilder private func button(for action: SwipeAction) -> some View {
         switch action {
         case .playNext:
@@ -56,7 +65,7 @@ private struct ItemActions: ViewModifier {
         case .download:
             if downloads { downloadButton.tint(Palette.swipeDownload.color) }
         case .favourite:
-            if favourite { favouriteButton.tint(Palette.swipeFavourite.color) }
+            if hasFavourite { favouriteButton.tint(Palette.swipeFavourite.color) }
         }
     }
 
@@ -65,9 +74,10 @@ private struct ItemActions: ViewModifier {
         if let download = tracks.downloads.first(where: { $0.id == item.recording.id }) {
             Button("Remove Download", systemImage: "trash") { tracks.remove(download) }
         } else if tracks.progress[item.recording.id] != nil {
-            Button("Cancel Download", systemImage: "xmark.circle") { tracks.cancelDownload(item.recording.id) }
+            Button("Cancel Download", systemImage: "xmark") { tracks.cancelDownload(item.recording.id) }
         } else {
-            Button("Download", systemImage: "arrow.down.circle") {
+            // A plain glyph, as the queue actions have: a circled glyph draws as a ring inside the pill.
+            Button("Download", systemImage: "arrow.down") {
                 if let client = model.client {
                     tracks.download(item.recording, title: item.work.title, client: client)
                 }
@@ -88,15 +98,28 @@ private struct ItemActions: ViewModifier {
     }
 
     private var favouriteButton: some View {
-        let isSet =
-            favouriteWork
-            ? model.recordingOrder.isFavourite(item.work)
-            : model.recordingOrder.isFavourite(item.recording, of: item.work)
-        return Button("Favourite") {
-            if favouriteWork {
-                model.recordingOrder.toggle(item.work)
+        let order = model.recordingOrder
+        let isSet: Bool
+        if let albumID {
+            isSet = order.isFavourite(album: albumID)
+        } else if favouriteWork {
+            isSet = order.isFavourite(item.work)
+        } else {
+            isSet = order.isFavourite(item.recording, of: item.work)
+        }
+        return Button {
+            if let albumID {
+                order.toggleAtOnce(album: albumID)
+            } else if favouriteWork {
+                order.toggleAtOnce(item.work)
             } else {
-                Task { await model.recordingOrder.toggle(item.recording, of: item.work) }
+                order.toggleAtOnce(item.recording, of: item.work)
+            }
+        } label: {
+            Label {
+                Text(FavouriteAction.title(isSet: isSet))
+            } icon: {
+                Image(uiImage: FermataShape.icon)
             }
         }
         .accessibilityIdentifier("favourite-action")
@@ -115,14 +138,42 @@ private struct ItemActions: ViewModifier {
 
 extension View {
     @ViewBuilder func itemActions(
-        _ item: QueueItem?, downloads: Bool = false, favourite: Bool = false, favouriteWork: Bool = false
+        _ item: QueueItem?, downloads: Bool = false, favourite: Bool = false, favouriteWork: Bool = false,
+        favouriteAlbum: Bool = false
     ) -> some View {
         if let item {
-            modifier(ItemActions(item: item, downloads: downloads, favourite: favourite, favouriteWork: favouriteWork))
+            modifier(
+                ItemActions(
+                    item: item, downloads: downloads, favourite: favourite, favouriteWork: favouriteWork,
+                    favouriteAlbum: favouriteAlbum))
         } else {
             self
         }
     }
+}
+
+extension RecordingOrder {
+    /// A favourite changes its mark and its place in the list at once, with no animation. The server call follows.
+    func toggleAtOnce(_ recording: WorkIndex.Recording, of work: WorkIndex.Work) {
+        guard let confirm = withoutAnimation({ begin(recording, of: work) }) else { return }
+        Task { await confirm() }
+    }
+
+    func toggleAtOnce(_ work: WorkIndex.Work) {
+        withoutAnimation { toggle(work) }
+    }
+
+    func toggleAtOnce(album id: String) {
+        guard let confirm = withoutAnimation({ begin(album: id) }) else { return }
+        Task { await confirm() }
+    }
+}
+
+/// Runs a change with no animation, also inside a swipe action or a button that animates.
+@MainActor func withoutAnimation<Result>(_ change: () -> Result) -> Result {
+    var transaction = Transaction()
+    transaction.disablesAnimations = true
+    return withTransaction(transaction, change)
 }
 
 /// A small mark on rows that play without the server.
@@ -158,7 +209,7 @@ struct WorkRow: View {
                         .foregroundStyle(Palette.textSecondary)
                 }
             }
-            .itemActions(album.item, downloads: true)
+            .itemActions(album.item, downloads: true, favouriteAlbum: true)
             .accessibilityIdentifier("album")
         } else {
             NavigationLink(value: Page.work(work.id)) {
@@ -265,7 +316,7 @@ struct WorkView: View {
             \.pageFavourite,
             FavouriteHeading(
                 isSet: model.recordingOrder.isFavourite(work),
-                action: { model.recordingOrder.toggle(work) }, identifier: "favourite-work")
+                action: { model.recordingOrder.toggleAtOnce(work) }, identifier: "favourite-work")
         )
         .toolbar { if recordings.filter(\.isFavourite).count > 1 { EditButton() } }
     }
@@ -487,12 +538,7 @@ struct RecordingView: View {
                             CoverImage(id: recording.songs.first?.coverArt, points: Layout.bigCover)
                                 .frame(width: Layout.bigCover, height: Layout.bigCover)
                                 .clipShape(.rect(cornerRadius: Layout.bigCoverCorner))
-                            if recording.isAlbum {
-                                Text(work.title).typeStyle(Layout.pageTitle).ink()
-                                    .accessibilityIdentifier("player-title")
-                            } else {
-                                favouriteButton
-                            }
+                            overlayTitle
                         }
                         .frame(maxWidth: .infinity)
                         .multilineTextAlignment(.center)
@@ -623,23 +669,34 @@ struct RecordingView: View {
                 Motion.inPlace.animation(reduceMotion: reduceMotion), value: isPlayingThis ? player.movement : nil)
         }
         .pageTitle(isOverlay ? "" : work.title)
-        .environment(
-            \.pageFavourite,
-            !isOverlay && !recording.isAlbum
-                ? FavouriteHeading(
-                    isSet: model.recordingOrder.isFavourite(recording, of: work),
-                    action: { Task { await model.recordingOrder.toggle(recording, of: work) } },
-                    identifier: "favourite-recording") : nil)
+        .environment(\.pageFavourite, isOverlay ? nil : favourite)
     }
 
-    private var favouriteButton: some View {
-        FavouriteTitle(
-            title: work.title, isSet: model.recordingOrder.isFavourite(recording, of: work),
-            action: { Task { await model.recordingOrder.toggle(recording, of: work) } },
-            textIdentifier: "player-title"
-        )
-        .disabled(model.recordingOrder.isSaving)
-        .accessibilityIdentifier("favourite-recording")
+    /// The favourite of the page: the album on an album page, else the recording (ADR 0013, 0017).
+    private var favourite: FavouriteHeading? {
+        let order = model.recordingOrder
+        if recording.isAlbum {
+            guard let id = recording.songs.first?.albumId else { return nil }
+            return FavouriteHeading(
+                isSet: order.isFavourite(album: id), action: { order.toggleAtOnce(album: id) },
+                identifier: "favourite-album")
+        }
+        return FavouriteHeading(
+            isSet: order.isFavourite(recording, of: work), action: { order.toggleAtOnce(recording, of: work) },
+            identifier: "favourite-recording")
+    }
+
+    @ViewBuilder private var overlayTitle: some View {
+        if let favourite {
+            FavouriteTitle(
+                title: work.title, isSet: favourite.isSet, action: favourite.action, textIdentifier: "player-title"
+            )
+            .disabled(model.recordingOrder.isSaving)
+            .accessibilityIdentifier(favourite.identifier)
+        } else {
+            Text(work.title).typeStyle(Layout.pageTitle).ink()
+                .accessibilityIdentifier("player-title")
+        }
     }
 
     /// What every track shares, in centred lines.

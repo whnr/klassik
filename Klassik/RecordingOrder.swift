@@ -4,6 +4,8 @@ import Observation
 protocol FavouriteServer: Sendable {
     func star(_ ids: [String]) async throws
     func unstar(_ ids: [String]) async throws
+    func starAlbum(_ id: String) async throws
+    func unstarAlbum(_ id: String) async throws
     func getStarred() async throws -> Starred
 }
 
@@ -120,22 +122,63 @@ final class RecordingOrder {
     }
 
     func toggle(_ recording: WorkIndex.Recording, of work: WorkIndex.Work) async {
-        guard !isSaving, let server else { return }
-        isSaving = true
-        defer { isSaving = false }
+        await begin(recording, of: work)?()
+    }
+
+    /// Changes the favourite of a recording at once: its mark and its place among the favourites. The returned
+    /// call tells the server and keeps the change on the device. When the server refuses, it takes the change back.
+    func begin(_ recording: WorkIndex.Recording, of work: WorkIndex.Work) -> (@MainActor () async -> Void)? {
+        guard !isSaving, let server else { return nil }
         let live = library.current(work: work, recording: recording).recording
         let ids = live.songs.map(\.id)
-        guard !ids.isEmpty else { return }
-        do {
-            if live.isFavourite { try await server.unstar(ids) } else { try await server.star(ids) }
-            library.setStarred(Set(ids), !live.isFavourite)
-            var changed = data
-            var order = rows(of: work).filter(\.isFavourite).map(\.id)
-            order.removeAll { $0 == live.id }
-            if !live.isFavourite { order.append(live.id) }
-            changed.recordingOrder[work.id] = order
-            save(changed)
-        } catch { self.error = error.localizedDescription }
+        guard !ids.isEmpty else { return nil }
+        let isSet = !live.isFavourite
+        let before = data
+        var changed = data
+        var order = rows(of: work).filter(\.isFavourite).map(\.id)
+        order.removeAll { $0 == live.id }
+        if isSet { order.append(live.id) }
+        changed.recordingOrder[work.id] = order
+        isSaving = true
+        library.setStarred(Set(ids), isSet)
+        data = changed
+        return { [self] in
+            defer { isSaving = false }
+            do {
+                if isSet { try await server.star(ids) } else { try await server.unstar(ids) }
+                // The device file gets the change only after the server took it.
+                data = before
+                save(changed)
+            } catch {
+                library.setStarred(Set(ids), !isSet)
+                data = before
+                self.error = error.localizedDescription
+            }
+        }
+    }
+
+    func isFavourite(album id: String) -> Bool { albums.contains(id) }
+
+    func toggle(album id: String) async {
+        await begin(album: id)?()
+    }
+
+    /// Changes the favourite of an album at once. It is a star on the album, not on its tracks (ADR 0013). The
+    /// returned call tells the server. When the server refuses, it takes the change back.
+    func begin(album id: String) -> (@MainActor () async -> Void)? {
+        guard !isSaving, let server else { return nil }
+        let isSet = !albums.contains(id)
+        isSaving = true
+        if isSet { albums.insert(id) } else { albums.remove(id) }
+        return { [self] in
+            defer { isSaving = false }
+            do {
+                if isSet { try await server.starAlbum(id) } else { try await server.unstarAlbum(id) }
+            } catch {
+                if isSet { albums.remove(id) } else { albums.insert(id) }
+                self.error = error.localizedDescription
+            }
+        }
     }
 
     /// Only favourites move. Other rows keep the server-derived priority.

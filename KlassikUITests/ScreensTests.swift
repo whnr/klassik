@@ -1306,7 +1306,8 @@ class ScreensTestCase: XCTestCase {
     func expectWashFromTheTop(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
         let player = app.descendants(matching: .any)["player-overlay"].firstMatch
         XCTAssertTrue(player.exists, "No player", file: file, line: line)
-        let top = player.frame.minY - app.frame.minY
+        // The overlay lies under the status bar, so the wash starts at the top of the screen at the latest.
+        let top = max(player.frame.minY - app.frame.minY, 0)
         let points = (
             top: top + 24, solid: top + Layout.washHeight * Layout.washSolid - 16, ground: top + Layout.washHeight + 16
         )
@@ -1318,7 +1319,7 @@ class ScreensTestCase: XCTestCase {
         repeat {
             if let screen = ScreenPixels(app) {
                 let x = screen.groundColumn(side: .right)
-                let pixel = { (y: CGFloat) in (x: x, y: Int((y * screen.scale).rounded())) }
+                let pixel = { (y: CGFloat) in (x: x, y: min(Int((y * screen.scale).rounded()), screen.height - 1)) }
                 let even = !screen.differs(pixel(points.top), pixel(points.solid))
                 let washed = screen.differs(pixel(points.solid), pixel(points.ground))
                 if even, washed { return }

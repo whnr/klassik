@@ -34,6 +34,8 @@ final class PersonSweep {
     static let unknownDays = 90
     /// Each due time moves by a random amount up to this many days, so that a library does not fall due at once.
     nonisolated static let jitterDays = 10.0
+    /// A pass tries one person at most this many times (ADR 0044). Then the person waits for its next due time.
+    static let triesPerPass = 2
 
     private(set) var state = State.idle
     /// The persons that have no check yet, and the persons whose check is due.
@@ -86,6 +88,8 @@ final class PersonSweep {
         var due: [(person: Person, overdue: TimeInterval)] = []
         for person in people {
             guard let last = store.cache.checked[person.key] else {
+                // A person that failed in an earlier pass waits for the due time that the pass saved.
+                if let due = store.cache.due[person.key], due > current { continue }
                 new.append(person)
                 continue
             }
@@ -131,45 +135,79 @@ final class PersonSweep {
     }
 
     /// Runs a pass to its end, and returns when it ends or is stopped.
+    /// A failed person goes to the end of the queue, so that it does not hold up the others (ADR 0044).
     func run(_ people: [Person]) async {
         let found = plan(people)
         let jobs = found.new + found.due
+        let newOnes = Set(found.new)
         newCount = found.new.count
         dueCount = found.due.count
         guard !jobs.isEmpty else {
             state = .upToDate
             return
         }
-        var failures = 0
+        var queue = jobs
+        var next = 0
+        var tries: [Person: Int] = [:]
+        var failuresInARow = 0
         var done = 0
-        for person in jobs {
-            while !Task.isCancelled {
-                guard isConnectionGood() else {
-                    state = .paused(.connection)
-                    await sleep(.seconds(30))
-                    continue
-                }
-                state = .running(done: done, total: jobs.count)
-                if await settle(person) {
-                    failures = 0
-                    break
-                }
-                failures += 1
-                // A Retry-After longer than the back-off wins: Wikimedia asks for no request before it ends.
-                let backoff = min(3600, 60 * (1 << min(failures - 1, 6)))
-                let wait = max(backoff, Int((await store.throttleHold()).rounded(.up)))
-                state = .paused(.slowDown(until: now().addingTimeInterval(Double(wait))))
-                await sleep(.seconds(wait))
-            }
-            if Task.isCancelled {
+        while next < queue.count {
+            let person = queue[next]
+            next += 1
+            guard await waitForConnection() else {
                 state = .idle
                 return
             }
+            state = .running(done: done, total: jobs.count)
+            if await settle(person) {
+                failuresInARow = 0
+            } else {
+                failuresInARow += 1
+                tries[person, default: 0] += 1
+                let retries = tries[person, default: 0] < Self.triesPerPass
+                if retries { queue.append(person) } else { postpone(person) }
+                if next < queue.count { await backOff(failuresInARow: failuresInARow) }
+                if Task.isCancelled {
+                    state = .idle
+                    return
+                }
+                if retries { continue }
+            }
             done += 1
-            if done <= found.new.count { newCount -= 1 } else { dueCount -= 1 }
+            if newOnes.contains(person) { newCount -= 1 } else { dueCount -= 1 }
         }
         state = .idle
         measure(people)
+    }
+
+    /// Returns false when the pass is stopped before the connection suits it.
+    private func waitForConnection() async -> Bool {
+        while !Task.isCancelled {
+            if isConnectionGood() { return true }
+            state = .paused(.connection)
+            await sleep(.seconds(30))
+        }
+        return false
+    }
+
+    /// One failure waits only for Wikimedia's Retry-After. Failures in a row point to a service problem: from
+    /// the second, the pass waits 1, 2, 4 minutes and so on, at most one hour, or longer when Retry-After asks.
+    private func backOff(failuresInARow failures: Int) async {
+        let backoff = failures < 2 ? 0 : min(3600, 60 * (1 << min(failures - 2, 6)))
+        let wait = max(backoff, Int((await store.throttleHold()).rounded(.up)))
+        guard wait > 0 else { return }
+        state = .paused(.slowDown(until: now().addingTimeInterval(Double(wait))))
+        await sleep(.seconds(wait))
+    }
+
+    /// A person that failed every try of the pass gets the due time of a check, without being marked checked.
+    private func postpone(_ person: Person) {
+        store.postpone(person.key, due: dueDate(of: person))
+    }
+
+    private func dueDate(of person: Person) -> Date {
+        let days = Double(interval(of: person)) + min(max(jitter(), -Self.jitterDays), Self.jitterDays)
+        return now().addingTimeInterval(days * 86_400)
     }
 
     /// Looks one person up, or asks again for their facts. Returns false when a request failed.
@@ -182,10 +220,7 @@ final class PersonSweep {
         case .performer:
             ok = await settle(performer: person, isNew: isNew)
         }
-        if ok {
-            let days = Double(interval(of: person)) + min(max(jitter(), -Self.jitterDays), Self.jitterDays)
-            store.markChecked(person.key, at: now(), due: now().addingTimeInterval(days * 86_400))
-        }
+        if ok { store.markChecked(person.key, at: now(), due: dueDate(of: person)) }
         return ok
     }
 

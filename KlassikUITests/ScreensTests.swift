@@ -254,21 +254,15 @@ final class BrowseScreens: ScreensTestCase {
     /// (sz-rs30.1.102). A light picture, in the light and the dark room.
     @MainActor
     func testLightPictureUnderTheStatusBar() throws {
-        defer { XCUIDevice.shared.appearance = .light }
-        XCUIDevice.shared.appearance = .light
         snap(try pictureTop(), "03h-picture-top-light-light-room")
-        XCUIDevice.shared.appearance = .dark
-        snap(try pictureTop(), "03i-picture-top-light-dark-room")
+        snap(try pictureTop(arguments: ["-darkRoom"]), "03i-picture-top-light-dark-room")
     }
 
     /// A dark picture under the status bar, in the light and the dark room.
     @MainActor
     func testDarkPictureUnderTheStatusBar() throws {
-        defer { XCUIDevice.shared.appearance = .light }
-        XCUIDevice.shared.appearance = .light
         snap(try pictureTop(arguments: ["-darkPicture"]), "03j-picture-top-dark-light-room")
-        XCUIDevice.shared.appearance = .dark
-        snap(try pictureTop(arguments: ["-darkPicture"]), "03k-picture-top-dark-dark-room")
+        snap(try pictureTop(arguments: ["-darkPicture", "-darkRoom"]), "03k-picture-top-dark-dark-room")
     }
 
     @MainActor

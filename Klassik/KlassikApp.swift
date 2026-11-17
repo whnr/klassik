@@ -38,11 +38,21 @@ struct KlassikApp: App {
         try? Tips.configure([.displayFrequency(.immediate)])
     }
 
+    /// The UI walk takes the dark room with `-darkRoom`: the simulator appearance does not reach a launched app
+    /// on the runner. Release builds follow the system.
+    private static var launchScheme: ColorScheme? {
+        #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("-darkRoom") { return .dark }
+        #endif
+        return nil
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environment(model)
                 .tint(Palette.tint)
+                .preferredColorScheme(Self.launchScheme)
         }
     }
 }

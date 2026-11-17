@@ -34,6 +34,13 @@ final class PlacesScreens: ScreensTestCase {
         app.buttons["Edit"].tap()
         XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 5))
         snap(app, "02e-library-edit")
+        // The reorder handle sits at the trailing end of the row. A drag on it puts Favourites first.
+        let handle = favourites.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5))
+        let target = composers.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.1))
+        handle.press(forDuration: 0.5, thenDragTo: target)
+        app.buttons["Done"].tap()
+        XCTAssertTrue(app.buttons["Edit"].waitForExistence(timeout: 5))
+        XCTAssertLessThan(favourites.frame.minY, composers.frame.minY, "The drag did not move Favourites up")
     }
 
     @MainActor
@@ -156,6 +163,30 @@ final class PlacesScreens: ScreensTestCase {
         composer(app, "Felix Mendelssohn").tap()
         XCTAssertTrue(app.staticTexts["Hold Back to Go Further"].waitForExistence(timeout: 10))
         snap(app, "02k-back-tip")
+    }
+
+    /// Without the test switch, the tip keeps its rule: it shows once, and a later page does not show it again.
+    @MainActor
+    func testBackTipShowsOnce() throws {
+        let app = try launchAndConnect(arguments: ["-tipRules"])
+        let tip = app.staticTexts["Hold Back to Go Further"]
+        composer(app, "Felix Mendelssohn").tap()
+        XCTAssertTrue(tip.waitForExistence(timeout: 10), "The tip does not show the first time")
+        back(app)
+        XCTAssertTrue(composer(app, "Frédéric Chopin").waitForExistence(timeout: 10))
+        composer(app, "Frédéric Chopin").tap()
+        XCTAssertTrue(app.navigationBars["Frédéric Chopin"].waitForExistence(timeout: 10))
+        XCTAssertFalse(tip.waitForExistence(timeout: 3), "The tip shows a second time")
+    }
+
+    /// The bar draws no title (ADR 0023), and the page still names the back button of the next page.
+    @MainActor
+    func testBarShowsNoTitle() throws {
+        let app = try launchAndConnect()
+        composer(app, "Felix Mendelssohn").tap()
+        let bar = app.navigationBars["Felix Mendelssohn"]
+        XCTAssertTrue(bar.waitForExistence(timeout: 10))
+        XCTAssertFalse(bar.staticTexts["Felix Mendelssohn"].exists, "The bar shows the page title")
     }
 }
 

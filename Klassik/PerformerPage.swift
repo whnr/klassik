@@ -126,7 +126,7 @@ struct PerformerPage: View {
                     SectionHeading("Credits")
                     ForEach(facts.credits, id: \.self) { credit in
                         CreditRow(credit: credit)
-                            .itemSeparator(after: credit != facts.credits.first)
+                            .itemSeparator(first: credit == facts.credits.first, last: credit == facts.credits.last)
                     }
                 }
             }
@@ -141,10 +141,10 @@ struct PerformerPage: View {
             SectionHeading("Your tags")
             LabeledContent("Name in your tags", value: performer.name)
                 .ink()
-                .listRowSeparator(.hidden)
+                .itemSeparator(first: true, last: false)
             LabeledContent("Recordings", value: performer.entries.count.formatted())
                 .ink()
-                .itemSeparator(after: true)
+                .itemSeparator(first: false, last: true)
         }
     }
 }

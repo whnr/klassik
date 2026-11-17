@@ -316,10 +316,11 @@ extension View {
         pageEdges(top: Layout.rowPadding, bottom: Layout.rowPadding)
     }
 
-    /// Only a list item with a predecessor draws a hairline (sz-3hcq.4).
-    func itemSeparator(after predecessor: Bool) -> some View {
-        listRowSeparator(.hidden, edges: .bottom)
-            .listRowSeparator(predecessor ? .visible : .hidden, edges: .top)
+    /// A hairline runs only between two list items (ADR 0045). The system draws the line between two rows as the
+    /// bottom edge of the upper row, and a hidden edge on either row removes it. So only the outer edges hide.
+    func itemSeparator(first: Bool, last: Bool) -> some View {
+        listRowSeparator(first ? .hidden : .automatic, edges: .top)
+            .listRowSeparator(last ? .hidden : .visible, edges: .bottom)
     }
 
     /// The row of a section heading on a content page. A grouped list keeps the system insets.

@@ -16,7 +16,7 @@ struct PerformersView: View {
                         .ink()
                 }
                 .accessibilityIdentifier("performer")
-                .itemSeparator(after: performer.id != performers.first?.id)
+                .itemSeparator(first: performer.id == performers.first?.id, last: performer.id == performers.last?.id)
             }
         }
         .overlay {

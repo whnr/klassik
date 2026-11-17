@@ -275,7 +275,7 @@ struct WorkView: View {
                     .itemActions(QueueItem(work: work, recording: recording), downloads: true, favourite: true)
                     .accessibilityIdentifier("recording")
                     .moveDisabled(!row.isFavourite)
-                    .itemSeparator(after: row.id != recordings.first?.id)
+                    .itemSeparator(first: row.id == recordings.first?.id, last: row.id == recordings.last?.id)
                 }
                 .onMove { model.recordingOrder.moveFavourites(of: work, from: $0, to: $1) }
                 Text("Favourite recordings come first, in your order. Then the newest.")
@@ -571,7 +571,7 @@ struct RecordingView: View {
                                     song, at: block.start + offset, page: page,
                                     title: album.title(of: song, in: block)
                                 )
-                                .itemSeparator(after: offset > 0)
+                                .itemSeparator(first: offset == 0, last: offset == block.tracks.count - 1)
                             }
                         }
                     }
@@ -580,7 +580,7 @@ struct RecordingView: View {
                         SectionHeading(recording.isAlbum ? "Tracks" : "Movements")
                         ForEach(Array(recording.songs.enumerated()), id: \.element.id) { index, song in
                             movementRow(song, at: index, page: page, title: recording.title(of: song))
-                                .itemSeparator(after: index > 0)
+                                .itemSeparator(first: index == 0, last: index == recording.songs.count - 1)
                         }
                     }
                 }
@@ -623,7 +623,8 @@ struct RecordingView: View {
                                 }
                             }
                             .accessibilityIdentifier("up-next")
-                            .itemSeparator(after: item.id != player.upNext.first?.id)
+                            .itemSeparator(
+                                first: item.id == player.upNext.first?.id, last: item.id == player.upNext.last?.id)
                         }
                         .onDelete { player.removeFromQueue(at: $0) }
                         .onMove { player.moveInQueue(from: $0, to: $1) }

@@ -97,7 +97,8 @@ struct ComposerPage: View {
                             ForEach(works) {
                                 WorkRow(work: $0)
                                     .pageRow()
-                                    .itemSeparator(after: true)
+                                    .itemSeparator(
+                                        first: false, last: $0.id == works.last?.id && row.id == rows.last?.id)
                             }
                         } label: {
                             VStack(alignment: .leading, spacing: Layout.rowLineGap) {
@@ -113,7 +114,7 @@ struct ComposerPage: View {
                         .accessibilityIdentifier("set")
                     }
                 }
-                .itemSeparator(after: row.id != rows.first?.id)
+                .itemSeparator(first: row.id == rows.first?.id, last: row.id == rows.last?.id)
             }
         }
         if rows.isEmpty {
@@ -145,7 +146,7 @@ struct ComposerPage: View {
                     SectionHeading("Credits")
                     ForEach(facts.credits, id: \.self) { credit in
                         CreditRow(credit: credit)
-                            .itemSeparator(after: credit != facts.credits.first)
+                            .itemSeparator(first: credit == facts.credits.first, last: credit == facts.credits.last)
                     }
                 }
             }
@@ -158,17 +159,19 @@ struct ComposerPage: View {
         }
         Section {
             SectionHeading("Your tags")
+            let people = model.people
+            let choosesAgain =
+                people.resolution(ofComposer: composer.name) != nil && !people.loading.contains(composer.name)
             LabeledContent("Name in your tags", value: composer.name)
                 .ink()
-                .listRowSeparator(.hidden)
+                .itemSeparator(first: true, last: false)
             LabeledContent("Works", value: composer.works.count.formatted())
                 .ink()
-                .itemSeparator(after: true)
-            let people = model.people
-            if people.resolution(ofComposer: composer.name) != nil, !people.loading.contains(composer.name) {
+                .itemSeparator(first: false, last: !choosesAgain)
+            if choosesAgain {
                 Button("Choose Composer Again") { Task { await people.chooseAgain(composer: composer.name) } }
                     .accessibilityIdentifier("composer-choose-again")
-                    .itemSeparator(after: true)
+                    .itemSeparator(first: false, last: true)
             }
         }
     }

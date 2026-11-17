@@ -127,8 +127,10 @@ import UIKit
         }.value
     }
 
-    /// Keeps the art of every album of the library on the device, one album after the other. It stops when the
-    /// store is full or the network fails. A Low Data Mode connection refuses each request (ADR 0051).
+    /// Keeps the art of every album of the library on the device, one album after the other. It stops at the first
+    /// file that does not fit under the limit, so it never pushes out art it kept before, and the classical albums
+    /// that come first stay. It also stops when the network fails or a write fails. A Low Data Mode connection
+    /// refuses each request (ADR 0051).
     static func keepAll(
         _ songs: [Song], credentials: ServerCredentials, store: ImageStore,
         fetch: (URLRequest) async throws -> (Data, URLResponse) = { try await CoverArt.session.data(for: $0) }
@@ -147,7 +149,7 @@ import UIKit
             guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
                 UIImage(data: data) != nil
             else { continue }
-            await store.store(data, for: key)
+            guard store.fits(Int64(data.count)), await store.store(data, for: key) else { return }
         }
     }
 }

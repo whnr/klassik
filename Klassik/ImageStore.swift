@@ -21,11 +21,17 @@ final class ImageStore {
         }
     }
 
-    /// True when the next file would push out an older one.
+    /// True when no file fits under the limit.
     var isFull: Bool { limit.map { bytes >= $0 } ?? false }
+
+    /// True when a file of `size` bytes fits under the limit without pushing out an older one.
+    func fits(_ size: Int64) -> Bool { limit.map { bytes + size <= $0 } ?? true }
 
     @ObservationIgnored private var entries: [String: Entry] = [:]
     @ObservationIgnored private var scan: Task<Void, Never>?
+    /// Removals run off the main actor, and every later disk access waits for them, so a removal never deletes a
+    /// file written after it.
+    @ObservationIgnored private var removal: Task<Void, Never>?
     private let folder: URL
     private let defaults: UserDefaults
     private let limitKey: String
@@ -49,7 +55,10 @@ final class ImageStore {
         folder: .cachesDirectory.appending(path: "album-art"), limitKey: "store.albumArtLimit")
 
     /// Waits for the first read of the folder, so that `contains` knows every file.
-    func loaded() async { await scan?.value }
+    func loaded() async {
+        await scan?.value
+        await removal?.value
+    }
 
     func contains(_ key: String) -> Bool { entries[Self.name(key)] != nil }
 
@@ -57,7 +66,9 @@ final class ImageStore {
     func data(for key: String) async -> Data? {
         let name = Self.name(key)
         let file = folder.appending(path: name)
+        let removal = removal
         let data = await Task.detached(priority: .userInitiated) { () -> Data? in
+            await removal?.value
             guard let data = try? Data(contentsOf: file) else { return nil }
             try? FileManager.default.setAttributes([.modificationDate: Date.now], ofItemAtPath: file.path())
             return data
@@ -66,10 +77,13 @@ final class ImageStore {
         return data
     }
 
-    func store(_ data: Data, for key: String) async {
+    /// False when the file could not be written, for example on a full disk.
+    @discardableResult func store(_ data: Data, for key: String) async -> Bool {
         let name = Self.name(key)
         let folder = folder
+        let removal = removal
         let written = await Task.detached(priority: .utility) { () -> Bool in
+            await removal?.value
             do {
                 try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
                 try data.write(to: folder.appending(path: name), options: .atomic)
@@ -78,22 +92,35 @@ final class ImageStore {
                 return false
             }
         }.value
-        guard written else { return }
+        guard written else { return false }
         entries[name] = Entry(size: Int64(data.count), date: .now)
         total()
         evict(keeping: name)
+        return true
     }
 
     func clear() {
-        try? FileManager.default.removeItem(at: folder)
         entries = [:]
         total()
+        let folder = folder
+        remove { try? FileManager.default.removeItem(at: folder) }
+    }
+
+    /// A large folder can take long to delete, so the main actor only waits for the totals.
+    private func remove(_ work: @escaping @Sendable () -> Void) {
+        let previous = removal
+        removal = Task.detached(priority: .utility) {
+            await previous?.value
+            work()
+        }
     }
 
     /// Reads the folder again. The entries follow the files, not the other way round.
     func rescan() async {
         let folder = folder
+        let removal = removal
         let found = await Task.detached(priority: .utility) { () -> [String: Entry] in
+            await removal?.value
             let keys: [URLResourceKey] = [.fileSizeKey, .contentModificationDateKey]
             let urls =
                 (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: keys)) ?? []
@@ -117,12 +144,17 @@ final class ImageStore {
     private func evict(keeping keep: String? = nil) {
         guard let limit, bytes > limit else { return }
         var oldest = entries.sorted { $0.value.date < $1.value.date }
+        var files: [URL] = []
         while bytes > limit, let entry = oldest.first {
             oldest.removeFirst()
             if entry.key == keep { continue }
-            try? FileManager.default.removeItem(at: folder.appending(path: entry.key))
+            files.append(folder.appending(path: entry.key))
             entries[entry.key] = nil
             bytes -= entry.value.size
+        }
+        let doomed = files
+        remove {
+            for file in doomed { try? FileManager.default.removeItem(at: file) }
         }
     }
 

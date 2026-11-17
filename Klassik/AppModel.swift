@@ -58,7 +58,9 @@ final class AppModel {
         credentials = store.load()
         updateServer()
         // No build reads the URL cache folder of the pictures, so its space goes back to the device.
-        try? FileManager.default.removeItem(at: .cachesDirectory.appending(path: "Portraits"))
+        Task.detached(priority: .utility) {
+            try? FileManager.default.removeItem(at: .cachesDirectory.appending(path: "Portraits"))
+        }
     }
 
     /// Returns the error text if the server rejects the login; nothing is saved then.

@@ -15,11 +15,13 @@ struct ImageStoreTests {
     let credentials = ServerCredentials(
         url: URL(string: "https://music.example.org")!, username: "fixture", password: "fixture")
 
-    func makeStore(limit: Int64? = nil, defaults: UserDefaults? = nil) async throws -> ImageStore {
+    func makeStore(limit: Int64? = nil, defaults: UserDefaults? = nil, folder: String = "images") async throws
+        -> ImageStore
+    {
         let suite = UserDefaults(suiteName: UUID().uuidString)
         let defaults = try #require(defaults ?? suite)
         if let limit { defaults.set(limit, forKey: "test.limit") }
-        let store = ImageStore(folder: root.appending(path: "images"), limitKey: "test.limit", defaults: defaults)
+        let store = ImageStore(folder: root.appending(path: folder), limitKey: "test.limit", defaults: defaults)
         await store.loaded()
         return store
     }
@@ -180,8 +182,7 @@ struct ImageStoreTests {
         }
         #expect(requests == 1)
 
-        full.clear()
-        let open = try await makeStore()
+        let open = try await makeStore(folder: "open")
         requests = 0
         await CoverArt.keepAll(songs, credentials: credentials, store: open) { _ in
             requests += 1
@@ -201,5 +202,49 @@ struct ImageStoreTests {
         #expect(
             CoverArt.storeKey(album: "a", credentials: credentials)
                 != CoverArt.storeKey(album: "a", credentials: changed))
+    }
+
+    @Test func aLimitBetweenFilesKeepsTheFirstAlbumsOnEachPass() async throws {
+        let data = try png()
+        let songs = (1...4).map { song("\($0)", album: "album \($0)", cover: "al-\($0)") }
+        let keys = songs.map { CoverArt.storeKey(album: $0.albumKey, credentials: credentials) }
+        let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
+        let limit = Int64(data.count) * 5 / 2
+        var requests = 0
+        let fetch = { (request: URLRequest) async throws -> (Data, URLResponse) in
+            requests += 1
+            return ok(request, data)
+        }
+        let first = try await makeStore(limit: limit, defaults: defaults)
+        await CoverArt.keepAll(songs, credentials: credentials, store: first, fetch: fetch)
+        #expect(requests == 3)
+        #expect(first.contains(keys[0]))
+        #expect(first.contains(keys[1]))
+        #expect(!first.contains(keys[2]))
+        #expect(first.bytes == 2 * Int64(data.count))
+
+        requests = 0
+        let next = try await makeStore(defaults: defaults)
+        await CoverArt.keepAll(songs, credentials: credentials, store: next, fetch: fetch)
+        #expect(requests == 1)
+        #expect(next.contains(keys[0]))
+        #expect(next.contains(keys[1]))
+        #expect(next.bytes == 2 * Int64(data.count))
+    }
+
+    @Test func thePassStopsWhenAWriteFails() async throws {
+        let data = try png()
+        let songs = (1...3).map { song("\($0)", album: "album \($0)", cover: "al-\($0)") }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        // A file in place of the folder makes each write fail, as a full disk does.
+        try Data().write(to: root.appending(path: "images"))
+        let store = try await makeStore()
+        var requests = 0
+        await CoverArt.keepAll(songs, credentials: credentials, store: store) { request in
+            requests += 1
+            return ok(request, data)
+        }
+        #expect(requests == 1)
+        #expect(store.bytes == 0)
     }
 }

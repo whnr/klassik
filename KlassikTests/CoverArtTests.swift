@@ -9,7 +9,9 @@ struct CoverArtTests {
     private let remote = URL(string: "https://music.example.org/cover")!
 
     private func picture() -> UIImage {
-        UIGraphicsImageRenderer(size: CGSize(width: 8, height: 8)).image { context in
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: CGSize(width: 8, height: 8), format: format).image { context in
             UIColor.red.setFill()
             context.fill(CGRect(x: 0, y: 0, width: 8, height: 8))
         }

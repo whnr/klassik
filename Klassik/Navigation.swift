@@ -45,6 +45,11 @@ final class Navigator<Page: Hashable> {
 
     func closePlayer() { isPlayerOpen = false }
 
+    /// The player shows what plays, so the queue end and Stop close it (ADR 0043).
+    func playbackChanged(hasItem: Bool) {
+        if !hasItem { closePlayer() }
+    }
+
     /// Takes the stack from the system after a push or a pop.
     func setPages(_ pages: [Page], in place: Place) {
         stacks[place] = pages

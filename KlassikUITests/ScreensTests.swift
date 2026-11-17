@@ -320,10 +320,10 @@ final class PlaybackScreens: ScreensTestCase {
         slidePlayerDown(app)
     }
 
-    /// The end of the queue takes the place of the next items, at the foot of the player (specimen player.html).
-    /// Stop ends the queue in the same place. On the walk simulator a natural end does not arrive reliably.
+    /// Stop closes the player and leaves no end message (ADR 0043). On the walk simulator a natural end of the queue
+    /// does not arrive reliably, so the unit tests cover it through the same path.
     @MainActor
-    func testQueueEndsAtTheFootOfThePlayer() throws {
+    func testStopClosesThePlayer() throws {
         let app = try launchAndConnect()
         openRecording(app)
         startPlaying(app)
@@ -335,14 +335,9 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(
             app.descendants(matching: .any)["mini-player"].firstMatch.waitForNonExistence(timeout: 10),
             "Stop did not end the queue")
-        let ended = reveal(player.staticTexts["player-ended"], in: app)
-        XCTAssertTrue(ended.exists, "No end message in the player")
-        XCTAssertEqual(ended.label, "Playback stopped.")
-        let tags = player.buttons["raw-tags"]
-        XCTAssertTrue(tags.exists, "No Tags and Grouping row above the end")
-        XCTAssertGreaterThan(ended.frame.minY, tags.frame.maxY, "The end shows above the rows, not at the foot")
-        snap(app, "16e-queue-ended")
-        slidePlayerDown(app)
+        expectPlayerClosed(app)
+        XCTAssertFalse(app.staticTexts["player-ended"].exists, "An end message shows")
+        snap(app, "16e-stop-closes-player")
     }
 
     @MainActor

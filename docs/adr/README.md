@@ -25,7 +25,7 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0011](0011-enrichment.md)                                   | Composition dates from MusicBrainz and Wikidata (partly replaced by 0012, 0016 and 0042)                     | 2026-10-19 |
 | [0012](0012-composer-lists.md)                               | Look up works composer by composer                                                                     | 2026-10-19 |
 | [0013](0013-favourites.md)                                   | Favourites and the recording order                                                                     | 2026-10-31 |
-| [0014](0014-player.md)                                       | The player: an overlay with rows beside one timeline (partly replaced by 0027 and 0028; 0015 annulled) | 2026-11-02 |
+| [0014](0014-player.md)                                       | The player: an overlay with rows beside one timeline (partly replaced by 0027, 0028 and 0043; 0015 annulled) | 2026-11-02 |
 | [0015](0015-player-page.md)                                  | The player is the page of what plays (annulled by Flo; 0014 stands)                                    | 2026-11-03 |
 | [0016](0016-chronology.md)                                   | The Chronology: a chart of one composer among their contemporaries (partly replaced by 0022 and 0026)  | 2026-11-04 |
 | [0017](0017-composer-and-performer-pages.md)                 | Composer and performer pages (partly replaced by 0020 and 0032)                                        | 2026-11-04 |
@@ -54,3 +54,4 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0040](0040-settings-from-the-library.md)                    | Settings opens from the Library toolbar                                                                | 2026-11-13 |
 | [0041](0041-native-tabs-and-display-corners.md)              | Native tabs and the display corner                                                                     | 2026-11-14 |
 | [0042](0042-wikidata-pass-in-the-background.md)              | A background pass loads Wikidata for the whole library                                                 | 2026-11-14 |
+| [0043](0043-queue-end-and-stop-close-the-player.md)          | The queue end and Stop close the player                                                                | 2026-11-17 |

@@ -191,6 +191,17 @@ struct NavigatorTests {
         #expect(navigator.pages(in: .library) == ["composer", "work", "recording"])
     }
 
+    @Test func theEndOfPlaybackClosesThePlayerAndKeepsThePage() {
+        let navigator = Navigator<String>()
+        navigator.setPages(["composer", "work"], in: .library)
+        navigator.openPlayer()
+        navigator.playbackChanged(hasItem: true)
+        #expect(navigator.isPlayerOpen)
+        navigator.playbackChanged(hasItem: false)
+        #expect(!navigator.isPlayerOpen)
+        #expect(navigator.pages(in: .library) == ["composer", "work"])
+    }
+
     @Test(arguments: Place.allCases, Place.allCases)
     func everyTabLeavesThePlayerOnItsLastPage(underlying: Place, tapped: Place) {
         let navigator = Navigator<String>()

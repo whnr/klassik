@@ -781,17 +781,13 @@
                 ),
               )
             : null;
-          const ended =
-            !K.current() && K.P.queue.length
-              ? el("p", { class: "section-foot t-subheadline" }, "The queue has ended.")
-              : null;
           // The hero is built once per item and state, so a tap on a row never reloads the cover.
           const heroKey = item.id + "|" + playingHere() + "|" + K.embedded;
           if (heroKey !== render.heroKey) {
             render.heroKey = heroKey;
             render.hero = hero();
           }
-          body.replaceChildren(...[render.hero, ...sections, tail, ended].filter(Boolean));
+          body.replaceChildren(...[render.hero, ...sections, tail].filter(Boolean));
         }
 
         function wholeWork(songs) {

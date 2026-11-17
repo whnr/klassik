@@ -13,6 +13,9 @@ struct LoadedPortrait: @unchecked Sendable {
     /// A portrait shows one person: a picture with no face or with several faces is no portrait (ADR 0019).
     var isPortrait: Bool { faces.count == 1 }
 
+    /// The face that the frame centres on. A group or a hall has none: it fills the frame from its centre (ADR 0043).
+    var framingFace: CGRect? { isPortrait ? face : nil }
+
     /// The brightest quarter of a region of the picture, as one colour. A region is in the unit square of the
     /// picture. The brightest part decides, because the scrim must lift the text over the lightest spot.
     func brightestColour(in region: CGRect) -> PictureScrim.RGB {

@@ -30,7 +30,7 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0016](0016-chronology.md)                                   | The Chronology: a chart of one composer among their contemporaries (partly replaced by 0022 and 0026)  | 2026-11-04 |
 | [0017](0017-composer-and-performer-pages.md)                 | Composer and performer pages (partly replaced by 0020 and 0032)                                        | 2026-11-04 |
 | [0018](0018-stack-and-back.md)                               | The system back stack, with the name of the page behind (partly replaced by 0029 and 0038)             | 2026-11-04 |
-| [0019](0019-performer-facts.md)                              | Performer facts from Wikidata                                                                          | 2026-11-04 |
+| [0019](0019-performer-facts.md)                              | Performer facts from Wikidata (partly replaced by 0043)                                                | 2026-11-04 |
 | [0020](0020-set-and-condition.md)                            | Set means works; a search row is a condition                                                           | 2026-11-04 |
 | [0021](0021-design-tokens.md)                                | Design tokens in the repository (partly replaced by 0036)                                              | 2026-11-05 |
 | [0022](0022-chronology-taps.md)                              | Chronology taps open pages                                                                             | 2026-11-07 |
@@ -54,3 +54,4 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0040](0040-settings-from-the-library.md)                    | Settings opens from the Library toolbar                                                                | 2026-11-13 |
 | [0041](0041-native-tabs-and-display-corners.md)              | Native tabs and the display corner                                                                     | 2026-11-14 |
 | [0042](0042-wikidata-pass-in-the-background.md)              | A background pass loads Wikidata for the whole library                                                 | 2026-11-14 |
+| [0043](0043-every-performer-picture.md)                      | A performer page shows every picture                                                                   | 2026-11-17 |

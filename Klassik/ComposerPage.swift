@@ -271,7 +271,7 @@ private struct ResolutionNotice: View {
 }
 
 /// The picture, the name and the description line. Without a picture the page shows the name on the plain ground.
-/// `kind` prefixes the accessibility identifiers. A performer's picture shows only when it is a portrait.
+/// `kind` prefixes the accessibility identifiers. Every picture shows (ADR 0043).
 struct PersonHero: View {
     @Environment(AppModel.self) private var model
     @Environment(\.colorSchemeContrast) private var contrast
@@ -314,7 +314,7 @@ struct PersonHero: View {
         VStack(spacing: 0) {
             if hasPicture {
                 let framing = portrait.map {
-                    PortraitFraming.rect(image: $0.image.size, frame: frame, face: $0.face)
+                    PortraitFraming.rect(image: $0.image.size, frame: frame, face: $0.framingFace)
                 }
                 ZStack(alignment: .bottomLeading) {
                     if let portrait, let framing {
@@ -346,7 +346,7 @@ struct PersonHero: View {
 
     private var load: PortraitLoad {
         PortraitLoad(
-            task: PortraitTask(portrait: facts?.portrait, screen: screen), facts: facts, kind: kind,
+            task: PortraitTask(portrait: facts?.portrait, screen: screen), facts: facts,
             portrait: $portrait, loaded: $loaded, showsPicture: $showsPicture)
     }
 
@@ -392,7 +392,6 @@ struct PersonHero: View {
     fileprivate struct PortraitLoad: ViewModifier {
         let task: PortraitTask
         let facts: PersonFacts?
-        let kind: String
         @Binding var portrait: LoadedPortrait?
         @Binding var loaded: Bool
         @Binding var showsPicture: Bool
@@ -405,7 +404,7 @@ struct PersonHero: View {
                     defer { loaded = true }
                     guard let file = facts?.portrait else { return }
                     let result = await PortraitLoader.load(file, screen: task.screen)
-                    portrait = kind == "performer" ? result.flatMap { $0.isPortrait ? $0 : nil } : result
+                    portrait = result
                 }
                 .fullScreenCover(isPresented: $showsPicture) {
                     if let portrait {

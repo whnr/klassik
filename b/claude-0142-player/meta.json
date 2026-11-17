@@ -1,7 +1,7 @@
 {
-  "sha": "7c0255c7022cff5126361610bc0f7562f432b597",
+  "sha": "ffe5a87060e53a117a1a9ac852aa422dd0bee83e",
   "branch": "claude-0142-player",
   "path": "claude-0142-player",
-  "subject": "[sz-3hcq] Integrate the merged release fixes",
-  "ts": 1794895504
+  "subject": "[sz-3hcq.5] Keep Back under gesture control",
+  "ts": 1794895790
 }

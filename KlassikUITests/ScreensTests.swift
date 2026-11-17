@@ -608,11 +608,12 @@ final class PlaybackScreens: ScreensTestCase {
         let title = app.buttons.matching(identifier: "favourite-recording")
             .matching(NSPredicate(format: "label CONTAINS 'Symphony No. 5'")).firstMatch
         XCTAssertTrue(title.waitForExistence(timeout: 15))
+        // The player follows the playing row after its quiet spell, so the header shows only for that spell.
+        expectWashFromTheTop(app)
+        snap(app, "08d-next-player")
         pause(app)
         XCTAssertTrue(app.sliders["position"].waitForExistence(timeout: 10))
         XCTAssertTrue(miniPlayer.buttons["mini-player-cover"].exists)
-        expectWashFromTheTop(app)
-        snap(app, "08d-next-player")
     }
 
     /// With no item after the one that plays, the player ends with a Next section that says where the queue ends
@@ -1301,7 +1302,7 @@ class ScreensTestCase: XCTestCase {
 
     /// The player of a new item opens at its top, so its wash keeps the full colour below the details and fades into
     /// the page ground at `Layout.washHeight` (specimen player.html resets scrollTop when the item changes).
-    /// The wash comes after its cover loads, so the check waits for it.
+    /// The wash comes after its cover loads, so the check waits for it, but for less than the quiet spell.
     @MainActor
     func expectWashFromTheTop(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
         let player = app.descendants(matching: .any)["player-overlay"].firstMatch
@@ -1314,7 +1315,7 @@ class ScreensTestCase: XCTestCase {
         guard points.ground < app.frame.height else {
             return XCTFail("The screen is shorter than the wash", file: file, line: line)
         }
-        let deadline = Date().addingTimeInterval(10)
+        let deadline = Date().addingTimeInterval(4)
         var found = "no screenshot"
         repeat {
             if let screen = ScreenPixels(app) {

@@ -337,11 +337,6 @@ struct CoverWashModifier: ViewModifier {
     }
 }
 
-extension EnvironmentValues {
-    /// Colours that replace those of the asset catalog for the views below, such as the player wash.
-    @Entry var paletteOverrides: [Palette: Color.Resolved] = [:]
-}
-
 extension View {
     /// Washes the view in its cover's hue while its item plays (ADR 0034).
     func coverWash(cover: String?, isPlaying: Bool) -> some View {

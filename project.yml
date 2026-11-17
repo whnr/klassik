@@ -60,8 +60,9 @@ targets:
   KlassikUITests:
     type: bundle.ui-testing
     platform: iOS
-    # The walk measures the screens against the same layout tokens as the app.
-    sources: [KlassikUITests, Klassik/Tokens.swift, Klassik/Layout.swift]
+    # The walk measures the screens against the same layout tokens as the app. `Tokens.swift` reads the palette
+    # overrides, so their entry comes along.
+    sources: [KlassikUITests, Klassik/Tokens.swift, Klassik/Layout.swift, Klassik/PaletteOverrides.swift]
     dependencies:
       - target: Klassik
     settings:

@@ -1,5 +1,6 @@
 import AVFoundation
 import CryptoKit
+import ImageIO
 import UIKit
 
 @MainActor enum CoverArt {
@@ -10,6 +11,8 @@ import UIKit
         var coverID: String?
         var pixels: Int
         var credentials: ServerCredentials?
+        /// The album of the cover. The device keeps one copy of the art for each album (ADR 0051).
+        var album: String?
 
         var cacheKey: NSString? {
             let fields = [
@@ -24,6 +27,25 @@ import UIKit
             guard let coverID, let credentials else { return nil }
             return SubsonicClient(credentials: credentials).coverArtURL(id: coverID, size: pixels)
         }
+
+        /// The server copy at the size that the device keeps. Every view scales it down from there.
+        var stored: URL? {
+            guard let coverID, let credentials else { return nil }
+            return SubsonicClient(credentials: credentials).coverArtURL(id: coverID, size: CoverArt.storedPixels)
+        }
+
+        var storeKey: String? {
+            guard let album, let credentials else { return nil }
+            return CoverArt.storeKey(album: album, credentials: credentials)
+        }
+    }
+
+    /// The longest side of the kept copy: the page cover at the 3x scale of the largest iPhone screens.
+    nonisolated static let storedPixels = Int(Measure.coverPage) * 3
+
+    /// The key holds the account but not the password, so that a new password keeps the art.
+    nonisolated static func storeKey(album: String, credentials: ServerCredentials) -> String {
+        [credentials.url.absoluteString, credentials.username, album].joined(separator: "\n")
     }
 
     /// List updates must keep loaded covers visible while local files and server artwork load again.
@@ -57,18 +79,75 @@ import UIKit
         return nil
     }
 
+    /// The art of a file on the device first, then the kept copy, then the server. With a store, the server copy
+    /// comes at the kept size and stays on the device.
     static func load(
-        files: [URL], remote: URL?,
+        files: [URL], remote: URL?, pixels: Int = 0, kept: (store: ImageStore, key: String)? = nil,
         embedded: (URL) async -> UIImage? = CoverArt.embedded,
-        fetch: (URL) async throws -> (Data, URLResponse) = { try await URLSession.shared.data(from: $0) }
+        fetch: (URL) async throws -> (Data, URLResponse) = { try await CoverArt.session.data(from: $0) }
     ) async -> UIImage? {
         for file in files {
             if Task.isCancelled { return nil }
             if let image = await embedded(file) { return image }
         }
+        if let kept, let data = await kept.store.data(for: kept.key), let image = await scaled(data, to: pixels) {
+            return image
+        }
         guard !Task.isCancelled, let remote, let (data, response) = try? await fetch(remote),
-            let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode)
+            let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
+            let image = await scaled(data, to: pixels)
         else { return nil }
-        return UIImage(data: data)
+        if let kept { await kept.store.store(data, for: kept.key) }
+        return image
+    }
+
+    /// The art in `ImageStore.albumArt` is the only copy on the device.
+    nonisolated static let session: URLSession = {
+        let configuration = URLSessionConfiguration.default
+        configuration.urlCache = nil
+        return URLSession(configuration: configuration)
+    }()
+
+    /// The image at most `pixels` on its longest side. A list row needs a small copy of a large kept picture,
+    /// and decoding the small copy only saves memory. Zero keeps the full size.
+    nonisolated static func scaled(_ data: Data, to pixels: Int) async -> UIImage? {
+        await Task.detached(priority: .userInitiated) { () -> UIImage? in
+            guard pixels > 0, let source = CGImageSourceCreateWithData(data as CFData, nil) else {
+                return UIImage(data: data)
+            }
+            let options: [CFString: Any] = [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: pixels,
+            ]
+            guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+                return UIImage(data: data)
+            }
+            return UIImage(cgImage: image)
+        }.value
+    }
+
+    /// Keeps the art of every album of the library on the device, one album after the other. It stops when the
+    /// store is full or the network fails. A Low Data Mode connection refuses each request (ADR 0051).
+    static func keepAll(
+        _ songs: [Song], credentials: ServerCredentials, store: ImageStore,
+        fetch: (URLRequest) async throws -> (Data, URLResponse) = { try await CoverArt.session.data(for: $0) }
+    ) async {
+        await store.loaded()
+        let client = SubsonicClient(credentials: credentials)
+        var seen = Set<String>()
+        for song in songs {
+            guard let cover = song.coverArt, seen.insert(song.albumKey).inserted else { continue }
+            let key = storeKey(album: song.albumKey, credentials: credentials)
+            if store.contains(key) { continue }
+            if store.isFull || Task.isCancelled { return }
+            var request = URLRequest(url: client.coverArtURL(id: cover, size: storedPixels))
+            request.allowsConstrainedNetworkAccess = false
+            guard let (data, response) = try? await fetch(request) else { return }
+            guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
+                UIImage(data: data) != nil
+            else { continue }
+            await store.store(data, for: key)
+        }
     }
 }

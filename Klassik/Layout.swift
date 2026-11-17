@@ -222,6 +222,23 @@ enum Layout {
     /// css: specimen.css .scrub-label | border-top-left-radius
     static let scrubLabelCorner = Radius.s
 
+    // MARK: Local Storage
+
+    /// The height of the bar of the stores.
+    /// css: specimen.css .storage-bar | height
+    static let storageBar = Space.m.points
+    /// The gap between two stores in the bar.
+    /// css: specimen.css .storage-bar | gap
+    static let storageBarGap = Space.xxs.points
+    /// css: specimen.css .storage-bar | border-top-left-radius
+    static let storageBarCorner = Radius.xs
+    /// The narrowest store in the bar, so that a small store still shows.
+    /// css: specimen.css .storage-bar > span | min-width
+    static let storageBarMinimum = Space.xxs.points
+    /// The colour dot of a store in the list under the bar.
+    /// css: specimen.css .storage-dot | width
+    static let storageDot = Space.s.points
+
     // MARK: Text
 
     /// The page title and the name on a person page.

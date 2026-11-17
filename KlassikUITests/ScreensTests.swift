@@ -960,6 +960,32 @@ final class SettingsScreens: ScreensTestCase {
     }
 
     @MainActor
+    func testLocalStorage() throws {
+        let app = try launchAndConnect()
+        openSettings(app)
+        reveal(app.buttons["local-storage"], in: app).tap()
+        XCTAssertTrue(app.navigationBars["Local Storage"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["storage-bar"].firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["storage-album-art"].firstMatch.exists)
+        snap(app, "08f-local-storage")
+
+        // The stepper label can merge its two texts into one element, so the check reads every label.
+        func shows(_ text: String) -> Bool {
+            app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
+                .waitForExistence(timeout: 5)
+        }
+        let pictures = reveal(app.steppers["pictures-limit"], in: app)
+        XCTAssertTrue(shows("No Limit"))
+        pictures.buttons["Decrement"].tap()
+        XCTAssertTrue(shows("50 GB"))
+        snap(app, "08g-local-storage-limits")
+        // The limit stays in the settings of the simulator, so the next walk must find No Limit again.
+        pictures.buttons["Increment"].tap()
+        XCTAssertFalse(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "50 GB"))
+            .firstMatch.waitForExistence(timeout: 2))
+    }
+
+    @MainActor
     func testSettings() throws {
         let app = try launchAndConnect()
         // The mini player must leave the last rows free, so something must be playing.

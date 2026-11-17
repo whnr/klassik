@@ -1,6 +1,7 @@
 # 0008. Downloads and the cache
 
 Date: 2026-10-18. Decided by Flo. Beads: sz-rs30.1.9, sz-rs30.1.37.
+The cache and screen rules are partly replaced by [0051](0051-pictures-and-album-art-in-local-storage.md).
 
 ## Context
 

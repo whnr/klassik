@@ -19,7 +19,7 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0005](0005-gapless-playback.md)                             | Gapless playback with AVAudioEngine and the MP3 header                                                 | 2026-10-17 |
 | [0006](0006-queue.md)                                        | The queue holds recordings (partly replaced by 0013 and 0039)                                          | 2026-10-18 |
 | [0007](0007-replaygain.md)                                   | ReplayGain in album mode                                                                               | 2026-10-18 |
-| [0008](0008-offline-storage.md)                              | Downloads and the cache                                                                                | 2026-10-18 |
+| [0008](0008-offline-storage.md)                              | Downloads and the cache (partly replaced by 0051)                                                      | 2026-10-18 |
 | [0009](0009-reference-recording.md)                          | The reference recording is a star (replaced by 0013)                                                   | 2026-10-18 |
 | [0010](0010-incremental-sync.md)                             | Sync at start only when the server changed                                                             | 2026-10-18 |
 | [0011](0011-enrichment.md)                                   | Composition dates from MusicBrainz and Wikidata (partly replaced by 0012, 0016 and 0042)                     | 2026-10-19 |
@@ -59,3 +59,4 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0045](0045-page-margins-follow-the-timeline.md)             | Page margins follow the timeline                                                                       | 2026-11-17 |
 | [0046](0046-composers-first-and-shown-performers.md)         | Composers first, and the performers of a shown page next                                               | 2026-11-17 |
 | [0050](0050-partial-works-apart.md)                          | Partial works under their own heading                                                                  | 2026-11-17 |
+| [0051](0051-pictures-and-album-art-in-local-storage.md)      | Pictures and album art in Local Storage                                                                | 2026-11-17 |

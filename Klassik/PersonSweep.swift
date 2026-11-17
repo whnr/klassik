@@ -159,7 +159,12 @@ final class PersonSweep {
                 return
             }
             state = .running(done: done, total: jobs.count)
-            if await settle(person) {
+            let settled = await settle(person)
+            guard !Task.isCancelled else {
+                state = .idle
+                return
+            }
+            if settled {
                 failuresInARow = 0
             } else {
                 failuresInARow += 1

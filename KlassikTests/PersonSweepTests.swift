@@ -195,6 +195,36 @@ struct PersonSweepTests {
         #expect(sweep.plan([Self.bach]).new == [Self.bach])
     }
 
+    @Test func aCancelledSecondAttemptStaysInTheNextPass() async throws {
+        let attempts = Counter()
+        let (started, signal) = AsyncStream.makeStream(of: Int.self)
+        let stub = PersonStub(PersonStub.bachRules)
+        let (store, _) = try makeStore(fetch: { request in
+            let attempt = attempts.next()
+            signal.yield(attempt)
+            if attempt == 0 { throw URLError(.timedOut) }
+            if attempt == 1 { try await Task.sleep(for: .seconds(60)) }
+            return try await stub.fetch(request)
+        })
+        let sweep = PersonSweep(store: store, now: { Self.start }, jitter: { 0 })
+        let task = Task { await sweep.run([Self.bach]) }
+        defer { task.cancel() }
+        var requests = started.makeAsyncIterator()
+        #expect(await requests.next() == 0)
+        #expect(await requests.next() == 1)
+        task.cancel()
+        await task.value
+        #expect(store.cache.checked[Self.bach.key] == nil)
+        #expect(store.cache.due[Self.bach.key] == nil)
+        #expect(sweep.plan([Self.bach]).new == [Self.bach])
+        #expect(sweep.newCount == 1)
+        #expect(sweep.state == .idle)
+
+        await sweep.run([Self.bach])
+        #expect(store.cache.checked[Self.bach.key] == Self.start)
+        #expect(sweep.state == .upToDate)
+    }
+
     @Test func failuresInARowBackOffFromTheSecond() async throws {
         let (store, _) = try makeStore(fetch: { _ in throw URLError(.timedOut) })
         let other = PersonSweep.Person(kind: .composer, tag: "Other Composer")

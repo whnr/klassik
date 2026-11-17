@@ -16,6 +16,7 @@ struct PerformersView: View {
                         .ink()
                 }
                 .accessibilityIdentifier("performer")
+                .onAppear { model.sweep.prefer(performers: [performer.name]) }
             }
         }
         .overlay {

@@ -316,6 +316,7 @@ struct WorkView: View {
                 action: { model.recordingOrder.toggleAtOnce(work) }, identifier: "favourite-work")
         )
         .toolbar { if recordings.filter(\.isFavourite).count > 1 { EditButton() } }
+        .onAppear { model.sweep.prefer(performers: recordings.flatMap(\.recording.performerNames)) }
     }
 
     private func plays(_ recording: WorkIndex.Recording) -> Bool {
@@ -661,6 +662,7 @@ struct RecordingView: View {
         }
         .pageTitle(isOverlay ? "" : work.title)
         .environment(\.pageFavourite, isOverlay ? nil : favourite)
+        .onAppear { model.sweep.prefer(performers: recording.performerNames) }
     }
 
     /// The favourite of the page: the album on an album page, else the recording (ADR 0013, 0017).

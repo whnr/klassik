@@ -5,6 +5,7 @@ reached his phone: parallel start, one person for each lookup, Wikimedia's pace 
 Bead: sz-rs30.1.105.62.
 Replaces the rule "fetched once" and the 1.1-second pace of [0011](0011-enrichment.md) for the facts of persons.
 The retry rule for a failed person is replaced by [0044](0044-a-failed-person-goes-to-the-end.md).
+The order of the persons is replaced by [0046](0046-composers-first-and-shown-performers.md).
 
 ## Context
 

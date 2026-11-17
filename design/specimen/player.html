@@ -391,14 +391,32 @@
           if (!playingHere()) {
             const play = el("button", {
               class: "capsule filled t-headline",
-              style: "flex: none; width: 60%; margin-top: var(--space-m)",
               html: ICON.play.replace("<svg", '<svg width="14" height="14"') + "<span>Play</span>",
             });
             play.addEventListener("click", () => {
               K.playItem(item);
               render();
             });
-            box.append(play);
+            // A recording on a disc with more tracks also plays the whole disc, from a muted capsule (sz-3hcq.2).
+            const wholeAlbum =
+              item.kind === "recording" && item.album.song.length > item.songs.length
+                ? el("button", {
+                    class: "capsule t-headline",
+                    html: ICON.play.replace("<svg", '<svg width="14" height="14"') + "<span>Play Album</span>",
+                    onclick: () => {
+                      K.playItem(K.resolveItem(["album", item.album.id]));
+                      render();
+                    },
+                  })
+                : null;
+            box.append(
+              el(
+                "div",
+                { class: "button-row", style: "align-self: stretch; padding: var(--space-m) 0 0" },
+                play,
+                wholeAlbum,
+              ),
+            );
           } else if (!K.embedded) {
             const show = el("button", {
               class: "capsule filled t-headline",

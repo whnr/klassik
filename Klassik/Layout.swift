@@ -82,6 +82,8 @@ enum Layout {
     /// The gap above a row of capsule buttons.
     /// css: specimen.css .button-row | padding-top
     static let buttonRowTop = Space.m.points
+    /// css: specimen.css .button-row | gap
+    static let buttonRowGap = Space.m.points
     /// css: specimen.css .capsule | min-height
     static let capsuleHeight = Measure.hitTarget
     /// A filter chip is lower than a capsule, so the chips read as a filter, not as buttons of the page.

@@ -492,7 +492,7 @@ final class PlaybackScreens: ScreensTestCase {
         snap(app, "04d-work-playing")
     }
 
-    /// Play Whole Album on a recording page starts the album, not only the recording (build 48, item 11).
+    /// Play Album on a recording page starts the album, not only the recording (build 48, item 11).
     /// The Brahms movement lives on a recital disc that holds a second work, so its page offers the whole disc.
     @MainActor
     func testPlayWholeAlbumOnTheRecordingPage() throws {
@@ -505,7 +505,16 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(recording.waitForExistence(timeout: 10))
         recording.tap()
         let wholeAlbum = app.buttons["play-album"]
-        XCTAssertTrue(wholeAlbum.waitForExistence(timeout: 10), "The recording page offers no Play Whole Album")
+        XCTAssertTrue(wholeAlbum.waitForExistence(timeout: 10), "The recording page offers no Play Album")
+        XCTAssertEqual(wholeAlbum.label, "Play Album")
+        // The page shows the cover, and Play and Play Album stand side by side (sz-3hcq.2).
+        let cover = app.descendants(matching: .any)["hero-cover"].firstMatch
+        XCTAssertTrue(cover.exists, "The recording page shows no cover")
+        let play = app.buttons["play-recording"]
+        XCTAssertEqual(play.frame.midY, wholeAlbum.frame.midY, accuracy: 1, "Play and Play Album are not on one row")
+        XCTAssertLessThan(play.frame.maxX, wholeAlbum.frame.minX, "Play does not lead Play Album")
+        XCTAssertGreaterThan(play.frame.minY, cover.frame.maxY, "The buttons are not under the cover")
+        snap(app, "05f-recording-buttons")
         wholeAlbum.tap()
         pause(app)
         snap(app, "05d-play-whole-album")

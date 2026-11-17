@@ -214,15 +214,9 @@ struct WorkView: View {
                         player.play(queue: [QueueItem(work: work, recording: recording)])
                     }
                 } label: {
-                    Label(
-                        playsThisWork ? (player.isPaused ? "Resume" : "Pause") : "Play",
-                        systemImage: playsThisWork && !player.isPaused ? "pause.fill" : "play.fill"
-                    )
-                    .typeStyle(Layout.capsuleLabel)
-                    .foregroundStyle(Palette.onAccent)
-                    .frame(maxWidth: .infinity, minHeight: Layout.capsuleHeight)
-                    .background(Palette.accentFill, in: .capsule)
-                    .contentShape(.capsule)
+                    CapsuleLabel(
+                        title: playsThisWork ? (player.isPaused ? "Resume" : "Pause") : "Play",
+                        systemImage: playsThisWork && !player.isPaused ? "pause.fill" : "play.fill", filled: true)
                 }
                 .buttonStyle(.plain)
                 .listRowSeparator(.hidden)
@@ -479,43 +473,58 @@ struct RecordingView: View {
         ScrollViewReader { proxy in
             PageList {
                 Section {
-                    if isOverlay {
-                        VStack(spacing: Layout.bigCoverBottom) {
-                            CoverImage(id: recording.songs.first?.coverArt, points: Layout.bigCover)
-                                .frame(width: Layout.bigCover, height: Layout.bigCover)
-                                .clipShape(.rect(cornerRadius: Layout.bigCoverCorner))
-                            if recording.isAlbum {
-                                Text(work.title).typeStyle(Layout.pageTitle).ink()
-                                    .accessibilityIdentifier("player-title")
-                            } else {
-                                favouriteButton
-                            }
+                    // The page and the player share one hero: the cover, then the title (specimen player.html hero).
+                    VStack(spacing: Layout.bigCoverBottom) {
+                        CoverImage(id: recording.songs.first?.coverArt, points: Layout.bigCover)
+                            .frame(width: Layout.bigCover, height: Layout.bigCover)
+                            .clipShape(.rect(cornerRadius: Layout.bigCoverCorner))
+                            .accessibilityElement()
+                            .accessibilityLabel("Cover")
+                            .accessibilityIdentifier("hero-cover")
+                        if recording.isAlbum {
+                            Text(work.title).typeStyle(Layout.pageTitle).ink()
+                                .accessibilityIdentifier("player-title")
+                        } else {
+                            favouriteButton
                         }
-                        .frame(maxWidth: .infinity)
-                        .multilineTextAlignment(.center)
-                        .listRowBackground(Color.clear)
                     }
+                    .frame(maxWidth: .infinity)
+                    .multilineTextAlignment(.center)
+                    .listRowBackground(Color.clear)
                     header(page)
                     if isPlayingThis, let error = player.error {
                         Label(error, systemImage: "exclamationmark.triangle")
                             .foregroundStyle(Palette.textPrimary)
                     }
                     if !isPlayingThis {
-                        Button("Play", systemImage: "play.fill") { play(from: 0) }
-                            .accessibilityIdentifier("play-recording")
-                        if let wholeAlbum {
-                            // The playing album pauses and resumes, so the button says that.
-                            let playsAlbum = player.recording?.id == wholeAlbum.recording.id
-                            let verb = playsAlbum ? (player.isPaused ? "Resume" : "Pause") : "Play"
-                            Button(
-                                "\(verb) Whole Album",
-                                systemImage: playsAlbum && !player.isPaused ? "pause.fill" : "square.stack"
-                            ) {
-                                spell.touch()
-                                player.play(wholeAlbum)
+                        // Play is the accent capsule; Play Album is muted beside it (sz-3hcq.2).
+                        HStack(spacing: Layout.buttonRowGap) {
+                            Button {
+                                play(from: 0)
+                            } label: {
+                                CapsuleLabel(title: "Play", systemImage: "play.fill", filled: true)
                             }
-                            .accessibilityIdentifier("play-album")
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("play-recording")
+                            if let wholeAlbum {
+                                // The playing album pauses and resumes, so the button says that.
+                                let playsAlbum = player.recording?.id == wholeAlbum.recording.id
+                                let verb = playsAlbum ? (player.isPaused ? "Resume" : "Pause") : "Play"
+                                Button {
+                                    spell.touch()
+                                    player.play(wholeAlbum)
+                                } label: {
+                                    CapsuleLabel(
+                                        title: "\(verb) Album",
+                                        systemImage: playsAlbum && !player.isPaused ? "pause.fill" : "play.fill",
+                                        filled: false)
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityIdentifier("play-album")
+                            }
                         }
+                        .padding(.top, Layout.buttonRowTop)
+                        .listRowSeparator(.hidden)
                     }
                 }
 
@@ -608,14 +617,10 @@ struct RecordingView: View {
             .animation(
                 Motion.inPlace.animation(reduceMotion: reduceMotion), value: isPlayingThis ? player.movement : nil)
         }
-        .pageTitle(isOverlay ? "" : work.title)
-        .environment(
-            \.pageFavourite,
-            !isOverlay && !recording.isAlbum
-                ? FavouriteHeading(
-                    isSet: model.recordingOrder.isFavourite(recording, of: work),
-                    action: { Task { await model.recordingOrder.toggle(recording, of: work) } },
-                    identifier: "favourite-recording") : nil)
+        // The hero draws the title, so the list draws no heading. The bar keeps the name for Back and VoiceOver.
+        .environment(\.pageHeading, "")
+        .navigationTitle(isOverlay ? "" : work.title)
+        .navigationBarTitleDisplayMode(.inline)
     }
 
     private var favouriteButton: some View {
@@ -936,5 +941,21 @@ private struct OfflineControls: View {
 
     static func size(_ bytes: Int64) -> String {
         bytes.formatted(.byteCount(style: .file))
+    }
+}
+
+/// A capsule button face (specimen.css .capsule): filled in the accent, or muted on the quiet fill.
+struct CapsuleLabel: View {
+    let title: String
+    let systemImage: String
+    let filled: Bool
+
+    var body: some View {
+        Label(title, systemImage: systemImage)
+            .typeStyle(Layout.capsuleLabel)
+            .foregroundStyle(filled ? Palette.onAccent : Palette.tint)
+            .frame(maxWidth: .infinity, minHeight: Layout.capsuleHeight)
+            .background(filled ? Palette.accentFill : Palette.fillQuiet, in: .capsule)
+            .contentShape(.capsule)
     }
 }

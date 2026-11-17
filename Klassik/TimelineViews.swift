@@ -13,7 +13,10 @@ struct WorkTimelineView: View {
             ForEach(timeline.sections) { section in
                 Section {
                     SectionHeading("\(section.period.title) · \(section.period.years)")
-                    ForEach(section.entries) { TimelineRow(entry: $0) }
+                    ForEach(section.entries) { entry in
+                        TimelineRow(entry: entry)
+                            .itemSeparator(after: entry.id != section.entries.first?.id)
+                    }
                 }
             }
             if !timeline.undated.isEmpty {
@@ -29,6 +32,7 @@ struct WorkTimelineView: View {
                                     .foregroundStyle(Palette.textSecondary)
                             }
                         }
+                        .itemSeparator(after: work.id != timeline.undated.first?.id)
                     }
                 } footer: {
                     Text("MusicBrainz has no dates for these works or their composers.")

@@ -22,9 +22,12 @@ struct ComposerPage: View {
             List {
                 Group { content(proxy: proxy, facts: facts, catalogue: catalogue) }
                     .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .listSectionSeparator(.hidden)
                     .pageRow()
             }
             .listStyle(.plain)
+            .listSectionSeparator(.hidden)
             .environment(\.defaultMinListRowHeight, 0)
             .environment(\.defaultMinListHeaderHeight, 0)
             .environment(\.isPageList, true)
@@ -85,28 +88,32 @@ struct ComposerPage: View {
         Section {
             CountedHeading("Works", count: rows.reduce(0) { $0 + $1.works.count })
             ForEach(rows) { row in
-                switch row {
-                case .work(let work):
-                    WorkRow(work: work)
-                case .set(let name, let works):
-                    DisclosureGroup {
-                        ForEach(works) {
-                            WorkRow(work: $0)
-                                .pageRow()
+                Group {
+                    switch row {
+                    case .work(let work):
+                        WorkRow(work: work)
+                    case .set(let name, let works):
+                        DisclosureGroup {
+                            ForEach(works) {
+                                WorkRow(work: $0)
+                                    .pageRow()
+                                    .itemSeparator(after: true)
+                            }
+                        } label: {
+                            VStack(alignment: .leading, spacing: Layout.rowLineGap) {
+                                Text(name)
+                                    .typeStyle(.body)
+                                    .ink()
+                                Text("\(works.count) works")
+                                    .typeStyle(.footnote)
+                                    .foregroundStyle(Palette.textSecondary)
+                            }
+                            .accessibilityElement(children: .combine)
                         }
-                    } label: {
-                        VStack(alignment: .leading, spacing: Layout.rowLineGap) {
-                            Text(name)
-                                .typeStyle(.body)
-                                .ink()
-                            Text("\(works.count) works")
-                                .typeStyle(.footnote)
-                                .foregroundStyle(Palette.textSecondary)
-                        }
-                        .accessibilityElement(children: .combine)
+                        .accessibilityIdentifier("set")
                     }
-                    .accessibilityIdentifier("set")
                 }
+                .itemSeparator(after: row.id != rows.first?.id)
             }
         }
         if rows.isEmpty {
@@ -136,6 +143,7 @@ struct ComposerPage: View {
                     SectionHeading("Credits")
                     ForEach(facts.credits, id: \.self) { credit in
                         CreditRow(credit: credit)
+                            .itemSeparator(after: credit != facts.credits.first)
                     }
                 }
             }
@@ -151,10 +159,12 @@ struct ComposerPage: View {
                 .ink()
             LabeledContent("Works", value: composer.works.count.formatted())
                 .ink()
+                .itemSeparator(after: true)
             let people = model.people
             if people.resolution(ofComposer: composer.name) != nil, !people.loading.contains(composer.name) {
                 Button("Choose Composer Again") { Task { await people.chooseAgain(composer: composer.name) } }
                     .accessibilityIdentifier("composer-choose-again")
+                    .itemSeparator(after: true)
             }
         }
     }

@@ -6,6 +6,32 @@ import Testing
 struct NavigatorTests {
     typealias Origin = Navigator<String>.Origin
 
+    @Test func cancelledBackPreviewRestoresTheOriginAndAllStacks() {
+        let navigator = Navigator<String>()
+        navigator.open("composer", in: .library)
+        navigator.select(.search)
+        navigator.open("performer", in: .search)
+        navigator.select(.chronology)
+        let origin = navigator.backTarget(for: .chronology)
+        let cancel = navigator.previewBack(from: .chronology)
+        #expect(navigator.selection == .search)
+        #expect(navigator.pages(in: .search) == ["performer"])
+        cancel()
+        #expect(navigator.selection == .chronology)
+        #expect(navigator.backTarget(for: .chronology) == origin)
+        #expect(navigator.pages(in: .library) == ["composer"])
+        #expect(navigator.pages(in: .search) == ["performer"])
+    }
+
+    @Test func completedBackPreviewConsumesTheOrigin() {
+        let navigator = Navigator<String>()
+        navigator.select(.search)
+        navigator.select(.library)
+        _ = navigator.previewBack(from: .library)
+        #expect(navigator.selection == .search)
+        #expect(navigator.backTarget(for: .library) == nil)
+    }
+
     @Test func startsInLibraryWithoutPages() {
         let navigator = Navigator<String>()
         #expect(navigator.selection == .library)

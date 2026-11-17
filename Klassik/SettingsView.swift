@@ -148,6 +148,7 @@ struct AlbumsView: View {
                 }
                 .itemActions(album.item, downloads: true)
                 .accessibilityIdentifier("album")
+                .itemSeparator(after: album.id != albums.first?.id)
             }
         }
         .overlay {

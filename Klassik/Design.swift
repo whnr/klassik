@@ -123,11 +123,15 @@ struct PageList<Content: View>: View {
             PageHeading(title: heading, plain: true)
             BackTipRow()
                 .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
             content
                 .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                .listSectionSeparator(.hidden)
                 .pageRow()
         }
         .listStyle(.plain)
+        .listSectionSeparator(.hidden)
         // The specimen gaps are the whole distance between two lines. A system minimum would add to them.
         .environment(\.defaultMinListRowHeight, 0)
         .environment(\.defaultMinListHeaderHeight, 0)
@@ -311,6 +315,12 @@ extension View {
     /// The insets of a row of a content page.
     func pageRow() -> some View {
         pageEdges(top: Layout.rowPadding, bottom: Layout.rowPadding)
+    }
+
+    /// Only a list item with a predecessor draws a hairline (sz-3hcq.4).
+    func itemSeparator(after predecessor: Bool) -> some View {
+        listRowSeparator(.hidden, edges: .bottom)
+            .listRowSeparator(predecessor ? .visible : .hidden, edges: .top)
     }
 
     /// The row of a section heading on a content page. A grouped list keeps the system insets.

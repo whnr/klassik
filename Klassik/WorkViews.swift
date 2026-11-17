@@ -191,7 +191,7 @@ struct WorkRow: View {
     }
 }
 
-/// A work's page as work.html draws it: composer under the title, a Play pill, then the recordings on plain rows.
+/// The work cover and composer lead the playback capsules and recording list, as work.html draws them.
 struct WorkView: View {
     @Environment(AppModel.self) private var model
     let work: WorkIndex.Work
@@ -200,6 +200,24 @@ struct WorkView: View {
 
     var body: some View {
         PageList {
+            if let recording = model.recordingOrder.reference(of: work) {
+                CoverImage(id: recording.songs.first?.coverArt, points: Layout.workCover)
+                    .frame(width: Layout.workCover, height: Layout.workCover)
+                    .clipShape(.rect(cornerRadius: Layout.coverCorner))
+                    .accessibilityElement()
+                    .accessibilityLabel("Cover")
+                    .accessibilityIdentifier("work-cover")
+                    .listRowSeparator(.hidden)
+                    .pageEdges(top: Layout.headTop, bottom: Layout.bigCoverBottom)
+            }
+            FavouriteTitle(
+                title: work.title, isSet: model.recordingOrder.isFavourite(work),
+                action: { model.recordingOrder.toggle(work) }
+            )
+            .typeStyle(Layout.pageTitle)
+            .accessibilityIdentifier("favourite-work")
+            .listRowSeparator(.hidden)
+            .pageEdges(top: Layout.headTop, bottom: Layout.metaTop)
             WorkHeader(work: work)
                 .listRowSeparator(.hidden)
                 .pageEdges(bottom: Layout.headBottom)
@@ -207,21 +225,37 @@ struct WorkView: View {
                 let player = model.playback
                 // While any recording of the work plays, the pill pauses it. Else it plays the top of the list.
                 let playsThisWork = player.item?.work.id == work.id
-                Button {
-                    if playsThisWork {
-                        player.togglePause()
-                    } else {
-                        player.play(queue: [QueueItem(work: work, recording: recording)])
+                HStack(spacing: Layout.buttonRowGap) {
+                    Button {
+                        if playsThisWork {
+                            player.togglePause()
+                        } else {
+                            player.play(queue: [QueueItem(work: work, recording: recording)])
+                        }
+                    } label: {
+                        CapsuleLabel(
+                            title: playsThisWork ? (player.isPaused ? "Resume" : "Pause") : "Play",
+                            systemImage: playsThisWork && !player.isPaused ? "pause.fill" : "play.fill", filled: true)
                     }
-                } label: {
-                    CapsuleLabel(
-                        title: playsThisWork ? (player.isPaused ? "Resume" : "Pause") : "Play",
-                        systemImage: playsThisWork && !player.isPaused ? "pause.fill" : "play.fill", filled: true)
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("play-work")
+                    if let key = recording.albumKey ?? recording.songs.first?.albumKey,
+                        let album = model.library.album(key), album.tracks.count > recording.songs.count
+                    {
+                        let playsAlbum = player.recording?.id == album.recording.id
+                        Button {
+                            player.play(album.item)
+                        } label: {
+                            CapsuleLabel(
+                                title: playsAlbum ? (player.isPaused ? "Resume Album" : "Pause Album") : "Play Album",
+                                systemImage: playsAlbum && !player.isPaused ? "pause.fill" : "play.fill", filled: false)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("play-work-album")
+                    }
                 }
-                .buttonStyle(.plain)
                 .listRowSeparator(.hidden)
                 .pageEdges(top: Layout.buttonRowTop)
-                .accessibilityIdentifier("play-work")
             }
 
             Section {
@@ -241,6 +275,7 @@ struct WorkView: View {
                     .itemActions(QueueItem(work: work, recording: recording), downloads: true, favourite: true)
                     .accessibilityIdentifier("recording")
                     .moveDisabled(!row.isFavourite)
+                    .itemSeparator(after: row.id != recordings.first?.id)
                 }
                 .onMove { model.recordingOrder.moveFavourites(of: work, from: $0, to: $1) }
                 Text("Favourite recordings come first, in your order. Then the newest.")
@@ -250,14 +285,9 @@ struct WorkView: View {
                     .pageEdges(top: Layout.workFootTop + Layout.footTop)
             }
         }
-        .pageTitle(work.title)
-        .environment(\.pageHeadingBottom, Layout.metaTop)
-        .environment(
-            \.pageFavourite,
-            FavouriteHeading(
-                isSet: model.recordingOrder.isFavourite(work),
-                action: { model.recordingOrder.toggle(work) }, identifier: "favourite-work")
-        )
+        .navigationTitle(work.title)
+        .navigationBarTitleDisplayMode(.inline)
+        .environment(\.pageHeading, "")
         .toolbar { if recordings.filter(\.isFavourite).count > 1 { EditButton() } }
     }
 
@@ -536,7 +566,9 @@ struct RecordingView: View {
                             ForEach(Array(block.tracks.enumerated()), id: \.element.id) { offset, song in
                                 movementRow(
                                     song, at: block.start + offset, page: page,
-                                    title: album.title(of: song, in: block))
+                                    title: album.title(of: song, in: block)
+                                )
+                                .itemSeparator(after: offset > 0)
                             }
                         }
                     }
@@ -545,6 +577,7 @@ struct RecordingView: View {
                         SectionHeading(recording.isAlbum ? "Tracks" : "Movements")
                         ForEach(Array(recording.songs.enumerated()), id: \.element.id) { index, song in
                             movementRow(song, at: index, page: page, title: recording.title(of: song))
+                                .itemSeparator(after: index > 0)
                         }
                     }
                 }
@@ -585,6 +618,7 @@ struct RecordingView: View {
                                 }
                             }
                             .accessibilityIdentifier("up-next")
+                            .itemSeparator(after: item.id != player.upNext.first?.id)
                         }
                         .onDelete { player.removeFromQueue(at: $0) }
                         .onMove { player.moveInQueue(from: $0, to: $1) }

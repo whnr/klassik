@@ -66,9 +66,12 @@ struct PerformerPage: View {
                     }
                 }
                 .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                .listSectionSeparator(.hidden)
                 .pageRow()
             }
             .listStyle(.plain)
+            .listSectionSeparator(.hidden)
             .environment(\.defaultMinListRowHeight, 0)
             .environment(\.defaultMinListHeaderHeight, 0)
             .environment(\.isPageList, true)
@@ -120,7 +123,10 @@ struct PerformerPage: View {
             if !facts.credits.isEmpty {
                 Section {
                     SectionHeading("Credits")
-                    ForEach(facts.credits, id: \.self) { CreditRow(credit: $0) }
+                    ForEach(facts.credits, id: \.self) { credit in
+                        CreditRow(credit: credit)
+                            .itemSeparator(after: credit != facts.credits.first)
+                    }
                 }
             }
         } else {
@@ -135,6 +141,7 @@ struct PerformerPage: View {
                 .ink()
             LabeledContent("Recordings", value: performer.entries.count.formatted())
                 .ink()
+                .itemSeparator(after: true)
         }
     }
 }

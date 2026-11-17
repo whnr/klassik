@@ -90,6 +90,17 @@ final class Navigator<Page: Hashable> {
         }
     }
 
+    /// A preview changes only the selected place. Its stacks and their scroll positions stay alive.
+    func previewBack(from place: Place) -> () -> Void {
+        let selection = selection
+        let origins = origins
+        goBack(from: place)
+        return { [self] in
+            self.selection = selection
+            self.origins = origins
+        }
+    }
+
     /// Returns to the page that the place was opened from.
     func goBack(from place: Place) {
         guard let target = backTarget(for: place) else { return }

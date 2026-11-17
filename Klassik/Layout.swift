@@ -156,6 +156,10 @@ enum Layout {
     /// css: person.html "margin-top: var(--space-xs)" | margin-top
     static let albumTitleGap = Space.xs.points
 
+    /// The reference recording supplies the work cover.
+    /// css: work.html .work-cover .cover | width
+    static let workCover = Measure.coverRow
+
     // MARK: Player page
 
     /// The gap between the header lines of the player.

@@ -15,6 +15,7 @@ struct LibraryView: View {
                             .ink()
                     }
                     .accessibilityIdentifier("library-\(row.rawValue)")
+                    .itemSeparator(after: row.id != rows.rows.first?.id)
                 }
                 .onMove { rows.move(fromOffsets: $0, toOffset: $1) }
             } footer: {
@@ -77,6 +78,7 @@ struct ComposersView: View {
                         .ink()
                 }
                 .accessibilityIdentifier("composer")
+                .itemSeparator(after: composer.id != library.index.composers.first?.id)
             }
         }
         .overlay {
@@ -98,6 +100,7 @@ struct FavouritesView: View {
         PageList {
             ForEach(works) { work in
                 WorkRow(work: work)
+                    .itemSeparator(after: work.id != works.first?.id)
             }
             ForEach(favourites) { favourite in
                 NavigationLink(value: Page.recording(work: favourite.work.id, recording: favourite.recording.id)) {
@@ -115,6 +118,7 @@ struct FavouritesView: View {
                     QueueItem(work: favourite.work, recording: favourite.recording), downloads: true, favourite: true
                 )
                 .accessibilityIdentifier("favourite")
+                .itemSeparator(after: !works.isEmpty || favourite.id != favourites.first?.id)
             }
         }
         .overlay {

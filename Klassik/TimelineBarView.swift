@@ -4,7 +4,6 @@ import SwiftUI
 /// the geometry and `TimelineTouch` decides what a touch does; this view draws and forwards.
 struct TimelineBarView: View {
     @Environment(AppModel.self) private var model
-    @Environment(AppNavigator.self) private var navigator
     let side: TimelineSide
     @State private var touch = TimelineTouch.undecided
     /// The start of the touch that `touch` belongs to. The system can cancel a drag without `onEnded`, so a new
@@ -152,7 +151,7 @@ struct TimelineBarView: View {
         case .nothing: break
         case .play(let movement): play(movement)
         case .seek(let place): player.seek(movement: place.movement, to: place.seconds)
-        case .back: navigator.back()
+        case .back: break
         }
     }
 

@@ -2,6 +2,8 @@
 
 Date: 2026-11-11. Decided by Flo after the slice 2 review (PR #17). Beads: sz-rs30.1.105.21, sz-rs30.1.105.23. Replaces the rule of [0018](0018-stack-and-back.md) that a page is in the stack once. Replaces the rule of [0018](0018-stack-and-back.md) that the back button shows the name of the page behind. Replaces the named arrow of [0029](0029-search-at-the-top.md). Replaces the rule of [0029](0029-search-at-the-top.md) that Library has no back arrow. Settings moves into the Library stack under [0040](0040-settings-from-the-library.md).
 
+The edge gesture rules are replaced by [0046](0046-interactive-back-gestures.md).
+
 ## Context
 
 The places keep one stack each (ADR 0018). A link to a page that the stack held went back to it. On iOS 27 the system back button draws a chevron in a glass circle, with no name. The name is only in its accessibility label. ADR 0018 says Flo decides again in that case.

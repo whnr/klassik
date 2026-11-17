@@ -602,7 +602,7 @@ struct RecordingView: View {
             .onScrollPhaseChange { _, phase in
                 spell.touching(phase == .tracking || phase == .interacting || phase == .decelerating)
             }
-            .onChange(of: model.isScrubbingTimeline) { _, scrubbing in spell.hold(scrubbing) }
+            .onChange(of: model.isScrubbing) { _, scrubbing in spell.hold(scrubbing) }
             // specimen player.html: each second, after a quiet spell, the player brings the playing row back.
             .task(id: isOverlay && isPlayingThis) {
                 guard isOverlay, isPlayingThis else { return }
@@ -853,12 +853,12 @@ struct PlaybackProgress: View {
     var body: some View {
         Group {
             if let progress = player.progress {
-                PositionSlider(player: player, elapsed: progress.elapsed, duration: progress.duration)
+                PositionBar(player: player, elapsed: progress.elapsed, duration: progress.duration)
                     .id(progress.movement)
                     .padding(.vertical, lineGap)
             }
         }
-        // A container keeps the identifiers of its children, such as the position slider.
+        // A container keeps the identifiers of its children, such as the position bar.
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("playback-progress")
     }
@@ -879,44 +879,62 @@ struct PlaybackProgress: View {
     }
 }
 
-/// The position in the current movement. A drag moves playback when the finger lifts, so the movement does not
-/// restart for every step of the drag.
-private struct PositionSlider: View {
+/// The position in the current movement: a bar with no handle, as specimen player.html `.mv-bar`. A drag moves
+/// playback when the finger lifts, so the movement does not restart for every step of the drag.
+private struct PositionBar: View {
+    @Environment(AppModel.self) private var model
     let player: PlaybackSession
     let elapsed: Double
     let duration: Double
-    @State private var dragged: Double?
-    @State private var isDragging = false
+    @State private var scrub = PositionScrub()
+    @State private var width = 0.0
     @ScaledMetric(space: .xs) private var lineGap: CGFloat
 
     var body: some View {
-        let shown = dragged ?? min(elapsed, duration)
+        let shown = min(scrub.shown(elapsed: elapsed), duration)
         VStack(alignment: .leading, spacing: lineGap) {
-            Slider(
-                value: Binding(
-                    get: { shown },
-                    set: { value in
-                        dragged = value
-                        // VoiceOver adjusts the value without a drag.
-                        if !isDragging { seek() }
-                    }),
-                in: 0...max(duration, 1)
-            ) { editing in
-                isDragging = editing
-                if !editing { seek() }
-            }
-            .accessibilityLabel("Position")
-            .accessibilityValue(PlaybackProgress.time(shown))
-            .accessibilityIdentifier("position")
+            bar(shown)
             PlaybackProgress.times(shown, of: duration)
         }
+        .onChange(of: elapsed) { _, now in scrub.observe(elapsed: now) }
     }
 
-    private func seek() {
-        guard let dragged else { return }
-        player.seek(to: dragged)
-        // The player reports the new position at once, so the slider does not jump back.
-        self.dragged = nil
+    private func bar(_ shown: Double) -> some View {
+        ZStack(alignment: .leading) {
+            Capsule().fill(Palette.fillStandard)
+            Capsule().fill(Palette.tint)
+                .frame(width: width * PositionScrub.share(shown, of: duration))
+        }
+        .frame(height: Layout.positionBar)
+        .onGeometryChange(for: Double.self) {
+            Double($0.size.width)
+        } action: {
+            width = $0
+        }
+        // The touch area is the height of a system slider; the layout keeps the thin bar.
+        .padding(.vertical, -Layout.positionBarInset)
+        .contentShape(.rect)
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { value in
+                    if !model.isScrubbing { model.isScrubbing = true }
+                    scrub.drag(to: PositionScrub.seconds(at: value.location.x, width: width, duration: duration))
+                }
+                .onEnded { value in
+                    model.isScrubbing = false
+                    scrub.drag(to: PositionScrub.seconds(at: value.location.x, width: width, duration: duration))
+                    if let target = scrub.release() { player.seek(to: target) }
+                }
+        )
+        .padding(.vertical, Layout.positionBarInset)
+        .accessibilityRepresentation {
+            Slider(
+                value: Binding(get: { shown }, set: { player.seek(to: $0) }),
+                in: 0...max(duration, 1))
+        }
+        .accessibilityLabel("Position")
+        .accessibilityValue(PlaybackProgress.time(shown))
+        .accessibilityIdentifier("position")
     }
 }
 

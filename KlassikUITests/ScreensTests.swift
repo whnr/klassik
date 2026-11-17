@@ -459,6 +459,9 @@ final class PlaybackScreens: ScreensTestCase {
         position.adjust(toNormalizedSliderPosition: 0.9)
         let moved = expectation(for: NSPredicate(format: "value != %@", start), evaluatedWith: position)
         XCTAssertEqual(XCTWaiter.wait(for: [moved], timeout: 5), .completed, start)
+        // The bar stays where the finger let go: it does not snap back while the movement starts again.
+        let landed = position.value as? String ?? ""
+        XCTAssertFalse(eventually(timeout: 2) { position.value as? String != landed }, "The position bar snapped back")
         XCTAssertTrue(app.buttons["Resume"].firstMatch.exists)
         snap(app, "05c-seek")
 

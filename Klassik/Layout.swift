@@ -147,6 +147,12 @@ enum Layout {
     /// The gap from the playback bar to its times.
     /// css: player.html .bar-box | row-gap
     static let barGap = Space.xs.points
+    /// The playback bar of the playing movement. It has no handle.
+    /// css: player.html .mv-bar | height
+    static let positionBar: CGFloat = 6
+    /// How far the touch area of the playback bar reaches above and below it, as a CSS inset: 44 points in all.
+    /// css: player.html .mv-bar::after | top
+    static let positionBarInset: CGFloat = -19
     /// The handle at the top of the player overlay.
     /// css: overlay.css .player-overlay .grab::after | width
     static let grabberWidth: CGFloat = 36

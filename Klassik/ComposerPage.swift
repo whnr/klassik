@@ -210,18 +210,17 @@ struct CreditRow: View {
     }
 
     private func line(link: String?) -> some View {
-        let lead = Text(credit.lead(linked: link != nil)).foregroundStyle(Palette.textPrimary.color)
-        let text: Text
-        if let link {
-            let label = Text(link).foregroundStyle(Palette.tint.color).underline(contrast == .increased)
-            text = Text("\(lead) \(label)")
-        } else {
-            text = lead
-        }
-        return text
+        words(link: link)
             .typeStyle(Layout.footnote)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
+    }
+
+    private func words(link: String?) -> Text {
+        let lead = Text(credit.lead(linked: link != nil)).foregroundStyle(Palette.textPrimary.color)
+        guard let link else { return lead }
+        let label = Text(link).foregroundStyle(Palette.tint.color).underline(contrast == .increased)
+        return Text("\(lead) \(label)")
     }
 }
 

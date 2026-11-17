@@ -17,12 +17,6 @@ enum PortraitSize {
         var scale: CGFloat
     }
 
-    struct Candidate: Equatable, Sendable {
-        var url: URL
-        /// True: only on a network that is not expensive and not in Low Data Mode.
-        var wifiOnly: Bool
-    }
-
     /// The hero covers its frame, and a face zooms the picture up to `PortraitFraming.maxZoom` further. The face
     /// is not known before the download, so the need takes the full zoom.
     static func heroWidth(aspect: CGFloat, screen: Screen) -> CGFloat {
@@ -44,22 +38,18 @@ enum PortraitSize {
         steps.first { CGFloat($0) >= width } ?? steps[steps.count - 1]
     }
 
-    /// The files to try in order: the full need on Wi-Fi, a screen-width file on any network, then the stored
-    /// file. A picture without a known size counts as square.
-    static func candidates(_ portrait: PersonPortrait, screen: Screen) -> [Candidate] {
+    /// The files to try in order: the full screen need, a screen-width file, then the stored file.
+    /// Every network gets the same pixels. A picture without a known size counts as square.
+    static func candidates(_ portrait: PersonPortrait, screen: Screen) -> [URL] {
         let aspect = portrait.aspect ?? 1
-        let wanted: [Candidate?] = [
-            file(portrait, width: step(width(aspect: aspect, screen: screen))).map { .init(url: $0, wifiOnly: true) },
-            file(portrait, width: step(wholeWidth(screen: screen))).map { .init(url: $0, wifiOnly: false) },
-            .init(url: portrait.url, wifiOnly: false),
+        let wanted = [
+            file(portrait, width: step(width(aspect: aspect, screen: screen))),
+            file(portrait, width: step(wholeWidth(screen: screen))),
+            portrait.url,
         ]
-        var result: [Candidate] = []
-        for candidate in wanted.compactMap(\.self) {
-            if let index = result.firstIndex(where: { $0.url == candidate.url }) {
-                result[index].wifiOnly = result[index].wifiOnly && candidate.wifiOnly
-            } else {
-                result.append(candidate)
-            }
+        var result: [URL] = []
+        for url in wanted.compactMap(\.self) where !result.contains(url) {
+            result.append(url)
         }
         return result
     }

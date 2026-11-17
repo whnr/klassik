@@ -90,13 +90,13 @@ enum PortraitLoader {
     }
 
     /// The picture at the size that the screen needs (`PortraitSize`), or nil when no candidate loads. A
-    /// candidate that fails gives way to the next one, so Low Data Mode and cellular get a screen-width file.
+    /// candidate that fails gives way to the next one. Network cost never reduces the requested quality.
     static func load(
         _ portrait: PersonPortrait, screen: PortraitSize.Screen,
         fetch: MusicBrainz.Fetch = PortraitLoader.launchDownload
     ) async -> LoadedPortrait? {
         for candidate in PortraitSize.candidates(portrait, screen: screen) {
-            let loaded = await load(candidate.url, wifiOnly: candidate.wifiOnly, screen: screen, fetch: fetch)
+            let loaded = await load(candidate, screen: screen, fetch: fetch)
             if let loaded { return loaded }
         }
         return nil
@@ -105,14 +105,14 @@ enum PortraitLoader {
     /// The picture, or nil: for a URL outside the trusted list, a failed or oversize download, or bytes that
     /// are no image. With a screen, the copy keeps only the pixels that the screen needs.
     static func load(
-        _ url: URL, wifiOnly: Bool = false, screen: PortraitSize.Screen? = nil,
+        _ url: URL, screen: PortraitSize.Screen? = nil,
         fetch: MusicBrainz.Fetch = PortraitLoader.launchDownload
     ) async -> LoadedPortrait? {
         guard let url = PersonFactsService.trusted(url) else { return nil }
         var request = URLRequest(url: url, timeoutInterval: PersonFactsService.timeout)
         request.setValue(MusicBrainz.userAgent, forHTTPHeaderField: "User-Agent")
-        request.allowsExpensiveNetworkAccess = !wifiOnly
-        request.allowsConstrainedNetworkAccess = !wifiOnly
+        request.allowsExpensiveNetworkAccess = true
+        request.allowsConstrainedNetworkAccess = true
         guard let (data, status) = try? await fetch(request), (200..<300).contains(status),
             data.count <= maxBytes
         else { return nil }

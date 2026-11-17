@@ -1,7 +1,7 @@
 {
-  "sha": "12c882b3c9afc731a767365a33751c48c35dafc4",
+  "sha": "9067c356b4e96154263f616f7d8b4f25dbdbc414",
   "branch": "claude-rs105-26-small-ui",
   "path": "claude-rs105-26-small-ui",
-  "subject": "[sz-rs30.1.105.26] Let the search tab activate search",
-  "ts": 1794953691
+  "subject": "Walk playback and timeline for the search tab",
+  "ts": 1794955813
 }

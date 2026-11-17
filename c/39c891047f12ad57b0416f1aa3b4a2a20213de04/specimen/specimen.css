@@ -561,6 +561,9 @@ input::placeholder {
 .tab-search.on {
   color: var(--color-tint);
 }
+.tab-search.on {
+  color: var(--color-tint);
+}
 
 /* Timeline and mini player: drawn by hand (ADR 0014). The timeline shape is in timeline.css (ADR 0035). */
 .timeline {

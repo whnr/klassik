@@ -976,11 +976,12 @@ final class SettingsScreens: ScreensTestCase {
         }
         let pictures = reveal(app.steppers["pictures-limit"], in: app)
         XCTAssertTrue(shows("No Limit"))
-        pictures.buttons["Decrement"].tap()
+        // The identifier of the stepper replaces those of its buttons: the first is minus, the second plus.
+        pictures.buttons.element(boundBy: 0).tap()
         XCTAssertTrue(shows("50 GB"))
         snap(app, "08g-local-storage-limits")
         // The limit stays in the settings of the simulator, so the next walk must find No Limit again.
-        pictures.buttons["Increment"].tap()
+        pictures.buttons.element(boundBy: 1).tap()
         let limit = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "50 GB"))
         XCTAssertFalse(limit.firstMatch.waitForExistence(timeout: 2))
     }

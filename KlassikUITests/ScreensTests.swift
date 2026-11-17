@@ -459,10 +459,14 @@ final class PlaybackScreens: ScreensTestCase {
         beginning.tap()
         let start = position.value as? String ?? ""
         beginning.press(forDuration: 0.1, thenDragTo: end)
-        let moved = expectation(for: NSPredicate(format: "value != %@", start), evaluatedWith: position)
-        XCTAssertEqual(XCTWaiter.wait(for: [moved], timeout: 5), .completed, start)
-        // The bar stays where the finger let go: it does not snap back while the movement starts again.
+        // Read at once after the lift: a snap-back shows the start until the player arrives at the new place.
         let landed = position.value as? String ?? ""
+        let remaining = app.descendants(matching: .any)["playback-progress"].staticTexts
+            .matching(NSPredicate(format: "label BEGINSWITH '−'")).firstMatch.label
+        let played = Self.seconds(landed)
+        let share = played / max(played + Self.seconds(String(remaining.dropFirst())), 1)
+        XCTAssertEqual(share, 0.9, accuracy: 0.05, "\(start) to \(landed), \(remaining)")
+        // The bar stays where the finger let go: it does not snap back while the movement starts again.
         XCTAssertFalse(eventually(timeout: 2) { position.value as? String != landed }, "The position bar snapped back")
         XCTAssertTrue(app.buttons["Resume"].firstMatch.exists)
         snap(app, "05c-seek")
@@ -1529,6 +1533,11 @@ class ScreensTestCase: XCTestCase {
             from.press(forDuration: 0.05, thenDragTo: to)
         }
         return element
+    }
+
+    /// The seconds of a shown time such as 1:48 or 1:02:03.
+    static func seconds(_ time: String) -> Double {
+        time.split(separator: ":").reduce(0) { $0 * 60 + (Double($1) ?? 0) }
     }
 
     /// Reads the condition until it holds or the time is over. The time ends only between two complete reads.

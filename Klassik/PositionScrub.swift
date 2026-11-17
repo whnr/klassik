@@ -25,6 +25,9 @@ struct PositionScrub {
         return dragged
     }
 
+    /// Drops a drag that did not end with a lift. A hold after a lift stays.
+    mutating func cancel() { dragged = nil }
+
     /// The player reported a position. The hold ends when it arrived at the new place.
     mutating func observe(elapsed: Double) {
         if let released, abs(elapsed - released.seconds) <= Self.arrival { self.released = nil }

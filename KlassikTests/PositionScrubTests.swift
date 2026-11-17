@@ -23,6 +23,19 @@ struct PositionScrubTests {
         #expect(scrub.release(at: lift) == nil)
     }
 
+    /// A cancelled drag seeks nowhere and gives the bar back to the player. A hold after a lift stays.
+    @Test func aCancelledDragShowsThePlayerAgain() {
+        var scrub = PositionScrub()
+        scrub.drag(to: 120)
+        scrub.cancel()
+        #expect(scrub.shown(elapsed: 10, at: lift) == 10)
+        #expect(scrub.release(at: lift) == nil)
+        scrub.drag(to: 120)
+        _ = scrub.release(at: lift)
+        scrub.cancel()
+        #expect(scrub.shown(elapsed: 10, at: lift) == 120)
+    }
+
     /// The player restarts the movement after a seek. Its old position must not pull the bar back.
     @Test func theBarHoldsTheNewPlaceUntilThePlayerReportsIt() {
         var scrub = PositionScrub()

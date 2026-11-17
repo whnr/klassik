@@ -968,6 +968,7 @@ private struct PositionBar: View {
     let duration: Double
     @State private var scrub = PositionScrub()
     @State private var width = 0.0
+    @GestureState private var isTouching = false
     @ScaledMetric(space: .xs) private var lineGap: CGFloat
 
     var body: some View {
@@ -977,6 +978,16 @@ private struct PositionBar: View {
             PlaybackProgress.times(shown, of: duration)
         }
         .onChange(of: elapsed) { _, now in scrub.observe(elapsed: now) }
+        // A cancelled drag never calls onEnded, and a new movement replaces this bar while a finger holds it.
+        .onChange(of: isTouching) { _, touching in
+            if !touching { stopScrubbing() }
+        }
+        .onDisappear { stopScrubbing() }
+    }
+
+    private func stopScrubbing() {
+        scrub.cancel()
+        if model.isScrubbing { model.isScrubbing = false }
     }
 
     private func bar(_ shown: Double) -> some View {
@@ -996,6 +1007,7 @@ private struct PositionBar: View {
         .contentShape(.rect)
         .gesture(
             DragGesture(minimumDistance: 0)
+                .updating($isTouching) { _, state, _ in state = true }
                 .onChanged { value in
                     if !model.isScrubbing { model.isScrubbing = true }
                     scrub.drag(to: PositionScrub.seconds(at: value.location.x, width: width, duration: duration))

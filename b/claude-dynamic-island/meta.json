@@ -1,7 +1,7 @@
 {
-  "sha": "99c521f142fb9bc843f66b6d3d23e6b5872e21db",
+  "sha": "45fa42089254a961769054ab7966e726c3a87d06",
   "branch": "claude-dynamic-island",
   "path": "claude-dynamic-island",
-  "subject": "[sz-rs30.1.102] Walk pictures under the status bar",
-  "ts": 1794953874
+  "subject": "[sz-rs30.1.105.22] Drag the reorder handle beside the row",
+  "ts": 1794956800
 }

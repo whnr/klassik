@@ -46,11 +46,20 @@
           ),
         );
 
-        const playBtn = el("button", {
-          class: "capsule filled t-headline",
-          html: ICON.play.replace("<svg", '<svg width="14" height="14"') + "<span>Play</span>",
-        });
+        const playBtn = el("button", { class: "capsule filled t-headline" });
+        // While any recording of the work plays, the pill pauses it. Else it plays the top of the list (sz-swi9.4).
+        const playsWork = () => {
+          const playing = K.current()?.recording;
+          return Boolean(playing && K.orderedRecordings(work).some((r) => r.id === playing.id));
+        };
+        const pill = () => {
+          const pause = playsWork() && !K.P.paused;
+          const label = playsWork() ? (K.P.paused ? "Resume" : "Pause") : "Play";
+          playBtn.innerHTML =
+            (pause ? ICON.pause : ICON.play).replace("<svg", '<svg width="14" height="14"') + `<span>${label}</span>`;
+        };
         playBtn.addEventListener("click", () => {
+          if (playsWork()) return K.togglePause();
           const rec = K.orderedRecordings(work)[0];
           K.playItem(K.resolveItem(["recording", rec.album.id, rec.work]));
         });
@@ -86,6 +95,7 @@
           ].join(" ");
 
         function render() {
+          pill();
           const playing = K.current()?.recording;
           listBox.replaceChildren(
             ...K.orderedRecordings(work).map((r, i) => {

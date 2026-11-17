@@ -1,7 +1,7 @@
 {
-  "sha": "f0b9dd3fda57bb0f5c03138b8a4b668460bc3062",
+  "sha": "02ac2e7a5a06694910f70a7e58a059cedbfccfcd",
   "branch": "claude-sz-rs30.1.105.9b",
   "path": "claude-sz-rs30.1.105.9b",
-  "subject": "[sz-rs30.1.105.9] Shorten the next item row comment",
-  "ts": 1794881701
+  "subject": "[sz-rs30.1.105.9] Wrap the list scroll reader",
+  "ts": 1794881833
 }

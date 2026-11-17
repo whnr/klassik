@@ -1,7 +1,7 @@
 {
-  "sha": "76fa35f9b2e3d140c82ba2d13c9fcfd14b614e9f",
+  "sha": "be36b35a8848910341eacd6571d524df4ed3ebea",
   "branch": "main",
   "path": "main",
-  "subject": "[sz-rs30.1.105.81] Tint About links, keep tab labels, close pictures by swipe (#79)",
-  "ts": 1794935523
+  "subject": "Merge pull request #80 from whnr/claude-release-0.14.2",
+  "ts": 1794938641
 }

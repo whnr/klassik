@@ -1,7 +1,7 @@
 {
-  "sha": "6cfe66ae930d5ce00b36925c186ed26f7ee2530a",
+  "sha": "3187e641c856aa0addbeb7f653fe7be6e54da253",
   "branch": "main",
   "path": "main",
-  "subject": "[sz-rs30.1.105.79] Count pictures and album art in Local Storage (#84)",
-  "ts": 1794952544
+  "subject": "[sz-prno] Skip cover downloads that cannot fit (#86)",
+  "ts": 1794953522
 }

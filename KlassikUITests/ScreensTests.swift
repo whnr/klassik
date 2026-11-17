@@ -199,6 +199,9 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertTrue(reveal(article, in: app).waitForExistence(timeout: 10))
         XCTAssertTrue(article.label.contains("Wikipedia, CC BY-SA 4.0"))
         XCTAssertTrue(article.label.contains("Article"))
+        let commons = app.descendants(matching: .any)["credit-picture"].firstMatch
+        XCTAssertTrue(reveal(commons, in: app).exists)
+        XCTAssertTrue(commons.label.contains("Wikimedia Commons"), commons.label)
         snap(app, "03g-composer-article")
     }
 

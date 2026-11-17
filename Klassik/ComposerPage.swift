@@ -194,32 +194,34 @@ private struct GenreChips: View {
     @ScaledMetric(relativeTo: .subheadline) private var height = Layout.chipHeight
 }
 
+/// One credit line as in the specimen: the source, then its link in the tint (person.html, `.link`).
+/// Increase Contrast underlines the link in its own colour.
 struct CreditRow: View {
+    @Environment(\.colorSchemeContrast) private var contrast
     let credit: PersonCredit
 
     var body: some View {
         if let url = PersonFactsService.trusted(credit.url) {
-            Link(destination: url) { content }
+            Link(destination: url) { line(link: credit.linkLabel(url)) }
                 .accessibilityIdentifier("credit-\(credit.kind.rawValue)")
         } else {
-            content
+            line(link: nil)
         }
     }
 
-    private var content: some View {
-        VStack(alignment: .leading) {
-            Text(credit.kind.title)
-                .typeStyle(.footnote)
-                .foregroundStyle(Palette.textSecondary)
-            Text(credit.text)
-                .ink()
-            if credit.kind == .text, PersonFactsService.trusted(credit.url) != nil {
-                Text("Article")
-                    .typeStyle(Layout.footnote)
-                    .foregroundStyle(Palette.tint)
-            }
+    private func line(link: String?) -> some View {
+        let lead = Text(credit.lead(linked: link != nil)).foregroundStyle(Palette.textPrimary.color)
+        let text: Text
+        if let link {
+            let label = Text(link).foregroundStyle(Palette.tint.color).underline(contrast == .increased)
+            text = Text("\(lead) \(label)")
+        } else {
+            text = lead
         }
-        .accessibilityElement(children: .combine)
+        return text
+            .typeStyle(Layout.footnote)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
     }
 }
 

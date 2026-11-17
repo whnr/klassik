@@ -52,9 +52,17 @@ struct PerformerPageTests {
 
     @Test func aGroupOrAHallFillsTheFrameFromItsCentre() {
         let face = CGRect(x: 0.4, y: 0.2, width: 0.2, height: 0.3)
-        #expect(Self.portrait(faces: [face]).framingFace == face)
-        #expect(Self.portrait(faces: []).framingFace == nil)
-        #expect(Self.portrait(faces: [face, face]).framingFace == nil)
+        #expect(Self.portrait(faces: [face]).framingFace(performer: true) == face)
+        #expect(Self.portrait(faces: []).framingFace(performer: true) == nil)
+        #expect(Self.portrait(faces: [face, face]).framingFace(performer: true) == nil)
+    }
+
+    @Test func aComposerPictureWithSeveralFacesCentresOnTheLargest() {
+        let large = CGRect(x: 0.1, y: 0.1, width: 0.4, height: 0.5)
+        let small = CGRect(x: 0.7, y: 0.2, width: 0.1, height: 0.1)
+        #expect(Self.portrait(faces: [large, small]).framingFace(performer: false) == large)
+        #expect(Self.portrait(faces: [large]).framingFace(performer: false) == large)
+        #expect(Self.portrait(faces: []).framingFace(performer: false) == nil)
     }
 
     private static func part(

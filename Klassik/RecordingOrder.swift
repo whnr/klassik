@@ -58,6 +58,7 @@ final class RecordingOrder {
     private var albums: Set<String> = []
     private(set) var isSaving = false
     var error: String?
+    private var reportedConnectionFailure = false
 
     init(library: Library, store: DeviceStore? = nil, server: (any FavouriteServer)? = nil) {
         self.library = library
@@ -144,6 +145,7 @@ final class RecordingOrder {
             defer { isSaving = false }
             do {
                 if isSet { try await server.star(ids) } else { try await server.unstar(ids) }
+                reportedConnectionFailure = false
             } catch {
                 // Other favourite changes can arrive while the server call runs, so only this recording goes back.
                 library.setStarred(Set(ids), !isSet)
@@ -177,6 +179,7 @@ final class RecordingOrder {
             defer { isSaving = false }
             do {
                 if isSet { try await server.starAlbum(id) } else { try await server.unstarAlbum(id) }
+                reportedConnectionFailure = false
             } catch {
                 if isSet { albums.remove(id) } else { albums.insert(id) }
                 report(error)
@@ -204,6 +207,7 @@ final class RecordingOrder {
         defer { isSaving = false }
         do {
             let stars = try await server.getStarred()
+            reportedConnectionFailure = false
             artists = stars.artist ?? []
             albums = Set((stars.album ?? []).map(\.id))
             library.replaceStars(Set((stars.song ?? []).map(\.id)))
@@ -212,12 +216,17 @@ final class RecordingOrder {
                 changed.recordingOrder[work.id] = rows(of: work).filter(\.isFavourite).map(\.id)
             }
             save(changed)
-        } catch { report(error) }
+        } catch { report(error, saving: false) }
     }
 
-    /// Only an answer from the server is a refusal. Without a connection the change goes back with no modal.
-    private func report(_ error: any Error) {
-        guard error is SubsonicError else { return }
+    /// One failed save explains the rollback. Repeated taps need no further notice until the server answers.
+    private func report(_ error: any Error, saving: Bool = true) {
+        if error is URLError {
+            guard saving, !reportedConnectionFailure else { return }
+            reportedConnectionFailure = true
+        } else if !(error is SubsonicError) {
+            return
+        }
         self.error = error.localizedDescription
     }
 

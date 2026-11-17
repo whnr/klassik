@@ -503,6 +503,34 @@ final class PlaybackScreens: ScreensTestCase {
         snap(app, "04d-work-playing")
     }
 
+    @MainActor
+    func testWorkPlayUsesTheContentInsetsOnEitherSide() throws {
+        for side in ["right", "left"] {
+            let app = try launchAndConnect(arguments: ["-\(timelineSideKey)", side])
+            composer(app, "Felix Mendelssohn").tap()
+            let work = app.buttons.matching(identifier: "work").firstMatch
+            XCTAssertTrue(work.waitForExistence(timeout: 10))
+            work.tap()
+            let play = app.buttons["play-work"]
+            XCTAssertTrue(play.waitForExistence(timeout: 10))
+            XCTAssertEqual(play.label, "Play")
+            let edge: PillEdge = side == "left" ? .left : .right
+            let frame = drawn(play, in: app, side: edge)
+            let leading = side == "left" ? Layout.timelineEdge : Layout.edge
+            let trailing = side == "left" ? Layout.edge : Layout.timelineEdge
+            XCTAssertEqual(frame.minX, app.frame.minX + leading, accuracy: 1)
+            XCTAssertEqual(frame.maxX, app.frame.maxX - trailing, accuracy: 1)
+            XCTAssertEqual(frame.midX, app.frame.midX + (leading - trailing) / 2, accuracy: 1)
+            expectCapsuleLabelCentered(frame, in: app)
+            if side == "right" {
+                snap(app, "04e-work-play-right")
+            } else {
+                snap(app, "04f-work-play-left")
+            }
+            app.terminate()
+        }
+    }
+
     /// Play Whole Album on a recording page starts the album, not only the recording (build 48, item 11).
     /// The Brahms movement lives on a recital disc that holds a second work, so its page offers the whole disc.
     @MainActor
@@ -1261,6 +1289,27 @@ class ScreensTestCase: XCTestCase {
     func drawn(_ element: XCUIElement, in app: XCUIApplication, side: PillEdge = .right) -> CGRect {
         let frame = element.frame
         return ink(in: frame, of: app, side: side) ?? frame
+    }
+
+    /// The capsule's flat fill separates its visible label from the accessibility frame of the whole row.
+    @MainActor
+    func expectCapsuleLabelCentered(_ frame: CGRect, in app: XCUIApplication) {
+        guard let screen = ScreenPixels(app) else { return XCTFail("No screenshot for the capsule label") }
+        let local = frame.offsetBy(dx: -app.frame.minX, dy: -app.frame.minY)
+        let columns = screen.pixels((local.minX + local.height / 2)...(local.maxX - local.height / 2))
+            .clamped(to: 0..<screen.width)
+        let rows = screen.pixels((local.minY + local.height / 4)...(local.maxY - local.height / 4))
+            .clamped(to: 0..<screen.height)
+        var (first, last) = (Int.max, Int.min)
+        for y in rows {
+            for x in columns where screen.differs(x, y, from: columns.lowerBound) {
+                first = min(first, x)
+                last = max(last, x)
+            }
+        }
+        guard first <= last else { return XCTFail("No visible capsule label") }
+        let center = app.frame.minX + CGFloat(first + last + 1) / (2 * screen.scale)
+        XCTAssertEqual(center, frame.midX, accuracy: 1.5, "The icon and text do not center on the capsule")
     }
 
     /// The screen of the app as bytes, to compare pixels with the page ground.

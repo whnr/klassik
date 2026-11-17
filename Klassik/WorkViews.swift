@@ -265,10 +265,11 @@ struct WorkView: View {
                         player.play(queue: [QueueItem(work: work, recording: recording)])
                     }
                 } label: {
-                    Label(
-                        playsThisWork ? (player.isPaused ? "Resume" : "Pause") : "Play",
-                        systemImage: playsThisWork && !player.isPaused ? "pause.fill" : "play.fill"
-                    )
+                    HStack(spacing: Layout.capsuleGap) {
+                        Image(systemName: playsThisWork && !player.isPaused ? "pause.fill" : "play.fill")
+                            .accessibilityHidden(true)
+                        Text(playsThisWork ? (player.isPaused ? "Resume" : "Pause") : "Play")
+                    }
                     .typeStyle(Layout.capsuleLabel)
                     .foregroundStyle(Palette.onAccent)
                     .frame(maxWidth: .infinity, minHeight: Layout.capsuleHeight)
@@ -433,7 +434,7 @@ private struct RecordingRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: Layout.rowGap) {
-            CoverImage(id: recording.songs.first?.coverArt, points: cover)
+            CoverImage(song: recording.songs.first, points: cover)
                 .frame(width: cover, height: cover)
                 .clipShape(.rect(cornerRadius: Layout.coverCorner))
                 .accessibilityHidden(true)
@@ -532,7 +533,7 @@ struct RecordingView: View {
                 Section {
                     if isOverlay {
                         VStack(spacing: Layout.bigCoverBottom) {
-                            CoverImage(id: recording.songs.first?.coverArt, points: Layout.bigCover)
+                            CoverImage(song: recording.songs.first, points: Layout.bigCover)
                                 .frame(width: Layout.bigCover, height: Layout.bigCover)
                                 .clipShape(.rect(cornerRadius: Layout.bigCoverCorner))
                             overlayTitle

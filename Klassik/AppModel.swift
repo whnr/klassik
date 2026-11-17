@@ -18,6 +18,7 @@ final class AppModel {
     let library: Library
     private(set) var recordingOrder: RecordingOrder
     let tracks: TrackStore
+    let covers = CoverArt.Cache()
     let playback: PlaybackSession
     let enrichment: Enrichment
     let people: PersonFactsStore
@@ -129,6 +130,7 @@ final class AppModel {
 
     /// The playback session reaches the server through the saved login.
     private func updateServer() {
+        covers.clear()
         playback.server = client
         let deviceStore = credentials.map { DeviceStore(server: $0.url, username: $0.username) }
         // Each UI walk must start with the same local favourites and order.

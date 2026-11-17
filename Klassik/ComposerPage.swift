@@ -12,6 +12,7 @@ struct ComposerPage: View {
     let composer: WorkIndex.Composer
     @State private var tab = Tab.works
     @State private var chips: Set<String> = []
+    @AppStorage(ComposerWorks.separatesPartialKey) private var separatesPartial = true
 
     var body: some View {
         let people = model.people
@@ -76,14 +77,31 @@ struct ComposerPage: View {
 
     @ViewBuilder private func worksTab(_ catalogue: ComposerWorks) -> some View {
         let genres = catalogue.genres
-        let rows = catalogue.rows(filter: chips)
+        let parts = catalogue.parts(filter: chips, separatingPartial: separatesPartial)
         if !genres.isEmpty {
             GenreChips(genres: genres, selection: $chips)
                 .listRowInsets(EdgeInsets(top: Layout.chipsTop, leading: 0, bottom: 0, trailing: 0))
                 .listRowSeparator(.hidden)
         }
+        ForEach(parts) { part in
+            worksSection(part.title, rows: part.rows)
+        }
+        let rows = parts.flatMap(\.rows)
+        if rows.isEmpty {
+            Text("No works with these genres.")
+                .foregroundStyle(Palette.textSecondary)
+        }
+        if composer.works.contains(where: { !$0.isTagged }) {
+            Section {
+            } footer: {
+                Text("Albums without a WORK tag show as one work each.")
+            }
+        }
+    }
+
+    @ViewBuilder private func worksSection(_ title: String, rows: [ComposerWorks.Row]) -> some View {
         Section {
-            CountedHeading("Works", count: rows.reduce(0) { $0 + $1.works.count })
+            CountedHeading(title, count: rows.reduce(0) { $0 + $1.works.count })
             ForEach(rows) { row in
                 switch row {
                 case .work(let work):
@@ -107,16 +125,6 @@ struct ComposerPage: View {
                     }
                     .accessibilityIdentifier("set")
                 }
-            }
-        }
-        if rows.isEmpty {
-            Text("No works with these genres.")
-                .foregroundStyle(Palette.textSecondary)
-        }
-        if composer.works.contains(where: { !$0.isTagged }) {
-            Section {
-            } footer: {
-                Text("Albums without a WORK tag show as one work each.")
             }
         }
     }

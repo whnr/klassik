@@ -103,12 +103,19 @@ struct WorkIndex: Sendable {
             songs.compactMap { $0.movements?.first?.count }.max().flatMap { $0 > 0 ? $0 : nil }
         }
 
-        /// "3 of 5 movements" when the recording holds only part of its work.
-        var completeness: String? {
+        /// The movements present and the movement total, when the recording holds only part of its work. Without a
+        /// total in the tags, Klassik cannot tell and counts the recording as whole.
+        private var part: (present: Int, total: Int)? {
             guard !isAlbum, let total = movementTotal else { return nil }
             let present = Set(songs.compactMap { $0.movements?.first?.number }).count
-            return present > 0 && present < total ? "\(present) of \(total) movements" : nil
+            return present > 0 && present < total ? (present, total) : nil
         }
+
+        /// True when the recording holds only part of its work.
+        var isPartial: Bool { part != nil }
+
+        /// "3 of 5 movements" when the recording holds only part of its work.
+        var completeness: String? { part.map { "\($0.present) of \($0.total) movements" } }
 
         /// A movement name alone does not say which work of an album it belongs to.
         func title(of song: Song) -> String {

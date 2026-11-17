@@ -1,7 +1,7 @@
 {
-  "sha": "8554d88a07b6541711d57d5913b8e170f6139da0",
+  "sha": "74d0b4637dcf9e8c835224e73077361fce99f1fb",
   "branch": "claude-0142-player",
   "path": "claude-0142-player",
-  "subject": "[sz-3hcq.4] Draw hairlines between list items again",
-  "ts": 1794899278
+  "subject": "Merge main into the 0.14.2 player branch",
+  "ts": 1794928240
 }

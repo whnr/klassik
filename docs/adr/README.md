@@ -53,7 +53,8 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0039](0039-next-at-the-end-and-play-on-the-playing-item.md) | Next ends at the last movement; Play on the playing item pauses or resumes                             | 2026-11-11 |
 | [0040](0040-settings-from-the-library.md)                    | Settings opens from the Library toolbar                                                                | 2026-11-13 |
 | [0041](0041-native-tabs-and-display-corners.md)              | Native tabs and the display corner                                                                     | 2026-11-14 |
-| [0042](0042-wikidata-pass-in-the-background.md)              | A background pass loads Wikidata for the whole library (partly replaced by 0044)                       | 2026-11-14 |
+| [0042](0042-wikidata-pass-in-the-background.md)              | A background pass loads Wikidata for the whole library (partly replaced by 0044 and 0046)              | 2026-11-14 |
 | [0043](0043-every-performer-picture.md)                      | A performer page shows every picture                                                                   | 2026-11-17 |
 | [0044](0044-a-failed-person-goes-to-the-end.md)              | A failed person goes to the end of the queue                                                           | 2026-11-17 |
 | [0045](0045-page-margins-follow-the-timeline.md)             | Page margins follow the timeline                                                                       | 2026-11-17 |
+| [0046](0046-composers-first-and-shown-performers.md)         | Composers first, and the performers of a shown page next                                               | 2026-11-17 |

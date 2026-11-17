@@ -52,6 +52,7 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0038](0038-standard-tabs-and-the-cross-tab-back.md)         | Standard tabs, and a back arrow on a root reached from another tab (partly replaced by 0040)           | 2026-11-11 |
 | [0039](0039-next-at-the-end-and-play-on-the-playing-item.md) | Next ends at the last movement; Play on the playing item pauses or resumes                             | 2026-11-11 |
 | [0040](0040-settings-from-the-library.md)                    | Settings opens from the Library toolbar                                                                | 2026-11-13 |
-| [0041](0041-native-tabs-and-display-corners.md)              | Native tabs and the display corner                                                                     | 2026-11-14 |
+| [0041](0041-native-tabs-and-display-corners.md)              | Native tabs and the display corner (partly replaced by 0044)                                           | 2026-11-14 |
 | [0042](0042-wikidata-pass-in-the-background.md)              | A background pass loads Wikidata for the whole library                                                 | 2026-11-14 |
 | [0043](0043-queue-end-and-stop-close-the-player.md)          | The queue end and Stop close the player                                                                | 2026-11-17 |
+| [0044](0044-timeline-ends-at-the-pill.md)                    | The timeline ends at the top of the pill                                                               | 2026-11-17 |

@@ -51,8 +51,6 @@ struct PlacesView: View {
                             // Keyboard safe-area changes must not shorten the timeline above the native bar.
                             .frame(height: max(0, rowTop + rowHeight - insets.top))
                             .padding(.top, insets.top)
-                            MiniPlayerCorner(side: side, top: rowTop)
-                                .allowsHitTesting(false)
                         }
                     }
                     .onChange(of: inset, initial: true) { _, value in pillInset = value }

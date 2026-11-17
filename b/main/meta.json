@@ -1,7 +1,7 @@
 {
-  "sha": "b0b6ddd44c7dd5cf13e4c9095050d607a37029b9",
+  "sha": "e0be47ad9de107b2273cffbcd888ab2aa0a4297f",
   "branch": "main",
   "path": "main",
-  "subject": "[sz-thp1] Explain how workers push (#74)",
-  "ts": 1794925406
+  "subject": "[sz-rs30.1.105.83] Keep a cancelled person in the next pass (#75)",
+  "ts": 1794927856
 }

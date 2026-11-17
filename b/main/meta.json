@@ -1,7 +1,7 @@
 {
-  "sha": "17cb3f93ec166ffc84dea7c9ae78569b49d4cc6e",
+  "sha": "425bb16e903fdb12d464205316e1ac954363b418",
   "branch": "main",
   "path": "main",
-  "subject": "[sz-3hcq.17] Cover lookup off the main thread (#72)",
-  "ts": 1794921086
+  "subject": "[sz-3hcq.11] Even margins, lock screen row and people retries (#73)",
+  "ts": 1794925356
 }

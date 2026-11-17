@@ -1,4 +1,4 @@
-# 0045. Hairlines separate list items only
+# 0048. Hairlines separate list items only
 
 Flo decided this in the 0.14.1 test notes. Bead: sz-3hcq.4.
 This refines the list rules of [0030](0030-type-and-spacing.md).

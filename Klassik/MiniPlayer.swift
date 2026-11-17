@@ -90,7 +90,7 @@ struct MiniPlayer: View {
         Button {
             navigator.openPlayer()
         } label: {
-            CoverImage(id: item.recording.songs.first?.coverArt, points: itemSize)
+            CoverImage(song: item.recording.songs.first, points: itemSize)
                 .frame(width: itemSize, height: itemSize)
                 .clipShape(.rect(cornerRadius: Layout.pillCoverCorner))
                 .padding(.vertical, max(0, (height - itemSize) / 2))
@@ -104,18 +104,30 @@ struct MiniPlayer: View {
     }
 }
 
-/// The cover of a song. It loads once for each cover ID; without one, a note stands in.
+/// Local audio supplies embedded artwork before the server. Without artwork, a note stands in.
 struct CoverImage: View {
     @Environment(AppModel.self) private var model
     @Environment(\.displayScale) private var scale
-    let id: String?
+    let song: Song?
     let points: CGFloat
     @State private var image: UIImage?
+    @State private var imageKey: NSString?
+
+    private var source: CoverArt.Source {
+        guard let song else { return CoverArt.Source(local: [], coverID: nil, pixels: 0, credentials: nil) }
+        return CoverArt.Source(
+            local: model.library.artworkSources(for: song).filter { model.tracks.isOffline($0) },
+            coverID: song.coverArt, pixels: Int((points * scale).rounded(.up)), credentials: model.credentials)
+    }
 
     var body: some View {
+        let source = source
+        let cached = model.covers.image(for: source)
+        let loaded = imageKey == source.cacheKey ? image : nil
+        let visible = cached ?? loaded
         ZStack {
             Rectangle().fill(Palette.fillQuiet)
-            if let image {
+            if let image = visible {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
@@ -124,12 +136,16 @@ struct CoverImage: View {
                     .foregroundStyle(Palette.textSecondary)
             }
         }
-        .task(id: id) {
-            image = nil
-            guard let id, let client = model.client else { return }
-            let url = client.coverArtURL(id: id, size: Int((points * scale).rounded(.up)))
-            guard let response = try? await URLSession.shared.data(from: url) else { return }
-            image = UIImage(data: response.0)
+        .task(id: source) {
+            let files = await model.tracks.localFiles(for: source.local)
+            guard !Task.isCancelled else { return }
+            let loaded = await CoverArt.load(files: files, remote: source.remote)
+            guard !Task.isCancelled else { return }
+            if let loaded {
+                model.covers.store(loaded, for: source)
+                image = loaded
+                imageKey = source.cacheKey
+            }
         }
     }
 }

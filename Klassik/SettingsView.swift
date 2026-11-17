@@ -146,7 +146,7 @@ struct AlbumsView: View {
                             .foregroundStyle(Palette.textSecondary)
                     }
                 }
-                .itemActions(album.item, downloads: true)
+                .itemActions(album.item, downloads: true, favouriteAlbum: true)
                 .accessibilityIdentifier("album")
                 .itemSeparator(first: album.id == albums.first?.id, last: album.id == albums.last?.id)
             }

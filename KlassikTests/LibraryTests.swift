@@ -129,6 +129,15 @@ struct LibraryTests {
         #expect(read.marker == "m")
     }
 
+    /// Format 2 caches lack the album artist that merges an album the server splits by date.
+    @Test func aFormatTwoCacheIsNotCurrent() {
+        var cache = LibraryCache(
+            server: URL(string: "https://music.example.org")!, username: "joe",
+            syncedAt: Date(timeIntervalSince1970: 0), songs: [], marker: "m")
+        cache.format = 2
+        #expect(!cache.isCurrent)
+    }
+
     @Test func aSongKeepsItsCoverArt() throws {
         let json = #"{"id":"t1","title":"Allegro","coverArt":"al-1"}"#
         #expect(try JSONDecoder().decode(Song.self, from: Data(json.utf8)).coverArt == "al-1")
@@ -140,6 +149,40 @@ struct LibraryTests {
         let filter = ClassicalFilter(rules: [Self.rule(.init(kind: .genreContains, text: "Oper"))])
         Library(cacheURL: url, defaults: defaults).filter = filter
         #expect(Library(cacheURL: url, defaults: defaults).filter == filter)
+    }
+
+    @MainActor @Test func artworkSourcesComeFromTheIndexAndFollowTheLibrary() async throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appending(path: "library.json")
+        let suite = UUID().uuidString
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let credentials = ServerCredentials(
+            url: URL(string: "https://music.example.org")!, username: "joe", password: "test")
+        func song(_ id: String, album: String, cover: String?) -> Song {
+            var song = Self.song(id, album: album)
+            song.coverArt = cover
+            return song
+        }
+        let songs = [
+            song("x1", album: "other", cover: "shared"),
+            song("m1", album: "a1", cover: "al-1"),
+            song("p1", album: "pop", cover: nil),
+            song("m2", album: "a1", cover: "al-1"),
+        ]
+        let unknown = song("u1", album: "a1", cover: "none")
+        #expect(Library(cacheURL: url, defaults: defaults).artworkSources(for: unknown).map(\.id) == ["u1"])
+        try LibraryCache(server: credentials.url, username: credentials.username, syncedAt: .now, songs: songs)
+            .write(to: url)
+        let library = Library(cacheURL: url, defaults: defaults)
+        #expect(library.artworkSources(for: songs[1]).map(\.id) == ["m1"])
+        await library.load(for: credentials)
+
+        #expect(library.artworkSources(for: songs[3]).map(\.id) == ["m2", "m1"])
+        #expect(library.artworkSources(for: song("s1", album: "single", cover: "shared")).map(\.id) == ["s1", "x1"])
+        #expect(library.artworkSources(for: songs[2]).map(\.id) == ["p1"])
+        #expect(library.artworkSources(for: unknown).map(\.id) == ["u1", "m1", "m2"])
     }
 
     @MainActor @Test func otherAlbumWorkHeadingsHaveNoRecordingPage() async throws {

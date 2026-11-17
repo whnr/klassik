@@ -66,6 +66,16 @@ final class TrackStore {
 
     func isOffline(_ song: Song) -> Bool { offline.contains(song.id) }
 
+    /// Artwork reads must use existing files without starting an audio download. The file checks run off the main
+    /// actor, because cover views ask for them while lists scroll.
+    func localFiles(for songs: [Song]) async -> [URL] {
+        let folders = [downloadFolder, cacheFolder]
+        let candidates = songs.map { song in folders.map { $0.appending(path: Self.fileName(song)) } }
+        return await Task.detached(priority: .userInitiated) {
+            candidates.compactMap { files in files.first { FileManager.default.fileExists(atPath: $0.path()) } }
+        }.value
+    }
+
     func isOffline(_ recording: WorkIndex.Recording) -> Bool {
         !recording.songs.isEmpty && recording.songs.allSatisfy { offline.contains($0.id) }
     }

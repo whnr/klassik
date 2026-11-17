@@ -76,6 +76,12 @@ Rules for coding agents in this repository.
 - Report on the PR and on the bead. A bead comment alone is not enough.
 - Put the images on branch `screenshots`, at `pr-<number>/<short sha>/<name>.png`. Link them as `https://raw.githubusercontent.com/whnr/klassik/screenshots/pr-<number>/<short sha>/<name>.png`. Never put them on `gh-pages`: the preview workflow prunes it. A link to the `screens` artifact zip does not show inline, so it is not enough.
 
+## Pushing
+
+Never push main. The pre-push hook in worker checkouts refuses it.
+Push your branch: `git push origin HEAD:refs/heads/<branch>`
+Then open a PR with `gh pr create`. An approved review and green CI merge it.
+
 ## Writing
 
 - Comments state WHY, or a CONSTRAINT that the code cannot show. Never history: no "previously", "changed from", "now uses", "fixed bug where", no dates, no ticket stories. Git keeps the history.

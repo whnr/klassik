@@ -108,6 +108,8 @@ struct Song: Codable, Sendable, Identifiable, Hashable {
     var album: String?
     var albumId: String?
     var artist: String?
+    /// The album artist as the server shows it (OpenSubsonic).
+    var displayAlbumArtist: String?
     var track: Int?
     var discNumber: Int?
     var year: Int?
@@ -264,6 +266,14 @@ struct SubsonicClient: Sendable {
 
     func unstar(_ ids: [String]) async throws {
         _ = try await get("unstar", ids.map { URLQueryItem(name: "id", value: $0) })
+    }
+
+    func starAlbum(_ id: String) async throws {
+        _ = try await get("star", [URLQueryItem(name: "albumId", value: id)])
+    }
+
+    func unstarAlbum(_ id: String) async throws {
+        _ = try await get("unstar", [URLQueryItem(name: "albumId", value: id)])
     }
 
     /// `format=raw` asks for the original file: a transcoded stream loses the MP3 gapless header.

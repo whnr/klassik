@@ -1,6 +1,7 @@
 # 0019. Performer facts from Wikidata
 
 Date: 2026-11-04. Decided by Flo after research. Beads: sz-rs30.1.74.13, sz-rs30.1.74.14, sz-rs30.1.74.15.
+The picture rule is replaced by [0043](0043-every-performer-picture.md).
 
 ## Context
 

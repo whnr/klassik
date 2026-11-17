@@ -29,6 +29,20 @@ struct FermataShape: Shape {
     }
 }
 
+extension FermataShape {
+    /// The mark as a template image, for a place that takes an image and tints it, such as a swipe action. It has the
+    /// size of the symbols on the other swipe actions.
+    @MainActor static let icon: UIImage = {
+        let em = TypeStyle.title3.size
+        let size = CGSize(width: em * Layout.fermataWidth, height: em * Layout.fermataHeight)
+        return UIGraphicsImageRenderer(size: size).image { _ in
+            UIColor.black.setFill()
+            UIBezierPath(cgPath: FermataShape().path(in: CGRect(origin: .zero, size: size)).cgPath).fill()
+        }
+        .withRenderingMode(.alwaysTemplate)
+    }()
+}
+
 /// The favourite mark after a line of text. It is 0.64 em high and sits on the baseline (ADR 0032).
 struct FermataMark: View {
     let isSet: Bool
@@ -61,7 +75,8 @@ struct FavouriteTitle: View {
                 .foregroundStyle(Palette.textPrimary)
                 .accessibilityIdentifier(textIdentifier)
         }
-        .buttonStyle(.plain)
+        // The mark changes state at once. A pressed button must not fade the title.
+        .buttonStyle(.still)
         .frame(minHeight: Measure.hitTarget)
         .accessibilityLabel(title)
         .accessibilityValue(isSet ? "Favourite" : "Not a favourite")

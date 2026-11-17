@@ -2,7 +2,7 @@
 
 Date: 2026-11-08. Decided by Flo after specimen rounds 10 to 14 on the phone. Beads: sz-rs30.1.83.5, sz-rs30.1.83.15.
 
-The hairline rules are refined by [0045](0045-hairlines-between-list-items.md).
+The hairline rules are refined by [0048](0048-hairlines-between-list-items.md).
 
 ## Context
 

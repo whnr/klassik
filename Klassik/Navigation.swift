@@ -45,7 +45,7 @@ final class Navigator<Page: Hashable> {
 
     func closePlayer() { isPlayerOpen = false }
 
-    /// The player shows what plays, so the queue end and Stop close it (ADR 0043).
+    /// The player shows what plays, so the queue end and Stop close it (ADR 0046).
     func playbackChanged(hasItem: Bool) {
         if !hasItem { closePlayer() }
     }

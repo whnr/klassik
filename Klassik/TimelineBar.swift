@@ -106,7 +106,7 @@ enum TimelineTouch: Equatable, Sendable {
         switch self {
         case .undecided: place.map { .play(movement: $0.movement) } ?? .nothing
         case .scrub: place.map { .seek($0) } ?? .nothing
-        // The window handles horizontal Back gestures, including their cancellation (ADR 0046).
+        // The window handles horizontal Back gestures, including their cancellation (ADR 0049).
         case .sideways: .nothing
         }
     }

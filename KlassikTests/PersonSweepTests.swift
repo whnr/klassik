@@ -140,20 +140,103 @@ struct PersonSweepTests {
         #expect(store.cache.checked[Self.bach.key] != nil)
     }
 
-    @Test func aFailedRequestWaitsThenTriesTheSamePersonAgain() async throws {
+    /// A fetch that fails every request naming `failing` for its first `times` requests, and answers the rest from
+    /// the Bach rules. It logs the tag that each name request carries, in order.
+    private func failing(_ failing: String, times: Int = .max, names: [String], log: NameLog) -> MusicBrainz.Fetch {
         let stub = PersonStub(PersonStub.bachRules)
         let attempts = Counter()
-        let waits = Counter()
-        let (store, _) = try makeStore(fetch: { request in
-            if attempts.next() < 2 { throw MusicBrainz.Failure.http(429) }
+        return { request in
+            let url = request.url?.absoluteString.removingPercentEncoding ?? ""
+            if let name = names.first(where: { url.contains($0) }) { log.append(name) }
+            if url.contains(failing), attempts.next() < times { throw URLError(.timedOut) }
             return try await stub.fetch(request)
-        })
+        }
+    }
+
+    @Test func aFailedPersonMovesToTheEndOfTheQueue() async throws {
+        let mutter = PersonSweep.Person(kind: .performer, tag: "Anne-Sophie Mutter")
+        let log = NameLog()
+        let names = [Self.bach.tag, mutter.tag]
+        let (store, _) = try makeStore(fetch: failing(Self.bach.tag, times: 1, names: names, log: log))
+        let waits = Counter()
         let sweep = PersonSweep(
             store: store, now: { Self.start }, sleep: { duration in waits.record(Int(duration.components.seconds)) })
-        await sweep.run([Self.bach])
-        #expect(waits.seconds == [60, 120])
-        #expect(store.facts(ofComposer: Self.bach.tag) != nil)
+        await sweep.run([Self.bach, mutter])
+        // Bach fails first, Mutter goes next, and Bach is tried again after her.
+        #expect(log.names.first == Self.bach.tag)
+        let mutterFirst = try #require(log.names.firstIndex(of: mutter.tag))
+        let bachAgain = try #require(log.names.indices.dropFirst().first { log.names[$0] == Self.bach.tag })
+        #expect(mutterFirst < bachAgain)
+        #expect(waits.seconds.isEmpty)
+        #expect(store.cache.checked[Self.bach.key] == Self.start)
+        #expect(store.cache.checked[mutter.key] == Self.start)
         #expect(sweep.state == .upToDate)
+    }
+
+    @Test func aPersonStopsAfterTwoFailuresAndWaitsForTheStandardCadence() async throws {
+        let mutter = PersonSweep.Person(kind: .performer, tag: "Anne-Sophie Mutter")
+        let log = NameLog()
+        let clock = TestClock(Self.start)
+        let (store, _) = try makeStore(fetch: failing(Self.bach.tag, names: [Self.bach.tag], log: log))
+        let sweep = PersonSweep(store: store, now: { clock.now }, sleep: { _ in }, jitter: { 0 })
+        await sweep.run([Self.bach, mutter])
+        #expect(PersonSweep.triesPerPass == 2)
+        #expect(log.names == [Self.bach.tag, Self.bach.tag])
+        #expect(store.cache.checked[Self.bach.key] == nil)
+        #expect(store.cache.checked[mutter.key] != nil)
+        let due = try #require(store.cache.due[Self.bach.key])
+        #expect(due == Self.start.addingTimeInterval(Double(PersonSweep.unknownDays) * 86_400))
+        // The failed person waits for its due time, then is looked up as a new person.
+        await sweep.run([Self.bach, mutter])
+        #expect(log.names.count == 2)
+        clock.advance(days: Double(PersonSweep.unknownDays) - 1)
+        #expect(sweep.plan([Self.bach]).new.isEmpty)
+        clock.advance(days: 2)
+        #expect(sweep.plan([Self.bach]).new == [Self.bach])
+    }
+
+    @Test func aCancelledSecondAttemptStaysInTheNextPass() async throws {
+        let attempts = Counter()
+        let (started, signal) = AsyncStream.makeStream(of: Int.self)
+        let stub = PersonStub(PersonStub.bachRules)
+        let (store, _) = try makeStore(fetch: { request in
+            let attempt = attempts.next()
+            signal.yield(attempt)
+            if attempt == 0 { throw URLError(.timedOut) }
+            if attempt == 1 { try await Task.sleep(for: .seconds(60)) }
+            return try await stub.fetch(request)
+        })
+        let sweep = PersonSweep(store: store, now: { Self.start }, jitter: { 0 })
+        let task = Task { await sweep.run([Self.bach]) }
+        defer { task.cancel() }
+        var requests = started.makeAsyncIterator()
+        #expect(await requests.next() == 0)
+        #expect(await requests.next() == 1)
+        task.cancel()
+        await task.value
+        #expect(store.cache.checked[Self.bach.key] == nil)
+        #expect(store.cache.due[Self.bach.key] == nil)
+        #expect(sweep.plan([Self.bach]).new == [Self.bach])
+        #expect(sweep.newCount == 1)
+        #expect(sweep.state == .idle)
+
+        await sweep.run([Self.bach])
+        #expect(store.cache.checked[Self.bach.key] == Self.start)
+        #expect(sweep.state == .upToDate)
+    }
+
+    @Test func failuresInARowBackOffFromTheSecond() async throws {
+        let (store, _) = try makeStore(fetch: { _ in throw URLError(.timedOut) })
+        let other = PersonSweep.Person(kind: .composer, tag: "Other Composer")
+        let waits = Counter()
+        let sweep = PersonSweep(
+            store: store, now: { Self.start }, sleep: { duration in waits.record(Int(duration.components.seconds)) })
+        await sweep.run([Self.bach, other])
+        // Bach, Other, Bach, Other: no wait after the first failure, none after the last try of the pass.
+        #expect(waits.seconds == [60, 120])
+        #expect(store.cache.checked.isEmpty)
+        #expect(store.cache.due[Self.bach.key] != nil)
+        #expect(store.cache.due[other.key] != nil)
     }
 
     @Test func aLongRetryAfterHoldsThePassUntilItEnds() async throws {
@@ -313,6 +396,14 @@ private final class PacerClock: @unchecked Sendable {
     private var offset = Duration.zero
     var now: ContinuousClock.Instant { lock.withLock { start + offset } }
     func advance(seconds: Int) { lock.withLock { offset += .seconds(seconds) } }
+}
+
+/// The person names of the requests, in the order sent.
+private final class NameLog: @unchecked Sendable {
+    private let lock = NSLock()
+    private var log: [String] = []
+    func append(_ name: String) { lock.withLock { log.append(name) } }
+    var names: [String] { lock.withLock { log } }
 }
 
 private final class Gate: @unchecked Sendable {

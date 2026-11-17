@@ -13,12 +13,24 @@ import SwiftUI
 enum Layout {
     // MARK: Page edges
 
-    /// The content inset on the side away from the timeline.
+    /// The content inset on both sides without a timeline. The content keeps its width with a timeline.
     /// css: specimen.css :root | --pad-left
+    static let centredEdge = Space.l.points + Measure.timeline / 2
+    /// The content inset on the side away from a shown timeline.
+    /// css: specimen.css :root.has-timeline | --pad-left
     static let edge = Space.l.points
-    /// The content inset on the timeline side, clear of the timeline.
-    /// css: specimen.css :root | --pad-right
-    static let timelineEdge = Space.l.points + Measure.timeline + Space.s.points
+    /// The content inset on the side of a shown timeline: the margin of the other side plus the timeline.
+    /// css: specimen.css :root.has-timeline | --pad-right
+    static let timelineEdge = Space.l.points + Measure.timeline
+
+    /// The left and right page insets. `timelineOnLeft` is nil when no timeline shows.
+    static func sideInsets(timelineOnLeft: Bool?) -> (left: CGFloat, right: CGFloat) {
+        switch timelineOnLeft {
+        case nil: (centredEdge, centredEdge)
+        case true?: (timelineEdge, edge)
+        case false?: (edge, timelineEdge)
+        }
+    }
 
     // MARK: Page heading
 
@@ -86,6 +98,8 @@ enum Layout {
     static let buttonRowGap = Space.m.points
     /// css: specimen.css .capsule | min-height
     static let capsuleHeight = Measure.hitTarget
+    /// css: specimen.css .capsule | gap
+    static let capsuleGap = Space.s.points
     /// A filter chip is lower than a capsule, so the chips read as a filter, not as buttons of the page.
     /// css: specimen.css .chip | min-height
     static let chipHeight: CGFloat = 30
@@ -178,6 +192,12 @@ enum Layout {
     /// The gap from the playback bar to its times.
     /// css: player.html .bar-box | row-gap
     static let barGap = Space.xs.points
+    /// The playback bar of the playing movement. It has no handle.
+    /// css: player.html .mv-bar | height
+    static let positionBar: CGFloat = 6
+    /// How far the touch area of the playback bar reaches above and below it, as a CSS inset: 44 points in all.
+    /// css: player.html .mv-bar::after | top
+    static let positionBarInset: CGFloat = -19
     /// The handle at the top of the player overlay.
     /// css: overlay.css .player-overlay .grab::after | width
     static let grabberWidth: CGFloat = 36

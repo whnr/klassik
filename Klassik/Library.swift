@@ -4,7 +4,9 @@ import Observation
 /// The whole library of one server, cached on the device. Klassik builds its own index from this copy.
 @MainActor @Observable
 final class Library {
-    private(set) var songs: [Song] = []
+    private(set) var songs: [Song] = [] {
+        didSet { artworkIndex = nil }
+    }
     private(set) var classical: [Song] = [] {
         didSet {
             index = WorkIndex(songs: classical)
@@ -13,6 +15,9 @@ final class Library {
     }
     private(set) var index = WorkIndex()
     @ObservationIgnored private var otherAlbumCache: [WorkIndex.Album]?
+    /// Positions in `songs` by album key and by cover ID. Cover views read it once per row, so a lookup must not scan
+    /// the library.
+    @ObservationIgnored private var artworkIndex: [ArtworkKey: [Int]]?
     private(set) var syncedAt: Date?
     private(set) var isSyncing = false
     /// Tracks received so far in the running sync.
@@ -32,7 +37,7 @@ final class Library {
     /// The albums that the filter keeps out of the index. Built when first read, because few pages need them.
     var otherAlbums: [WorkIndex.Album] {
         if let otherAlbumCache { return otherAlbumCache }
-        let classicalKeys = Set(index.albums.map(\.id))
+        let classicalKeys = Set(index.albums.flatMap(\.keys))
         let built = WorkIndex.albums(of: songs.filter { !classicalKeys.contains($0.albumKey) })
         otherAlbumCache = built
         return built
@@ -40,7 +45,31 @@ final class Library {
 
     /// An album of the index, else one that the filter keeps out of it.
     func album(_ key: String) -> WorkIndex.Album? {
-        index.album(key) ?? otherAlbums.first { $0.id == key }
+        index.album(key) ?? otherAlbums.first { $0.keys.contains(key) }
+    }
+
+    /// The song first, then every other track of its album or with its cover ID, in library order. Another movement
+    /// on the device can hold the album art when the song itself is not on the device.
+    func artworkSources(for song: Song) -> [Song] {
+        let index = artworkIndex ?? buildArtworkIndex()
+        var positions = Set(index[.album(song.albumKey)] ?? [])
+        if let cover = song.coverArt { positions.formUnion(index[.cover(cover)] ?? []) }
+        return [song] + positions.sorted().map { songs[$0] }.filter { $0.id != song.id }
+    }
+
+    private enum ArtworkKey: Hashable {
+        case album(String)
+        case cover(String)
+    }
+
+    private func buildArtworkIndex() -> [ArtworkKey: [Int]] {
+        var index: [ArtworkKey: [Int]] = [:]
+        for (position, song) in songs.enumerated() {
+            index[.album(song.albumKey), default: []].append(position)
+            if let cover = song.coverArt { index[.cover(cover), default: []].append(position) }
+        }
+        artworkIndex = index
+        return index
     }
 
     var albumCount: Int { Set(songs.map(\.albumKey)).count }
@@ -165,7 +194,7 @@ final class Library {
 
 struct LibraryCache: Codable, Sendable {
     /// Goes up when a sync fills a song field that older caches lack.
-    static let currentFormat = 2
+    static let currentFormat = 3
 
     var server: URL
     var username: String

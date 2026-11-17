@@ -320,7 +320,7 @@ final class PlaybackScreens: ScreensTestCase {
         slidePlayerDown(app)
     }
 
-    /// Stop closes the player and leaves no end message (ADR 0043). On the walk simulator a natural end of the queue
+    /// Stop closes the player and leaves no end message (ADR 0046). On the walk simulator a natural end of the queue
     /// does not arrive reliably, so the unit tests cover it through the same path.
     @MainActor
     func testStopClosesThePlayer() throws {
@@ -451,11 +451,17 @@ final class PlaybackScreens: ScreensTestCase {
         // A paused player moves to the dragged position and stays paused.
         let position = app.sliders["position"]
         XCTAssertTrue(position.waitForExistence(timeout: 10))
-        position.adjust(toNormalizedSliderPosition: 0)
+        let beginning = position.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.5))
+        let end = position.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5))
+        beginning.tap()
         let start = position.value as? String ?? ""
-        position.adjust(toNormalizedSliderPosition: 0.9)
-        let moved = expectation(for: NSPredicate(format: "value != %@", start), evaluatedWith: position)
-        XCTAssertEqual(XCTWaiter.wait(for: [moved], timeout: 5), .completed, start)
+        beginning.press(forDuration: 0.1, thenDragTo: end)
+        // Read at once after the lift: a snap-back shows the start until the player arrives at the new place.
+        let landed = position.value as? String ?? ""
+        XCTAssertNotEqual(landed, start, "The position bar snapped back to the start")
+        XCTAssertGreaterThan(Self.seconds(landed), Self.seconds(start))
+        // The bar stays where the finger let go: it does not snap back while the movement starts again.
+        XCTAssertFalse(eventually(timeout: 2) { position.value as? String != landed }, "The position bar snapped back")
         XCTAssertTrue(app.buttons["Resume"].firstMatch.exists)
         snap(app, "05c-seek")
 
@@ -487,9 +493,47 @@ final class PlaybackScreens: ScreensTestCase {
         play.tap()
         XCTAssertTrue(eventually(timeout: 10) { play.label == "Resume" }, "The pill reads \(play.label) after a pause")
         XCTAssertEqual(app.buttons["mini-player-pause"].label, "Resume", "The pill did not pause the playback")
-        // The playing row tints in place: the row keeps its frame.
-        XCTAssertEqual(first.frame, before, "The playing row moved or changed its size")
+        // The playing row tints in place. The timeline moves the content sideways only; it keeps its size and height.
+        XCTAssertEqual(first.frame.size, before.size, "The playing row changed its size")
+        XCTAssertEqual(first.frame.minY, before.minY, accuracy: 0.5, "The playing row moved up or down")
         snap(app, "04d-work-playing")
+    }
+
+    @MainActor
+    func testWorkPlayUsesTheContentInsetsOnEitherSide() throws {
+        for side in ["right", "left"] {
+            let app = try launchAndConnect(arguments: ["-\(timelineSideKey)", side])
+            composer(app, "Felix Mendelssohn").tap()
+            let work = app.buttons.matching(identifier: "work").firstMatch
+            XCTAssertTrue(work.waitForExistence(timeout: 10))
+            work.tap()
+            let play = app.buttons["play-work"]
+            XCTAssertTrue(play.waitForExistence(timeout: 10))
+            XCTAssertEqual(play.label, "Play")
+            let edge: PillEdge = side == "left" ? .left : .right
+            // Without a timeline both margins are equal; a shown timeline adds its width on its side only.
+            XCTAssertFalse(app.descendants(matching: .any)["timeline"].exists, "A timeline shows before playback")
+            let still = drawn(play, in: app, side: edge)
+            XCTAssertEqual(still.minX, app.frame.minX + Layout.centredEdge, accuracy: 1)
+            XCTAssertEqual(still.maxX, app.frame.maxX - Layout.centredEdge, accuracy: 1)
+            expectCapsuleLabelCentered(still, in: app)
+            if side == "right" {
+                snap(app, "04e-work-play-right")
+            } else {
+                snap(app, "04f-work-play-left")
+            }
+            play.tap()
+            XCTAssertTrue(app.descendants(matching: .any)["timeline"].waitForExistence(timeout: 10))
+            XCTAssertTrue(eventually(timeout: 15) { play.label == "Pause" }, "Play reads \(play.label) while it plays")
+            let frame = drawn(play, in: app, side: edge)
+            let leading = side == "left" ? Layout.timelineEdge : Layout.edge
+            let trailing = side == "left" ? Layout.edge : Layout.timelineEdge
+            XCTAssertEqual(frame.minX, app.frame.minX + leading, accuracy: 1)
+            XCTAssertEqual(frame.maxX, app.frame.maxX - trailing, accuracy: 1)
+            XCTAssertEqual(frame.midX, app.frame.midX + (leading - trailing) / 2, accuracy: 1)
+            XCTAssertEqual(frame.width, still.width, accuracy: 1, "The content width changed with the timeline")
+            app.terminate()
+        }
     }
 
     /// Play Album on a recording page starts the album, not only the recording (build 48, item 11).
@@ -542,6 +586,16 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(reveal(encores, in: app).isHittable)
         encores.tap()
         XCTAssertTrue(app.buttons["play-recording"].waitForExistence(timeout: 10))
+        // The album page has the favourite mark after its title (ADR 0017). Stars survive launches, so the
+        // check sets the mark and takes it away again.
+        let mark = app.buttons["favourite-album"]
+        XCTAssertTrue(mark.waitForExistence(timeout: 10), "The album page has no favourite mark")
+        let before = mark.value as? String
+        mark.tap()
+        XCTAssertTrue(eventually(timeout: 2) { mark.value as? String != before }, "The album mark did not change")
+        snap(app, "05e-album-favourite")
+        mark.tap()
+        XCTAssertTrue(eventually(timeout: 10) { mark.value as? String == before })
         startPlaying(app)
         pause(app)
         snap(app, "05e-play-album")
@@ -588,6 +642,7 @@ final class PlaybackScreens: ScreensTestCase {
         let performer = app.buttons.matching(identifier: "performer").firstMatch
         XCTAssertTrue(performer.waitForExistence(timeout: 10))
         snap(app, "06a-performers")
+        let title = drawn(app.staticTexts["page-heading"].firstMatch, in: app)
         let cover = app.buttons.matching(identifier: "performer-album").firstMatch
         // A tap while the list still settles does not open the row, so the walk taps again.
         for _ in 0..<3 where !cover.exists {
@@ -596,11 +651,16 @@ final class PlaybackScreens: ScreensTestCase {
         }
         XCTAssertTrue(cover.exists)
         snap(app, "06b-performer")
-        checkPerformerHead(app)
+        checkPerformerHead(app, titleBottom: title.maxY)
         cover.tap()
         reveal(app.buttons["raw-tags"], in: app).tap()
         XCTAssertTrue(app.navigationBars["Tags"].waitForExistence(timeout: 10))
         snap(app, "06c-tags")
+        // One tap on a cover pushes one album: two steps back reach the performer (sz-rs30.1.105.85).
+        back(app, times: 2)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["performer-tabs"].firstMatch.waitForExistence(timeout: 10),
+            "Back from the album did not reach the performer")
     }
 
     @MainActor
@@ -666,10 +726,20 @@ final class PlaybackScreens: ScreensTestCase {
         snap(app, "05a-recording-swipe")
         let favourite = app.buttons["favourite-action"].firstMatch
         XCTAssertTrue(favourite.waitForExistence(timeout: 5))
+        XCTAssertEqual(favourite.label, "Favourite")
         favourite.tap()
+        // The favourite moves up at once; it does not wait for the server.
         let moved = expectation(for: NSPredicate(format: "label CONTAINS 'Anna Probe'"), evaluatedWith: rows.firstMatch)
-        XCTAssertEqual(XCTWaiter.wait(for: [moved], timeout: 10), .completed)
+        XCTAssertEqual(XCTWaiter.wait(for: [moved], timeout: 2), .completed)
         snap(app, "05b-work-reference")
+        // The menu of a favourite takes it away.
+        rows.firstMatch.press(forDuration: 1.2)
+        let unfavourite = app.buttons["favourite-action"].firstMatch
+        XCTAssertTrue(unfavourite.waitForExistence(timeout: 5))
+        XCTAssertEqual(unfavourite.label, "Unfavourite")
+        snap(app, "05b-unfavourite-menu")
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
+        XCTAssertTrue(eventually(timeout: 5) { !unfavourite.exists }, "The menu did not close")
 
         rows.element(boundBy: 1).tap()
         app.buttons["favourite-recording"].tap()
@@ -1272,6 +1342,27 @@ class ScreensTestCase: XCTestCase {
         return ink(in: frame, of: app, side: side) ?? frame
     }
 
+    /// The capsule's flat fill separates its visible label from the accessibility frame of the whole row.
+    @MainActor
+    func expectCapsuleLabelCentered(_ frame: CGRect, in app: XCUIApplication) {
+        guard let screen = ScreenPixels(app) else { return XCTFail("No screenshot for the capsule label") }
+        let local = frame.offsetBy(dx: -app.frame.minX, dy: -app.frame.minY)
+        let columns = screen.pixels((local.minX + local.height / 2)...(local.maxX - local.height / 2))
+            .clamped(to: 0..<screen.width)
+        let rows = screen.pixels((local.minY + local.height / 4)...(local.maxY - local.height / 4))
+            .clamped(to: 0..<screen.height)
+        var (first, last) = (Int.max, Int.min)
+        for y in rows {
+            for x in columns where screen.differs(x, y, from: columns.lowerBound) {
+                first = min(first, x)
+                last = max(last, x)
+            }
+        }
+        guard first <= last else { return XCTFail("No visible capsule label") }
+        let center = app.frame.minX + CGFloat(first + last + 1) / (2 * screen.scale)
+        XCTAssertEqual(center, frame.midX, accuracy: 1.5, "The icon and text do not center on the capsule")
+    }
+
     /// The screen of the app as bytes, to compare pixels with the page ground.
     struct ScreenPixels {
         let width: Int
@@ -1389,8 +1480,15 @@ class ScreensTestCase: XCTestCase {
         expectPageEdges(frame, in: app, side: side, trailing: true, name, file: file, line: line)
     }
 
-    /// The distance of a drawn frame from the display edges against the page edges of Layout.swift. The timeline
-    /// side takes the wider inset. A text checks only its leading edge: its frame can run to the trailing inset.
+    /// The left and right page insets of Layout.swift for the timeline that the app shows now, if any.
+    @MainActor
+    func pageInsets(_ app: XCUIApplication, side: PillEdge) -> (left: CGFloat, right: CGFloat) {
+        let shown = app.descendants(matching: .any)["timeline"].exists
+        return Layout.sideInsets(timelineOnLeft: shown ? side == .left : nil)
+    }
+
+    /// The distance of a drawn frame from the display edges against the page edges of Layout.swift. A shown
+    /// timeline adds its width on its side; without one both sides are equal. A text checks only its leading edge: its frame can run to the trailing inset.
     /// The drawn edge of a letter sits up to a point inside its frame, so a text takes a wider tolerance.
     @MainActor
     func expectPageEdges(
@@ -1398,8 +1496,7 @@ class ScreensTestCase: XCTestCase {
         _ name: String, file: StaticString = #filePath, line: UInt = #line
     ) {
         XCTAssertGreaterThan(frame.width, 0, "No \(name)", file: file, line: line)
-        let left = side == .left ? Layout.timelineEdge : Layout.edge
-        let right = side == .left ? Layout.edge : Layout.timelineEdge
+        let (left, right) = pageInsets(app, side: side)
         XCTAssertEqual(
             frame.minX - app.frame.minX, left, accuracy: trailing ? 1 : 2, "\(name): left inset, frame \(frame)",
             file: file, line: line)
@@ -1432,7 +1529,7 @@ class ScreensTestCase: XCTestCase {
         guard let circle = ink(in: button.frame, of: app, side: side) else {
             return XCTFail("The movement play button draws nothing", file: file, line: line)
         }
-        let right = side == .left ? Layout.edge : Layout.timelineEdge
+        let right = pageInsets(app, side: side).right
         XCTAssertEqual(
             app.frame.maxX - circle.maxX, right, accuracy: 1, "Movement play: right inset, circle \(circle)",
             file: file, line: line)
@@ -1538,17 +1635,22 @@ class ScreensTestCase: XCTestCase {
     /// A performer without a picture: the name sits where a page title sits, and the tabs follow at the specimen
     /// gap, with no room for a Chronology button (sz-rs30.1.105.77).
     @MainActor
-    func checkPerformerHead(_ app: XCUIApplication) {
+    func checkPerformerHead(_ app: XCUIApplication, titleBottom: CGFloat) {
         let nameElement = app.descendants(matching: .any)["performer-name"].firstMatch
         let tabsElement = app.descendants(matching: .any)["performer-tabs"].firstMatch
         for element in [nameElement, tabsElement] {
             XCTAssertTrue(element.waitForExistence(timeout: 10), "No \(element)")
         }
         XCTAssertFalse(app.descendants(matching: .any)["performer-picture"].exists)
-        let name = drawn(nameElement, in: app)
+        // The name element reaches up under the back button, so the ink is read on the title line only.
+        let element = nameElement.frame
+        let line = Layout.pageTitle.size * Layout.pageTitle.lineHeight
+        let band = CGRect(x: element.minX, y: element.maxY - line, width: element.width, height: line)
+        let name = ink(in: band, of: app, side: .right) ?? element
         let tabs = drawn(tabsElement, in: app)
-        // As the Composers title in testLibrary: right under the back arrow.
-        XCTAssertLessThan(name.minY, 130, "Performer name sits too low: \(name)")
+        // The name sits where the title of every other page sits (sz-3hcq.13). The name element reaches up under
+        // the bar, so only the bottoms of the two lines compare.
+        XCTAssertEqual(name.maxY, titleBottom, accuracy: 2, "Performer name is not at the page title: \(name)")
         expectPageEdges(name, in: app, "Performer name")
         expectPageEdges(tabs, in: app, trailing: true, "Albums and About")
         expectGap(
@@ -1600,6 +1702,11 @@ class ScreensTestCase: XCTestCase {
             from.press(forDuration: 0.05, thenDragTo: to)
         }
         return element
+    }
+
+    /// The seconds of a shown time such as 1:48 or 1:02:03.
+    static func seconds(_ time: String) -> Double {
+        time.split(separator: ":").reduce(0) { $0 * 60 + (Double($1) ?? 0) }
     }
 
     /// Reads the condition until it holds or the time is over. The time ends only between two complete reads.

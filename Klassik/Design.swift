@@ -216,6 +216,8 @@ struct SectionHeading: View {
 /// The heading scrolls as content, so UIKit cannot collapse it before it crosses the soft edge.
 private struct PageHeading: View {
     @AppStorage(TimelineSide.storageKey) private var side = TimelineSide.standard
+    @Environment(AppModel.self) private var model: AppModel?
+    private var timeline: Bool { model?.showsTimeline == true }
     @Environment(\.pageHeadingBottom) private var bottom
     let title: String
     @Environment(\.pageFavourite) private var favourite
@@ -239,7 +241,8 @@ private struct PageHeading: View {
             .accessibilityAddTraits(.isHeader)
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
-            .listRowInsets(plain ? Layout.edges(side: side, top: Layout.headTop, bottom: bottom) : nil)
+            .listRowInsets(
+                plain ? Layout.edges(side: side, timeline: timeline, top: Layout.headTop, bottom: bottom) : nil)
         }
     }
 }
@@ -269,12 +272,11 @@ extension EnvironmentValues {
 }
 
 extension Layout {
-    /// The page insets for a timeline on `side`: the timeline side keeps clear of the timeline.
-    /// Each content page uses them. Settings and sheets keep the system insets.
-    static func edges(side: TimelineSide, top: CGFloat = 0, bottom: CGFloat = 0) -> EdgeInsets {
-        EdgeInsets(
-            top: top, leading: side == .left ? timelineEdge : edge,
-            bottom: bottom, trailing: side == .left ? edge : timelineEdge)
+    /// The page insets for a timeline on `side`, or for no timeline. Each content page uses them.
+    /// Settings and sheets keep the system insets.
+    static func edges(side: TimelineSide, timeline: Bool, top: CGFloat = 0, bottom: CGFloat = 0) -> EdgeInsets {
+        let insets = sideInsets(timelineOnLeft: timeline ? side == .left : nil)
+        return EdgeInsets(top: top, leading: insets.left, bottom: bottom, trailing: insets.right)
     }
 }
 
@@ -282,12 +284,14 @@ extension Layout {
 /// The hairline spans the content, from the leading to the trailing page edge, as in the specimen.
 private struct PageEdges: ViewModifier {
     @AppStorage(TimelineSide.storageKey) private var side = TimelineSide.standard
+    @Environment(AppModel.self) private var model: AppModel?
+    private var timeline: Bool { model?.showsTimeline == true }
     let top: CGFloat
     let bottom: CGFloat
 
     func body(content: Content) -> some View {
         content
-            .listRowInsets(Layout.edges(side: side, top: top, bottom: bottom))
+            .listRowInsets(Layout.edges(side: side, timeline: timeline, top: top, bottom: bottom))
             .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
             .alignmentGuide(.listRowSeparatorTrailing) { $0.width }
     }
@@ -296,9 +300,11 @@ private struct PageEdges: ViewModifier {
 /// The page edges of the timeline side without a list row, such as a scrolling row of chips.
 private struct PagePadding: ViewModifier {
     @AppStorage(TimelineSide.storageKey) private var side = TimelineSide.standard
+    @Environment(AppModel.self) private var model: AppModel?
+    private var timeline: Bool { model?.showsTimeline == true }
 
     func body(content: Content) -> some View {
-        let insets = Layout.edges(side: side)
+        let insets = Layout.edges(side: side, timeline: timeline)
         content
             .padding(.leading, insets.leading)
             .padding(.trailing, insets.trailing)
@@ -316,7 +322,7 @@ extension View {
         pageEdges(top: Layout.rowPadding, bottom: Layout.rowPadding)
     }
 
-    /// A hairline runs only between two list items (ADR 0045). The system draws the line between two rows as the
+    /// A hairline runs only between two list items (ADR 0048). The system draws the line between two rows as the
     /// bottom edge of the upper row, and a hidden edge on either row removes it. So only the outer edges hide.
     func itemSeparator(first: Bool, last: Bool) -> some View {
         listRowSeparator(first ? .hidden : .automatic, edges: .top)

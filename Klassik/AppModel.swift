@@ -11,13 +11,17 @@ final class AppModel {
     private(set) var lastError: String?
     private(set) var lastErrorDate: Date?
     private(set) var isChecking = false
-    /// True while a finger scrubs the timeline. The rows of the player stay still until it lifts (ADR 0027).
-    var isScrubbingTimeline = false
+    /// True while a finger scrubs the timeline or the position bar. The rows of the player stay still until it
+    /// lifts (ADR 0027).
+    var isScrubbing = false
 
     let library: Library
     private(set) var recordingOrder: RecordingOrder
     let tracks: TrackStore
+    let covers = CoverArt.Cache()
     let playback: PlaybackSession
+    /// The timeline and the mini player show while an item is in playback; the page insets follow them.
+    var showsTimeline: Bool { playback.item != nil }
     let enrichment: Enrichment
     let people: PersonFactsStore
     let sweep: PersonSweep
@@ -128,6 +132,7 @@ final class AppModel {
 
     /// The playback session reaches the server through the saved login.
     private func updateServer() {
+        covers.clear()
         playback.server = client
         let deviceStore = credentials.map { DeviceStore(server: $0.url, username: $0.username) }
         // Each UI walk must start with the same local favourites and order.

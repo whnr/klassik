@@ -3,7 +3,7 @@
 Decided by Flo in the build 46 feedback, 2026-11-14.
 Beads: sz-rs30.1.105.4.4, sz-rs30.1.105.4.7 and sz-rs30.1.105.2.1.
 This replaces the custom-tab fallback in [0028](0028-mini-player-pill.md).
-The strip rules are replaced by [0044](0044-timeline-ends-at-the-pill.md).
+The strip rules are replaced by [0047](0047-timeline-ends-at-the-pill.md).
 
 ## Context
 

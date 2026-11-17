@@ -58,19 +58,15 @@ struct ComposerPage: View {
                 .background(Palette.fillQuiet, in: .capsule)
                 .contentShape(.capsule)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FlatPress())
         // The gap above the button belongs to the hero, which knows whether a picture shows.
         .pageEdges()
         .listRowSeparator(.hidden)
         .accessibilityIdentifier("composer-chronology")
-        Picker("Show", selection: $tab) {
-            Text("Works").tag(Tab.works)
-            Text("About").tag(Tab.about)
-        }
-        .pickerStyle(.segmented)
-        .pageEdges(top: Layout.segmentedTop)
-        .listRowSeparator(.hidden)
-        .accessibilityIdentifier("composer-tabs")
+        PageTabs(tabs: [Tab.works, .about], title: { $0 == .works ? "Works" : "About" }, selection: $tab)
+            .pageEdges(top: Layout.segmentedTop)
+            .listRowSeparator(.hidden)
+            .accessibilityIdentifier("composer-tabs")
         ResolutionNotice(tag: composer.name)
         switch tab {
         case .works: worksTab(catalogue)
@@ -294,6 +290,8 @@ struct PersonHero: View {
     @State private var showsPicture = false
     /// The height of the name and the facts line, which sets the blur and the scrim under them.
     @State private var textHeight: CGFloat = 96
+    /// The right edge of the longest text line in the hero. Blur and scrim end beside it.
+    @State private var textRight: CGFloat?
     @ScaledMetric(space: .inGroup) private var gap: CGFloat
 
     /// The picture runs under the bars and keeps the specimen's proportion: 118% of the width, at most 470 pt.
@@ -330,6 +328,7 @@ struct PersonHero: View {
                             textHeight = $0
                         }
                 }
+                .coordinateSpace(.named(HeroSpace.name))
                 .frame(width: width, height: frame.height, alignment: .bottomLeading)
                 .clipped()
                 .padding(.bottom, spacesChronology ? Layout.pictureBottom + Layout.buttonRowTop : 0)
@@ -352,6 +351,21 @@ struct PersonHero: View {
     }
 
     private var heading: some View {
+        textLines
+            .onGeometryChange(for: CGFloat.self) {
+                $0.frame(in: .named(HeroSpace.name)).maxX
+            } action: {
+                textRight = $0
+            }
+            .pagePadding()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
+            .accessibilityIdentifier("\(kind)-name")
+    }
+
+    /// The name and the line, as wide as the longer of the two.
+    private var textLines: some View {
         VStack(alignment: .leading, spacing: gap) {
             Text(name)
                 .typeStyle(Layout.pageTitle)
@@ -363,10 +377,6 @@ struct PersonHero: View {
                     .accessibilityIdentifier("\(kind)-description")
             }
         }
-        .pagePadding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isHeader)
     }
 
     private var screen: PortraitSize.Screen {
@@ -425,13 +435,15 @@ struct PersonHero: View {
     private func picture(_ portrait: LoadedPortrait, framing: CGRect, frame: CGSize) -> some View {
         // The scrim comes from the picture under the text, as the frame shows it.
         let visible = PortraitFraming.visible(of: framing, in: frame)
-        let height = max(frame.height, 1)
-        // From the bottom: the text block with a margin, the blur strip, and the fade of the scrim (person.html).
-        let under = min(1, (textHeight + Space.m.points) / height)
-        let blurTop = min(1, (textHeight + 60) / height)
-        let scrimTop = min(1, (textHeight + 140) / height)
+        // From the bottom: the text block with a margin, the blur strip, and the fade of the scrim (picture.css).
+        let geometry = ScrimGeometry(
+            frame: frame, textHeight: textHeight, textRight: textRight ?? frame.width, margin: Space.m.points)
+        let under = geometry.under
+        let blurTop = geometry.blurTop
+        let scrimTop = geometry.scrimTop
+        // Only the text needs the contrast, so the measured region ends at the longest line.
         let region = CGRect(
-            x: visible.minX, y: visible.minY + visible.height * (1 - under), width: visible.width,
+            x: visible.minX, y: visible.minY + visible.height * (1 - under), width: visible.width * geometry.across,
             height: visible.height * under)
         let opacity = PictureScrim.opacity(
             over: portrait.brightestColour(in: region), increasedContrast: contrast == .increased)
@@ -458,6 +470,7 @@ struct PersonHero: View {
                                 .init(color: .black, location: 1 - under),
                             ], startPoint: .top, endPoint: .bottom)
                     )
+                    .mask(sideMask(geometry))
                     .accessibilityHidden(true)
                 if model.playback.item != nil {
                     // Under the timeline the picture blurs and fades towards the hall colour, as under a bar.
@@ -479,6 +492,7 @@ struct PersonHero: View {
                         .init(color: hallColour.opacity(opacity), location: 1 - under),
                         .init(color: hallColour.opacity(opacity), location: 1),
                     ], startPoint: .top, endPoint: .bottom)
+                .mask(sideMask(geometry))
             }
             .frame(width: frame.width, height: frame.height)
             .contentShape(Rectangle())
@@ -488,6 +502,15 @@ struct PersonHero: View {
         .accessibilityValue(density(portrait, framing: framing))
         .accessibilityHint("Shows the whole picture with its credit.")
         .accessibilityIdentifier("\(kind)-picture")
+    }
+
+    /// Full beside the text, then a fade to nothing: the picture stays sharp and bright where no text is.
+    private func sideMask(_ geometry: ScrimGeometry) -> some View {
+        LinearGradient(
+            stops: [
+                .init(color: .black, location: geometry.sideFull),
+                .init(color: .clear, location: geometry.sideClear),
+            ], startPoint: .leading, endPoint: .trailing)
     }
 
     private var edgeMask: some View {

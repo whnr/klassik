@@ -154,6 +154,36 @@ struct PictureScrimTests {
     }
 }
 
+/// Blur and scrim sit low and end beside the text (sz-rs30.1.105.72).
+struct ScrimGeometryTests {
+    let geometry = ScrimGeometry(
+        frame: CGSize(width: 400, height: 460), textHeight: 100, textRight: 200, margin: Space.m.points)
+
+    @Test func blurAndScrimStartCloseAboveTheName() {
+        #expect(abs(geometry.blurTop * 460 - (100 + Layout.pictureBlurAbove)) < 0.001)
+        #expect(abs(geometry.scrimTop * 460 - (100 + Layout.pictureScrimAbove)) < 0.001)
+        #expect(geometry.blurTop < geometry.scrimTop)
+        #expect(geometry.under < geometry.blurTop)
+        // Both stay in the lower half of the picture for a name block of two lines.
+        #expect(geometry.scrimTop < 0.5)
+    }
+
+    @Test func blurAndScrimEndBesideTheLongestLine() {
+        #expect(geometry.across == 0.5)
+        #expect(abs(geometry.sideFull * 400 - (200 + Space.l.points)) < 0.001)
+        #expect(abs(geometry.sideClear * 400 - (200 + Space.l.points + Layout.pictureSideFade)) < 0.001)
+        #expect(geometry.sideClear < 1)
+    }
+
+    @Test func aLineAsWideAsThePictureKeepsTheFullWidth() {
+        var wide = geometry
+        wide.textRight = 390
+        #expect(wide.sideFull == 1)
+        #expect(wide.sideClear == 1)
+        #expect(wide.across < 1)
+    }
+}
+
 struct PortraitLoaderTests {
     private func request(_ url: String) -> (URL, Counter) { (URL(string: url)!, Counter()) }
 

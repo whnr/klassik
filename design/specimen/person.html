@@ -211,7 +211,20 @@
           el("div", { class: "meta t-subheadline secondary" }, line),
         );
         hero.append(head);
-        new ResizeObserver(() => hero.style.setProperty("--title-h", head.offsetHeight + "px")).observe(head);
+        // The right edge of the longest text line: blur and scrim end beside it (picture.css).
+        const textRight = () => {
+          const range = document.createRange();
+          return Math.max(
+            ...[...head.querySelectorAll("h1, .meta")].map((line) => {
+              range.selectNodeContents(line);
+              return range.getBoundingClientRect().right - hero.getBoundingClientRect().left;
+            }),
+          );
+        };
+        new ResizeObserver(() => {
+          hero.style.setProperty("--title-h", head.offsetHeight + "px");
+          hero.style.setProperty("--text-right", textRight() + "px");
+        }).observe(head);
         if (composer?.facts)
           scroll.append(
             el(

@@ -39,6 +39,39 @@ enum PortraitFraming {
     }
 }
 
+/// The coordinate space of the person picture, in which the hero measures its text.
+enum HeroSpace {
+    static let name = "person-hero"
+}
+
+/// Where blur and scrim lie on the person picture, as shares of the frame (picture.css).
+/// Vertical shares count from the bottom; side shares count from the leading edge.
+struct ScrimGeometry: Equatable {
+    var frame: CGSize
+    /// The height of the name block, with its bottom gap.
+    var textHeight: CGFloat
+    /// The right edge of the longest text line.
+    var textRight: CGFloat
+    /// The margin of full scrim above the text.
+    var margin: CGFloat
+
+    private var height: CGFloat { max(frame.height, 1) }
+    private var width: CGFloat { max(frame.width, 1) }
+
+    /// The text block with its margin: here the scrim is full and the blur is full.
+    var under: CGFloat { min(1, (textHeight + margin) / height) }
+    /// Where the blur starts to fade in.
+    var blurTop: CGFloat { min(1, (textHeight + Layout.pictureBlurAbove) / height) }
+    /// Where the scrim starts to fade in.
+    var scrimTop: CGFloat { min(1, (textHeight + Layout.pictureScrimAbove) / height) }
+    /// The share of the width that the text covers, measured from the leading edge.
+    var across: CGFloat { min(1, max(0, textRight / width)) }
+    /// Blur and scrim are full up to here.
+    var sideFull: CGFloat { min(1, (textRight + Space.l.points) / width) }
+    /// Blur and scrim are gone from here.
+    var sideClear: CGFloat { min(1, (textRight + Space.l.points + Layout.pictureSideFade) / width) }
+}
+
 /// How strong the scrim under the name and the facts must be (ADR 0034). Text over a picture never fails.
 enum PictureScrim {
     /// The paper colour of the text, sRGB.

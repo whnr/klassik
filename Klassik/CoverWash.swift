@@ -1,4 +1,5 @@
 import CoreGraphics
+import Observation
 import SwiftUI
 import UIKit
 
@@ -239,12 +240,16 @@ enum WashRoom: CaseIterable, Sendable {
     }
 }
 
-/// The ground of the player while it plays, and the colours that stay readable on it (ADR 0034).
+/// The wash of the player while it plays, and the colours that stay readable on it (ADR 0034).
 enum CoverWash {
-    /// The grounds that take the wash. Rows and lists sit on the same ground.
-    static let grounds: [Palette] = [.backgroundPage, .backgroundRow, .backgroundGrouped]
     /// The colours that are solved again on the wash.
     static let solvedColours: [Palette] = [.textPrimary, .textSecondary, .tint, .favourite, .favouriteOff]
+
+    /// The colour of the wash and the colours that it replaces.
+    struct Wash: Equatable, Sendable {
+        var ground: SRGB
+        var colours: [Palette: SRGB]
+    }
 
     /// The ground for a hue in a room: the room's lightness, and the hue's chroma up to the room's limit.
     static func ground(_ pick: CoverHue.Pick, in room: WashRoom) -> SRGB {
@@ -276,15 +281,66 @@ enum CoverWash {
         return result.srgb
     }
 
-    /// Every colour that the wash replaces. `base` gives a colour of the asset catalog in the room.
-    static func palette(_ pick: CoverHue.Pick?, in room: WashRoom, base: (Palette) -> SRGB) -> [Palette: SRGB] {
+    /// The wash and the colours that it replaces. `base` gives a colour of the asset catalog in the room.
+    /// The wash fades into the page ground, so each colour reaches its target on both ends of the fade. Every
+    /// colour between the two ends has a luminance between theirs, so the colour reaches its target there too.
+    static func wash(_ pick: CoverHue.Pick?, in room: WashRoom, base: (Palette) -> SRGB) -> Wash {
         let ground = ground(pick ?? accent(base(.tint)), in: room)
-        var colours = Dictionary(uniqueKeysWithValues: grounds.map { ($0, ground) })
+        let page = base(.backgroundPage)
+        var colours: [Palette: SRGB] = [:]
         for colour in solvedColours {
             guard let target = room.target(of: colour) else { continue }
-            colours[colour] = solved(base(colour), on: ground, target: target)
+            let onWash = solved(base(colour), on: ground, target: target)
+            colours[colour] = solved(onWash, on: page, target: target)
         }
-        return colours
+        return Wash(ground: ground, colours: colours)
+    }
+}
+
+/// How far the player list has scrolled, so that the wash moves with the content.
+@MainActor @Observable
+final class WashScroll {
+    var offset: CGFloat = 0
+}
+
+/// The wash that the player shows while its item plays.
+struct PlayerWash {
+    var colour: Color.Resolved
+    var scroll: WashScroll
+}
+
+extension EnvironmentValues {
+    /// Set under the player while its item plays. A page list then shows the wash through a clear ground.
+    @Entry var playerWash: PlayerWash?
+}
+
+/// The ground of the player. While its item plays, the wash lies at the top of the content and fades into the page
+/// ground over `Layout.washHeight` (specimen player.html `.wash`). Rows and grouped grounds keep their colours.
+struct PlayerGround: View {
+    @Environment(\.playerWash) private var wash
+
+    var body: some View {
+        ZStack(alignment: .top) {
+            if let wash {
+                Rectangle().fill(Palette.backgroundPage)
+                LinearGradient(
+                    stops: [
+                        .init(color: Color(wash.colour), location: 0),
+                        .init(color: Color(wash.colour), location: Layout.washSolid),
+                        .init(color: Color(wash.colour).opacity(0), location: 1),
+                    ], startPoint: .top, endPoint: .bottom
+                )
+                .frame(height: Layout.washHeight)
+                .offset(y: -max(wash.scroll.offset, 0))
+                .transition(.opacity)
+            } else {
+                Rectangle().fill(Palette.backgroundGrouped)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .clipped()
+        .ignoresSafeArea()
+        .accessibilityHidden(true)
     }
 }
 
@@ -300,6 +356,7 @@ struct CoverWashModifier: ViewModifier {
     let cover: String?
     let isPlaying: Bool
     @State private var loaded: Loaded?
+    @State private var scroll = WashScroll()
 
     private struct Loaded: Equatable {
         var cover: String?
@@ -308,17 +365,18 @@ struct CoverWashModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         let room = WashRoom(colorScheme: colorScheme, contrast: contrast)
-        let colours: [Palette: Color.Resolved] =
+        let wash: CoverWash.Wash? =
             if isPlaying, let loaded, loaded.cover == cover {
-                CoverWash.palette(loaded.pick, in: room) { SRGB($0.color.resolve(in: environment)) }
-                    .mapValues(\.resolved)
+                CoverWash.wash(loaded.pick, in: room) { SRGB($0.color.resolve(in: environment)) }
             } else {
-                [:]
+                nil
             }
+        let colours = wash?.colours.mapValues(\.resolved) ?? [:]
         content
             .tint(colours[.tint].map { Color($0) } ?? Palette.tint.color)
             .environment(\.paletteOverrides, colours)
-            .animation(Motion.inPlace.animation(reduceMotion: reduceMotion), value: colours.isEmpty)
+            .environment(\.playerWash, wash.map { PlayerWash(colour: $0.ground.resolved, scroll: scroll) })
+            .animation(Motion.inPlace.animation(reduceMotion: reduceMotion), value: wash == nil)
             .task(id: cover) {
                 let pick = await Self.pick(cover: cover, model: model, points: Measure.coverPage * scale)
                 if Task.isCancelled { return }

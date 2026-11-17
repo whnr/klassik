@@ -81,9 +81,7 @@ private struct PlayerOverlay: View {
         .padding(.top, layout.top)
         .padding(.bottom, layout.bottom)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background {
-            Rectangle().fill(Palette.backgroundGrouped).ignoresSafeArea()
-        }
+        .background { PlayerGround() }
         .coverWash(cover: item.recording.songs.first?.coverArt, isPlaying: model.playback.item?.id == item.id)
         .offset(y: dragged)
         .animation(Motion.rise.animation(reduceMotion: reduceMotion), value: dragged == 0)

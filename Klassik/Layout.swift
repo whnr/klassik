@@ -147,6 +147,12 @@ enum Layout {
     /// The gap from the playback bar to its times.
     /// css: player.html .bar-box | row-gap
     static let barGap = Space.xs.points
+    /// The height of the player wash. It keeps its colour to `washSolid`, then fades into the page ground.
+    /// css: player.html .wash | height
+    static let washHeight: CGFloat = 640
+    /// The share of the wash height that keeps the full wash colour.
+    /// css: player.html .wash | background | 30%
+    static let washSolid: CGFloat = 0.3
     /// The rise when an item ends: the old content leaves this far upwards.
     /// css: player.html .rise-out | transform | 40px
     static let riseOut: CGFloat = 40

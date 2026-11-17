@@ -140,8 +140,8 @@ struct CoverWashTests {
     @Test func greyCoverTakesTheAccent() throws {
         for (room, style, contrast) in Self.rooms {
             let tint = Self.base(.tint, style: style, contrast: contrast)
-            let colours = CoverWash.palette(nil, in: room) { Self.base($0, style: style, contrast: contrast) }
-            let ground = OKLCH(try #require(colours[.backgroundPage]))
+            let wash = CoverWash.wash(nil, in: room) { Self.base($0, style: style, contrast: contrast) }
+            let ground = OKLCH(wash.ground)
             #expect(Self.distance(ground.hue, OKLCH(tint).hue) < 3, "\(room)")
             #expect(abs(ground.chroma - room.chromaLimit) < 0.003, "\(room)")
         }
@@ -149,20 +149,23 @@ struct CoverWashTests {
 
     // MARK: Contrast on the wash
 
-    /// Text, the tint and the favourite keep their targets on every wash, in every room.
+    /// Text, the tint and the favourite keep their targets on every wash and on the page ground that it fades into,
+    /// in every room. The wash replaces no ground.
     @Test func solvedColoursKeepTheirTargets() throws {
         for (room, style, contrast) in Self.rooms {
+            let page = Self.base(.backgroundPage, style: style, contrast: contrast)
             for hue in stride(from: 0.0, to: 360, by: 20) {
                 let pick = CoverHue.Pick(hue: hue, chroma: 0.15)
-                let colours = CoverWash.palette(pick, in: room) { Self.base($0, style: style, contrast: contrast) }
-                let ground = try #require(colours[.backgroundPage])
-                for grounds in CoverWash.grounds { #expect(colours[grounds] == ground) }
+                let wash = CoverWash.wash(pick, in: room) { Self.base($0, style: style, contrast: contrast) }
+                #expect(Set(wash.colours.keys).isSubset(of: CoverWash.solvedColours))
                 for colour in CoverWash.solvedColours {
                     let target = try #require(room.target(of: colour))
-                    let solved = try #require(colours[colour], "\(colour)")
-                    #expect(
-                        SRGB.contrast(solved, ground) >= target - 0.01,
-                        "\(colour) on hue \(hue) in \(room): \(SRGB.contrast(solved, ground))")
+                    let solved = try #require(wash.colours[colour], "\(colour)")
+                    for ground in [wash.ground, page] {
+                        #expect(
+                            SRGB.contrast(solved, ground) >= target - 0.01,
+                            "\(colour) on hue \(hue) in \(room): \(SRGB.contrast(solved, ground))")
+                    }
                 }
             }
         }

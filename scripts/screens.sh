@@ -139,6 +139,14 @@ if [ "$mode" != unit ] && [ ${#suites[@]} -gt 0 ]; then
   run_tests screens "${suites[@]}" -parallel-testing-enabled NO \
     -retry-tests-on-failure -test-iterations 2 -test-repetition-relaunch-enabled YES || ui=$?
   record ui "$([ $ui -eq 0 ] && echo passed || echo failed)"
+  # A retry that passes leaves exit status 0, so the result bundle is the only place that shows it.
+  if xcrun xcresulttool get test-results tests --path "$out/screens.xcresult" > "$out/screens-tests.json"; then
+    python3 scripts/screen_report.py retries "$out/screens-tests.json" "$out"
+    retried=$(paste -sd, "$out/retries.txt" | sed 's/,/, /g')
+    record ui_retried "${retried:-none}"
+  else
+    echo "::warning::Retries unknown: no test results read from screens.xcresult."
+  fi
   phase ui
 fi
 

@@ -8,6 +8,9 @@ Usage:
     python3 scripts/screen_report.py aggregate-ui <reports-dir> <requested-areas>
         Prints the UI result. Fails if a selected group has no completed result, or passed without all its
         screenshots.
+    python3 scripts/screen_report.py retries <test-results.json> <screens-dir>
+        Reads `xcresulttool get test-results tests`. Prints a ::warning:: for each test that failed an attempt and
+        passed a later one, and writes them to <screens-dir>/retries.txt, one name each.
     python3 scripts/screen_report.py summary <screens-dir>
         Prints the results of scripts/screens.sh as Markdown and writes <screens-dir>/missing.txt.
     python3 scripts/screen_report.py diff <screens-dir> <diff-dir> [<baseline-dir>]
@@ -144,6 +147,36 @@ def aggregate_ui(reports, request, source=None):
     return "failed" if "failed" in states else "passed" if states else "not run"
 
 
+def retried_tests(node, path=()):
+    """Names of the test cases that passed after a failed attempt.
+
+    A retry run by -retry-tests-on-failure shows as `Repetition` children of the test case, one for each attempt.
+    """
+    name = node.get("name", "")
+    kind = node.get("nodeType")
+    children = node.get("children", [])
+    if kind == "Test Case":
+        attempts = [c.get("result") for c in children if c.get("nodeType") == "Repetition"]
+        if node.get("result") == "Passed" and "Failed" in attempts:
+            return [".".join((*path, name))]
+        return []
+    if kind in ("Test Suite", "Test Case Group"):
+        path = (*path, name)
+    return [t for child in children for t in retried_tests(child, path)]
+
+
+def retries(results_json):
+    """The tests that passed only on a retry, from the JSON of `xcresulttool get test-results tests`."""
+    return sorted({t for node in json.loads(results_json).get("testNodes", []) for t in retried_tests(node)})
+
+
+def retry_annotations(tests):
+    return [
+        f"::warning title=UI test passed only on retry::{t} failed its first attempt and passed the retry."
+        for t in tests
+    ]
+
+
 def ui_result(results):
     """The UI line of the summary. A tolerated failure must read as a failure."""
     state = results.get("ui", "not run")
@@ -168,6 +201,7 @@ def summary(results, captured, wanted, artifacts_url=""):
         f"| UI tests | {ui_result(results)} |",
         f"| UI tests required | {'yes' if results.get('ui_required') == 'true' else 'no'} |",
         f"| UI areas | {results.get('ui_areas', 'false')} |",
+        f"| UI tests passed only on retry | {results.get('ui_retried', 'none')} |",
         f"| Screenshots captured | {len(set(captured) & set(wanted))} of {len(wanted)} |",
         f"| Screenshots missing | {', '.join(missing) or 'none'} |",
     ]
@@ -220,6 +254,12 @@ def main(args):
             print(f"::error::walk-{group} passed without screenshots: {', '.join(missing)}", file=sys.stderr)
         print(f"ui={state}")
         sys.exit(1 if state == "incomplete" else 0)
+    if command == "retries":
+        tests = retries(pathlib.Path(args[1]).read_text())
+        out = pathlib.Path(args[2])
+        (out / "retries.txt").write_text("".join(t + "\n" for t in tests))
+        print("\n".join(retry_annotations(tests)))
+        return
     screens = pathlib.Path(args[1])
     if command == "summary":
         results_file = screens / "results.txt"

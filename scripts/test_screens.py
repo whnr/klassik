@@ -1,5 +1,6 @@
 """Tests for the screenshot scripts: python3 -m unittest discover -s scripts -p "test_screens.py"."""
 
+import json
 import pathlib
 import subprocess
 import sys
@@ -54,6 +55,46 @@ class ExpectedTests(unittest.TestCase):
         self.assertTrue(screen_report.expected(source, "all"))
         for area in ("browse", "playback", "settings"):
             self.assertTrue(screen_report.expected(source, area), area)
+
+
+def case(name, result, attempts=()):
+    node = {"nodeType": "Test Case", "name": name, "result": result}
+    node["children"] = [{"nodeType": "Repetition", "name": f"Run {i}", "result": r} for i, r in enumerate(attempts, 1)]
+    return node
+
+
+def plan_json(*cases):
+    suite = {"nodeType": "Test Suite", "name": "BrowseScreens", "children": list(cases)}
+    bundle = {"nodeType": "UI test bundle", "name": "KlassikUITests", "children": [suite]}
+    return json.dumps({"testNodes": [{"nodeType": "Test Plan", "name": "Klassik", "children": [bundle]}]})
+
+
+class RetryTests(unittest.TestCase):
+    def test_retried_pass_is_reported(self):
+        text = plan_json(case("testHome()", "Passed", ["Failed", "Passed"]), case("testFilter()", "Passed", ["Passed"]))
+        self.assertEqual(screen_report.retries(text), ["BrowseScreens.testHome()"])
+
+    def test_clean_and_failed_tests_are_not_reported(self):
+        text = plan_json(case("testHome()", "Passed"), case("testFilter()", "Failed", ["Failed", "Failed"]))
+        self.assertEqual(screen_report.retries(text), [])
+
+    def test_command_warns_and_writes_the_list(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source = pathlib.Path(tmp) / "tests.json"
+            source.write_text(plan_json(case("testHome()", "Passed", ["Failed", "Passed"])))
+            script = pathlib.Path(__file__).parent / "screen_report.py"
+            done = subprocess.run(
+                [sys.executable, str(script), "retries", str(source), tmp], capture_output=True, text=True, check=True
+            )
+            self.assertIn("::warning title=UI test passed only on retry::BrowseScreens.testHome()", done.stdout)
+            self.assertEqual((pathlib.Path(tmp) / "retries.txt").read_text(), "BrowseScreens.testHome()\n")
+
+    def test_summary_names_the_retried_tests(self):
+        results = screen_report.read_results("ui=passed\nui_retried=BrowseScreens.testHome()\n")
+        text, _ = screen_report.summary(results, [], [])
+        self.assertIn("| UI tests passed only on retry | BrowseScreens.testHome() |", text)
+        text, _ = screen_report.summary({}, [], [])
+        self.assertIn("| UI tests passed only on retry | none |", text)
 
 
 class SummaryTests(unittest.TestCase):

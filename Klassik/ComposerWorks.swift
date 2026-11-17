@@ -29,6 +29,9 @@ struct ComposerWorks: Sendable {
         }
     }
 
+    /// The user default that lists partial works apart. Flo's setting is on by default.
+    static let separatesPartialKey = "composerWorks.separatePartial"
+
     let works: [WorkIndex.Work]
 
     init(_ composer: WorkIndex.Composer) {
@@ -51,10 +54,18 @@ struct ComposerWorks: Sendable {
             .map(\.key)
     }
 
+    /// A partial work has no recording that holds the whole work.
+    static func isPartial(_ work: WorkIndex.Work) -> Bool {
+        !work.recordings.isEmpty && work.recordings.allSatisfy(\.isPartial)
+    }
+
     /// The rows A to Z. With chips on, a work shows when it carries any of them ("or"), and a set keeps
-    /// only the works that do.
-    func rows(filter chips: Set<String> = []) -> [Row] {
-        let shown = chips.isEmpty ? works : works.filter { !Self.genres(of: $0).isDisjoint(with: chips) }
+    /// only the works that do. `partial` keeps only the partial works (true) or only the other works (false).
+    func rows(filter chips: Set<String> = [], partial: Bool? = nil) -> [Row] {
+        let shown = works.filter { work in
+            (chips.isEmpty || !Self.genres(of: work).isDisjoint(with: chips))
+                && (partial.map { $0 == Self.isPartial(work) } ?? true)
+        }
         var rows: [Row] = []
         var sets: [String: [WorkIndex.Work]] = [:]
         for work in shown {
@@ -69,6 +80,25 @@ struct ComposerWorks: Sendable {
             rows.append(works.count == 1 ? .work(works[0]) : .set(name: name, works: Self.sorted(works)))
         }
         return rows.sorted { Self.before($0.title, $1.title) }
+    }
+
+    /// One section of the Works tab under its own heading.
+    struct Part: Identifiable, Sendable {
+        var title: String
+        var rows: [Row]
+        var id: String { title }
+    }
+
+    /// The sections of the Works tab. With `separatingPartial`, works that no recording holds whole follow under
+    /// "Partial works". An empty section does not show, unless no work shows at all.
+    func parts(filter chips: Set<String> = [], separatingPartial: Bool) -> [Part] {
+        guard separatingPartial else { return [Part(title: "Works", rows: rows(filter: chips))] }
+        let parts = [
+            Part(title: "Works", rows: rows(filter: chips, partial: false)),
+            Part(title: "Partial works", rows: rows(filter: chips, partial: true)),
+        ]
+        let shown = parts.filter { !$0.rows.isEmpty }
+        return shown.isEmpty ? [parts[0]] : shown
     }
 
     static func sorted(_ works: [WorkIndex.Work]) -> [WorkIndex.Work] {

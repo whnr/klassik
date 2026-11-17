@@ -276,6 +276,47 @@ final class BrowseScreens: ScreensTestCase {
         snap(app, "03f-composer-about")
     }
 
+    /// The fixture holds only the third movement of Brahms's Fourth, so it shows under "Partial works". With the
+    /// setting off, it is one of the works again.
+    @MainActor
+    func testPartialWorks() throws {
+        let app = try launchAndConnect()
+        reveal(composer(app, "Johannes Brahms"), in: app).tap()
+        let partial = heading(app, "Partial works")
+        XCTAssertTrue(partial.waitForExistence(timeout: 10), "The composer page shows no partial works")
+        XCTAssertFalse(heading(app, "Works").exists)
+        XCTAssertTrue(app.buttons.matching(identifier: "work").firstMatch.exists)
+        snap(app, "03h-composer-partial-works")
+
+        openSettings(app)
+        let toggle = reveal(app.switches["partial-works"], in: app)
+        XCTAssertTrue(toggle.isHittable)
+        XCTAssertEqual(toggle.value as? String, "1", "Separate Partial Works is not on by default")
+        toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        XCTAssertEqual(toggle.value as? String, "0")
+        snap(app, "08e-partial-works-setting")
+
+        back(app)
+        app.buttons["library-composers"].tap()
+        reveal(composer(app, "Johannes Brahms"), in: app).tap()
+        let works = heading(app, "Works")
+        XCTAssertTrue(works.waitForExistence(timeout: 10), "With the setting off, the page shows no Works heading")
+        XCTAssertFalse(partial.exists)
+        snap(app, "03i-composer-partial-works-off")
+
+        // A reset app keeps its user defaults, so the next test must find the default again.
+        openSettings(app)
+        let restore = reveal(app.switches["partial-works"], in: app)
+        restore.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        XCTAssertEqual(restore.value as? String, "1")
+    }
+
+    @MainActor
+    private func heading(_ app: XCUIApplication, _ title: String) -> XCUIElement {
+        app.descendants(matching: .any).matching(identifier: "section-heading")
+            .matching(NSPredicate(format: "label BEGINSWITH %@", title + " (")).firstMatch
+    }
+
     /// Two good matches in another language: the listener picks one once.
     @MainActor
     func testConfirmMatch() throws {

@@ -168,12 +168,7 @@ struct WorkRow: View {
                             .ink()
                         OfflineHint(isOffline: work.recordings.contains { model.tracks.isOffline($0) })
                     }
-                    if !work.context.isEmpty {
-                        Text(work.context)
-                            .typeStyle(.footnote)
-                            .foregroundStyle(Palette.textSecondary)
-                    }
-                    Text(facts)
+                    Text(Self.detail(of: work, composed: model.enrichment.composed(work)?.span.text))
                         .typeStyle(.footnote)
                         .foregroundStyle(Palette.textSecondary)
                 }
@@ -186,11 +181,13 @@ struct WorkRow: View {
         }
     }
 
-    /// When the work was composed, then the recordings: "Composed 1844, 1 recording".
-    private var facts: String {
+    /// The one line under the title: when the work was composed, then the recordings, as
+    /// "Composed 1844, 1 recording" (person.html workRow). The track titles stay on the work page: in a list they
+    /// repeat the title or name one movement.
+    nonisolated static func detail(of work: WorkIndex.Work, composed: String?) -> String {
         let recordings = WorkIndex.Recording.count(work.recordings.count, "recording")
-        guard let composed = model.enrichment.composed(work) else { return recordings }
-        return "Composed\u{00A0}\(composed.span.text), \(recordings)"
+        guard let composed else { return recordings }
+        return "Composed\u{00A0}\(composed), \(recordings)"
     }
 }
 

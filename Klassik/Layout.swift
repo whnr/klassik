@@ -98,6 +98,22 @@ enum Layout {
     /// css: person.html .segmented | margin-top
     static let segmentedTop = Space.l.points
 
+    /// The inset of the thumb in the Works and About control.
+    /// css: person.html .segmented | padding-top
+    static let segmentedPadding: CGFloat = 2
+    /// css: person.html .segmented | border-top-left-radius
+    static let segmentedCorner = Radius.m
+    /// css: person.html .segmented button | min-height
+    static let segmentedHeight: CGFloat = 32
+    /// The soft shadow under the thumb.
+    /// css: person.html .segmented button.on | box-shadow | 3px
+    static let segmentedShadow: CGFloat = 3
+    /// css: person.html .segmented button.on | box-shadow | 1px
+    static let segmentedShadowY: CGFloat = 1
+    /// The label of a tab in the Works and About control.
+    /// css: person.html "segmented t-subheadline" | class
+    static let segmentedLabel = TypeStyle.subheadline
+
     // MARK: Person page
 
     /// The gap under the name and its line, at the foot of the picture or under the back arrow.
@@ -117,6 +133,15 @@ enum Layout {
     /// The least picture height above the fade.
     /// css: person.html .pic | height | 220px
     static let pictureAboveFade: CGFloat = 220
+    /// The blur under the name reaches this far above the name block.
+    /// css: picture.css :root[data-page="person"] .hero .pic .blur | height | 24px
+    static let pictureBlurAbove: CGFloat = 24
+    /// The scrim under the name fades out this far above the name block.
+    /// css: picture.css :root[data-page="person"] .hero .pic::after | height | 72px
+    static let pictureScrimAbove: CGFloat = 72
+    /// Blur and scrim stay full for `space-l` beside the longest text line, then fade out over this width.
+    /// css: picture.css :root[data-page="person"] .hero .pic | --side-mask | 64px
+    static let pictureSideFade: CGFloat = 64
     /// The column gap of the album grid.
     /// css: person.html .albums | column-gap
     static let albumColumnGap = Space.m.points

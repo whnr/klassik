@@ -251,6 +251,8 @@ final class BrowseScreens: ScreensTestCase {
         app.buttons.matching(NSPredicate(format: "identifier == 'genre-chip' AND label == 'Romantic'")).firstMatch
             .tap()
         snap(app, "03e-composer-chips")
+        checkTabs(app, "composer-tabs", from: "Works", to: "About")
+        snap(app, "03f-composer-about")
     }
 
     /// Two good matches in another language: the listener picks one once.
@@ -579,6 +581,7 @@ final class PlaybackScreens: ScreensTestCase {
         }
         XCTAssertTrue(cover.exists)
         snap(app, "06b-performer")
+        checkPerformerHead(app)
         cover.tap()
         reveal(app.buttons["raw-tags"], in: app).tap()
         XCTAssertTrue(app.navigationBars["Tags"].waitForExistence(timeout: 10))
@@ -1473,6 +1476,42 @@ class ScreensTestCase: XCTestCase {
         expectGap(from: chronology, to: tabs, Layout.segmentedTop, "Chronology to tabs")
         expectGap(from: tabs, to: chip, Layout.chipsTop, "Tabs to chips")
         expectGap(from: chip, to: heading, Layout.sectionTop, "Chips to Works", lowerText: Layout.sectionHeading)
+    }
+
+    /// A performer without a picture: the name sits where a page title sits, and the tabs follow at the specimen
+    /// gap, with no room for a Chronology button (sz-rs30.1.105.77).
+    @MainActor
+    func checkPerformerHead(_ app: XCUIApplication) {
+        let nameElement = app.descendants(matching: .any)["performer-name"].firstMatch
+        let tabsElement = app.descendants(matching: .any)["performer-tabs"].firstMatch
+        for element in [nameElement, tabsElement] {
+            XCTAssertTrue(element.waitForExistence(timeout: 10), "No \(element)")
+        }
+        XCTAssertFalse(app.descendants(matching: .any)["performer-picture"].exists)
+        let name = drawn(nameElement, in: app)
+        let tabs = drawn(tabsElement, in: app)
+        // As the Composers title in testLibrary: right under the back arrow.
+        XCTAssertLessThan(name.minY, 130, "Performer name sits too low: \(name)")
+        expectPageEdges(name, in: app, "Performer name")
+        expectPageEdges(tabs, in: app, trailing: true, "Albums and About")
+        expectGap(
+            from: name, to: tabs, Layout.personHeadBottom + Layout.segmentedTop, "Name to tabs",
+            upperText: Layout.pageTitle)
+        checkTabs(app, "performer-tabs", from: "Albums", to: "About")
+        tabsElement.buttons["Albums"].tap()
+    }
+
+    /// The flat tabs of a person page: a tap selects the other tab and shows its content at once (sz-rs30.1.105.74).
+    @MainActor
+    func checkTabs(_ app: XCUIApplication, _ identifier: String, from first: String, to second: String) {
+        let tabs = app.descendants(matching: .any)[identifier].firstMatch
+        XCTAssertTrue(reveal(tabs, in: app).waitForExistence(timeout: 10), "No \(identifier)")
+        XCTAssertTrue(tabs.buttons[first].isSelected, "\(first) is not selected")
+        tabs.buttons[second].tap()
+        let tags = app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH 'Name in your tags'"))
+        XCTAssertTrue(reveal(tags.firstMatch, in: app).waitForExistence(timeout: 5), "\(second) shows no tags")
+        XCTAssertTrue(tabs.buttons[second].isSelected, "\(second) is not selected")
+        XCTAssertFalse(tabs.buttons[first].isSelected, "\(first) stays selected")
     }
 
     /// Opens a recording, leaves it paused in the player and goes back to the list of composers.

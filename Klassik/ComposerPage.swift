@@ -491,7 +491,8 @@ struct PersonHero: View {
                         .init(color: hallColour.opacity(0), location: 1 - scrimTop),
                         .init(color: hallColour.opacity(opacity), location: 1 - under),
                         .init(color: hallColour.opacity(opacity), location: 1),
-                    ], startPoint: .top, endPoint: .bottom)
+                    ], startPoint: .top, endPoint: .bottom
+                )
                 .mask(sideMask(geometry))
             }
             .frame(width: frame.width, height: frame.height)

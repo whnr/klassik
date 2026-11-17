@@ -165,7 +165,7 @@ final class Library {
 
 struct LibraryCache: Codable, Sendable {
     /// Goes up when a sync fills a song field that older caches lack.
-    static let currentFormat = 2
+    static let currentFormat = 3
 
     var server: URL
     var username: String

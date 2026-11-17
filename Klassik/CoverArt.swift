@@ -2,6 +2,19 @@ import AVFoundation
 import UIKit
 
 @MainActor enum CoverArt {
+    /// Authentication salts change per request, so a signed URL must not identify a view's loading task.
+    struct Source: Equatable {
+        var files: [URL]
+        var coverID: String?
+        var pixels: Int
+        var credentials: ServerCredentials?
+
+        var remote: URL? {
+            guard let coverID, let credentials else { return nil }
+            return SubsonicClient(credentials: credentials).coverArtURL(id: coverID, size: pixels)
+        }
+    }
+
     /// The audio file keeps its artwork available for as long as the track stays on the device.
     static func embedded(in file: URL) async -> UIImage? {
         let flac = await Task.detached(priority: .userInitiated) { FLACArtwork.data(in: file) }.value

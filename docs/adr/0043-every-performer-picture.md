@@ -13,7 +13,8 @@ case the whole picture cropped only to fill the standard viewport. Whatever it i
 
 - A person page shows the Wikidata picture of a performer, as it does for a composer, whatever the picture shows.
 - A picture with one face centres on that face, as [0017](0017-composer-and-performer-pages.md) says.
-- A picture with no face or with several faces fills the picture frame from its centre. It does not zoom.
+- A performer picture with no face or with several faces fills the picture frame from its centre. It does not zoom.
+- A composer picture with several faces still centres on the largest face, as before.
 
 ## Consequences
 

@@ -112,13 +112,8 @@ struct CoverImage: View {
     let points: CGFloat
     @State private var image: UIImage?
 
-    private struct Source: Equatable {
-        var files: [URL]
-        var remote: URL?
-    }
-
-    private var source: Source {
-        guard let song else { return Source(files: [], remote: nil) }
+    private var source: CoverArt.Source {
+        guard let song else { return CoverArt.Source(files: [], coverID: nil, pixels: 0, credentials: nil) }
         // Another downloaded movement can hold the album art when the first movement is not on the device.
         let related = model.library.songs.filter {
             $0.id != song.id && ($0.albumKey == song.albumKey || (song.coverArt != nil && $0.coverArt == song.coverArt))
@@ -126,10 +121,9 @@ struct CoverImage: View {
         let files = ([song] + related).filter { model.tracks.isOffline($0) }.compactMap {
             model.tracks.localFile(for: $0)
         }
-        let remote = song.coverArt.flatMap {
-            model.client?.coverArtURL(id: $0, size: Int((points * scale).rounded(.up)))
-        }
-        return Source(files: files, remote: remote)
+        return CoverArt.Source(
+            files: files, coverID: song.coverArt, pixels: Int((points * scale).rounded(.up)),
+            credentials: model.credentials)
     }
 
     var body: some View {

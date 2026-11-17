@@ -8,6 +8,26 @@ import UIKit
 struct CoverArtTests {
     private let remote = URL(string: "https://music.example.org/cover")!
 
+    @Test func requestAuthenticationDoesNotChangeTheLoadingIdentity() throws {
+        let credentials = ServerCredentials(url: remote, username: "fixture", password: "fixture")
+        let source = CoverArt.Source(files: [], coverID: "album", pixels: 160, credentials: credentials)
+        let again = CoverArt.Source(files: [], coverID: "album", pixels: 160, credentials: credentials)
+        let request = try #require(source.remote)
+        #expect(
+            URLComponents(url: request, resolvingAgainstBaseURL: false)?.queryItems?.contains { $0.name == "s" } == true
+        )
+        #expect(source == again)
+        var changed = again
+        changed.pixels = 320
+        #expect(source != changed)
+        changed = again
+        changed.files = [URL(filePath: "/downloaded.mp3")]
+        #expect(source != changed)
+        changed = again
+        changed.credentials?.password = "replacement"
+        #expect(source != changed)
+    }
+
     private func picture() -> UIImage {
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1

@@ -314,7 +314,8 @@ struct PersonHero: View {
         VStack(spacing: 0) {
             if hasPicture {
                 let framing = portrait.map {
-                    PortraitFraming.rect(image: $0.image.size, frame: frame, face: $0.framingFace)
+                    PortraitFraming.rect(
+                        image: $0.image.size, frame: frame, face: $0.framingFace(performer: kind == "performer"))
                 }
                 ZStack(alignment: .bottomLeading) {
                     if let portrait, let framing {

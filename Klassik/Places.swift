@@ -144,6 +144,8 @@ private final class PlacesController: UITabBarController {
     private var reportedFrame: CGRect?
     private var restingFrame: CGRect?
     private var keyboardVisible = false
+    /// Set when the keyboard closes. The bar's items then measure their labels again.
+    private var remeasuresItems = false
     private(set) var playerHost: UIHostingController<AnyView>?
     let playerLayout = PlayerOverlayLayout()
 
@@ -171,7 +173,14 @@ private final class PlacesController: UITabBarController {
 
     @objc private func keyboardVisibilityChanged(_ notification: Notification) {
         keyboardVisible = notification.name == UIResponder.keyboardWillShowNotification
+        if !keyboardVisible { remeasuresItems = true }
         view.setNeedsLayout()
+    }
+
+    private func invalidateLayout(of view: UIView) {
+        view.invalidateIntrinsicContentSize()
+        view.setNeedsLayout()
+        view.subviews.forEach(invalidateLayout(of:))
     }
 
     override func viewDidLayoutSubviews() {
@@ -187,6 +196,14 @@ private final class PlacesController: UITabBarController {
         }
         frame.origin.x = side == .left ? reservedWidth : 0
         frame.size.width = max(0, view.bounds.width - reservedWidth)
+        if remeasuresItems {
+            // After a keyboard the items can keep truncated labels: the resting frame is unchanged, so UIKit does
+            // not lay them out again. A changed width forces a new layout of each item before the bar draws.
+            remeasuresItems = false
+            invalidateLayout(of: tabBar)
+            tabBar.frame = frame.insetBy(dx: 1, dy: 0)
+            tabBar.layoutIfNeeded()
+        }
         tabBar.frame = frame
         playerHost?.view.frame = view.bounds
         let top = view.window?.safeAreaInsets.top ?? view.safeAreaInsets.top

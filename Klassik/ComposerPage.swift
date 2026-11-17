@@ -194,32 +194,33 @@ private struct GenreChips: View {
     @ScaledMetric(relativeTo: .subheadline) private var height = Layout.chipHeight
 }
 
+/// One credit line as in the specimen: the source, then its link in the tint (person.html, `.link`).
+/// Increase Contrast underlines the link in its own colour.
 struct CreditRow: View {
+    @Environment(\.colorSchemeContrast) private var contrast
     let credit: PersonCredit
 
     var body: some View {
         if let url = PersonFactsService.trusted(credit.url) {
-            Link(destination: url) { content }
+            Link(destination: url) { line(link: credit.linkLabel(url)) }
                 .accessibilityIdentifier("credit-\(credit.kind.rawValue)")
         } else {
-            content
+            line(link: nil)
         }
     }
 
-    private var content: some View {
-        VStack(alignment: .leading) {
-            Text(credit.kind.title)
-                .typeStyle(.footnote)
-                .foregroundStyle(Palette.textSecondary)
-            Text(credit.text)
-                .ink()
-            if credit.kind == .text, PersonFactsService.trusted(credit.url) != nil {
-                Text("Article")
-                    .typeStyle(Layout.footnote)
-                    .foregroundStyle(Palette.tint)
-            }
-        }
-        .accessibilityElement(children: .combine)
+    private func line(link: String?) -> some View {
+        words(link: link)
+            .typeStyle(Layout.footnote)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
+    }
+
+    private func words(link: String?) -> Text {
+        let lead = Text(credit.lead(linked: link != nil)).foregroundStyle(Palette.textPrimary.color)
+        guard let link else { return lead }
+        let label = Text(link).foregroundStyle(Palette.tint.color).underline(contrast == .increased)
+        return Text("\(lead) \(label)")
     }
 }
 
@@ -530,31 +531,61 @@ struct PersonHero: View {
     }
 }
 
-/// The whole picture with its credit. The Close button closes it.
+/// The whole picture with its credit, full screen. A swipe down or the system close button closes it, as for any
+/// full-screen overlay. Flo chose this over the specimen's sheet with Done (sz-rs30.1.105.73).
 private struct WholePicture: View {
+    /// A drag down this far, or a flick that would carry this far, closes the picture.
+    static let closeDistance = 120.0
+
     let image: UIImage
     let credit: PersonCredit?
     @Binding var isPresented: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var drag = CGFloat.zero
 
     var body: some View {
-        VStack(spacing: Space.m.points) {
-            Image(uiImage: image)
-                .resizable()
-                .scaledToFit()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .accessibilityLabel("Whole picture")
-            if let credit {
-                Text(credit.text)
-                    .typeStyle(.footnote)
-                    .foregroundStyle(Palette.textPrimary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, Space.l.points)
+        NavigationStack {
+            VStack(spacing: Space.m.points) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .accessibilityLabel("Whole picture")
+                if let credit {
+                    Text(credit.text)
+                        .typeStyle(.footnote)
+                        .foregroundStyle(Palette.textPrimary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, Space.l.points)
+                }
             }
-            Button("Close") { isPresented = false }
-                .buttonStyle(.bordered)
+            .padding(.vertical, Space.l.points)
+            .offset(y: drag)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Palette.backgroundPage)
+            .contentShape(Rectangle())
+            .gesture(close)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(role: .close) { isPresented = false }
+                        .accessibilityIdentifier("whole-picture-close")
+                }
+            }
+            .toolbarBackground(.hidden, for: .navigationBar)
         }
-        .padding(.vertical, Space.l.points)
-        .background(Palette.backgroundPage)
         .accessibilityIdentifier("whole-picture")
+    }
+
+    /// The picture follows the finger down. Short of the distance it springs back.
+    private var close: some Gesture {
+        DragGesture()
+            .onChanged { drag = max(0, $0.translation.height) }
+            .onEnded { value in
+                if max(value.translation.height, value.predictedEndTranslation.height) > Self.closeDistance {
+                    isPresented = false
+                } else {
+                    withAnimation(Motion.inPlace.animation(reduceMotion: reduceMotion)) { drag = 0 }
+                }
+            }
     }
 }

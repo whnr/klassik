@@ -498,8 +498,9 @@ final class PlaybackScreens: ScreensTestCase {
         play.tap()
         XCTAssertTrue(eventually(timeout: 10) { play.label == "Resume" }, "The pill reads \(play.label) after a pause")
         XCTAssertEqual(app.buttons["mini-player-pause"].label, "Resume", "The pill did not pause the playback")
-        // The playing row tints in place: the row keeps its frame.
-        XCTAssertEqual(first.frame, before, "The playing row moved or changed its size")
+        // The playing row tints in place. The timeline moves the content sideways only; it keeps its size and height.
+        XCTAssertEqual(first.frame.size, before.size, "The playing row changed its size")
+        XCTAssertEqual(first.frame.minY, before.minY, accuracy: 0.5, "The playing row moved up or down")
         snap(app, "04d-work-playing")
     }
 
@@ -515,18 +516,27 @@ final class PlaybackScreens: ScreensTestCase {
             XCTAssertTrue(play.waitForExistence(timeout: 10))
             XCTAssertEqual(play.label, "Play")
             let edge: PillEdge = side == "left" ? .left : .right
+            // Without a timeline both margins are equal; a shown timeline adds its width on its side only.
+            XCTAssertFalse(app.descendants(matching: .any)["timeline"].exists, "A timeline shows before playback")
+            let still = drawn(play, in: app, side: edge)
+            XCTAssertEqual(still.minX, app.frame.minX + Layout.centredEdge, accuracy: 1)
+            XCTAssertEqual(still.maxX, app.frame.maxX - Layout.centredEdge, accuracy: 1)
+            expectCapsuleLabelCentered(still, in: app)
+            if side == "right" {
+                snap(app, "04e-work-play-right")
+            } else {
+                snap(app, "04f-work-play-left")
+            }
+            play.tap()
+            XCTAssertTrue(app.descendants(matching: .any)["timeline"].waitForExistence(timeout: 10))
+            XCTAssertTrue(eventually(timeout: 15) { play.label == "Pause" }, "Play reads \(play.label) while it plays")
             let frame = drawn(play, in: app, side: edge)
             let leading = side == "left" ? Layout.timelineEdge : Layout.edge
             let trailing = side == "left" ? Layout.edge : Layout.timelineEdge
             XCTAssertEqual(frame.minX, app.frame.minX + leading, accuracy: 1)
             XCTAssertEqual(frame.maxX, app.frame.maxX - trailing, accuracy: 1)
             XCTAssertEqual(frame.midX, app.frame.midX + (leading - trailing) / 2, accuracy: 1)
-            expectCapsuleLabelCentered(frame, in: app)
-            if side == "right" {
-                snap(app, "04e-work-play-right")
-            } else {
-                snap(app, "04f-work-play-left")
-            }
+            XCTAssertEqual(frame.width, still.width, accuracy: 1, "The content width changed with the timeline")
             app.terminate()
         }
     }
@@ -1416,8 +1426,15 @@ class ScreensTestCase: XCTestCase {
         expectPageEdges(frame, in: app, side: side, trailing: true, name, file: file, line: line)
     }
 
-    /// The distance of a drawn frame from the display edges against the page edges of Layout.swift. The timeline
-    /// side takes the wider inset. A text checks only its leading edge: its frame can run to the trailing inset.
+    /// The left and right page insets of Layout.swift for the timeline that the app shows now, if any.
+    @MainActor
+    func pageInsets(_ app: XCUIApplication, side: PillEdge) -> (left: CGFloat, right: CGFloat) {
+        let shown = app.descendants(matching: .any)["timeline"].exists
+        return Layout.sideInsets(timelineOnLeft: shown ? side == .left : nil)
+    }
+
+    /// The distance of a drawn frame from the display edges against the page edges of Layout.swift. A shown
+    /// timeline adds its width on its side; without one both sides are equal. A text checks only its leading edge: its frame can run to the trailing inset.
     /// The drawn edge of a letter sits up to a point inside its frame, so a text takes a wider tolerance.
     @MainActor
     func expectPageEdges(
@@ -1425,8 +1442,7 @@ class ScreensTestCase: XCTestCase {
         _ name: String, file: StaticString = #filePath, line: UInt = #line
     ) {
         XCTAssertGreaterThan(frame.width, 0, "No \(name)", file: file, line: line)
-        let left = side == .left ? Layout.timelineEdge : Layout.edge
-        let right = side == .left ? Layout.edge : Layout.timelineEdge
+        let (left, right) = pageInsets(app, side: side)
         XCTAssertEqual(
             frame.minX - app.frame.minX, left, accuracy: trailing ? 1 : 2, "\(name): left inset, frame \(frame)",
             file: file, line: line)
@@ -1459,7 +1475,7 @@ class ScreensTestCase: XCTestCase {
         guard let circle = ink(in: button.frame, of: app, side: side) else {
             return XCTFail("The movement play button draws nothing", file: file, line: line)
         }
-        let right = side == .left ? Layout.edge : Layout.timelineEdge
+        let right = pageInsets(app, side: side).right
         XCTAssertEqual(
             app.frame.maxX - circle.maxX, right, accuracy: 1, "Movement play: right inset, circle \(circle)",
             file: file, line: line)

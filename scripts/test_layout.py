@@ -58,8 +58,8 @@ class TokenTests(unittest.TestCase):
 
     def test_a_matching_token(self):
         swift = """
-        /// css: specimen.css :root | --pad-right
-        static let timelineEdge = Space.l.points + Measure.timeline + Space.s.points
+        /// css: specimen.css :root.has-timeline | --pad-right
+        static let timelineEdge = Space.l.points + Measure.timeline
         """
         self.assertIsNone(self.check(swift))
 

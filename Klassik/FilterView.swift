@@ -3,6 +3,7 @@ import SwiftUI
 /// Edits the rules that decide which albums are classical.
 struct FilterView: View {
     @Environment(AppModel.self) private var model
+    @FocusState private var focusedCondition: UUID?
 
     var body: some View {
         @Bindable var library = model.library
@@ -11,7 +12,7 @@ struct FilterView: View {
                 let number = (library.filter.rules.firstIndex { $0.id == rule.id } ?? 0) + 1
                 Section {
                     ForEach($rule.conditions) { $condition in
-                        ConditionRow(condition: $condition)
+                        ConditionRow(condition: $condition, focusedCondition: $focusedCondition)
                     }
                     .onDelete { rule.conditions.remove(atOffsets: $0) }
                     Menu("Add Condition") {
@@ -51,11 +52,19 @@ struct FilterView: View {
             }
         }
         .pageTitle("Classical Filter")
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") { focusedCondition = nil }
+                    .accessibilityIdentifier("dismiss-filter-keyboard")
+            }
+        }
     }
 }
 
 private struct ConditionRow: View {
     @Binding var condition: ClassicalFilter.Condition
+    @FocusState.Binding var focusedCondition: UUID?
 
     var body: some View {
         HStack {
@@ -70,6 +79,9 @@ private struct ConditionRow: View {
                     .multilineTextAlignment(.trailing)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
+                    .focused($focusedCondition, equals: condition.id)
+                    .submitLabel(.done)
+                    .onSubmit { focusedCondition = nil }
                     .accessibilityIdentifier("condition-text")
             }
         }

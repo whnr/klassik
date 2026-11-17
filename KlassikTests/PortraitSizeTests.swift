@@ -79,37 +79,35 @@ struct PortraitSizeTests {
     @Test func aURLThatIsNoThumbnailStaysAsItIs() {
         #expect(PortraitSize.thumbnail(Self.original, width: 1920) == nil)
         let fixture = URL(string: "https://thumb.wikimedia.org/fixture/portrait-1200.png")!
-        #expect(PortraitSize.candidates(PersonPortrait(url: fixture), screen: Self.proMax).map(\.url) == [fixture])
+        #expect(PortraitSize.candidates(PersonPortrait(url: fixture), screen: Self.proMax) == [fixture])
     }
 
-    @Test func aLargeOriginalGivesTheFullNeedOnWiFiThenTheScreenWidth() {
+    @Test func aLargeOriginalGivesTheFullNeedBeforeSmallerFallbacks() {
         let portrait = PersonPortrait(url: Self.thumb, original: Self.original, width: 6000, height: 8000)
         let candidates = PortraitSize.candidates(portrait, screen: Self.proMax)
-        let names = candidates.map(\.url.lastPathComponent)
+        let names = candidates.map(\.lastPathComponent)
         #expect(names == ["3840px-Bach_é.jpg", "1920px-Bach_é.jpg", "1280px-Bach_é.jpg"])
-        #expect(candidates.map(\.wifiOnly) == [true, false, false])
     }
 
     @Test func aNeedAtOrAboveTheOriginalGetsTheOriginal() {
         let portrait = PersonPortrait(url: Self.thumb, original: Self.original, width: 2000, height: 2667)
         let candidates = PortraitSize.candidates(portrait, screen: Self.proMax)
-        #expect(candidates.map(\.url) == [Self.original, PortraitSize.thumbnail(Self.thumb, width: 1920)!, Self.thumb])
+        #expect(candidates == [Self.original, PortraitSize.thumbnail(Self.thumb, width: 1920)!, Self.thumb])
     }
 
     @Test func anOriginalThatUIImageCannotReadIsNeverAsked() {
         let tiff = URL(string: "https://upload.wikimedia.org/wikipedia/commons/f/f0/Bach.tif")!
         let portrait = PersonPortrait(url: Self.thumb, original: tiff, width: 2000, height: 2667)
         let candidates = PortraitSize.candidates(portrait, screen: Self.proMax)
-        #expect(!candidates.map(\.url).contains(tiff))
-        #expect(candidates.last?.url == Self.thumb)
+        #expect(!candidates.contains(tiff))
+        #expect(candidates.last == Self.thumb)
     }
 
     @Test func storedFactsWithoutASizeStillGetALargerThumbnail() {
         let candidates = PortraitSize.candidates(PersonPortrait(url: Self.thumb), screen: Self.proMax)
         // A square counts: the hero needs 440 × 2 × 3 = 2640 pixels, so the step is 3840.
-        #expect(candidates.first?.url.lastPathComponent == "3840px-Bach_é.jpg")
-        #expect(candidates.first?.wifiOnly == true)
-        #expect(candidates.last?.url == Self.thumb)
+        #expect(candidates.first?.lastPathComponent == "3840px-Bach_é.jpg")
+        #expect(candidates.last == Self.thumb)
     }
 
     @Test func commonsGivesTheOriginalAndItsSize() throws {
@@ -162,7 +160,7 @@ struct PortraitLoaderSizeTests {
     static let portrait = PersonPortrait(
         url: PortraitSizeTests.thumb, original: PortraitSizeTests.original, width: 6000, height: 8000)
 
-    @Test func theLargeFileAsksForWiFiAndKeepsOnlyTheNeededPixels() async throws {
+    @Test func theLargeFileAllowsEveryNetworkAndKeepsOnlyTheNeededPixels() async throws {
         let requests = Requests()
         let loaded = try #require(
             await PortraitLoader.load(Self.portrait, screen: PortraitSizeTests.proMax) { request in
@@ -171,21 +169,21 @@ struct PortraitLoaderSizeTests {
             })
         let first = try #require(requests.all.first)
         #expect(requests.all.count == 1)
-        #expect(!first.allowsExpensiveNetworkAccess && !first.allowsConstrainedNetworkAccess)
+        #expect(first.allowsExpensiveNetworkAccess && first.allowsConstrainedNetworkAccess)
         #expect(loaded.image.size.width == 2640)
     }
 
-    @Test func withoutWiFiTheScreenWidthFileLoads() async throws {
+    @Test func aFailedLargeFileFallsBackToTheScreenWidthFile() async throws {
         let requests = Requests()
         let loaded = try #require(
             await PortraitLoader.load(Self.portrait, screen: PortraitSizeTests.proMax) { request in
                 requests.add(request)
-                // URLSession refuses a request that forbids the expensive or constrained network it is on.
-                guard request.allowsConstrainedNetworkAccess else { throw URLError(.notConnectedToInternet) }
+                if request.url?.lastPathComponent.hasPrefix("3840px") == true {
+                    return (Data(), 404)
+                }
                 return (Self.jpeg(width: 1920), 200)
             })
         #expect(requests.all.map { $0.url?.lastPathComponent } == ["3840px-Bach_é.jpg", "1920px-Bach_é.jpg"])
-        #expect(requests.all.last?.allowsConstrainedNetworkAccess == true)
         #expect(loaded.image.size.width == 1920)
     }
 

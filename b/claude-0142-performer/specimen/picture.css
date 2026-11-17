@@ -9,17 +9,28 @@
   mask-image: none;
 }
 :root[data-page="person"] .hero .pic .blur {
-  height: calc(var(--title-h, 80px) + 60px);
+  height: calc(var(--title-h, 80px) + 24px);
   -webkit-backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
-  -webkit-mask-image: linear-gradient(to top, #000 calc(var(--title-h, 80px) + 12px), transparent);
-  mask-image: linear-gradient(to top, #000 calc(var(--title-h, 80px) + 12px), transparent);
+  -webkit-mask-image: var(--side-mask), linear-gradient(to top, #000 calc(var(--title-h, 80px) + 12px), transparent);
+  mask-image: var(--side-mask), linear-gradient(to top, #000 calc(var(--title-h, 80px) + 12px), transparent);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+}
+/* Blur and scrim end beside the longest text line: the picture stays sharp and bright where no text is.
+   person.html sets --text-right to the right edge of the longest line. */
+:root[data-page="person"] .hero .pic {
+  --side-mask: linear-gradient(
+    to right,
+    #000 calc(var(--text-right, 100%) + var(--space-l)),
+    transparent calc(var(--text-right, 100%) + var(--space-l) + 64px)
+  );
 }
 :root[data-page="person"] .hero .pic::after {
   content: "";
   position: absolute;
   inset: auto 0 0 0;
-  height: calc(var(--title-h, 80px) + 140px);
+  height: calc(var(--title-h, 80px) + 72px);
   pointer-events: none;
   background: linear-gradient(
     to top,
@@ -27,6 +38,8 @@
     rgb(var(--scrim-rgb, 22 16 17) / var(--scrim-a, 0.6)) calc(var(--title-h, 80px) + 12px),
     transparent
   );
+  -webkit-mask-image: var(--side-mask);
+  mask-image: var(--side-mask);
 }
 :root[data-page="person"] .hero .person-head {
   padding-bottom: var(--space-m);

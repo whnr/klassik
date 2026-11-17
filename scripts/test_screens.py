@@ -57,9 +57,13 @@ class ExpectedTests(unittest.TestCase):
             self.assertTrue(screen_report.expected(source, area), area)
 
 
-def case(name, result, attempts=()):
+TERMINATE = "Failed to terminate de.whnr.klassik:9939: Failed to terminate de.whnr.klassik:0"
+ASSERT = 'ScreensTests.swift:993: XCTAssertEqual failed: ("Optional("0")") is not equal to ("Optional("1")")'
+
+
+def case(name, result, *messages):
     node = {"nodeType": "Test Case", "name": name, "result": result}
-    node["children"] = [{"nodeType": "Repetition", "name": f"Run {i}", "result": r} for i, r in enumerate(attempts, 1)]
+    node["children"] = [{"nodeType": "Failure Message", "name": m, "result": "Failed"} for m in messages]
     return node
 
 
@@ -70,24 +74,53 @@ def plan_json(*cases):
 
 
 class RetryTests(unittest.TestCase):
-    def test_retried_pass_is_reported(self):
-        text = plan_json(case("testHome()", "Passed", ["Failed", "Passed"]), case("testFilter()", "Passed", ["Passed"]))
-        self.assertEqual(screen_report.retries(text), ["BrowseScreens.testHome()"])
+    def test_only_the_tests_with_a_launch_or_termination_failure_run_again(self):
+        text = plan_json(
+            case("testHome()", "Failed", TERMINATE),
+            case("testFilter()", "Passed"),
+            case("testOpen()", "Failed", "Failed to launch de.whnr.klassik: timed out"),
+        )
+        self.assertEqual(screen_report.retry_plan(text), ["BrowseScreens/testHome", "BrowseScreens/testOpen"])
 
-    def test_clean_and_failed_tests_are_not_reported(self):
-        text = plan_json(case("testHome()", "Passed"), case("testFilter()", "Failed", ["Failed", "Failed"]))
+    def test_an_assertion_failure_in_any_test_prevents_the_retry(self):
+        text = plan_json(case("testHome()", "Failed", TERMINATE), case("testDiagnostics()", "Failed", ASSERT))
+        self.assertEqual(screen_report.retry_plan(text), [])
         self.assertEqual(screen_report.retries(text), [])
 
-    def test_command_warns_and_writes_the_list(self):
+    def test_an_assertion_failure_with_a_termination_failure_prevents_the_retry(self):
+        self.assertEqual(screen_report.retry_plan(plan_json(case("testHome()", "Failed", TERMINATE, ASSERT))), [])
+
+    def test_a_failure_without_a_message_prevents_the_retry(self):
+        self.assertEqual(screen_report.retry_plan(plan_json(case("testHome()", "Failed"))), [])
+
+    def test_a_clean_run_has_no_plan(self):
+        self.assertEqual(screen_report.retry_plan(plan_json(case("testHome()", "Passed"))), [])
+
+    def run_script(self, *args):
+        script = pathlib.Path(__file__).parent / "screen_report.py"
+        return subprocess.run([sys.executable, str(script), *args], capture_output=True, text=True, check=True)
+
+    def test_a_termination_failure_then_a_pass_is_a_warning(self):
         with tempfile.TemporaryDirectory() as tmp:
             source = pathlib.Path(tmp) / "tests.json"
-            source.write_text(plan_json(case("testHome()", "Passed", ["Failed", "Passed"])))
-            script = pathlib.Path(__file__).parent / "screen_report.py"
-            done = subprocess.run(
-                [sys.executable, str(script), "retries", str(source), tmp], capture_output=True, text=True, check=True
+            source.write_text(plan_json(case("testGapless()", "Failed", TERMINATE), case("testHome()", "Passed")))
+            self.assertEqual(self.run_script("retry-plan", str(source), tmp).stdout, "BrowseScreens/testGapless\n")
+            done = self.run_script("retries", str(source), tmp)
+            self.assertEqual(done.stdout, "")
+            self.assertEqual((pathlib.Path(tmp) / "retries.txt").read_text(), "BrowseScreens.testGapless()\n")
+            self.assertEqual(
+                (pathlib.Path(tmp) / "retry-warnings.txt").read_text(),
+                "::warning title=UI test passed only on retry::BrowseScreens.testGapless() failed attempt 1 "
+                f"({TERMINATE}) and passed attempt 2 in a new test runner.\n",
             )
-            self.assertIn("::warning title=UI test passed only on retry::BrowseScreens.testHome()", done.stdout)
-            self.assertEqual((pathlib.Path(tmp) / "retries.txt").read_text(), "BrowseScreens.testHome()\n")
+
+    def test_an_assertion_failure_is_a_failure_not_a_retry(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source = pathlib.Path(tmp) / "tests.json"
+            source.write_text(
+                plan_json(case("testGapless()", "Failed", TERMINATE), case("testDiagnostics()", "Failed", ASSERT))
+            )
+            self.assertEqual(self.run_script("retry-plan", str(source)).stdout, "")
 
     def test_summary_names_the_retried_tests(self):
         results = screen_report.read_results("ui=passed\nui_retried=BrowseScreens.testHome()\n")

@@ -8,9 +8,12 @@ Usage:
     python3 scripts/screen_report.py aggregate-ui <reports-dir> <requested-areas>
         Prints the UI result. Fails if a selected group has no completed result, or passed without all its
         screenshots.
+    python3 scripts/screen_report.py retry-plan <test-results.json>
+        Reads `xcresulttool get test-results tests` of the first UI run. Prints the failed tests to run again, as
+        <Suite>/<method>, one each. Prints nothing if a test failed for a reason other than a launch or termination.
     python3 scripts/screen_report.py retries <test-results.json> <screens-dir>
-        Reads `xcresulttool get test-results tests`. Prints a ::warning:: for each test that failed an attempt and
-        passed a later one, and writes them to <screens-dir>/retries.txt, one name each.
+        Called after the retry of the plan passed. Writes the retried tests to <screens-dir>/retries.txt, one name
+        each, and their ::warning:: lines to <screens-dir>/retry-warnings.txt.
     python3 scripts/screen_report.py summary <screens-dir>
         Prints the results of scripts/screens.sh as Markdown and writes <screens-dir>/missing.txt.
     python3 scripts/screen_report.py diff <screens-dir> <diff-dir> [<baseline-dir>]
@@ -147,33 +150,54 @@ def aggregate_ui(reports, request, source=None):
     return "failed" if "failed" in states else "passed" if states else "not run"
 
 
-def retried_tests(node, path=()):
-    """Names of the test cases that passed after a failed attempt.
+# XCTest reports these at the start of the message, after an optional "<file>:<line>: ".
+LAUNCH_FAILURE = re.compile(r"(?:\S+:\d+: )?Failed to (?:launch|terminate)\b")
 
-    A retry run by -retry-tests-on-failure shows as `Repetition` children of the test case, one for each attempt.
-    """
+
+def failure_messages(node):
+    found = [node.get("name", "")] if node.get("nodeType") == "Failure Message" else []
+    return found + [m for child in node.get("children", []) for m in failure_messages(child)]
+
+
+def failed_tests(node, path=()):
+    """The failed test cases as (suite, test, failure messages)."""
     name = node.get("name", "")
     kind = node.get("nodeType")
-    children = node.get("children", [])
     if kind == "Test Case":
-        attempts = [c.get("result") for c in children if c.get("nodeType") == "Repetition"]
-        if node.get("result") == "Passed" and "Failed" in attempts:
-            return [".".join((*path, name))]
-        return []
+        return [(".".join(path), name, failure_messages(node))] if node.get("result") == "Failed" else []
     if kind in ("Test Suite", "Test Case Group"):
         path = (*path, name)
-    return [t for child in children for t in retried_tests(child, path)]
+    return [t for child in node.get("children", []) for t in failed_tests(child, path)]
+
+
+def all_failed_tests(results_json):
+    return [t for node in json.loads(results_json).get("testNodes", []) for t in failed_tests(node)]
+
+
+def retry_plan(results_json):
+    """The failed tests to run again in a new test runner, or none.
+
+    XCTest can keep the state of a dead app process after a launch or termination failure, and a new runner clears
+    it. Any other failure is a result of the test, so one such failure in the run means no retry.
+    """
+    failed = all_failed_tests(results_json)
+    if any(not messages or not all(LAUNCH_FAILURE.match(m) for m in messages) for _, _, messages in failed):
+        return []
+    return [f"{suite.split('.')[-1]}/{test.removesuffix('()')}" for suite, test, _ in failed]
 
 
 def retries(results_json):
-    """The tests that passed only on a retry, from the JSON of `xcresulttool get test-results tests`."""
-    return sorted({t for node in json.loads(results_json).get("testNodes", []) for t in retried_tests(node)})
+    """The tests of the retry plan, as "<Suite>.<test>", with the first failure message of each."""
+    if not retry_plan(results_json):
+        return []
+    return sorted((f"{suite}.{test}", messages[0]) for suite, test, messages in all_failed_tests(results_json))
 
 
 def retry_annotations(tests):
     return [
-        f"::warning title=UI test passed only on retry::{t} failed its first attempt and passed the retry."
-        for t in tests
+        f"::warning title=UI test passed only on retry::{name} failed attempt 1 "
+        f"({' '.join(message.split())[:200]}) and passed attempt 2 in a new test runner."
+        for name, message in tests
     ]
 
 
@@ -254,11 +278,15 @@ def main(args):
             print(f"::error::walk-{group} passed without screenshots: {', '.join(missing)}", file=sys.stderr)
         print(f"ui={state}")
         sys.exit(1 if state == "incomplete" else 0)
+    if command == "retry-plan":
+        print("".join(t + "\n" for t in retry_plan(pathlib.Path(args[1]).read_text())), end="")
+        return
     if command == "retries":
         tests = retries(pathlib.Path(args[1]).read_text())
         out = pathlib.Path(args[2])
-        (out / "retries.txt").write_text("".join(t + "\n" for t in tests))
-        print("\n".join(retry_annotations(tests)))
+        (out / "retries.txt").write_text("".join(name + "\n" for name, _ in tests))
+        # The report step prints these. The walk step can use all the warning annotations that GitHub keeps for a step.
+        (out / "retry-warnings.txt").write_text("".join(line + "\n" for line in retry_annotations(tests)))
         return
     screens = pathlib.Path(args[1])
     if command == "summary":

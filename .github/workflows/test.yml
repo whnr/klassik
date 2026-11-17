@@ -205,6 +205,8 @@ jobs:
         run: |
           out="$RUNNER_TEMP/screens"
           mkdir -p "$out"
+          # GitHub keeps 10 warning annotations for each step, and XCTest runtime warnings fill those of the walk step.
+          cat "$out/retry-warnings.txt" 2>/dev/null || true
           python3 scripts/screen_report.py summary "$out" >> "$GITHUB_STEP_SUMMARY"
           cat "$out/timings.txt" >> "$GITHUB_STEP_SUMMARY" || true
           echo "ui=$(grep '^ui=' "$out/results.txt" | tail -1 | cut -d= -f2)" >> "$GITHUB_OUTPUT" || true

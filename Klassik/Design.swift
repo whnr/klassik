@@ -226,6 +226,7 @@ private struct PageHeading: View {
             Group {
                 if let favourite {
                     FavouriteTitle(title: title, isSet: favourite.isSet, action: favourite.action)
+                        .disabled(favourite.isDisabled)
                         .accessibilityIdentifier(favourite.identifier)
                 } else {
                     Text(title).accessibilityIdentifier("page-heading")
@@ -257,6 +258,7 @@ struct FavouriteHeading {
     var isSet: Bool
     var action: @MainActor () -> Void
     var identifier: String
+    var isDisabled = false
 }
 
 extension EnvironmentValues {

@@ -268,7 +268,7 @@ struct WorkView: View {
                     HStack(spacing: Layout.capsuleGap) {
                         Image(systemName: playsThisWork && !player.isPaused ? "pause.fill" : "play.fill")
                             .accessibilityHidden(true)
-                        Text(playsThisWork ? (player.isPaused ? "Resume" : "Pause") : "Play")
+                        Text(playsThisWork ? (player.isPaused ? "Resume" : "Pause") : "Play top recording")
                     }
                     .typeStyle(Layout.capsuleLabel)
                     .foregroundStyle(Palette.onAccent)
@@ -291,7 +291,6 @@ struct WorkView: View {
                         RecordingRow(
                             recording: recording, isFavourite: row.isFavourite, reason: row.reason,
                             isOffline: model.tracks.isOffline(recording),
-                            playsFirst: recording.id == model.recordingOrder.reference(of: work)?.id,
                             isPlaying: isPlaying)
                     }
                     // Tint identifies the playing recording while the listener browses.
@@ -413,7 +412,6 @@ private struct RecordingRow: View {
     let isFavourite: Bool
     let reason: String?
     let isOffline: Bool
-    let playsFirst: Bool
     let isPlaying: Bool
     @Environment(AppModel.self) private var model
     @ScaledMetric(relativeTo: .body) private var cover = Layout.rowCover
@@ -450,11 +448,6 @@ private struct RecordingRow: View {
                     .foregroundStyle(Palette.textSecondary)
                 if let reason {
                     Text(reason).typeStyle(.footnote).foregroundStyle(Palette.textSecondary)
-                }
-                if playsFirst {
-                    Text("Plays first")
-                        .typeStyle(.footnote)
-                        .foregroundStyle(Palette.tint)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -677,11 +670,11 @@ struct RecordingView: View {
             guard let id = recording.songs.first?.albumId else { return nil }
             return FavouriteHeading(
                 isSet: order.isFavourite(album: id), action: { order.toggleAtOnce(album: id) },
-                identifier: "favourite-album")
+                identifier: "favourite-album", isDisabled: order.isSaving)
         }
         return FavouriteHeading(
             isSet: order.isFavourite(recording, of: work), action: { order.toggleAtOnce(recording, of: work) },
-            identifier: "favourite-recording")
+            identifier: "favourite-recording", isDisabled: order.isSaving)
     }
 
     @ViewBuilder private var overlayTitle: some View {

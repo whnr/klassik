@@ -78,6 +78,7 @@ final class Library {
     private var owner: (server: URL, username: String)?
     private let cacheURL: URL
     private let defaults: UserDefaults
+    @ObservationIgnored private(set) var cacheWrite: Task<Void, Never>?
     private static let filterKey = "library.filter.rules"
     static let pageSize = 500
 
@@ -130,8 +131,7 @@ final class Library {
             owner = (client.credentials.url, client.credentials.username)
             show(songs, syncedAt: cache.syncedAt)
             syncError = nil
-            let url = cacheURL
-            try await Task.detached { try cache.write(to: url) }.value
+            await enqueueCache(cache).value
         } catch {
             syncError = error.localizedDescription
         }
@@ -163,12 +163,33 @@ final class Library {
         show(songs, syncedAt: syncedAt)
         let cache = LibraryCache(
             server: owner.server, username: owner.username, syncedAt: syncedAt, songs: songs, marker: marker)
-        // Star writes must reach disk in the same order as the listener's actions.
-        do { try cache.write(to: cacheURL) } catch { syncError = error.localizedDescription }
+        enqueueCache(cache)
+    }
+
+    /// Cache writes and deletion follow the listener's actions without blocking the main actor.
+    @discardableResult private func enqueueCache(_ cache: LibraryCache?) -> Task<Void, Never> {
+        let previous = cacheWrite
+        let url = cacheURL
+        let task = Task {
+            await previous?.value
+            let failure = await Task.detached {
+                do {
+                    if let cache {
+                        try cache.write(to: url)
+                    } else if FileManager.default.fileExists(atPath: url.path) {
+                        try FileManager.default.removeItem(at: url)
+                    }
+                    return nil as String?
+                } catch { return error.localizedDescription }
+            }.value
+            if let failure { syncError = failure }
+        }
+        cacheWrite = task
+        return task
     }
 
     func clear() {
-        try? FileManager.default.removeItem(at: cacheURL)
+        enqueueCache(nil)
         songs = []
         classical = []
         syncedAt = nil

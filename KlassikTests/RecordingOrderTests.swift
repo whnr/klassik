@@ -1,7 +1,12 @@
 import Foundation
+import Observation
 import Testing
 
 @testable import Klassik
+
+@MainActor private final class IndexChange {
+    var seen = false
+}
 
 actor FavouriteFixture: FavouriteServer {
     var stars = Starred()
@@ -367,7 +372,7 @@ struct RecordingOrderTests {
         #expect(try store(root).load().recordingOrder.isEmpty)
     }
 
-    @Test func corruptDeviceDataReportsAnErrorAndRemainsOnDisk() throws {
+    @Test func corruptDeviceDataReportsAnErrorAndRemainsOnDisk() async throws {
         let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
         let store = store(root)
@@ -375,9 +380,65 @@ struct RecordingOrderTests {
             at: store.url.deletingLastPathComponent(), withIntermediateDirectories: true)
         let bytes = Data("invalid".utf8)
         try bytes.write(to: store.url)
-        let order = RecordingOrder(library: Library(), store: store)
-        #expect(order.error != nil)
+        let library = try await library([song("a")], root: root)
+        let work = try #require(library.index.composers.first?.works.first)
+        let recording = try #require(work.recordings.first)
+        let server = FavouriteFixture()
+        let order = RecordingOrder(library: library, store: store, server: server)
+        #expect(order.loadError != nil)
+        #expect(order.error == nil)
+        await order.refresh()
+        #expect(order.error == nil)
+        order.toggle(work)
+        #expect(!order.isFavourite(work))
+        #expect(order.error == order.loadError)
+        await order.toggle(recording, of: work)
+        #expect(await server.writes.isEmpty)
         #expect(try Data(contentsOf: store.url) == bytes)
+    }
+
+    @Test(arguments: [FavouriteFixture.offline as any Error, FavouriteFixture.refusal])
+    func refreshFailureDoesNotReportASaveFailure(_ failure: any Error) async {
+        let server = FavouriteFixture()
+        await server.configure(Starred(), failure: failure)
+        let order = RecordingOrder(library: Library(), server: server)
+        await order.refresh()
+        #expect(order.error == nil)
+        #expect(order.refreshError == failure.localizedDescription)
+        await server.configure(Starred())
+        await order.refresh()
+        #expect(order.refreshError == nil)
+    }
+
+    @Test func unchangedStarsDoNotRebuildOrWriteTheLibrary() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let library = try await library([song("a", starred: true)], root: root)
+        let change = IndexChange()
+        withObservationTracking {
+            _ = library.index
+        } onChange: {
+            MainActor.assumeIsolated { change.seen = true }
+        }
+        library.replaceStars(["a-1"])
+        #expect(!change.seen)
+        #expect(library.cacheWrite == nil)
+    }
+
+    @Test func starCacheWritesKeepTheirOrderAndClearRunsLast() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let library = try await library([song("a")], root: root)
+        library.setStarred(["a-1"], true)
+        library.setStarred(["a-1"], false)
+        library.setStarred(["a-1"], true)
+        await library.cacheWrite?.value
+        let cache = root.appending(path: "library.json")
+        #expect(try LibraryCache.read(from: cache).songs.first?.starred != nil)
+        library.setStarred(["a-1"], false)
+        library.clear()
+        await library.cacheWrite?.value
+        #expect(!FileManager.default.fileExists(atPath: cache.path))
     }
 
     @Test func failuresKeepTheLibraryAndDeviceStateAndReportAnError() async throws {

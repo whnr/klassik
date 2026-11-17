@@ -232,7 +232,7 @@ private final class PlacesController: UITabBarController {
 
 extension Place {
     /// Search is a `UISearchTab`: iOS draws only that role apart from the other tabs, at the trailing end of the bar.
-    func tab(_ host: UIViewController) -> UITab {
+    @MainActor func tab(_ host: UIViewController) -> UITab {
         let tab: UITab
         if self == .search {
             tab = UISearchTab { _ in host }

@@ -247,6 +247,38 @@ final class BrowseScreens: ScreensTestCase {
         snap(app, "03g-composer-article")
     }
 
+    /// The picture runs under the status bar and the Dynamic Island, with the back button beside the island
+    /// (sz-rs30.1.102). A light picture, in the light and the dark room.
+    @MainActor
+    func testLightPictureUnderTheStatusBar() throws {
+        defer { XCUIDevice.shared.appearance = .light }
+        XCUIDevice.shared.appearance = .light
+        snap(try pictureTop(), "03h-picture-top-light-light-room")
+        XCUIDevice.shared.appearance = .dark
+        snap(try pictureTop(), "03i-picture-top-light-dark-room")
+    }
+
+    /// A dark picture under the status bar, in the light and the dark room.
+    @MainActor
+    func testDarkPictureUnderTheStatusBar() throws {
+        defer { XCUIDevice.shared.appearance = .light }
+        XCUIDevice.shared.appearance = .light
+        snap(try pictureTop(arguments: ["-darkPicture"]), "03j-picture-top-dark-light-room")
+        XCUIDevice.shared.appearance = .dark
+        snap(try pictureTop(arguments: ["-darkPicture"]), "03k-picture-top-dark-dark-room")
+    }
+
+    @MainActor
+    private func pictureTop(arguments: [String] = []) throws -> XCUIApplication {
+        let app = try launchAndConnect(arguments: arguments)
+        composer(app, "Felix Mendelssohn").tap()
+        let picture = app.descendants(matching: .any)["composer-picture"]
+        XCTAssertTrue(picture.waitForExistence(timeout: 30), "The composer page shows no picture")
+        XCTAssertEqual(picture.frame.minY, 0, accuracy: 1, "The picture does not reach the top edge")
+        XCTAssertTrue(app.navigationBars.buttons.firstMatch.exists, "No back button over the picture")
+        return app
+    }
+
     @MainActor
     func testMusicBrainz() throws {
         let app = try launchAndConnect()

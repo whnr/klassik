@@ -231,11 +231,14 @@ private final class PlacesController: UITabBarController {
 }
 
 extension Place {
-    /// Search is a `UISearchTab`: iOS draws only that role apart from the other tabs, at the trailing end of the bar.
+    /// Search is a `UISearchTab` that activates search. iOS 27 draws only such a tab apart from the other tabs, in
+    /// its own circle at the trailing end of the bar; without the flag the tab stays in the capsule.
     @MainActor func tab(_ host: UIViewController) -> UITab {
         let tab: UITab
         if self == .search {
-            tab = UISearchTab { _ in host }
+            let search = UISearchTab { _ in host }
+            search.automaticallyActivatesSearch = true
+            tab = search
         } else {
             tab = UITab(title: title, image: UIImage(systemName: symbol), identifier: rawValue) { _ in host }
         }

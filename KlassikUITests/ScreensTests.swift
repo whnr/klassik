@@ -1366,6 +1366,9 @@ class ScreensTestCase: XCTestCase {
             XCTAssertLessThanOrEqual(left.maxX, right.minX, "The visible tab frames overlap")
             XCTAssertGreaterThanOrEqual(right.midX - left.midX, 64, "The tab slots crowd their labels")
         }
+        // Search stands apart in its own circle, so its step from Chronology is wider than the step inside the capsule.
+        XCTAssertGreaterThan(
+            tabs[2].midX - tabs[1].midX, (tabs[1].midX - tabs[0].midX) * 1.5, "Search is not apart from the other tabs")
         let cover = app.buttons["mini-player-cover"].frame
         // The button includes the edge padding; its inward edge is the square cover's inward edge.
         let distance = side == .right ? app.frame.maxX - cover.minX : cover.maxX - app.frame.minX

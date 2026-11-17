@@ -9,6 +9,8 @@ struct PlaceTabsTests {
         for place in Place.allCases {
             let tab = place.tab(UIViewController())
             #expect((tab is UISearchTab) == (place == .search))
+            // Only a search tab that activates search stands apart from the capsule of the other tabs.
+            #expect((tab as? UISearchTab)?.automaticallyActivatesSearch ?? (place != .search))
         }
     }
 

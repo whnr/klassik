@@ -79,4 +79,20 @@ struct CoverArtTests {
         #expect(await CoverArt.embedded(in: wav) == nil)
         #expect(await CoverArt.embedded(in: root.appending(path: "absent.mp3")) == nil)
     }
+
+    @Test func decodesThePictureInAFLACDownload() async throws {
+        let file = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString + ".flac")
+        defer { try? FileManager.default.removeItem(at: file) }
+        func integer(_ value: Int) -> Data {
+            withUnsafeBytes(of: UInt32(value).bigEndian) { Data($0) }
+        }
+        let png = try #require(picture().pngData())
+        let pictureBlock =
+            integer(3) + integer(9) + Data("image/png".utf8) + integer(0)
+            + integer(8) + integer(8) + integer(24) + integer(0) + integer(png.count) + png
+        let data = Data("fLaC".utf8) + Data([0x86]) + integer(pictureBlock.count).dropFirst() + pictureBlock
+        try data.write(to: file)
+        let image = await CoverArt.load(files: [file], remote: nil)
+        #expect(image?.size == CGSize(width: 8, height: 8))
+    }
 }

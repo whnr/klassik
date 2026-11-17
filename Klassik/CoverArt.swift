@@ -4,6 +4,8 @@ import UIKit
 @MainActor enum CoverArt {
     /// The audio file keeps its artwork available for as long as the track stays on the device.
     static func embedded(in file: URL) async -> UIImage? {
+        let flac = await Task.detached(priority: .userInitiated) { FLACArtwork.data(in: file) }.value
+        if let flac, let image = UIImage(data: flac) { return image }
         let asset = AVURLAsset(url: file)
         guard let metadata = try? await asset.load(.commonMetadata) else { return nil }
         for item in AVMetadataItem.metadataItems(from: metadata, filteredByIdentifier: .commonIdentifierArtwork) {

@@ -39,9 +39,10 @@ private struct PlayerOverlay: View {
     let item: QueueItem
     @GestureState private var dragged: CGFloat = 0
 
-    /// The specimen's rise: the old content leaves 40 points up, the new one comes from 120 points below.
+    /// The specimen's rise: the old content leaves upwards, the next one comes from below.
     private static let rise = AnyTransition.asymmetric(
-        insertion: .offset(y: 120).combined(with: .opacity), removal: .offset(y: -40).combined(with: .opacity))
+        insertion: .offset(y: Layout.riseIn).combined(with: .opacity),
+        removal: .offset(y: -Layout.riseOut).combined(with: .opacity))
 
     var body: some View {
         VStack(spacing: 0) {

@@ -208,6 +208,7 @@ struct CoverWashTests {
     @Test func tailSaysWhereTheQueueEnds() {
         #expect(PlayerTail(isPlaying: true, upNext: [], ended: false) == .endsHere)
         #expect(PlayerTail(isPlaying: false, upNext: [], ended: true) == .ended)
+        #expect(PlayerTail(isPlaying: false, upNext: [UUID()], ended: true) == .ended)
         #expect(PlayerTail(isPlaying: false, upNext: [UUID()], ended: false) == .nothing)
         #expect(PlayerTail(isPlaying: false, upNext: [], ended: false) == .nothing)
     }

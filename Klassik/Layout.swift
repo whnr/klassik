@@ -147,6 +147,12 @@ enum Layout {
     /// The gap from the playback bar to its times.
     /// css: player.html .bar-box | row-gap
     static let barGap = Space.xs.points
+    /// The rise when an item ends: the old content leaves this far upwards.
+    /// css: player.html .rise-out | transform | 40px
+    static let riseOut: CGFloat = 40
+    /// The rise when an item ends: the next content comes from this far below.
+    /// css: player.html "transform: translateY(120px);" | transform | 120px
+    static let riseIn: CGFloat = 120
     /// The handle at the top of the player overlay.
     /// css: overlay.css .player-overlay .grab::after | width
     static let grabberWidth: CGFloat = 36

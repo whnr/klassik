@@ -22,6 +22,8 @@ final class PlaceBackTransition {
         let overlay = UIView(frame: rect)
         overlay.clipsToBounds = true
         overlay.accessibilityElementsHidden = true
+        // The window pan drives the drag. A touch during the settling animation must reach the page below.
+        overlay.isUserInteractionEnabled = false
         snapshot.frame = overlay.bounds
         overlay.addSubview(snapshot)
         window.addSubview(overlay)

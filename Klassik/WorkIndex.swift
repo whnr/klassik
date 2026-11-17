@@ -230,26 +230,54 @@ struct WorkIndex: Sendable {
         albumPositions[key].map { albums[$0] }
     }
 
-    /// The albums of some tracks, by title. Tracks with one album name and one album artist form one album.
+    /// The albums of some tracks, by title. The tracks of one server album stay together. Server albums with one
+    /// name and one album artist form one album when no track position is in two of them.
     static func albums(of songs: [Song]) -> [Album] {
-        Dictionary(grouping: songs, by: albumIdentity).values
-            .compactMap { Album(tracks: $0) }
-            .sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
+        var groups: [[Song]] = []
+        var open: [String: [Int]] = [:]
+        for (_, tracks) in Dictionary(grouping: songs, by: \.albumKey).sorted(by: { $0.key < $1.key }) {
+            guard let release = releaseName(tracks) else {
+                groups.append(tracks)
+                continue
+            }
+            let positions = Set(tracks.map(trackPosition))
+            let fits = { (group: Int) in Set(groups[group].map(trackPosition)).isDisjoint(with: positions) }
+            if let target = open[release]?.first(where: fits) {
+                groups[target] += tracks
+            } else {
+                open[release, default: []].append(groups.count)
+                groups.append(tracks)
+            }
+        }
+        return groups.compactMap { Album(tracks: $0) }
+            .sorted {
+                let order = $0.title.localizedStandardCompare($1.title)
+                return order == .orderedSame ? $0.id < $1.id : order == .orderedAscending
+            }
     }
 
-    /// Navidrome puts the release date into its album ID, so the tracks of one album can carry several IDs.
-    /// Without an album artist, a shared name does not prove one album: the ID decides.
-    private static func albumIdentity(_ song: Song) -> String {
-        guard let name = song.album, !name.isEmpty, let artist = song.displayAlbumArtist, !artist.isEmpty else {
-            return "key|\(song.albumKey)"
+    /// Navidrome puts the release date into its album ID, so the tracks of one album can carry several IDs. Each
+    /// ID then holds other track positions. Two releases with one name and one album artist share positions, so
+    /// they stay apart. Without one album name and one album artist on all tracks, the ID alone decides.
+    private static func releaseName(_ tracks: [Song]) -> String? {
+        let first = tracks.first
+        guard let name = first?.album, let artist = first?.displayAlbumArtist, !name.isEmpty, !artist.isEmpty else {
+            return nil
         }
-        return "name|\(name)|\(artist)"
+        guard tracks.allSatisfy({ $0.album == name && $0.displayAlbumArtist == artist }) else { return nil }
+        return "\(name)|\(artist)"
+    }
+
+    private static func trackPosition(_ song: Song) -> String {
+        "\(song.discNumber ?? 0)|\(song.track ?? 0)"
     }
 
     init(songs: [Song]) {
         albums = Self.albums(of: songs)
+        // Each server album is in one album, so the keys are unique. A broken grouping must still not trap.
         albumPositions = Dictionary(
-            uniqueKeysWithValues: albums.enumerated().flatMap { position, album in album.keys.map { ($0, position) } })
+            albums.enumerated().flatMap { position, album in album.keys.map { ($0, position) } },
+            uniquingKeysWith: { first, _ in first })
         var works: [String: Work] = [:]
         for (key, tracks) in Dictionary(grouping: songs, by: Self.workKey) {
             let first = tracks[0]

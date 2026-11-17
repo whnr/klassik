@@ -9,8 +9,9 @@
   padding: var(--space-xs);
   border-radius: 28px 0 12px 28px;
   padding-right: calc(var(--size-timeline) + var(--space-xs));
-  /* The timeline ends at the top of the pill and does not run down its face (ADR 0044). */
+  /* The timeline bar runs on down the flat face, so the pill reads as its end. */
   box-shadow:
+    inset calc(-1 * var(--size-timeline)) 0 0 var(--color-timeline-unplayed),
     0 0 0 0.5px var(--color-separator),
     0 4px 18px rgb(0 0 0 / 0.12);
 }
@@ -22,6 +23,7 @@
   padding-right: var(--space-xs);
   padding-left: calc(var(--size-timeline) + var(--space-xs));
   box-shadow:
+    inset var(--size-timeline) 0 0 var(--color-timeline-unplayed),
     0 0 0 0.5px var(--color-separator),
     0 4px 18px rgb(0 0 0 / 0.12);
 }

@@ -187,7 +187,7 @@ struct RecordingOrderTests {
         #expect(order.rows(of: work).first?.reason == "Favourite album: b")
         await confirm()
         #expect(await server.writes == [["album:b"]])
-        #expect(!order.rows(of: work).contains(where: \.isFavourite))
+        #expect(order.rows(of: work).allSatisfy { !$0.isFavourite })
         await order.toggle(album: "b")
         #expect(!order.isFavourite(album: "b"))
         #expect(await server.writes == [["album:b"], ["-album:b"]])

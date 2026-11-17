@@ -53,8 +53,7 @@ struct FilterView: View {
         }
         .pageTitle("Classical Filter")
         .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
+            ToolbarItem(placement: .keyboard) {
                 Button("Done") { focusedCondition = nil }
                     .accessibilityIdentifier("dismiss-filter-keyboard")
             }

@@ -286,7 +286,7 @@ struct WorkView: View {
                         }
                     } label: {
                         CapsuleLabel(
-                            title: playsThisWork ? (player.isPaused ? "Resume" : "Pause") : "Play",
+                            title: playsThisWork ? (player.isPaused ? "Resume" : "Pause") : "Play top recording",
                             systemImage: playsThisWork && !player.isPaused ? "pause.fill" : "play.fill", filled: true)
                     }
                     .buttonStyle(.plain)
@@ -319,7 +319,6 @@ struct WorkView: View {
                         RecordingRow(
                             recording: recording, isFavourite: row.isFavourite, reason: row.reason,
                             isOffline: model.tracks.isOffline(recording),
-                            playsFirst: recording.id == model.recordingOrder.reference(of: work)?.id,
                             isPlaying: isPlaying)
                     }
                     // Tint identifies the playing recording while the listener browses.
@@ -341,6 +340,7 @@ struct WorkView: View {
         .navigationBarTitleDisplayMode(.inline)
         .environment(\.pageHeading, "")
         .toolbar { if recordings.filter(\.isFavourite).count > 1 { EditButton() } }
+        .onAppear { model.sweep.prefer(performers: recordings.flatMap(\.recording.performerNames)) }
     }
 
     private func plays(_ recording: WorkIndex.Recording) -> Bool {
@@ -437,7 +437,6 @@ private struct RecordingRow: View {
     let isFavourite: Bool
     let reason: String?
     let isOffline: Bool
-    let playsFirst: Bool
     let isPlaying: Bool
     @Environment(AppModel.self) private var model
     @ScaledMetric(relativeTo: .body) private var cover = Layout.rowCover
@@ -474,11 +473,6 @@ private struct RecordingRow: View {
                     .foregroundStyle(Palette.textSecondary)
                 if let reason {
                     Text(reason).typeStyle(.footnote).foregroundStyle(Palette.textSecondary)
-                }
-                if playsFirst {
-                    Text("Plays first")
-                        .typeStyle(.footnote)
-                        .foregroundStyle(Palette.tint)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -708,6 +702,7 @@ struct RecordingView: View {
         .environment(\.pageHeading, "")
         .navigationTitle(isOverlay ? "" : work.title)
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear { model.sweep.prefer(performers: recording.performerNames) }
     }
 
     /// The favourite of the page: the album on an album page, else the recording (ADR 0013, 0017).
@@ -717,11 +712,11 @@ struct RecordingView: View {
             guard let id = recording.songs.first?.albumId else { return nil }
             return FavouriteHeading(
                 isSet: order.isFavourite(album: id), action: { order.toggleAtOnce(album: id) },
-                identifier: "favourite-album")
+                identifier: "favourite-album", isDisabled: order.isSaving)
         }
         return FavouriteHeading(
             isSet: order.isFavourite(recording, of: work), action: { order.toggleAtOnce(recording, of: work) },
-            identifier: "favourite-recording")
+            identifier: "favourite-recording", isDisabled: order.isSaving)
     }
 
     @ViewBuilder private var heroTitle: some View {

@@ -75,6 +75,7 @@ struct PerformerPage: View {
             .environment(\.defaultMinListHeaderHeight, 0)
             .environment(\.isPageList, true)
             .scrollContentBackground(.hidden)
+            .pageContentPosition()
             .background(Palette.backgroundPage)
             .ignoresSafeArea(.container, edges: .top)
         }

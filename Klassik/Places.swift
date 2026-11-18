@@ -78,7 +78,7 @@ private struct SystemPlaces: UIViewControllerRepresentable {
         let controller = PlacesController()
         controller.delegate = context.coordinator
         controller.tabBar.accessibilityIdentifier = "tab-row"
-        controller.viewControllers = Place.allCases.map { place in
+        controller.tabs = Place.allCases.map { place in
             let root: AnyView
             switch place {
             case .library: root = AnyView(PlaceStack(place: place) { LibraryView() })
@@ -93,11 +93,7 @@ private struct SystemPlaces: UIViewControllerRepresentable {
                     .environment(\.placeBackTransition, backTransition)
                     .environment(\.tabRowClearance, Space.s.points)
                     .tint(Palette.tint))
-            host.tabBarItem = UITabBarItem(
-                title: place.title, image: UIImage(systemName: place.symbol),
-                selectedImage: UIImage(systemName: place == .library ? "books.vertical.fill" : place.symbol))
-            host.tabBarItem.accessibilityIdentifier = "tab-\(place.rawValue)"
-            return host
+            return place.tab(host)
         }
         controller.installPlayer(
             AnyView(
@@ -127,8 +123,9 @@ private struct SystemPlaces: UIViewControllerRepresentable {
 
         init(navigator: AppNavigator) { self.navigator = navigator }
 
-        func tabBarController(_ controller: UITabBarController, shouldSelect viewController: UIViewController) -> Bool {
-            guard let index = controller.viewControllers?.firstIndex(of: viewController) else { return false }
+        func tabBarController(_ controller: UITabBarController, shouldSelectTab tab: UITab) -> Bool {
+            // The search tab keeps the identifier that UIKit gives it, so the position names the place.
+            guard let index = controller.tabs.firstIndex(where: { $0 === tab }) else { return false }
             let place = Place.allCases[index]
             let dismissesCurrent = navigator.isPlayerOpen && navigator.selection == place
             navigator.selectTab(place)
@@ -150,6 +147,8 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
     private var reportedFrame: CGRect?
     private var restingFrame: CGRect?
     private var keyboardVisible = false
+    /// Set when the keyboard closes. The bar's items then measure their labels again.
+    private var remeasuresItems = false
     private(set) var playerHost: UIHostingController<AnyView>?
     let playerLayout = PlayerOverlayLayout()
 
@@ -177,6 +176,7 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
 
     @objc private func keyboardVisibilityChanged(_ notification: Notification) {
         keyboardVisible = notification.name == UIResponder.keyboardWillShowNotification
+        if !keyboardVisible { remeasuresItems = true }
         view.setNeedsLayout()
     }
 
@@ -245,6 +245,12 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
         }
     }
 
+    private func invalidateLayout(of view: UIView) {
+        view.invalidateIntrinsicContentSize()
+        view.setNeedsLayout()
+        view.subviews.forEach(invalidateLayout(of:))
+    }
+
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         configureBackGesture()
@@ -259,6 +265,14 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
         }
         frame.origin.x = side == .left ? reservedWidth : 0
         frame.size.width = max(0, view.bounds.width - reservedWidth)
+        if remeasuresItems {
+            // After a keyboard the items can keep truncated labels: the resting frame is unchanged, so UIKit does
+            // not lay them out again. A changed width forces a new layout of each item before the bar draws.
+            remeasuresItems = false
+            invalidateLayout(of: tabBar)
+            tabBar.frame = frame.insetBy(dx: 1, dy: 0)
+            tabBar.layoutIfNeeded()
+        }
         tabBar.frame = frame
         playerHost?.view.frame = view.bounds
         let top = view.window?.safeAreaInsets.top ?? view.safeAreaInsets.top
@@ -289,6 +303,21 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
 }
 
 extension Place {
+    /// Search is a `UISearchTab` that activates search. iOS 27 draws only such a tab apart from the other tabs, in
+    /// its own circle at the trailing end of the bar; without the flag the tab stays in the capsule.
+    @MainActor func tab(_ host: UIViewController) -> UITab {
+        let tab: UITab
+        if self == .search {
+            let search = UISearchTab { _ in host }
+            search.automaticallyActivatesSearch = true
+            tab = search
+        } else {
+            tab = UITab(title: title, image: UIImage(systemName: symbol), identifier: rawValue) { _ in host }
+        }
+        (tab as AnyObject as? UIAccessibilityIdentification)?.accessibilityIdentifier = "tab-\(rawValue)"
+        return tab
+    }
+
     var symbol: String {
         switch self {
         case .library: "books.vertical"
@@ -389,12 +418,8 @@ private struct PlaceInsets: ViewModifier {
             }
             .scrollEdgeEffectStyle(.soft, for: .top)
             .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    // Keep the large title and back labels while suppressing the inline title (ADR 0023).
-                    Color.clear.frame(width: 1, height: 1).accessibilityHidden(true)
-                }
-            }
+            // The bar shows no title (ADR 0023). The navigation title still names the back button of the next page.
+            .toolbar(removing: .title)
             .contentMargins(.trailing, beside, for: .scrollIndicators)
     }
 }
@@ -407,17 +432,54 @@ struct BackTip: Tip {
     var options: [any TipOption] { [Tips.MaxDisplayCount(1)] }
 }
 
-/// The row of the tip in a list. The row takes no ground of its own, so that the tip does not draw as a card
-/// on the ground of the page.
+/// The row of the tip in a list. The row takes no ground of its own, and the tip takes the ground of a row, so
+/// that it does not draw as TipKit's grey card on the ground of the page.
 struct BackTipRow: View {
     @Environment(\.showsBackTip) private var showsBackTip
 
     var body: some View {
         if showsBackTip {
             TipView(BackTip())
+                .tipViewStyle(PageTipStyle())
+                .tipBackground(Palette.backgroundRow.color)
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
         }
+    }
+}
+
+/// A tip in the type and colours of a page row: the title in ink, the message one level quieter, the mark in
+/// the tint of the app.
+struct PageTipStyle: TipViewStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: Space.m.points) {
+            configuration.image?
+                .typeStyle(.headline)
+                .foregroundStyle(Palette.tint)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: Layout.rowLineGap) {
+                configuration.title?
+                    .typeStyle(.headline)
+                    .foregroundStyle(Palette.textPrimary)
+                configuration.message?
+                    .typeStyle(.subheadline)
+                    .foregroundStyle(Palette.textSecondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Button {
+                configuration.tip.invalidate(reason: .tipClosed)
+            } label: {
+                Image(systemName: "xmark")
+                    .typeStyle(.footnote)
+                    .foregroundStyle(Palette.textTertiary)
+            }
+            .buttonStyle(FlatPress())
+            .accessibilityLabel("Close Tip")
+            .accessibilityIdentifier("back-tip-close")
+        }
+        // The row insets of the list give the page edges; the tip adds only its height.
+        .padding(.vertical, Space.l.points)
+        .accessibilityElement(children: .contain)
     }
 }
 

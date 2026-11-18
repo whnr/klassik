@@ -1,4 +1,4 @@
-# 0049. Back gestures follow the finger
+# 0056. Back gestures follow the finger
 
 Flo decided this in the 0.14.1 test notes. Bead: sz-3hcq.5.
 This replaces the edge gesture rules of [0038](0038-standard-tabs-and-the-cross-tab-back.md).

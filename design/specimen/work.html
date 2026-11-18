@@ -64,7 +64,7 @@
         };
         const pill = () => {
           const pause = playsWork() && !K.P.paused;
-          const label = playsWork() ? (K.P.paused ? "Resume" : "Pause") : "Play";
+          const label = playsWork() ? (K.P.paused ? "Resume" : "Pause") : "Play top recording";
           playBtn.innerHTML =
             (pause ? ICON.pause : ICON.play).replace("<svg", '<svg width="14" height="14"') + `<span>${label}</span>`;
         };
@@ -121,7 +121,7 @@
           albumBtn.innerHTML = albumIcon.replace("<svg", '<svg width="14" height="14"') + `<span>${albumLabel}</span>`;
           const playing = K.current()?.recording;
           listBox.replaceChildren(
-            ...K.orderedRecordings(work).map((r, i) => {
+            ...K.orderedRecordings(work).map((r) => {
               const isPlaying = playing && playing.id === r.id;
               const recFav = "rec:" + r.id;
               const slot = isPlaying
@@ -155,7 +155,6 @@
                     ? el("div", { class: "t-subheadline" }, K.joinNames(others(r).map((p) => p.name)))
                     : null,
                   el("div", { class: "t-subheadline secondary" }, facts(r)),
-                  i === 0 ? el("div", { class: "t-footnote tint" }, "Plays first") : null,
                 ),
                 el("div", { class: "trail" }, slot),
               );

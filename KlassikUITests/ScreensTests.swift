@@ -34,6 +34,20 @@ final class PlacesScreens: ScreensTestCase {
         app.buttons["Edit"].tap()
         XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 5))
         snap(app, "02e-library-edit")
+        // The system reorder control sits beside the row, outside its frame. A drag of Composers onto the lower part
+        // of the Favourites control puts Favourites first. A long hold before the drag does not pick the row up.
+        let reorder = { (name: String) in
+            app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Reorder \(name)")).firstMatch
+        }
+        XCTAssertTrue(reorder("Composers").exists, "No reorder control on Composers")
+        reorder("Composers").coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(
+                forDuration: 0.1,
+                thenDragTo: reorder("Favourites").coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)),
+                withVelocity: .default, thenHoldForDuration: 0.5)
+        app.buttons["Done"].tap()
+        XCTAssertTrue(app.buttons["Edit"].waitForExistence(timeout: 5))
+        XCTAssertLessThan(favourites.frame.minY, composers.frame.minY, "The drag did not move Favourites up")
     }
 
     @MainActor
@@ -157,6 +171,30 @@ final class PlacesScreens: ScreensTestCase {
         XCTAssertTrue(app.staticTexts["Hold Back to Go Further"].waitForExistence(timeout: 10))
         snap(app, "02k-back-tip")
     }
+
+    /// Without the test switch, the tip keeps its rule: it shows once, and a later page does not show it again.
+    @MainActor
+    func testBackTipShowsOnce() throws {
+        let app = try launchAndConnect(arguments: ["-tipRules"])
+        let tip = app.staticTexts["Hold Back to Go Further"]
+        composer(app, "Felix Mendelssohn").tap()
+        XCTAssertTrue(tip.waitForExistence(timeout: 10), "The tip does not show the first time")
+        back(app)
+        XCTAssertTrue(composer(app, "Frédéric Chopin").waitForExistence(timeout: 10))
+        composer(app, "Frédéric Chopin").tap()
+        XCTAssertTrue(app.navigationBars["Frédéric Chopin"].waitForExistence(timeout: 10))
+        XCTAssertFalse(tip.waitForExistence(timeout: 3), "The tip shows a second time")
+    }
+
+    /// The bar draws no title (ADR 0023), and the page still names the back button of the next page.
+    @MainActor
+    func testBarShowsNoTitle() throws {
+        let app = try launchAndConnect()
+        composer(app, "Felix Mendelssohn").tap()
+        let bar = app.navigationBars["Felix Mendelssohn"]
+        XCTAssertTrue(bar.waitForExistence(timeout: 10))
+        XCTAssertFalse(bar.staticTexts["Felix Mendelssohn"].exists, "The bar shows the page title")
+    }
 }
 
 /// The pages that the lookup fills.
@@ -190,9 +228,56 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertTrue(whole.waitForExistence(timeout: 10))
         let credit = app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Public domain'")).firstMatch
         XCTAssertTrue(credit.exists, "The whole picture shows no credit")
+        let close = app.buttons["whole-picture-close"]
+        XCTAssertTrue(close.exists, "The whole picture shows no close button")
+        XCTAssertLessThan(close.frame.maxY, app.frame.height / 4, "The close button is not at the top")
         snap(app, "03c-whole-picture")
-        app.buttons["Close"].tap()
+        // A swipe down closes the picture, as any full-screen overlay.
+        let middle = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4))
+        middle.press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)))
+        XCTAssertTrue(whole.waitForNonExistence(timeout: 10), "A swipe down does not close the whole picture")
         XCTAssertTrue(picture.waitForExistence(timeout: 10))
+        picture.tap()
+        XCTAssertTrue(whole.waitForExistence(timeout: 10))
+        app.buttons["whole-picture-close"].tap()
+        XCTAssertTrue(whole.waitForNonExistence(timeout: 10), "The close button does not close the whole picture")
+        XCTAssertTrue(picture.waitForExistence(timeout: 10))
+        let tabs = app.descendants(matching: .any)["composer-tabs"].firstMatch
+        tabs.buttons["About"].tap()
+        let article = app.descendants(matching: .any)["credit-text"].firstMatch
+        XCTAssertTrue(reveal(article, in: app).waitForExistence(timeout: 10))
+        XCTAssertTrue(article.label.contains("Wikipedia, CC BY-SA 4.0"))
+        XCTAssertTrue(article.label.contains("Article"))
+        let commons = app.descendants(matching: .any)["credit-picture"].firstMatch
+        XCTAssertTrue(reveal(commons, in: app).exists)
+        XCTAssertTrue(commons.label.contains("Wikimedia Commons"), commons.label)
+        snap(app, "03g-composer-article")
+    }
+
+    /// The picture runs under the status bar and the Dynamic Island, with the back button beside the island
+    /// (sz-rs30.1.102). A light picture, in the light and the dark room.
+    @MainActor
+    func testLightPictureUnderTheStatusBar() throws {
+        snap(try pictureTop(), "03h-picture-top-light-light-room")
+        snap(try pictureTop(arguments: ["-darkRoom"]), "03i-picture-top-light-dark-room")
+    }
+
+    /// A dark picture under the status bar, in the light and the dark room.
+    @MainActor
+    func testDarkPictureUnderTheStatusBar() throws {
+        snap(try pictureTop(arguments: ["-darkPicture"]), "03j-picture-top-dark-light-room")
+        snap(try pictureTop(arguments: ["-darkPicture", "-darkRoom"]), "03k-picture-top-dark-dark-room")
+    }
+
+    @MainActor
+    private func pictureTop(arguments: [String] = []) throws -> XCUIApplication {
+        let app = try launchAndConnect(arguments: arguments)
+        composer(app, "Felix Mendelssohn").tap()
+        let picture = app.descendants(matching: .any)["composer-picture"]
+        XCTAssertTrue(picture.waitForExistence(timeout: 30), "The composer page shows no picture")
+        XCTAssertEqual(picture.frame.minY, 0, accuracy: 1, "The picture does not reach the top edge")
+        XCTAssertTrue(app.navigationBars.buttons.firstMatch.exists, "No back button over the picture")
+        return app
     }
 
     @MainActor
@@ -253,6 +338,47 @@ final class BrowseScreens: ScreensTestCase {
         snap(app, "03e-composer-chips")
         checkTabs(app, "composer-tabs", from: "Works", to: "About")
         snap(app, "03f-composer-about")
+    }
+
+    /// The fixture holds only the third movement of Brahms's Fourth, so it shows under "Partial works". With the
+    /// setting off, it is one of the works again.
+    @MainActor
+    func testPartialWorks() throws {
+        let app = try launchAndConnect()
+        reveal(composer(app, "Johannes Brahms"), in: app).tap()
+        let partial = heading(app, "Partial works")
+        XCTAssertTrue(partial.waitForExistence(timeout: 10), "The composer page shows no partial works")
+        XCTAssertFalse(heading(app, "Works").exists)
+        XCTAssertTrue(app.buttons.matching(identifier: "work").firstMatch.exists)
+        snap(app, "03h-composer-partial-works")
+
+        openSettings(app)
+        let toggle = reveal(app.switches["partial-works"], in: app)
+        XCTAssertTrue(toggle.isHittable)
+        XCTAssertEqual(toggle.value as? String, "1", "Separate Partial Works is not on by default")
+        toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        XCTAssertEqual(toggle.value as? String, "0")
+        snap(app, "08e-partial-works-setting")
+
+        back(app)
+        app.buttons["library-composers"].tap()
+        reveal(composer(app, "Johannes Brahms"), in: app).tap()
+        let works = heading(app, "Works")
+        XCTAssertTrue(works.waitForExistence(timeout: 10), "With the setting off, the page shows no Works heading")
+        XCTAssertFalse(partial.exists)
+        snap(app, "03i-composer-partial-works-off")
+
+        // A reset app keeps its user defaults, so the next test must find the default again.
+        openSettings(app)
+        let restore = reveal(app.switches["partial-works"], in: app)
+        restore.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        XCTAssertEqual(restore.value as? String, "1")
+    }
+
+    @MainActor
+    private func heading(_ app: XCUIApplication, _ title: String) -> XCUIElement {
+        app.descendants(matching: .any).matching(identifier: "section-heading")
+            .matching(NSPredicate(format: "label BEGINSWITH %@", title + " (")).firstMatch
     }
 
     /// Two good matches in another language: the listener picks one once.
@@ -320,7 +446,7 @@ final class PlaybackScreens: ScreensTestCase {
         slidePlayerDown(app)
     }
 
-    /// Stop closes the player and leaves no end message (ADR 0046). On the walk simulator a natural end of the queue
+    /// Stop closes the player and leaves no end message (ADR 0053). On the walk simulator a natural end of the queue
     /// does not arrive reliably, so the unit tests cover it through the same path.
     @MainActor
     func testStopClosesThePlayer() throws {
@@ -483,18 +609,29 @@ final class PlaybackScreens: ScreensTestCase {
         work.tap()
         let play = app.buttons["play-work"]
         XCTAssertTrue(play.waitForExistence(timeout: 10))
+        XCTAssertEqual(play.label, "Play top recording")
+        XCTAssertFalse(app.staticTexts["Plays first"].exists)
         let first = app.buttons.matching(identifier: "recording").firstMatch
         XCTAssertTrue(first.waitForExistence(timeout: 10))
         let before = first.frame
+        let heading = app.buttons["favourite-work"]
+        let headingBefore = heading.frame
+        let playBefore = play.frame
         play.tap()
         // While a recording of the work plays, the pill pauses it (sz-swi9.4).
         XCTAssertTrue(eventually(timeout: 15) { play.label == "Pause" }, "The pill reads \(play.label) while it plays")
+        for (element, original) in [(heading, headingBefore), (play, playBefore), (first, before)] {
+            XCTAssertEqual(element.frame.minX - original.minX, -Measure.timeline / 2, accuracy: 1)
+            XCTAssertEqual(element.frame.width, original.width, accuracy: 1)
+            XCTAssertEqual(element.frame.height, original.height, accuracy: 1)
+        }
         snap(app, "04c-work-playing")
         play.tap()
         XCTAssertTrue(eventually(timeout: 10) { play.label == "Resume" }, "The pill reads \(play.label) after a pause")
         XCTAssertEqual(app.buttons["mini-player-pause"].label, "Resume", "The pill did not pause the playback")
         // The playing row tints in place. The timeline moves the content sideways only; it keeps its size and height.
-        XCTAssertEqual(first.frame.size, before.size, "The playing row changed its size")
+        XCTAssertEqual(first.frame.width, before.width, accuracy: 1, "The playing row changed its width")
+        XCTAssertEqual(first.frame.height, before.height, accuracy: 1, "The playing row changed its height")
         XCTAssertEqual(first.frame.minY, before.minY, accuracy: 0.5, "The playing row moved up or down")
         snap(app, "04d-work-playing")
     }
@@ -509,7 +646,7 @@ final class PlaybackScreens: ScreensTestCase {
             work.tap()
             let play = app.buttons["play-work"]
             XCTAssertTrue(play.waitForExistence(timeout: 10))
-            XCTAssertEqual(play.label, "Play")
+            XCTAssertEqual(play.label, "Play top recording")
             let edge: PillEdge = side == "left" ? .left : .right
             // Without a timeline both margins are equal; a shown timeline adds its width on its side only.
             XCTAssertFalse(app.descendants(matching: .any)["timeline"].exists, "A timeline shows before playback")
@@ -517,11 +654,6 @@ final class PlaybackScreens: ScreensTestCase {
             XCTAssertEqual(still.minX, app.frame.minX + Layout.centredEdge, accuracy: 1)
             XCTAssertEqual(still.maxX, app.frame.maxX - Layout.centredEdge, accuracy: 1)
             expectCapsuleLabelCentered(still, in: app)
-            if side == "right" {
-                snap(app, "04e-work-play-right")
-            } else {
-                snap(app, "04f-work-play-left")
-            }
             play.tap()
             XCTAssertTrue(app.descendants(matching: .any)["timeline"].waitForExistence(timeout: 10))
             XCTAssertTrue(eventually(timeout: 15) { play.label == "Pause" }, "Play reads \(play.label) while it plays")
@@ -532,6 +664,11 @@ final class PlaybackScreens: ScreensTestCase {
             XCTAssertEqual(frame.maxX, app.frame.maxX - trailing, accuracy: 1)
             XCTAssertEqual(frame.midX, app.frame.midX + (leading - trailing) / 2, accuracy: 1)
             XCTAssertEqual(frame.width, still.width, accuracy: 1, "The content width changed with the timeline")
+            if side == "right" {
+                snap(app, "04e-work-play-right")
+            } else {
+                snap(app, "04f-work-play-left")
+            }
             app.terminate()
         }
     }
@@ -693,6 +830,36 @@ final class PlaybackScreens: ScreensTestCase {
         snap(app, "08d-next-player")
     }
 
+    /// Offline, a favourite keeps its mark, and each tap shows one notice (ADR 0052).
+    @MainActor
+    func testOfflineFavouriteKeepsTheMarkAndExplainsEachTap() throws {
+        let app = try launchAndConnect(arguments: ["-offlineFavourites"])
+        composer(app, "Ludwig van Beethoven").tap()
+        app.buttons.matching(identifier: "work").firstMatch.tap()
+        app.buttons.matching(identifier: "recording").firstMatch.tap()
+        let mark = app.buttons["favourite-recording"]
+        XCTAssertTrue(mark.waitForExistence(timeout: 10))
+        let initial = mark.value as? String
+        let changed = initial == "Favourite" ? "Not a favourite" : "Favourite"
+        let notice = app.alerts["Favourites"]
+        mark.tap()
+        XCTAssertTrue(notice.waitForExistence(timeout: 10))
+        XCTAssertTrue(notice.staticTexts["No internet connection. This syncs when you are back online."].exists)
+        snap(app, "05e-offline-favourite-notice")
+        notice.buttons["OK"].tap()
+        XCTAssertEqual(mark.value as? String, changed)
+        snap(app, "05f-offline-favourite-kept")
+        mark.tap()
+        XCTAssertTrue(notice.waitForExistence(timeout: 10))
+        notice.buttons["OK"].tap()
+        XCTAssertEqual(mark.value as? String, initial)
+        snap(app, "05g-offline-favourite-back")
+        // A send without a tap shows no notice.
+        let unsolicited = expectation(for: NSPredicate(format: "exists == true"), evaluatedWith: notice)
+        unsolicited.isInverted = true
+        wait(for: [unsolicited], timeout: 2)
+    }
+
     /// A swipe favourite moves ahead of a newer recording before the listener plays the work.
     @MainActor
     func testFavouriteRecordingOrder() throws {
@@ -810,8 +977,9 @@ final class TimelineScreens: ScreensTestCase {
         XCTAssertLessThan(frame.maxY, app.frame.maxY, "The playback controls have no bottom clearance")
         XCTAssertEqual(bar.frame.maxY, frame.minY, accuracy: 1, "The timeline does not run into the pill")
         XCTAssertEqual(frame.midY, tab(app, "Search").frame.midY, accuracy: 2, "The controls are not in the tab row")
+        // Search stands apart in its own circle, so the capsule height comes from a tab inside the capsule.
         XCTAssertEqual(
-            frame.height, tab(app, "Search").frame.height + 8, accuracy: 1,
+            frame.height, tab(app, "Chronology").frame.height + 8, accuracy: 1,
             "The pill does not match the native capsule height")
         XCTAssertLessThanOrEqual(tab(app, "Search").frame.maxX, frame.minX, "The tabs run under the pill")
         XCTAssertTrue(pill.buttons["mini-player-cover"].exists)
@@ -917,6 +1085,33 @@ final class SettingsScreens: ScreensTestCase {
     }
 
     @MainActor
+    func testLocalStorage() throws {
+        let app = try launchAndConnect()
+        openSettings(app)
+        reveal(app.buttons["local-storage"], in: app).tap()
+        XCTAssertTrue(app.navigationBars["Local Storage"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["storage-bar"].firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["storage-album-art"].firstMatch.exists)
+        snap(app, "08f-local-storage")
+
+        // The stepper label can merge its two texts into one element, so the check reads every label.
+        func shows(_ text: String) -> Bool {
+            app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
+                .waitForExistence(timeout: 5)
+        }
+        let pictures = reveal(app.steppers["pictures-limit"], in: app)
+        XCTAssertTrue(shows("No Limit"))
+        // The identifier of the stepper replaces those of its buttons: the first is minus, the second plus.
+        pictures.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(shows("50 GB"))
+        snap(app, "08g-local-storage-limits")
+        // The limit stays in the settings of the simulator, so the next walk must find No Limit again.
+        pictures.buttons.element(boundBy: 1).tap()
+        let limit = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "50 GB"))
+        XCTAssertFalse(limit.firstMatch.waitForExistence(timeout: 2))
+    }
+
+    @MainActor
     func testSettings() throws {
         let app = try launchAndConnect()
         // The mini player must leave the last rows free, so something must be playing.
@@ -943,6 +1138,8 @@ final class SettingsScreens: ScreensTestCase {
         let lineFrame = timeline(app).frame
         let pill = app.descendants(matching: .any)["mini-player"].firstMatch
         let controlsFrame = pillFrame(pill)
+        let chronology = tab(app, "Chronology")
+        let labelsBefore = ScreenPixels(app)
         snap(app, "09-filter")
         field.tap()
         let keyboard = app.keyboards.firstMatch
@@ -960,6 +1157,17 @@ final class SettingsScreens: ScreensTestCase {
         XCTAssertTrue(field.isHittable)
         XCTAssertEqual(field.value as? String, original)
         XCTAssertEqual(timeline(app).frame.maxY, lineFrame.maxY, accuracy: 2)
+        // The tab labels show in full again: the label row of the Chronology tab looks as before the keyboard.
+        let labelRow = chronology.frame.divided(atDistance: chronology.frame.height * 0.35, from: .maxYEdge).slice
+        var share = 1.0
+        for _ in 0..<6 {
+            if let before = labelsBefore, let after = ScreenPixels(app) {
+                share = after.differingShare(in: labelRow, from: before)
+            }
+            if share < 0.02 { break }
+            Thread.sleep(forTimeInterval: 0.5)
+        }
+        XCTAssertLessThan(share, 0.02, "The Chronology tab label changed after the keyboard closed")
         snap(app, "09b-keyboard-closed")
     }
 
@@ -1002,7 +1210,8 @@ final class SettingsScreens: ScreensTestCase {
 
         let showTaps = reveal(app.switches["show-taps"], in: app)
         showTaps.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
-        XCTAssertEqual(showTaps.value as? String, "1")
+        let on = expectation(for: NSPredicate(format: "value == '1'"), evaluatedWith: showTaps)
+        XCTAssertEqual(XCTWaiter.wait(for: [on], timeout: 10), .completed, "\(showTaps.value ?? "nil")")
         snap(app, "12a-show-taps")
     }
 
@@ -1034,6 +1243,12 @@ final class SettingsScreens: ScreensTestCase {
 /// What every area needs: the fixture server, the MusicBrainz answers, and the steps that several tests share.
 /// The screens workflow passes the server through TEST_RUNNER_KLASSIK_* variables.
 class ScreensTestCase: XCTestCase {
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        // A failed launch must stop before later queries use an invalid app process.
+        continueAfterFailure = false
+    }
+
     /// MusicBrainz answers for the fixture works, shaped like real ones, by the keys of `Enrichment.stubKey`.
     /// Bach, Brahms and the nocturnes get no answer, as if MusicBrainz had no match.
     static let musicBrainz: String = {
@@ -1203,7 +1418,9 @@ class ScreensTestCase: XCTestCase {
     /// A place in the tab bar, which Klassik draws by hand beside the mini player.
     @MainActor
     func tab(_ app: XCUIApplication, _ name: String) -> XCUIElement {
-        app.buttons["tab-\(name.lowercased())"]
+        let identified = app.buttons["tab-\(name.lowercased())"]
+        // A UITab can leave its bar button without the identifier; the bar then names the tab by its title.
+        return identified.exists ? identified : app.tabBars["tab-row"].buttons[name]
     }
 
     /// Settings belongs to the Library stack, behind its toolbar cog.
@@ -1320,6 +1537,10 @@ class ScreensTestCase: XCTestCase {
             XCTAssertLessThanOrEqual(left.maxX, right.minX, "The visible tab frames overlap")
             XCTAssertGreaterThanOrEqual(right.midX - left.midX, 64, "The tab slots crowd their labels")
         }
+        // Search stands apart in its own circle: the capsule edge and the gap make its step wider than a capsule step.
+        // In one capsule all steps are equal. The mini player narrows the bar, so the margin stays small.
+        XCTAssertGreaterThan(
+            tabs[2].midX - tabs[1].midX, tabs[1].midX - tabs[0].midX + 8, "Search is not apart from the other tabs")
         let cover = app.buttons["mini-player-cover"].frame
         // The button includes the edge padding; its inward edge is the square cover's inward edge.
         let distance = side == .right ? app.frame.maxX - cover.minX : cover.maxX - app.frame.minX
@@ -1411,6 +1632,25 @@ class ScreensTestCase: XCTestCase {
             let index = (y * width + x) * 4
             let ground = (y * width + groundX) * 4
             return (0..<3).reduce(0) { $0 + abs(Int(bytes[index + $1]) - Int(bytes[ground + $1])) } > 30
+        }
+
+        /// The share of pixels in a rect, in points, that differ from the same pixels of another screenshot.
+        func differingShare(in rect: CGRect, from other: ScreenPixels) -> Double {
+            let xs = max(0, Int(rect.minX * scale))..<min(width, other.width, Int(rect.maxX * scale))
+            let ys = max(0, Int(rect.minY * scale))..<min(height, other.height, Int(rect.maxY * scale))
+            guard !xs.isEmpty, !ys.isEmpty else { return 1 }
+            var differing = 0
+            for y in ys {
+                for x in xs {
+                    let index = (y * width + x) * 4
+                    let otherIndex = (y * other.width + x) * 4
+                    let distance = (0..<3).reduce(0) {
+                        $0 + abs(Int(bytes[index + $1]) - Int(other.bytes[otherIndex + $1]))
+                    }
+                    if distance > 30 { differing += 1 }
+                }
+            }
+            return Double(differing) / Double(xs.count * ys.count)
         }
 
         /// The pixel columns that content may use: the columns of the timeline bar are not content.

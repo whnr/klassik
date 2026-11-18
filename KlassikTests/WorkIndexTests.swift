@@ -208,10 +208,14 @@ struct WorkIndexTests {
                 Self.song("c", album: "A", track: 3, movement: (4, 5)),
             ])
         #expect(part.completeness == "3 of 5 movements")
+        #expect(part.isPartial)
         let whole = WorkIndex.Recording(
             id: "r", album: "A", songs: [Self.song("a", album: "A", track: 1, movement: (1, 1))])
         #expect(whole.completeness == nil)
+        #expect(!whole.isPartial)
         #expect(WorkIndex.Recording(id: "r", album: "A", songs: []).completeness == nil)
+        // Without a movement total the tags do not say, so the recording counts as whole.
+        #expect(!WorkIndex.Recording(id: "r", album: "A", songs: [Self.song("a", album: "A", track: 2)]).isPartial)
     }
 
     /// ADR 0024: one work with two movements on consecutive tracks gives every work a heading.

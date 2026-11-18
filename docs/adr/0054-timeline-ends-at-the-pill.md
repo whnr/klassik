@@ -1,4 +1,4 @@
-# 0047. The timeline ends at the top of the pill
+# 0054. The timeline ends at the top of the pill
 
 Decided by Flo in the 0.14.1 test notes, 2026-11-17. Bead: sz-3hcq.3.
 This replaces the strip rules of [0041](0041-native-tabs-and-display-corners.md).

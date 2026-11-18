@@ -1,6 +1,6 @@
 # 0014. The player: rows beside one timeline
 
-Date: 2026-11-02. Decided by Flo after seven prototype rounds. Bead: sz-rs30.1.74.7. Changes the player part of sz-rs30.1.74.4: the player is no longer a system sheet, and the mini player is no longer the plain tab accessory. Flo annulled [0015](0015-player-page.md) on 2026-11-14 (bead sz-rs30.1.105.8.1), so the player is an overlay again. The player rules include Flo’s specimen review and pill feedback from 2026-11-14. The row and note rules are replaced by [0027](0027-player-rows.md). The mini player is replaced by [0028](0028-mini-player-pill.md). The shape of the timeline is in [0035](0035-timeline-shape.md). The queue end rule is replaced by [0046](0046-queue-end-and-stop-close-the-player.md).
+Date: 2026-11-02. Decided by Flo after seven prototype rounds. Bead: sz-rs30.1.74.7. Changes the player part of sz-rs30.1.74.4: the player is no longer a system sheet, and the mini player is no longer the plain tab accessory. Flo annulled [0015](0015-player-page.md) on 2026-11-14 (bead sz-rs30.1.105.8.1), so the player is an overlay again. The player rules include Flo’s specimen review and pill feedback from 2026-11-14. The row and note rules are replaced by [0027](0027-player-rows.md). The mini player is replaced by [0028](0028-mini-player-pill.md). The shape of the timeline is in [0035](0035-timeline-shape.md). The queue end rule is replaced by [0053](0053-queue-end-and-stop-close-the-player.md).
 
 ## Context
 

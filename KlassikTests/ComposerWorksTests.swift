@@ -4,11 +4,17 @@ import Testing
 @testable import Klassik
 
 struct ComposerWorksTests {
-    static func song(_ id: String, work: String?, genres: [String], grouping: String? = nil) -> Song {
-        Song(
+    static func song(
+        _ id: String, work: String?, genres: [String], grouping: String? = nil, movement: (Int, Int)? = nil
+    ) -> Song {
+        var song = Song(
             id: id, title: "Track \(id)", album: "Album \(id)", albumId: "album-\(id)", track: 1, discNumber: 1,
             genres: genres.map { Song.Genre(name: $0) }, displayComposer: "Frédéric Chopin",
             works: work.map { [Song.Work(name: $0)] }, groupings: grouping.map { [$0] })
+        if let movement {
+            song.movements = [Song.Movement(name: "Movement \(movement.0)", number: movement.0, count: movement.1)]
+        }
+        return song
     }
 
     static func chopin(_ songs: [Song]) throws -> ComposerWorks {
@@ -63,6 +69,48 @@ struct ComposerWorksTests {
         ])
         #expect(works.rows(filter: ["Piano"]).first?.works.map(\.title) == ["Nocturne 1", "Nocturne 3"])
         #expect(works.rows(filter: ["Arrangement"]).first?.works.map(\.title) == ["Nocturne 2"])
+    }
+
+    /// A work shows under "Partial works" only when no recording holds it whole. Each album here is one
+    /// recording.
+    @Test func partialWorksFollowUnderTheirOwnHeading() throws {
+        let works = try Self.chopin([
+            Self.song("a", work: "Ballade", genres: ["Piano"]),
+            Self.song("b", work: "Concerto", genres: ["Orchestral"], movement: (2, 3)),
+            Self.song("c", work: "Concerto", genres: ["Orchestral"]),
+            Self.song("d", work: "Sonata", genres: ["Piano"], movement: (3, 4)),
+            Self.song("e", work: "Etude No. 1", genres: ["Piano"], grouping: "Etudes", movement: (1, 2)),
+            Self.song("f", work: "Etude No. 2", genres: ["Piano"], grouping: "Etudes"),
+        ])
+        let parts = works.parts(separatingPartial: true)
+        #expect(parts.map(\.title) == ["Works", "Partial works"])
+        #expect(parts[0].rows.map(\.title) == ["Ballade", "Concerto", "Etude No. 2"])
+        #expect(parts[1].rows.map(\.title) == ["Etude No. 1", "Sonata"])
+        // A set splits by its works, and a part of one work is a work row.
+        guard case .work = try #require(parts[1].rows.first) else {
+            Issue.record("expected a work row")
+            return
+        }
+        #expect(works.parts(filter: ["Orchestral"], separatingPartial: true).map(\.title) == ["Works"])
+    }
+
+    @Test func withTheSettingOffOneListHoldsEveryWork() throws {
+        let works = try Self.chopin([
+            Self.song("a", work: "Ballade", genres: ["Piano"]),
+            Self.song("d", work: "Sonata", genres: ["Piano"], movement: (3, 4)),
+        ])
+        let parts = works.parts(separatingPartial: false)
+        #expect(parts.map(\.title) == ["Works"])
+        #expect(parts[0].rows.map(\.title) == ["Ballade", "Sonata"])
+    }
+
+    @Test func onlyPartialWorksShowOnlyThatHeading() throws {
+        let works = try Self.chopin([Self.song("d", work: "Sonata", genres: ["Piano"], movement: (3, 4))])
+        #expect(works.parts(separatingPartial: true).map(\.title) == ["Partial works"])
+        // With nothing to show, the Works heading stays above the notice.
+        let none = works.parts(filter: ["Vocal"], separatingPartial: true)
+        #expect(none.map(\.title) == ["Works"])
+        #expect(none[0].rows.isEmpty)
     }
 
     @Test func albumsWithoutWorkTagsStayAsOneEntry() throws {
@@ -162,10 +210,20 @@ struct ScrimGeometryTests {
     @Test func blurAndScrimStartCloseAboveTheName() {
         #expect(abs(geometry.blurTop * 460 - (100 + Layout.pictureBlurAbove)) < 0.001)
         #expect(abs(geometry.scrimTop * 460 - (100 + Layout.pictureScrimAbove)) < 0.001)
-        #expect(geometry.blurTop < geometry.scrimTop)
+        #expect(geometry.blurTop == geometry.scrimTop)
         #expect(geometry.under < geometry.blurTop)
         // Both stay in the lower half of the picture for a name block of two lines.
         #expect(geometry.scrimTop < 0.5)
+    }
+
+    @Test func blurRampsAcrossTheFullStripAboveTheName() {
+        for textHeight: CGFloat in [60, 100, 180] {
+            var sized = geometry
+            sized.textHeight = textHeight
+            #expect(abs(sized.blurUnder * 460 - textHeight) < 0.001)
+            #expect(abs((sized.blurTop - sized.blurUnder) * 460 - 72) < 0.001)
+            #expect(sized.blurUnder < sized.under)
+        }
     }
 
     @Test func blurAndScrimEndBesideTheLongestLine() {
@@ -221,5 +279,31 @@ struct PortraitLoaderTests {
         #expect(await PortraitLoader.load(url) { _ in (Data("not an image".utf8), 200) } == nil)
         #expect(await PortraitLoader.load(url) { _ in (Data(), 404) } == nil)
         #expect(await PortraitLoader.load(url) { _ in throw URLError(.timedOut) } == nil)
+    }
+}
+
+/// The timeline translates content without changing its available width (ADR 0045).
+struct PageContentPositionTests {
+    @Test func indicatorStaysBesideTheTimelineOnEitherSide() {
+        for side in [TimelineSide.left, .right] {
+            for timeline in [false, true] {
+                let shift = Layout.contentShift(side: side, timeline: timeline)
+                let inset = Layout.shiftedIndicatorInset(side: side, timeline: timeline)
+                let beside = timeline && side == .right ? Measure.timeline : 0
+                #expect(inset - shift == beside)
+            }
+        }
+    }
+
+    @Test func contentKeepsItsWidthOnEitherSide() {
+        let centred = Layout.sideInsets(timelineOnLeft: nil)
+        for side in [TimelineSide.left, .right] {
+            let shift = Layout.contentShift(side: side, timeline: true)
+            let shown = Layout.sideInsets(timelineOnLeft: side == .left)
+            #expect(centred.left + shift == shown.left)
+            #expect(centred.right - shift == shown.right)
+            #expect(centred.left + centred.right == shown.left + shown.right)
+            #expect(Layout.contentShift(side: side, timeline: false) == 0)
+        }
     }
 }

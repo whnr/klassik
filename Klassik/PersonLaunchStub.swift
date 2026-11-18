@@ -26,10 +26,15 @@ import UIKit
         /// The width of the fixture original, in pixels. Its height is 4/3 of it.
         static let originalWidth: CGFloat = 3000
 
+        /// The launch argument that draws the ground dark at the top, as a dark painting, so that the walk sees
+        /// the status bar over a light and a dark picture.
+        static let darkArgument = "-darkPicture"
+
         /// A drawn bust: a pale head and dark shoulders on a warm ground. It has no face that Vision finds, as
         /// with a painting, and it is bright enough at the top to need the scrim. It comes at the width that a
         /// thumbnail URL asks for (`1920px-…`), as Commons serves it, else at the width of the original.
         static let picture: MusicBrainz.Fetch = { request in
+            let dark = ProcessInfo.processInfo.arguments.contains(darkArgument)
             let name = request.url?.lastPathComponent ?? ""
             let head = name.range(of: "px-").map { name[..<$0.lowerBound] }
             let asked = head.flatMap { Double($0.split(separator: "-").last ?? "") }
@@ -40,8 +45,10 @@ import UIKit
             format.scale = 1
             let image = UIGraphicsImageRenderer(size: size, format: format).image { context in
                 let cg = context.cgContext
+                let light = UIColor(red: 0.86, green: 0.78, blue: 0.62, alpha: 1)
+                let top = dark ? UIColor(red: 0.1, green: 0.08, blue: 0.07, alpha: 1) : light
                 let colours = [
-                    UIColor(red: 0.86, green: 0.78, blue: 0.62, alpha: 1).cgColor,
+                    top.cgColor,
                     UIColor(red: 0.45, green: 0.33, blue: 0.22, alpha: 1).cgColor,
                 ]
                 let space = CGColorSpaceCreateDeviceRGB()

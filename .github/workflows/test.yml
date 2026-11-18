@@ -164,7 +164,8 @@ jobs:
   walk:
     needs: [plan, build, fixtures]
     runs-on: xcode-27
-    timeout-minutes: 30
+    # Cold simulator startup and one fresh-runner retry need room beyond the normal walk.
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
@@ -204,9 +205,12 @@ jobs:
         run: |
           out="$RUNNER_TEMP/screens"
           mkdir -p "$out"
+          # GitHub keeps 10 warning annotations for each step, and XCTest runtime warnings fill those of the walk step.
+          cat "$out/retry-warnings.txt" 2>/dev/null || true
           python3 scripts/screen_report.py summary "$out" >> "$GITHUB_STEP_SUMMARY"
           cat "$out/timings.txt" >> "$GITHUB_STEP_SUMMARY" || true
           echo "ui=$(grep '^ui=' "$out/results.txt" | tail -1 | cut -d= -f2)" >> "$GITHUB_OUTPUT" || true
+          if [ -s "$out/retries.txt" ]; then echo "retried=true" >> "$GITHUB_OUTPUT"; fi
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -219,7 +223,7 @@ jobs:
         if: failure() || steps.report.outputs.ui == 'failed'
         run: tail -50 "$RUNNER_TEMP/fixture/navidrome.log"
       - uses: actions/upload-artifact@v7
-        if: failure() || steps.report.outputs.ui == 'failed'
+        if: failure() || steps.report.outputs.ui == 'failed' || steps.report.outputs.retried == 'true'
         with:
           name: screens-xcresult-${{ matrix.group }}
           path: ${{ runner.temp }}/screens/*.xcresult

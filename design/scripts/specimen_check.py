@@ -33,6 +33,7 @@ PAGES = (
     "lookup.html",
     "lookup.html?state=running",
     "lookup.html?state=slowDown",
+    "storage.html",
     "index.html?overlay=opening",
     "work.html?overlay=open",
     "chronology.html?overlay=closing",

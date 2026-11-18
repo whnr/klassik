@@ -83,7 +83,7 @@ struct FavouriteTitle: View {
     }
 
     private var mark: UIImage {
-        let size = CGSize(width: em * 0.64 * 17 / 10.5, height: em * 0.64)
+        let size = CGSize(width: em * Layout.fermataWidth, height: em * Layout.fermataHeight)
         let format = UIGraphicsImageRendererFormat()
         format.scale = scale
         let traits = UITraitCollection {

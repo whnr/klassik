@@ -18,20 +18,33 @@ struct KlassikApp: App {
                 .foregroundColor: Palette.textPrimary.uiColor,
             ]
         }
-        // The bar shows no title (ADR 0023). Only the colour of the small title goes: VoiceOver and the back
-        // button of the next page still read it.
-        UINavigationBar.appearance().titleTextAttributes = [.foregroundColor: UIColor.clear]
         Self.configureTips()
     }
 
-    /// The UI walk starts every run from the same state. It hides the tip, except for the run that looks at it.
+    /// The UI walk starts every run from the same state. It hides the tip, except for the runs that look at it:
+    /// `-showTips` shows it on every page, `-tipRules` keeps the rules of the tip, as a listener meets them.
     private static func configureTips() {
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("-resetServer") {
+            // A test run reuses the simulator, and the tap switch survives a relaunch. Each run starts with it off.
+            UserDefaults.standard.removeObject(forKey: TapIndicator.storageKey)
             try? Tips.resetDatastore()
-            if arguments.contains("-showTips") { Tips.showAllTipsForTesting() } else { Tips.hideAllTipsForTesting() }
+            if arguments.contains("-showTips") {
+                Tips.showAllTipsForTesting()
+            } else if !arguments.contains("-tipRules") {
+                Tips.hideAllTipsForTesting()
+            }
         }
         try? Tips.configure([.displayFrequency(.immediate)])
+    }
+
+    /// The UI walk takes the dark room with `-darkRoom`: the simulator appearance does not reach a launched app
+    /// on the runner. Release builds follow the system.
+    private static var launchScheme: ColorScheme? {
+        #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("-darkRoom") { return .dark }
+        #endif
+        return nil
     }
 
     var body: some Scene {
@@ -39,6 +52,7 @@ struct KlassikApp: App {
             RootView()
                 .environment(model)
                 .tint(Palette.tint)
+                .preferredColorScheme(Self.launchScheme)
         }
     }
 }
@@ -67,7 +81,7 @@ struct RootView: View {
             }
         }
         .alert(
-            "Could Not Save Favourite",
+            "Favourites",
             isPresented: Binding(
                 get: { model.recordingOrder.error != nil },
                 set: { if !$0 { model.recordingOrder.error = nil } }

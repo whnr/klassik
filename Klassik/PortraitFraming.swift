@@ -58,8 +58,10 @@ struct ScrimGeometry: Equatable {
     private var height: CGFloat { max(frame.height, 1) }
     private var width: CGFloat { max(frame.width, 1) }
 
-    /// The text block with its margin: here the scrim is full and the blur is full.
+    /// The text block with its margin: here the scrim is full.
     var under: CGFloat { min(1, (textHeight + margin) / height) }
+    /// The blur reaches full strength at the top of the name block.
+    var blurUnder: CGFloat { min(1, textHeight / height) }
     /// Where the blur starts to fade in.
     var blurTop: CGFloat { min(1, (textHeight + Layout.pictureBlurAbove) / height) }
     /// Where the scrim starts to fade in.

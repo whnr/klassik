@@ -36,6 +36,8 @@ final class PersonSweep {
     nonisolated static let jitterDays = 10.0
     /// A pass tries one person at most this many times (ADR 0044). Then the person waits for its next due time.
     static let triesPerPass = 2
+    /// The most shown performers that the pass keeps in front. A long scroll through the performers adds more.
+    static let shownLimit = 100
 
     private(set) var state = State.idle
     /// The persons that have no check yet, and the persons whose check is due.
@@ -48,6 +50,8 @@ final class PersonSweep {
     private let sleep: @Sendable (Duration) async -> Void
     private let jitter: @Sendable () -> Double
     private var task: Task<Void, Never>?
+    /// Performers that a page shows and that have no saved check, the latest page first (ADR 0046).
+    @ObservationIgnored private(set) var shown: [Person] = []
 
     init(
         store: PersonFactsStore, isConnectionGood: @escaping @Sendable () -> Bool = { true },
@@ -66,7 +70,7 @@ final class PersonSweep {
 
     // MARK: Plan
 
-    /// The persons of the library, composers first, in the order the pass takes them.
+    /// The persons of the library, composers first, in library order.
     static func people(of index: WorkIndex) -> [Person] {
         let composers = index.composers.filter { $0.name != Song.unknownComposer }.map {
             Person(kind: .composer, tag: $0.name)
@@ -81,7 +85,7 @@ final class PersonSweep {
         return facts.died == nil ? Self.livingDays : Self.deadDays
     }
 
-    /// The persons to look up, new ones first in library order, then due ones with the longest wait first.
+    /// The persons to look up, new ones in library order, and due ones with the longest wait first.
     func plan(_ people: [Person]) -> (new: [Person], due: [Person]) {
         let current = now()
         var new: [Person] = []
@@ -97,6 +101,24 @@ final class PersonSweep {
             if expires <= current { due.append((person, current.timeIntervalSince(expires))) }
         }
         return (new, due.sorted { $0.overdue > $1.overdue }.map(\.person))
+    }
+
+    /// The order of a pass: all composers before all performers, new ones before due ones in each group
+    /// (ADR 0046).
+    func order(_ people: [Person]) -> [Person] {
+        let found = plan(people)
+        let all = found.new + found.due
+        return all.filter { $0.kind == .composer } + all.filter { $0.kind == .performer }
+    }
+
+    /// Puts the performers of a page in front of the pass, when they were never looked up (ADR 0046).
+    func prefer(performers tags: [String]) {
+        var seen: Set<Person> = []
+        let fresh = tags.map { Person(kind: .performer, tag: $0) }.filter {
+            store.cache.checked[$0.key] == nil && seen.insert($0).inserted
+        }
+        guard !fresh.isEmpty else { return }
+        shown = Array((fresh + shown.filter { !seen.contains($0) }).prefix(Self.shownLimit))
     }
 
     /// Counts what waits, for Settings.
@@ -138,7 +160,7 @@ final class PersonSweep {
     /// A failed person goes to the end of the queue, so that it does not hold up the others (ADR 0044).
     func run(_ people: [Person]) async {
         let found = plan(people)
-        let jobs = found.new + found.due
+        let jobs = order(people)
         let newOnes = Set(found.new)
         newCount = found.new.count
         dueCount = found.due.count
@@ -152,18 +174,24 @@ final class PersonSweep {
         var failuresInARow = 0
         var done = 0
         while next < queue.count {
-            let person = queue[next]
-            next += 1
             guard await waitForConnection() else {
                 state = .idle
                 return
             }
+            // The pick comes after the wait, so that a page shown during a pause still goes first.
+            if let front = shownIndex(in: queue, from: next, tries: tries), front != next {
+                let moved = queue.remove(at: front)
+                queue.insert(moved, at: next)
+            }
+            let person = queue[next]
+            next += 1
             state = .running(done: done, total: jobs.count)
             let settled = await settle(person)
             guard !Task.isCancelled else {
                 state = .idle
                 return
             }
+            shown.removeAll { $0 == person }
             if settled {
                 failuresInARow = 0
             } else {
@@ -183,6 +211,15 @@ final class PersonSweep {
         }
         state = .idle
         measure(people)
+    }
+
+    /// The place of the first shown performer that waits in the queue and has no try in this pass. A failed
+    /// performer keeps its place at the end of the queue (ADR 0044).
+    private func shownIndex(in queue: [Person], from next: Int, tries: [Person: Int]) -> Int? {
+        for person in shown where tries[person] == nil && store.cache.checked[person.key] == nil {
+            if let index = queue[next...].firstIndex(of: person) { return index }
+        }
+        return nil
     }
 
     /// Returns false when the pass is stopped before the connection suits it.
@@ -248,10 +285,12 @@ final class ConnectionMonitor: @unchecked Sendable {
     private let lock = NSLock()
     private var good = true
 
-    init() {
+    /// `onConnect` runs on each path update that has a connection, metered or not.
+    init(onConnect: @escaping @Sendable () -> Void = {}) {
         monitor.pathUpdateHandler = { [weak self] path in
             let usable = path.status == .satisfied && !path.isConstrained && !path.isExpensive
             self?.lock.withLock { self?.good = usable }
+            if path.status == .satisfied { onConnect() }
         }
         monitor.start(queue: DispatchQueue(label: "de.whnr.klassik.connection"))
     }

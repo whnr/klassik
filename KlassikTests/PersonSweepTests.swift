@@ -290,6 +290,118 @@ struct PersonSweepTests {
         #expect(PersonSweep(store: second, now: { Self.start }).plan([Self.bach]).new.isEmpty)
     }
 
+    // MARK: Order (ADR 0046)
+
+    static let mutter = PersonSweep.Person(kind: .performer, tag: "Anne-Sophie Mutter")
+    static let ma = PersonSweep.Person(kind: .performer, tag: "Yo-Yo Ma")
+
+    /// The names in the order the pass took them, each lookup once.
+    private func lookups(_ log: NameLog) -> [String] {
+        log.names.reduce(into: []) { order, name in if order.last != name { order.append(name) } }
+    }
+
+    @Test func everyComposerComesBeforeEveryPerformer() throws {
+        let old = Self.start.addingTimeInterval(-400 * 86_400)
+        let (store, _) = try makeStore(cache: cache(tag: "Old Master", born: 1600, died: 1670, checked: old))
+        let sweep = PersonSweep(store: store, now: { Self.start })
+        let master = PersonSweep.Person(kind: .composer, tag: "Old Master")
+        // A due composer still goes before a new performer; new ones go first inside each group.
+        #expect(sweep.order([Self.mutter, master, Self.ma, Self.bach]) == [Self.bach, master, Self.mutter, Self.ma])
+    }
+
+    @Test func thePassLooksUpComposersBeforePerformers() async throws {
+        let log = NameLog()
+        let names = [Self.bach.tag, Self.mutter.tag]
+        let (store, _) = try makeStore(fetch: failing("nobody", times: 0, names: names, log: log))
+        let sweep = PersonSweep(store: store, now: { Self.start })
+        await sweep.run([Self.mutter, Self.bach])
+        #expect(lookups(log) == [Self.bach.tag, Self.mutter.tag])
+    }
+
+    @Test func aShownPerformerGoesFirst() async throws {
+        let log = NameLog()
+        let names = [Self.bach.tag, Self.mutter.tag, Self.ma.tag]
+        let (store, _) = try makeStore(fetch: failing("nobody", times: 0, names: names, log: log))
+        let sweep = PersonSweep(store: store, now: { Self.start })
+        sweep.prefer(performers: [Self.ma.tag])
+        await sweep.run([Self.bach, Self.mutter, Self.ma])
+        #expect(lookups(log) == [Self.ma.tag, Self.bach.tag, Self.mutter.tag])
+        #expect(sweep.shown.isEmpty)
+    }
+
+    @Test func aPageShownDuringThePassMovesItsPerformersForward() async throws {
+        let log = NameLog()
+        let names = [Self.bach.tag, Self.mutter.tag, Self.ma.tag]
+        let gate = Gate()
+        let (started, signal) = AsyncStream.makeStream(of: Void.self)
+        let inner = failing("nobody", times: 0, names: names, log: log)
+        let (store, _) = try makeStore(fetch: { request in
+            signal.yield()
+            while !gate.isOpen { try await Task.sleep(for: .milliseconds(10)) }
+            return try await inner(request)
+        })
+        let sweep = PersonSweep(store: store, now: { Self.start })
+        let pass = Task { await sweep.run([Self.bach, Self.mutter, Self.ma]) }
+        var requests = started.makeAsyncIterator()
+        _ = await requests.next()
+        sweep.prefer(performers: [Self.ma.tag])
+        gate.open()
+        await pass.value
+        #expect(lookups(log) == [Self.bach.tag, Self.ma.tag, Self.mutter.tag])
+    }
+
+    @Test func aCheckedPerformerIsNotPutInFront() throws {
+        let (store, _) = try makeStore(
+            cache: cache(tag: Self.mutter.tag, born: 1963, died: nil, checked: Self.start, kind: "performer"))
+        let sweep = PersonSweep(store: store, now: { Self.start })
+        sweep.prefer(performers: [Self.mutter.tag, Self.ma.tag, Self.ma.tag])
+        #expect(sweep.shown == [Self.ma])
+    }
+
+    @Test func theLatestPageGoesFirst() throws {
+        let (store, _) = try makeStore()
+        let sweep = PersonSweep(store: store, now: { Self.start })
+        sweep.prefer(performers: [Self.mutter.tag])
+        sweep.prefer(performers: [Self.ma.tag, Self.mutter.tag])
+        #expect(sweep.shown == [Self.ma, Self.mutter])
+        sweep.prefer(performers: (0..<150).map { "Player \($0)" })
+        #expect(sweep.shown.count == PersonSweep.shownLimit)
+    }
+
+    @Test func aShownPerformerThatFailsStillGoesToTheEnd() async throws {
+        let log = NameLog()
+        let names = [Self.bach.tag, Self.mutter.tag, Self.ma.tag]
+        let (store, _) = try makeStore(fetch: failing(Self.ma.tag, times: 1, names: names, log: log))
+        let sweep = PersonSweep(store: store, now: { Self.start }, sleep: { _ in })
+        sweep.prefer(performers: [Self.ma.tag])
+        await sweep.run([Self.bach, Self.mutter, Self.ma])
+        #expect(lookups(log) == [Self.ma.tag, Self.bach.tag, Self.mutter.tag, Self.ma.tag])
+        #expect(store.cache.checked[Self.ma.key] == Self.start)
+    }
+
+    @Test func aCancelledShownPerformerStaysInFront() async throws {
+        let attempts = Counter()
+        let (started, signal) = AsyncStream.makeStream(of: Int.self)
+        let stub = PersonStub(PersonStub.bachRules)
+        let (store, _) = try makeStore(fetch: { request in
+            let attempt = attempts.next()
+            signal.yield(attempt)
+            if attempt == 0 { try await Task.sleep(for: .seconds(60)) }
+            return try await stub.fetch(request)
+        })
+        let sweep = PersonSweep(store: store, now: { Self.start }, jitter: { 0 })
+        sweep.prefer(performers: [Self.ma.tag])
+        let task = Task { await sweep.run([Self.bach, Self.ma]) }
+        defer { task.cancel() }
+        var requests = started.makeAsyncIterator()
+        #expect(await requests.next() == 0)
+        task.cancel()
+        await task.value
+        #expect(store.cache.checked[Self.ma.key] == nil)
+        #expect(store.cache.due[Self.ma.key] == nil)
+        #expect(sweep.shown == [Self.ma])
+    }
+
     // MARK: Parallel start and one person per request
 
     @Test func thePersonPassDoesNotWaitForTheMusicBrainzPass() async throws {

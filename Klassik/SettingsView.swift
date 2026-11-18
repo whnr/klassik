@@ -4,6 +4,7 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @AppStorage(TimelineSide.storageKey) private var timelineSide = TimelineSide.standard
+    @AppStorage(ComposerWorks.separatesPartialKey) private var separatesPartial = true
 
     var body: some View {
         let library = model.library
@@ -77,6 +78,13 @@ struct SettingsView: View {
                 .accessibilityIdentifier("timeline-side")
             } footer: {
                 Text("While music plays, the timeline runs on this screen edge.")
+            }
+
+            Section {
+                Toggle("Separate Partial Works", isOn: $separatesPartial)
+                    .accessibilityIdentifier("partial-works")
+            } footer: {
+                Text("A composer page lists a work with no complete recording under Partial works.")
             }
 
             Section {

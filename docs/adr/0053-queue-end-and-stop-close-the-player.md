@@ -1,4 +1,4 @@
-# 0046. The queue end and Stop close the player
+# 0053. The queue end and Stop close the player
 
 Decided by Flo in the 0.14.1 test notes, 2026-11-17. Bead: sz-3hcq.1.
 This replaces the queue end rule of [0014](0014-player.md).

@@ -34,17 +34,17 @@ final class PlacesScreens: ScreensTestCase {
         app.buttons["Edit"].tap()
         XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 5))
         snap(app, "02e-library-edit")
-        // The reorder handle sits beside the row, outside its frame, near the trailing screen edge. A drag on it
-        // puts Favourites first.
-        let control = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Reorder'")).element(boundBy: 1)
-        let origin = app.coordinate(withNormalizedOffset: .zero)
-        let handleX = app.frame.width - 35
-        let handle =
-            control.exists
-            ? control.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-            : origin.withOffset(CGVector(dx: handleX, dy: favourites.frame.midY))
-        let target = origin.withOffset(CGVector(dx: handleX, dy: composers.frame.minY - 20))
-        handle.press(forDuration: 1, thenDragTo: target, withVelocity: .slow, thenHoldForDuration: 1)
+        // The system reorder control sits beside the row, outside its frame. A drop on the upper part of the
+        // Composers control puts Favourites first; a drop above the first row lands in the heading and goes back.
+        let reorder = { (name: String) in
+            app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Reorder \(name)")).firstMatch
+        }
+        XCTAssertTrue(reorder("Favourites").exists, "No reorder control on Favourites")
+        reorder("Favourites").coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(
+                forDuration: 1,
+                thenDragTo: reorder("Composers").coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2)),
+                withVelocity: .slow, thenHoldForDuration: 1)
         if favourites.frame.minY > composers.frame.minY {
             let tree = XCTAttachment(string: app.debugDescription)
             tree.name = "tree-after-drag"

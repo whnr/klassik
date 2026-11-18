@@ -100,6 +100,8 @@ enum Layout {
     static let capsuleHeight = Measure.hitTarget
     /// css: specimen.css .capsule | gap
     static let capsuleGap = Space.s.points
+    /// css: specimen.css .capsule | padding-left
+    static let capsuleInset = Space.l.points
     /// A filter chip is lower than a capsule, so the chips read as a filter, not as buttons of the page.
     /// css: specimen.css .chip | min-height
     static let chipHeight: CGFloat = 30

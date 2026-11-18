@@ -67,7 +67,7 @@ class RetryReportTests(unittest.TestCase):
                     temporary = pathlib.Path(directory)
                     for name in ("xcodegen", "xcrun"):
                         path = temporary / name
-                        path.write_text('#!/bin/bash\necho "$1" >> "$TEST_COMMANDS"\nexit 0\n')
+                        path.write_text('#!/bin/bash\necho "${2:-$1}" >> "$TEST_COMMANDS"\nexit 0\n')
                         path.chmod(0o755)
                     xcodebuild = temporary / "xcodebuild"
                     xcodebuild.write_text(

@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["playwright==1.64.1"]
+# ///
 """Opens every specimen page in headless Chromium, in each room, contrast mode and accent, and fails on a script error.
 
 Usage: uv run --with playwright==1.64.1 design/scripts/specimen_check.py
@@ -114,6 +118,32 @@ def check_overlay(page, where, failures):
         url = page.url
 
 
+def check_work_capsules(context, base, failures):
+    """Only a reference that covers part of its album offers album playback."""
+    page = context.new_page()
+    page.goto(f"{base}work.html", wait_until="load")
+    page.wait_for_selector(".button-row .capsule")
+    cases = page.evaluate(
+        """() => {
+            const works = [...K.M.works.values()].map(work => {
+                const recording = K.orderedRecordings(work)[0];
+                return {id: work.id, extra: recording.album.song.length > recording.songs.length};
+            });
+            return [works.find(work => !work.extra), works.find(work => work.extra)];
+        }"""
+    )
+    for case in cases:
+        if case is None:
+            failures.append("work capsules: fixtures need both whole-album and part-album references")
+            continue
+        page.goto(f"{base}work.html?work=" + page.evaluate("encodeURIComponent", case["id"]), wait_until="load")
+        page.wait_for_selector(".button-row .capsule")
+        album = page.locator(".button-row .capsule").nth(1)
+        if album.is_visible() != case["extra"]:
+            failures.append(f"{case['id']}: redundant or missing Play Album capsule")
+    page.close()
+
+
 def main():
     server = serve()
     base = f"http://127.0.0.1:{server.server_address[1]}/specimen/"
@@ -123,6 +153,7 @@ def main():
         context = browser.new_context(
             viewport={"width": 393, "height": 852}, device_scale_factor=3, is_mobile=True, has_touch=True
         )
+        check_work_capsules(context, base, failures)
         for page_path in PAGES:
             for theme, contrast, accent, player, playing, side in MODES:
                 sep = "&" if "?" in page_path else "?"

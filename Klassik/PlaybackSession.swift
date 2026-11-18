@@ -30,6 +30,8 @@ final class PlaybackSession {
         var segments: [Double]
         var isPaused: Bool
         var isLoading: Bool
+        /// The slow-connection line under the playback bar, or nil (ADR 0060).
+        var slowLine: String?
         /// True after the last item played to its end.
         var queueEnded: Bool
         var error: String?
@@ -63,6 +65,12 @@ final class PlaybackSession {
     private(set) var segments: [Double] = []
     var isPaused: Bool { !playback.shouldPlay }
     private(set) var isLoading = false
+    /// The line that replaces the times under the playback bar while a slow connection keeps the player silent.
+    private(set) var slowLine: String?
+    /// What the app may prepare without a request. AppModel follows the network path and Low Power Mode.
+    var dataMode = DataMode.normal {
+        didSet { if dataMode != oldValue { prepareAhead() } }
+    }
     private(set) var queueEnded = false
     private(set) var error: String?
     var leveling: VolumeLeveling {
@@ -86,6 +94,7 @@ final class PlaybackSession {
             if item != nil { persistQueue() }
             reset()
             upNext = []
+            prepareAhead()
             canSaveQueue = false
             queueRevision += 1
             restored = false
@@ -123,7 +132,7 @@ final class PlaybackSession {
     var state: State {
         State(
             item: item, upNext: upNext, movement: movement, position: position, segments: segments,
-            isPaused: isPaused, isLoading: isLoading, queueEnded: queueEnded, error: error)
+            isPaused: isPaused, isLoading: isLoading, slowLine: slowLine, queueEnded: queueEnded, error: error)
     }
 
     var progress: Progress? {
@@ -143,6 +152,11 @@ final class PlaybackSession {
     private var lastQueueSave = ContinuousClock.now
     private static let scrobblesKey = "player.scrobbles"
     private var playback = PlaybackState()
+    private var waiting = SlowConnectionLine()
+    private var lineTask: Task<Void, Never>?
+    private var readAheadTask: Task<Void, Never>?
+    /// The read-ahead set that `readAheadTask` prepares, so that an unchanged set keeps its work.
+    private var readAheadPlan: [String] = []
     private let notifications = PlaybackNotifications()
     private let remoteTargets = RemoteCommandTargets()
     private var positionTask: Task<Void, Never>?
@@ -249,6 +263,7 @@ final class PlaybackSession {
         guard self.item != nil else { return play(queue: [item]) }
         upNext.insert(item, at: 0)
         persistQueue()
+        prepareAhead()
     }
 
     /// Puts an item at the end of the queue. With nothing playing, it plays at once.
@@ -256,6 +271,7 @@ final class PlaybackSession {
         guard self.item != nil else { return play(queue: [item]) }
         upNext.append(item)
         persistQueue()
+        prepareAhead()
     }
 
     /// Skips to the next item in the queue.
@@ -275,11 +291,13 @@ final class PlaybackSession {
     func removeFromQueue(at offsets: IndexSet) {
         upNext.remove(atOffsets: offsets)
         persistQueue()
+        prepareAhead()
     }
 
     func moveInQueue(from source: IndexSet, to destination: Int) {
         upNext.move(fromOffsets: source, toOffset: destination)
         persistQueue()
+        prepareAhead()
     }
 
     // MARK: Transport
@@ -338,6 +356,8 @@ final class PlaybackSession {
         reset()
         upNext = []
         persistQueue()
+        // Stop cancels all automatic preparation (ADR 0060).
+        prepareAhead()
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
     }
 
@@ -362,6 +382,7 @@ final class PlaybackSession {
         case .pause:
             savePosition()
             engine.pause()
+            clearWait()
         case .suspend:
             savePosition()
             discardEngine()
@@ -377,6 +398,7 @@ final class PlaybackSession {
         }
         updateNowPlaying()
         persistQueue()
+        prepareAhead()
     }
 
     private func perform(_ command: RemoteCommand) {
@@ -394,6 +416,7 @@ final class PlaybackSession {
         switch event {
         case .movementEnded(let ended): finished(ended)
         case .loading(let loading): isLoading = loading
+        case .waiting(let wait): waited(wait)
         case .scheduled(let scheduled):
             refreshSegments()
             if scheduled == movement { updateNowPlaying() }
@@ -412,6 +435,7 @@ final class PlaybackSession {
             self.movement = ended + 1
             history?.begin(item: item, movement: ended + 1, position: 0)
             persistQueue()
+            prepareAhead()
         } else {
             recordingCompleted = true
             if playback.shouldPlay { completeRecording() }
@@ -449,6 +473,7 @@ final class PlaybackSession {
         if playback.shouldPlay { rebuild() }
         updateNowPlaying()
         if save { persistQueue() }
+        prepareAhead()
     }
 
     private func rebuild() {
@@ -459,7 +484,7 @@ final class PlaybackSession {
         error = nil
         let store = store
         engine.load(item.recording.songs, from: checkpoint.movement, offset: checkpoint.elapsed) { song in
-            try await store.file(for: song, client: server)
+            try await store.source(for: song, client: server)
         }
         positionTask = Task { [weak self] in
             while !Task.isCancelled {
@@ -500,6 +525,7 @@ final class PlaybackSession {
         positionTask = nil
         engine.discard()
         isLoading = false
+        clearWait()
     }
 
     /// Where playback is: the engine's answer, else the last saved place.
@@ -515,7 +541,10 @@ final class PlaybackSession {
         checkpoint = (found.movement, found.elapsed)
         if position != found.elapsed { position = found.elapsed }
         refreshSegments()
-        if movement != found.movement { self.movement = found.movement }
+        if movement != found.movement {
+            self.movement = found.movement
+            prepareAhead()
+        }
     }
 
     private func refreshSegments() {
@@ -528,6 +557,72 @@ final class PlaybackSession {
     private func applyGain() {
         guard let recording, let movement, recording.songs.indices.contains(movement) else { return engine.setGain(0) }
         engine.setGain(leveling.gain(for: recording.songs[movement]))
+    }
+
+    // MARK: Waiting and read-ahead
+
+    /// The engine waits for bytes, or sound started. The line follows after one second (ADR 0060).
+    private func waited(_ wait: PlaybackWait?) {
+        isLoading = wait != nil
+        waiting.update(wait, at: .now)
+        refreshLine()
+    }
+
+    private func clearWait() {
+        waiting.clear()
+        refreshLine()
+    }
+
+    private func refreshLine() {
+        lineTask?.cancel()
+        lineTask = nil
+        let now = ContinuousClock.now
+        let text = waiting.text(at: now)
+        if slowLine != text { slowLine = text }
+        guard text == nil, let due = waiting.due, due > now else { return }
+        lineTask = Task { [weak self] in
+            try? await Task.sleep(until: due, clock: .continuous)
+            guard !Task.isCancelled else { return }
+            self?.refreshLine()
+        }
+    }
+
+    /// Prepares the tracks that ADR 0060 allows for the current place in the queue, and cancels the rest.
+    /// The current track and the next audible one keep their transfers; a pause or offline mode starts no new one.
+    private func prepareAhead() {
+        guard let item, let movement, let server, item.recording.songs.indices.contains(movement) else {
+            readAheadTask?.cancel()
+            readAheadTask = nil
+            readAheadPlan = []
+            store.pinned = []
+            store.cancelTransfers()
+            return
+        }
+        let current = item.recording.songs[movement]
+        let next = ReadAhead.plan(item, movement: movement, upNext: upNext, mode: .constrained)
+        let plan =
+            playback.wantsPlayback ? ReadAhead.plan(item, movement: movement, upNext: upNext, mode: dataMode) : []
+        let kept = Set(([current] + next + plan).map(\.id))
+        store.pinned = kept
+        store.cancelTransfers(except: kept)
+        let ids = plan.map(\.id)
+        guard ids != readAheadPlan else { return }
+        readAheadTask?.cancel()
+        readAheadPlan = ids
+        guard !plan.isEmpty else { return }
+        let store = store
+        readAheadTask = Task {
+            do {
+                // The current track has priority: speculative transfers wait until it is complete.
+                if let running = store.transfers[current.id] { _ = try await running.finished() }
+                for song in plan {
+                    try Task.checkCancellation()
+                    _ = try await store.file(for: song, client: server)
+                }
+            } catch {
+                // A failed read-ahead is not a playback error; playback asks for the track again.
+            }
+        }
     }
 
     // MARK: System

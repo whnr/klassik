@@ -991,6 +991,28 @@ struct PlaybackProgress: View {
         .foregroundStyle(Palette.textSecondary)
     }
 
+    /// The times, or the slow-connection line in their place (ADR 0060). Hidden copies of both messages reserve
+    /// their wrapped height at every width and text size, so the controls never move when the line appears.
+    static func under(_ elapsed: Double, of duration: Double, line: String?) -> some View {
+        ZStack {
+            Text(SlowConnectionLine.startText).hidden()
+            Text(SlowConnectionLine.resumeText).hidden()
+            times(elapsed, of: duration)
+                .opacity(line == nil ? 1 : 0)
+                .accessibilityHidden(line != nil)
+            if let line {
+                Text(line)
+                    .typeStyle(.caption1)
+                    .foregroundStyle(Palette.textSecondary)
+                    .accessibilityIdentifier("slow-connection")
+            }
+        }
+        .typeStyle(.caption1)
+        .multilineTextAlignment(.center)
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity)
+    }
+
     static func time(_ seconds: Double) -> String {
         Duration.seconds(seconds.rounded()).formatted(
             .time(pattern: seconds >= 3600 ? .hourMinuteSecond : .minuteSecond))
@@ -1013,7 +1035,7 @@ private struct PositionBar: View {
         let shown = min(scrub.shown(elapsed: elapsed), duration)
         VStack(alignment: .leading, spacing: lineGap) {
             bar(shown)
-            PlaybackProgress.times(shown, of: duration)
+            PlaybackProgress.under(shown, of: duration, line: player.slowLine)
         }
         .onChange(of: elapsed) { _, now in scrub.observe(elapsed: now) }
         // A cancelled drag never calls onEnded, and a new movement replaces this bar while a finger holds it.

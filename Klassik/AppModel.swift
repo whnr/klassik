@@ -23,6 +23,7 @@ final class AppModel {
     let albumArt = ImageStore.albumArt
     @ObservationIgnored private var albumArtPass: Task<Void, Never>?
     let playback: PlaybackSession
+    @ObservationIgnored private var dataModes: DataModeMonitor?
     /// The timeline and the mini player show while an item is in playback; the page insets follow them.
     var showsTimeline: Bool { playback.item != nil }
     let enrichment: Enrichment
@@ -58,6 +59,11 @@ final class AppModel {
         }
         credentials = store.load()
         updateServer()
+        dataModes = DataModeMonitor { [weak self] mode, pathChanged in
+            guard let self else { return }
+            if pathChanged { self.tracks.networkPathChanged() }
+            self.playback.dataMode = mode
+        }
         reconnect = ConnectionMonitor { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self else { return }

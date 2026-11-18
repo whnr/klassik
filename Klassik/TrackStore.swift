@@ -17,6 +17,8 @@ final class TrackStore {
 
     /// Loads one track and returns the temporary file. A test replaces it, so no test needs a server.
     typealias Fetch = @MainActor (Song, any ServerPort) async throws -> URL
+    /// Delivers the bytes of a transfer. Production starts its URLSession request; a test feeds bytes itself.
+    typealias Transport = @MainActor (Song, any ServerPort, TrackTransfer) -> Void
 
     /// The limit counts whole gigabytes, in the same decimal unit that the screen uses for every size.
     static let gigabyte: Int64 = 1_000_000_000
@@ -46,14 +48,29 @@ final class TrackStore {
     private let defaults: UserDefaults
     private var tasks: [String: Task<Void, Never>] = [:]
     private let load: Fetch
+    /// Nil when a test replaced the fetch: then every track loads whole.
+    private let transport: Transport?
+    /// The transfers in flight, by song ID. Playback, read-ahead and downloads share them (ADR 0060).
+    @ObservationIgnored private(set) var transfers: [String: TrackTransfer] = [:]
+    /// Tracks that playback and read-ahead need now. Eviction keeps their files.
+    @ObservationIgnored var pinned: Set<String> = []
+    /// Whole-file loads in flight, by song ID, so that playback and read-ahead share one.
+    @ObservationIgnored private var fetches: [String: Task<URL, any Error>] = [:]
     private static let limitKey = "store.cacheLimit"
 
     init(
         cacheFolder: URL = .cachesDirectory.appending(path: "tracks"),
         downloadFolder: URL = .applicationSupportDirectory.appending(path: "downloads"),
-        defaults: UserDefaults = .standard, fetch: Fetch? = nil
+        defaults: UserDefaults = .standard, fetch: Fetch? = nil, transport: Transport? = nil
     ) {
         load = fetch ?? Self.stream
+        if let transport {
+            self.transport = transport
+        } else if fetch == nil {
+            self.transport = { _, _, transfer in transfer.start() }
+        } else {
+            self.transport = nil
+        }
         self.cacheFolder = cacheFolder
         self.downloadFolder = downloadFolder
         self.manifestURL = downloadFolder.deletingLastPathComponent().appending(path: "downloads.json")
@@ -61,6 +78,10 @@ final class TrackStore {
         let stored = defaults.object(forKey: Self.limitKey) as? Int64
         cacheLimit = stored ?? Self.defaultLimit
         downloads = (try? JSONDecoder().decode([Download].self, from: Data(contentsOf: manifestURL))) ?? []
+        // No transfer runs yet, so a partial file is left over from an earlier run.
+        for file in Self.files(in: cacheFolder) where file.isPartial {
+            try? FileManager.default.removeItem(at: file.url)
+        }
         rescan()
     }
 
@@ -84,20 +105,71 @@ final class TrackStore {
         downloads.contains { $0.id == recording.id }
     }
 
+    /// What playback reads for a track: a file on the device, or the transfer of a format that starts early.
+    func source(for song: Song, client: any ServerPort) async throws -> PlaybackSource {
+        if let local = localFile(song) { return .file(local) }
+        if transport != nil, StreamDecoder.canStartEarly(song) { return .stream(transfer(for: song, client: client)) }
+        return try await .file(file(for: song, client: client))
+    }
+
     /// The local file of a track. A track that is not on the device downloads into the cache first.
     func file(for song: Song, client: any ServerPort) async throws -> URL {
+        if let local = localFile(song) { return local }
+        if transport != nil { return try await transfer(for: song, client: client).finished() }
+        if let running = fetches[song.id] { return try await running.value }
+        let cached = cacheFolder.appending(path: Self.fileName(song))
+        let task = Task {
+            try await fetch(song, to: cached, client: client)
+            return cached
+        }
+        fetches[song.id] = task
+        defer { fetches[song.id] = nil }
+        _ = try await task.value
+        rescan()
+        evict(keeping: cached)
+        return cached
+    }
+
+    /// The running transfer of a track, or a new one into the cache.
+    @discardableResult
+    func transfer(for song: Song, client: any ServerPort) -> TrackTransfer {
+        if let running = transfers[song.id] { return running }
+        let name = Self.fileName(song)
+        let transfer = TrackTransfer(
+            songID: song.id, partial: cacheFolder.appending(path: name + ".partial"),
+            target: cacheFolder.appending(path: name), url: client.streamURL(songID: song.id))
+        transfers[song.id] = transfer
+        transfer.whenFinished { [weak self] _ in
+            Task { @MainActor in self?.transferEnded(transfer) }
+        }
+        transport?(song, client, transfer)
+        return transfer
+    }
+
+    /// Stops every transfer that no one needs any more. Their partial bytes go.
+    func cancelTransfers(except kept: Set<String> = []) {
+        for (id, transfer) in transfers where !kept.contains(id) { transfer.cancel() }
+    }
+
+    /// A new network path starts new throughput measurements.
+    func networkPathChanged() {
+        for transfer in transfers.values { transfer.restartMeasurement() }
+    }
+
+    private func transferEnded(_ transfer: TrackTransfer) {
+        if transfers[transfer.songID] === transfer { transfers[transfer.songID] = nil }
+        rescan()
+        evict(keeping: transfer.target)
+    }
+
+    private func localFile(_ song: Song) -> URL? {
         let name = Self.fileName(song)
         let kept = downloadFolder.appending(path: name)
         if FileManager.default.fileExists(atPath: kept.path()) { return kept }
         let cached = cacheFolder.appending(path: name)
-        if FileManager.default.fileExists(atPath: cached.path()) {
-            // The modification date tells the cache which file was played last.
-            try? FileManager.default.setAttributes([.modificationDate: Date.now], ofItemAtPath: cached.path())
-            return cached
-        }
-        try await fetch(song, to: cached, client: client)
-        rescan()
-        evict(keeping: cached)
+        guard FileManager.default.fileExists(atPath: cached.path()) else { return nil }
+        // The modification date tells the cache which file was played last.
+        try? FileManager.default.setAttributes([.modificationDate: Date.now], ofItemAtPath: cached.path())
         return cached
     }
 
@@ -115,6 +187,10 @@ final class TrackStore {
                     let target = downloadFolder.appending(path: Self.fileName(song))
                     if !FileManager.default.fileExists(atPath: target.path()) {
                         let cached = cacheFolder.appending(path: Self.fileName(song))
+                        if transport != nil, !FileManager.default.fileExists(atPath: cached.path()) {
+                            // The download reuses the bytes that playback or read-ahead already loads.
+                            _ = try await transfer(for: song, client: client).finished()
+                        }
                         if FileManager.default.fileExists(atPath: cached.path()) {
                             try FileManager.default.createDirectory(
                                 at: downloadFolder, withIntermediateDirectories: true)
@@ -157,12 +233,14 @@ final class TrackStore {
     }
 
     func clearCache() {
+        cancelTransfers()
         try? FileManager.default.removeItem(at: cacheFolder)
         rescan()
     }
 
     /// Signing out removes everything the account stored.
     func clearAll() {
+        cancelTransfers()
         for task in tasks.values { task.cancel() }
         downloads = []
         try? FileManager.default.removeItem(at: downloadFolder)
@@ -174,8 +252,9 @@ final class TrackStore {
     func rescan() {
         let cached = Self.files(in: cacheFolder)
         let kept = Self.files(in: downloadFolder)
+        // Partial bytes count under Music, but only a complete file plays offline (ADR 0060).
         cacheBytes = cached.reduce(0) { $0 + $1.size }
-        offline = Set((cached + kept).map(\.id))
+        offline = Set((cached + kept).filter { !$0.isPartial }.map(\.id))
     }
 
     /// Deletes the least recently played cache files until the cache fits its limit.
@@ -184,7 +263,7 @@ final class TrackStore {
         var total = files.reduce(0) { $0 + $1.size }
         while total > cacheLimit, let oldest = files.first {
             files.removeFirst()
-            if oldest.url == keep { continue }
+            if oldest.url == keep || oldest.isPartial || pinned.contains(oldest.id) { continue }
             try? FileManager.default.removeItem(at: oldest.url)
             total -= oldest.size
         }
@@ -226,6 +305,7 @@ final class TrackStore {
         var id: String
         var size: Int64
         var date: Date
+        var isPartial: Bool { url.pathExtension == "partial" }
     }
 
     private static func files(in folder: URL) -> [StoredFile] {

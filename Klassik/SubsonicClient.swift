@@ -129,6 +129,13 @@ struct Song: Codable, Sendable, Identifiable, Hashable {
     /// The date when the user starred the track. The server omits it for other tracks.
     var starred: String?
     var playCount: Int?
+    /// Kilobits per second, as the server declares it. The start threshold reads it (ADR 0060).
+    var bitRate: Int?
+    var samplingRate: Int?
+    var bitDepth: Int?
+    var channelCount: Int?
+    /// The file size in bytes.
+    var size: Int64?
 }
 
 /// The `subsonic-response` object. Fields of all endpoints in use are optional members.

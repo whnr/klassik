@@ -5,6 +5,8 @@ enum PlaybackEngineEvent: Sendable {
     /// A movement played to its end.
     case movementEnded(Int)
     case loading(Bool)
+    /// Nothing sounds although the listener wants sound, or nil when sound starts (ADR 0060).
+    case waiting(PlaybackWait?)
     /// The engine scheduled a movement, so its exact length is known.
     case scheduled(Int)
     /// The audio hardware changed and the engine stopped.
@@ -15,8 +17,16 @@ enum PlaybackEngineEvent: Sendable {
     case failed(String)
 }
 
-/// Loads one track and returns its local file.
-typealias PlaybackFileSource = @MainActor (Song) async throws -> URL
+/// Where the engine gets the bytes of one track.
+enum PlaybackSource: Sendable {
+    /// A complete file on the device.
+    case file(URL)
+    /// A transfer that is still arriving. The engine decodes from its first bytes.
+    case stream(TrackTransfer)
+}
+
+/// Gets one track: a complete file, or a transfer for a format that can start early.
+typealias PlaybackFileSource = @MainActor (Song) async throws -> PlaybackSource
 
 /// The seam under the playback session: it plays the movements of one recording, one after the other.
 /// `GaplessEngine` is the production engine. A test uses a fake engine that reports ends and positions.

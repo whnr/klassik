@@ -4,6 +4,33 @@ import Testing
 
 @testable import Klassik
 
+#if canImport(FoundationNetworking)
+    import FoundationNetworking
+#endif
+
+private final class FavouriteLibraryProtocol: URLProtocol {
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        let json = #"""
+            {"subsonic-response":{"status":"ok","version":"1.16.1","searchResult3":{"song":[
+            {"id":"a-1","title":"Movement 1","album":"a","albumId":"a","year":2020,"genre":"Classical","works":[{"name":"Work"}]},
+            {"id":"b-1","title":"Movement 1","album":"b","albumId":"b","year":1990,"genre":"Classical","works":[{"name":"Work"}]},
+            {"id":"c-1","title":"Movement 1","album":"c","albumId":"c","year":2000,"genre":"Classical","works":[{"name":"Work"}],"starred":"2026-11-16"}
+            ]}}}
+            """#
+        let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data(json.utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() {}
+}
+
+#if !canImport(FoundationNetworking)
+    extension FavouriteLibraryProtocol: @unchecked Sendable {}
+#endif
+
 @MainActor private final class IndexChange {
     var seen = false
 }
@@ -13,6 +40,7 @@ actor FavouriteFixture: FavouriteServer {
     var writes: [[String]] = []
     var failure: (any Error)?
     var readsFail = true
+    var failures: [String: any Error] = [:]
 
     static let offline = URLError(.notConnectedToInternet)
     static let refusal = SubsonicError.server(code: 50, message: "The user is not authorised")
@@ -24,9 +52,12 @@ actor FavouriteFixture: FavouriteServer {
     }
 
     func star(_ ids: [String]) throws {
+        if let id = ids.first, let failure = failures[id] { throw failure }
         if let failure { throw failure }
         writes.append(ids)
     }
+
+    func fail(_ failures: [String: any Error]) { self.failures = failures }
 
     func unstar(_ ids: [String]) throws {
         if let failure { throw failure }
@@ -73,6 +104,73 @@ struct RecordingOrderTests {
 
     private func store(_ root: URL) -> DeviceStore {
         DeviceStore(server: credentials.url, username: credentials.username, folder: root.appending(path: "listeners"))
+    }
+
+    @Test(arguments: [false, true])
+    func queuedChoicesSurviveFullReloadAndFailedStarReads(loadBeforeOrder: Bool) async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let songs = [song("a", year: 2020), song("b", year: 1990), song("c", year: 2000, starred: true)]
+        let library = try await library(songs, root: root)
+        let work = try #require(library.index.composers.first?.works.first)
+        let b = try #require(work.recordings.first { $0.album == "b" })
+        let c = try #require(work.recordings.first { $0.album == "c" })
+        let server = FavouriteFixture()
+        await server.configure(Starred(), failure: FavouriteFixture.refusal)
+        let order = RecordingOrder(library: library, store: store(root), server: server)
+        await order.toggle(b, of: work)
+        await order.toggle(c, of: work)
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [FavouriteLibraryProtocol.self]
+        let client = SubsonicClient(credentials: credentials, session: URLSession(configuration: configuration))
+        await library.sync(with: client)
+        #expect(library.syncError == nil)
+        await order.refresh()
+        #expect(order.refreshError != nil)
+        #expect(order.isFavourite(b, of: work))
+        #expect(!order.isFavourite(c, of: work))
+        #expect(order.rows(of: work).map(\.recording.album) == ["b", "a", "c"])
+        #expect(order.favouriteRecordings.map(\.recording.album) == ["b"])
+        #expect(try store(root).load().recordingOrder[work.id] == [b.id])
+        await library.cacheWrite?.value
+        let cached = try LibraryCache.read(from: root.appending(path: "library.json"))
+        #expect(cached.songs.first { $0.id == "b-1" }?.starred != nil)
+        #expect(cached.songs.first { $0.id == "c-1" }?.starred == nil)
+        try LibraryCache(server: credentials.url, username: credentials.username, syncedAt: .now, songs: songs)
+            .write(to: root.appending(path: "library.json"))
+        let reloaded = Library(cacheURL: root.appending(path: "library.json"))
+        if loadBeforeOrder { await reloaded.load(for: credentials) }
+        let relaunched = RecordingOrder(library: reloaded, store: store(root), server: server)
+        if !loadBeforeOrder { await reloaded.load(for: credentials) }
+        #expect(relaunched.isFavourite(b, of: work))
+        #expect(!relaunched.isFavourite(c, of: work))
+        #expect(relaunched.favouriteRecordings.map(\.recording.album) == ["b"])
+        #expect(relaunched.rows(of: work).map(\.recording.album) == ["b", "a", "c"])
+        await reloaded.cacheWrite?.value
+    }
+
+    @Test(arguments: [false, true])
+    func tappedChangeReportsItsOwnFailureOrAnEarlierConnectionFailure(stopsBeforeTap: Bool) async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let library = try await library([song("a"), song("b"), song("c")], root: root)
+        let work = try #require(library.index.composers.first?.works.first)
+        let server = FavouriteFixture()
+        await server.fail([
+            "a-1": FavouriteFixture.refusal, "b-1": FavouriteFixture.offline,
+            "c-1": FavouriteFixture.refusal,
+        ])
+        let order = RecordingOrder(library: library, store: store(root), server: server)
+        let a = try #require(work.recordings.first { $0.album == "a" })
+        let b = try #require(work.recordings.first { $0.album == "b" })
+        let c = try #require(work.recordings.first { $0.album == "c" })
+        await order.toggle(a, of: work)
+        #expect(order.error?.contains("The server did not accept") == true)
+        if stopsBeforeTap { _ = order.begin(b, of: work) }
+        order.error = nil
+        await order.toggle(stopsBeforeTap ? c : b, of: work)
+        #expect(order.error == RecordingOrder.offlineNotice)
+        #expect(try store(root).load().pendingFavourites.count == (stopsBeforeTap ? 3 : 2))
     }
 
     @Test func deviceFilesSeparateServersAndUsersAndSurviveReconnection() throws {

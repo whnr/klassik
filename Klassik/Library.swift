@@ -79,6 +79,7 @@ final class Library {
     private let cacheURL: URL
     private let defaults: UserDefaults
     @ObservationIgnored private(set) var cacheWrite: Task<Void, Never>?
+    @ObservationIgnored private var pendingStars: [String: Bool] = [:]
     private static let filterKey = "library.filter.rules"
     static let pageSize = 500
 
@@ -124,12 +125,13 @@ final class Library {
                 self.received += page.count
                 return page
             }
-            let cache = LibraryCache(
-                server: client.credentials.url, username: client.credentials.username, syncedAt: .now, songs: songs,
-                marker: marker)
             self.marker = marker
             owner = (client.credentials.url, client.credentials.username)
-            show(songs, syncedAt: cache.syncedAt)
+            let syncedAt = Date.now
+            show(songs, syncedAt: syncedAt)
+            let cache = LibraryCache(
+                server: client.credentials.url, username: client.credentials.username, syncedAt: syncedAt,
+                songs: self.songs, marker: marker)
             syncError = nil
             await enqueueCache(cache).value
         } catch {
@@ -152,17 +154,27 @@ final class Library {
         let stamp = ISO8601DateFormatter().string(from: .now)
         var changed = songs
         for index in changed.indices {
-            changed[index].starred = ids.contains(changed[index].id) ? (changed[index].starred ?? stamp) : nil
+            let isSet = pendingStars[changed[index].id] ?? ids.contains(changed[index].id)
+            changed[index].starred = isSet ? (changed[index].starred ?? stamp) : nil
         }
         // An unchanged refresh must not rebuild the index: the rebuild re-renders every page under a tap.
         guard changed.map(\.starred) != songs.map(\.starred) else { return }
         saveStars(changed, owner: owner, syncedAt: syncedAt)
     }
 
+    /// Pending device choices take priority over every server snapshot (ADR 0052).
+    func project(_ changes: [DeviceStore.FavouriteChange]) {
+        pendingStars = [:]
+        for change in changes where change.album == nil {
+            for id in change.songs { pendingStars[id] = change.isSet }
+        }
+        replaceStars(Set(songs.filter { $0.starred != nil }.map(\.id)))
+    }
+
     private func saveStars(_ songs: [Song], owner: (server: URL, username: String), syncedAt: Date) {
         show(songs, syncedAt: syncedAt)
         let cache = LibraryCache(
-            server: owner.server, username: owner.username, syncedAt: syncedAt, songs: songs, marker: marker)
+            server: owner.server, username: owner.username, syncedAt: syncedAt, songs: self.songs, marker: marker)
         enqueueCache(cache)
     }
 
@@ -207,6 +219,13 @@ final class Library {
     }
 
     private func show(_ songs: [Song], syncedAt: Date) {
+        var songs = songs
+        let stamp = ISO8601DateFormatter().string(from: .now)
+        for index in songs.indices {
+            if let isSet = pendingStars[songs[index].id] {
+                songs[index].starred = isSet ? (songs[index].starred ?? stamp) : nil
+            }
+        }
         self.songs = songs
         self.syncedAt = syncedAt
         classical = filter.classical(songs)

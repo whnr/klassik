@@ -71,6 +71,7 @@ final class RecordingOrder {
         self.server = server
         do { data = try store?.load() ?? DeviceStore.Data() } catch { loadError = error.localizedDescription }
         albums = data.favouriteAlbums
+        library.project(data.pendingFavourites)
     }
 
     func isFavourite(_ work: WorkIndex.Work) -> Bool { data.favouriteWorks.contains(work.id) }
@@ -153,7 +154,6 @@ final class RecordingOrder {
         let change = DeviceStore.FavouriteChange(songs: ids, isSet: isSet)
         changed.queue(change)
         guard save(changed) else { return nil }
-        library.setStarred(Set(ids), isSet)
         return { [self] in await send(tapped: change.id) }
     }
 
@@ -198,7 +198,7 @@ final class RecordingOrder {
     /// Sends the changes that wait, then reads all stars. The server is right, except for a change that still waits.
     func refresh() async {
         await serially {
-            await self.sendQueue()
+            _ = await self.sendQueue()
             await self.readStars()
         }
     }
@@ -211,8 +211,10 @@ final class RecordingOrder {
     /// One notice for each tap whose change still waits after its own send.
     private func send(tapped id: UUID) async {
         await serially {
-            let failure = await self.sendQueue()
-            guard let failure, self.data.pendingFavourites.contains(where: { $0.id == id }) else { return }
+            let failures = await self.sendQueue()
+            guard let failure = failures[id], self.data.pendingFavourites.contains(where: { $0.id == id }) else {
+                return
+            }
             self.error =
                 failure is URLError
                 ? Self.offlineNotice
@@ -232,11 +234,10 @@ final class RecordingOrder {
         await task.value
     }
 
-    /// Sends each change in order and returns the first failure. A refused change waits, and the next one goes on:
-    /// the queue holds one change for each target, so their order does not matter. Without a connection, all wait.
-    private func sendQueue() async -> (any Error)? {
-        guard loadError == nil, let server else { return nil }
-        var failure: (any Error)?
+    /// A refused change waits while other targets proceed. A connection failure also applies to all unreached changes.
+    private func sendQueue() async -> [UUID: any Error] {
+        guard loadError == nil, let server else { return [:] }
+        var failures: [UUID: any Error] = [:]
         queue: for change in data.pendingFavourites {
             // A later tap on the same target replaces a change while an earlier one is on its way.
             guard data.pendingFavourites.contains(where: { $0.id == change.id }) else { continue }
@@ -251,11 +252,16 @@ final class RecordingOrder {
                 changed.pendingFavourites.removeAll { $0.id == change.id }
                 save(changed, quietly: true)
             } catch {
-                failure = failure ?? error
-                if error is URLError { break queue }
+                failures[change.id] = error
+                if error is URLError {
+                    for pending in data.pendingFavourites where failures[pending.id] == nil {
+                        failures[pending.id] = error
+                    }
+                    break queue
+                }
             }
         }
-        return failure
+        return failures
     }
 
     private func readStars() async {
@@ -296,6 +302,7 @@ final class RecordingOrder {
         do {
             try store?.save(changed)
             data = changed
+            library.project(changed.pendingFavourites)
             return true
         } catch {
             if !quietly { self.error = error.localizedDescription }

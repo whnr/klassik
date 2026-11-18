@@ -1,7 +1,7 @@
 {
-  "sha": "c0646362b80212889495c6b7a08c961e493e23fc",
+  "sha": "9e73552076eb4b2d8247f62ac69343992081b4db",
   "branch": "codex-sz-rs30.1.125-adr",
   "path": "codex-sz-rs30.1.125-adr",
-  "subject": "[sz-rs30.1.125] Decide ADR 0060; fake a slow start",
-  "ts": 1795032732
+  "subject": "[sz-rs30.1.125.1] Finalize quiet player status",
+  "ts": 1795039346
 }

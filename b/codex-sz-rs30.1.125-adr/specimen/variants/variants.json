@@ -1,4 +1,1 @@
-{
-  "slow-under": { "page": "player", "label": "A: line in place of the times" },
-  "slow-above": { "page": "player", "label": "B: line above the bar", "css": "slow-above.css" }
-}
+{}

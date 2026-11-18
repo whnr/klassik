@@ -284,6 +284,17 @@ struct PortraitLoaderTests {
 
 /// The timeline translates content without changing its available width (ADR 0045).
 struct PageContentPositionTests {
+    @Test func indicatorStaysBesideTheTimelineOnEitherSide() {
+        for side in [TimelineSide.left, .right] {
+            for timeline in [false, true] {
+                let shift = Layout.contentShift(side: side, timeline: timeline)
+                let inset = Layout.shiftedIndicatorInset(side: side, timeline: timeline)
+                let beside = timeline && side == .right ? Measure.timeline : 0
+                #expect(inset - shift == beside)
+            }
+        }
+    }
+
     @Test func contentKeepsItsWidthOnEitherSide() {
         let centred = Layout.sideInsets(timelineOnLeft: nil)
         for side in [TimelineSide.left, .right] {

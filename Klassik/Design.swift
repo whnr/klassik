@@ -278,6 +278,12 @@ extension Layout {
         return (insets.left - insets.right) / 2
     }
 
+    /// The list transform also moves its indicator; this inset keeps it beside the timeline.
+    static func shiftedIndicatorInset(side: TimelineSide, timeline: Bool) -> CGFloat {
+        let beside = timeline && side == .right ? Measure.timeline : 0
+        return beside + contentShift(side: side, timeline: timeline)
+    }
+
     /// The page insets for a timeline on `side`, or for no timeline. Each content page uses them.
     /// Settings and sheets keep the system insets.
     static func edges(side: TimelineSide, timeline: Bool, top: CGFloat = 0, bottom: CGFloat = 0) -> EdgeInsets {
@@ -321,10 +327,14 @@ private struct PageContentPosition: ViewModifier {
     @Environment(AppModel.self) private var model: AppModel?
 
     func body(content: Content) -> some View {
+        let timeline = model?.showsTimeline == true
         content
             .environment(\.pageContentPositioned, true)
+            .contentMargins(
+                .trailing, Layout.shiftedIndicatorInset(side: side, timeline: timeline), for: .scrollIndicators
+            )
             .scrollClipDisabled()
-            .offset(x: Layout.contentShift(side: side, timeline: model?.showsTimeline == true))
+            .offset(x: Layout.contentShift(side: side, timeline: timeline))
     }
 }
 

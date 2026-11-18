@@ -12,6 +12,9 @@ struct ComposerPage: View {
     let composer: WorkIndex.Composer
     @State private var tab = Tab.works
     @State private var chips: Set<String> = []
+    /// The open sets. Their works are rows of the list, so opening one adds rows below its title and the list
+    /// keeps its offset. A system disclosure group scrolls the list to its new rows.
+    @State private var openSets: Set<String> = []
     @AppStorage(ComposerWorks.separatesPartialKey) private var separatesPartial = true
 
     var body: some View {
@@ -113,28 +116,54 @@ struct ComposerPage: View {
                     case .work(let work):
                         WorkRow(work: work)
                     case .set(let name, let works):
-                        DisclosureGroup {
-                            ForEach(works) {
-                                WorkRow(work: $0)
-                                    .pageRow()
-                                    .itemSeparator(
-                                        first: false, last: $0.id == works.last?.id && row.id == rows.last?.id)
-                            }
-                        } label: {
-                            VStack(alignment: .leading, spacing: Layout.rowLineGap) {
-                                Text(name)
-                                    .typeStyle(.body)
-                                    .ink()
-                                Text("\(works.count) works")
-                                    .typeStyle(.footnote)
-                                    .foregroundStyle(Palette.textSecondary)
-                            }
-                            .accessibilityElement(children: .combine)
-                        }
-                        .accessibilityIdentifier("set")
+                        setRow(name: name, works: works, row: row, rows: rows)
                     }
                 }
                 .itemSeparator(first: row.id == rows.first?.id, last: row.id == rows.last?.id)
+            }
+        }
+    }
+
+    /// The title of a set stays where it is. Its works follow as rows below it, at once and without scrolling.
+    @ViewBuilder private func setRow(
+        name: String, works: [WorkIndex.Work], row: ComposerWorks.Row, rows: [ComposerWorks.Row]
+    ) -> some View {
+        let isOpen = openSets.contains(name)
+        Button {
+            var change = Transaction()
+            change.disablesAnimations = true
+            withTransaction(change) {
+                if isOpen { openSets.remove(name) } else { openSets.insert(name) }
+            }
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: Layout.rowLineGap) {
+                    Text(name)
+                        .typeStyle(.body)
+                        .ink()
+                    Text("\(works.count) works")
+                        .typeStyle(.footnote)
+                        .foregroundStyle(Palette.textSecondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .typeStyle(.footnote)
+                    .foregroundStyle(Palette.textSecondary)
+                    .rotationEffect(.degrees(isOpen ? 90 : 0))
+                    .accessibilityHidden(true)
+            }
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(isOpen ? "Expanded" : "Collapsed")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityIdentifier("set")
+        if isOpen {
+            ForEach(works) {
+                WorkRow(work: $0)
+                    .pageRow()
+                    .itemSeparator(first: false, last: $0.id == works.last?.id && row.id == rows.last?.id)
             }
         }
     }

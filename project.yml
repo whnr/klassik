@@ -76,3 +76,12 @@ schemes:
       # Automatic video capture competes with UI automation on the simulator.
       preferredScreenCaptureFormat: screenshots
       targets: [KlassikTests, KlassikUITests]
+  # TestFlight gets a Release build, which can differ from the debug build at run time.
+  KlassikRelease:
+    build:
+      targets:
+        Klassik: all
+    test:
+      config: Release
+      preferredScreenCaptureFormat: screenshots
+      targets: [KlassikUITests]

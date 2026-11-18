@@ -1,7 +1,7 @@
 {
-  "sha": "e70ca542bd3fb930418e455240050defd90821d4",
+  "sha": "538bba1f4d987e196a012292d12bc70b0b5e8628",
   "branch": "main",
   "path": "main",
-  "subject": "[sz-3hcq.1] Close the player, rework the work page, crop the timeline (#69)",
-  "ts": 1795009095
+  "subject": "[sz-rs30.1.121 and sz-rs30.1.122] Make favourites instant; one server status (#99)",
+  "ts": 1795016917
 }

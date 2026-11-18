@@ -34,23 +34,17 @@ final class PlacesScreens: ScreensTestCase {
         app.buttons["Edit"].tap()
         XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 5))
         snap(app, "02e-library-edit")
-        // The system reorder control sits beside the row, outside its frame. A drop on the upper part of the
-        // Composers control puts Favourites first; a drop above the first row lands in the heading and goes back.
+        // The system reorder control sits beside the row, outside its frame. A drag of Composers onto the lower part
+        // of the Favourites control puts Favourites first. A long hold before the drag does not pick the row up.
         let reorder = { (name: String) in
             app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Reorder \(name)")).firstMatch
         }
-        XCTAssertTrue(reorder("Favourites").exists, "No reorder control on Favourites")
-        reorder("Favourites").coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        XCTAssertTrue(reorder("Composers").exists, "No reorder control on Composers")
+        reorder("Composers").coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
             .press(
-                forDuration: 1,
-                thenDragTo: reorder("Composers").coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2)),
-                withVelocity: .slow, thenHoldForDuration: 1)
-        if favourites.frame.minY > composers.frame.minY {
-            let tree = XCTAttachment(string: app.debugDescription)
-            tree.name = "tree-after-drag"
-            tree.lifetime = .keepAlways
-            add(tree)
-        }
+                forDuration: 0.1,
+                thenDragTo: reorder("Favourites").coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)),
+                withVelocity: .default, thenHoldForDuration: 0.5)
         app.buttons["Done"].tap()
         XCTAssertTrue(app.buttons["Edit"].waitForExistence(timeout: 5))
         XCTAssertLessThan(favourites.frame.minY, composers.frame.minY, "The drag did not move Favourites up")

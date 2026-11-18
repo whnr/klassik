@@ -20,9 +20,9 @@ final class LibrarySyncTests: XCTestCase {
         await library.sync(with: client)
 
         XCTAssertNil(library.syncError)
-        XCTAssertEqual(library.songs.count, 31)
-        XCTAssertEqual(library.albumCount, 9)
-        XCTAssertEqual(library.classical.count, 26, "every track but the jazz and FLAC albums")
+        XCTAssertEqual(library.songs.count, 33)
+        XCTAssertEqual(library.albumCount, 11)
+        XCTAssertEqual(library.classical.count, 26, "Jazz, FLAC and decoder probes remain outside the classical filter")
         XCTAssertEqual(library.classicalAlbumCount, 7)
         let finale = try XCTUnwrap(
             library.songs.first { $0.movements?.first?.number == 3 && $0.album == "Mendelssohn: Violin Concerto" })
@@ -71,7 +71,7 @@ final class LibrarySyncTests: XCTestCase {
 
         let reloaded = Library(cacheURL: cache, defaults: defaults)
         await reloaded.load(for: client.credentials)
-        XCTAssertEqual(reloaded.songs.count, 31)
+        XCTAssertEqual(reloaded.songs.count, 33)
 
         // Nothing changed on the server, so the next start keeps the cache and does not fetch again.
         let cachedAt = try XCTUnwrap(reloaded.syncedAt)

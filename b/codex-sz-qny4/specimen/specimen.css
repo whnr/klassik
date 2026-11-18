@@ -435,6 +435,9 @@ input {
   background: var(--color-accent-fill, var(--color-tint));
   color: var(--color-on-accent, #fff);
 }
+.capsule[hidden] {
+  display: none;
+}
 .capsule:active {
   opacity: 0.6;
 }
@@ -557,9 +560,6 @@ input::placeholder {
   flex: none;
   width: 56px;
   border-radius: var(--radius-full);
-}
-.tab-search.on {
-  color: var(--color-tint);
 }
 .tab-search.on {
   color: var(--color-tint);

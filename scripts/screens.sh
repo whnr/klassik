@@ -50,6 +50,14 @@ phase project
 udid=${KLASSIK_SIMULATOR_UDID:-$(scripts/simulator.sh)}
 echo "Simulator: $udid"
 phase simulator
+# A ready simulator avoids cold destination discovery and startup contention during compilation.
+if [ "$mode" != build ]; then
+  xcrun simctl bootstatus "$udid" -b >/dev/null
+  xcrun simctl status_bar "$udid" override --time 9:41 --dataNetwork wifi --wifiBars 3 --cellularMode notSupported \
+    --batteryState charged --batteryLevel 100 || echo "No status bar override: the screenshot diff shows the clock."
+  phase boot
+fi
+
 # The simulator answers in two architectures; naming one spares xcodebuild the choice.
 project=(-project Klassik.xcodeproj -scheme Klassik -derivedDataPath build/DerivedData)
 common=("${project[@]}" -destination "platform=iOS Simulator,id=$udid,arch=arm64")
@@ -68,11 +76,6 @@ if [ "$mode" != all ]; then
   common=(-xctestrun "${plans[0]}" -destination "platform=iOS Simulator,id=$udid,arch=arm64")
   record build passed
 fi
-# Build before boot to avoid simulator startup contention. CI walks boot during artifact setup.
-xcrun simctl bootstatus "$udid" -b >/dev/null
-xcrun simctl status_bar "$udid" override --time 9:41 --dataNetwork wifi --wifiBars 3 --cellularMode notSupported \
-  --batteryState charged --batteryLevel 100 || echo "No status bar override: the screenshot diff shows the clock."
-phase boot
 
 # Runs one group of tests into its own result bundle, so the unit tests and the UI walk each have an exit status.
 # xcodebuild hands TEST_RUNNER_* variables to the test runner without the prefix.

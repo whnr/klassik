@@ -67,11 +67,12 @@ class RetryReportTests(unittest.TestCase):
                     temporary = pathlib.Path(directory)
                     for name in ("xcodegen", "xcrun"):
                         path = temporary / name
-                        path.write_text("#!/bin/bash\nexit 0\n")
+                        path.write_text('#!/bin/bash\necho "$1" >> "$TEST_COMMANDS"\nexit 0\n')
                         path.chmod(0o755)
                     xcodebuild = temporary / "xcodebuild"
                     xcodebuild.write_text(
                         "#!/bin/bash\n"
+                        'echo "$1" >> "$TEST_COMMANDS"\n'
                         '[ "$1" != build-for-testing ] || exit 0\n'
                         "echo \"Test Case '-[Tests testPlay]' failed (1.0 seconds).\"\n"
                         'if [ "$TEST_STATUS" = 0 ]; then state=passed; else state=failed; fi\n'
@@ -82,10 +83,11 @@ class RetryReportTests(unittest.TestCase):
                     env = {
                         **os.environ,
                         "PATH": f"{temporary}:{os.environ['PATH']}",
-                        "KLASSIK_PHASE": "unit",
+                        "KLASSIK_PHASE": "all",
                         "KLASSIK_UI": "false",
                         "KLASSIK_SIMULATOR_UDID": "fixture",
                         "TEST_STATUS": str(status),
+                        "TEST_COMMANDS": str(temporary / "commands"),
                         "GITHUB_STEP_SUMMARY": str(temporary / "summary"),
                     }
                     out = temporary / "out"
@@ -101,6 +103,8 @@ class RetryReportTests(unittest.TestCase):
                     outcome = "recovered" if status == 0 else "failed"
                     self.assertIn(f"| 2 | {outcome} |", reports[0].read_text())
                     self.assertTrue(list(out.glob("*.log")))
+                    commands = (temporary / "commands").read_text().splitlines()
+                    self.assertLess(commands.index("bootstatus"), commands.index("build-for-testing"))
 
     def test_clean_run_has_no_failed_attempts(self):
         text = screen_report.retry_report("Test Case '-[Tests testPlay]' passed (1.0 seconds).")

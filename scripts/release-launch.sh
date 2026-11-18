@@ -14,12 +14,12 @@ command -v xcbeautify >/dev/null && formatter=xcbeautify
 xcodegen generate
 udid=${KLASSIK_SIMULATOR_UDID:-$(scripts/simulator.sh)}
 echo "Simulator: $udid"
+xcrun simctl bootstatus "$udid" -b > "$out/boot.log" 2>&1
 project=(-project Klassik.xcodeproj -scheme KlassikRelease -derivedDataPath build/ReleaseData)
 common=("${project[@]}" -destination "platform=iOS Simulator,id=$udid,arch=arm64")
 xcodebuild build-for-testing "${common[@]}" \
   CODE_SIGN_IDENTITY=- COMPILER_INDEX_STORE_ENABLE=NO ENABLE_PREVIEWS=NO \
   | tee "$out/release-build.log" | $formatter
-xcrun simctl bootstatus "$udid" -b > "$out/boot.log" 2>&1
 # xcodebuild hands TEST_RUNNER_* variables to the test runner without the prefix.
 status=0
 TEST_RUNNER_KLASSIK_RELEASE_LAUNCH=1 \

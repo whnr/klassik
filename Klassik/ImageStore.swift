@@ -12,8 +12,14 @@ final class ImageStore {
     }
 
     private(set) var bytes: Int64 = 0
-    /// A visible picture reloads after replacement bytes reach disk, even when its URL stays the same.
-    private(set) var revision = 0
+    /// Writes per file name. A visible picture reloads after its replacement bytes reach disk, even when its URL
+    /// stays the same, and a write of another file does not reload it.
+    private var writes: [String: Int] = [:]
+    private var clears = 0
+
+    func revision(of keys: [String]) -> Int {
+        keys.reduce(clears) { $0 + (writes[Self.name($1)] ?? 0) }
+    }
 
     /// Nil keeps every file.
     var limit: Int64? {
@@ -126,7 +132,7 @@ final class ImageStore {
         }.value
         guard written else { return false }
         entries[name] = Entry(size: Int64(data.count), date: .now)
-        revision += 1
+        writes[name, default: 0] += 1
         total()
         evict(keeping: name)
         return true
@@ -134,7 +140,7 @@ final class ImageStore {
 
     func clear() {
         entries = [:]
-        revision += 1
+        clears += 1
         total()
         let folder = folder
         remove { try? FileManager.default.removeItem(at: folder) }

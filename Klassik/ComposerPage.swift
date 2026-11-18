@@ -387,7 +387,7 @@ struct PersonHero: View {
 
     private var load: PortraitLoad {
         PortraitLoad(
-            task: PortraitTask(portrait: facts?.portrait, screen: screen, revision: ImageStore.pictures.revision),
+            task: PortraitTask(portrait: facts?.portrait, screen: screen, store: .pictures),
             facts: facts,
             portrait: $portrait, showsPicture: $showsPicture)
     }
@@ -429,6 +429,13 @@ struct PersonHero: View {
         var portrait: PersonPortrait?
         var screen: PortraitSize.Screen
         var revision: Int
+
+        @MainActor init(portrait: PersonPortrait?, screen: PortraitSize.Screen, store: ImageStore) {
+            self.portrait = portrait
+            self.screen = screen
+            let files = portrait.map(PortraitLoader.files(of:)) ?? []
+            revision = store.revision(of: files.map(\.absoluteString))
+        }
     }
 
     /// Loads the picture and presents it whole. Both branches of the hero carry it, so a load survives the switch.

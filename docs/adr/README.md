@@ -16,10 +16,10 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0002](0002-library-sync.md)                                 | Sync the whole library into a local cache                                                                    | 2026-10-17 |
 | [0003](0003-classical-filter.md)                             | Classical filter: rules joined by OR, conditions joined by AND                                               | 2026-10-17 |
 | [0004](0004-work-grouping.md)                                | How tracks group into works and recordings                                                                   | 2026-10-17 |
-| [0005](0005-gapless-playback.md)                             | Gapless playback with AVAudioEngine and the MP3 header                                                       | 2026-10-17 |
+| [0005](0005-gapless-playback.md)                             | Gapless playback with AVAudioEngine and the MP3 header (partly replaced by 0060)                                                       | 2026-10-17 |
 | [0006](0006-queue.md)                                        | The queue holds recordings (partly replaced by 0013 and 0039)                                                | 2026-10-18 |
 | [0007](0007-replaygain.md)                                   | ReplayGain in album mode                                                                                     | 2026-10-18 |
-| [0008](0008-offline-storage.md)                              | Downloads and the cache (partly replaced by 0051)                                                            | 2026-10-18 |
+| [0008](0008-offline-storage.md)                              | Downloads and the cache (partly replaced by 0051 and 0060)                                                            | 2026-10-18 |
 | [0009](0009-reference-recording.md)                          | The reference recording is a star (replaced by 0013)                                                         | 2026-10-18 |
 | [0010](0010-incremental-sync.md)                             | Sync at start only when the server changed                                                                   | 2026-10-18 |
 | [0011](0011-enrichment.md)                                   | Composition dates from MusicBrainz and Wikidata (partly replaced by 0012, 0016 and 0042)                     | 2026-10-19 |
@@ -59,7 +59,7 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0045](0045-page-margins-follow-the-timeline.md)             | Page margins follow the timeline                                                                             | 2026-11-17 |
 | [0046](0046-composers-first-and-shown-performers.md)         | Composers first, and the performers of a shown page next                                                     | 2026-11-17 |
 | [0050](0050-partial-works-apart.md)                          | Partial works under their own heading                                                                        | 2026-11-17 |
-| [0051](0051-pictures-and-album-art-in-local-storage.md)      | Pictures and album art in Local Storage (partly replaced by 0059) | 2026-11-17 |
+| [0051](0051-pictures-and-album-art-in-local-storage.md)      | Pictures and album art in Local Storage (partly replaced by 0059; extended by 0060) | 2026-11-17 |
 | [0052](0052-favourites-stay-in-the-app.md)                   | Favourites stay in the app (partly replaced by 0058)                                                         | 2026-11-18 |
 | [0053](0053-queue-end-and-stop-close-the-player.md)          | The queue end and Stop close the player                                                                      | 2026-11-17 |
 | [0054](0054-timeline-ends-at-the-pill.md)                    | The timeline ends at the top of the pill                                                                     | 2026-11-17 |
@@ -68,3 +68,4 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0057](0057-search-apart-from-place-tabs.md)                 | Search stays apart from the place tabs                                                                       | 2026-11-18 |
 | [0058](0058-one-quiet-server-status.md)                      | One quiet server status                                                                                      | 2026-11-18 |
 | [0059](0059-covers-and-pictures-before-pages.md) | Fetch covers and pictures before pages need them | 2026-11-18 |
+| [0060](0060-early-playback-and-read-ahead.md) | Start playback early and read ahead quietly (partly replaces 0005 and 0008; extends 0051) | 2026-11-18 |

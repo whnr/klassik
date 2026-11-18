@@ -2,6 +2,7 @@
 
 Date: 2026-10-18. Decided by Flo. Beads: sz-rs30.1.9, sz-rs30.1.37.
 The cache and screen rules are partly replaced by [0051](0051-pictures-and-album-art-in-local-storage.md).
+The availability marks are replaced by [0060](0060-early-playback-and-read-ahead.md).
 
 ## Context
 

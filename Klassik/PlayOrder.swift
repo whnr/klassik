@@ -23,7 +23,8 @@ extension Song {
         let indexed = songs.enumerated().map { (index: $0.offset, song: $0.element) }
         if collides(songs), songs.contains(where: { $0.path != nil }) {
             return indexed.sorted { left, right in
-                let a = left.song.path ?? "", b = right.song.path ?? ""
+                let a = left.song.path ?? ""
+                let b = right.song.path ?? ""
                 let result = a.compare(b, options: [.numeric, .caseInsensitive])
                 if result != .orderedSame { return result == .orderedAscending }
                 return (left.index, left.song.id) < (right.index, right.song.id)

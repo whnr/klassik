@@ -131,11 +131,15 @@ jobs:
       # The cached DerivedData helps only if unchanged files keep their time.
       - run: python3 scripts/git_mtimes.py
       - id: xcode
-        run: echo "version=$(xcodebuild -version | tr -s '\n ' '--')" >> "$GITHUB_OUTPUT"
+        env:
+          SOURCES_HASH: ${{ hashFiles('project.yml', 'Klassik/**', 'KlassikTests/**', 'KlassikUITests/**') }}
+        run: |
+          echo "version=$(xcodebuild -version | tr -s '\n ' '--')" >> "$GITHUB_OUTPUT"
+          echo "sources=$SOURCES_HASH" >> "$GITHUB_OUTPUT"
       - uses: actions/cache@v6
         with:
           path: build/DerivedData
-          key: deriveddata-${{ steps.xcode.outputs.version }}-${{ hashFiles('project.yml', 'Klassik/**', 'KlassikTests/**', 'KlassikUITests/**') }}
+          key: deriveddata-${{ steps.xcode.outputs.version }}-${{ steps.xcode.outputs.sources }}
           restore-keys: deriveddata-${{ steps.xcode.outputs.version }}-
       - name: Install XcodeGen
         run: brew install xcodegen

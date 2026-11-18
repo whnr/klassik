@@ -31,6 +31,7 @@ final class AppModel {
     let swipes = SwipeSettings()
     let libraryRows = LibraryRows()
     private let store: CredentialStore
+    @ObservationIgnored private var reconnect: ConnectionMonitor?
 
     var client: SubsonicClient? { credentials.map { SubsonicClient(credentials: $0) } }
 
@@ -57,6 +58,10 @@ final class AppModel {
         }
         credentials = store.load()
         updateServer()
+        // Favourites that wait go to the server when a connection comes back (ADR 0052).
+        reconnect = ConnectionMonitor { [weak self] in
+            Task { @MainActor [weak self] in await self?.recordingOrder.synchronize() }
+        }
         // No build reads the URL cache folder of the pictures, so its space goes back to the device.
         Task.detached(priority: .utility) {
             try? FileManager.default.removeItem(at: .cachesDirectory.appending(path: "Portraits"))
@@ -161,7 +166,14 @@ final class AppModel {
         let deviceStore = credentials.map { DeviceStore(server: $0.url, username: $0.username) }
         // Each UI walk must start with the same local favourites and order.
         if ProcessInfo.processInfo.arguments.contains("-resetServer") { try? deviceStore?.delete() }
-        recordingOrder = RecordingOrder(library: library, store: deviceStore, server: client)
+        var favourites: (any FavouriteServer)? = client
+        #if DEBUG
+            // The UI walk reads the fixture library but cannot reach the server for a star.
+            if ProcessInfo.processInfo.arguments.contains("-offlineFavourites"), let client {
+                favourites = OfflineFavourites(client: client)
+            }
+        #endif
+        recordingOrder = RecordingOrder(library: library, store: deviceStore, server: favourites)
     }
 
     private func record(_ error: Error) {

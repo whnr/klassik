@@ -81,7 +81,7 @@ struct RootView: View {
             }
         }
         .alert(
-            "Could Not Save Favourite",
+            "Favourites",
             isPresented: Binding(
                 get: { model.recordingOrder.error != nil },
                 set: { if !$0 { model.recordingOrder.error = nil } }

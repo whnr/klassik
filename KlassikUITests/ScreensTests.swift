@@ -973,7 +973,7 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertEqual(app.buttons.matching(identifier: "favourite").count, 2)
         XCTAssertTrue(app.buttons.matching(identifier: "work").firstMatch.exists)
         snap(app, "06d-favourites")
-        // A favourite work shows the set fermata after its title in the lists of its composer (sz-rs30.1.101).
+        // The composer page lists the favourite work with the set fermata after its title.
         back(app)
         app.buttons["library-composers"].tap()
         composer(app, "Ludwig van Beethoven").tap()

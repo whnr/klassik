@@ -331,6 +331,26 @@ struct RecordingOrderTests {
         #expect(try store(root).load().pendingFavourites.map(\.isSet) == [false])
     }
 
+    @Test func anAutomaticRetryDoesNotShowAStorageFailureNotice() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let library = try await library([song("a")], root: root)
+        let work = try #require(library.index.composers.first?.works.first)
+        let recording = try #require(work.recordings.first)
+        let server = FavouriteFixture()
+        await server.configure(Starred(), failure: FavouriteFixture.offline)
+        let order = RecordingOrder(library: library, store: store(root), server: server, monitorConnection: false)
+        await order.toggle(recording, of: work)
+        order.error = nil
+        let folder = store(root).url.deletingLastPathComponent()
+        try FileManager.default.removeItem(at: folder)
+        try Data().write(to: folder)
+        await server.configure(Starred())
+        await order.refresh()
+        #expect(order.error == nil)
+        #expect(order.isFavourite(recording, of: work))
+    }
+
     @Test func deviceDataFromBeforeTheQueueStillLoads() throws {
         let bytes = Data(#"{"favouriteWorks":["work"],"recordingOrder":{"work":["recording"]}}"#.utf8)
         let data = try JSONDecoder().decode(DeviceStore.Data.self, from: bytes)

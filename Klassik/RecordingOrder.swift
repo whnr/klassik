@@ -237,7 +237,7 @@ final class RecordingOrder {
                 }
                 var changed = data
                 changed.pendingFavourites.removeAll { $0.id == change.id }
-                guard save(changed) else { return }
+                guard save(changed, reportFailure: notify) else { return }
             } catch {
                 if notify {
                     self.error =
@@ -273,18 +273,18 @@ final class RecordingOrder {
             changed.favouriteAlbums = albumIDs
             changed.trackFavourites = Dictionary(
                 library.songs.map { ($0.id, songIDs.contains($0.id)) }, uniquingKeysWith: { first, _ in first })
-            guard loadError == nil, save(changed) else { return }
+            guard loadError == nil, save(changed, reportFailure: false) else { return }
             for work in library.index.composers.flatMap(\.works) {
                 changed.recordingOrder[work.id] = rows(of: work).filter(\.isFavourite).map(\.id)
             }
-            save(changed)
+            save(changed, reportFailure: false)
         } catch { refreshError = error.localizedDescription }
     }
 
     @discardableResult
-    private func save(_ changed: DeviceStore.Data) -> Bool {
+    private func save(_ changed: DeviceStore.Data, reportFailure: Bool = true) -> Bool {
         guard loadError == nil else {
-            error = loadError
+            if reportFailure { error = loadError }
             return false
         }
         guard changed != data else { return true }
@@ -293,7 +293,7 @@ final class RecordingOrder {
             data = changed
             return true
         } catch {
-            self.error = error.localizedDescription
+            if reportFailure { self.error = error.localizedDescription }
             return false
         }
     }

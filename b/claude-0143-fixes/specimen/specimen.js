@@ -828,16 +828,15 @@ const K = (() => {
       });
       return link;
     };
+    // iOS draws the search tab apart from the capsule, in its own circle, with no name under the glass.
+    const search = item("search", "Search");
+    search.className = "tab-search glass" + (tab === "search" ? " on" : "");
+    search.innerHTML = ICON.search;
     return el(
       "nav",
       { class: "tabbar" },
-      el(
-        "div",
-        { class: "tabs glass" },
-        item("library", "Library"),
-        item("chronology", "Chronology"),
-        item("search", "Search"),
-      ),
+      el("div", { class: "tabs glass" }, item("library", "Library"), item("chronology", "Chronology")),
+      search,
     );
   }
 
@@ -952,7 +951,6 @@ const K = (() => {
   function setPlayerOpen(open) {
     chrome.player = open;
     layoutChrome();
-    updatePlayingChrome();
   }
 
   function layoutChrome() {
@@ -972,7 +970,7 @@ const K = (() => {
   function updatePlayingChrome() {
     drawTimelineProgress();
     if (!current()) {
-      // When nothing plays, the mini player and the timeline go. The open player closes first (ADR 0046).
+      // At the end of the queue the open player stays and says so; elsewhere the mini player and the timeline go.
       if (!chrome.player) {
         MINI.remove();
         if (chrome.timeline) chrome.timeline.remove();

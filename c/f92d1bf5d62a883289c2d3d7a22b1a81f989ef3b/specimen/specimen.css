@@ -864,3 +864,27 @@ h1[class] {
   background: var(--color-tint);
   border-radius: var(--space-xs);
 }
+
+/* The stores of Local Storage in one bar, like the iPhone storage page (ADR 0051). */
+.storage-bar {
+  display: flex;
+  flex: 1;
+  gap: var(--space-xxs);
+  height: var(--space-m);
+  border-radius: var(--radius-xs);
+  overflow: hidden;
+  background: var(--color-fill-quiet);
+}
+.storage-bar > span {
+  min-width: var(--space-xxs);
+}
+.storage-dot {
+  flex: none;
+  width: var(--space-s);
+  height: var(--space-s);
+  border-radius: var(--radius-full);
+}
+.stepper {
+  flex: none;
+  color: var(--color-tint);
+}

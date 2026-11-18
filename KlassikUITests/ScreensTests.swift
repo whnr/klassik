@@ -767,7 +767,9 @@ final class PlaybackScreens: ScreensTestCase {
 
         openSettings(app)
         reveal(app.buttons["local-storage"], in: app).tap()
-        XCTAssertTrue(app.descendants(matching: .any)["download"].firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.navigationBars["Local Storage"].waitForExistence(timeout: 10))
+        // The list builds rows lazily, and the Downloads section starts below the storage sections.
+        XCTAssertTrue(reveal(app.descendants(matching: .any)["download"].firstMatch, in: app).exists, "No download row")
         snap(app, "08a-local-storage")
     }
 

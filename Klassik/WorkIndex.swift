@@ -332,12 +332,15 @@ struct WorkIndex: Sendable {
     }
 
     private static func recording(id: String, _ tracks: [Song]) -> Recording {
-        let ordered = tracks.sorted {
-            ($0.discNumber ?? 0, $0.track ?? 0, $0.id) < ($1.discNumber ?? 0, $1.track ?? 0, $1.id)
-        }
-        // A file that the server holds twice must not play twice.
+        let ordered = Song.playOrder(tracks)
+        // A file that the server holds twice must not play twice. Where disc tags collide, a repeated
+        // disc, track and title is a different file, so the path decides.
+        let byPath = Song.collides(tracks)
         var seen = Set<String>()
-        let songs = ordered.filter { seen.insert("\($0.discNumber ?? 0)|\($0.track ?? 0)|\($0.title)").inserted }
+        let songs = ordered.filter {
+            let key = byPath ? $0.path ?? $0.id : "\($0.discNumber ?? 0)|\($0.track ?? 0)|\($0.title)"
+            return seen.insert(key).inserted
+        }
         let first = songs[0]
         return Recording(
             id: id, album: first.album ?? "", year: songs.compactMap(\.year).min(), songs: songs)

@@ -58,10 +58,8 @@ struct Album: Decodable, Sendable, Identifiable, Hashable {
     var year: Int?
     var song: [Song]?
 
-    /// Tracks in disc and track order.
-    var songs: [Song] {
-        (song ?? []).sorted { ($0.discNumber ?? 0, $0.track ?? 0) < ($1.discNumber ?? 0, $1.track ?? 0) }
-    }
+    /// Tracks in play order: disc and track, or file path where the disc tags collide.
+    var songs: [Song] { Song.playOrder(song ?? []) }
 }
 
 /// A track with the OpenSubsonic fields Klassik reads. The library cache stores it as it is.
@@ -129,6 +127,8 @@ struct Song: Codable, Sendable, Identifiable, Hashable {
     /// The date when the user starred the track. The server omits it for other tracks.
     var starred: String?
     var playCount: Int?
+    /// The file path on the server. It tells the real order when disc tags repeat.
+    var path: String?
 }
 
 /// The `subsonic-response` object. Fields of all endpoints in use are optional members.

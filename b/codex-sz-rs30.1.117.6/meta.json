@@ -1,7 +1,7 @@
 {
-  "sha": "c8362222f35b72b62b0b2217ab0e5c775ace1817",
+  "sha": "f76ea812d228d4eaf2998bf99e26fcf65e7c7327",
   "branch": "codex-sz-rs30.1.117.6",
   "path": "codex-sz-rs30.1.117.6",
-  "subject": "[sz-rs30.1.117.6] Fix album and work controls",
-  "ts": 1795009676
+  "subject": "[sz-rs30.1.117.6] Measure visible capsule ink",
+  "ts": 1795012842
 }

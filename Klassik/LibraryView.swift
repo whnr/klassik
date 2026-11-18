@@ -19,9 +19,16 @@ struct LibraryView: View {
                 }
                 .onMove { rows.move(fromOffsets: $0, toOffset: $1) }
             } footer: {
-                if let status {
-                    Text(status)
-                        .accessibilityIdentifier("library-synced")
+                VStack(alignment: .leading) {
+                    if let status {
+                        Text(status)
+                            .accessibilityIdentifier("library-synced")
+                    }
+                    // Server trouble shows here only, never as a notice for each failed sync (ADR 0058).
+                    if let trouble = model.serverTrouble {
+                        Text(trouble.status)
+                            .accessibilityIdentifier("server-status")
+                    }
                 }
             }
         }

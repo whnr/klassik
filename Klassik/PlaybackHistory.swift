@@ -39,13 +39,14 @@ final class PlaybackHistory {
     var server: any ServerPort
     private let defaults: UserDefaults
     private let now: () -> Date
-    private var queueError: String?
-    private var scrobbleError: String?
+    private var queueTrouble: ServerTrouble?
+    private var scrobbleTrouble: ServerTrouble?
     private var writes: Task<Void, Never>?
     private var listen: Listen?
-    var onError: ((String?) -> Void)?
-    private(set) var error: String? {
-        didSet { onError?(error) }
+    var onTrouble: ((ServerTrouble?) -> Void)?
+    /// Why listening data waits on the device. Nil when the last write of each kind reached the server.
+    private(set) var trouble: ServerTrouble? {
+        didSet { onTrouble?(trouble) }
     }
 
     init(server: any ServerPort, defaults: UserDefaults, now: @escaping () -> Date = { .now }) {
@@ -181,18 +182,18 @@ final class PlaybackHistory {
         let previous = writes
         writes = Task { [weak self] in
             await previous?.value
-            var message: String?
+            var failure: ServerTrouble?
             do {
                 try await operation()
             } catch {
-                message = "Could not save listening data to the server."
+                failure = ServerTrouble([error])
             }
             guard let self else { return }
             switch kind {
-            case .queue: queueError = message
-            case .scrobble: scrobbleError = message
+            case .queue: queueTrouble = failure
+            case .scrobble: scrobbleTrouble = failure
             }
-            error = scrobbleError ?? queueError
+            trouble = ServerTrouble.worst([scrobbleTrouble, queueTrouble])
         }
     }
 }

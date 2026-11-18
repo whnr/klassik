@@ -35,6 +35,33 @@ private final class FavouriteLibraryProtocol: URLProtocol {
     var seen = false
 }
 
+/// A server that takes no call until the test opens it, as a slow or hung server does.
+actor SilentServer: FavouriteServer {
+    private var waiting: [CheckedContinuation<Void, Never>] = []
+    private var isOpen = false
+    private(set) var calls = 0
+
+    private func hold() async {
+        calls += 1
+        if !isOpen { await withCheckedContinuation { waiting.append($0) } }
+    }
+
+    func open() {
+        isOpen = true
+        for call in waiting { call.resume() }
+        waiting = []
+    }
+
+    func star(_ ids: [String]) async { await hold() }
+    func unstar(_ ids: [String]) async { await hold() }
+    func starAlbum(_ id: String) async { await hold() }
+    func unstarAlbum(_ id: String) async { await hold() }
+    func getStarred() async -> Starred {
+        await hold()
+        return Starred()
+    }
+}
+
 actor FavouriteFixture: FavouriteServer {
     var stars = Starred()
     var writes: [[String]] = []
@@ -149,8 +176,9 @@ struct RecordingOrderTests {
         await reloaded.cacheWrite?.value
     }
 
+    /// A failed send shows no notice. The status says why the changes wait; no answer wins over a refusal.
     @Test(arguments: [false, true])
-    func tappedChangeReportsItsOwnFailureOrAnEarlierConnectionFailure(stopsBeforeTap: Bool) async throws {
+    func failedSendsSetOneQuietStatusAndNoNotice(stopsBeforeTap: Bool) async throws {
         let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
         let library = try await library([song("a"), song("b"), song("c")], root: root)
@@ -165,11 +193,11 @@ struct RecordingOrderTests {
         let b = try #require(work.recordings.first { $0.album == "b" })
         let c = try #require(work.recordings.first { $0.album == "c" })
         await order.toggle(a, of: work)
-        #expect(order.error?.contains("The server did not accept") == true)
+        #expect(order.serverTrouble == .refused)
         if stopsBeforeTap { _ = order.begin(b, of: work) }
-        order.error = nil
         await order.toggle(stopsBeforeTap ? c : b, of: work)
-        #expect(order.error == RecordingOrder.offlineNotice)
+        #expect(order.serverTrouble == .unreachable)
+        #expect(order.error == nil)
         #expect(try store(root).load().pendingFavourites.count == (stopsBeforeTap ? 3 : 2))
     }
 
@@ -281,23 +309,25 @@ struct RecordingOrderTests {
         await order.toggle(b, of: work)
         #expect(order.isFavourite(b, of: work))
         #expect(order.rows(of: work).map(\.recording.album) == ["b", "a"])
-        #expect(order.error?.hasPrefix("The server did not accept this change:") == true)
+        #expect(order.serverTrouble == .refused)
+        #expect(order.error == nil)
         #expect(try store(root).load().pendingFavourites.count == 1)
-        order.error = nil
         await order.synchronize()
         #expect(order.error == nil)
 
         await server.configure(Starred(song: [songs[1]]))
         await order.toggle(album: "a")
         #expect(await server.writes == [["b-1"], ["album:a"]])
+        #expect(order.serverTrouble == nil)
         #expect(order.error == nil)
         #expect(try store(root).load().pendingFavourites.isEmpty)
         await order.refresh()
         #expect(order.isFavourite(b, of: work))
     }
 
-    /// Offline, every tap keeps its result and shows one notice. Sends without a tap stay quiet (ADR 0052).
-    @Test func offlineChangesStayAndShowOneNoticeForEachTap() async throws {
+    /// Offline, every tap keeps its result and shows no notice. One status says the server is not reachable, and
+    /// the next successful send clears it (ADR 0058).
+    @Test func offlineChangesStayWithOneQuietStatusUntilTheServerAnswers() async throws {
         let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
         let library = try await library([song("a", year: 2001), song("b", year: 1990)], root: root)
@@ -309,16 +339,15 @@ struct RecordingOrderTests {
         await order.toggle(b, of: work)
         #expect(order.isFavourite(b, of: work))
         #expect(order.rows(of: work).map(\.recording.album) == ["b", "a"])
-        #expect(order.error == RecordingOrder.offlineNotice)
-        #expect(order.error == "No internet connection. This syncs when you are back online.")
-        order.error = nil
+        #expect(order.error == nil)
+        #expect(order.serverTrouble == .unreachable)
+        #expect(order.serverTrouble?.status == "Server not reachable. Changes wait on this iPhone.")
         await order.toggle(album: "a")
         #expect(order.isFavourite(album: "a"))
-        #expect(order.error == RecordingOrder.offlineNotice)
-        order.error = nil
         await order.refresh()
         await order.synchronize()
         #expect(order.error == nil)
+        #expect(order.serverTrouble == .unreachable)
         #expect(order.isFavourite(b, of: work))
         #expect(order.isFavourite(album: "a"))
         #expect(await server.writes.isEmpty)
@@ -353,9 +382,11 @@ struct RecordingOrderTests {
         await order.toggle(album: "b")
         await order.toggle(album: "b")
         #expect(try store(root).load().pendingFavourites.count == 3)
+        #expect(order.serverTrouble == .unreachable)
 
         await server.configure(Starred(song: [songs[1]], album: [Album(id: "b", name: "b")]))
         await order.synchronize()
+        #expect(order.serverTrouble == nil)
         #expect(await server.writes == [["b-1"], ["-a-1"], ["album:b"]])
         #expect(try store(root).load().pendingFavourites.isEmpty)
         #expect(!order.isFavourite(a, of: work))
@@ -465,12 +496,12 @@ struct RecordingOrderTests {
         let order = RecordingOrder(library: library, store: store(root), server: server)
         await order.toggle(album: "a")
         #expect(order.isFavourite(album: "a"))
-        #expect(order.error == RecordingOrder.offlineNotice)
-        order.error = nil
+        #expect(order.serverTrouble == .unreachable)
         await server.configure(Starred(), failure: FavouriteFixture.refusal)
         await order.toggle(album: "a")
         #expect(!order.isFavourite(album: "a"))
-        #expect(order.error?.hasPrefix("The server did not accept this change:") == true)
+        #expect(order.serverTrouble == .refused)
+        #expect(order.error == nil)
         #expect(try store(root).load().pendingFavourites.map(\.isSet) == [false])
         #expect(!order.isSaving)
     }
@@ -601,6 +632,57 @@ struct RecordingOrderTests {
         #expect(order.refreshError == nil)
     }
 
+    /// Each favourite control changes its state in the tap itself, while the server has not answered. A star does
+    /// not rebuild the index, because the rebuild holds the main actor under the tap (ADR 0052).
+    @Test func aTapChangesStateWithNoServerAnswerAndKeepsTheIndex() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let library = try await library([song("a", year: 2001), song("b", year: 1990)], root: root)
+        let work = try #require(library.index.composers.first?.works.first)
+        let b = try #require(work.recordings.first { $0.album == "b" })
+        let server = SilentServer()
+        let order = RecordingOrder(library: library, store: store(root), server: server)
+        let change = IndexChange()
+        withObservationTracking {
+            _ = library.index
+        } onChange: {
+            MainActor.assumeIsolated { change.seen = true }
+        }
+
+        order.toggleAtOnce(b, of: work)
+        #expect(order.isFavourite(b, of: work))
+        #expect(order.rows(of: work).map(\.recording.album) == ["b", "a"])
+        #expect(order.favouriteRecordings.map(\.recording.album) == ["b"])
+        order.toggleAtOnce(album: "a")
+        #expect(order.isFavourite(album: "a"))
+        order.toggleAtOnce(work)
+        #expect(order.isFavourite(work))
+        #expect(!change.seen)
+        #expect(order.serverTrouble == nil)
+        #expect(order.error == nil)
+
+        await server.open()
+        await order.synchronize()
+        #expect(try store(root).load().pendingFavourites.isEmpty)
+        #expect(order.isFavourite(b, of: work))
+        #expect(order.isFavourite(album: "a"))
+        await library.cacheWrite?.value
+        let cached = try LibraryCache.read(from: root.appending(path: "library.json"))
+        #expect(cached.songs.first { $0.id == "b-1" }?.starred != nil)
+    }
+
+    @Test func troublesJoinIntoOneStatus() {
+        let timeout: [any Error] = [URLError(.timedOut)]
+        #expect(ServerTrouble(timeout) == .unreachable)
+        #expect(ServerTrouble([FavouriteFixture.refusal, URLError(.cannotConnectToHost)]) == .unreachable)
+        let refusal: [any Error] = [FavouriteFixture.refusal]
+        #expect(ServerTrouble(refusal) == .refused)
+        #expect(ServerTrouble([any Error]()) == nil)
+        #expect(ServerTrouble.worst([nil, .refused]) == .refused)
+        #expect(ServerTrouble.worst([.refused, .unreachable]) == .unreachable)
+        #expect(ServerTrouble.worst([nil, nil]) == nil)
+    }
+
     @Test func unchangedStarsDoNotRebuildOrWriteTheLibrary() async throws {
         let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
@@ -643,7 +725,8 @@ struct RecordingOrderTests {
         await server.configure(Starred(), failure: FavouriteFixture.refusal)
         let order = RecordingOrder(library: library, store: store(root), server: server)
         await order.toggle(recording, of: work)
-        #expect(order.error != nil)
+        #expect(order.serverTrouble == .refused)
+        #expect(order.error == nil)
         #expect(order.isFavourite(recording, of: work))
         #expect(!order.isSaving)
         await server.configure(Starred(song: songs))

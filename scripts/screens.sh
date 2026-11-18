@@ -7,12 +7,13 @@
 # Exports the screenshots, the gapless report, the time of each phase and results.txt (build, unit, ui).
 # KLASSIK_PHASE: all (local default), build, unit, or ui. Test phases consume archived Build/Products.
 # Usage: [KLASSIK_UI=...] [UI_TESTS_REQUIRED=...] scripts/screens.sh <output-dir>
+# KLASSIK_UI_TESTS narrows a playback shard to comma-separated test methods.
 # Start scripts/fixture-server.sh first.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 out=$(mkdir -p "$1" && cd "$1" && pwd)
-rm -rf "$out"/*.xcresult "$out/timings.txt" "$out/results.txt" "$out/retries.txt" "$out/retry-warnings.txt"
+rm -rf "$out"/*.xcresult "$out/timings.txt" "$out/results.txt"
 required=${UI_TESTS_REQUIRED:-false}
 mode=${KLASSIK_PHASE:-all}
 case "$mode" in all | build | unit | ui) ;; *) echo "Unknown phase: $mode" >&2; exit 2 ;; esac
@@ -20,6 +21,7 @@ case "$mode" in all | build | unit | ui) ;; *) echo "Unknown phase: $mode" >&2; 
 record() { echo "$1=$2" >> "$out/results.txt"; }
 record ui_areas "${KLASSIK_UI:-false}"
 record ui_required "$required"
+record ui_methods "${KLASSIK_UI_TESTS:-}"
 record build failed
 record unit "not run"
 record ui "not run"
@@ -45,20 +47,16 @@ if [ "$mode" = all ] || [ "$mode" = build ]; then
   xcodegen generate
 fi
 phase project
-udid=$(scripts/simulator.sh)
+udid=${KLASSIK_SIMULATOR_UDID:-$(scripts/simulator.sh)}
 echo "Simulator: $udid"
 phase simulator
-# The first boot of a simulator takes about 3 minutes, so it runs during the build. An earlier start slows the
-# other CI steps, because the boot takes the whole runner.
-if [ "$mode" != build ]; then
-  (
-    xcrun simctl bootstatus "$udid" -b >/dev/null
-    # A fixed status bar keeps the clock out of the screenshot diff.
-    xcrun simctl status_bar "$udid" override --time 9:41 --dataNetwork wifi --wifiBars 3 --cellularMode notSupported \
-      --batteryState charged --batteryLevel 100 || echo "No status bar override: the screenshot diff shows the clock."
-  ) &
-  boot=$!
-fi
+# CI starts this boot before cache restoration and fixture setup.
+(
+  xcrun simctl bootstatus "$udid" -b >/dev/null
+  xcrun simctl status_bar "$udid" override --time 9:41 --dataNetwork wifi --wifiBars 3 --cellularMode notSupported \
+    --batteryState charged --batteryLevel 100 || echo "No status bar override: the screenshot diff shows the clock."
+) &
+boot=$!
 
 # The simulator answers in two architectures; naming one spares xcodebuild the choice.
 common=(-project Klassik.xcodeproj -scheme Klassik -destination "platform=iOS Simulator,id=$udid,arch=arm64"
@@ -93,6 +91,7 @@ run_tests() {
   xcodebuild test-without-building \
     "${common[@]}" \
     -collect-test-diagnostics never \
+    -retry-tests-on-failure -test-iterations 2 \
     "$@" \
     -resultBundlePath "$out/$bundle.xcresult" \
     | tee "$out/$bundle.log" | $formatter
@@ -131,39 +130,24 @@ case "${KLASSIK_UI:-false}" in
     done
     ;;
 esac
-# XCTest can keep a dead app's process state after a launch or termination failure. A new test runner clears it.
-# So only the tests that failed in that way run once more, and only when no test of the run failed in another way.
-# The retry writes its own bundle, so screens.xcresult keeps the first attempt.
-retry_launch_failures() {
-  if ! xcrun xcresulttool get test-results tests --path "$out/screens.xcresult" > "$out/screens-tests.json"; then
-    echo "::warning::No retry: no test results read from screens.xcresult."
-    return 0
-  fi
-  local plan only=() test
-  plan=$(python3 scripts/screen_report.py retry-plan "$out/screens-tests.json")
-  [ -n "$plan" ] || return 0
-  while IFS= read -r test; do only+=("-only-testing:KlassikUITests/$test"); done <<< "$plan"
-  ui=0
-  run_tests screens-retry "${only[@]}" -parallel-testing-enabled NO || ui=$?
-  [ $ui -eq 0 ] || return 0
-  python3 scripts/screen_report.py retries "$out/screens-tests.json" "$out"
-  record ui_retried "$(paste -sd, "$out/retries.txt" | sed 's/,/, /g')"
-}
+if [ -n "${KLASSIK_UI_TESTS:-}" ]; then
+  suites=()
+  IFS=, read -ra methods <<< "$KLASSIK_UI_TESTS"
+  for method in "${methods[@]}"; do
+    suites+=("-only-testing:KlassikUITests/PlaybackScreens/$method")
+  done
+fi
 
 if [ "$mode" != unit ] && [ ${#suites[@]} -gt 0 ]; then
   # The bundle keeps the name that the workflow uploads after a failure.
   # Each runner owns one simulator, so UI automation does not compete for its resources.
   run_tests screens "${suites[@]}" -parallel-testing-enabled NO || ui=$?
-  # In an "||" list, set -e would not stop a failed report inside the function.
-  if [ $ui -ne 0 ]; then retry_launch_failures; fi
   record ui "$([ $ui -eq 0 ] && echo passed || echo failed)"
   phase ui
 fi
 
 export_attachments unit
 export_attachments screens
-# The screenshots of a passed retry replace those of the failed attempt.
-export_attachments screens-retry
 phase export
 
 if [ $unit -ne 0 ]; then

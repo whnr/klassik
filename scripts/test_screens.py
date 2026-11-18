@@ -1,7 +1,7 @@
 """Tests for the screenshot scripts: python3 -m unittest discover -s scripts -p "test_screens.py"."""
 
-import json
 import pathlib
+import re
 import subprocess
 import sys
 import tempfile
@@ -55,79 +55,6 @@ class ExpectedTests(unittest.TestCase):
         self.assertTrue(screen_report.expected(source, "all"))
         for area in ("browse", "playback", "settings"):
             self.assertTrue(screen_report.expected(source, area), area)
-
-
-TERMINATE = "Failed to terminate de.whnr.klassik:9939: Failed to terminate de.whnr.klassik:0"
-ASSERT = 'ScreensTests.swift:993: XCTAssertEqual failed: ("Optional("0")") is not equal to ("Optional("1")")'
-
-
-def case(name, result, *messages):
-    node = {"nodeType": "Test Case", "name": name, "result": result}
-    node["children"] = [{"nodeType": "Failure Message", "name": m, "result": "Failed"} for m in messages]
-    return node
-
-
-def plan_json(*cases):
-    suite = {"nodeType": "Test Suite", "name": "BrowseScreens", "children": list(cases)}
-    bundle = {"nodeType": "UI test bundle", "name": "KlassikUITests", "children": [suite]}
-    return json.dumps({"testNodes": [{"nodeType": "Test Plan", "name": "Klassik", "children": [bundle]}]})
-
-
-class RetryTests(unittest.TestCase):
-    def test_only_the_tests_with_a_launch_or_termination_failure_run_again(self):
-        text = plan_json(
-            case("testHome()", "Failed", TERMINATE),
-            case("testFilter()", "Passed"),
-            case("testOpen()", "Failed", "Failed to launch de.whnr.klassik: timed out"),
-        )
-        self.assertEqual(screen_report.retry_plan(text), ["BrowseScreens/testHome", "BrowseScreens/testOpen"])
-
-    def test_an_assertion_failure_in_any_test_prevents_the_retry(self):
-        text = plan_json(case("testHome()", "Failed", TERMINATE), case("testDiagnostics()", "Failed", ASSERT))
-        self.assertEqual(screen_report.retry_plan(text), [])
-        self.assertEqual(screen_report.retries(text), [])
-
-    def test_an_assertion_failure_with_a_termination_failure_prevents_the_retry(self):
-        self.assertEqual(screen_report.retry_plan(plan_json(case("testHome()", "Failed", TERMINATE, ASSERT))), [])
-
-    def test_a_failure_without_a_message_prevents_the_retry(self):
-        self.assertEqual(screen_report.retry_plan(plan_json(case("testHome()", "Failed"))), [])
-
-    def test_a_clean_run_has_no_plan(self):
-        self.assertEqual(screen_report.retry_plan(plan_json(case("testHome()", "Passed"))), [])
-
-    def run_script(self, *args):
-        script = pathlib.Path(__file__).parent / "screen_report.py"
-        return subprocess.run([sys.executable, str(script), *args], capture_output=True, text=True, check=True)
-
-    def test_a_termination_failure_then_a_pass_is_a_warning(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            source = pathlib.Path(tmp) / "tests.json"
-            source.write_text(plan_json(case("testGapless()", "Failed", TERMINATE), case("testHome()", "Passed")))
-            self.assertEqual(self.run_script("retry-plan", str(source), tmp).stdout, "BrowseScreens/testGapless\n")
-            done = self.run_script("retries", str(source), tmp)
-            self.assertEqual(done.stdout, "")
-            self.assertEqual((pathlib.Path(tmp) / "retries.txt").read_text(), "BrowseScreens.testGapless()\n")
-            self.assertEqual(
-                (pathlib.Path(tmp) / "retry-warnings.txt").read_text(),
-                "::warning title=UI test passed only on retry::BrowseScreens.testGapless() failed attempt 1 "
-                f"({TERMINATE}) and passed attempt 2 in a new test runner.\n",
-            )
-
-    def test_an_assertion_failure_is_a_failure_not_a_retry(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            source = pathlib.Path(tmp) / "tests.json"
-            source.write_text(
-                plan_json(case("testGapless()", "Failed", TERMINATE), case("testDiagnostics()", "Failed", ASSERT))
-            )
-            self.assertEqual(self.run_script("retry-plan", str(source)).stdout, "")
-
-    def test_summary_names_the_retried_tests(self):
-        results = screen_report.read_results("ui=passed\nui_retried=BrowseScreens.testHome()\n")
-        text, _ = screen_report.summary(results, [], [])
-        self.assertIn("| UI tests passed only on retry | BrowseScreens.testHome() |", text)
-        text, _ = screen_report.summary({}, [], [])
-        self.assertIn("| UI tests passed only on retry | none |", text)
 
 
 class SummaryTests(unittest.TestCase):
@@ -195,7 +122,7 @@ class MatrixTests(unittest.TestCase):
                 path.mkdir()
                 (path / "results.txt").write_text("build=passed\nui=not run\nui=passed\n")
             self.assertEqual(screen_report.aggregate_ui(reports, "all", ""), "passed")
-            path = reports / "walk-playback" / "results.txt"
+            path = reports / "walk-playback-queue" / "results.txt"
             path.unlink()
             self.assertEqual(screen_report.aggregate_ui(reports, "all", ""), "incomplete")
             self.assertEqual(screen_report.aggregate_ui(reports, "Browse,Settings", ""), "passed")
@@ -291,14 +218,13 @@ class PlanTests(unittest.TestCase):
         return ui, [entry["group"] for entry in matrix["include"]]
 
     def test_pull_request_without_request_runs_only_unit_tests(self):
-        self.assertEqual(
-            self.groups("pull_request", messages="Fix parsing\n\nui: is not a request"), ("false", ["unit"])
-        )
+        self.assertEqual(self.groups("pull_request", messages="Fix parsing\n\nui: is not a request"), ("false", []))
 
     def test_pull_request_walks_the_union_of_its_requests(self):
         messages = "First\n\n[ui: browse]\n\nSecond\n\n[UI: Playback, browse]\n"
         self.assertEqual(
-            self.groups("pull_request", messages=messages), ("playback,browse", ["unit", "playback", "places-browse"])
+            self.groups("pull_request", messages=messages),
+            ("playback,browse", ["playback-queue", "playback-controls", "places-browse"]),
         )
 
     def test_pull_request_can_request_everything(self):
@@ -313,15 +239,59 @@ class PlanTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             screen_report.plan("pull_request", "", "[ui: all]\n[ui: brwse]")
 
-    def test_pushes_walk_everything(self):
-        self.assertEqual(self.groups("push"), ("all", ["unit", "playback", "places-browse", "settings-timeline"]))
+    def test_main_push_runs_no_walk(self):
+        self.assertEqual(self.groups("push"), ("false", []))
+
+    def test_nightly_and_ci_push_walk_everything(self):
+        for event, ref in (("schedule", "refs/heads/main"), ("push", "refs/heads/ci")):
+            ui, matrix = screen_report.plan(event, "", "", ref=ref)
+            self.assertEqual(ui, "all")
+            self.assertEqual(len(matrix["include"]), 4)
+
+    def test_release_title_walks_everything(self):
+        for title in ("Release Klassik 0.15.0", "[sz-123] Release Klassik 0.15.0"):
+            ui, matrix = screen_report.plan("pull_request", "", "", title)
+            self.assertEqual(ui, "all")
+            self.assertEqual(len(matrix["include"]), 4)
+
+    def test_playback_shards_cover_every_method_and_screenshot_once(self):
+        source = screen_report.WALK.read_text()
+        queue = screen_report.group_tests("playback-queue")
+        controls = screen_report.group_tests("playback-controls")
+        self.assertFalse(set(queue) & set(controls))
+        playback = source.split("class PlaybackScreens:", 1)[1].split("class TimelineScreens:", 1)[0]
+        self.assertEqual(set(queue + controls), set(re.findall(r"func (test\w+)\(", playback)))
+        queue_shots = set(screen_report.expected(source, "playback", queue))
+        control_shots = set(screen_report.expected(source, "playback", controls))
+        self.assertFalse(queue_shots & control_shots)
+        self.assertEqual(queue_shots | control_shots, set(screen_report.expected(source, "playback")))
+        self.assertTrue(queue_shots)
+        self.assertTrue(control_shots)
+
+    def test_each_playback_shard_requires_only_its_own_screenshots(self):
+        source = screen_report.WALK.read_text()
+        with tempfile.TemporaryDirectory() as directory:
+            reports = pathlib.Path(directory)
+            for group in ("playback-queue", "playback-controls"):
+                report = reports / f"walk-{group}"
+                report.mkdir()
+                (report / "results.txt").write_text("build=passed\nui=passed\n")
+                for name in screen_report.expected(source, "playback", screen_report.group_tests(group)):
+                    (report / f"{name}.png").touch()
+            self.assertEqual(screen_report.aggregate_ui(reports, "playback", source), "passed")
+            missing = next((reports / "walk-playback-queue").glob("*.png"))
+            missing.unlink()
+            self.assertEqual(
+                screen_report.unexplained_gaps(reports, "playback", source), {"playback-queue": [missing.stem]}
+            )
 
     def test_run_by_hand_takes_the_input(self):
         self.assertEqual(
-            self.groups("workflow_dispatch"), ("all", ["unit", "playback", "places-browse", "settings-timeline"])
+            self.groups("workflow_dispatch"),
+            ("all", ["playback-queue", "playback-controls", "places-browse", "settings-timeline"]),
         )
-        self.assertEqual(self.groups("workflow_dispatch", "Settings"), ("settings", ["unit", "settings-timeline"]))
-        self.assertEqual(self.groups("workflow_dispatch", "false"), ("false", ["unit"]))
+        self.assertEqual(self.groups("workflow_dispatch", "Settings"), ("settings", ["settings-timeline"]))
+        self.assertEqual(self.groups("workflow_dispatch", "false"), ("false", []))
         with self.assertRaises(ValueError):
             screen_report.plan("workflow_dispatch", "brwse", "")
 

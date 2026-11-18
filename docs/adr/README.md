@@ -24,7 +24,7 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0010](0010-incremental-sync.md)                             | Sync at start only when the server changed                                                             | 2026-10-18 |
 | [0011](0011-enrichment.md)                                   | Composition dates from MusicBrainz and Wikidata (partly replaced by 0012, 0016 and 0042)                     | 2026-10-19 |
 | [0012](0012-composer-lists.md)                               | Look up works composer by composer                                                                     | 2026-10-19 |
-| [0013](0013-favourites.md)                                   | Favourites and the recording order                                                                     | 2026-10-31 |
+| [0013](0013-favourites.md)                                   | Favourites and the recording order (partly replaced by 0052)                                           | 2026-10-31 |
 | [0014](0014-player.md)                                       | The player: an overlay with rows beside one timeline (partly replaced by 0027 and 0028; 0015 annulled) | 2026-11-02 |
 | [0015](0015-player-page.md)                                  | The player is the page of what plays (annulled by Flo; 0014 stands)                                    | 2026-11-03 |
 | [0016](0016-chronology.md)                                   | The Chronology: a chart of one composer among their contemporaries (partly replaced by 0022 and 0026)  | 2026-11-04 |
@@ -60,3 +60,4 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0046](0046-composers-first-and-shown-performers.md)         | Composers first, and the performers of a shown page next                                               | 2026-11-17 |
 | [0050](0050-partial-works-apart.md)                          | Partial works under their own heading                                                                  | 2026-11-17 |
 | [0051](0051-pictures-and-album-art-in-local-storage.md)      | Pictures and album art in Local Storage                                                                | 2026-11-17 |
+| [0052](0052-favourites-stay-in-the-app.md)                   | Favourites stay in the app                                                                             | 2026-11-18 |

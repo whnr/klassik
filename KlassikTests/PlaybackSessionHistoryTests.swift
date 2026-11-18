@@ -215,6 +215,32 @@ struct PlaybackSessionHistoryTests {
         #expect(await server.scrobbles == ["first-0", "first-1"])
     }
 
+    @Test func loginSharesAnInFlightScrobbleAndRetainsNewPlays() async throws {
+        let server = InMemoryServer()
+        let defaults = try defaults()
+        let (session, engine) = makeSession(server, defaults: defaults)
+        await server.suspendScrobble()
+        session.play(item("first"))
+        engine.end(0)
+        while !(await server.isScrobbling) { await Task.yield() }
+        session.server = nil
+        let reconnected = InMemoryServer(listeningDataKey: server.listeningDataKey)
+        session.server = reconnected
+        session.play(item("second"))
+        engine.end(0)
+        session.pause()
+        await server.releaseScrobble()
+        await session.synchronizeListeningData()
+        #expect(await server.scrobbleAttempts == ["first-0"])
+        #expect(await server.scrobbles == ["first-0"])
+        #expect(await reconnected.scrobbleAttempts == ["second-0"])
+        #expect(await reconnected.scrobbles == ["second-0"])
+        let (relaunched, _) = makeSession(reconnected, defaults: defaults)
+        await relaunched.synchronizeListeningData()
+        #expect(await reconnected.scrobbles == ["second-0"])
+        session.stop()
+    }
+
     @Test func pauseSeekAndResumeDoNotDuplicateOrInventAPlay() async throws {
         let server = InMemoryServer()
         let (session, engine) = makeSession(server, defaults: try defaults())

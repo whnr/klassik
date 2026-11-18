@@ -31,9 +31,12 @@ final class PlaybackHistory {
         var started: Date
     }
 
+    /// Keep the newest 1,000 plays; discard the oldest events when offline storage fills.
+    static let scrobbleLimit = 1000
+
     private var pending: [Scrobble]
     private var scrobblesKey: String { server.listeningDataKey + ".scrobbles" }
-    private let server: any ServerPort
+    var server: any ServerPort
     private let defaults: UserDefaults
     private let now: () -> Date
     private var queueError: String?
@@ -52,6 +55,7 @@ final class PlaybackHistory {
         pending =
             defaults.data(forKey: server.listeningDataKey + ".scrobbles")
             .flatMap { try? JSONDecoder().decode([Scrobble].self, from: $0) } ?? []
+        persistScrobbles()
     }
 
     func save(items: [QueueItem], movement: Int, position: Double) {
@@ -151,6 +155,7 @@ final class PlaybackHistory {
     private enum Write { case queue, scrobble }
 
     private func persistScrobbles() {
+        if pending.count > Self.scrobbleLimit { pending.removeFirst(pending.count - Self.scrobbleLimit) }
         if let data = try? JSONEncoder().encode(pending) { defaults.set(data, forKey: scrobblesKey) }
     }
 

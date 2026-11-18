@@ -59,7 +59,12 @@ final class AppModel {
         credentials = store.load()
         updateServer()
         reconnect = ConnectionMonitor { [weak self] in
-            Task { @MainActor [weak self] in await self?.playback.synchronizeListeningData() }
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                async let favourites: Void = self.recordingOrder.synchronize()
+                async let listening: Void = self.playback.synchronizeListeningData()
+                _ = await (favourites, listening)
+            }
         }
         // No build reads the URL cache folder of the pictures, so its space goes back to the device.
         Task.detached(priority: .utility) {
@@ -165,7 +170,14 @@ final class AppModel {
         let deviceStore = credentials.map { DeviceStore(server: $0.url, username: $0.username) }
         // Each UI walk must start with the same local favourites and order.
         if ProcessInfo.processInfo.arguments.contains("-resetServer") { try? deviceStore?.delete() }
-        recordingOrder = RecordingOrder(library: library, store: deviceStore, server: client)
+        var favourites: (any FavouriteServer)? = client
+        #if DEBUG
+            // The UI walk reads the fixture library but cannot reach the server for a star.
+            if ProcessInfo.processInfo.arguments.contains("-offlineFavourites"), let client {
+                favourites = OfflineFavourites(client: client)
+            }
+        #endif
+        recordingOrder = RecordingOrder(library: library, store: deviceStore, server: favourites)
     }
 
     private func record(_ error: Error) {

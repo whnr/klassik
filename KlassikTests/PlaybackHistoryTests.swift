@@ -287,6 +287,39 @@ struct PlaybackHistoryTests {
         #expect(await server.scrobbleAttempts == ["first-0", "second-0"])
     }
 
+    @Test(arguments: [-1, 0, 1])
+    func retentionKeepsNewestPlaysThroughLoadingInsertionAndRelaunch(overflow: Int) async throws {
+        let server = InMemoryServer()
+        let defaults = try defaults()
+        let key = server.listeningDataKey + ".scrobbles"
+        let limit = PlaybackHistory.scrobbleLimit
+        let events = (0..<(limit + overflow)).map { index in
+            ["token": UUID().uuidString, "song": "song-\(index)", "started": Double(index)] as [String: Any]
+        }
+        defaults.set(try JSONSerialization.data(withJSONObject: events), forKey: key)
+        let history = PlaybackHistory(server: server, defaults: defaults)
+        func savedSongs() throws -> [String] {
+            let data = try #require(defaults.data(forKey: key))
+            let saved = try #require(JSONSerialization.jsonObject(with: data) as? [[String: Any]])
+            return saved.compactMap { $0["song"] as? String }
+        }
+        #expect(try savedSongs() == (max(0, overflow)..<(limit + overflow)).map { "song-\($0)" })
+        await server.setFailure(true)
+        history.hear(item: item("new"), movement: 0, position: 240, duration: 600, enabled: true)
+        #expect(try savedSongs().count == limit)
+        #expect(try savedSongs().first == "song-\(overflow + 1)")
+        #expect(try savedSongs().last == "new-0")
+        await history.flush()
+        let relaunched = PlaybackHistory(server: server, defaults: defaults)
+        #expect(try savedSongs().count == limit)
+        await server.setFailure(false)
+        relaunched.retryScrobbles()
+        await relaunched.flush()
+        let expected = ((overflow + 1)..<(limit + overflow)).map { "song-\($0)" } + ["new-0"]
+        #expect(await server.scrobbles == expected)
+        #expect(try savedSongs().isEmpty)
+    }
+
     @Test func reportsFailureAndRecoversOnTheNextSave() async throws {
         let server = InMemoryServer()
         let history = PlaybackHistory(server: server, defaults: try defaults())

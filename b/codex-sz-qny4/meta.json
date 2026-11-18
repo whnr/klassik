@@ -1,7 +1,7 @@
 {
-  "sha": "f92d1bf5d62a883289c2d3d7a22b1a81f989ef3b",
+  "sha": "0a7cf7052fc4de8ba91f561938599828a92bd102",
   "branch": "codex-sz-qny4",
   "path": "codex-sz-qny4",
-  "subject": "[sz-qny4] Overlap boot with compilation",
-  "ts": 1795011571
+  "subject": "[sz-qny4] Clarify simulator boot timing",
+  "ts": 1795011616
 }

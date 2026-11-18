@@ -93,7 +93,7 @@ struct FavouriteTitle: View {
 
 extension FermataShape {
     /// The mark as a text attachment, so a wrapped title keeps it with the final word.
-    static func image(
+    @MainActor static func image(
         em: CGFloat, isSet: Bool, scale: CGFloat, scheme: ColorScheme, contrast: ColorSchemeContrast
     ) -> UIImage {
         let size = CGSize(width: em * Layout.fermataWidth, height: em * Layout.fermataHeight)

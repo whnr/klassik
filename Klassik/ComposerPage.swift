@@ -14,7 +14,7 @@ struct ComposerPage: View {
     @State private var chips: Set<String> = []
     /// The open sets. Their works are rows of the list, so opening one adds rows below its title and the list
     /// keeps its offset. A system disclosure group scrolls the list to its new rows.
-    @State private var openSets: Set<String> = []
+    @State private var openSets: Set<ComposerWorks.SetID> = []
     @AppStorage(ComposerWorks.separatesPartialKey) private var separatesPartial = true
 
     var body: some View {
@@ -91,7 +91,7 @@ struct ComposerPage: View {
                 .listRowSeparator(.hidden)
         }
         ForEach(parts) { part in
-            worksSection(part.title, rows: part.rows)
+            worksSection(part)
         }
         let rows = parts.flatMap(\.rows)
         if rows.isEmpty {
@@ -107,16 +107,17 @@ struct ComposerPage: View {
         }
     }
 
-    @ViewBuilder private func worksSection(_ title: String, rows: [ComposerWorks.Row]) -> some View {
+    @ViewBuilder private func worksSection(_ part: ComposerWorks.Part) -> some View {
+        let rows = part.rows
         Section {
-            CountedHeading(title, count: rows.reduce(0) { $0 + $1.works.count })
+            CountedHeading(part.title, count: rows.reduce(0) { $0 + $1.works.count })
             ForEach(rows) { row in
                 Group {
                     switch row {
                     case .work(let work):
                         WorkRow(work: work)
                     case .set(let name, let works):
-                        setRow(name: name, works: works, row: row, rows: rows)
+                        setRow(id: part.setID(named: name), works: works, row: row, rows: rows)
                     }
                 }
                 .itemSeparator(first: row.id == rows.first?.id, last: row.id == rows.last?.id)
@@ -126,19 +127,19 @@ struct ComposerPage: View {
 
     /// The title of a set stays where it is. Its works follow as rows below it, at once and without scrolling.
     @ViewBuilder private func setRow(
-        name: String, works: [WorkIndex.Work], row: ComposerWorks.Row, rows: [ComposerWorks.Row]
+        id: ComposerWorks.SetID, works: [WorkIndex.Work], row: ComposerWorks.Row, rows: [ComposerWorks.Row]
     ) -> some View {
-        let isOpen = openSets.contains(name)
+        let isOpen = openSets.contains(id)
         Button {
             var change = Transaction()
             change.disablesAnimations = true
             withTransaction(change) {
-                if isOpen { openSets.remove(name) } else { openSets.insert(name) }
+                if isOpen { openSets.remove(id) } else { openSets.insert(id) }
             }
         } label: {
             HStack {
                 VStack(alignment: .leading, spacing: Layout.rowLineGap) {
-                    Text(name)
+                    Text(id.name)
                         .typeStyle(.body)
                         .ink()
                     Text("\(works.count) works")
@@ -162,6 +163,7 @@ struct ComposerPage: View {
         if isOpen {
             ForEach(works) {
                 WorkRow(work: $0)
+                    .padding(.leading, Layout.setMemberLeading - Layout.edge)
                     .pageRow()
                     .itemSeparator(first: false, last: $0.id == works.last?.id && row.id == rows.last?.id)
             }

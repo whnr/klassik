@@ -317,10 +317,19 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertTrue(set.waitForExistence(timeout: 10))
         let before = set.frame.minY
         set.tap()
-        XCTAssertTrue(app.buttons.matching(identifier: "work").firstMatch.waitForExistence(timeout: 10))
+        let member = app.buttons.matching(
+            NSPredicate(format: "identifier == 'work' AND label BEGINSWITH 'Nocturne No. 1 in B-flat minor'")
+        ).firstMatch
+        XCTAssertTrue(member.waitForExistence(timeout: 10))
         // Opening a set keeps its title where it is and pushes the works in below (sz-rs30.1.123).
         XCTAssertEqual(set.frame.minY, before, accuracy: 1, "Opening a set scrolled the list")
+        XCTAssertEqual(
+            member.frame.minX - set.frame.minX, Layout.setMemberLeading - Layout.edge,
+            accuracy: 1, "Set members lost their leading inset")
         snap(app, "02a-sets")
+        set.tap()
+        XCTAssertEqual(set.frame.minY, before, accuracy: 1, "Closing a set scrolled the list")
+        XCTAssertEqual(set.value as? String, "Collapsed")
     }
 
     /// Chopin has no picture: his name sits under the back arrow. His works differ in genre, so chips show, and

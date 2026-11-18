@@ -19,6 +19,9 @@ enum Layout {
     /// The content inset on the side away from a shown timeline.
     /// css: specimen.css :root.has-timeline | --pad-left
     static let edge = Space.l.points
+    /// A set member starts at twice the ordinary leading space.
+    /// css: person.html "padding-left: calc(var(--space-l) * 2)" | padding-left
+    static let setMemberLeading = Space.l.points * 2
     /// The content inset on the side of a shown timeline: the margin of the other side plus the timeline.
     /// css: specimen.css :root.has-timeline | --pad-right
     static let timelineEdge = Space.l.points + Measure.timeline

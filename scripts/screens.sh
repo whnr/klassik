@@ -50,13 +50,15 @@ phase project
 udid=${KLASSIK_SIMULATOR_UDID:-$(scripts/simulator.sh)}
 echo "Simulator: $udid"
 phase simulator
-# Build and simulator startup overlap; CI walks start boot during artifact setup.
-(
-  xcrun simctl bootstatus "$udid" -b >/dev/null
-  xcrun simctl status_bar "$udid" override --time 9:41 --dataNetwork wifi --wifiBars 3 --cellularMode notSupported \
-    --batteryState charged --batteryLevel 100 || echo "No status bar override: the screenshot diff shows the clock."
-) &
-boot=$!
+# Only test phases need a booted device. CI walks start boot during artifact setup.
+if [ "$mode" != build ]; then
+  (
+    xcrun simctl bootstatus "$udid" -b >/dev/null
+    xcrun simctl status_bar "$udid" override --time 9:41 --dataNetwork wifi --wifiBars 3 --cellularMode notSupported \
+      --batteryState charged --batteryLevel 100 || echo "No status bar override: the screenshot diff shows the clock."
+  ) &
+  boot=$!
+fi
 
 # The simulator answers in two architectures; naming one spares xcodebuild the choice.
 project=(-project Klassik.xcodeproj -scheme Klassik -derivedDataPath build/DerivedData)

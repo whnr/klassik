@@ -323,8 +323,11 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertTrue(member.waitForExistence(timeout: 10))
         // Opening a set keeps its title where it is and pushes the works in below (sz-rs30.1.123).
         XCTAssertEqual(set.frame.minY, before, accuracy: 1, "Opening a set scrolled the list")
+        // A list row's frame spans the whole cell, so the inset shows on the title text.
+        let title = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Nocturne No. 1'")).firstMatch
+        XCTAssertTrue(title.waitForExistence(timeout: 10), "The set member title is not exposed")
         XCTAssertEqual(
-            member.frame.minX - set.frame.minX, Layout.setMemberLeading - Layout.edge,
+            title.frame.minX, app.frame.minX + Layout.setMemberLeading,
             accuracy: 1, "Set members lost their leading inset")
         snap(app, "02a-sets")
         set.tap()

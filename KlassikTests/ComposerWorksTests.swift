@@ -94,7 +94,7 @@ struct ComposerWorksTests {
         #expect(works.parts(filter: ["Orchestral"], separatingPartial: true).map(\.title) == ["Works"])
     }
 
-    @Test func splitSetsExpandIndependently() throws {
+    @Test func aSetSplitAcrossSectionsHasOneKeyPerSection() throws {
         let works = try Self.chopin([
             Self.song("a", work: "Etude No. 1", genres: [], grouping: "Etudes"),
             Self.song("b", work: "Etude No. 2", genres: [], grouping: "Etudes"),
@@ -110,11 +110,8 @@ struct ComposerWorksTests {
         #expect(completeSet.name == partialSet.name)
         #expect(complete.rows.first?.works.count == 2)
         #expect(partial.rows.first?.works.count == 2)
-        var openSets: Set<ComposerWorks.SetID> = [completeSet]
-        #expect(!openSets.contains(partialSet))
-        openSets.insert(partialSet)
-        openSets.remove(completeSet)
-        #expect(openSets == [partialSet])
+        // The page keys its open sets by this value, so the two sections open apart.
+        #expect(completeSet != partialSet)
     }
 
     @Test func withTheSettingOffOneListHoldsEveryWork() throws {

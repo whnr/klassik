@@ -94,6 +94,29 @@ struct ComposerWorksTests {
         #expect(works.parts(filter: ["Orchestral"], separatingPartial: true).map(\.title) == ["Works"])
     }
 
+    @Test func splitSetsExpandIndependently() throws {
+        let works = try Self.chopin([
+            Self.song("a", work: "Etude No. 1", genres: [], grouping: "Etudes"),
+            Self.song("b", work: "Etude No. 2", genres: [], grouping: "Etudes"),
+            Self.song("c", work: "Etude No. 3", genres: [], grouping: "Etudes", movement: (1, 2)),
+            Self.song("d", work: "Etude No. 4", genres: [], grouping: "Etudes", movement: (1, 2)),
+        ])
+        let parts = works.parts(separatingPartial: true)
+        #expect(parts.count == 2)
+        let complete = try #require(parts.first)
+        let partial = try #require(parts.last)
+        let completeSet = complete.setID(named: try #require(complete.rows.first).title)
+        let partialSet = partial.setID(named: try #require(partial.rows.first).title)
+        #expect(completeSet.name == partialSet.name)
+        #expect(complete.rows.first?.works.count == 2)
+        #expect(partial.rows.first?.works.count == 2)
+        var openSets: Set<ComposerWorks.SetID> = [completeSet]
+        #expect(!openSets.contains(partialSet))
+        openSets.insert(partialSet)
+        openSets.remove(completeSet)
+        #expect(openSets == [partialSet])
+    }
+
     @Test func withTheSettingOffOneListHoldsEveryWork() throws {
         let works = try Self.chopin([
             Self.song("a", work: "Ballade", genres: ["Piano"]),

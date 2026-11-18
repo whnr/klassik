@@ -161,6 +161,9 @@ final class RecordingOrder {
 
     func isFavourite(album id: String) -> Bool { albums.contains(id) }
 
+    /// A composer or performer is a favourite when the server stars the artist of that name (ADR 0013).
+    func isFavourite(person name: String) -> Bool { artists.contains { $0.name == name } }
+
     func toggle(album id: String) async {
         await begin(album: id)?()
     }

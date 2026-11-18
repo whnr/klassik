@@ -81,8 +81,13 @@ struct ComposersView: View {
         PageList {
             ForEach(library.index.composers) { composer in
                 NavigationLink(value: Page.composer(composer.name)) {
-                    LabeledContent(composer.name, value: composer.works.count.formatted())
-                        .ink()
+                    LabeledContent {
+                        Text(composer.works.count.formatted())
+                    } label: {
+                        MarkedTitle(
+                            title: composer.name, isFavourite: model.recordingOrder.isFavourite(person: composer.name))
+                    }
+                    .ink()
                 }
                 .accessibilityIdentifier("composer")
                 .itemSeparator(
@@ -115,7 +120,7 @@ struct FavouritesView: View {
             ForEach(favourites) { favourite in
                 NavigationLink(value: Page.recording(work: favourite.work.id, recording: favourite.recording.id)) {
                     VStack(alignment: .leading) {
-                        Text(favourite.work.title)
+                        MarkedTitle(title: favourite.work.title, isFavourite: true)
                             .ink()
                         Text(favourite.work.composer)
                             .typeStyle(.subheadline)

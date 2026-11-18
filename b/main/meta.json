@@ -1,7 +1,7 @@
 {
-  "sha": "538bba1f4d987e196a012292d12bc70b0b5e8628",
+  "sha": "47e48a3e4f65875010337963fc55120f8f60e5f1",
   "branch": "main",
   "path": "main",
-  "subject": "[sz-rs30.1.121 and sz-rs30.1.122] Make favourites instant; one server status (#99)",
-  "ts": 1795016917
+  "subject": "[sz-rs30.1.117.7] Decide how covers and pictures are fetched ahead (#92)",
+  "ts": 1795022069
 }

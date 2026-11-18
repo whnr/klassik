@@ -1,7 +1,7 @@
 {
-  "sha": "52ac83d52bf675f6002eb8164958ccc10c746c8e",
+  "sha": "a45d6a30f4cb0905d6ec64a38752319979af022e",
   "branch": "codex-sz-rs30.1.125.3",
   "path": "codex-sz-rs30.1.125.3",
-  "subject": "[sz-rs30.1.125.1] Set decoder buffer capacity",
-  "ts": 1795041569
+  "subject": "[sz-rs30.1.125.1] Stream tracks and read ahead",
+  "ts": 1795043199
 }

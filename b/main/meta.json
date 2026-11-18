@@ -1,7 +1,7 @@
 {
-  "sha": "2240b7d5250a92a68723509405c1952fe6abad8e",
+  "sha": "2d06dad00314ce0877bf41b09cf103034e2dbcff",
   "branch": "main",
   "path": "main",
-  "subject": "[sz-qny4] Cut CI time: unit tests in build, retries, split walk, no walk on main (#97)",
-  "ts": 1795038532
+  "subject": "[sz-rs30.1.125] Decide how playback starts early and reads ahead (#100)",
+  "ts": 1795040415
 }

@@ -1,7 +1,7 @@
 {
-  "sha": "40a036f24610f47947375555723cd8616e8dca52",
+  "sha": "8dc62464a4844b22025910748fd3a71ff5b52bed",
   "branch": "main",
   "path": "main",
-  "subject": "[sz-rs30.1.105.26] Draw the Search tab apart from places (#85)",
-  "ts": 1794962354
+  "subject": "[sz-rs30.1.102 and sz-rs30.1.105.22] Back tip and bar titles per specimen (#87)",
+  "ts": 1794965742
 }

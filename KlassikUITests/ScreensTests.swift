@@ -619,9 +619,17 @@ final class PlaybackScreens: ScreensTestCase {
         let first = app.buttons.matching(identifier: "recording").firstMatch
         XCTAssertTrue(first.waitForExistence(timeout: 10))
         let before = first.frame
+        let heading = app.buttons["favourite-work"]
+        let headingBefore = heading.frame
+        let playBefore = play.frame
         play.tap()
         // While a recording of the work plays, the pill pauses it (sz-swi9.4).
         XCTAssertTrue(eventually(timeout: 15) { play.label == "Pause" }, "The pill reads \(play.label) while it plays")
+        for (element, original) in [(heading, headingBefore), (play, playBefore), (first, before)] {
+            XCTAssertEqual(element.frame.minX - original.minX, -Measure.timeline / 2, accuracy: 1)
+            XCTAssertEqual(element.frame.width, original.width, accuracy: 1)
+            XCTAssertEqual(element.frame.height, original.height, accuracy: 1)
+        }
         snap(app, "04c-work-playing")
         play.tap()
         XCTAssertTrue(eventually(timeout: 10) { play.label == "Resume" }, "The pill reads \(play.label) after a pause")
@@ -712,6 +720,18 @@ final class PlaybackScreens: ScreensTestCase {
         startPlaying(app)
         pause(app)
         snap(app, "05e-play-album")
+        let work = app.buttons.matching(identifier: "album-work").firstMatch
+        XCTAssertTrue(reveal(work, in: app).isHittable)
+        XCTAssertFalse(work.images["album-work-disclosure"].exists, "The system link has a second chevron")
+        snap(app, "05f-album-work")
+        app.buttons["mini-player-cover"].tap()
+        let overlayWork = app.descendants(matching: .any)["player-overlay"]
+            .buttons.matching(identifier: "album-work").firstMatch
+        XCTAssertTrue(reveal(overlayWork, in: app).isHittable)
+        XCTAssertEqual(overlayWork.images.matching(identifier: "album-work-disclosure").count, 1)
+        snap(app, "05g-album-work-overlay")
+        overlayWork.tap()
+        XCTAssertTrue(app.buttons["favourite-recording"].waitForExistence(timeout: 10))
     }
 
     /// Next has nowhere to go on the last movement of the last item. Next always plays, and a queue that ends

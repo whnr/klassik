@@ -731,8 +731,11 @@ struct RecordingView: View {
                     HStack {
                         SectionHeading(part.title)
                         Spacer()
-                        Image(systemName: "chevron.right")
-                            .foregroundStyle(Palette.textSecondary)
+                        if isOverlay {
+                            Image(systemName: "chevron.right")
+                                .foregroundStyle(Palette.textSecondary)
+                                .accessibilityIdentifier("album-work-disclosure")
+                        }
                     }
                 }
                 .accessibilityIdentifier("album-work")

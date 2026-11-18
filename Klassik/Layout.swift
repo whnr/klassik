@@ -148,8 +148,8 @@ enum Layout {
     /// css: person.html .pic | height | 220px
     static let pictureAboveFade: CGFloat = 220
     /// The blur under the name reaches this far above the name block.
-    /// css: picture.css :root[data-page="person"] .hero .pic .blur | height | 24px
-    static let pictureBlurAbove: CGFloat = 24
+    /// css: picture.css :root[data-page="person"] .hero .pic .blur | height | 72px
+    static let pictureBlurAbove: CGFloat = 72
     /// The scrim under the name fades out this far above the name block.
     /// css: picture.css :root[data-page="person"] .hero .pic::after | height | 72px
     static let pictureScrimAbove: CGFloat = 72

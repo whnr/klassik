@@ -210,10 +210,20 @@ struct ScrimGeometryTests {
     @Test func blurAndScrimStartCloseAboveTheName() {
         #expect(abs(geometry.blurTop * 460 - (100 + Layout.pictureBlurAbove)) < 0.001)
         #expect(abs(geometry.scrimTop * 460 - (100 + Layout.pictureScrimAbove)) < 0.001)
-        #expect(geometry.blurTop < geometry.scrimTop)
+        #expect(geometry.blurTop == geometry.scrimTop)
         #expect(geometry.under < geometry.blurTop)
         // Both stay in the lower half of the picture for a name block of two lines.
         #expect(geometry.scrimTop < 0.5)
+    }
+
+    @Test func blurRampsAcrossTheFullStripAboveTheName() {
+        for textHeight: CGFloat in [60, 100, 180] {
+            var sized = geometry
+            sized.textHeight = textHeight
+            #expect(abs(sized.blurUnder * 460 - textHeight) < 0.001)
+            #expect(abs((sized.blurTop - sized.blurUnder) * 460 - 72) < 0.001)
+            #expect(sized.blurUnder < sized.under)
+        }
     }
 
     @Test func blurAndScrimEndBesideTheLongestLine() {
@@ -269,5 +279,20 @@ struct PortraitLoaderTests {
         #expect(await PortraitLoader.load(url) { _ in (Data("not an image".utf8), 200) } == nil)
         #expect(await PortraitLoader.load(url) { _ in (Data(), 404) } == nil)
         #expect(await PortraitLoader.load(url) { _ in throw URLError(.timedOut) } == nil)
+    }
+}
+
+/// The timeline translates content without changing its available width (ADR 0045).
+struct PageContentPositionTests {
+    @Test func contentKeepsItsWidthOnEitherSide() {
+        let centred = Layout.sideInsets(timelineOnLeft: nil)
+        for side in [TimelineSide.left, .right] {
+            let shift = Layout.contentShift(side: side, timeline: true)
+            let shown = Layout.sideInsets(timelineOnLeft: side == .left)
+            #expect(centred.left + shift == shown.left)
+            #expect(centred.right - shift == shown.right)
+            #expect(centred.left + centred.right == shown.left + shown.right)
+            #expect(Layout.contentShift(side: side, timeline: false) == 0)
+        }
     }
 }

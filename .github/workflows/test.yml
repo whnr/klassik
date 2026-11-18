@@ -164,7 +164,9 @@ jobs:
           retention-days: 1
       - name: Build timing
         if: always()
-        run: cat "$RUNNER_TEMP/build-report/timings.txt" >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          cat "$RUNNER_TEMP/build-report/timings.txt" >> "$GITHUB_STEP_SUMMARY"
+          cat "$RUNNER_TEMP/build-report/"*-retries.txt >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -173,7 +175,7 @@ jobs:
             ${{ runner.temp }}/build-report/*.txt
             ${{ runner.temp }}/build-report/*.log
       - uses: actions/upload-artifact@v7
-        if: failure()
+        if: always()
         with:
           name: unit-xcresult
           path: ${{ runner.temp }}/build-report/*.xcresult
@@ -268,10 +270,11 @@ jobs:
       - name: Open a Release build
         run: scripts/release-launch.sh "$RUNNER_TEMP/release"
       - uses: actions/upload-artifact@v7
-        if: failure()
+        if: always()
         with:
           name: release-launch
           path: |
+            ${{ runner.temp }}/release/*.txt
             ${{ runner.temp }}/release/*.log
             ${{ runner.temp }}/release/*.xcresult
 

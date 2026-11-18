@@ -13,7 +13,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 out=$(mkdir -p "$1" && cd "$1" && pwd)
-rm -rf "$out"/*.xcresult "$out/timings.txt" "$out/results.txt"
+rm -rf "$out"/*.xcresult "$out/timings.txt" "$out/results.txt" "$out/"*-retries.txt
 required=${UI_TESTS_REQUIRED:-false}
 mode=${KLASSIK_PHASE:-all}
 case "$mode" in all | build | unit | ui) ;; *) echo "Unknown phase: $mode" >&2; exit 2 ;; esac
@@ -50,24 +50,12 @@ phase project
 udid=${KLASSIK_SIMULATOR_UDID:-$(scripts/simulator.sh)}
 echo "Simulator: $udid"
 phase simulator
-# Only test phases need a booted device. CI walks start boot during artifact setup.
-if [ "$mode" != build ]; then
-  (
-    xcrun simctl bootstatus "$udid" -b >/dev/null
-    xcrun simctl status_bar "$udid" override --time 9:41 --dataNetwork wifi --wifiBars 3 --cellularMode notSupported \
-      --batteryState charged --batteryLevel 100 || echo "No status bar override: the screenshot diff shows the clock."
-  ) &
-  boot=$!
-fi
-
 # The simulator answers in two architectures; naming one spares xcodebuild the choice.
 project=(-project Klassik.xcodeproj -scheme Klassik -derivedDataPath build/DerivedData)
 common=("${project[@]}" -destination "platform=iOS Simulator,id=$udid,arch=arm64")
 # The index store and the preview dylibs serve only the editor.
 if [ "$mode" = all ] || [ "$mode" = build ]; then
-  # A generic build destination does not wait for the booting test device.
-  xcodebuild build-for-testing "${project[@]}" -destination "generic/platform=iOS Simulator" \
-    ARCHS=arm64 ONLY_ACTIVE_ARCH=NO -showBuildTimingSummary CODE_SIGN_IDENTITY=- \
+  xcodebuild build-for-testing "${common[@]}" -showBuildTimingSummary CODE_SIGN_IDENTITY=- \
     COMPILER_INDEX_STORE_ENABLE=NO ENABLE_PREVIEWS=NO ENABLE_DEBUG_DYLIB=NO \
     | tee "$out/build.log" | $formatter
   record build passed
@@ -80,7 +68,10 @@ if [ "$mode" != all ]; then
   common=(-xctestrun "${plans[0]}" -destination "platform=iOS Simulator,id=$udid,arch=arm64")
   record build passed
 fi
-wait "$boot"
+# Build before boot to avoid simulator startup contention. CI walks boot during artifact setup.
+xcrun simctl bootstatus "$udid" -b >/dev/null
+xcrun simctl status_bar "$udid" override --time 9:41 --dataNetwork wifi --wifiBars 3 --cellularMode notSupported \
+  --batteryState charged --batteryLevel 100 || echo "No status bar override: the screenshot diff shows the clock."
 phase boot
 
 # Runs one group of tests into its own result bundle, so the unit tests and the UI walk each have an exit status.
@@ -88,6 +79,7 @@ phase boot
 # Simulator diagnostic archives add minutes after test execution. Result bundles keep test logs and attachments without them.
 run_tests() {
   local bundle=$1
+  local status=0
   shift
   TEST_RUNNER_KLASSIK_SERVER_URL=http://localhost:4533 \
   TEST_RUNNER_KLASSIK_USERNAME=fixture \
@@ -98,7 +90,10 @@ run_tests() {
     -retry-tests-on-failure -test-iterations 2 -test-repetition-relaunch-enabled YES \
     "$@" \
     -resultBundlePath "$out/$bundle.xcresult" \
-    | tee "$out/$bundle.log" | $formatter
+    | tee "$out/$bundle.log" | $formatter || status=$?
+  python3 scripts/screen_report.py retries "$out/$bundle.log" > "$out/$bundle-retries.txt" || return $?
+  cat "$out/$bundle-retries.txt"
+  return "$status"
 }
 
 # A failed test run still holds its attachments. A run that never started holds none.

@@ -1,5 +1,6 @@
 """Tests for the screenshot scripts: python3 -m unittest discover -s scripts -p "test_screens.py"."""
 
+import os
 import pathlib
 import re
 import subprocess
@@ -55,6 +56,101 @@ class ExpectedTests(unittest.TestCase):
         self.assertTrue(screen_report.expected(source, "all"))
         for area in ("browse", "playback", "settings"):
             self.assertTrue(screen_report.expected(source, area), area)
+
+
+class RetryReportTests(unittest.TestCase):
+    def test_scripts_report_retries_and_preserve_test_exit_status(self):
+        root = screen_report.ROOT
+        for script in ("screens.sh", "release-launch.sh"):
+            for status in (0, 65):
+                with self.subTest(script=script, status=status), tempfile.TemporaryDirectory() as directory:
+                    temporary = pathlib.Path(directory)
+                    for name in ("xcodegen", "xcrun"):
+                        path = temporary / name
+                        path.write_text("#!/bin/bash\nexit 0\n")
+                        path.chmod(0o755)
+                    xcodebuild = temporary / "xcodebuild"
+                    xcodebuild.write_text(
+                        "#!/bin/bash\n"
+                        '[ "$1" != build-for-testing ] || exit 0\n'
+                        "echo \"Test Case '-[Tests testPlay]' failed (1.0 seconds).\"\n"
+                        'if [ "$TEST_STATUS" = 0 ]; then state=passed; else state=failed; fi\n'
+                        "echo \"Test Case '-[Tests testPlay]' $state (1.0 seconds).\"\n"
+                        'exit "$TEST_STATUS"\n'
+                    )
+                    xcodebuild.chmod(0o755)
+                    env = {
+                        **os.environ,
+                        "PATH": f"{temporary}:{os.environ['PATH']}",
+                        "KLASSIK_PHASE": "unit",
+                        "KLASSIK_UI": "false",
+                        "KLASSIK_SIMULATOR_UDID": "fixture",
+                        "TEST_STATUS": str(status),
+                        "GITHUB_STEP_SUMMARY": str(temporary / "summary"),
+                    }
+                    out = temporary / "out"
+                    run = subprocess.run(
+                        ["bash", str(root / "scripts" / script), str(out)],
+                        env=env,
+                        capture_output=True,
+                        text=True,
+                    )
+                    self.assertEqual(run.returncode, status, run.stdout + run.stderr)
+                    reports = list(out.glob("*-retries.txt"))
+                    self.assertEqual(len(reports), 1)
+                    outcome = "recovered" if status == 0 else "failed"
+                    self.assertIn(f"| 2 | {outcome} |", reports[0].read_text())
+                    self.assertTrue(list(out.glob("*.log")))
+
+    def test_clean_run_has_no_failed_attempts(self):
+        text = screen_report.retry_report("Test Case '-[Tests testPlay]' passed (1.0 seconds).")
+        self.assertIn("No failed test attempts", text)
+        self.assertNotIn("recovered", text)
+
+    def test_recovered_xctest_keeps_first_failure_and_attempt_count(self):
+        text = screen_report.retry_report(
+            "Test Case '-[Tests testPlay]' started.\n"
+            "Tests.swift:9: error: -[Tests testPlay] : XCTAssertTrue failed\n"
+            "Test Case '-[Tests testPlay]' failed (1.0 seconds).\n"
+            "Test Case '-[Tests testPlay]' started.\n"
+            "Test Case '-[Tests testPlay]' passed (1.0 seconds).\n"
+        )
+        self.assertIn("-[Tests testPlay] | 2 | recovered | line 3:", text)
+        self.assertIn("XCTAssertTrue failed", text)
+
+    def test_exhausted_xctest_reports_failure(self):
+        text = screen_report.retry_report("Test Case '-[Tests testPlay]' failed (1.0 seconds).\n" * 2)
+        self.assertIn("-[Tests testPlay] | 2 | failed | line 1:", text)
+
+    def test_interleaved_swift_tests_keep_their_issues(self):
+        text = screen_report.retry_report(
+            "✘ Test play() recorded an issue at Tests.swift:9: Expectation failed: ready\n"
+            "✔ Test stop() passed after 0.001 seconds.\n"
+            "✘ Test play() failed after 0.002 seconds with 1 issue.\n"
+            "✔ Test play() passed after 0.001 seconds.\n"
+        )
+        self.assertIn("play() | 2 | recovered | line 3:", text)
+        self.assertIn("Expectation failed: ready", text)
+        self.assertNotIn("stop()", text)
+
+    def test_swift_parameterized_failure_is_one_attempt(self):
+        text = screen_report.retry_report(
+            "✘ Test play(mode:) recorded an issue at Tests.swift:9: Expectation failed\n"
+            "✘ Test play(mode:) with 3 test cases failed after 0.002 seconds with 1 issue.\n"
+            "✘ Test play(mode:) recorded an issue at Tests.swift:9: Expectation failed again\n"
+            "✘ Test play(mode:) with 3 test cases failed after 0.002 seconds with 1 issue.\n"
+        )
+        self.assertIn("play(mode:) | 2 | failed", text)
+        self.assertNotIn("failed again", text)
+
+    def test_unretried_failure_and_markdown_escaping(self):
+        text = screen_report.retry_report(
+            "Test Case '-[Tests testPlay]' started.\n"
+            "Tests.swift:9: error: Expected a | b\n"
+            "Test Case '-[Tests testPlay]' failed (1.0 seconds).\n"
+        )
+        self.assertIn("| 1 | failed |", text)
+        self.assertIn("a \\| b", text)
 
 
 class SummaryTests(unittest.TestCase):

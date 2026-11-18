@@ -10,6 +10,8 @@ Usage:
         screenshots.
     python3 scripts/screen_report.py summary <screens-dir>
         Prints the results of scripts/screens.sh as Markdown and writes <screens-dir>/missing.txt.
+    python3 scripts/screen_report.py retries <raw-log>
+        Prints failed test names, attempt counts, outcomes, and first failures before log formatting.
     python3 scripts/screen_report.py diff <screens-dir> <diff-dir> [<baseline-dir>]
         Prints the counts of scripts/screen_diff.py as Markdown.
 """
@@ -189,6 +191,41 @@ def ui_result(results):
     return "**FAILED, tolerated** (`UI_TESTS_REQUIRED` is not `true`)"
 
 
+def retry_report(log):
+    """Read completion records before xcbeautify hides failed attempts."""
+    attempts, issues = {}, {}
+    active = None
+    for number, line in enumerate(log.splitlines(), 1):
+        if match := re.match(r"Test Case '(.+)' started\.", line):
+            active = match[1]
+        if "error:" in line and active:
+            issues.setdefault(active, []).append(line.strip())
+        if match := re.search(r"[✘] Test (.+?) recorded an issue (.+)", line):
+            issues.setdefault(match[1], []).append(match[2])
+        match = re.match(r"Test Case '(.+)' (passed|failed) \(", line)
+        if not match:
+            match = re.search(r"[✔✘] Test (.+?)(?: with \d+ test cases)? (passed|failed) after ", line)
+        if match:
+            name, state = match.groups()
+            attempts.setdefault(name, []).append((state, number, issues.pop(name, []), line.strip()))
+            if name == active:
+                active = None
+    lines = ["### Failed-test attempts", ""]
+    failed = {name: runs for name, runs in attempts.items() if any(run[0] == "failed" for run in runs)}
+    if not attempts:
+        return "\n".join(lines + ["No completed test attempts recorded. Inspect the raw log and result bundle.", ""])
+    if not failed:
+        return "\n".join(lines + ["No failed test attempts recorded.", ""])
+    lines += ["| Test | Attempts | Outcome | First failure |", "|---|---|---|---|"]
+    for name, runs in failed.items():
+        first = next(run for run in runs if run[0] == "failed")
+        detail = "; ".join(first[2]) or first[3]
+        outcome = "recovered" if runs[-1][0] == "passed" else "failed"
+        cells = [name, str(len(runs)), outcome, f"line {first[1]}: {detail}"]
+        lines.append("| " + " | ".join(cell.replace("|", "\\|") for cell in cells) + " |")
+    return "\n".join(lines) + "\n"
+
+
 def summary(results, captured, wanted, artifacts_url=""):
     missing = sorted(set(wanted) - set(captured))
     lines = [
@@ -201,7 +238,6 @@ def summary(results, captured, wanted, artifacts_url=""):
         f"| UI tests | {ui_result(results)} |",
         f"| UI tests required | {'yes' if results.get('ui_required') == 'true' else 'no'} |",
         f"| UI areas | {results.get('ui_areas', 'false')} |",
-        "| Failed-test retries | 1 maximum (XCTest) |",
         f"| Screenshots captured | {len(set(captured) & set(wanted))} of {len(wanted)} |",
         f"| Screenshots missing | {', '.join(missing) or 'none'} |",
     ]
@@ -239,6 +275,9 @@ def read_lines(path):
 
 def main(args):
     command = args[0]
+    if command == "retries":
+        print(retry_report(pathlib.Path(args[1]).read_text()))
+        return
     if command == "plan":
         ui, matrix = plan(args[1], args[2], sys.stdin.read(), *args[3:5])
         print(f"ui={ui}")
@@ -266,6 +305,9 @@ def main(args):
         text, missing = summary(results, captured, wanted, url)
         (screens / "missing.txt").write_text("".join(name + "\n" for name in missing))
         print(text)
+        for report in sorted(screens.glob("*-retries.txt")):
+            print(f"\n#### {report.stem}\n")
+            print(report.read_text())
     elif command == "diff":
         diff_dir = pathlib.Path(args[2])
         report_file = diff_dir / "diff.json"

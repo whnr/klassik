@@ -168,8 +168,8 @@ jobs:
       - name: Build timing
         if: always()
         run: |
-          cat "$RUNNER_TEMP/build-report/timings.txt" >> "$GITHUB_STEP_SUMMARY"
-          cat "$RUNNER_TEMP/build-report/"*-retries.txt >> "$GITHUB_STEP_SUMMARY"
+          cat "$RUNNER_TEMP/build-report/timings.txt" >> "$GITHUB_STEP_SUMMARY" || true
+          cat "$RUNNER_TEMP/build-report/"*-retries.txt >> "$GITHUB_STEP_SUMMARY" || true
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -323,7 +323,7 @@ jobs:
             done
             if [ -f "$report/timings.txt" ]; then
               echo "### $(basename "$report")" >> "$GITHUB_STEP_SUMMARY"
-              cat "$report/timings.txt" >> "$GITHUB_STEP_SUMMARY"
+              cat "$report/timings.txt" >> "$GITHUB_STEP_SUMMARY" || true
             fi
           done
           if [ -f reports/build-report/gapless-report.txt ]; then

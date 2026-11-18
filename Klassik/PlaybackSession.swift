@@ -76,7 +76,8 @@ final class PlaybackSession {
         willSet { savePosition() }
         didSet { defaults.set(scrobblesEnabled, forKey: Self.scrobblesKey) }
     }
-    private(set) var listeningError: String?
+    /// Why listening data waits on the device. The Library shows it in the one server status (ADR 0058).
+    private(set) var listeningTrouble: ServerTrouble?
 
     /// A different login must never receive the queue of this login.
     @ObservationIgnored var server: (any ServerPort)? {
@@ -99,11 +100,11 @@ final class PlaybackSession {
                 histories[key] = created
                 return created
             }
-            listeningError = nil
+            listeningTrouble = nil
             let currentHistory = history
-            history?.onError = { [weak self, weak currentHistory] message in
+            history?.onTrouble = { [weak self, weak currentHistory] trouble in
                 guard let self, self.history === currentHistory else { return }
-                self.listeningError = message
+                self.listeningTrouble = trouble
             }
             history?.retryScrobbles()
             MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
@@ -176,13 +177,13 @@ final class PlaybackSession {
             let saved = try await history.restore()
             guard self.history === history, queueRevision == revision, item == nil else { return }
             restored = true
-            listeningError = nil
+            listeningTrouble = history.trouble
             guard let saved, let first = saved.items.first else { return }
             upNext = Array(saved.items.dropFirst())
             start(first, from: saved.movement, offset: saved.position, paused: true, save: false)
         } catch {
             if self.history === history, queueRevision == revision {
-                listeningError = "Could not restore the queue from the server."
+                listeningTrouble = ServerTrouble([error])
             }
         }
     }

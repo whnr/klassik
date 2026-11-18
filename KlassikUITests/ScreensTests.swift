@@ -865,9 +865,10 @@ final class PlaybackScreens: ScreensTestCase {
         snap(app, "08d-next-player")
     }
 
-    /// Offline, a favourite keeps its mark, and each tap shows one notice (ADR 0052).
+    /// Offline, a favourite changes at the tap and shows no notice. One quiet Library line says why changes wait
+    /// (ADR 0058).
     @MainActor
-    func testOfflineFavouriteKeepsTheMarkAndExplainsEachTap() throws {
+    func testOfflineFavouriteKeepsTheMarkAndShowsTheServerStatus() throws {
         let app = try launchAndConnect(arguments: ["-offlineFavourites"])
         composer(app, "Ludwig van Beethoven").tap()
         app.buttons.matching(identifier: "work").firstMatch.tap()
@@ -876,23 +877,21 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(mark.waitForExistence(timeout: 10))
         let initial = mark.value as? String
         let changed = initial == "Favourite" ? "Not a favourite" : "Favourite"
-        let notice = app.alerts["Favourites"]
         mark.tap()
-        XCTAssertTrue(notice.waitForExistence(timeout: 10))
-        XCTAssertTrue(notice.staticTexts["No internet connection. This syncs when you are back online."].exists)
-        snap(app, "05e-offline-favourite-notice")
-        notice.buttons["OK"].tap()
         XCTAssertEqual(mark.value as? String, changed)
         snap(app, "05f-offline-favourite-kept")
         mark.tap()
-        XCTAssertTrue(notice.waitForExistence(timeout: 10))
-        notice.buttons["OK"].tap()
         XCTAssertEqual(mark.value as? String, initial)
         snap(app, "05g-offline-favourite-back")
-        // A send without a tap shows no notice.
-        let unsolicited = expectation(for: NSPredicate(format: "exists == true"), evaluatedWith: notice)
-        unsolicited.isInverted = true
-        wait(for: [unsolicited], timeout: 2)
+        let notice = expectation(for: NSPredicate(format: "exists == true"), evaluatedWith: app.alerts.firstMatch)
+        notice.isInverted = true
+        wait(for: [notice], timeout: 2)
+        openPlace(app, "Library")
+        for _ in 0..<10 where !app.buttons["library-settings"].exists { back(app) }
+        let status = app.staticTexts["server-status"]
+        XCTAssertTrue(status.waitForExistence(timeout: 10), "No server status on Library")
+        XCTAssertEqual(status.label, "Server not reachable. Changes wait on this iPhone.")
+        snap(app, "05e-offline-server-status")
     }
 
     /// A swipe favourite moves ahead of a newer recording before the listener plays the work.

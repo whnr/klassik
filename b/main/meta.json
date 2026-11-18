@@ -1,7 +1,7 @@
 {
-  "sha": "6100779b9efc6219d4046446547aebef3f0d6480",
+  "sha": "2240b7d5250a92a68723509405c1952fe6abad8e",
   "branch": "main",
   "path": "main",
-  "subject": "[sz-rs30.1.117.6, sz-rs30.1.119 and sz-rs30.1.115] Fix the album work row, PR 69 follow-ups, Search ADR (#98)",
-  "ts": 1795028965
+  "subject": "[sz-qny4] Cut CI time: unit tests in build, retries, split walk, no walk on main (#97)",
+  "ts": 1795038532
 }

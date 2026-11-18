@@ -267,6 +267,7 @@ struct WorkView: View {
             )
             .disabled(model.recordingOrder.isSaving)
             .typeStyle(Layout.pageTitle)
+            .accessibilityAddTraits(.isHeader)
             .accessibilityIdentifier("favourite-work")
             .listRowSeparator(.hidden)
             .pageEdges(top: Layout.headTop, bottom: Layout.metaTop)
@@ -558,6 +559,7 @@ struct RecordingView: View {
                             .accessibilityLabel("Cover")
                             .accessibilityIdentifier("hero-cover")
                         heroTitle
+                            .accessibilityAddTraits(.isHeader)
                     }
                     .frame(maxWidth: .infinity)
                     .multilineTextAlignment(.center)
@@ -771,8 +773,11 @@ struct RecordingView: View {
                     HStack {
                         SectionHeading(part.title)
                         Spacer()
-                        Image(systemName: "chevron.right")
-                            .foregroundStyle(Palette.textSecondary)
+                        if isOverlay {
+                            Image(systemName: "chevron.right")
+                                .foregroundStyle(Palette.textSecondary)
+                                .accessibilityIdentifier("album-work-disclosure")
+                        }
                     }
                 }
                 .accessibilityIdentifier("album-work")
@@ -1107,9 +1112,12 @@ struct CapsuleLabel: View {
             Image(systemName: systemImage)
                 .accessibilityHidden(true)
             Text(title)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .typeStyle(Layout.capsuleLabel)
+        .multilineTextAlignment(.center)
         .foregroundStyle(filled ? Palette.onAccent : Palette.tint)
+        .padding(.horizontal, Layout.capsuleInset)
         .frame(maxWidth: .infinity, minHeight: Layout.capsuleHeight)
         .background(filled ? Palette.accentFill : Palette.fillQuiet, in: .capsule)
         .contentShape(.capsule)

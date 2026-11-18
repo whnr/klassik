@@ -40,7 +40,7 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0026](0026-contemporaries-by-active-years.md)               | Contemporaries by overlapping active years                                                                   | 2026-11-07 |
 | [0027](0027-player-rows.md)                                  | Player rows: play at the end, open only what differs                                                         | 2026-11-08 |
 | [0028](0028-mini-player-pill.md)                             | The mini player is a pill at the end of the timeline (partly replaced by 0041)                               | 2026-11-08 |
-| [0029](0029-search-at-the-top.md)                            | Search at the top, with a back arrow and recent searches (partly replaced by 0038)                           | 2026-11-08 |
+| [0029](0029-search-at-the-top.md)                            | Search at the top, with a back arrow and recent searches (partly replaced by 0038 and 0057)                  | 2026-11-08 |
 | [0030](0030-type-and-spacing.md)                             | Type and spacing from one ratio (refined by 0055)                                                            | 2026-11-08 |
 | [0031](0031-no-separator-glyph.md)                           | No separator glyph: prose, words and role lines                                                              | 2026-11-09 |
 | [0032](0032-fermata-mark.md)                                 | The fermata: one solid drawing, grey when not set (partly replaced by 0033)                                  | 2026-11-08 |
@@ -65,6 +65,7 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0054](0054-timeline-ends-at-the-pill.md)                    | The timeline ends at the top of the pill                                                                     | 2026-11-17 |
 | [0055](0055-hairlines-between-list-items.md)                 | Hairlines separate list items only                                                                           | 2026-11-17 |
 | [0056](0056-interactive-back-gestures.md)                    | Back gestures follow the finger                                                                              | 2026-11-17 |
+| [0057](0057-search-apart-from-place-tabs.md)                 | Search stays apart from the place tabs                                                                       | 2026-11-18 |
 | [0058](0058-one-quiet-server-status.md)                      | One quiet server status                                                                                      | 2026-11-18 |
 | [0059](0059-covers-and-pictures-before-pages.md) | Fetch covers and pictures before pages need them | 2026-11-18 |
 | [0060](0060-early-playback-and-read-ahead.md) | Start playback early and read ahead quietly (proposal; partly replaces 0005 and 0008; extends 0051) | 2026-11-18 |

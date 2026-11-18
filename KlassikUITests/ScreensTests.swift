@@ -695,6 +695,13 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(workAlbum.exists, "The work page offers no Play Album")
         let workPlay = app.buttons["play-work"]
         XCTAssertEqual(workPlay.frame.midY, workAlbum.frame.midY, accuracy: 1)
+        let label = workPlay.staticTexts.firstMatch
+        XCTAssertEqual(label.label, "Play top recording")
+        // SwiftUI reports the label's whole allocation. Pixels give the inset of the visible icon and text.
+        let capsule = drawn(workPlay, in: app)
+        let labelBounds = try XCTUnwrap(ScreenPixels(app)?.lightLabelBounds(in: capsule))
+        XCTAssertGreaterThanOrEqual(labelBounds.minX - capsule.minX, Layout.capsuleInset - 1)
+        XCTAssertGreaterThanOrEqual(capsule.maxX - labelBounds.maxX, Layout.capsuleInset - 1)
         snap(app, "04e-work-album-buttons")
         recording.tap()
         let wholeAlbum = app.buttons["play-album"]
@@ -737,6 +744,31 @@ final class PlaybackScreens: ScreensTestCase {
         startPlaying(app)
         pause(app)
         snap(app, "05e-play-album")
+    }
+
+    @MainActor
+    func testAlbumWorkHasOneDisclosureOnThePageAndOverlay() throws {
+        let app = try launchAndConnect()
+        openSettings(app)
+        reveal(app.buttons["classical-albums"], in: app).tap()
+        let album = app.buttons.matching(identifier: "album")
+            .matching(NSPredicate(format: "label CONTAINS 'Mendelssohn: Violin Concerto'")).firstMatch
+        reveal(album, in: app).tap()
+        XCTAssertTrue(app.buttons["play-recording"].waitForExistence(timeout: 10))
+        let work = app.buttons.matching(identifier: "album-work").firstMatch
+        XCTAssertTrue(reveal(work, in: app).isHittable)
+        XCTAssertFalse(work.images["album-work-disclosure"].exists, "The system link has a second chevron")
+        snap(app, "05f-album-work")
+        startPlaying(app)
+        pause(app)
+        app.buttons["mini-player-cover"].tap()
+        let overlayWork = app.descendants(matching: .any)["player-overlay"]
+            .buttons.matching(identifier: "album-work").firstMatch
+        XCTAssertTrue(reveal(overlayWork, in: app).isHittable)
+        XCTAssertEqual(overlayWork.images.matching(identifier: "album-work-disclosure").count, 1)
+        snap(app, "05g-album-work-overlay")
+        overlayWork.tap()
+        XCTAssertTrue(app.buttons["favourite-recording"].waitForExistence(timeout: 10))
     }
 
     /// Next has nowhere to go on the last movement of the last item. Next always plays, and a queue that ends
@@ -1634,6 +1666,32 @@ class ScreensTestCase: XCTestCase {
             let index = (y * width + x) * 4
             let ground = (y * width + groundX) * 4
             return (0..<3).reduce(0) { $0 + abs(Int(bytes[index + $1]) - Int(bytes[ground + $1])) } > 30
+        }
+
+        /// The default Claret capsule has white ink. Its inset path excludes the pale page around curved ends.
+        func lightLabelBounds(in frame: CGRect) -> CGRect? {
+            let inside = frame.insetBy(dx: 1, dy: 1)
+            let path = CGPath(
+                roundedRect: inside, cornerWidth: inside.height / 2, cornerHeight: inside.height / 2,
+                transform: nil)
+            let xs = pixels(frame.minX...frame.maxX).clamped(to: 0..<width)
+            let ys = pixels(frame.minY...frame.maxY).clamped(to: 0..<height)
+            var (first, last) = (Int.max, Int.min)
+            for y in ys {
+                for x in xs {
+                    let point = CGPoint(x: (CGFloat(x) + 0.5) / scale, y: (CGFloat(y) + 0.5) / scale)
+                    guard path.contains(point) else { continue }
+                    let index = (y * width + x) * 4
+                    if bytes[index..<(index + 3)].allSatisfy({ $0 > 200 }) {
+                        first = min(first, x)
+                        last = max(last, x)
+                    }
+                }
+            }
+            guard first <= last else { return nil }
+            return CGRect(
+                x: CGFloat(first) / scale, y: frame.minY, width: CGFloat(last + 1 - first) / scale, height: frame.height
+            )
         }
 
         /// The share of pixels in a rect, in points, that differ from the same pixels of another screenshot.

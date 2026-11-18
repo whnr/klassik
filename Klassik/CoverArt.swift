@@ -299,7 +299,6 @@ final class AlbumCovers {
         adopted = false
         inspected = []
         pendingRelease = []
-        eligibleAlbums = []
         saveFailed = false
     }
 

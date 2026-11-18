@@ -697,9 +697,11 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertEqual(workPlay.frame.midY, workAlbum.frame.midY, accuracy: 1)
         let label = workPlay.staticTexts.firstMatch
         XCTAssertEqual(label.label, "Play top recording")
-        XCTAssertGreaterThanOrEqual(label.frame.minX - workPlay.frame.minX, Layout.capsuleInset - 1)
-        XCTAssertGreaterThanOrEqual(workPlay.frame.maxX - label.frame.maxX, Layout.capsuleInset - 1)
-        XCTAssertGreaterThan(label.frame.height, 0)
+        // SwiftUI reports the label's whole allocation. Pixels give the inset of the visible icon and text.
+        let capsule = drawn(workPlay, in: app)
+        let labelBounds = try XCTUnwrap(ScreenPixels(app)?.lightLabelBounds(in: capsule))
+        XCTAssertGreaterThanOrEqual(labelBounds.minX - capsule.minX, Layout.capsuleInset - 1)
+        XCTAssertGreaterThanOrEqual(capsule.maxX - labelBounds.maxX, Layout.capsuleInset - 1)
         snap(app, "04e-work-album-buttons")
         recording.tap()
         let wholeAlbum = app.buttons["play-album"]
@@ -1665,6 +1667,32 @@ class ScreensTestCase: XCTestCase {
             let index = (y * width + x) * 4
             let ground = (y * width + groundX) * 4
             return (0..<3).reduce(0) { $0 + abs(Int(bytes[index + $1]) - Int(bytes[ground + $1])) } > 30
+        }
+
+        /// The default Claret capsule has white ink. Its inset path excludes the pale page around curved ends.
+        func lightLabelBounds(in frame: CGRect) -> CGRect? {
+            let inside = frame.insetBy(dx: 1, dy: 1)
+            let path = CGPath(
+                roundedRect: inside, cornerWidth: inside.height / 2, cornerHeight: inside.height / 2,
+                transform: nil)
+            let xs = pixels(frame.minX...frame.maxX).clamped(to: 0..<width)
+            let ys = pixels(frame.minY...frame.maxY).clamped(to: 0..<height)
+            var (first, last) = (Int.max, Int.min)
+            for y in ys {
+                for x in xs {
+                    let point = CGPoint(x: (CGFloat(x) + 0.5) / scale, y: (CGFloat(y) + 0.5) / scale)
+                    guard path.contains(point) else { continue }
+                    let index = (y * width + x) * 4
+                    if bytes[index..<(index + 3)].allSatisfy({ $0 > 200 }) {
+                        first = min(first, x)
+                        last = max(last, x)
+                    }
+                }
+            }
+            guard first <= last else { return nil }
+            return CGRect(
+                x: CGFloat(first) / scale, y: frame.minY, width: CGFloat(last + 1 - first) / scale, height: frame.height
+            )
         }
 
         /// The share of pixels in a rect, in points, that differ from the same pixels of another screenshot.

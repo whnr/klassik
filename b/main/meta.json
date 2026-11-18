@@ -1,7 +1,7 @@
 {
-  "sha": "3e2deb52bb26d1bdfbbece954088cb60467cac48",
+  "sha": "7699ec6179b26a822123c0ef0d09a6c974270ffd",
   "branch": "main",
   "path": "main",
-  "subject": "[sz-rs30.1.117.4] Keep favourites in the app and sync them in the background (#91)",
-  "ts": 1794978296
+  "subject": "Merge pull request #94 from whnr/claude-release-0.14.3",
+  "ts": 1794987791
 }

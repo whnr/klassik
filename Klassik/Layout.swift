@@ -94,6 +94,8 @@ enum Layout {
     /// The gap above a row of capsule buttons.
     /// css: specimen.css .button-row | padding-top
     static let buttonRowTop = Space.m.points
+    /// css: specimen.css .button-row | gap
+    static let buttonRowGap = Space.m.points
     /// css: specimen.css .capsule | min-height
     static let capsuleHeight = Measure.hitTarget
     /// css: specimen.css .capsule | gap
@@ -167,6 +169,10 @@ enum Layout {
     /// The gap from an album cover to its title. The year follows the title with no gap.
     /// css: person.html "margin-top: var(--space-xs)" | margin-top
     static let albumTitleGap = Space.xs.points
+
+    /// The reference recording supplies the work cover.
+    /// css: work.html .work-cover .cover | width
+    static let workCover = Measure.coverRow
 
     // MARK: Player page
 

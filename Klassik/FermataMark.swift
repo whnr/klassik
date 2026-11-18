@@ -54,6 +54,7 @@ struct FermataMark: View {
             .frame(width: em * Layout.fermataWidth, height: em * Layout.fermataHeight)
             .alignmentGuide(.firstTextBaseline) { $0[.bottom] }
             .accessibilityLabel(isSet ? "Favourite" : "Not a favourite")
+            .transaction { $0.animation = nil }
     }
 }
 
@@ -74,6 +75,9 @@ struct FavouriteTitle: View {
                 .typeStyle(.pageTitle)
                 .foregroundStyle(Palette.textPrimary)
                 .accessibilityIdentifier(textIdentifier)
+                // A new mark replaces the old one in the same frame, also under an animation of the page.
+                .contentTransition(.identity)
+                .transaction { $0.animation = nil }
         }
         // The mark changes state at once. A pressed button must not fade the title.
         .buttonStyle(.still)

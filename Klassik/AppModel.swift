@@ -89,6 +89,11 @@ final class AppModel {
 
     /// Shows the cached library at once, then checks the server and syncs again.
     /// Then looks up the works on MusicBrainz and the persons on Wikidata, side by side.
+    /// Why changes of the listener wait on this iPhone: favourites, scrobbles and the play queue together.
+    var serverTrouble: ServerTrouble? {
+        ServerTrouble.worst([recordingOrder.serverTrouble, playback.listeningTrouble])
+    }
+
     func start() async {
         guard let credentials, let client else { return }
         await library.load(for: credentials)

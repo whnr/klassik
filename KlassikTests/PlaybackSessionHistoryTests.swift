@@ -109,11 +109,11 @@ struct PlaybackSessionHistoryTests {
         var copy = try #require(work.recordings.first)
         copy.songs = [copy.songs[1]]
         #expect(library.current(work: work, recording: copy).recording.songs.map(\.id) == ["a", "b"])
-        #expect(!library.current(work: work, recording: copy).recording.isFavourite)
+        #expect(!library.isFavourite(library.current(work: work, recording: copy).recording))
         library.setStarred(["a", "b"], true)
-        #expect(library.current(work: work, recording: copy).recording.isFavourite)
+        #expect(library.isFavourite(library.current(work: work, recording: copy).recording))
         library.setStarred(["a", "b"], false)
-        #expect(!library.current(work: work, recording: copy).recording.isFavourite)
+        #expect(!library.isFavourite(library.current(work: work, recording: copy).recording))
     }
 
     @Test func anUntouchedLaunchDoesNotClearTheServerQueue() async throws {

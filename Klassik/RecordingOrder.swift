@@ -58,12 +58,13 @@ final class RecordingOrder {
     private var albums: Set<String> = []
     /// A tap never waits for the server (ADR 0052), so no favourite control is ever disabled.
     let isSaving = false
+    /// A failure of the device file. Server failures never show here: they set `serverTrouble`.
     var error: String?
     private(set) var loadError: String?
     private(set) var refreshError: String?
+    /// Why changes wait, after the last call to the server. It is nil when the server took every change.
+    private(set) var serverTrouble: ServerTrouble?
     @ObservationIgnored private var syncTask: Task<Void, Never>?
-
-    static let offlineNotice = "No internet connection. This syncs when you are back online."
 
     init(library: Library, store: DeviceStore? = nil, server: (any FavouriteServer)? = nil) {
         self.library = library
@@ -77,7 +78,7 @@ final class RecordingOrder {
     func isFavourite(_ work: WorkIndex.Work) -> Bool { data.favouriteWorks.contains(work.id) }
 
     func isFavourite(_ recording: WorkIndex.Recording, of work: WorkIndex.Work) -> Bool {
-        library.current(work: work, recording: recording).recording.isFavourite
+        library.isFavourite(library.current(work: work, recording: recording).recording)
     }
 
     func rows(of work: WorkIndex.Work) -> [Row] {
@@ -85,7 +86,8 @@ final class RecordingOrder {
         let order = data.recordingOrder[work.id] ?? []
         return live.recordings.map { recording in
             var reason: String?
-            if !recording.isFavourite {
+            let isFavourite = library.isFavourite(recording)
+            if !isFavourite {
                 let names = recording.performerNames.filter { name in artists.contains { $0.name == name } }
                 let ids = recording.songs.flatMap { $0.contributors ?? [] }
                     .filter {
@@ -99,7 +101,7 @@ final class RecordingOrder {
                     reason = "Favourite album: \(recording.album)"
                 }
             }
-            return Row(recording: recording, reason: reason, isFavourite: recording.isFavourite)
+            return Row(recording: recording, reason: reason, isFavourite: isFavourite)
         }.sorted { left, right in
             func tier(_ row: Row) -> Int {
                 if row.isFavourite { return 0 }
@@ -145,7 +147,7 @@ final class RecordingOrder {
         let live = library.current(work: work, recording: recording).recording
         let ids = live.songs.map(\.id)
         guard !ids.isEmpty else { return nil }
-        let isSet = !live.isFavourite
+        let isSet = !library.isFavourite(live)
         var order = rows(of: work).filter(\.isFavourite).map(\.id)
         order.removeAll { $0 == live.id }
         if isSet { order.append(live.id) }
@@ -154,7 +156,7 @@ final class RecordingOrder {
         let change = DeviceStore.FavouriteChange(songs: ids, isSet: isSet)
         changed.queue(change)
         guard save(changed) else { return nil }
-        return { [self] in await send(tapped: change.id) }
+        return { [self] in await synchronize() }
     }
 
     func isFavourite(album id: String) -> Bool { albums.contains(id) }
@@ -178,7 +180,7 @@ final class RecordingOrder {
         changed.queue(change)
         guard save(changed) else { return nil }
         albums = changed.favouriteAlbums
-        return { [self] in await send(tapped: change.id) }
+        return { [self] in await synchronize() }
     }
 
     /// Only favourites move. Other rows keep the server-derived priority.
@@ -203,24 +205,10 @@ final class RecordingOrder {
         }
     }
 
-    /// Sends the changes that wait, with no notice. The app calls it when the connection comes back.
+    /// Sends the changes that wait. A tap calls it, and so does the app when the connection comes back. A failure
+    /// shows no notice: the changes wait, and `serverTrouble` says why (ADR 0058).
     func synchronize() async {
         await serially { _ = await self.sendQueue() }
-    }
-
-    /// One notice for each tap whose change still waits after its own send.
-    private func send(tapped id: UUID) async {
-        await serially {
-            let failures = await self.sendQueue()
-            guard let failure = failures[id], self.data.pendingFavourites.contains(where: { $0.id == id }) else {
-                return
-            }
-            self.error =
-                failure is URLError
-                ? Self.offlineNotice
-                : "The server did not accept this change: \(failure.localizedDescription) "
-                    + "It stays on this iPhone, and Klassik tries again later."
-        }
     }
 
     /// One run at a time, so that a star read cannot overtake a newer change of the listener.
@@ -238,6 +226,7 @@ final class RecordingOrder {
     private func sendQueue() async -> [UUID: any Error] {
         guard loadError == nil, let server else { return [:] }
         var failures: [UUID: any Error] = [:]
+        defer { serverTrouble = ServerTrouble(Array(failures.values)) }
         queue: for change in data.pendingFavourites {
             // A later tap on the same target replaces a change while an earlier one is on its way.
             guard data.pendingFavourites.contains(where: { $0.id == change.id }) else { continue }

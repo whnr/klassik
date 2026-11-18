@@ -169,6 +169,7 @@ struct WorkListView: View {
                     .ink()
                 }
                 .accessibilityIdentifier("status-work")
+                .itemSeparator(first: work.id == works.first?.id, last: work.id == works.last?.id)
             }
         }
         .pageTitle(title)

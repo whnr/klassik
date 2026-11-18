@@ -29,7 +29,7 @@ struct PlaybackHistoryFixtureTests {
         let relaunched = PlaybackHistory(server: client, defaults: defaults)
         relaunched.retryScrobbles()
         await relaunched.flush()
-        #expect(relaunched.error == nil)
+        #expect(relaunched.trouble == nil)
         let after = try await client.get("getSong", [URLQueryItem(name: "id", value: song.id)]).song?.playCount
         #expect(after == before + 1)
         relaunched.retryScrobbles()

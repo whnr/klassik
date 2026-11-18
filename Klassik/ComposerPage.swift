@@ -39,6 +39,8 @@ struct ComposerPage: View {
         .navigationTitle(composer.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { ShuffleButton(works: composer.works) }
+        // A person page puts all its covers in front of the cover queue (ADR 0059).
+        .onAppear { model.albumCovers.prefer(composer.works.flatMap { $0.recordings.compactMap(\.songs.first) }) }
         .task(id: artistIDs) { await people.resolve(composer: composer.name, artistIDs: artistIDs) }
     }
 
@@ -319,7 +321,6 @@ struct PersonHero: View {
     /// True when the Chronology button follows. The hero then keeps the specimen gap below it.
     var spacesChronology = false
     @State private var portrait: LoadedPortrait?
-    @State private var loaded = false
     @State private var showsPicture = false
     /// The height of the name and the facts line, which sets the blur and the scrim under them.
     @State private var textHeight: CGFloat = 96
@@ -337,9 +338,10 @@ struct PersonHero: View {
                 textHeight + Layout.pictureFade + Layout.pictureAboveFade))
     }
 
-    /// The space stays reserved while a picture loads, so the name does not jump when it arrives.
+    /// The space stays reserved for a picture that Wikidata names, loaded or not, so the name never jumps when it
+    /// arrives or fails (ADR 0059).
     private var hasPicture: Bool {
-        portrait != nil || (facts?.portrait != nil && !loaded)
+        portrait != nil || facts?.portrait != nil
     }
 
     var body: some View {
@@ -353,6 +355,8 @@ struct PersonHero: View {
                 ZStack(alignment: .bottomLeading) {
                     if let portrait, let framing {
                         picture(portrait, framing: framing, frame: frame)
+                    } else {
+                        Rectangle().fill(Palette.fillQuiet)
                     }
                     heading
                         .padding(.bottom, Layout.personHeadBottom)
@@ -383,8 +387,9 @@ struct PersonHero: View {
 
     private var load: PortraitLoad {
         PortraitLoad(
-            task: PortraitTask(portrait: facts?.portrait, screen: screen), facts: facts,
-            portrait: $portrait, loaded: $loaded, showsPicture: $showsPicture)
+            task: PortraitTask(portrait: facts?.portrait, screen: screen, store: .pictures),
+            facts: facts,
+            portrait: $portrait, showsPicture: $showsPicture)
     }
 
     private var heading: some View {
@@ -420,9 +425,17 @@ struct PersonHero: View {
         PortraitSize.Screen(hero: frame, scale: displayScale)
     }
 
-    fileprivate struct PortraitTask: Equatable {
+    struct PortraitTask: Equatable {
         var portrait: PersonPortrait?
         var screen: PortraitSize.Screen
+        var revision: Int
+
+        @MainActor init(portrait: PersonPortrait?, screen: PortraitSize.Screen, store: ImageStore) {
+            self.portrait = portrait
+            self.screen = screen
+            let files = portrait.map(PortraitLoader.files(of:)) ?? []
+            revision = store.revision(of: files.map(\.absoluteString))
+        }
     }
 
     /// Loads the picture and presents it whole. Both branches of the hero carry it, so a load survives the switch.
@@ -430,18 +443,19 @@ struct PersonHero: View {
         let task: PortraitTask
         let facts: PersonFacts?
         @Binding var portrait: LoadedPortrait?
-        @Binding var loaded: Bool
         @Binding var showsPicture: Bool
 
         func body(content: Content) -> some View {
             content
                 .task(id: task) {
-                    portrait = nil
-                    loaded = false
-                    defer { loaded = true }
-                    guard let file = facts?.portrait else { return }
-                    let result = await PortraitLoader.load(file, screen: task.screen)
-                    portrait = result
+                    guard let file = facts?.portrait else {
+                        portrait = nil
+                        return
+                    }
+                    // A shown picture stays until its replacement loads.
+                    if let result = await PortraitLoader.load(file, screen: task.screen), !Task.isCancelled {
+                        portrait = result
+                    }
                 }
                 .fullScreenCover(isPresented: $showsPicture) {
                     if let portrait {

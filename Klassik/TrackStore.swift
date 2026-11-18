@@ -46,6 +46,9 @@ final class TrackStore {
     private let defaults: UserDefaults
     private var tasks: [String: Task<Void, Never>] = [:]
     private let load: Fetch
+    /// A track file is on the device: for playback when the flag is true, else for a download. Its embedded art
+    /// is read then, never by a fetch of its own (ADR 0059).
+    @ObservationIgnored var loaded: (@MainActor (Song, URL, Bool) -> Void)?
     private static let limitKey = "store.cacheLimit"
 
     init(
@@ -66,16 +69,6 @@ final class TrackStore {
 
     func isOffline(_ song: Song) -> Bool { offline.contains(song.id) }
 
-    /// Artwork reads must use existing files without starting an audio download. The file checks run off the main
-    /// actor, because cover views ask for them while lists scroll.
-    func localFiles(for songs: [Song]) async -> [URL] {
-        let folders = [downloadFolder, cacheFolder]
-        let candidates = songs.map { song in folders.map { $0.appending(path: Self.fileName(song)) } }
-        return await Task.detached(priority: .userInitiated) {
-            candidates.compactMap { files in files.first { FileManager.default.fileExists(atPath: $0.path()) } }
-        }.value
-    }
-
     func isOffline(_ recording: WorkIndex.Recording) -> Bool {
         !recording.songs.isEmpty && recording.songs.allSatisfy { offline.contains($0.id) }
     }
@@ -88,16 +81,21 @@ final class TrackStore {
     func file(for song: Song, client: any ServerPort) async throws -> URL {
         let name = Self.fileName(song)
         let kept = downloadFolder.appending(path: name)
-        if FileManager.default.fileExists(atPath: kept.path()) { return kept }
+        if FileManager.default.fileExists(atPath: kept.path()) {
+            loaded?(song, kept, true)
+            return kept
+        }
         let cached = cacheFolder.appending(path: name)
         if FileManager.default.fileExists(atPath: cached.path()) {
             // The modification date tells the cache which file was played last.
             try? FileManager.default.setAttributes([.modificationDate: Date.now], ofItemAtPath: cached.path())
+            loaded?(song, cached, true)
             return cached
         }
         try await fetch(song, to: cached, client: client)
         rescan()
         evict(keeping: cached)
+        loaded?(song, cached, true)
         return cached
     }
 
@@ -124,6 +122,7 @@ final class TrackStore {
                         }
                         added.append(song.id)
                     }
+                    loaded?(song, target, false)
                     bytes += Self.size(of: target)
                     progress[recording.id] = Double(index + 1) / Double(recording.songs.count)
                 }

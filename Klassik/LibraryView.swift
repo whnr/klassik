@@ -46,8 +46,7 @@ struct LibraryView: View {
             }
         }
         .refreshable {
-            guard let client = model.client else { return }
-            await library.sync(with: client)
+            await model.fullSync()
             // The lookup can take minutes; the pull to refresh ends with the sync.
             Task { await model.enrichment.enrich(library.index) }
         }

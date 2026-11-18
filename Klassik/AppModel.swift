@@ -21,7 +21,7 @@ final class AppModel {
     let covers = CoverArt.Cache()
     let pictures = ImageStore.pictures
     let albumArt = ImageStore.albumArt
-    @ObservationIgnored private var albumArtPass: Task<Void, Never>?
+    let albumCovers: AlbumCovers
     let playback: PlaybackSession
     /// The timeline and the mini player show while an item is in playback; the page insets follow them.
     var showsTimeline: Bool { playback.item != nil }
@@ -40,17 +40,28 @@ final class AppModel {
         self.library = library
         recordingOrder = RecordingOrder(library: library)
         tracks = TrackStore()
+        albumCovers = AlbumCovers(store: ImageStore.albumArt)
         playback = PlaybackSession(engine: GaplessEngine(), store: tracks)
         enrichment = Enrichment.forLaunch()
         people = PersonFactsStore.forLaunch()
         let connection = ConnectionMonitor()
-        sweep = PersonSweep(store: people, isConnectionGood: { connection.isGood })
+        sweep = PersonSweep(
+            store: people, isConnectionGood: { connection.isGood },
+            pictures: { portrait, old in
+                await PortraitLoader.keep(
+                    portrait, replacing: old, screen: PortraitLoader.deviceScreen, store: .pictures)
+            },
+            hasPicture: { portrait in
+                await ImageStore.pictures.loaded()
+                return PortraitLoader.files(of: portrait).contains { ImageStore.pictures.contains($0.absoluteString) }
+            })
         // UI tests start from the connect screen.
         if ProcessInfo.processInfo.arguments.contains("-resetServer") {
             store.clear()
             library.clear()
             tracks.clearAll()
             albumArt.clear()
+            albumCovers.clear()
             pictures.clear()
             enrichment.clear()
             people.clear()
@@ -58,9 +69,18 @@ final class AppModel {
         }
         credentials = store.load()
         updateServer()
+        tracks.loaded = { [weak self] song, file, playing in
+            guard let self else { return }
+            albumCovers.inspect(song, file: file)
+            // Playback fetches its cover in Low Data Mode too (ADR 0059).
+            if playing { albumCovers.request(song, playback: true) }
+        }
+        library.classicalChanged = { [weak self] in self?.planCovers() }
         reconnect = ConnectionMonitor { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self else { return }
+                self.keepAlbumArt()
+                Self.start(self.sweep, over: self.library.index)
                 async let favourites: Void = self.recordingOrder.synchronize()
                 async let listening: Void = self.playback.synchronizeListeningData()
                 _ = await (favourites, listening)
@@ -132,15 +152,30 @@ final class AppModel {
         await sweep.finish()
     }
 
-    /// Starts the pass that keeps the art of every album on the device (ADR 0051). Classical albums go first,
-    /// because Klassik shows them. Nothing runs while it runs already.
-    func keepAlbumArt() {
-        guard albumArtPass == nil, let credentials else { return }
-        let songs = library.classical + library.songs
-        albumArtPass = Task {
-            await CoverArt.keepAll(songs, credentials: credentials, store: albumArt)
-            albumArtPass = nil
-        }
+    /// Starts the pass that keeps the cover of every classical album disc on the device (ADR 0059). A full sync
+    /// fetches every cover again and keeps each old one until its replacement is stored.
+    func keepAlbumArt(full: Bool = false) {
+        guard credentials != nil else { return }
+        albumCovers.keepAll(full: full)
+    }
+
+    /// The covers follow the classical filter: an album that it keeps out gets no cover fetch.
+    private func planCovers() {
+        albumCovers.plan(classical: library.classical, library: library.songs)
+    }
+
+    /// Pull to refresh: the full sync of ADR 0059 reads the library again and refreshes every cover.
+    func fullSync() async {
+        guard let client else { return }
+        await library.sync(with: client)
+        keepAlbumArt(full: true)
+    }
+
+    /// Album Art Clear. The next library sync and every page that opens fetch the covers again.
+    func clearAlbumArt() {
+        albumArt.clear()
+        albumCovers.clear()
+        covers.clear()
     }
 
     func check() async {
@@ -157,8 +192,7 @@ final class AppModel {
 
     func signOut() {
         playback.server = nil
-        albumArtPass?.cancel()
-        albumArtPass = nil
+        albumCovers.signOut()
         tracks.clearAll()
         albumArt.clear()
         store.clear()
@@ -171,6 +205,7 @@ final class AppModel {
     /// The playback session reaches the server through the saved login.
     private func updateServer() {
         covers.clear()
+        albumCovers.attach(credentials)
         playback.server = client
         let deviceStore = credentials.map { DeviceStore(server: $0.url, username: $0.username) }
         // Each UI walk must start with the same local favourites and order.

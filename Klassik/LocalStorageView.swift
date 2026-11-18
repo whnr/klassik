@@ -82,15 +82,15 @@ struct LocalStorageView: View {
             Section {
                 LimitStepper(limit: $albumArt.limit)
                     .accessibilityIdentifier("album-art-limit")
-                Button("Clear Album Art", role: .destructive) { albumArt.clear() }
+                Button("Clear Album Art", role: .destructive) { model.clearAlbumArt() }
                     .disabled(albumArt.bytes == 0)
                     .accessibilityIdentifier("clear-album-art")
             } header: {
                 Text("Album Art")
             } footer: {
                 Text(
-                    "Klassik keeps the art of every album of your library, so that it shows without the server. It "
-                        + "waits for a connection that is not in Low Data Mode."
+                    "Klassik keeps the cover of every album that passes the classical filter, so that it shows "
+                        + "without the server. In Low Data Mode it waits, except for the cover of what plays."
                 )
             }
 

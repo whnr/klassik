@@ -63,23 +63,6 @@ struct TrackStoreTests {
         #expect(store.cacheBytes == 10)
     }
 
-    @Test func artworkFindsLocalTracksWithoutFetching() async throws {
-        try write("a", in: "cache", bytes: 10)
-        try write("a", in: "support/downloads", bytes: 20)
-        try write("b", in: "cache", bytes: 10)
-        let requests = Requests()
-        let store = try makeStore(requests)
-        let downloaded = root.appending(path: "support/downloads/a.mp3")
-        let cached = root.appending(path: "cache/b.mp3")
-        #expect(await store.localFiles(for: [song("a"), song("missing"), song("b")]) == [downloaded, cached])
-        try FileManager.default.removeItem(at: downloaded)
-        #expect(await store.localFiles(for: [song("a")]) == [root.appending(path: "cache/a.mp3")])
-        store.clearCache()
-        #expect(await store.localFiles(for: [song("a"), song("b")]).isEmpty)
-        #expect(requests.ids.isEmpty)
-    }
-
-    /// The cache drops the track played longest ago first, and a download is not part of the count.
     @Test func fullCacheDropsTheOldestTracks() throws {
         try write("old", in: "cache", bytes: 600_000_000, age: 300)
         try write("middle", in: "cache", bytes: 600_000_000, age: 200)

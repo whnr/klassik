@@ -25,6 +25,16 @@ private final class Counter: @unchecked Sendable {
     var seconds: [Int] { lock.withLock { log } }
 }
 
+/// The pictures that the sweep hands on, with the picture that each person had before.
+@MainActor private final class PictureLog {
+    private(set) var found: [PersonPortrait] = []
+    private(set) var old: [PersonPortrait?] = []
+    func add(_ portrait: PersonPortrait, _ before: PersonPortrait?) {
+        found.append(portrait)
+        old.append(before)
+    }
+}
+
 @MainActor
 struct PersonSweepTests {
     static let bach = PersonSweep.Person(kind: .composer, tag: "Johann Sebastian Bach")
@@ -61,6 +71,24 @@ struct PersonSweepTests {
         #expect(store.cache.checked[Self.bach.key] == Self.start)
         #expect(sweep.state == .upToDate)
         #expect(!stub.requests.isEmpty)
+    }
+
+    @Test func eachLookupKeepsThePictureAndALaterLookupFetchesItAgain() async throws {
+        let (store, _) = try makeStore()
+        let clock = TestClock(Self.start)
+        let log = PictureLog()
+        let sweep = PersonSweep(
+            store: store, now: { clock.now }, jitter: { 0 }, pictures: { portrait, old in log.add(portrait, old) })
+        await sweep.run([Self.bach])
+        await sweep.finish()
+        #expect(log.found.map(\.url.absoluteString) == ["https://thumb.wikimedia.org/bach-1200.jpg"])
+        #expect(log.old == [nil])
+        clock.advance(days: Double(PersonSweep.deadDays) + PersonSweep.jitterDays + 1)
+        await sweep.run([Self.bach])
+        await sweep.finish()
+        #expect(log.found.count == 2)
+        #expect(log.old.count == 2)
+        #expect(log.old[1] == log.found[0])
     }
 
     @Test func aSecondPassAsksNothingForKnownPeople() async throws {

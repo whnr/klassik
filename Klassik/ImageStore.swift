@@ -64,11 +64,15 @@ final class ImageStore {
         await removal?.value
     }
 
-    func contains(_ key: String) -> Bool { entries[Self.name(key)] != nil }
+    func contains(_ key: String) -> Bool { contains(named: Self.name(key)) }
+
+    func contains(named name: String) -> Bool { entries[name] != nil }
 
     /// The file of a key, or nil. A read marks the file as shown now.
-    func data(for key: String) async -> Data? {
-        let name = Self.name(key)
+    func data(for key: String) async -> Data? { await data(named: Self.name(key)) }
+
+    /// The file of a name, as `name(_:)` or `contentName(_:)` gives it, or nil.
+    func data(named name: String) async -> Data? {
         let file = folder.appending(path: name)
         let removal = removal
         let data = await Task.detached(priority: .userInitiated) { () -> Data? in
@@ -83,7 +87,29 @@ final class ImageStore {
 
     /// False when the file could not be written, for example on a full disk.
     @discardableResult func store(_ data: Data, for key: String) async -> Bool {
-        let name = Self.name(key)
+        await write(data, named: Self.name(key))
+    }
+
+    /// Keeps the bytes under their content name and returns it, or nil when the write fails. Identical bytes share
+    /// one file, so a file never changes after the write (ADR 0059).
+    func store(content data: Data) async -> String? {
+        let name = Self.contentName(data)
+        if entries[name] != nil {
+            entries[name]?.date = .now
+            return name
+        }
+        return await write(data, named: name) ? name : nil
+    }
+
+    /// Removes one file. Links to it are then invalid.
+    func remove(named name: String) {
+        guard entries.removeValue(forKey: name) != nil else { return }
+        total()
+        let file = folder.appending(path: name)
+        remove { try? FileManager.default.removeItem(at: file) }
+    }
+
+    private func write(_ data: Data, named name: String) async -> Bool {
         let folder = folder
         let removal = removal
         let written = await Task.detached(priority: .utility) { () -> Bool in
@@ -163,7 +189,12 @@ final class ImageStore {
     }
 
     /// A key can hold a URL with a query, so the file name is its hash.
-    nonisolated static func name(_ key: String) -> String {
-        SHA256.hash(data: Data(key.utf8)).map { String(format: "%02x", $0) }.joined()
+    nonisolated static func name(_ key: String) -> String { hex(SHA256.hash(data: Data(key.utf8))) }
+
+    /// The SHA-256 of the bytes themselves.
+    nonisolated static func contentName(_ data: Data) -> String { hex(SHA256.hash(data: data)) }
+
+    nonisolated private static func hex(_ digest: SHA256.Digest) -> String {
+        digest.map { String(format: "%02x", $0) }.joined()
     }
 }

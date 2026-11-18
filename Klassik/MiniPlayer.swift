@@ -90,7 +90,7 @@ struct MiniPlayer: View {
         Button {
             navigator.openPlayer()
         } label: {
-            CoverImage(song: item.recording.songs.first, points: itemSize)
+            CoverImage(song: item.recording.songs.first, points: itemSize, playback: true)
                 .frame(width: itemSize, height: itemSize)
                 .clipShape(.rect(cornerRadius: Layout.pillCoverCorner))
                 .padding(.vertical, max(0, (height - itemSize) / 2))
@@ -104,51 +104,75 @@ struct MiniPlayer: View {
     }
 }
 
-/// Local audio supplies embedded artwork before the server. Without artwork, a note stands in.
+/// A cover slot of a fixed size. It shows the kept file at once, else a fixed placeholder, and asks for a missing
+/// cover. A cover that arrives replaces the placeholder or the older cover in place, so the layout never moves
+/// (ADR 0059).
 struct CoverImage: View {
     @Environment(AppModel.self) private var model
     @Environment(\.displayScale) private var scale
     let song: Song?
     let points: CGFloat
-    @State private var image: UIImage?
-    @State private var imageKey: NSString?
+    /// The cover of what plays loads in Low Data Mode too.
+    var playback = false
+    @State private var shown: Shown?
 
-    private var source: CoverArt.Source {
-        guard let song else { return CoverArt.Source(local: [], coverID: nil, pixels: 0, credentials: nil) }
-        return CoverArt.Source(
-            local: model.library.artworkSources(for: song).filter { model.tracks.isOffline($0) },
-            coverID: song.coverArt, pixels: Int((points * scale).rounded(.up)), credentials: model.credentials,
-            album: song.albumKey)
+    private struct Shown {
+        var slot: String
+        var image: UIImage
+    }
+
+    private struct Load: Equatable {
+        var slot: String
+        var candidates: [String]
+        var arrival: Int
+        var pixels: Int
     }
 
     var body: some View {
-        let source = source
-        let cached = model.covers.image(for: source)
-        let loaded = imageKey == source.cacheKey ? image : nil
-        let visible = cached ?? loaded
-        ZStack {
-            Rectangle().fill(Palette.fillQuiet)
-            if let image = visible {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                Image(systemName: "music.note")
-                    .foregroundStyle(Palette.textSecondary)
-            }
+        let pixels = Int((points * scale).rounded(.up))
+        let covers = model.albumCovers
+        let load = song.map {
+            Load(
+                slot: $0.id, candidates: covers.candidates(for: $0), arrival: covers.arrival(for: $0), pixels: pixels)
         }
-        .task(id: source) {
-            let files = await model.tracks.localFiles(for: source.local)
-            guard !Task.isCancelled else { return }
-            let kept = source.storeKey.map { (store: model.albumArt, key: $0) }
-            let loaded = await CoverArt.load(
-                files: files, remote: kept == nil ? source.remote : source.stored, pixels: source.pixels, kept: kept)
-            guard !Task.isCancelled else { return }
-            if let loaded {
-                model.covers.store(loaded, for: source)
-                image = loaded
-                imageKey = source.cacheKey
+        let cached = load?.candidates.first.flatMap { model.covers.image(hash: $0, pixels: pixels) }
+        let visible = cached ?? (shown?.slot == song?.id ? shown?.image : nil)
+        // The image sits in an overlay, so a cover of any shape fills the slot and never sizes it.
+        Rectangle()
+            .fill(Palette.fillQuiet)
+            .overlay {
+                if let visible {
+                    Image(uiImage: visible)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    Image(systemName: "music.note")
+                        .foregroundStyle(Palette.textSecondary)
+                }
             }
+            .clipped()
+            .task(id: load) { await show(load) }
+    }
+
+    /// The best kept file shows. Without one, the cover goes to the front of the queue, and its arrival starts
+    /// this task again.
+    private func show(_ load: Load?) async {
+        guard let load, let song else { return }
+        for hash in load.candidates {
+            if let image = model.covers.image(hash: hash, pixels: load.pixels) {
+                shown = Shown(slot: load.slot, image: image)
+                return
+            }
+            if let data = await model.albumArt.data(named: hash),
+                let image = await CoverArt.scaled(data, to: load.pixels)
+            {
+                guard !Task.isCancelled else { return }
+                model.covers.store(image, hash: hash, pixels: load.pixels)
+                shown = Shown(slot: load.slot, image: image)
+                return
+            }
+            guard !Task.isCancelled else { return }
         }
+        model.albumCovers.request(song, playback: playback)
     }
 }

@@ -82,6 +82,8 @@ struct PerformerPage: View {
         .navigationTitle(performer.name)
         .navigationBarTitleDisplayMode(.inline)
         .task { await people.resolve(performer: performer.name) }
+        // A person page puts all its covers in front of the cover queue (ADR 0059).
+        .onAppear { model.albumCovers.prefer(albums.compactMap(\.tracks.first)) }
     }
 
     /// The Wikidata description with the years. The tag roles stand in only when Wikidata has no description.

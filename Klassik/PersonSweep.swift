@@ -49,7 +49,11 @@ final class PersonSweep {
     private let now: @Sendable () -> Date
     private let sleep: @Sendable (Duration) async -> Void
     private let jitter: @Sendable () -> Double
+    /// Keeps a found picture on the device, given the picture that the person had before the lookup.
+    private let keepPicture: @MainActor @Sendable (PersonPortrait, PersonPortrait?) async -> Void
     private var task: Task<Void, Never>?
+    /// Picture downloads run one after the other beside the lookup, so that they never slow it down.
+    @ObservationIgnored private var pictureWork: Task<Void, Never>?
     /// Performers that a page shows and that have no saved check, the latest page first (ADR 0046).
     @ObservationIgnored private(set) var shown: [Person] = []
 
@@ -59,13 +63,15 @@ final class PersonSweep {
         sleep: @escaping @Sendable (Duration) async -> Void = { try? await Task.sleep(for: $0) },
         jitter: @escaping @Sendable () -> Double = {
             Double.random(in: -PersonSweep.jitterDays...PersonSweep.jitterDays)
-        }
+        },
+        pictures: @escaping @MainActor @Sendable (PersonPortrait, PersonPortrait?) async -> Void = { _, _ in }
     ) {
         self.store = store
         self.isConnectionGood = isConnectionGood
         self.now = now
         self.sleep = sleep
         self.jitter = jitter
+        keepPicture = pictures
     }
 
     // MARK: Plan
@@ -144,9 +150,10 @@ final class PersonSweep {
         }
     }
 
-    /// Returns when the pass has ended.
+    /// Returns when the pass and its picture downloads have ended.
     func finish() async {
         await task?.value
+        await pictureWork?.value
     }
 
     /// Stops the pass. The persons that it settled stay settled.
@@ -254,6 +261,7 @@ final class PersonSweep {
 
     /// Looks one person up, or asks again for their facts. Returns false when a request failed.
     private func settle(_ person: Person) async -> Bool {
+        let before = portrait(of: person)
         let isNew = store.cache.checked[person.key] == nil
         let ok: Bool
         switch person.kind {
@@ -263,7 +271,23 @@ final class PersonSweep {
             ok = await settle(performer: person, isNew: isNew)
         }
         if ok { store.markChecked(person.key, at: now(), due: dueDate(of: person)) }
+        // Each lookup fetches the picture, so a page never waits for it and a changed one replaces the old (ADR 0059).
+        if ok, let found = portrait(of: person) { queuePicture(found, replacing: before) }
         return ok
+    }
+
+    private func portrait(of person: Person) -> PersonPortrait? {
+        let qid = person.kind == .composer ? store.qid(ofComposer: person.tag) : store.qid(ofPerformer: person.tag)
+        return qid.flatMap { store.cache.people[$0]?.portrait }
+    }
+
+    private func queuePicture(_ portrait: PersonPortrait, replacing old: PersonPortrait?) {
+        let previous = pictureWork
+        let keep = keepPicture
+        pictureWork = Task {
+            await previous?.value
+            await keep(portrait, old)
+        }
     }
 
     private func settle(composer person: Person, isNew: Bool) async -> Bool {

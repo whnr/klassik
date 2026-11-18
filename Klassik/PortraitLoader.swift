@@ -108,13 +108,77 @@ enum PortraitLoader {
         return download
     }
 
+    /// The network of the people lookup, past the store, because a lookup replaces the kept picture.
+    static var launchNetwork: MusicBrainz.Fetch {
+        #if DEBUG
+            if PersonLaunchStub.fetch != nil { return PersonLaunchStub.picture }
+        #endif
+        return network
+    }
+
+    /// The hero of this device before a page measures it: the screen width, at the specimen proportion.
+    @MainActor static var deviceScreen: PortraitSize.Screen {
+        let screen = UIApplication.shared.connectedScenes.compactMap { ($0 as? UIWindowScene)?.screen }.first
+        // Without a scene, as in a background launch, the largest iPhone stands in.
+        let width = screen?.bounds.width ?? 440
+        return PortraitSize.Screen(
+            hero: CGSize(width: width, height: min(width * Layout.pictureRatio, Layout.pictureMaxHeight)),
+            scale: screen?.scale ?? 3)
+    }
+
+    /// Keeps the picture that a people lookup found, before any page needs it (ADR 0059). Each later lookup
+    /// fetches it again, and only a valid picture replaces the kept file. When the picture of the person changed,
+    /// the files of the old one go. The lookup stops at the Pictures limit and waits in Low Data Mode, like the
+    /// cover pass. Returns false when nothing was kept.
+    @MainActor @discardableResult static func keep(
+        _ portrait: PersonPortrait, replacing old: PersonPortrait?, screen: PortraitSize.Screen,
+        store: ImageStore, fetch: MusicBrainz.Fetch = PortraitLoader.launchNetwork
+    ) async -> Bool {
+        await store.loaded()
+        guard !store.isFull, store.hasRoomForTypicalFile else { return false }
+        let wanted = PortraitSize.candidates(portrait, screen: screen)
+        for candidate in wanted {
+            guard let url = PersonFactsService.trusted(candidate) else { continue }
+            var request = URLRequest(url: url, timeoutInterval: PersonFactsService.timeout)
+            request.setValue(MusicBrainz.userAgent, forHTTPHeaderField: "User-Agent")
+            request.allowsConstrainedNetworkAccess = false
+            guard let (data, status) = try? await fetch(request), (200..<300).contains(status), !data.isEmpty,
+                data.count <= maxBytes, UIImage(data: data) != nil
+            else { continue }
+            let key = url.absoluteString
+            guard store.contains(key) || store.fits(Int64(data.count)), await store.store(data, for: key) else {
+                return false
+            }
+            if let old, old != portrait {
+                let kept = Set(wanted.map(\.absoluteString))
+                for file in files(of: old) where !kept.contains(file.absoluteString) {
+                    store.remove(named: ImageStore.name(file.absoluteString))
+                }
+            }
+            return true
+        }
+        return false
+    }
+
+    /// Every file of a picture that a page of any size can keep.
+    static func files(of portrait: PersonPortrait) -> [URL] {
+        PortraitSize.steps.compactMap { PortraitSize.file(portrait, width: $0) } + [portrait.url]
+    }
+
     /// The picture at the size that the screen needs (`PortraitSize`), or nil when no candidate loads. A
     /// candidate that fails gives way to the next one. Network cost never reduces the requested quality.
-    static func load(
+    /// A file that the lookup kept for this device loads first, so a page never waits for the network then.
+    @MainActor static func load(
         _ portrait: PersonPortrait, screen: PortraitSize.Screen,
-        fetch: MusicBrainz.Fetch = PortraitLoader.launchDownload
+        fetch: MusicBrainz.Fetch = PortraitLoader.launchDownload, store: ImageStore = .pictures,
+        kept device: PortraitSize.Screen = PortraitLoader.deviceScreen
     ) async -> LoadedPortrait? {
-        for candidate in PortraitSize.candidates(portrait, screen: screen) {
+        let wanted = PortraitSize.candidates(portrait, screen: screen)
+        let stored = (wanted + PortraitSize.candidates(portrait, screen: device)).filter {
+            store.contains($0.absoluteString)
+        }
+        var seen: Set<URL> = []
+        for candidate in (stored + wanted).filter({ seen.insert($0).inserted }) {
             let loaded = await load(candidate, screen: screen, fetch: fetch)
             if let loaded { return loaded }
         }
@@ -130,8 +194,8 @@ enum PortraitLoader {
         guard let url = PersonFactsService.trusted(url) else { return nil }
         var request = URLRequest(url: url, timeoutInterval: PersonFactsService.timeout)
         request.setValue(MusicBrainz.userAgent, forHTTPHeaderField: "User-Agent")
-        request.allowsExpensiveNetworkAccess = true
-        request.allowsConstrainedNetworkAccess = true
+        // Low Data Mode keeps a missing picture for later (ADR 0059); a kept one loads from the store.
+        request.allowsConstrainedNetworkAccess = false
         guard let (data, status) = try? await fetch(request), (200..<300).contains(status),
             data.count <= maxBytes
         else { return nil }

@@ -1,104 +1,74 @@
 import AVFoundation
-import CryptoKit
 import ImageIO
 import UIKit
 
 @MainActor enum CoverArt {
-    /// Authentication salts change per request, so a signed URL must not identify a view's loading task.
-    struct Source: Equatable {
-        /// Tracks on the device that can hold embedded art. Their files resolve in the loading task, off the body.
-        var local: [Song]
-        var coverID: String?
-        var pixels: Int
-        var credentials: ServerCredentials?
-        /// The album of the cover. The device keeps one copy of the art for each album (ADR 0051).
-        var album: String?
-
-        var cacheKey: NSString? {
-            let fields = [
-                credentials?.url.absoluteString ?? "", credentials?.username ?? "", credentials?.password ?? "",
-                coverID ?? local.first?.id ?? "", String(pixels),
-            ]
-            guard let data = try? JSONEncoder().encode(fields) else { return nil }
-            return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() as NSString
-        }
-
-        var remote: URL? {
-            guard let coverID, let credentials else { return nil }
-            return SubsonicClient(credentials: credentials).coverArtURL(id: coverID, size: pixels)
-        }
-
-        /// The server copy at the size that the device keeps. Every view scales it down from there.
-        var stored: URL? {
-            guard let coverID, let credentials else { return nil }
-            return SubsonicClient(credentials: credentials).coverArtURL(id: coverID, size: CoverArt.storedPixels)
-        }
-
-        var storeKey: String? {
-            guard let album, let credentials else { return nil }
-            return CoverArt.storeKey(album: album, credentials: credentials)
-        }
-    }
-
     /// The longest side of the kept copy: the page cover at the 3x scale of the largest iPhone screens.
     nonisolated static let storedPixels = Int(Measure.coverPage) * 3
 
-    /// The key holds the account but not the password, so that a new password keeps the art.
+    /// The key of an album cover of the 0.14 builds. `AlbumCovers` adopts those files once.
     nonisolated static func storeKey(album: String, credentials: ServerCredentials) -> String {
-        [credentials.url.absoluteString, credentials.username, album].joined(separator: "\n")
+        [account(credentials), album].joined(separator: "\n")
     }
 
-    /// List updates must keep loaded covers visible while local files and server artwork load again.
+    /// The account holds the server and the user but not the password, so that a new password keeps the art.
+    nonisolated static func account(_ credentials: ServerCredentials) -> String {
+        [credentials.url.absoluteString, credentials.username].joined(separator: "\n")
+    }
+
+    /// Decoded covers by content name and size. List updates must keep loaded covers visible while the files
+    /// load again.
     final class Cache {
         private let images = NSCache<NSString, UIImage>()
 
         init() { images.totalCostLimit = 32 * 1_024 * 1_024 }
 
-        func image(for source: Source) -> UIImage? {
-            source.cacheKey.flatMap { images.object(forKey: $0) }
+        func image(hash: String, pixels: Int) -> UIImage? {
+            images.object(forKey: Self.key(hash, pixels))
         }
 
-        func store(_ image: UIImage, for source: Source) {
-            guard let key = source.cacheKey else { return }
+        func store(_ image: UIImage, hash: String, pixels: Int) {
             let cost = image.cgImage.map { $0.bytesPerRow * $0.height } ?? 1
-            images.setObject(image, forKey: key, cost: cost)
+            images.setObject(image, forKey: Self.key(hash, pixels), cost: cost)
         }
 
         func clear() { images.removeAllObjects() }
+
+        private static func key(_ hash: String, _ pixels: Int) -> NSString { "\(hash)/\(pixels)" as NSString }
     }
 
-    /// The audio file keeps its artwork available for as long as the track stays on the device.
-    static func embedded(in file: URL) async -> UIImage? {
-        let flac = await Task.detached(priority: .userInitiated) { FLACArtwork.data(in: file) }.value
-        if let flac, let image = UIImage(data: flac) { return image }
+    /// The art that an audio file holds, as one kept copy, or nil when the file holds no valid image.
+    static func embeddedCover(in file: URL) async -> Data? {
+        let flac = await Task.detached(priority: .utility) { FLACArtwork.data(in: file) }.value
+        if let flac, let data = await normalized(flac) { return data }
         let asset = AVURLAsset(url: file)
         guard let metadata = try? await asset.load(.commonMetadata) else { return nil }
         for item in AVMetadataItem.metadataItems(from: metadata, filteredByIdentifier: .commonIdentifierArtwork) {
-            if let data = try? await item.load(.dataValue), let image = UIImage(data: data) { return image }
+            if let raw = try? await item.load(.dataValue), let data = await normalized(raw) { return data }
         }
         return nil
     }
 
-    /// The art of a file on the device first, then the kept copy, then the server. With a store, the server copy
-    /// comes at the kept size and stays on the device.
-    static func load(
-        files: [URL], remote: URL?, pixels: Int = 0, kept: (store: ImageStore, key: String)? = nil,
-        embedded: (URL) async -> UIImage? = CoverArt.embedded,
-        fetch: (URL) async throws -> (Data, URLResponse) = { try await CoverArt.session.data(from: $0) }
-    ) async -> UIImage? {
-        for file in files {
-            if Task.isCancelled { return nil }
-            if let image = await embedded(file) { return image }
-        }
-        if let kept, let data = await kept.store.data(for: kept.key), let image = await scaled(data, to: pixels) {
-            return image
-        }
-        guard !Task.isCancelled, let remote, let (data, response) = try? await fetch(remote),
-            let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
-            let image = await scaled(data, to: pixels)
-        else { return nil }
-        if let kept { await kept.store.store(data, for: kept.key) }
-        return image
+    /// Art larger than the kept copy scales down to it, so that embedded art takes no more room than a server
+    /// cover. Smaller art keeps its bytes. Nil: the bytes are no image.
+    nonisolated static func normalized(_ data: Data) async -> Data? {
+        await Task.detached(priority: .utility) { () -> Data? in
+            guard let source = CGImageSourceCreateWithData(data as CFData, nil), CGImageSourceGetCount(source) > 0,
+                let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+                let width = properties[kCGImagePropertyPixelWidth] as? Int,
+                let height = properties[kCGImagePropertyPixelHeight] as? Int, width > 0, height > 0
+            else { return nil }
+            guard max(width, height) > storedPixels else { return UIImage(data: data) == nil ? nil : data }
+            let options: [CFString: Any] = [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: storedPixels,
+            ]
+            guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+                return nil
+            }
+            return UIImage(cgImage: image).jpegData(compressionQuality: 0.9)
+        }.value
     }
 
     /// The art in `ImageStore.albumArt` is the only copy on the device.
@@ -126,31 +96,435 @@ import UIKit
             return UIImage(cgImage: image)
         }.value
     }
+}
 
-    /// Keeps the art of every album of the library on the device, one album after the other. It stops at the first
-    /// file that does not fit under the limit, so it never pushes out art it kept before, and the classical albums
-    /// that come first stay. It stops before a fetch when the room is smaller than the mean kept file, so a store
-    /// just under its limit costs no download at each launch. It also stops when the network fails or a write
-    /// fails. A Low Data Mode connection refuses each request (ADR 0051).
-    static func keepAll(
-        _ songs: [Song], credentials: ServerCredentials, store: ImageStore,
-        fetch: (URLRequest) async throws -> (Data, URLResponse) = { try await CoverArt.session.data(for: $0) }
-    ) async {
-        await store.loaded()
-        let client = SubsonicClient(credentials: credentials)
-        var seen = Set<String>()
+/// The cover links of one account: each album disc and each track with embedded art points at one content file of
+/// `ImageStore.albumArt` (ADR 0059).
+struct CoverLinks: Codable, Equatable, Sendable {
+    struct Link: Codable, Equatable, Sendable {
+        /// The content name of the file.
+        var hash: String
+        /// The cover ID that gave the file. Another ID on the server means another cover.
+        var source: String
+    }
+
+    var discs: [String: Link] = [:]
+    /// Embedded art by track ID. It wins over the disc cover of the track.
+    var tracks: [String: String] = [:]
+    /// Discs that a full sync must fetch again. A failed refresh stays here until it succeeds.
+    var refresh: Set<String> = []
+
+    init() {}
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        discs = try container.decodeIfPresent([String: Link].self, forKey: .discs) ?? [:]
+        tracks = try container.decodeIfPresent([String: String].self, forKey: .tracks) ?? [:]
+        refresh = try container.decodeIfPresent(Set<String>.self, forKey: .refresh) ?? []
+    }
+
+    func references(_ hash: String) -> Bool {
+        tracks.values.contains(hash) || discs.values.contains { $0.hash == hash }
+    }
+}
+
+/// One album disc and the cover ID that gives its art.
+struct CoverJob: Equatable, Sendable {
+    var key: String
+    var album: String
+    var source: String
+}
+
+enum CoverPlan {
+    /// A disc without a number keeps its own key: it is not disc one.
+    static func key(album: String, disc: Int?) -> String {
+        "\(album)\n\(disc.map(String.init) ?? "?")"
+    }
+
+    static func key(of song: Song) -> String { key(album: song.albumKey, disc: song.discNumber) }
+
+    /// Each album disc once, in library order. A disc takes the cover ID of its first track that has one. A disc
+    /// without one takes the cover of the album: the one of its lowest disc with a cover ID. An album without any
+    /// cover ID has no job.
+    static func jobs(_ songs: [Song]) -> [CoverJob] {
+        struct Disc {
+            var album: String
+            var number: Int?
+            var pick: (track: Int, id: String, source: String)?
+        }
+        var discs: [String: Disc] = [:]
+        var order: [String] = []
         for song in songs {
-            guard let cover = song.coverArt, seen.insert(song.albumKey).inserted else { continue }
-            let key = storeKey(album: song.albumKey, credentials: credentials)
-            if store.contains(key) { continue }
-            if !store.hasRoomForTypicalFile || store.isFull || Task.isCancelled { return }
-            var request = URLRequest(url: client.coverArtURL(id: cover, size: storedPixels))
-            request.allowsConstrainedNetworkAccess = false
-            guard let (data, response) = try? await fetch(request) else { return }
-            guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
-                UIImage(data: data) != nil
-            else { continue }
-            guard store.fits(Int64(data.count)), await store.store(data, for: key) else { return }
+            let key = key(of: song)
+            if discs[key] == nil {
+                order.append(key)
+                discs[key] = Disc(album: song.albumKey, number: song.discNumber)
+            }
+            guard let source = song.coverArt, !source.isEmpty else { continue }
+            let pick = (track: song.track ?? .max, id: song.id, source: source)
+            if let old = discs[key]?.pick, (old.track, old.id) <= (pick.track, pick.id) { continue }
+            discs[key]?.pick = pick
+        }
+        var albums: [String: (number: Int, source: String)] = [:]
+        for key in order {
+            guard let disc = discs[key], let pick = disc.pick else { continue }
+            let number = disc.number ?? .max
+            if let old = albums[disc.album], old.number <= number { continue }
+            albums[disc.album] = (number, pick.source)
+        }
+        return order.compactMap { key in
+            guard let disc = discs[key], let source = disc.pick?.source ?? albums[disc.album]?.source else {
+                return nil
+            }
+            return CoverJob(key: key, album: disc.album, source: source)
+        }
+    }
+}
+
+/// The order of the disc covers to check. A page or the playback puts its discs in front of the pass.
+struct CoverQueue: Equatable {
+    enum Reason: Int, Comparable {
+        /// The pass over the library. It stops at the album art limit and on the first failure.
+        case pass
+        /// A page shows the cover.
+        case page
+        /// The cover of what starts playing. It loads in Low Data Mode too.
+        case playback
+
+        static func < (a: Self, b: Self) -> Bool { a.rawValue < b.rawValue }
+    }
+
+    private(set) var keys: [String] = []
+    private(set) var reasons: [String: Reason] = [:]
+
+    var isEmpty: Bool { keys.isEmpty }
+
+    /// Adds the keys at the end. A key in the queue keeps its place.
+    mutating func append(_ added: [String]) {
+        for key in added where reasons[key] == nil {
+            keys.append(key)
+            reasons[key] = .pass
+        }
+    }
+
+    /// Moves the keys to the front, in their order. A key keeps its strongest reason.
+    mutating func front(_ moved: [String], reason: Reason) {
+        var seen: Set<String> = []
+        let unique = moved.filter { seen.insert($0).inserted }
+        keys.removeAll { seen.contains($0) }
+        keys.insert(contentsOf: unique, at: 0)
+        for key in unique { reasons[key] = max(reasons[key] ?? reason, reason) }
+    }
+
+    mutating func pop() -> (key: String, reason: Reason)? {
+        guard !keys.isEmpty else { return nil }
+        let key = keys.removeFirst()
+        return (key, reasons.removeValue(forKey: key) ?? .pass)
+    }
+
+    /// Ends the pass. The page and playback requests stay.
+    mutating func dropPass() {
+        keys.removeAll { reasons[$0] == .pass }
+        reasons = reasons.filter { $0.value != .pass }
+    }
+}
+
+/// Keeps a cover for every album disc that passes the classical filter, before a page needs it (ADR 0059).
+/// Pages read the links at once and ask for the covers that they miss.
+@MainActor @Observable
+final class AlbumCovers {
+    typealias Fetch = @MainActor (URLRequest) async throws -> (Data, URLResponse)
+
+    private(set) var links = CoverLinks()
+    /// Counts the stored covers of each disc. A view loads again on a change, also when the link stays the same
+    /// because the server sent the same bytes.
+    private(set) var arrivals: [String: Int] = [:]
+
+    @ObservationIgnored private var jobs: [String: CoverJob] = [:]
+    @ObservationIgnored private var order: [String] = []
+    /// Every album of the library, for the files of the 0.14 builds.
+    @ObservationIgnored private var libraryAlbums: Set<String> = []
+    @ObservationIgnored private var adopted = false
+    @ObservationIgnored private var queue = CoverQueue()
+    /// The file of each cover ID in this pass, so that discs with one ID cost one download.
+    @ObservationIgnored private var passSources: [String: String] = [:]
+    /// Tracks that were read for embedded art in this session.
+    @ObservationIgnored private var inspected: Set<String> = []
+    @ObservationIgnored private var inspection: Task<Void, Never>?
+    @ObservationIgnored private var worker: Task<Void, Never>?
+    @ObservationIgnored private var workerID = UUID()
+    @ObservationIgnored private var save: Task<Void, Never>?
+    @ObservationIgnored private var saveQueued = false
+    @ObservationIgnored private var credentials: ServerCredentials?
+    @ObservationIgnored private var file: URL?
+    let store: ImageStore
+    private let folder: URL
+    private let fetch: Fetch
+
+    init(
+        store: ImageStore, folder: URL = .applicationSupportDirectory.appending(path: "covers"),
+        fetch: @escaping Fetch = { try await CoverArt.session.data(for: $0) }
+    ) {
+        self.store = store
+        self.folder = folder
+        self.fetch = fetch
+    }
+
+    // MARK: Account
+
+    /// Reads the links of the account. A new password keeps them.
+    func attach(_ credentials: ServerCredentials?) {
+        let next = credentials.map { folder.appending(path: ImageStore.name(CoverArt.account($0)) + ".json") }
+        self.credentials = credentials
+        guard next != file else { return }
+        stop()
+        file = next
+        // The links load before the first frame, so that a page never shows a placeholder for a kept cover.
+        links = next.flatMap { try? JSONDecoder().decode(CoverLinks.self, from: Data(contentsOf: $0)) } ?? CoverLinks()
+        arrivals = [:]
+        jobs = [:]
+        order = []
+        adopted = false
+        inspected = []
+    }
+
+    /// Signing out removes the links of the account. The caller clears the files.
+    func signOut() {
+        let file = file
+        attach(nil)
+        guard let file else { return }
+        let previous = save
+        save = Task {
+            await previous?.value
+            await Task.detached(priority: .utility) { try? FileManager.default.removeItem(at: file) }.value
+        }
+    }
+
+    /// Album Art Clear removed the files, so no link holds.
+    func clear() {
+        stop()
+        links = CoverLinks()
+        arrivals = [:]
+        inspected = []
+        scheduleSave()
+    }
+
+    private func stop() {
+        worker?.cancel()
+        worker = nil
+        workerID = UUID()
+        queue = CoverQueue()
+        passSources = [:]
+    }
+
+    // MARK: Plan
+
+    /// The discs to keep: those of the classical albums. Every other cover stays off the device.
+    func plan(classical: [Song], library: [Song]) {
+        let planned = CoverPlan.jobs(classical)
+        jobs = Dictionary(planned.map { ($0.key, $0) }) { first, _ in first }
+        order = planned.map(\.key)
+        libraryAlbums = Set(library.map(\.albumKey))
+    }
+
+    /// Checks every planned disc. It fetches the missing covers and those with a new cover ID. A full sync
+    /// fetches every cover again and keeps each old one until its replacement is stored.
+    func keepAll(full: Bool = false) {
+        passSources = [:]
+        if full {
+            links.refresh = Set(order)
+            scheduleSave()
+        }
+        queue.append(order)
+        run()
+    }
+
+    /// A page shows the cover of the song. A missing one goes to the front of the queue.
+    func request(_ song: Song, playback: Bool = false) {
+        let key = CoverPlan.key(of: song)
+        guard jobs[key] != nil else { return }
+        queue.front([key], reason: playback ? .playback : .page)
+        run()
+    }
+
+    /// A person page puts all its covers in front of the queue.
+    func prefer(_ songs: [Song]) {
+        let keys = songs.map(CoverPlan.key(of:)).filter { jobs[$0] != nil }
+        guard !keys.isEmpty else { return }
+        queue.front(keys, reason: .page)
+        run()
+    }
+
+    /// The files to show for the song, best first: its embedded art, then the cover of its disc.
+    func candidates(for song: Song) -> [String] {
+        let disc = links.discs[CoverPlan.key(of: song)]?.hash
+        guard let track = links.tracks[song.id] else { return disc.map { [$0] } ?? [] }
+        guard let disc, disc != track else { return [track] }
+        return [track, disc]
+    }
+
+    func arrival(for song: Song) -> Int { arrivals[CoverPlan.key(of: song)] ?? 0 }
+
+    /// Returns when the queue is empty, the embedded art is read and the links are saved.
+    func idle() async {
+        while let worker {
+            await worker.value
+        }
+        await inspection?.value
+        await save?.value
+    }
+
+    // MARK: Embedded art
+
+    /// A track file loaded for playback or a download. Its embedded art replaces the disc cover of this track
+    /// only. Missing or invalid art changes nothing.
+    func inspect(_ song: Song, file audio: URL) {
+        guard inspected.insert(song.id).inserted else { return }
+        if let kept = links.tracks[song.id], store.contains(named: kept) { return }
+        let account = file
+        let previous = inspection
+        inspection = Task {
+            await previous?.value
+            guard let data = await CoverArt.embeddedCover(in: audio), account == self.file,
+                let hash = await store.store(content: data), account == self.file
+            else { return }
+            let old = links.tracks[song.id]
+            links.tracks[song.id] = hash
+            if let old, old != hash { release(old) }
+            scheduleSave()
+        }
+    }
+
+    // MARK: Work
+
+    private func run() {
+        guard worker == nil, !queue.isEmpty else { return }
+        let id = UUID()
+        workerID = id
+        worker = Task { [weak self] in
+            await self?.work()
+            if self?.workerID == id { self?.worker = nil }
+        }
+    }
+
+    private func work() async {
+        await store.loaded()
+        await adoptOldFiles()
+        while !Task.isCancelled, let next = queue.pop() {
+            let key = next.key
+            guard let job = jobs[key] else { continue }
+            let refresh = links.refresh.contains(key)
+            if !refresh, let link = links.discs[key], link.source == job.source, store.contains(named: link.hash) {
+                continue
+            }
+            if let hash = passSources[job.source], store.contains(named: hash) {
+                link(key, to: hash, source: job.source)
+                continue
+            }
+            if next.reason == .pass, !store.hasRoomForTypicalFile || store.isFull {
+                queue.dropPass()
+                continue
+            }
+            let outcome = await download(job, reason: next.reason)
+            guard !Task.isCancelled else { return }
+            switch outcome {
+            case .stored(let hash):
+                passSources[job.source] = hash
+                link(key, to: hash, source: job.source)
+            case .invalid:
+                continue
+            case .stopped:
+                if next.reason == .pass { queue.dropPass() }
+            case .storage:
+                queue.dropPass()
+            }
+        }
+    }
+
+    private enum Outcome {
+        case stored(String)
+        /// The server has no valid image. The old cover stays.
+        case invalid
+        /// No answer, or no room under the limit. The work waits for the next pass or page.
+        case stopped
+        /// The device did not write the file.
+        case storage
+    }
+
+    private func download(_ job: CoverJob, reason: CoverQueue.Reason) async -> Outcome {
+        guard let credentials else { return .stopped }
+        let client = SubsonicClient(credentials: credentials)
+        var request = URLRequest(url: client.coverArtURL(id: job.source, size: CoverArt.storedPixels))
+        request.allowsConstrainedNetworkAccess = reason == .playback
+        guard let answer = try? await fetch(request) else { return .stopped }
+        let data = answer.0
+        guard let http = answer.1 as? HTTPURLResponse, (200..<300).contains(http.statusCode),
+            UIImage(data: data) != nil
+        else { return .invalid }
+        // The pass never pushes out art that it kept before; a page may, as ADR 0051 says.
+        if reason == .pass, !store.contains(named: ImageStore.contentName(data)), !store.fits(Int64(data.count)) {
+            return .stopped
+        }
+        guard let hash = await store.store(content: data) else { return .storage }
+        return .stored(hash)
+    }
+
+    /// The link changes after the file is stored. The old file goes only when no other link needs it.
+    private func link(_ key: String, to hash: String, source: String) {
+        let old = links.discs[key]?.hash
+        links.discs[key] = CoverLinks.Link(hash: hash, source: source)
+        links.refresh.remove(key)
+        arrivals[key, default: 0] += 1
+        if let old, old != hash { release(old) }
+        scheduleSave()
+    }
+
+    private func release(_ hash: String) {
+        if !links.references(hash) { store.remove(named: hash) }
+    }
+
+    /// The 0.14 builds kept one file per album under a key name. Each such file serves its discs until the pass
+    /// replaces it with the disc cover, so the upgrade shows no placeholder.
+    private func adoptOldFiles() async {
+        guard !adopted, let credentials, !libraryAlbums.isEmpty else { return }
+        adopted = true
+        var discsOfAlbum: [String: [String]] = [:]
+        for key in order {
+            if let album = jobs[key]?.album { discsOfAlbum[album, default: []].append(key) }
+        }
+        var changed = false
+        for album in libraryAlbums {
+            let name = ImageStore.name(CoverArt.storeKey(album: album, credentials: credentials))
+            guard store.contains(named: name) else { continue }
+            let discs = (discsOfAlbum[album] ?? []).filter { links.discs[$0] == nil }
+            if !discs.isEmpty, let data = await store.data(named: name),
+                let hash = await store.store(content: data)
+            {
+                // No cover ID is empty, so the pass fetches the disc cover and replaces this one.
+                for key in discs { links.discs[key] = CoverLinks.Link(hash: hash, source: "") }
+                changed = true
+            }
+            store.remove(named: name)
+        }
+        if changed { scheduleSave() }
+    }
+
+    private func scheduleSave() {
+        guard !saveQueued, let file else { return }
+        saveQueued = true
+        let previous = save
+        save = Task {
+            await previous?.value
+            // Links that change together save in one write.
+            await Task.yield()
+            saveQueued = false
+            guard self.file == file else { return }
+            let snapshot = self.links
+            await Task.detached(priority: .utility) {
+                try? FileManager.default.createDirectory(
+                    at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try? JSONEncoder().encode(snapshot).write(to: file, options: .atomic)
+            }.value
         }
     }
 }

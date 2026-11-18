@@ -1,7 +1,7 @@
 {
-  "sha": "1a53fa0ace7753c818abe24e2a64eb5d496ec39a",
+  "sha": "f80e81e9243080e092a049dbb7a78a72e708d7b7",
   "branch": "codex-sz-qny4",
   "path": "codex-sz-qny4",
-  "subject": "[sz-qny4] Merge main into CI rework",
-  "ts": 1795031731
+  "subject": "Release launch runs from its xctestrun file",
+  "ts": 1795033980
 }

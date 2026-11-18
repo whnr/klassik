@@ -91,7 +91,7 @@ run_tests() {
   xcodebuild test-without-building \
     "${common[@]}" \
     -collect-test-diagnostics never \
-    -retry-tests-on-failure -test-iterations 2 \
+    -retry-tests-on-failure -test-iterations 2 -test-repetition-relaunch-enabled YES \
     "$@" \
     -resultBundlePath "$out/$bundle.xcresult" \
     | tee "$out/$bundle.log" | $formatter

@@ -30,7 +30,7 @@ TEST_RUNNER_KLASSIK_PASSWORD=fixture \
 xcodebuild test-without-building "${common[@]}" \
   -only-testing:KlassikUITests/ReleaseLaunchTests \
   -collect-test-diagnostics never \
-  -retry-tests-on-failure -test-iterations 2 \
+  -retry-tests-on-failure -test-iterations 2 -test-repetition-relaunch-enabled YES \
   -resultBundlePath "$out/release-launch.xcresult" \
   CODE_SIGN_IDENTITY=- COMPILER_INDEX_STORE_ENABLE=NO ENABLE_PREVIEWS=NO \
   | tee "$out/release-launch.log" | $formatter

@@ -10,7 +10,6 @@ on:
   schedule:
     - cron: "23 3 * * *"
   pull_request:
-    types: [opened, synchronize, reopened, edited]
     paths-ignore: ["**.md", "LICENSE", "docs/**"]
   workflow_dispatch:
     inputs:

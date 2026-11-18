@@ -315,8 +315,11 @@ final class BrowseScreens: ScreensTestCase {
         composer(app, "Frédéric Chopin").tap()
         let set = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Nocturnes, Op. 9'")).firstMatch
         XCTAssertTrue(set.waitForExistence(timeout: 10))
+        let before = set.frame.minY
         set.tap()
         XCTAssertTrue(app.buttons.matching(identifier: "work").firstMatch.waitForExistence(timeout: 10))
+        // Opening a set keeps its title where it is and pushes the works in below (sz-rs30.1.123).
+        XCTAssertEqual(set.frame.minY, before, accuracy: 1, "Opening a set scrolled the list")
         snap(app, "02a-sets")
     }
 
@@ -970,6 +973,12 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertEqual(app.buttons.matching(identifier: "favourite").count, 2)
         XCTAssertTrue(app.buttons.matching(identifier: "work").firstMatch.exists)
         snap(app, "06d-favourites")
+        // A favourite work shows the set fermata after its title in the lists of its composer (sz-rs30.1.101).
+        back(app)
+        app.buttons["library-composers"].tap()
+        composer(app, "Ludwig van Beethoven").tap()
+        XCTAssertTrue(app.buttons.matching(identifier: "work").firstMatch.waitForExistence(timeout: 10))
+        snap(app, "06e-favourite-in-composer-works")
     }
 
 }

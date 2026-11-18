@@ -582,6 +582,19 @@ struct RecordingOrderTests {
         #expect(order.rows(of: work).allSatisfy { $0.reason == nil })
     }
 
+    @Test func aStarredArtistMarksAPersonAsAFavourite() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let library = try await library([song("a")], root: root)
+        let server = FavouriteFixture()
+        await server.configure(Starred(artist: [.init(id: "person-a", name: "Person a")]))
+        let order = RecordingOrder(library: library, server: server)
+        #expect(!order.isFavourite(person: "Person a"))
+        await order.refresh()
+        #expect(order.isFavourite(person: "Person a"))
+        #expect(!order.isFavourite(person: "Person b"))
+    }
+
     @Test func newestIsReferenceWithoutFavouritesAndInvalidMovesCannotChangeIt() async throws {
         let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }

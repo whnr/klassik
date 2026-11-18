@@ -200,7 +200,7 @@ struct WorkRow: View {
             NavigationLink(value: Page.album(album.id)) {
                 VStack(alignment: .leading, spacing: gap) {
                     HStack {
-                        Text(album.title)
+                        MarkedTitle(title: album.title, isFavourite: model.recordingOrder.isFavourite(album: album.id))
                             .ink()
                         OfflineHint(isOffline: model.tracks.isOffline(album.recording))
                     }
@@ -215,7 +215,7 @@ struct WorkRow: View {
             NavigationLink(value: Page.work(work.id)) {
                 VStack(alignment: .leading, spacing: gap) {
                     HStack {
-                        Text(work.title)
+                        MarkedTitle(title: work.title, isFavourite: model.recordingOrder.isFavourite(work))
                             .ink()
                         OfflineHint(isOffline: work.recordings.contains { model.tracks.isOffline($0) })
                     }

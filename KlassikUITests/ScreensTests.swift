@@ -859,8 +859,9 @@ final class TimelineScreens: ScreensTestCase {
         XCTAssertLessThan(frame.maxY, app.frame.maxY, "The playback controls have no bottom clearance")
         XCTAssertEqual(bar.frame.maxY, frame.minY, accuracy: 1, "The timeline does not run into the pill")
         XCTAssertEqual(frame.midY, tab(app, "Search").frame.midY, accuracy: 2, "The controls are not in the tab row")
+        // Search stands apart in its own circle, so the capsule height comes from a tab inside the capsule.
         XCTAssertEqual(
-            frame.height, tab(app, "Search").frame.height + 8, accuracy: 1,
+            frame.height, tab(app, "Chronology").frame.height + 8, accuracy: 1,
             "The pill does not match the native capsule height")
         XCTAssertLessThanOrEqual(tab(app, "Search").frame.maxX, frame.minX, "The tabs run under the pill")
         XCTAssertTrue(pill.buttons["mini-player-cover"].exists)
@@ -1013,7 +1014,7 @@ final class SettingsScreens: ScreensTestCase {
         let lineFrame = timeline(app).frame
         let pill = app.descendants(matching: .any)["mini-player"].firstMatch
         let controlsFrame = pillFrame(pill)
-        let chronology = bar.buttons["tab-chronology"]
+        let chronology = tab(app, "Chronology")
         let labelsBefore = ScreenPixels(app)
         snap(app, "09-filter")
         field.tap()
@@ -1273,7 +1274,9 @@ class ScreensTestCase: XCTestCase {
     /// A place in the tab bar, which Klassik draws by hand beside the mini player.
     @MainActor
     func tab(_ app: XCUIApplication, _ name: String) -> XCUIElement {
-        app.buttons["tab-\(name.lowercased())"]
+        let identified = app.buttons["tab-\(name.lowercased())"]
+        // A UITab can leave its bar button without the identifier; the bar then names the tab by its title.
+        return identified.exists ? identified : app.tabBars["tab-row"].buttons[name]
     }
 
     /// Settings belongs to the Library stack, behind its toolbar cog.
@@ -1390,6 +1393,10 @@ class ScreensTestCase: XCTestCase {
             XCTAssertLessThanOrEqual(left.maxX, right.minX, "The visible tab frames overlap")
             XCTAssertGreaterThanOrEqual(right.midX - left.midX, 64, "The tab slots crowd their labels")
         }
+        // Search stands apart in its own circle: the capsule edge and the gap make its step wider than a capsule step.
+        // In one capsule all steps are equal. The mini player narrows the bar, so the margin stays small.
+        XCTAssertGreaterThan(
+            tabs[2].midX - tabs[1].midX, tabs[1].midX - tabs[0].midX + 8, "Search is not apart from the other tabs")
         let cover = app.buttons["mini-player-cover"].frame
         // The button includes the edge padding; its inward edge is the square cover's inward edge.
         let distance = side == .right ? app.frame.maxX - cover.minX : cover.maxX - app.frame.minX

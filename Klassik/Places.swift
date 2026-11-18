@@ -80,7 +80,7 @@ private struct SystemPlaces: UIViewControllerRepresentable {
         let controller = PlacesController()
         controller.delegate = context.coordinator
         controller.tabBar.accessibilityIdentifier = "tab-row"
-        controller.viewControllers = Place.allCases.map { place in
+        controller.tabs = Place.allCases.map { place in
             let root: AnyView
             switch place {
             case .library: root = AnyView(PlaceStack(place: place) { LibraryView() })
@@ -95,11 +95,7 @@ private struct SystemPlaces: UIViewControllerRepresentable {
                     .environment(\.placeBackTransition, backTransition)
                     .environment(\.tabRowClearance, Space.s.points)
                     .tint(Palette.tint))
-            host.tabBarItem = UITabBarItem(
-                title: place.title, image: UIImage(systemName: place.symbol),
-                selectedImage: UIImage(systemName: place == .library ? "books.vertical.fill" : place.symbol))
-            host.tabBarItem.accessibilityIdentifier = "tab-\(place.rawValue)"
-            return host
+            return place.tab(host)
         }
         controller.installPlayer(
             AnyView(
@@ -126,8 +122,9 @@ private struct SystemPlaces: UIViewControllerRepresentable {
 
         init(navigator: AppNavigator) { self.navigator = navigator }
 
-        func tabBarController(_ controller: UITabBarController, shouldSelect viewController: UIViewController) -> Bool {
-            guard let index = controller.viewControllers?.firstIndex(of: viewController) else { return false }
+        func tabBarController(_ controller: UITabBarController, shouldSelectTab tab: UITab) -> Bool {
+            // The search tab keeps the identifier that UIKit gives it, so the position names the place.
+            guard let index = controller.tabs.firstIndex(where: { $0 === tab }) else { return false }
             let place = Place.allCases[index]
             let dismissesCurrent = navigator.isPlayerOpen && navigator.selection == place
             navigator.selectTab(place)
@@ -234,6 +231,21 @@ private final class PlacesController: UITabBarController {
 }
 
 extension Place {
+    /// Search is a `UISearchTab` that activates search. iOS 27 draws only such a tab apart from the other tabs, in
+    /// its own circle at the trailing end of the bar; without the flag the tab stays in the capsule.
+    @MainActor func tab(_ host: UIViewController) -> UITab {
+        let tab: UITab
+        if self == .search {
+            let search = UISearchTab { _ in host }
+            search.automaticallyActivatesSearch = true
+            tab = search
+        } else {
+            tab = UITab(title: title, image: UIImage(systemName: symbol), identifier: rawValue) { _ in host }
+        }
+        (tab as AnyObject as? UIAccessibilityIdentification)?.accessibilityIdentifier = "tab-\(rawValue)"
+        return tab
+    }
+
     var symbol: String {
         switch self {
         case .library: "books.vertical"

@@ -1,7 +1,7 @@
 {
-  "sha": "4f544d68b7f306d35638970c7a59de2986230343",
+  "sha": "a8377fe457cbca7599d80234f4916073aae3f261",
   "branch": "codex-sz-rs30.1.125.3",
   "path": "codex-sz-rs30.1.125.3",
-  "subject": "[sz-rs30.1.125.1] Gate early PCM decoding",
-  "ts": 1795040760
+  "subject": "[sz-rs30.1.125.1] Match callback pointer types",
+  "ts": 1795040888
 }

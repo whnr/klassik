@@ -182,7 +182,7 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
 
     /// The timeline is outside the navigation view. The window lets UIKit receive an edge touch through it.
     private func configureBackGesture() {
-        guard backTransition?.isRunning != true, let navigator, let window = view.window else { return }
+        guard backTransition?.isTracking != true, let navigator, let window = view.window else { return }
         if nativePan?.state == .began || nativePan?.state == .changed { return }
         if let nativePan, let nativePanView, nativePan.view !== nativePanView {
             nativePanView.addGestureRecognizer(nativePan)
@@ -241,6 +241,8 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
             backTransition.finish(
                 velocity: pan.velocity(in: view).x, cancelled: pan.state != .ended,
                 reduceMotion: UIAccessibility.isReduceMotionEnabled)
+            // The next Back swipe may start while the page settles, so the gestures follow the new place now.
+            view.setNeedsLayout()
         default: break
         }
     }

@@ -6,6 +6,8 @@ import UIKit
 final class PlaceBackTransition {
     weak var surface: UIView?
     private(set) var isRunning = false
+    /// A finger drives the page. The settling animation after it lifts does not count.
+    private(set) var isTracking = false
     private var overlay: UIView?
     private var snapshot: UIView?
     private var undo: (() -> Void)?
@@ -32,18 +34,20 @@ final class PlaceBackTransition {
         width = rect.width
         distance = 0
         isRunning = true
+        isTracking = true
         withoutAnimation { undo = action() }
         return true
     }
 
     func update(distance: CGFloat) {
-        guard isRunning else { return }
+        guard isTracking else { return }
         self.distance = min(width, max(0, distance))
         snapshot?.transform = CGAffineTransform(translationX: self.distance, y: 0)
     }
 
     func finish(velocity: CGFloat, cancelled: Bool, reduceMotion: Bool) {
-        guard isRunning else { return }
+        guard isTracking else { return }
+        isTracking = false
         let completes = !cancelled && distance + velocity * 0.2 > width / 2
         UIView.animate(
             withDuration: reduceMotion ? 0.15 : 0.25, delay: 0, options: [.curveEaseOut, .beginFromCurrentState],

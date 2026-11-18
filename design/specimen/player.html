@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Player</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="../tokens.css?v=49" />
-    <link rel="stylesheet" href="specimen.css?v=49" />
-    <script src="specimen.js?v=49"></script>
+    <link rel="stylesheet" href="../tokens.css?v=50" />
+    <link rel="stylesheet" href="specimen.css?v=50" />
+    <script src="specimen.js?v=50"></script>
   </head>
   <body>
     <style>
@@ -145,7 +145,15 @@
         grid-area: 1 / 1;
       }
       .mv-state {
+        display: grid;
         text-align: center;
+        visibility: hidden;
+      }
+      .mv-state > * {
+        grid-area: 1 / 1;
+      }
+      /* Both messages reserve their wrapped height, including while the times show. */
+      .mv-state-size {
         visibility: hidden;
       }
       .slow .mv-state {
@@ -704,8 +712,23 @@
             pause,
             el("button", { "aria-label": "Next", html: ICON.next, onclick: next }),
           );
-          const state = el("div", { class: "mv-state t-caption1 secondary", role: "status" });
-          const barBox = el("div", { class: "bar-box" }, bar, el("div", { class: "mv-under" }, times, state));
+          const state = el("span", { role: "status" });
+          const status = el(
+            "div",
+            { class: "mv-state t-caption1 secondary" },
+            el(
+              "span",
+              { class: "mv-state-size", "aria-hidden": "true" },
+              "Slow connection. Playback will start shortly.",
+            ),
+            el(
+              "span",
+              { class: "mv-state-size", "aria-hidden": "true" },
+              "Slow connection. Playback will continue shortly.",
+            ),
+            state,
+          );
+          const barBox = el("div", { class: "bar-box" }, bar, el("div", { class: "mv-under" }, times, status));
           box.append(barBox, controls);
           const noteList = noteRows(s, i, notes);
           if (noteList) box.append(noteList);

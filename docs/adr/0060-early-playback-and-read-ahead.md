@@ -186,7 +186,8 @@ Embedded art follows 0059 and counts under Album Art. Art extraction must not de
 Select the work and update transport state immediately on Play. Ordinary startup and read-ahead show no loading indicator.
 After one second without sound, show one secondary player line only when measured throughput is below the required bitrate.
 Text: “Slow connection. Playback will start shortly.” Keep the line's space stable; use no spinner or percentage.
-The position of the line in the player follows the specimen variant that Flo chooses under sz-rs30.1.125.4.
+The small line replaces the time labels under the playback bar, as Flo chose in sz-rs30.1.125.4.
+Reserve both messages' wrapped height at the current width and text size before either message appears.
 Remove it on first sound, pause, Stop or replacement of the selection. Background preparation must never restore it.
 During later starvation, use the same single line with “Slow connection. Playback will continue shortly.”
 A connection failure or policy restriction uses the one quiet status of [0058](0058-one-quiet-server-status.md), with its actual cause.

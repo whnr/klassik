@@ -66,9 +66,11 @@ struct PerformerPage: View {
                     }
                 }
                 .listRowBackground(Color.clear)
+                .listSectionSeparator(.hidden)
                 .pageRow()
             }
             .listStyle(.plain)
+            .listSectionSeparator(.hidden)
             .environment(\.defaultMinListRowHeight, 0)
             .environment(\.defaultMinListHeaderHeight, 0)
             .environment(\.isPageList, true)
@@ -95,6 +97,7 @@ struct PerformerPage: View {
         if albums.isEmpty {
             Text("No albums name this performer.")
                 .foregroundStyle(Palette.textSecondary)
+                .listRowSeparator(.hidden)
         } else {
             LazyVGrid(
                 columns: [GridItem(.flexible(), spacing: Layout.albumColumnGap), GridItem(.flexible())],
@@ -116,26 +119,33 @@ struct PerformerPage: View {
                     Text(bio)
                         .ink()
                         .accessibilityIdentifier("performer-bio")
+                        .listRowSeparator(.hidden)
                 }
             }
             if !facts.credits.isEmpty {
                 Section {
                     SectionHeading("Credits")
-                    ForEach(facts.credits, id: \.self) { CreditRow(credit: $0) }
+                    ForEach(facts.credits, id: \.self) { credit in
+                        CreditRow(credit: credit)
+                            .itemSeparator(first: credit == facts.credits.first, last: credit == facts.credits.last)
+                    }
                 }
             }
         } else {
             Section {
                 Text("Wikidata has no facts for this performer. Klassik shows your tags.")
                     .foregroundStyle(Palette.textSecondary)
+                    .listRowSeparator(.hidden)
             }
         }
         Section {
             SectionHeading("Your tags")
             LabeledContent("Name in your tags", value: performer.name)
                 .ink()
+                .itemSeparator(first: true, last: false)
             LabeledContent("Recordings", value: performer.entries.count.formatted())
                 .ink()
+                .itemSeparator(first: false, last: true)
         }
     }
 }

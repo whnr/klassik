@@ -73,6 +73,7 @@ struct RootView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
+                Task { await model.playback.synchronizeListeningData() }
                 Task { await model.recordingOrder.refresh() }
             }
             if phase == .background {
@@ -81,7 +82,7 @@ struct RootView: View {
             }
         }
         .alert(
-            "Could Not Save Favourite",
+            "Favourites",
             isPresented: Binding(
                 get: { model.recordingOrder.error != nil },
                 set: { if !$0 { model.recordingOrder.error = nil } }

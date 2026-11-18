@@ -30,6 +30,7 @@ final class AppModel {
     let sweep: PersonSweep
     let swipes = SwipeSettings()
     let libraryRows = LibraryRows()
+    @ObservationIgnored private var reconnect: ConnectionMonitor?
     private let store: CredentialStore
 
     var client: SubsonicClient? { credentials.map { SubsonicClient(credentials: $0) } }
@@ -57,6 +58,14 @@ final class AppModel {
         }
         credentials = store.load()
         updateServer()
+        reconnect = ConnectionMonitor { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                async let favourites: Void = self.recordingOrder.synchronize()
+                async let listening: Void = self.playback.synchronizeListeningData()
+                _ = await (favourites, listening)
+            }
+        }
         // No build reads the URL cache folder of the pictures, so its space goes back to the device.
         Task.detached(priority: .utility) {
             try? FileManager.default.removeItem(at: .cachesDirectory.appending(path: "Portraits"))
@@ -80,6 +89,11 @@ final class AppModel {
 
     /// Shows the cached library at once, then checks the server and syncs again.
     /// Then looks up the works on MusicBrainz and the persons on Wikidata, side by side.
+    /// Why changes of the listener wait on this iPhone: favourites, scrobbles and the play queue together.
+    var serverTrouble: ServerTrouble? {
+        ServerTrouble.worst([recordingOrder.serverTrouble, playback.listeningTrouble])
+    }
+
     func start() async {
         guard let credentials, let client else { return }
         await library.load(for: credentials)
@@ -161,7 +175,14 @@ final class AppModel {
         let deviceStore = credentials.map { DeviceStore(server: $0.url, username: $0.username) }
         // Each UI walk must start with the same local favourites and order.
         if ProcessInfo.processInfo.arguments.contains("-resetServer") { try? deviceStore?.delete() }
-        recordingOrder = RecordingOrder(library: library, store: deviceStore, server: client)
+        var favourites: (any FavouriteServer)? = client
+        #if DEBUG
+            // The UI walk reads the fixture library but cannot reach the server for a star.
+            if ProcessInfo.processInfo.arguments.contains("-offlineFavourites"), let client {
+                favourites = OfflineFavourites(client: client)
+            }
+        #endif
+        recordingOrder = RecordingOrder(library: library, store: deviceStore, server: favourites)
     }
 
     private func record(_ error: Error) {

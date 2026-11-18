@@ -34,8 +34,9 @@ final class PlacesScreens: ScreensTestCase {
         app.buttons["Edit"].tap()
         XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 5))
         snap(app, "02e-library-edit")
-        // The system reorder control sits beside the row, outside its frame. A drag of Composers onto the lower part
-        // of the Favourites control puts Favourites first. A long hold before the drag does not pick the row up.
+        // The system reorder control sits beside the row, outside its frame. A drag of Composers past the bottom
+        // of the Favourites control puts Favourites first. A drop inside the control is too close to the point where
+        // the list decides the order. A long hold before the drag does not pick the row up.
         let reorder = { (name: String) in
             app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Reorder \(name)")).firstMatch
         }
@@ -43,8 +44,8 @@ final class PlacesScreens: ScreensTestCase {
         reorder("Composers").coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
             .press(
                 forDuration: 0.1,
-                thenDragTo: reorder("Favourites").coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)),
-                withVelocity: .default, thenHoldForDuration: 0.5)
+                thenDragTo: reorder("Favourites").coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 1.3)),
+                withVelocity: .slow, thenHoldForDuration: 0.5)
         app.buttons["Done"].tap()
         XCTAssertTrue(app.buttons["Edit"].waitForExistence(timeout: 5))
         XCTAssertLessThan(favourites.frame.minY, composers.frame.minY, "The drag did not move Favourites up")
@@ -446,10 +447,10 @@ final class PlaybackScreens: ScreensTestCase {
         slidePlayerDown(app)
     }
 
-    /// The end of the queue takes the place of the next items, at the foot of the player (specimen player.html).
-    /// Stop ends the queue in the same place. On the walk simulator a natural end does not arrive reliably.
+    /// Stop closes the player and leaves no end message (ADR 0053). On the walk simulator a natural end of the queue
+    /// does not arrive reliably, so the unit tests cover it through the same path.
     @MainActor
-    func testQueueEndsAtTheFootOfThePlayer() throws {
+    func testStopClosesThePlayer() throws {
         let app = try launchAndConnect()
         openRecording(app)
         startPlaying(app)
@@ -461,14 +462,9 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(
             app.descendants(matching: .any)["mini-player"].firstMatch.waitForNonExistence(timeout: 10),
             "Stop did not end the queue")
-        let ended = reveal(player.staticTexts["player-ended"], in: app)
-        XCTAssertTrue(ended.exists, "No end message in the player")
-        XCTAssertEqual(ended.label, "Playback stopped.")
-        let tags = player.buttons["raw-tags"]
-        XCTAssertTrue(tags.exists, "No Tags and Grouping row above the end")
-        XCTAssertGreaterThan(ended.frame.minY, tags.frame.maxY, "The end shows above the rows, not at the foot")
-        snap(app, "16e-queue-ended")
-        slidePlayerDown(app)
+        expectPlayerClosed(app)
+        XCTAssertFalse(app.staticTexts["player-ended"].exists, "An end message shows")
+        snap(app, "16e-stop-closes-player")
     }
 
     @MainActor
@@ -678,7 +674,7 @@ final class PlaybackScreens: ScreensTestCase {
         }
     }
 
-    /// Play Whole Album on a recording page starts the album, not only the recording (build 48, item 11).
+    /// Play Album on a recording page starts the album, not only the recording (build 48, item 11).
     /// The Brahms movement lives on a recital disc that holds a second work, so its page offers the whole disc.
     @MainActor
     func testPlayWholeAlbumOnTheRecordingPage() throws {
@@ -689,9 +685,29 @@ final class PlaybackScreens: ScreensTestCase {
         work.tap()
         let recording = app.buttons.matching(identifier: "recording").firstMatch
         XCTAssertTrue(recording.waitForExistence(timeout: 10))
+        let workCover = app.descendants(matching: .any)["work-cover"].firstMatch
+        XCTAssertTrue(workCover.exists, "The work page shows no reference cover")
+        XCTAssertTrue(
+            eventually(timeout: 10) {
+                ScreenPixels(app)?.hasFixtureCover(in: workCover.frame) == true
+            }, "The work cover did not load the fixture artwork")
+        let workAlbum = app.buttons["play-work-album"]
+        XCTAssertTrue(workAlbum.exists, "The work page offers no Play Album")
+        let workPlay = app.buttons["play-work"]
+        XCTAssertEqual(workPlay.frame.midY, workAlbum.frame.midY, accuracy: 1)
+        snap(app, "04e-work-album-buttons")
         recording.tap()
         let wholeAlbum = app.buttons["play-album"]
-        XCTAssertTrue(wholeAlbum.waitForExistence(timeout: 10), "The recording page offers no Play Whole Album")
+        XCTAssertTrue(wholeAlbum.waitForExistence(timeout: 10), "The recording page offers no Play Album")
+        XCTAssertEqual(wholeAlbum.label, "Play Album")
+        // The page shows the cover, and Play and Play Album stand side by side (sz-3hcq.2).
+        let cover = app.descendants(matching: .any)["hero-cover"].firstMatch
+        XCTAssertTrue(cover.exists, "The recording page shows no cover")
+        let play = app.buttons["play-recording"]
+        XCTAssertEqual(play.frame.midY, wholeAlbum.frame.midY, accuracy: 1, "Play and Play Album are not on one row")
+        XCTAssertLessThan(play.frame.maxX, wholeAlbum.frame.minX, "Play does not lead Play Album")
+        XCTAssertGreaterThan(play.frame.minY, cover.frame.maxY, "The buttons are not under the cover")
+        snap(app, "05f-recording-buttons")
         wholeAlbum.tap()
         pause(app)
         snap(app, "05d-play-whole-album")
@@ -752,7 +768,9 @@ final class PlaybackScreens: ScreensTestCase {
 
         openSettings(app)
         reveal(app.buttons["local-storage"], in: app).tap()
-        XCTAssertTrue(app.descendants(matching: .any)["download"].firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.navigationBars["Local Storage"].waitForExistence(timeout: 10))
+        // The list builds rows lazily, and the Downloads section starts below the storage sections.
+        XCTAssertTrue(reveal(app.descendants(matching: .any)["download"].firstMatch, in: app).exists, "No download row")
         snap(app, "08a-local-storage")
     }
 
@@ -813,6 +831,35 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(app.sliders["position"].waitForExistence(timeout: 10))
         XCTAssertTrue(miniPlayer.buttons["mini-player-cover"].exists)
         snap(app, "08d-next-player")
+    }
+
+    /// Offline, a favourite changes at the tap and shows no notice. One quiet Library line says why changes wait
+    /// (ADR 0058).
+    @MainActor
+    func testOfflineFavouriteKeepsTheMarkAndShowsTheServerStatus() throws {
+        let app = try launchAndConnect(arguments: ["-offlineFavourites"])
+        composer(app, "Ludwig van Beethoven").tap()
+        app.buttons.matching(identifier: "work").firstMatch.tap()
+        app.buttons.matching(identifier: "recording").firstMatch.tap()
+        let mark = app.buttons["favourite-recording"]
+        XCTAssertTrue(mark.waitForExistence(timeout: 10))
+        let initial = mark.value as? String
+        let changed = initial == "Favourite" ? "Not a favourite" : "Favourite"
+        mark.tap()
+        XCTAssertEqual(mark.value as? String, changed)
+        snap(app, "05f-offline-favourite-kept")
+        mark.tap()
+        XCTAssertEqual(mark.value as? String, initial)
+        snap(app, "05g-offline-favourite-back")
+        let notice = expectation(for: NSPredicate(format: "exists == true"), evaluatedWith: app.alerts.firstMatch)
+        notice.isInverted = true
+        wait(for: [notice], timeout: 2)
+        openPlace(app, "Library")
+        for _ in 0..<10 where !app.buttons["library-settings"].exists { back(app) }
+        let status = app.staticTexts["server-status"]
+        XCTAssertTrue(status.waitForExistence(timeout: 10), "No server status on Library")
+        XCTAssertEqual(status.label, "Server not reachable. Changes wait on this iPhone.")
+        snap(app, "05e-offline-server-status")
     }
 
     /// A swipe favourite moves ahead of a newer recording before the listener plays the work.
@@ -909,7 +956,7 @@ final class TimelineScreens: ScreensTestCase {
         openRecording(app)
         playPaused(app)
         XCTAssertTrue(timeline(app).exists)
-        app.buttons["Stop"].firstMatch.tap()
+        reveal(app.buttons["Stop"].firstMatch, in: app).tap()
         XCTAssertTrue(timeline(app).waitForNonExistence(timeout: 10), "The timeline stays after Stop")
         XCTAssertFalse(app.descendants(matching: .any)["mini-player"].exists)
         snap(app, "15a-stopped")
@@ -947,6 +994,10 @@ final class TimelineScreens: ScreensTestCase {
         XCTAssertTrue(reveal(app.sliders["position"], in: app).exists, "No position slider in the player")
         XCTAssertTrue(pill.buttons["mini-player-cover"].isHittable)
         snap(app, "15c-player-pill")
+        app.buttons["player-handle"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["player-overlay"].firstMatch.waitForNonExistence(timeout: 10))
+        checkInteractiveBack(app)
+        snap(app, "15h-interactive-back-right")
     }
 
     /// A vertical drag moves the paused music to the place under the finger. A tap plays the movement under it.
@@ -1004,6 +1055,8 @@ final class TimelineScreens: ScreensTestCase {
         XCTAssertTrue(tab(app, "Library").waitForSelection(timeout: 10), "The swipe did not go back to Library")
         XCTAssertEqual(bar.value as? String, place, "The swipe scrubbed")
         snap(app, "15f-left-back")
+        checkInteractiveBack(app)
+        snap(app, "15i-interactive-back-left")
     }
 
     /// The listener picks the edge in Settings.
@@ -1341,6 +1394,26 @@ class ScreensTestCase: XCTestCase {
         edge.press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.5)))
     }
 
+    /// Both completed and cancelled drags must preserve playback and each tab's stack.
+    @MainActor
+    func checkInteractiveBack(_ app: XCUIApplication) {
+        let bar = timeline(app)
+        let before = bar.value as? String
+        composer(app, "Felix Mendelssohn").tap()
+        XCTAssertTrue(app.navigationBars["Felix Mendelssohn"].waitForExistence(timeout: 10))
+        openPlace(app, "Search")
+        let origin = app.coordinate(withNormalizedOffset: CGVector(dx: 0.001, dy: 0.4))
+        let short = app.coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.4))
+        origin.press(forDuration: 0.05, thenDragTo: short, withVelocity: .slow, thenHoldForDuration: 1)
+        XCTAssertTrue(eventually(timeout: 5) { tab(app, "Search").isSelected })
+        expectBackArrow(app, to: "Mendelssohn")
+        swipeFromLeftEdge(app)
+        XCTAssertTrue(app.navigationBars["Felix Mendelssohn"].waitForExistence(timeout: 10))
+        swipeFromLeftEdge(app)
+        XCTAssertTrue(app.navigationBars["Composers"].waitForExistence(timeout: 10))
+        XCTAssertEqual(bar.value as? String, before, "Back changed the playback position")
+    }
+
     /// The key of the timeline edge in the user defaults. A launch argument sets it for one run.
     let timelineSideKey = "timeline.side"
 
@@ -1540,6 +1613,19 @@ class ScreensTestCase: XCTestCase {
                 return true
             }
             guard drawn else { return nil }
+        }
+
+        /// The generated fixture cover has saturated blue pixels; the loading placeholder is neutral.
+        func hasFixtureCover(in frame: CGRect) -> Bool {
+            let mergedRow = frame.width > Layout.workCover + 1
+            let left = mergedRow ? Layout.edge : frame.minX
+            let top = frame.minY + (mergedRow ? Layout.headTop : 0)
+            let x = Int((left + Layout.workCover / 4) * scale)
+            let y = Int((top + Layout.workCover / 2) * scale)
+            guard (0..<width).contains(x), (0..<height).contains(y) else { return false }
+            let index = (y * width + x) * 4
+            let channels = bytes[index..<(index + 3)].map(Int.init)
+            return (channels.max() ?? 0) - (channels.min() ?? 0) > 80
         }
 
         /// True when the pixel differs from the pixel of the same row in the ground column.

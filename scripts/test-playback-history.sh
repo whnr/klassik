@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 package=$(mktemp -d)
 trap 'rm -rf "$package"' EXIT
 mkdir -p "$package/Sources/Klassik" "$package/Tests/KlassikTests"
-for source in PlaybackHistory QueueItem ServerPort SubsonicClient WorkIndex Roles ClassicalFilter PlaybackEngine; do
+for source in PlaybackHistory ServerTrouble QueueItem ServerPort SubsonicClient WorkIndex Roles ClassicalFilter PlaybackEngine; do
   cp "Klassik/$source.swift" "$package/Sources/Klassik/"
 done
 for source in PlaybackHistoryTests PlaybackHistoryFixtureTests PlaybackFakes SubsonicClientTests; do

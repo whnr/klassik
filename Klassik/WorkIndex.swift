@@ -95,9 +95,6 @@ struct WorkIndex: Sendable {
         /// The conductor, soloists and ensembles, each once.
         var performerNames: [String] { principalNames.flatMap(\.names) }
 
-        /// A recording is a favourite only when the server stars every track.
-        var isFavourite: Bool { !songs.isEmpty && songs.allSatisfy { $0.starred != nil } }
-
         /// How many movements the tags name for the work, if the tags say.
         var movementTotal: Int? {
             songs.compactMap { $0.movements?.first?.count }.max().flatMap { $0 > 0 ? $0 : nil }

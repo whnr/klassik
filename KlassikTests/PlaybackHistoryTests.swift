@@ -159,27 +159,27 @@ struct PlaybackHistoryTests {
         let server = InMemoryServer()
         let history = PlaybackHistory(server: server, defaults: try defaults())
         let item = item("first")
-        var reported: String?
-        history.onError = { reported = $0 }
+        var reported: ServerTrouble?
+        history.onTrouble = { reported = $0 }
         await server.setScrobbleFailure(true)
         history.begin(item: item, movement: 0, position: 0)
         history.hear(item: item, movement: 0, position: 240, duration: 600, enabled: true)
         history.save(items: [item], movement: 0, position: 240)
         await history.flush()
-        #expect(history.error != nil)
-        #expect(reported == history.error)
+        #expect(history.trouble != nil)
+        #expect(reported == history.trouble)
         #expect(await server.queue?.position == 240_000)
         await server.setScrobbleFailure(false)
         history.hear(item: item, movement: 0, position: 500, duration: 600, enabled: true)
         await history.flush()
         #expect(await server.scrobbles.isEmpty)
-        #expect(history.error != nil)
+        #expect(history.trouble != nil)
         history.begin(item: item, movement: 1, position: 0)
         history.hear(item: item, movement: 1, position: 240, duration: 600, enabled: true)
         await history.flush()
-        #expect(history.error == nil)
+        #expect(history.trouble == nil)
         #expect(reported == nil)
-        #expect(await server.scrobbles == ["first-1"])
+        #expect(await server.scrobbles == ["first-0", "first-1"])
     }
 
     @Test func successfulScrobblesPreserveFailedQueueSaves() async throws {
@@ -194,10 +194,132 @@ struct PlaybackHistoryTests {
         history.hear(item: item, movement: 0, position: 240, duration: 600, enabled: true)
         await history.flush()
         #expect(await server.scrobbles == ["first-0"])
-        #expect(history.error != nil)
+        #expect(history.trouble != nil)
         history.save(items: [item], movement: 0, position: 240)
         await history.flush()
-        #expect(history.error == nil)
+        #expect(history.trouble == nil)
+    }
+
+    @Test func offlinePlaysPersistBeforeSendingAndReconnectWithOriginalTimes() async throws {
+        let server = InMemoryServer()
+        let defaults = try defaults()
+        var clock = Date(timeIntervalSince1970: 1000)
+        let history = PlaybackHistory(server: server, defaults: defaults, now: { clock })
+        let first = item("first")
+        await server.setFailure(true)
+        for _ in 0..<2 {
+            history.begin(item: first, movement: 0, position: 0)
+            history.hear(item: first, movement: 0, position: 240, duration: 600, enabled: true)
+            history.endListening()
+            clock.addTimeInterval(600)
+        }
+        #expect(defaults.data(forKey: server.listeningDataKey + ".scrobbles") != nil)
+        await history.flush()
+        #expect(await server.scrobbles.isEmpty)
+        // A play that cannot reach the server waits quietly: one status, no notice for each play.
+        #expect(history.trouble == .unreachable)
+        await server.setFailure(false)
+        history.retryScrobbles()
+        history.retryScrobbles()
+        await history.flush()
+        #expect(await server.scrobbles == ["first-0", "first-0"])
+        #expect(await server.scrobbleTimes == [Date(timeIntervalSince1970: 1000), Date(timeIntervalSince1970: 1600)])
+        #expect(history.trouble == nil)
+        history.retryScrobbles()
+        await history.flush()
+        #expect(await server.scrobbles.count == 2)
+    }
+
+    @Test func relaunchRetainsPendingPlaysAndSeparatesAccounts() async throws {
+        let server = InMemoryServer()
+        let defaults = try defaults()
+        let history = PlaybackHistory(server: server, defaults: defaults)
+        await server.setFailure(true)
+        history.hear(item: item("first"), movement: 0, position: 240, duration: 600, enabled: true)
+        await history.flush()
+        let other = InMemoryServer()
+        let otherHistory = PlaybackHistory(server: other, defaults: defaults)
+        otherHistory.retryScrobbles()
+        await otherHistory.flush()
+        #expect(await other.scrobbles.isEmpty)
+        await server.setFailure(false)
+        let relaunched = PlaybackHistory(server: server, defaults: defaults)
+        relaunched.retryScrobbles()
+        await relaunched.flush()
+        #expect(await server.scrobbles == ["first-0"])
+        let thirdLaunch = PlaybackHistory(server: server, defaults: defaults)
+        thirdLaunch.retryScrobbles()
+        await thirdLaunch.flush()
+        #expect(await server.scrobbles == ["first-0"])
+    }
+
+    @Test func serverRefusalRetainsOnlyTheRefusedEventAcrossRelaunch() async throws {
+        let server = InMemoryServer()
+        let defaults = try defaults()
+        let history = PlaybackHistory(server: server, defaults: defaults)
+        await server.refuseSongs(["first-0"])
+        history.hear(item: item("first"), movement: 0, position: 240, duration: 600, enabled: true)
+        history.hear(item: item("first"), movement: 1, position: 240, duration: 600, enabled: true)
+        await history.flush()
+        #expect(history.trouble != nil)
+        #expect(await server.scrobbles == ["first-1"])
+        let relaunched = PlaybackHistory(server: server, defaults: defaults)
+        relaunched.retryScrobbles()
+        await relaunched.flush()
+        #expect(relaunched.trouble != nil)
+        #expect(await server.scrobbles == ["first-1"])
+        await server.refuseSongs([])
+        relaunched.retryScrobbles()
+        await relaunched.flush()
+        #expect(relaunched.trouble == nil)
+        #expect(await server.scrobbles == ["first-1", "first-0"])
+    }
+
+    @Test func playsDuringAnInFlightSendRemainQueued() async throws {
+        let server = InMemoryServer()
+        let history = PlaybackHistory(server: server, defaults: try defaults())
+        await server.suspendScrobble()
+        history.hear(item: item("first"), movement: 0, position: 240, duration: 600, enabled: true)
+        while !(await server.isScrobbling) { await Task.yield() }
+        history.hear(item: item("second"), movement: 0, position: 240, duration: 600, enabled: true)
+        history.retryScrobbles()
+        await server.releaseScrobble()
+        await history.flush()
+        #expect(await server.scrobbles == ["first-0", "second-0"])
+        #expect(await server.scrobbleAttempts == ["first-0", "second-0"])
+    }
+
+    @Test(arguments: [-1, 0, 1])
+    func retentionKeepsNewestPlaysThroughLoadingInsertionAndRelaunch(overflow: Int) async throws {
+        let server = InMemoryServer()
+        let defaults = try defaults()
+        let key = server.listeningDataKey + ".scrobbles"
+        let limit = PlaybackHistory.scrobbleLimit
+        let events = (0..<(limit + overflow)).map { index in
+            ["token": UUID().uuidString, "song": "song-\(index)", "started": Double(index)] as [String: Any]
+        }
+        defaults.set(try JSONSerialization.data(withJSONObject: events), forKey: key)
+        let history = PlaybackHistory(server: server, defaults: defaults)
+        func savedSongs() throws -> [String] {
+            let data = try #require(defaults.data(forKey: key))
+            let saved = try #require(JSONSerialization.jsonObject(with: data) as? [[String: Any]])
+            return saved.compactMap { $0["song"] as? String }
+        }
+        #expect(try savedSongs() == (max(0, overflow)..<(limit + overflow)).map { "song-\($0)" })
+        await server.setFailure(true)
+        history.hear(item: item("new"), movement: 0, position: 240, duration: 600, enabled: true)
+        #expect(try savedSongs().count == limit)
+        #expect(try savedSongs().first == "song-\(overflow + 1)")
+        #expect(try savedSongs().last == "new-0")
+        await history.flush()
+        let relaunched = PlaybackHistory(server: server, defaults: defaults)
+        #expect(try savedSongs().count == limit)
+        await server.setFailure(false)
+        relaunched.retryScrobbles()
+        await relaunched.flush()
+        let expected = ((overflow + 1)..<(limit + overflow)).map { "song-\($0)" } + ["new-0"]
+        #expect(await server.scrobbles == expected)
+        #expect(try savedSongs().isEmpty)
     }
 
     @Test func reportsFailureAndRecoversOnTheNextSave() async throws {
@@ -206,11 +328,11 @@ struct PlaybackHistoryTests {
         await server.setFailure(true)
         history.save(items: [item("first")], movement: 0, position: 0)
         await history.flush()
-        #expect(history.error != nil)
+        #expect(history.trouble != nil)
         await server.setFailure(false)
         history.save(items: [item("first")], movement: 0, position: 12)
         await history.flush()
-        #expect(history.error == nil)
+        #expect(history.trouble == nil)
         #expect(await server.queue?.position == 12_000)
     }
 }

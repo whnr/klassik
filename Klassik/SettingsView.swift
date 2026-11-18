@@ -64,9 +64,6 @@ struct SettingsView: View {
             Section {
                 Toggle("Scrobbles", isOn: $player.scrobblesEnabled)
                     .accessibilityIdentifier("scrobbles")
-                if let error = player.listeningError {
-                    Text(error).foregroundStyle(Palette.textSecondary)
-                }
             } footer: {
                 Text("Count played movements on your server. Your server can send them to linked listening services.")
             }
@@ -156,6 +153,7 @@ struct AlbumsView: View {
                 }
                 .itemActions(album.item, downloads: true, favouriteAlbum: true)
                 .accessibilityIdentifier("album")
+                .itemSeparator(first: album.id == albums.first?.id, last: album.id == albums.last?.id)
             }
         }
         .overlay {

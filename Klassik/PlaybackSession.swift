@@ -76,7 +76,8 @@ final class PlaybackSession {
         willSet { savePosition() }
         didSet { defaults.set(scrobblesEnabled, forKey: Self.scrobblesKey) }
     }
-    private(set) var listeningError: String?
+    /// Why listening data waits on the device. The Library shows it in the one server status (ADR 0058).
+    private(set) var listeningTrouble: ServerTrouble?
 
     /// A different login must never receive the queue of this login.
     @ObservationIgnored var server: (any ServerPort)? {
@@ -88,13 +89,24 @@ final class PlaybackSession {
             canSaveQueue = false
             queueRevision += 1
             restored = false
-            history = server.map { PlaybackHistory(server: $0, defaults: defaults) }
-            listeningError = nil
-            let currentHistory = history
-            history?.onError = { [weak self, weak currentHistory] message in
-                guard let self, self.history === currentHistory else { return }
-                self.listeningError = message
+            history?.endListening()
+            history = server.map { server in
+                let key = server.listeningDataKey
+                if let existing = histories[key] {
+                    existing.server = server
+                    return existing
+                }
+                let created = PlaybackHistory(server: server, defaults: defaults)
+                histories[key] = created
+                return created
             }
+            listeningTrouble = nil
+            let currentHistory = history
+            history?.onTrouble = { [weak self, weak currentHistory] trouble in
+                guard let self, self.history === currentHistory else { return }
+                self.listeningTrouble = trouble
+            }
+            history?.retryScrobbles()
             MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
         }
     }
@@ -122,6 +134,8 @@ final class PlaybackSession {
             durations: segments)
     }
 
+    /// Login changes must share pending events and in-flight writes for each account.
+    private var histories: [String: PlaybackHistory] = [:]
     private var history: PlaybackHistory?
     private var queueRevision = 0
     private var restored = false
@@ -163,15 +177,20 @@ final class PlaybackSession {
             let saved = try await history.restore()
             guard self.history === history, queueRevision == revision, item == nil else { return }
             restored = true
-            listeningError = nil
+            listeningTrouble = history.trouble
             guard let saved, let first = saved.items.first else { return }
             upNext = Array(saved.items.dropFirst())
             start(first, from: saved.movement, offset: saved.position, paused: true, save: false)
         } catch {
             if self.history === history, queueRevision == revision {
-                listeningError = "Could not restore the queue from the server."
+                listeningTrouble = ServerTrouble([error])
             }
         }
+    }
+
+    func synchronizeListeningData() async {
+        history?.retryScrobbles()
+        await history?.flush()
     }
 
     /// Saves before the app enters the background, where iOS can suspend a paused session.

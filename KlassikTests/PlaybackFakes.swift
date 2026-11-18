@@ -4,11 +4,20 @@ import Foundation
 
 /// A server that lives in memory. It answers with addresses and holds no audio.
 actor InMemoryServer: ServerPort {
-    nonisolated let listeningDataKey = "queue.\(UUID().uuidString)"
+    nonisolated let listeningDataKey: String
+
+    init(listeningDataKey: String = "queue.\(UUID().uuidString)") {
+        self.listeningDataKey = listeningDataKey
+    }
     var queue: ServerPlayQueue?
     var scrobbles: [String] = []
     var scrobbleTimes: [Date] = []
     var scrobbleFailure = false
+    var refusedSongs: Set<String> = []
+    var scrobbleAttempts: [String] = []
+    var scrobbleGate: CheckedContinuation<Void, Never>?
+    var holdScrobble = false
+    var isScrobbling: Bool { scrobbleGate != nil }
     var savedQueues: [[String]] = []
     var failure = false
     var restoreGate: CheckedContinuation<ServerPlayQueue?, Never>?
@@ -29,6 +38,9 @@ actor InMemoryServer: ServerPort {
     }
 
     func scrobble(id: String, time: Date) async throws {
+        scrobbleAttempts.append(id)
+        if holdScrobble { await withCheckedContinuation { scrobbleGate = $0 } }
+        if refusedSongs.contains(id) { throw SubsonicError.server(code: 70, message: "Not available") }
         if scrobbleFailure { throw URLError(.badServerResponse) }
         if failure { throw URLError(.notConnectedToInternet) }
         scrobbles.append(id)
@@ -36,6 +48,13 @@ actor InMemoryServer: ServerPort {
     }
 
     func setQueue(_ queue: ServerPlayQueue?) { self.queue = queue }
+    func refuseSongs(_ ids: Set<String>) { refusedSongs = ids }
+    func suspendScrobble() { holdScrobble = true }
+    func releaseScrobble() {
+        holdScrobble = false
+        scrobbleGate?.resume()
+        scrobbleGate = nil
+    }
     func setScrobbleFailure(_ value: Bool) { scrobbleFailure = value }
     func setFailure(_ value: Bool) { failure = value }
     func suspendRestore() { holdRestore = true }

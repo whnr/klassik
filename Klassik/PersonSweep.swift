@@ -285,10 +285,12 @@ final class ConnectionMonitor: @unchecked Sendable {
     private let lock = NSLock()
     private var good = true
 
-    init() {
+    /// `onConnect` also accepts mobile data and Low Data Mode for small queued writes.
+    init(onConnect: @escaping @Sendable () -> Void = {}) {
         monitor.pathUpdateHandler = { [weak self] path in
             let usable = path.status == .satisfied && !path.isConstrained && !path.isExpensive
             self?.lock.withLock { self?.good = usable }
+            if path.status == .satisfied { onConnect() }
         }
         monitor.start(queue: DispatchQueue(label: "de.whnr.klassik.connection"))
     }

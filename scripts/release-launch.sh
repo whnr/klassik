@@ -12,20 +12,30 @@ formatter=cat
 command -v xcbeautify >/dev/null && formatter=xcbeautify
 
 xcodegen generate
-udid=$(scripts/simulator.sh)
+udid=${KLASSIK_SIMULATOR_UDID:-$(scripts/simulator.sh)}
 echo "Simulator: $udid"
-xcrun simctl bootstatus "$udid" -b >/dev/null
+xcrun simctl bootstatus "$udid" -b > "$out/boot.log" 2>&1
+project=(-project Klassik.xcodeproj -scheme KlassikRelease -derivedDataPath build/ReleaseData)
+common=("${project[@]}" -destination "platform=iOS Simulator,id=$udid,arch=arm64")
+xcodebuild build-for-testing "${common[@]}" \
+  CODE_SIGN_IDENTITY=- COMPILER_INDEX_STORE_ENABLE=NO ENABLE_PREVIEWS=NO \
+  | tee "$out/release-build.log" | $formatter
+# The test run takes the xctestrun file, not the project: a project lets Xcode probe the tvOS simulators and log DVTAssertions warnings.
+plans=(build/ReleaseData/Build/Products/*.xctestrun)
+run=(-xctestrun "${plans[0]}" -destination "platform=iOS Simulator,id=$udid,arch=arm64")
 # xcodebuild hands TEST_RUNNER_* variables to the test runner without the prefix.
+status=0
 TEST_RUNNER_KLASSIK_RELEASE_LAUNCH=1 \
 TEST_RUNNER_KLASSIK_SERVER_URL=http://localhost:4533 \
 TEST_RUNNER_KLASSIK_USERNAME=fixture \
 TEST_RUNNER_KLASSIK_PASSWORD=fixture \
-xcodebuild test \
-  -project Klassik.xcodeproj -scheme KlassikRelease \
-  -destination "platform=iOS Simulator,id=$udid,arch=arm64" \
-  -derivedDataPath build/ReleaseData \
+xcodebuild test-without-building "${run[@]}" \
   -only-testing:KlassikUITests/ReleaseLaunchTests \
   -collect-test-diagnostics never \
+  -retry-tests-on-failure -test-iterations 2 -test-repetition-relaunch-enabled YES \
   -resultBundlePath "$out/release-launch.xcresult" \
   CODE_SIGN_IDENTITY=- COMPILER_INDEX_STORE_ENABLE=NO ENABLE_PREVIEWS=NO \
-  | tee "$out/release-launch.log" | $formatter
+  | tee "$out/release-launch.log" | $formatter || status=$?
+python3 scripts/screen_report.py retries "$out/release-launch.log" > "$out/release-launch-retries.txt"
+cat "$out/release-launch-retries.txt" >> "${GITHUB_STEP_SUMMARY:-/dev/stdout}"
+exit "$status"

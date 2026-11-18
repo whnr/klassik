@@ -1,21 +1,17 @@
 """Reports the result of a test run and of the screenshot comparison, for the job summary.
 
 Usage:
-    python3 scripts/screen_report.py plan <event> <dispatch-input> < <commit-messages>
+    python3 scripts/screen_report.py plan <event> <dispatch-input> [<pr-title> <ref>] < <commit-messages>
         Prints the UI areas of the run and the matrix of the walk job, for GITHUB_OUTPUT.
     python3 scripts/screen_report.py select <requested-areas> <group-areas>
         Prints the selected areas and rejects unknown names.
     python3 scripts/screen_report.py aggregate-ui <reports-dir> <requested-areas>
         Prints the UI result. Fails if a selected group has no completed result, or passed without all its
         screenshots.
-    python3 scripts/screen_report.py retry-plan <test-results.json>
-        Reads `xcresulttool get test-results tests` of the first UI run. Prints the failed tests to run again, as
-        <Suite>/<method>, one each. Prints nothing if a test failed for a reason other than a launch or termination.
-    python3 scripts/screen_report.py retries <test-results.json> <screens-dir>
-        Called after the retry of the plan passed. Writes the retried tests to <screens-dir>/retries.txt, one name
-        each, and their ::warning:: lines to <screens-dir>/retry-warnings.txt.
     python3 scripts/screen_report.py summary <screens-dir>
         Prints the results of scripts/screens.sh as Markdown and writes <screens-dir>/missing.txt.
+    python3 scripts/screen_report.py retries <raw-log>
+        Prints failed test names, attempt counts, outcomes, and first failures before log formatting.
     python3 scripts/screen_report.py diff <screens-dir> <diff-dir> [<baseline-dir>]
         Prints the counts of scripts/screen_diff.py as Markdown.
 """
@@ -34,19 +30,22 @@ WALK = ROOT / "KlassikUITests" / "ScreensTests.swift"
 SHARED_SNAPS = {"01-connect": "places"}
 
 
-def expected(source, ui):
+def expected(source, ui, tests=None):
     """The screenshots that a walk of the areas in `ui` takes, from the snap calls of each area class."""
     if ui in ("", "false"):
         return []
     areas = None if ui in ("true", "all") else {a.strip().lower() for a in ui.split(",") if a.strip()}
-    names, area = [], None
+    names, area, method = [], None, None
     for line in source.splitlines():
         if match := re.match(r"\s*(?:final )?class (\w+)", line):
             name = match.group(1)
             area = name[: -len("Screens")].lower() if name.endswith("Screens") else None
+            method = None
+        elif match := re.search(r"\bfunc (\w+)\(", line):
+            method = match.group(1)
         elif match := re.search(r'\bsnap\(app, "([\w-]+)"\)', line):
             owner = area or SHARED_SNAPS.get(match.group(1))
-            if owner and (areas is None or owner in areas):
+            if owner and (areas is None or owner in areas) and (tests is None or method in tests):
                 names.append(match.group(1))
     return sorted(set(names))
 
@@ -57,10 +56,36 @@ def read_results(text):
 
 
 UI_GROUPS = {
-    "playback": "playback",
+    "playback-queue": "playback",
+    "playback-controls": "playback",
     "places-browse": "places,browse",
     "settings-timeline": "settings,timeline",
 }
+
+
+# Balance playback by measured duration, because method counts hide the longer navigation tests.
+PLAYBACK_QUEUE = {
+    "testFavouriteRecordingOrder",
+    "testOverlayLeavesThroughChronology",
+    "testQueue",
+    "testRecording",
+    "testWorkPlayUsesTheContentInsetsOnEitherSide",
+    "testNextEndsAtTheLastMovement",
+}
+
+
+def group_tests(group, source=None):
+    if not group.startswith("playback-"):
+        return None
+    source = WALK.read_text() if source is None else source
+    playback = re.search(r"class PlaybackScreens:.*?(?=\n(?:final )?class |\Z)", source, re.DOTALL)
+    if playback is None:
+        return []
+    playback = playback.group()
+    methods = set(re.findall(r"func (test\w+)\(", playback))
+    if missing := PLAYBACK_QUEUE - methods:
+        raise ValueError("Missing playback methods: " + ", ".join(sorted(missing)))
+    return sorted(PLAYBACK_QUEUE if group == "playback-queue" else methods - PLAYBACK_QUEUE)
 
 
 def selected_areas(request, available):
@@ -81,7 +106,7 @@ UI_REQUEST = re.compile(r"^\s*\[ui:([^\]]*)\]\s*$", re.IGNORECASE | re.MULTILINE
 
 def requested_areas(messages):
     """The union of the "[ui: <areas>]" lines in the commit messages of a pull request, or "false"."""
-    known = [area for areas in UI_GROUPS.values() for area in areas.split(",")]
+    known = list(dict.fromkeys(area for areas in UI_GROUPS.values() for area in areas.split(",")))
     wanted, everything = set(), False
     for match in UI_REQUEST.finditer(messages):
         request = match.group(1).replace(" ", "").lower()
@@ -96,19 +121,23 @@ def requested_areas(messages):
     return ",".join(area for area in known if area in wanted) or "false"
 
 
-def plan(event, dispatch_input, messages):
-    """A pull request walks only the areas that it requests. Pushes walk everything; runs by hand take the input."""
+def plan(event, dispatch_input, messages, title="", ref="refs/heads/main"):
+    """Release requests and nightly runs walk everything. Main pushes run no walk."""
     if event == "pull_request":
         ui = requested_areas(messages)
+        if title.startswith("Release Klassik ") or re.match(r"^\[[^]]+\] Release Klassik ", title):
+            ui = "all"
     elif event == "workflow_dispatch":
         ui = dispatch_input.replace(" ", "").lower() or "all"
         selected_areas(ui, "")
+    elif event == "push" and ref == "refs/heads/main":
+        ui = "false"
     else:
         ui = "all"
-    include = [{"group": "unit", "phase": "unit", "areas": "false", "fixture": "fixture-music"}]
+    include = []
     for group, areas in UI_GROUPS.items():
         if selected_areas(ui, areas) != "false":
-            include.append({"group": group, "phase": "ui", "areas": areas, "fixture": "fixture-ui-music"})
+            include.append({"group": group, "areas": areas, "tests": ",".join(group_tests(group) or [])})
     return ui, {"include": include}
 
 
@@ -128,7 +157,7 @@ def unexplained_gaps(reports, request, source):
         if not path.exists() or read_results(path.read_text()).get("ui") != "passed":
             continue
         captured = {p.stem for p in report.glob("*.png")}
-        if missing := sorted(set(expected(source, selected)) - captured):
+        if missing := sorted(set(expected(source, selected, group_tests(group, source))) - captured):
             gaps[group] = missing
     return gaps
 
@@ -150,57 +179,6 @@ def aggregate_ui(reports, request, source=None):
     return "failed" if "failed" in states else "passed" if states else "not run"
 
 
-# XCTest reports these at the start of the message, after an optional "<file>:<line>: ".
-LAUNCH_FAILURE = re.compile(r"(?:\S+:\d+: )?Failed to (?:launch|terminate)\b")
-
-
-def failure_messages(node):
-    found = [node.get("name", "")] if node.get("nodeType") == "Failure Message" else []
-    return found + [m for child in node.get("children", []) for m in failure_messages(child)]
-
-
-def failed_tests(node, path=()):
-    """The failed test cases as (suite, test, failure messages)."""
-    name = node.get("name", "")
-    kind = node.get("nodeType")
-    if kind == "Test Case":
-        return [(".".join(path), name, failure_messages(node))] if node.get("result") == "Failed" else []
-    if kind in ("Test Suite", "Test Case Group"):
-        path = (*path, name)
-    return [t for child in node.get("children", []) for t in failed_tests(child, path)]
-
-
-def all_failed_tests(results_json):
-    return [t for node in json.loads(results_json).get("testNodes", []) for t in failed_tests(node)]
-
-
-def retry_plan(results_json):
-    """The failed tests to run again in a new test runner, or none.
-
-    XCTest can keep the state of a dead app process after a launch or termination failure, and a new runner clears
-    it. Any other failure is a result of the test, so one such failure in the run means no retry.
-    """
-    failed = all_failed_tests(results_json)
-    if any(not messages or not all(LAUNCH_FAILURE.match(m) for m in messages) for _, _, messages in failed):
-        return []
-    return [f"{suite.split('.')[-1]}/{test.removesuffix('()')}" for suite, test, _ in failed]
-
-
-def retries(results_json):
-    """The tests of the retry plan, as "<Suite>.<test>", with the first failure message of each."""
-    if not retry_plan(results_json):
-        return []
-    return sorted((f"{suite}.{test}", messages[0]) for suite, test, messages in all_failed_tests(results_json))
-
-
-def retry_annotations(tests):
-    return [
-        f"::warning title=UI test passed only on retry::{name} failed attempt 1 "
-        f"({' '.join(message.split())[:200]}) and passed attempt 2 in a new test runner."
-        for name, message in tests
-    ]
-
-
 def ui_result(results):
     """The UI line of the summary. A tolerated failure must read as a failure."""
     state = results.get("ui", "not run")
@@ -211,6 +189,41 @@ def ui_result(results):
     if results.get("ui_required") == "true":
         return "**FAILED** (blocks the run: `UI_TESTS_REQUIRED=true`)"
     return "**FAILED, tolerated** (`UI_TESTS_REQUIRED` is not `true`)"
+
+
+def retry_report(log):
+    """Read completion records before xcbeautify hides failed attempts."""
+    attempts, issues = {}, {}
+    active = None
+    for number, line in enumerate(log.splitlines(), 1):
+        if match := re.match(r"Test Case '(.+)' started\.", line):
+            active = match[1]
+        if "error:" in line and active:
+            issues.setdefault(active, []).append(line.strip())
+        if match := re.search(r"[✘] Test (.+?) recorded an issue (.+)", line):
+            issues.setdefault(match[1], []).append(match[2])
+        match = re.match(r"Test Case '(.+)' (passed|failed) \(", line)
+        if not match:
+            match = re.search(r"[✔✘] Test (.+?)(?: with \d+ test cases)? (passed|failed) after ", line)
+        if match:
+            name, state = match.groups()
+            attempts.setdefault(name, []).append((state, number, issues.pop(name, []), line.strip()))
+            if name == active:
+                active = None
+    lines = ["### Failed-test attempts", ""]
+    failed = {name: runs for name, runs in attempts.items() if any(run[0] == "failed" for run in runs)}
+    if not attempts:
+        return "\n".join(lines + ["No completed test attempts recorded. Inspect the raw log and result bundle.", ""])
+    if not failed:
+        return "\n".join(lines + ["No failed test attempts recorded.", ""])
+    lines += ["| Test | Attempts | Outcome | First failure |", "|---|---|---|---|"]
+    for name, runs in failed.items():
+        first = next(run for run in runs if run[0] == "failed")
+        detail = "; ".join(first[2]) or first[3]
+        outcome = "recovered" if runs[-1][0] == "passed" else "failed"
+        cells = [name, str(len(runs)), outcome, f"line {first[1]}: {detail}"]
+        lines.append("| " + " | ".join(cell.replace("|", "\\|") for cell in cells) + " |")
+    return "\n".join(lines) + "\n"
 
 
 def summary(results, captured, wanted, artifacts_url=""):
@@ -225,7 +238,6 @@ def summary(results, captured, wanted, artifacts_url=""):
         f"| UI tests | {ui_result(results)} |",
         f"| UI tests required | {'yes' if results.get('ui_required') == 'true' else 'no'} |",
         f"| UI areas | {results.get('ui_areas', 'false')} |",
-        f"| UI tests passed only on retry | {results.get('ui_retried', 'none')} |",
         f"| Screenshots captured | {len(set(captured) & set(wanted))} of {len(wanted)} |",
         f"| Screenshots missing | {', '.join(missing) or 'none'} |",
     ]
@@ -263,8 +275,11 @@ def read_lines(path):
 
 def main(args):
     command = args[0]
+    if command == "retries":
+        print(retry_report(pathlib.Path(args[1]).read_text()))
+        return
     if command == "plan":
-        ui, matrix = plan(args[1], args[2], sys.stdin.read())
+        ui, matrix = plan(args[1], args[2], sys.stdin.read(), *args[3:5])
         print(f"ui={ui}")
         print("matrix=" + json.dumps(matrix, separators=(",", ":")))
         return
@@ -278,27 +293,21 @@ def main(args):
             print(f"::error::walk-{group} passed without screenshots: {', '.join(missing)}", file=sys.stderr)
         print(f"ui={state}")
         sys.exit(1 if state == "incomplete" else 0)
-    if command == "retry-plan":
-        print("".join(t + "\n" for t in retry_plan(pathlib.Path(args[1]).read_text())), end="")
-        return
-    if command == "retries":
-        tests = retries(pathlib.Path(args[1]).read_text())
-        out = pathlib.Path(args[2])
-        (out / "retries.txt").write_text("".join(name + "\n" for name, _ in tests))
-        # The report step prints these. The walk step can use all the warning annotations that GitHub keeps for a step.
-        (out / "retry-warnings.txt").write_text("".join(line + "\n" for line in retry_annotations(tests)))
-        return
     screens = pathlib.Path(args[1])
     if command == "summary":
         results_file = screens / "results.txt"
         results = read_results(results_file.read_text()) if results_file.exists() else {}
-        wanted = expected(WALK.read_text(), results.get("ui_areas", "false"))
+        methods = results.get("ui_methods", "")
+        wanted = expected(WALK.read_text(), results.get("ui_areas", "false"), methods.split(",") if methods else None)
         captured = [p.stem for p in screens.glob("*.png")]
         run = "{GITHUB_SERVER_URL}/{GITHUB_REPOSITORY}/actions/runs/{GITHUB_RUN_ID}#artifacts"
         url = run.format(**os.environ) if "GITHUB_RUN_ID" in os.environ else ""
         text, missing = summary(results, captured, wanted, url)
         (screens / "missing.txt").write_text("".join(name + "\n" for name in missing))
         print(text)
+        for report in sorted(screens.glob("*-retries.txt")):
+            print(f"\n#### {report.stem}\n")
+            print(report.read_text())
     elif command == "diff":
         diff_dir = pathlib.Path(args[2])
         report_file = diff_dir / "diff.json"

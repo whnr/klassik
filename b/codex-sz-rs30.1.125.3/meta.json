@@ -1,7 +1,7 @@
 {
-  "sha": "a8377fe457cbca7599d80234f4916073aae3f261",
+  "sha": "52ac83d52bf675f6002eb8164958ccc10c746c8e",
   "branch": "codex-sz-rs30.1.125.3",
   "path": "codex-sz-rs30.1.125.3",
-  "subject": "[sz-rs30.1.125.1] Match callback pointer types",
-  "ts": 1795040888
+  "subject": "[sz-rs30.1.125.1] Set decoder buffer capacity",
+  "ts": 1795041569
 }

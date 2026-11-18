@@ -16,9 +16,10 @@ udid=${KLASSIK_SIMULATOR_UDID:-$(scripts/simulator.sh)}
 echo "Simulator: $udid"
 xcrun simctl bootstatus "$udid" -b > "$out/boot.log" 2>&1 &
 boot=$!
-common=(-project Klassik.xcodeproj -scheme KlassikRelease
-  -destination "platform=iOS Simulator,id=$udid,arch=arm64" -derivedDataPath build/ReleaseData)
-xcodebuild build-for-testing "${common[@]}" \
+project=(-project Klassik.xcodeproj -scheme KlassikRelease -derivedDataPath build/ReleaseData)
+common=("${project[@]}" -destination "platform=iOS Simulator,id=$udid,arch=arm64")
+xcodebuild build-for-testing "${project[@]}" -destination "generic/platform=iOS Simulator" \
+  ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
   CODE_SIGN_IDENTITY=- COMPILER_INDEX_STORE_ENABLE=NO ENABLE_PREVIEWS=NO \
   | tee "$out/release-build.log" | $formatter
 wait "$boot"

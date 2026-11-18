@@ -59,11 +59,13 @@ phase simulator
 boot=$!
 
 # The simulator answers in two architectures; naming one spares xcodebuild the choice.
-common=(-project Klassik.xcodeproj -scheme Klassik -destination "platform=iOS Simulator,id=$udid,arch=arm64"
-  -derivedDataPath build/DerivedData)
+project=(-project Klassik.xcodeproj -scheme Klassik -derivedDataPath build/DerivedData)
+common=("${project[@]}" -destination "platform=iOS Simulator,id=$udid,arch=arm64")
 # The index store and the preview dylibs serve only the editor.
 if [ "$mode" = all ] || [ "$mode" = build ]; then
-  xcodebuild build-for-testing "${common[@]}" -showBuildTimingSummary CODE_SIGN_IDENTITY=- \
+  # A generic build destination does not wait for the booting test device.
+  xcodebuild build-for-testing "${project[@]}" -destination "generic/platform=iOS Simulator" \
+    ARCHS=arm64 ONLY_ACTIVE_ARCH=NO -showBuildTimingSummary CODE_SIGN_IDENTITY=- \
     COMPILER_INDEX_STORE_ENABLE=NO ENABLE_PREVIEWS=NO ENABLE_DEBUG_DYLIB=NO \
     | tee "$out/build.log" | $formatter
   record build passed

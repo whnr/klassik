@@ -285,10 +285,12 @@ final class ConnectionMonitor: @unchecked Sendable {
     private let lock = NSLock()
     private var good = true
 
-    init() {
+    /// `onConnect` runs on each path update that has a connection, metered or not.
+    init(onConnect: @escaping @Sendable () -> Void = {}) {
         monitor.pathUpdateHandler = { [weak self] path in
             let usable = path.status == .satisfied && !path.isConstrained && !path.isExpensive
             self?.lock.withLock { self?.good = usable }
+            if path.status == .satisfied { onConnect() }
         }
         monitor.start(queue: DispatchQueue(label: "de.whnr.klassik.connection"))
     }

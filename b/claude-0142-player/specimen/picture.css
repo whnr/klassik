@@ -9,11 +9,11 @@
   mask-image: none;
 }
 :root[data-page="person"] .hero .pic .blur {
-  height: calc(var(--title-h, 80px) + 24px);
+  height: calc(var(--title-h, 80px) + 72px);
   -webkit-backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
-  -webkit-mask-image: var(--side-mask), linear-gradient(to top, #000 calc(var(--title-h, 80px) + 12px), transparent);
-  mask-image: var(--side-mask), linear-gradient(to top, #000 calc(var(--title-h, 80px) + 12px), transparent);
+  -webkit-mask-image: var(--side-mask), linear-gradient(to top, #000 var(--title-h, 80px), transparent);
+  mask-image: var(--side-mask), linear-gradient(to top, #000 var(--title-h, 80px), transparent);
   -webkit-mask-composite: source-in;
   mask-composite: intersect;
 }

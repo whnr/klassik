@@ -319,7 +319,9 @@ final class GaplessEngine: PlaybackEngine {
             completionHandler: last ? ended(position, generation: generation) : nil)
     }
 
-    private func ended(_ position: Int, generation: Int) -> AVAudioPlayerNodeCompletionHandler {
+    private func ended(
+        _ position: Int, generation: Int
+    ) -> @Sendable (AVAudioPlayerNodeCompletionCallbackType) -> Void {
         let deliverCompletion = deliverCompletion
         return { @Sendable [weak self] _ in
             // The engine calls this on its own thread.

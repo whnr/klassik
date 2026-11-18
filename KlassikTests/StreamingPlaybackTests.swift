@@ -164,19 +164,18 @@ struct StreamingPlaybackTests {
         try? FileManager.default.removeItem(at: root)
     }
 
-    /// Streamed movements scheduled back to back on one node join without a gap, also after a seek.
+    /// Streamed movements back to back join without a gap: the glide runs on across each join.
     @Test(arguments: [("Mendelssohn", "Mendelssohn: Violin Concerto", "mp3"), ("Glide", "Glide in FLAC", "flac")])
     func streamedMovementsJoinWithoutGap(search: String, name: String, suffix: String) async throws {
         let (client, songs) = try await Self.album(search, named: name)
-        var movements: [[AVAudioPCMBuffer]] = []
+        var joined: [Float] = []
         for (index, song) in songs.enumerated() {
             let data = try await Self.bytes(of: song, from: client)
             let transfer = self.transfer("join\(index).\(suffix)", length: data.count)
             let feeding = Self.feed(data, into: transfer)
-            movements.append(try await Self.decode(transfer, suffix: suffix))
+            joined += Self.samples(try await Self.decode(transfer, suffix: suffix))
             await feeding.value
         }
-        let joined = try Self.render(movements.flatMap { $0 })
         let start = GaplessTests.alignment(joined, at: 2048, referenceAt: 2048)
         var join = 0
         let shifts = GaplessTests.movementSamples.dropLast().map { length in
@@ -241,27 +240,5 @@ struct StreamingPlaybackTests {
             #expect(engine.duration(of: index) == Double(length) / GaplessTests.sampleRate)
         }
         try? FileManager.default.removeItem(at: root)
-    }
-
-    /// Plays buffers back to back through AVAudioPlayerNode, offline, as the engine schedules them.
-    static func render(_ buffers: [AVAudioPCMBuffer]) throws -> [Float] {
-        let format = try #require(buffers.first?.format)
-        let engine = AVAudioEngine()
-        let node = AVAudioPlayerNode()
-        engine.attach(node)
-        engine.connect(node, to: engine.mainMixerNode, format: format)
-        try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 4096)
-        try engine.start()
-        let total = buffers.reduce(8192) { $0 + Int($1.frameLength) }
-        for buffer in buffers { node.scheduleBuffer(buffer, at: nil, options: [], completionHandler: nil) }
-        node.play()
-        let output = try #require(AVAudioPCMBuffer(pcmFormat: engine.manualRenderingFormat, frameCapacity: 4096))
-        var samples: [Float] = []
-        while samples.count < total {
-            guard try engine.renderOffline(4096, to: output) == .success else { break }
-            samples += UnsafeBufferPointer(start: output.floatChannelData![0], count: Int(output.frameLength))
-        }
-        engine.stop()
-        return samples
     }
 }

@@ -208,7 +208,7 @@ final class StreamDecoder: @unchecked Sendable {
                 consumed = max(consumed, position + Int64(count))
                 return noErr
             } catch {
-                failure = error as? TrackTransfer.Failure
+                failure = error
                 actual.pointee = 0
                 // An error, not the end of the file: missing bytes must never end a track.
                 return kAudioFileUnspecifiedError

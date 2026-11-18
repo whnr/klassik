@@ -123,11 +123,13 @@ struct TrackTransferTests {
         let store = try makeStore(started)
         let song = Song(id: "s", title: "s", suffix: "flac")
         guard case .stream(let playing) = try await store.source(for: song, client: client) else {
-            return Issue.record("A FLAC track must stream")
+            Issue.record("A FLAC track must stream")
+            return
         }
         let reading = Task { try await store.file(for: song, client: client) }
         guard case .stream(let again) = try await store.source(for: song, client: client) else {
-            return Issue.record("A FLAC track must stream")
+            Issue.record("A FLAC track must stream")
+            return
         }
         #expect(playing === again)
         #expect(started.transfers.count == 1)
@@ -139,7 +141,8 @@ struct TrackTransferTests {
         #expect(store.transfers.isEmpty)
         #expect(store.offline == ["s"])
         guard case .file = try await store.source(for: song, client: client) else {
-            return Issue.record("A complete track plays from its file")
+            Issue.record("A complete track plays from its file")
+            return
         }
         try? FileManager.default.removeItem(at: root)
     }
@@ -150,7 +153,8 @@ struct TrackTransferTests {
         let store = try makeStore(started)
         let song = Song(id: "p", title: "p", suffix: "mp3")
         guard case .stream(let transfer) = try await store.source(for: song, client: client) else {
-            return Issue.record("An MP3 track must stream")
+            Issue.record("An MP3 track must stream")
+            return
         }
         transfer.begin(length: 100, validator: nil)
         transfer.append(Data(count: 40))
@@ -173,7 +177,10 @@ struct TrackTransferTests {
         transfer.begin(length: 2, validator: nil)
         transfer.append(Data([1, 2]))
         transfer.finish(nil)
-        guard case .file(let url) = try await source.value else { return Issue.record("M4A must load whole") }
+        guard case .file(let url) = try await source.value else {
+            Issue.record("M4A must load whole")
+            return
+        }
         #expect(url == root.appending(path: "cache/w.m4a"))
         try? FileManager.default.removeItem(at: root)
     }

@@ -1,7 +1,7 @@
 {
-  "sha": "ac8fb232371b56ab480446e1794da1ee69101e6c",
+  "sha": "c0646362b80212889495c6b7a08c961e493e23fc",
   "branch": "codex-sz-rs30.1.125-adr",
   "path": "codex-sz-rs30.1.125-adr",
-  "subject": "[sz-rs30.1.125] Define early playback",
-  "ts": 1795022455
+  "subject": "[sz-rs30.1.125] Decide ADR 0060; fake a slow start",
+  "ts": 1795032732
 }

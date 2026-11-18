@@ -1,7 +1,7 @@
 # 0005. Gapless playback with AVAudioEngine and the MP3 header
 
 Date: 2026-10-17. Decided by Flo after an A/B test on the phone (0.2.0). Bead: sz-rs30.1.4.
-The complete-file requirement has a proposed replacement in [0060](0060-early-playback-and-read-ahead.md).
+The complete-file requirement is replaced by [0060](0060-early-playback-and-read-ahead.md).
 
 ## Context
 

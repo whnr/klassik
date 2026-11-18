@@ -1,9 +1,9 @@
 # 0060. Start playback early and read ahead quietly
 
-Date: 2026-11-18. Proposal for Flo. Beads: sz-rs30.1.125, sz-rs30.1.125.1, sz-rs30.1.125.2 and sz-rs30.1.125.3.
+Date: 2026-11-18. Decided by Flo. Beads: sz-rs30.1.125, sz-rs30.1.125.1, sz-rs30.1.125.2, sz-rs30.1.125.3 and sz-rs30.1.125.4.
 Replaces the complete-file requirement of [0005](0005-gapless-playback.md) and the availability marks of [0008](0008-offline-storage.md).
 Extends the music cache rules of [0051](0051-pictures-and-album-art-in-local-storage.md).
-The technical choices and open questions below await approval. This record changes no app behavior.
+Implementation belongs to 0.15. The early-start and gapless claims hold only after the measurements below pass.
 
 ## Context
 
@@ -21,6 +21,13 @@ Bead sz-rs30.1.43 records Flo's successful FLAC listening test. It leaves AAC an
 Neither result proves partial-file decoding. Implementation must establish that separately on iOS 27.
 
 ## Decision
+
+Flo accepted these four points on 2026-11-18:
+
+1. On a connection slower than the audio bitrate, start after the bounded buffer and permit later quiet waits.
+2. Complete-file playback is a documented fallback when metadata or a system decoder prevents early playback.
+3. Low Power Mode prepares only one following track, as Low Data Mode does.
+4. The slow-connection line appears after one second without sound, with the start and recovery texts below.
 
 ### One audio path, with a partial byte store
 
@@ -49,7 +56,9 @@ This callback design is an implementation proposal, not proof that every system 
 The first implementation must measure decoder reads and first PCM output with incomplete files.
 If a decoder scans the whole resource, it fails that format's early-start gate.
 Keep complete-file decoding as a compatibility fallback, without weakening existing gapless trims.
-Do not call that fallback instant playback. Record its reason and address supported-format failures under sz-rs30.1.43.
+Use it only when metadata or a system decoder prevents early playback. It is a documented exception, not instant playback.
+Record its reason and address supported-format failures under sz-rs30.1.43.
+Early playback ships only after MP3 and FLAC pass the early-start gate.
 
 ### Format gates
 
@@ -105,7 +114,8 @@ These figures exclude headers, network latency and decoder setup. They are tunin
 A 100 MB file on a sustainable connection must start before its download finishes.
 A sustained `r < 1` eventually exhausts a bounded buffer. No threshold can guarantee continuous playback in that case.
 For uninterrupted playback, the minimum initial deficit is approximately `(1 - r) * T`, before jitter allowance.
-Do not silently transcode or require that full deficit by default. Start with the bounded target and permit a later wait.
+Do not silently transcode or require that full deficit by default. Start with the bounded target and permit a later quiet wait.
+Never wait for most of the file before the first sound.
 After starvation, preserve the exact next sample and refill using this rule. Never skip samples to catch up.
 
 ### Read-ahead follows the actual queue
@@ -117,7 +127,7 @@ It can belong to another work. Normal mode's whole work means the selected recor
 | --- | --- |
 | Normal | Finish the current track, all remaining movements of its recording, and the first track of the next queued item. |
 | Low Data Mode | Finish the current track and prepare exactly one following track, across recording boundaries. |
-| Low Power Mode | Use the same one-following-track policy to reduce speculative work. |
+| Low Power Mode | Use the same one-following-track policy until Low Power Mode ends. Current playback is unchanged. |
 | Offline or network access forbidden | Use existing downloads and cache only; start no network transfer. |
 
 Prepare the next track to completion when bandwidth and storage permit. Decode its opening before the current track ends.
@@ -131,7 +141,7 @@ Observe the actual constrained network path, including constrained Wi-Fi. Recomp
 Low Data Mode permits the current and next track as playback work; it does not permit library-wide audio downloads.
 Use URLSession's [network access controls](https://developer.apple.com/documentation/foundation/urlsessionconfiguration) to enforce applicable cellular and constrained-network restrictions.
 Cellular alone does not imply Low Data Mode. An explicit cellular prohibition takes precedence over playback and read-ahead.
-Any download policy that requires Wi-Fi also takes precedence for downloads. This proposal adds no data-settings screen.
+Any download policy that requires Wi-Fi also takes precedence for downloads. This record adds no data-settings screen.
 Do not infer permission for bulk downloads from a Play tap. The download-everything option belongs to sz-rs30.1.124.
 Keep [0059](0059-covers-and-pictures-before-pages.md)'s separate image policy, including the playing cover's Low Data Mode exception.
 
@@ -176,6 +186,7 @@ Embedded art follows 0059 and counts under Album Art. Art extraction must not de
 Select the work and update transport state immediately on Play. Ordinary startup and read-ahead show no loading indicator.
 After one second without sound, show one secondary player line only when measured throughput is below the required bitrate.
 Text: “Slow connection. Playback will start shortly.” Keep the line's space stable; use no spinner or percentage.
+The position of the line in the player follows the specimen variant that Flo chooses under sz-rs30.1.125.4.
 Remove it on first sound, pause, Stop or replacement of the selection. Background preparation must never restore it.
 During later starvation, use the same single line with “Slow connection. Playback will continue shortly.”
 A connection failure or policy restriction uses the one quiet status of [0058](0058-one-quiet-server-status.md), with its actual cause.
@@ -191,7 +202,7 @@ Early playback needs a new byte-source interface; the complete-file closure cann
 The playback engine must accept decoded buffers and span queue items. Existing full-file joins remain the regression baseline.
 Read-ahead uses more music cache in normal mode, within its limit. Low Data Mode limits speculative transfer to one track.
 Unsustainable throughput, missing timing metadata and non-seekable containers place real limits on instant, gapless playback.
-This proposal does not claim that an untested format satisfies those requirements.
+This record does not claim that an untested format satisfies those requirements.
 
 ### Measurements required before implementation ships
 
@@ -211,14 +222,3 @@ Use generated tones and attacca glides through fixture Navidrome 0.64.2. Keep co
 - Measure stored bytes, peak PCM memory, duplicate requests, eviction, oversized tracks, Clear Music, disk failures and sign-out cleanup.
 - Verify no routine spinner or availability mark remains. Check the delayed slow line appears and disappears at the stated events.
 - Retain timing and sample reports without credentials or authenticated URLs. TestFlight listening confirms the automated boundary measurements.
-
-## Open questions for Flo
-
-1. Accept the bounded threshold when a connection stays slower than the audio bitrate?
-   Recommended answer: Yes. Start after the calculated buffer; permit later quiet waits instead of waiting for most of the file.
-2. Accept complete-file fallback when metadata or a system decoder prevents early playback?
-   Recommended answer: Yes, as a documented compatibility exception. Require early MP3 and FLAC proof before shipping this feature.
-3. Should Low Power Mode also prepare only one following track?
-   Recommended answer: Yes. Keep current playback unchanged and reduce speculative work until Low Power Mode ends.
-4. Accept the one-second delay and proposed slow-connection text, including the recovery text?
-   Recommended answer: Yes. Keep ordinary startup and all background preparation invisible.

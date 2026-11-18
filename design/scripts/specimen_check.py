@@ -144,6 +144,46 @@ def check_work_capsules(context, base, failures):
     page.close()
 
 
+def check_slow_start(context, base, failures):
+    """The waiting messages share stable space with the times, including when they wrap."""
+    for size in ("large", "AX5"):
+        page = context.new_page()
+        page.goto(f"{base}player.html?size={size}&playing=recording", wait_until="load")
+        page.clock.install()
+        page.get_by_role("button", name="▶ Slow start", exact=True).tap()
+        page.clock.run_for(900)
+        frame = page.frame_locator(".player-overlay iframe")
+        status = frame.locator(".mv-state [role=status]")
+        box = frame.locator(".bar-box")
+        # The player scrolls to the playing row after a quiet spell. Compare positions inside that row.
+        geometry = """box => [
+            box.nextElementSibling.getBoundingClientRect().top - box.getBoundingClientRect().top,
+            box.querySelector('.mv-under').getBoundingClientRect().height
+        ]"""
+        offset, height = box.evaluate(geometry)
+        seen = set()
+        for _ in range(52):
+            page.clock.run_for(500)
+            seen.add(status.text_content())
+            current_offset, row_height = box.evaluate(geometry)
+            if abs(current_offset - offset) > 0.1 or row_height != height:
+                failures.append(
+                    f"slow start {size}: controls offset {offset} -> {current_offset}; "
+                    f"status height {height} -> {row_height}"
+                )
+                break
+        expected = {
+            "",
+            "Slow connection. Playback will start shortly.",
+            "Slow connection. Playback will continue shortly.",
+        }
+        if seen != expected:
+            failures.append(f"slow start {size}: missing startup, recovery or restored times: {seen}")
+        if page.locator("select[aria-label=Variant]").count():
+            failures.append(f"slow start {size}: the comparison menu remains")
+        page.close()
+
+
 def main():
     server = serve()
     base = f"http://127.0.0.1:{server.server_address[1]}/specimen/"
@@ -154,6 +194,7 @@ def main():
             viewport={"width": 393, "height": 852}, device_scale_factor=3, is_mobile=True, has_touch=True
         )
         check_work_capsules(context, base, failures)
+        check_slow_start(context, base, failures)
         for page_path in PAGES:
             for theme, contrast, accent, player, playing, side in MODES:
                 sep = "&" if "?" in page_path else "?"

@@ -1,7 +1,7 @@
 {
-  "sha": "28028f106feeda67167576bf366737ea7d5e23c4",
+  "sha": "84050a1aa37ff77baa0f33595a9138290468418e",
   "branch": "claude-disc-order",
   "path": "claude-disc-order",
-  "subject": "[sz-rs30.1.105.86] Play albums with repeated disc numbers in order",
-  "ts": 1795045202
+  "subject": "[sz-rs30.1.105.86] Split a declaration for lint",
+  "ts": 1795045278
 }

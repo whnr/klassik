@@ -73,6 +73,7 @@ struct RootView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
+                Task { await model.playback.synchronizeListeningData() }
                 Task { await model.recordingOrder.refresh() }
             }
             if phase == .background {

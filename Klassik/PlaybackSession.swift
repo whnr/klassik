@@ -95,6 +95,7 @@ final class PlaybackSession {
                 guard let self, self.history === currentHistory else { return }
                 self.listeningError = message
             }
+            history?.retryScrobbles()
             MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
         }
     }
@@ -172,6 +173,11 @@ final class PlaybackSession {
                 listeningError = "Could not restore the queue from the server."
             }
         }
+    }
+
+    func synchronizeListeningData() async {
+        history?.retryScrobbles()
+        await history?.flush()
     }
 
     /// Saves before the app enters the background, where iOS can suspend a paused session.

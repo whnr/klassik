@@ -30,6 +30,7 @@ final class AppModel {
     let sweep: PersonSweep
     let swipes = SwipeSettings()
     let libraryRows = LibraryRows()
+    @ObservationIgnored private var reconnect: ConnectionMonitor?
     private let store: CredentialStore
 
     var client: SubsonicClient? { credentials.map { SubsonicClient(credentials: $0) } }
@@ -57,6 +58,9 @@ final class AppModel {
         }
         credentials = store.load()
         updateServer()
+        reconnect = ConnectionMonitor { [weak self] in
+            Task { @MainActor [weak self] in await self?.playback.synchronizeListeningData() }
+        }
         // No build reads the URL cache folder of the pictures, so its space goes back to the device.
         Task.detached(priority: .utility) {
             try? FileManager.default.removeItem(at: .cachesDirectory.appending(path: "Portraits"))

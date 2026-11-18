@@ -184,6 +184,37 @@ struct PlaybackSessionHistoryTests {
         #expect(session.state.queueEnded)
     }
 
+    @Test func offlinePlaybackSendsOnReconnectWithoutMorePlayback() async throws {
+        let server = InMemoryServer()
+        let (session, engine) = makeSession(server, defaults: try defaults())
+        await server.setFailure(true)
+        session.play(item("first"))
+        engine.end(0)
+        engine.end(1)
+        await session.saveQueue()
+        #expect(await server.scrobbles.isEmpty)
+        #expect(session.state.queueEnded)
+        await server.setFailure(false)
+        await session.synchronizeListeningData()
+        #expect(await server.scrobbles == ["first-0", "first-1"])
+    }
+
+    @Test func loginRetriesOfflinePlaysAfterSignOut() async throws {
+        let server = InMemoryServer()
+        let defaults = try defaults()
+        let (session, engine) = makeSession(server, defaults: defaults)
+        await server.setFailure(true)
+        session.play(item("first"))
+        engine.end(0)
+        engine.end(1)
+        await session.saveQueue()
+        session.server = nil
+        await server.setFailure(false)
+        let (relaunched, _) = makeSession(server, defaults: defaults)
+        await relaunched.saveQueue()
+        #expect(await server.scrobbles == ["first-0", "first-1"])
+    }
+
     @Test func pauseSeekAndResumeDoNotDuplicateOrInventAPlay() async throws {
         let server = InMemoryServer()
         let (session, engine) = makeSession(server, defaults: try defaults())

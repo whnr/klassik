@@ -351,12 +351,8 @@ private struct PlaceInsets: ViewModifier {
             }
             .scrollEdgeEffectStyle(.soft, for: .top)
             .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    // Keep the large title and back labels while suppressing the inline title (ADR 0023).
-                    Color.clear.frame(width: 1, height: 1).accessibilityHidden(true)
-                }
-            }
+            // The bar shows no title (ADR 0023). The navigation title still names the back button of the next page.
+            .toolbar(removing: .title)
             .contentMargins(.trailing, beside, for: .scrollIndicators)
     }
 }
@@ -395,16 +391,53 @@ struct BackTip: Tip {
     var options: [any TipOption] { [Tips.MaxDisplayCount(1)] }
 }
 
-/// The row of the tip in a list. The row takes no ground of its own, so that the tip does not draw as a card
-/// on the ground of the page.
+/// The row of the tip in a list. The row takes no ground of its own, and the tip takes the ground of a row, so
+/// that it does not draw as TipKit's grey card on the ground of the page.
 struct BackTipRow: View {
     @Environment(\.showsBackTip) private var showsBackTip
 
     var body: some View {
         if showsBackTip {
             TipView(BackTip())
+                .tipViewStyle(PageTipStyle())
+                .tipBackground(Palette.backgroundRow.color)
                 .listRowBackground(Color.clear)
         }
+    }
+}
+
+/// A tip in the type and colours of a page row: the title in ink, the message one level quieter, the mark in
+/// the tint of the app.
+struct PageTipStyle: TipViewStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: Space.m.points) {
+            configuration.image?
+                .typeStyle(.headline)
+                .foregroundStyle(Palette.tint)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: Layout.rowLineGap) {
+                configuration.title?
+                    .typeStyle(.headline)
+                    .foregroundStyle(Palette.textPrimary)
+                configuration.message?
+                    .typeStyle(.subheadline)
+                    .foregroundStyle(Palette.textSecondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Button {
+                configuration.tip.invalidate(reason: .tipClosed)
+            } label: {
+                Image(systemName: "xmark")
+                    .typeStyle(.footnote)
+                    .foregroundStyle(Palette.textTertiary)
+            }
+            .buttonStyle(FlatPress())
+            .accessibilityLabel("Close Tip")
+            .accessibilityIdentifier("back-tip-close")
+        }
+        // The row insets of the list give the page edges; the tip adds only its height.
+        .padding(.vertical, Space.l.points)
+        .accessibilityElement(children: .contain)
     }
 }
 

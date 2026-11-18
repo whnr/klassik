@@ -34,6 +34,20 @@ final class PlacesScreens: ScreensTestCase {
         app.buttons["Edit"].tap()
         XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 5))
         snap(app, "02e-library-edit")
+        // The system reorder control sits beside the row, outside its frame. A drag of Composers onto the lower part
+        // of the Favourites control puts Favourites first. A long hold before the drag does not pick the row up.
+        let reorder = { (name: String) in
+            app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Reorder \(name)")).firstMatch
+        }
+        XCTAssertTrue(reorder("Composers").exists, "No reorder control on Composers")
+        reorder("Composers").coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(
+                forDuration: 0.1,
+                thenDragTo: reorder("Favourites").coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)),
+                withVelocity: .default, thenHoldForDuration: 0.5)
+        app.buttons["Done"].tap()
+        XCTAssertTrue(app.buttons["Edit"].waitForExistence(timeout: 5))
+        XCTAssertLessThan(favourites.frame.minY, composers.frame.minY, "The drag did not move Favourites up")
     }
 
     @MainActor
@@ -157,6 +171,30 @@ final class PlacesScreens: ScreensTestCase {
         XCTAssertTrue(app.staticTexts["Hold Back to Go Further"].waitForExistence(timeout: 10))
         snap(app, "02k-back-tip")
     }
+
+    /// Without the test switch, the tip keeps its rule: it shows once, and a later page does not show it again.
+    @MainActor
+    func testBackTipShowsOnce() throws {
+        let app = try launchAndConnect(arguments: ["-tipRules"])
+        let tip = app.staticTexts["Hold Back to Go Further"]
+        composer(app, "Felix Mendelssohn").tap()
+        XCTAssertTrue(tip.waitForExistence(timeout: 10), "The tip does not show the first time")
+        back(app)
+        XCTAssertTrue(composer(app, "Frédéric Chopin").waitForExistence(timeout: 10))
+        composer(app, "Frédéric Chopin").tap()
+        XCTAssertTrue(app.navigationBars["Frédéric Chopin"].waitForExistence(timeout: 10))
+        XCTAssertFalse(tip.waitForExistence(timeout: 3), "The tip shows a second time")
+    }
+
+    /// The bar draws no title (ADR 0023), and the page still names the back button of the next page.
+    @MainActor
+    func testBarShowsNoTitle() throws {
+        let app = try launchAndConnect()
+        composer(app, "Felix Mendelssohn").tap()
+        let bar = app.navigationBars["Felix Mendelssohn"]
+        XCTAssertTrue(bar.waitForExistence(timeout: 10))
+        XCTAssertFalse(bar.staticTexts["Felix Mendelssohn"].exists, "The bar shows the page title")
+    }
 }
 
 /// The pages that the lookup fills.
@@ -214,6 +252,32 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertTrue(reveal(commons, in: app).exists)
         XCTAssertTrue(commons.label.contains("Wikimedia Commons"), commons.label)
         snap(app, "03g-composer-article")
+    }
+
+    /// The picture runs under the status bar and the Dynamic Island, with the back button beside the island
+    /// (sz-rs30.1.102). A light picture, in the light and the dark room.
+    @MainActor
+    func testLightPictureUnderTheStatusBar() throws {
+        snap(try pictureTop(), "03h-picture-top-light-light-room")
+        snap(try pictureTop(arguments: ["-darkRoom"]), "03i-picture-top-light-dark-room")
+    }
+
+    /// A dark picture under the status bar, in the light and the dark room.
+    @MainActor
+    func testDarkPictureUnderTheStatusBar() throws {
+        snap(try pictureTop(arguments: ["-darkPicture"]), "03j-picture-top-dark-light-room")
+        snap(try pictureTop(arguments: ["-darkPicture", "-darkRoom"]), "03k-picture-top-dark-dark-room")
+    }
+
+    @MainActor
+    private func pictureTop(arguments: [String] = []) throws -> XCUIApplication {
+        let app = try launchAndConnect(arguments: arguments)
+        composer(app, "Felix Mendelssohn").tap()
+        let picture = app.descendants(matching: .any)["composer-picture"]
+        XCTAssertTrue(picture.waitForExistence(timeout: 30), "The composer page shows no picture")
+        XCTAssertEqual(picture.frame.minY, 0, accuracy: 1, "The picture does not reach the top edge")
+        XCTAssertTrue(app.navigationBars.buttons.firstMatch.exists, "No back button over the picture")
+        return app
     }
 
     @MainActor

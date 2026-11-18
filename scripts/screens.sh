@@ -50,7 +50,7 @@ phase project
 udid=${KLASSIK_SIMULATOR_UDID:-$(scripts/simulator.sh)}
 echo "Simulator: $udid"
 phase simulator
-# CI starts this boot before cache restoration and fixture setup.
+# Build and simulator startup overlap; CI walks start boot during artifact setup.
 (
   xcrun simctl bootstatus "$udid" -b >/dev/null
   xcrun simctl status_bar "$udid" override --time 9:41 --dataNetwork wifi --wifiBars 3 --cellularMode notSupported \

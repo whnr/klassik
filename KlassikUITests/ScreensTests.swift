@@ -720,10 +720,23 @@ final class PlaybackScreens: ScreensTestCase {
         startPlaying(app)
         pause(app)
         snap(app, "05e-play-album")
+    }
+
+    @MainActor
+    func testAlbumWorkHasOneDisclosureOnThePageAndOverlay() throws {
+        let app = try launchAndConnect()
+        openSettings(app)
+        reveal(app.buttons["classical-albums"], in: app).tap()
+        let album = app.buttons.matching(identifier: "album")
+            .matching(NSPredicate(format: "label CONTAINS 'Mendelssohn: Violin Concerto'")).firstMatch
+        reveal(album, in: app).tap()
+        XCTAssertTrue(app.buttons["play-recording"].waitForExistence(timeout: 10))
         let work = app.buttons.matching(identifier: "album-work").firstMatch
         XCTAssertTrue(reveal(work, in: app).isHittable)
         XCTAssertFalse(work.images["album-work-disclosure"].exists, "The system link has a second chevron")
         snap(app, "05f-album-work")
+        startPlaying(app)
+        pause(app)
         app.buttons["mini-player-cover"].tap()
         let overlayWork = app.descendants(matching: .any)["player-overlay"]
             .buttons.matching(identifier: "album-work").firstMatch

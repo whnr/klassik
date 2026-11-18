@@ -1,7 +1,7 @@
 {
-  "sha": "0d65523496d169db3e82f88a5f474334b5c406d2",
+  "sha": "1398eddec0b13f5df111a23354e8a84deecf93e6",
   "branch": "codex-sz-qny4",
   "path": "codex-sz-qny4",
-  "subject": "[sz-qny4] Keep product-only builds unbooted",
-  "ts": 1795013129
+  "subject": "[sz-qny4] Retain retry evidence without warnings",
+  "ts": 1795020917
 }

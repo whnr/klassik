@@ -35,12 +35,10 @@ final class EarlyPlaybackTests: XCTestCase {
         let opened = AudioFileOpenWithCallbacks(
             Unmanaged.passUnretained(source).toOpaque(),
             { context, position, requested, destination, actual in
-                guard let context else { return kAudioFileUnspecifiedError }
                 let source = Unmanaged<DecoderProbeBytes>.fromOpaque(context).takeUnretainedValue()
                 return source.read(position: position, requested: requested, into: destination, actual: actual)
             }, nil,
             { context in
-                guard let context else { return 0 }
                 return Int64(Unmanaged<DecoderProbeBytes>.fromOpaque(context).takeUnretainedValue().data.count)
             }, nil, type, &file)
         XCTAssertEqual(opened, noErr)

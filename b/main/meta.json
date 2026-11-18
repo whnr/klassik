@@ -1,7 +1,7 @@
 {
-  "sha": "8dc62464a4844b22025910748fd3a71ff5b52bed",
+  "sha": "338a1dcb9c95993a3df8c06c0c4a58c82703b563",
   "branch": "main",
   "path": "main",
-  "subject": "[sz-rs30.1.102 and sz-rs30.1.105.22] Back tip and bar titles per specimen (#87)",
-  "ts": 1794965742
+  "subject": "[sz-rs30.1.117.1] Ramp the composer blur and shift pages together (#90)",
+  "ts": 1794975601
 }

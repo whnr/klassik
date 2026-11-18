@@ -45,6 +45,45 @@ final class EarlyPlaybackTests: XCTestCase {
         let audioFile = try XCTUnwrap(file)
         defer { AudioFileClose(audioFile) }
         let bytesAtOpen = source.delivered
+        let (buffer, frames, decoded) = try firstPCM(audioFile)
+        let elapsed = started.duration(to: .now)
+        let report = """
+            \(suffix): resource=\(data.count), bytesAtOpen=\(bytesAtOpen), bytesAtPCM=\(source.delivered)
+            reads=\(source.reads), ranges=\(source.ranges)
+            firstPCMFrames=\(frames), status=\(decoded), elapsed=\(elapsed)
+            Callback delivery exposes only requested ranges. The decoder has no complete local file.
+            """
+        print(report)
+        let attachment = XCTAttachment(string: report)
+        attachment.name = "early-\(suffix)-report.txt"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+
+        let local = FileManager.default.temporaryDirectory.appending(path: "\(UUID().uuidString).\(suffix)")
+        defer { try? FileManager.default.removeItem(at: local) }
+        try data.write(to: local)
+        var complete: AudioFileID?
+        XCTAssertEqual(AudioFileOpenURL(local as CFURL, .readPermission, type, &complete), noErr)
+        let completeFile = try XCTUnwrap(complete)
+        defer { AudioFileClose(completeFile) }
+        let (reference, referenceFrames, referenceStatus) = try firstPCM(completeFile)
+        XCTAssertEqual(referenceStatus, noErr, "Complete-file control")
+        XCTAssertEqual(referenceFrames, 11_025, "Complete-file control")
+        XCTAssertEqual(decoded, noErr, report)
+        XCTAssertEqual(frames, referenceFrames, report)
+        XCTAssertEqual(frames, 11_025, report)
+        XCTAssertLessThan(source.delivered, data.count, report)
+        XCTAssertLessThan(source.delivered, 1_000_000, "Initialization must not scan the resource. \(report)")
+        XCTAssertLessThan(elapsed, .milliseconds(500), report)
+        let samples = try XCTUnwrap(buffer.floatChannelData)[0]
+        XCTAssertTrue((0..<Int(frames)).contains { abs(samples[$0]) > 0.001 }, report)
+        let expected = try XCTUnwrap(reference.floatChannelData)[0]
+        XCTAssertEqual(
+            Array(UnsafeBufferPointer(start: samples, count: Int(frames))),
+            Array(UnsafeBufferPointer(start: expected, count: Int(referenceFrames))), report)
+    }
+
+    private func firstPCM(_ audioFile: AudioFileID) throws -> (AVAudioPCMBuffer, UInt32, OSStatus) {
         var extended: ExtAudioFileRef?
         let wrapped = ExtAudioFileWrapAudioFileID(audioFile, false, &extended)
         XCTAssertEqual(wrapped, noErr)
@@ -61,26 +100,11 @@ final class EarlyPlaybackTests: XCTestCase {
                 decoder, kExtAudioFileProperty_ClientDataFormat,
                 UInt32(MemoryLayout<AudioStreamBasicDescription>.size), &description), noErr)
         let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: pcm, frameCapacity: 11_025))
+        // ExtAudioFileRead uses the buffer list's byte sizes as writable capacity.
+        buffer.frameLength = buffer.frameCapacity
         var frames: UInt32 = 11_025
         let decoded = ExtAudioFileRead(decoder, &frames, buffer.mutableAudioBufferList)
-        let elapsed = started.duration(to: .now)
-        let report = """
-            \(suffix): resource=\(data.count), bytesAtOpen=\(bytesAtOpen), bytesAtPCM=\(source.delivered)
-            reads=\(source.reads), firstPCMFrames=\(frames), status=\(decoded), elapsed=\(elapsed)
-            Callback delivery exposes only requested ranges. The decoder has no complete local file.
-            """
-        print(report)
-        let attachment = XCTAttachment(string: report)
-        attachment.name = "early-\(suffix)-report.txt"
-        attachment.lifetime = .keepAlways
-        add(attachment)
-        XCTAssertEqual(decoded, noErr, report)
-        XCTAssertEqual(frames, 11_025, report)
-        XCTAssertLessThan(source.delivered, data.count, report)
-        XCTAssertLessThan(source.delivered, 1_000_000, "Initialization must not scan the resource. \(report)")
-        XCTAssertLessThan(elapsed, .milliseconds(500), report)
-        let samples = try XCTUnwrap(buffer.floatChannelData)[0]
-        XCTAssertTrue((0..<Int(frames)).contains { abs(samples[$0]) > 0.001 }, report)
+        return (buffer, frames, decoded)
     }
 }
 
@@ -89,6 +113,7 @@ private final class DecoderProbeBytes {
     let data: Data
     var delivered = 0
     var reads = 0
+    var ranges: [Range<Int64>] = []
 
     init(_ data: Data) { self.data = data }
 
@@ -104,6 +129,7 @@ private final class DecoderProbeBytes {
         }
         delivered += count
         reads += 1
+        if ranges.count < 32 { ranges.append(position..<(position + Int64(count))) }
         actual.pointee = UInt32(count)
         return noErr
     }

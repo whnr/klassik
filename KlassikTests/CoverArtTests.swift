@@ -64,9 +64,11 @@ struct CoverArtTests {
         return ImageStore(folder: root.appending(path: folder), limitKey: "test.limit", defaults: defaults)
     }
 
-    func makeCovers(_ store: ImageStore, songs: [Song], classical: [Song]? = nil) -> AlbumCovers {
+    func makeCovers(_ store: ImageStore, songs: [Song], classical: [Song]? = nil, links: String = "links")
+        -> AlbumCovers
+    {
         let server = server
-        let covers = AlbumCovers(store: store, folder: root.appending(path: "links")) { try await server.fetch($0) }
+        let covers = AlbumCovers(store: store, folder: root.appending(path: links)) { try await server.fetch($0) }
         covers.attach(credentials)
         covers.plan(classical: classical ?? songs, library: songs)
         return covers
@@ -130,8 +132,12 @@ struct CoverArtTests {
 
     @Test func discsWithOneCoverKeepOneFile() async throws {
         let data = try Self.png()
-        let shared = (1...20).map { Self.song("s\($0)", album: "box", disc: $0, track: 1, cover: "al-box") }
-        let own = (1...20).map { Self.song("o\($0)", album: "set", disc: $0, track: 1, cover: "mf-o\($0)") }
+        let shared = (1...20).map { (disc: Int) in
+            Self.song("s\(disc)", album: "box", disc: disc, track: 1, cover: "al-box")
+        }
+        let own = (1...20).map { (disc: Int) in
+            Self.song("o\(disc)", album: "set", disc: disc, track: 1, cover: "mf-o\(disc)")
+        }
         server.covers["al-box"] = data
         for index in 1...20 { server.covers["mf-o\(index)"] = data }
         let store = try makeStore()
@@ -266,7 +272,7 @@ struct CoverArtTests {
 
         server.reset()
         server.isDown = true
-        let offline = makeCovers(try makeStore(folder: "offline"), songs: songs)
+        let offline = makeCovers(try makeStore(folder: "offline"), songs: songs, links: "offline-links")
         offline.keepAll()
         await offline.idle()
         #expect(server.ids.count == 1)
@@ -278,7 +284,7 @@ struct CoverArtTests {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         // A file in place of the folder makes each write fail, as a full disk does.
         try Data().write(to: root.appending(path: "broken"))
-        let broken = makeCovers(try makeStore(folder: "broken"), songs: songs)
+        let broken = makeCovers(try makeStore(folder: "broken"), songs: songs, links: "broken-links")
         broken.keepAll()
         await broken.idle()
         #expect(server.ids.count == 1)

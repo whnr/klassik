@@ -695,6 +695,11 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(workAlbum.exists, "The work page offers no Play Album")
         let workPlay = app.buttons["play-work"]
         XCTAssertEqual(workPlay.frame.midY, workAlbum.frame.midY, accuracy: 1)
+        let label = workPlay.staticTexts.firstMatch
+        XCTAssertEqual(label.label, "Play top recording")
+        XCTAssertGreaterThanOrEqual(label.frame.minX - workPlay.frame.minX, Layout.capsuleInset - 1)
+        XCTAssertGreaterThanOrEqual(workPlay.frame.maxX - label.frame.maxX, Layout.capsuleInset - 1)
+        XCTAssertGreaterThan(label.frame.height, 0)
         snap(app, "04e-work-album-buttons")
         recording.tap()
         let wholeAlbum = app.buttons["play-album"]
@@ -737,6 +742,31 @@ final class PlaybackScreens: ScreensTestCase {
         startPlaying(app)
         pause(app)
         snap(app, "05e-play-album")
+    }
+
+    @MainActor
+    func testAlbumWorkHasOneDisclosureOnThePageAndOverlay() throws {
+        let app = try launchAndConnect()
+        openSettings(app)
+        reveal(app.buttons["classical-albums"], in: app).tap()
+        let album = app.buttons.matching(identifier: "album")
+            .matching(NSPredicate(format: "label CONTAINS 'Mendelssohn: Violin Concerto'")).firstMatch
+        reveal(album, in: app).tap()
+        XCTAssertTrue(app.buttons["play-recording"].waitForExistence(timeout: 10))
+        let work = app.buttons.matching(identifier: "album-work").firstMatch
+        XCTAssertTrue(reveal(work, in: app).isHittable)
+        XCTAssertFalse(work.images["album-work-disclosure"].exists, "The system link has a second chevron")
+        snap(app, "05f-album-work")
+        startPlaying(app)
+        pause(app)
+        app.buttons["mini-player-cover"].tap()
+        let overlayWork = app.descendants(matching: .any)["player-overlay"]
+            .buttons.matching(identifier: "album-work").firstMatch
+        XCTAssertTrue(reveal(overlayWork, in: app).isHittable)
+        XCTAssertEqual(overlayWork.images.matching(identifier: "album-work-disclosure").count, 1)
+        snap(app, "05g-album-work-overlay")
+        overlayWork.tap()
+        XCTAssertTrue(app.buttons["favourite-recording"].waitForExistence(timeout: 10))
     }
 
     /// Next has nowhere to go on the last movement of the last item. Next always plays, and a queue that ends

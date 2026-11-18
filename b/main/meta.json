@@ -1,7 +1,7 @@
 {
-  "sha": "7c71d272dbf02249e6d90bf7c91345839b6f13e0",
+  "sha": "71b495d3b50faa052375c0590ab57db743d9ea9a",
   "branch": "main",
   "path": "main",
-  "subject": "[sz-rs30.1.117] Fix the launch crash in 0.14.3 (#95)",
-  "ts": 1795005241
+  "subject": "[sz-rs30.1.117] Release Klassik 0.14.4 (#96)",
+  "ts": 1795006291
 }

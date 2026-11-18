@@ -242,7 +242,10 @@ extension Place {
         } else {
             tab = UITab(title: title, image: UIImage(systemName: symbol), identifier: rawValue) { _ in host }
         }
-        (tab as AnyObject as? UIAccessibilityIdentification)?.accessibilityIdentifier = "tab-\(rawValue)"
+        // UITab declares no accessibility identifier. In a Release build a protocol cast of the tab is a forced
+        // cast that stops the app at launch. A run-time check of the setter is safe in every build.
+        let identifier = #selector(setter: UIAccessibilityIdentification.accessibilityIdentifier)
+        if tab.responds(to: identifier) { tab.perform(identifier, with: "tab-\(rawValue)") }
         return tab
     }
 

@@ -24,6 +24,7 @@ xcodebuild test \
   -project Klassik.xcodeproj -scheme KlassikRelease \
   -destination "platform=iOS Simulator,id=$udid,arch=arm64" \
   -derivedDataPath build/ReleaseData \
+  -only-testing:KlassikUITests/ReleaseLaunchTests \
   -collect-test-diagnostics never \
   -resultBundlePath "$out/release-launch.xcresult" \
   CODE_SIGN_IDENTITY=- COMPILER_INDEX_STORE_ENABLE=NO ENABLE_PREVIEWS=NO \

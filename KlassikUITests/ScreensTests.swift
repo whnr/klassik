@@ -829,6 +829,7 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(notice.waitForExistence(timeout: 10))
         notice.buttons["OK"].tap()
         XCTAssertEqual(mark.value as? String, initial)
+        snap(app, "05g-offline-favourite-back")
         // A send without a tap shows no notice.
         let unsolicited = expectation(for: NSPredicate(format: "exists == true"), evaluatedWith: notice)
         unsolicited.isInverted = true

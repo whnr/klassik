@@ -9,8 +9,36 @@ import Foundation
 /// Listener data belongs to a server and user, even after sign-out (ADR 0013).
 struct DeviceStore {
     struct Data: Codable, Equatable {
+        struct FavouriteChange: Codable, Equatable, Identifiable {
+            var id = UUID()
+            var songs: [String] = []
+            var album: String?
+            var isSet: Bool
+        }
+
         var favouriteWorks: Set<String> = []
         var recordingOrder: [String: [String]] = [:]
+        var trackFavourites: [String: Bool] = [:]
+        var favouriteAlbums: Set<String> = []
+        var pendingFavourites: [FavouriteChange] = []
+
+        enum CodingKeys: String, CodingKey {
+            case favouriteWorks, recordingOrder, favouriteAlbums, pendingFavourites, trackFavourites
+        }
+
+        init(favouriteWorks: Set<String> = [], recordingOrder: [String: [String]] = [:]) {
+            self.favouriteWorks = favouriteWorks
+            self.recordingOrder = recordingOrder
+        }
+
+        init(from decoder: any Decoder) throws {
+            let values = try decoder.container(keyedBy: CodingKeys.self)
+            favouriteWorks = try values.decode(Set<String>.self, forKey: .favouriteWorks)
+            recordingOrder = try values.decode([String: [String]].self, forKey: .recordingOrder)
+            trackFavourites = try values.decodeIfPresent([String: Bool].self, forKey: .trackFavourites) ?? [:]
+            favouriteAlbums = try values.decodeIfPresent(Set<String>.self, forKey: .favouriteAlbums) ?? []
+            pendingFavourites = try values.decodeIfPresent([FavouriteChange].self, forKey: .pendingFavourites) ?? []
+        }
     }
 
     let url: URL

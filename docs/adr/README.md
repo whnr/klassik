@@ -60,3 +60,4 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0046](0046-composers-first-and-shown-performers.md)         | Composers first, and the performers of a shown page next                                               | 2026-11-17 |
 | [0050](0050-partial-works-apart.md)                          | Partial works under their own heading                                                                  | 2026-11-17 |
 | [0051](0051-pictures-and-album-art-in-local-storage.md)      | Pictures and album art in Local Storage                                                                | 2026-11-17 |
+| [0052](0052-favourites-wait-for-server-sync.md) | Favourites wait for server sync | 2026-11-18 |

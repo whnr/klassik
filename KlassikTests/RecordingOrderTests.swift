@@ -12,6 +12,9 @@ actor FavouriteFixture: FavouriteServer {
     var stars = Starred()
     var writes: [[String]] = []
     var failure: (any Error)?
+    var readsSucceed = false
+
+    func refuseWritesOnly() { readsSucceed = true }
 
     static let offline = URLError(.notConnectedToInternet)
     static let refusal = SubsonicError.server(code: 50, message: "The user is not authorised")
@@ -21,7 +24,31 @@ actor FavouriteFixture: FavouriteServer {
         self.failure = failure
     }
 
-    func star(_ ids: [String]) throws {
+    private var pauseNext = false
+    private var paused: CheckedContinuation<Void, Never>?
+    private var observer: CheckedContinuation<Void, Never>?
+
+    func pauseNextWrite() { pauseNext = true }
+
+    func waitForPausedWrite() async {
+        if paused != nil { return }
+        await withCheckedContinuation { observer = $0 }
+    }
+
+    func resumeWrite() {
+        paused?.resume()
+        paused = nil
+    }
+
+    func star(_ ids: [String]) async throws {
+        if pauseNext {
+            pauseNext = false
+            await withCheckedContinuation {
+                paused = $0
+                observer?.resume()
+                observer = nil
+            }
+        }
         if let failure { throw failure }
         writes.append(ids)
     }
@@ -42,7 +69,7 @@ actor FavouriteFixture: FavouriteServer {
     }
 
     func getStarred() throws -> Starred {
-        if let failure { throw failure }
+        if !readsSucceed, let failure { throw failure }
         return stars
     }
 }
@@ -108,7 +135,7 @@ struct RecordingOrderTests {
             Starred(
                 song: Array(songs.prefix(2)), artist: [.init(id: "person-performer", name: "Person performer")],
                 album: [Album(id: "album", name: "album")]))
-        let order = RecordingOrder(library: library, store: store(root), server: server)
+        let order = RecordingOrder(library: library, store: store(root), server: server, monitorConnection: false)
         await order.refresh()
         order.moveFavourites(of: work, from: [1], to: 0)
         let rows = order.rows(of: work)
@@ -129,7 +156,7 @@ struct RecordingOrderTests {
         let work = try #require(library.index.composers.first?.works.first)
         let b = try #require(work.recordings.first { $0.album == "b" })
         let server = FavouriteFixture()
-        let order = RecordingOrder(library: library, store: store(root), server: server)
+        let order = RecordingOrder(library: library, store: store(root), server: server, monitorConnection: false)
         #expect(!order.isFavourite(b, of: work))
         await order.toggle(b, of: work)
         #expect(order.rows(of: work).filter(\.isFavourite).count == 2)
@@ -152,20 +179,20 @@ struct RecordingOrderTests {
         let work = try #require(library.index.composers.first?.works.first)
         let b = try #require(work.recordings.first { $0.album == "b" })
         let server = FavouriteFixture()
-        let order = RecordingOrder(library: library, store: store(root), server: server)
+        let order = RecordingOrder(library: library, store: store(root), server: server, monitorConnection: false)
         #expect(order.rows(of: work).map(\.recording.album) == ["a", "b"])
         let confirm = try #require(order.begin(b, of: work))
         #expect(order.isFavourite(b, of: work))
         #expect(order.rows(of: work).map(\.recording.album) == ["b", "a"])
         #expect(await server.writes.isEmpty)
-        #expect(try store(root).load() == DeviceStore.Data())
+        #expect(try store(root).load().pendingFavourites.count == 1)
         await confirm()
         #expect(await server.writes == [["b-1"]])
         #expect(try store(root).load().recordingOrder[work.id] == [b.id])
         #expect(!order.isSaving)
     }
 
-    @Test func aRefusedFavouriteGoesBackToItsPlace() async throws {
+    @Test func aRefusedFavouriteKeepsItsStateAndPlace() async throws {
         let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
         let library = try await library([song("a", year: 2001), song("b", year: 1990)], root: root)
@@ -173,44 +200,143 @@ struct RecordingOrderTests {
         let b = try #require(work.recordings.first { $0.album == "b" })
         let server = FavouriteFixture()
         await server.configure(Starred(), failure: FavouriteFixture.refusal)
-        let order = RecordingOrder(library: library, store: store(root), server: server)
+        let order = RecordingOrder(library: library, store: store(root), server: server, monitorConnection: false)
         let confirm = try #require(order.begin(b, of: work))
         #expect(order.rows(of: work).first?.recording.album == "b")
         await confirm()
-        #expect(!order.isFavourite(b, of: work))
-        #expect(order.rows(of: work).map(\.recording.album) == ["a", "b"])
+        #expect(order.isFavourite(b, of: work))
+        #expect(order.rows(of: work).map(\.recording.album) == ["b", "a"])
+        #expect(try store(root).load().pendingFavourites.count == 1)
         #expect(order.error != nil)
     }
 
-    @Test func offlineSavesShowOneNoticeUntilTheServerAnswers() async throws {
+    @Test func offlineTapsKeepMarksAndShowOneNoticePerTap() async throws {
         let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
-        let library = try await library([song("a", year: 2001), song("b", year: 1990)], root: root)
+        let library = try await library([song("a"), song("b")], root: root)
         let work = try #require(library.index.composers.first?.works.first)
         let b = try #require(work.recordings.first { $0.album == "b" })
         let server = FavouriteFixture()
         await server.configure(Starred(), failure: FavouriteFixture.offline)
-        let order = RecordingOrder(library: library, store: store(root), server: server)
+        let order = RecordingOrder(library: library, store: store(root), server: server, monitorConnection: false)
+        let notice = "No internet connection. This syncs when you are back online."
         await order.toggle(b, of: work)
-        #expect(!order.isFavourite(b, of: work))
-        #expect(order.rows(of: work).map(\.recording.album) == ["a", "b"])
-        #expect(order.error == FavouriteFixture.offline.localizedDescription)
+        #expect(order.isFavourite(b, of: work))
+        #expect(order.error == notice)
         order.error = nil
         await order.toggle(b, of: work)
-        await order.toggle(album: "a")
         #expect(!order.isFavourite(b, of: work))
-        #expect(!order.isFavourite(album: "a"))
-        #expect(order.error == nil)
+        #expect(order.error == notice)
+        order.error = nil
+        await order.toggle(album: "a")
+        #expect(order.isFavourite(album: "a"))
+        #expect(order.error == notice)
+        order.error = nil
         await order.refresh()
         #expect(order.error == nil)
-        await server.configure(Starred())
-        await order.refresh()
+        #expect(try store(root).load().pendingFavourites.count == 3)
+    }
+
+    @Test func relaunchAndReconnectSendPendingChangesInOrder() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let songs = [song("a"), song("b")]
+        let library = try await library(songs, root: root)
+        let work = try #require(library.index.composers.first?.works.first)
+        let b = try #require(work.recordings.first { $0.album == "b" })
+        let server = FavouriteFixture()
         await server.configure(Starred(), failure: FavouriteFixture.offline)
-        await order.toggle(album: "a")
-        #expect(order.error == FavouriteFixture.offline.localizedDescription)
-        order.error = nil
+        let order = RecordingOrder(library: library, store: store(root), server: server, monitorConnection: false)
         await order.toggle(b, of: work)
+        await order.toggle(b, of: work)
+        await order.toggle(b, of: work)
+        await order.toggle(album: "a")
+        let restored = RecordingOrder(library: library, store: store(root), server: server, monitorConnection: false)
+        #expect(restored.isFavourite(b, of: work))
+        #expect(restored.isFavourite(album: "a"))
+        await server.configure(Starred(song: [songs[1]], album: [Album(id: "a", name: "a")]))
+        await restored.refresh()
+        #expect(await server.writes == [["b-1"], ["-b-1"], ["b-1"], ["album:a"]])
+        #expect(try store(root).load().pendingFavourites.isEmpty)
+        #expect(restored.isFavourite(b, of: work))
+        #expect(restored.isFavourite(album: "a"))
+        #expect(restored.error == nil)
+    }
+
+    @Test func aRefusedQueueSurvivesAContraryServerRefresh() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let library = try await library([song("a")], root: root)
+        let work = try #require(library.index.composers.first?.works.first)
+        let recording = try #require(work.recordings.first)
+        let server = FavouriteFixture()
+        await server.configure(Starred(), failure: FavouriteFixture.refusal)
+        let order = RecordingOrder(library: library, store: store(root), server: server, monitorConnection: false)
+        await order.toggle(recording, of: work)
+        await order.toggle(album: "a")
+        order.error = nil
+        await server.refuseWritesOnly()
+        await order.refresh()
+        #expect(order.isFavourite(recording, of: work))
+        #expect(order.isFavourite(album: "a"))
         #expect(order.error == nil)
+        #expect(try store(root).load().pendingFavourites.count == 2)
+        let restored = RecordingOrder(library: library, store: store(root), server: server, monitorConnection: false)
+        #expect(restored.isFavourite(recording, of: work))
+        #expect(restored.isFavourite(album: "a"))
+    }
+
+    @Test func aTapDuringSyncStaysLocalAndReachesTheServerLast() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let library = try await library([song("a")], root: root)
+        let work = try #require(library.index.composers.first?.works.first)
+        let recording = try #require(work.recordings.first)
+        let server = FavouriteFixture()
+        await server.pauseNextWrite()
+        let order = RecordingOrder(library: library, store: store(root), server: server, monitorConnection: false)
+        let first = try #require(order.begin(recording, of: work))
+        let sending = Task { await first() }
+        await server.waitForPausedWrite()
+        let second = try #require(order.begin(recording, of: work))
+        #expect(!order.isFavourite(recording, of: work))
+        #expect(try store(root).load().pendingFavourites.map(\.isSet) == [true, false])
+        await server.resumeWrite()
+        await sending.value
+        await second()
+        #expect(await server.writes == [["a-1"], ["-a-1"]])
+        #expect(!order.isFavourite(recording, of: work))
+        #expect(try store(root).load().pendingFavourites.isEmpty)
+    }
+
+    @Test func localStarsSurviveRelaunchWithAnOlderLibraryCache() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let songs = [song("a")]
+        let library = try await library(songs, root: root)
+        let work = try #require(library.index.composers.first?.works.first)
+        let recording = try #require(work.recordings.first)
+        let server = FavouriteFixture()
+        let order = RecordingOrder(library: library, store: store(root), server: server, monitorConnection: false)
+        await order.toggle(recording, of: work)
+        await library.cacheWrite?.value
+        let oldLibrary = try await self.library(songs, root: root)
+        let restored = RecordingOrder(library: oldLibrary, store: store(root), server: server, monitorConnection: false)
+        #expect(restored.isFavourite(recording, of: work))
+        #expect(try store(root).load().pendingFavourites.isEmpty)
+        await server.configure(Starred(), failure: FavouriteFixture.offline)
+        await restored.toggle(recording, of: work)
+        let again = RecordingOrder(library: oldLibrary, store: store(root), server: server, monitorConnection: false)
+        #expect(!again.isFavourite(recording, of: work))
+        #expect(try store(root).load().pendingFavourites.map(\.isSet) == [false])
+    }
+
+    @Test func deviceDataFromBeforeTheQueueStillLoads() throws {
+        let bytes = Data(#"{"favouriteWorks":["work"],"recordingOrder":{"work":["recording"]}}"#.utf8)
+        let data = try JSONDecoder().decode(DeviceStore.Data.self, from: bytes)
+        #expect(data.favouriteWorks == ["work"])
+        #expect(data.recordingOrder == ["work": ["recording"]])
+        #expect(data.pendingFavourites.isEmpty)
     }
 
     /// A work favourite or a new order made while the server call runs stays, on the device too.
@@ -224,7 +350,7 @@ struct RecordingOrderTests {
         let b = try #require(work.recordings.first { $0.album == "b" })
         let c = try #require(work.recordings.first { $0.album == "c" })
         let server = FavouriteFixture()
-        let order = RecordingOrder(library: library, store: store(root), server: server)
+        let order = RecordingOrder(library: library, store: store(root), server: server, monitorConnection: false)
 
         let confirm = try #require(order.begin(b, of: work))
         order.toggle(work)
@@ -241,10 +367,10 @@ struct RecordingOrderTests {
         order.moveFavourites(of: work, from: [0], to: 2)
         await refused()
         #expect(!order.isFavourite(work))
-        #expect(!order.isFavourite(c, of: work))
+        #expect(order.isFavourite(c, of: work))
         #expect(order.rows(of: work).map(\.recording.album) == ["a", "b", "c"])
         #expect(try store(root).load().favouriteWorks.isEmpty)
-        #expect(try store(root).load().recordingOrder[work.id] == [a.id, b.id])
+        #expect(try store(root).load().recordingOrder[work.id] == [a.id, b.id, c.id])
     }
 
     /// An album favourite is a star on the album, not on its tracks, and it raises its recordings (ADR 0013).
@@ -254,7 +380,7 @@ struct RecordingOrderTests {
         let library = try await library([song("a", year: 2001), song("b", year: 1990)], root: root)
         let work = try #require(library.index.composers.first?.works.first)
         let server = FavouriteFixture()
-        let order = RecordingOrder(library: library, store: store(root), server: server)
+        let order = RecordingOrder(library: library, store: store(root), server: server, monitorConnection: false)
         let confirm = try #require(order.begin(album: "b"))
         #expect(order.isFavourite(album: "b"))
         #expect(order.rows(of: work).first?.reason == "Favourite album: b")
@@ -266,16 +392,16 @@ struct RecordingOrderTests {
         #expect(await server.writes == [["album:b"], ["-album:b"]])
     }
 
-    @Test func aRefusedAlbumFavouriteIsTakenBack() async throws {
+    @Test func aRefusedAlbumFavouriteStaysOnTheDevice() async throws {
         let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
         let library = try await library([song("a")], root: root)
         let server = FavouriteFixture()
         await server.configure(Starred(), failure: FavouriteFixture.offline)
-        let order = RecordingOrder(library: library, store: store(root), server: server)
+        let order = RecordingOrder(library: library, store: store(root), server: server, monitorConnection: false)
         await order.toggle(album: "a")
-        #expect(!order.isFavourite(album: "a"))
-        #expect(order.error == FavouriteFixture.offline.localizedDescription)
+        #expect(order.isFavourite(album: "a"))
+        #expect(order.error == "No internet connection. This syncs when you are back online.")
         order.error = nil
         await server.configure(Starred(), failure: FavouriteFixture.refusal)
         await order.toggle(album: "a")
@@ -295,12 +421,12 @@ struct RecordingOrderTests {
         let library = try await library([song("a")], root: root)
         let work = try #require(library.index.composers.first?.works.first)
         let server = FavouriteFixture()
-        let order = RecordingOrder(library: library, store: store(root), server: server)
+        let order = RecordingOrder(library: library, store: store(root), server: server, monitorConnection: false)
         order.toggle(work)
         #expect(order.favouriteCount == 1)
         #expect(order.favouriteWorks.map(\.id) == [work.id])
         library.clear()
-        let reconnected = RecordingOrder(library: library, store: store(root), server: server)
+        let reconnected = RecordingOrder(library: library, store: store(root), server: server, monitorConnection: false)
         #expect(reconnected.isFavourite(work))
         #expect(await server.writes.isEmpty)
         reconnected.toggle(work)
@@ -314,7 +440,7 @@ struct RecordingOrderTests {
         let library = try await library(songs, root: root)
         let work = try #require(library.index.composers.first?.works.first)
         let server = FavouriteFixture()
-        let order = RecordingOrder(library: library, store: store(root), server: server)
+        let order = RecordingOrder(library: library, store: store(root), server: server, monitorConnection: false)
         order.moveFavourites(of: work, from: [1], to: 0)
         await server.configure(Starred(song: [songs[1]]))
         await order.refresh()
@@ -354,7 +480,7 @@ struct RecordingOrderTests {
         let server = FavouriteFixture()
         await server.configure(
             Starred(artist: [.init(id: "composer", name: "Composer"), .init(id: "producer", name: "Producer")]))
-        let order = RecordingOrder(library: library, server: server)
+        let order = RecordingOrder(library: library, server: server, monitorConnection: false)
         await order.refresh()
         #expect(order.reference(of: work)?.album == "new")
         #expect(order.rows(of: work).allSatisfy { $0.reason == nil })
@@ -384,7 +510,7 @@ struct RecordingOrderTests {
         let work = try #require(library.index.composers.first?.works.first)
         let recording = try #require(work.recordings.first)
         let server = FavouriteFixture()
-        let order = RecordingOrder(library: library, store: store, server: server)
+        let order = RecordingOrder(library: library, store: store, server: server, monitorConnection: false)
         #expect(order.loadError != nil)
         #expect(order.error == nil)
         await order.refresh()
@@ -401,7 +527,7 @@ struct RecordingOrderTests {
     func refreshFailureDoesNotReportASaveFailure(_ failure: any Error) async {
         let server = FavouriteFixture()
         await server.configure(Starred(), failure: failure)
-        let order = RecordingOrder(library: Library(), server: server)
+        let order = RecordingOrder(library: Library(), server: server, monitorConnection: false)
         await order.refresh()
         #expect(order.error == nil)
         #expect(order.refreshError == failure.localizedDescription)
@@ -449,11 +575,11 @@ struct RecordingOrderTests {
         let recording = try #require(work.recordings.first)
         let server = FavouriteFixture()
         await server.configure(Starred(), failure: FavouriteFixture.refusal)
-        let order = RecordingOrder(library: library, store: store(root), server: server)
+        let order = RecordingOrder(library: library, store: store(root), server: server, monitorConnection: false)
         await order.toggle(recording, of: work)
         #expect(order.error != nil)
-        #expect(!order.isFavourite(recording, of: work))
+        #expect(order.isFavourite(recording, of: work))
         #expect(!order.isSaving)
-        #expect(try store(root).load() == DeviceStore.Data())
+        #expect(try store(root).load().pendingFavourites.count == 1)
     }
 }

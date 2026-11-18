@@ -2,6 +2,37 @@ import XCTest
 
 @testable import Klassik
 
+private actor FavouriteConnectionFixture: FavouriteServer {
+    let client: SubsonicClient
+    private var offline = true
+
+    init(client: SubsonicClient) { self.client = client }
+    func reconnect() { offline = false }
+    private func check() throws {
+        if offline { throw URLError(.notConnectedToInternet) }
+    }
+    func star(_ ids: [String]) async throws {
+        try check()
+        try await client.star(ids)
+    }
+    func unstar(_ ids: [String]) async throws {
+        try check()
+        try await client.unstar(ids)
+    }
+    func starAlbum(_ id: String) async throws {
+        try check()
+        try await client.starAlbum(id)
+    }
+    func unstarAlbum(_ id: String) async throws {
+        try check()
+        try await client.unstarAlbum(id)
+    }
+    func getStarred() async throws -> Starred {
+        try check()
+        return try await client.getStarred()
+    }
+}
+
 /// Syncs the fixture library from Navidrome. The screens workflow runs it against the fixture server.
 final class LibrarySyncTests: XCTestCase {
     @MainActor
@@ -69,6 +100,27 @@ final class LibrarySyncTests: XCTestCase {
         XCTAssertTrue(Set(stars.song?.map(\.id) ?? []).isSuperset(of: ids))
         try await client.unstar(ids)
 
+        let connection = FavouriteConnectionFixture(client: client)
+        let listenerFolder = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: listenerFolder) }
+        let store = DeviceStore(server: url, username: "fixture", folder: listenerFolder)
+        let order = RecordingOrder(library: library, store: store, server: connection, monitorConnection: false)
+        library.setStarred(Set(ids), false)
+        await order.toggle(reference, of: fifth)
+        XCTAssertTrue(order.isFavourite(reference, of: fifth))
+        XCTAssertEqual(try store.load().pendingFavourites.count, 1)
+        order.error = nil
+        await connection.reconnect()
+        await order.refresh()
+        XCTAssertNil(order.error)
+        XCTAssertTrue(try store.load().pendingFavourites.isEmpty)
+        let syncedStars = try await client.getStarred()
+        XCTAssertTrue(Set(syncedStars.song?.map(\.id) ?? []).isSuperset(of: ids))
+        await order.toggle(reference, of: fifth)
+        let clearedStars = try await client.getStarred()
+        XCTAssertTrue(Set(clearedStars.song?.map(\.id) ?? []).isDisjoint(with: ids))
+
+        await library.cacheWrite?.value
         let reloaded = Library(cacheURL: cache, defaults: defaults)
         await reloaded.load(for: client.credentials)
         XCTAssertEqual(reloaded.songs.count, 31)

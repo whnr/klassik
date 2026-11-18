@@ -806,6 +806,33 @@ final class PlaybackScreens: ScreensTestCase {
         snap(app, "08d-next-player")
     }
 
+    @MainActor
+    func testOfflineFavouriteKeepsTheMarkAndExplainsEachTap() throws {
+        let app = try launchAndConnect(arguments: ["-offlineFavourites"])
+        composer(app, "Ludwig van Beethoven").tap()
+        app.buttons.matching(identifier: "work").firstMatch.tap()
+        app.buttons.matching(identifier: "recording").firstMatch.tap()
+        let mark = app.buttons["favourite-recording"]
+        XCTAssertTrue(mark.waitForExistence(timeout: 10))
+        let initial = mark.value as? String
+        let changed = initial == "Favourite" ? "Not a favourite" : "Favourite"
+        let notice = app.alerts["Favourite"]
+        mark.tap()
+        XCTAssertTrue(notice.waitForExistence(timeout: 10))
+        XCTAssertTrue(notice.staticTexts["No internet connection. This syncs when you are back online."].exists)
+        snap(app, "05e-offline-favourite-notice")
+        notice.buttons["OK"].tap()
+        XCTAssertEqual(mark.value as? String, changed)
+        snap(app, "05f-offline-favourite-kept")
+        mark.tap()
+        XCTAssertTrue(notice.waitForExistence(timeout: 10))
+        notice.buttons["OK"].tap()
+        XCTAssertEqual(mark.value as? String, initial)
+        let unsolicited = expectation(for: NSPredicate(format: "exists == true"), evaluatedWith: notice)
+        unsolicited.isInverted = true
+        wait(for: [unsolicited], timeout: 2)
+    }
+
     /// A swipe favourite moves ahead of a newer recording before the listener plays the work.
     @MainActor
     func testFavouriteRecordingOrder() throws {

@@ -161,7 +161,13 @@ final class AppModel {
         let deviceStore = credentials.map { DeviceStore(server: $0.url, username: $0.username) }
         // Each UI walk must start with the same local favourites and order.
         if ProcessInfo.processInfo.arguments.contains("-resetServer") { try? deviceStore?.delete() }
-        recordingOrder = RecordingOrder(library: library, store: deviceStore, server: client)
+        var favouriteServer: (any FavouriteServer)? = client
+        #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("-offlineFavourites"), let client {
+                favouriteServer = OfflineFavouriteServer(client: client)
+            }
+        #endif
+        recordingOrder = RecordingOrder(library: library, store: deviceStore, server: favouriteServer)
     }
 
     private func record(_ error: Error) {

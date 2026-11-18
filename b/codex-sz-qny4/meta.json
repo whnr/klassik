@@ -1,7 +1,7 @@
 {
-  "sha": "54d61707507cb94c31f4deb2f47533cb41470c37",
+  "sha": "f1a3ab74ab399086588801b2ecbb5c766b1af86b",
   "branch": "codex-sz-qny4",
   "path": "codex-sz-qny4",
-  "subject": "[sz-qny4] Cut CI startup and walk time",
-  "ts": 1795009314
+  "subject": "[sz-qny4] Exercise both playback shards",
+  "ts": 1795010461
 }

@@ -619,15 +619,24 @@ final class PlaybackScreens: ScreensTestCase {
         let first = app.buttons.matching(identifier: "recording").firstMatch
         XCTAssertTrue(first.waitForExistence(timeout: 10))
         let before = first.frame
+        let heading = app.buttons["favourite-work"]
+        let headingBefore = heading.frame
+        let playBefore = play.frame
         play.tap()
         // While a recording of the work plays, the pill pauses it (sz-swi9.4).
         XCTAssertTrue(eventually(timeout: 15) { play.label == "Pause" }, "The pill reads \(play.label) while it plays")
+        for (element, original) in [(heading, headingBefore), (play, playBefore), (first, before)] {
+            XCTAssertEqual(element.frame.minX - original.minX, -Measure.timeline / 2, accuracy: 1)
+            XCTAssertEqual(element.frame.width, original.width, accuracy: 1)
+            XCTAssertEqual(element.frame.height, original.height, accuracy: 1)
+        }
         snap(app, "04c-work-playing")
         play.tap()
         XCTAssertTrue(eventually(timeout: 10) { play.label == "Resume" }, "The pill reads \(play.label) after a pause")
         XCTAssertEqual(app.buttons["mini-player-pause"].label, "Resume", "The pill did not pause the playback")
         // The playing row tints in place. The timeline moves the content sideways only; it keeps its size and height.
-        XCTAssertEqual(first.frame.size, before.size, "The playing row changed its size")
+        XCTAssertEqual(first.frame.width, before.width, accuracy: 1, "The playing row changed its width")
+        XCTAssertEqual(first.frame.height, before.height, accuracy: 1, "The playing row changed its height")
         XCTAssertEqual(first.frame.minY, before.minY, accuracy: 0.5, "The playing row moved up or down")
         snap(app, "04d-work-playing")
     }
@@ -650,11 +659,6 @@ final class PlaybackScreens: ScreensTestCase {
             XCTAssertEqual(still.minX, app.frame.minX + Layout.centredEdge, accuracy: 1)
             XCTAssertEqual(still.maxX, app.frame.maxX - Layout.centredEdge, accuracy: 1)
             expectCapsuleLabelCentered(still, in: app)
-            if side == "right" {
-                snap(app, "04e-work-play-right")
-            } else {
-                snap(app, "04f-work-play-left")
-            }
             play.tap()
             XCTAssertTrue(app.descendants(matching: .any)["timeline"].waitForExistence(timeout: 10))
             XCTAssertTrue(eventually(timeout: 15) { play.label == "Pause" }, "Play reads \(play.label) while it plays")
@@ -665,6 +669,11 @@ final class PlaybackScreens: ScreensTestCase {
             XCTAssertEqual(frame.maxX, app.frame.maxX - trailing, accuracy: 1)
             XCTAssertEqual(frame.midX, app.frame.midX + (leading - trailing) / 2, accuracy: 1)
             XCTAssertEqual(frame.width, still.width, accuracy: 1, "The content width changed with the timeline")
+            if side == "right" {
+                snap(app, "04e-work-play-right")
+            } else {
+                snap(app, "04f-work-play-left")
+            }
             app.terminate()
         }
     }

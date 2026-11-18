@@ -133,6 +133,7 @@ struct PageList<Content: View>: View {
         .environment(\.defaultMinListHeaderHeight, 0)
         .environment(\.isPageList, true)
         .scrollContentBackground(.hidden)
+        .pageContentPosition()
         .background(Palette.backgroundPage)
     }
 }
@@ -212,9 +213,6 @@ struct SectionHeading: View {
 
 /// The heading scrolls as content, so UIKit cannot collapse it before it crosses the soft edge.
 private struct PageHeading: View {
-    @AppStorage(TimelineSide.storageKey) private var side = TimelineSide.standard
-    @Environment(AppModel.self) private var model: AppModel?
-    private var timeline: Bool { model?.showsTimeline == true }
     @Environment(\.pageHeadingBottom) private var bottom
     let title: String
     @Environment(\.pageFavourite) private var favourite
@@ -240,7 +238,8 @@ private struct PageHeading: View {
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
             .listRowInsets(
-                plain ? Layout.edges(side: side, timeline: timeline, top: Layout.headTop, bottom: bottom) : nil)
+                plain ? Layout.edges(side: .standard, timeline: false, top: Layout.headTop, bottom: bottom) : nil
+            )
         }
     }
 }
@@ -268,9 +267,23 @@ extension EnvironmentValues {
     @Entry var pageHeadingBottom = Layout.headBottom
     /// True inside `PageList`. A grouped list keeps the system insets of its headers.
     @Entry var isPageList = false
+    /// A parent moves this page as one unit, so nested padding keeps its centred width.
+    @Entry var pageContentPositioned = false
 }
 
 extension Layout {
+    /// Stable insets avoid independent UIKit row updates when playback starts or ends.
+    static func contentShift(side: TimelineSide, timeline: Bool) -> CGFloat {
+        let insets = sideInsets(timelineOnLeft: timeline ? side == .left : nil)
+        return (insets.left - insets.right) / 2
+    }
+
+    /// The list transform also moves its indicator; this inset keeps it beside the timeline.
+    static func shiftedIndicatorInset(side: TimelineSide, timeline: Bool) -> CGFloat {
+        let beside = timeline && side == .right ? Measure.timeline : 0
+        return beside + contentShift(side: side, timeline: timeline)
+    }
+
     /// The page insets for a timeline on `side`, or for no timeline. Each content page uses them.
     /// Settings and sheets keep the system insets.
     static func edges(side: TimelineSide, timeline: Bool, top: CGFloat = 0, bottom: CGFloat = 0) -> EdgeInsets {
@@ -279,18 +292,15 @@ extension Layout {
     }
 }
 
-/// Sets the specimen page insets on a list row, for the timeline side that the listener chose.
+/// Keeps list row insets fixed. The page transform accounts for the timeline side.
 /// The hairline spans the content, from the leading to the trailing page edge, as in the specimen.
 private struct PageEdges: ViewModifier {
-    @AppStorage(TimelineSide.storageKey) private var side = TimelineSide.standard
-    @Environment(AppModel.self) private var model: AppModel?
-    private var timeline: Bool { model?.showsTimeline == true }
     let top: CGFloat
     let bottom: CGFloat
 
     func body(content: Content) -> some View {
         content
-            .listRowInsets(Layout.edges(side: side, timeline: timeline, top: top, bottom: bottom))
+            .listRowInsets(Layout.edges(side: .standard, timeline: false, top: top, bottom: bottom))
             .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
             .alignmentGuide(.listRowSeparatorTrailing) { $0.width }
     }
@@ -300,7 +310,8 @@ private struct PageEdges: ViewModifier {
 private struct PagePadding: ViewModifier {
     @AppStorage(TimelineSide.storageKey) private var side = TimelineSide.standard
     @Environment(AppModel.self) private var model: AppModel?
-    private var timeline: Bool { model?.showsTimeline == true }
+    @Environment(\.pageContentPositioned) private var positioned
+    private var timeline: Bool { !positioned && model?.showsTimeline == true }
 
     func body(content: Content) -> some View {
         let insets = Layout.edges(side: side, timeline: timeline)
@@ -310,7 +321,28 @@ private struct PagePadding: ViewModifier {
     }
 }
 
+/// Moves the whole list with one transform. UIKit keeps every row's layout and text width unchanged.
+private struct PageContentPosition: ViewModifier {
+    @AppStorage(TimelineSide.storageKey) private var side = TimelineSide.standard
+    @Environment(AppModel.self) private var model: AppModel?
+
+    func body(content: Content) -> some View {
+        let timeline = model?.showsTimeline == true
+        content
+            .environment(\.pageContentPositioned, true)
+            .contentMargins(
+                .trailing, Layout.shiftedIndicatorInset(side: side, timeline: timeline), for: .scrollIndicators
+            )
+            .scrollClipDisabled()
+            .offset(x: Layout.contentShift(side: side, timeline: timeline))
+    }
+}
+
 extension View {
+    func pageContentPosition() -> some View {
+        modifier(PageContentPosition())
+    }
+
     /// The row insets of a content page.
     func pageEdges(top: CGFloat = 0, bottom: CGFloat = 0) -> some View {
         modifier(PageEdges(top: top, bottom: bottom))

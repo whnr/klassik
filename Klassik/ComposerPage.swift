@@ -30,6 +30,7 @@ struct ComposerPage: View {
             .environment(\.defaultMinListHeaderHeight, 0)
             .environment(\.isPageList, true)
             .scrollContentBackground(.hidden)
+            .pageContentPosition()
             .background(Palette.backgroundPage)
             .ignoresSafeArea(.container, edges: .top)
         }
@@ -357,6 +358,9 @@ struct PersonHero: View {
                     .padding(.bottom, Layout.personHeadBottom + (spacesChronology ? Layout.buttonRowTop : 0))
             }
         }
+        // The list moves as one unit; the full-width portrait stays fixed behind the moving name.
+        .offset(x: -Layout.contentShift(side: side, timeline: model.showsTimeline))
+        .environment(\.pageContentPositioned, false)
         .modifier(load)
     }
 
@@ -482,7 +486,7 @@ struct PersonHero: View {
                         LinearGradient(
                             stops: [
                                 .init(color: .clear, location: 1 - blurTop),
-                                .init(color: .black, location: 1 - under),
+                                .init(color: .black, location: 1 - geometry.blurUnder),
                             ], startPoint: .top, endPoint: .bottom)
                     )
                     .mask(sideMask(geometry))

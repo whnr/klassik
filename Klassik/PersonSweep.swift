@@ -50,10 +50,12 @@ final class PersonSweep {
     private let sleep: @Sendable (Duration) async -> Void
     private let jitter: @Sendable () -> Double
     /// Keeps a found picture on the device, given the picture that the person had before the lookup.
-    private let keepPicture: @MainActor @Sendable (PersonPortrait, PersonPortrait?) async -> Void
+    private let keepPicture: @MainActor @Sendable (PersonPortrait, PersonPortrait?) async -> Bool
+    private let hasPicture: @MainActor @Sendable (PersonPortrait) async -> Bool
     private var task: Task<Void, Never>?
     /// Picture downloads run one after the other beside the lookup, so that they never slow it down.
     @ObservationIgnored private var pictureWork: Task<Void, Never>?
+    @ObservationIgnored private var pictureID = UUID()
     /// Performers that a page shows and that have no saved check, the latest page first (ADR 0046).
     @ObservationIgnored private(set) var shown: [Person] = []
 
@@ -64,7 +66,8 @@ final class PersonSweep {
         jitter: @escaping @Sendable () -> Double = {
             Double.random(in: -PersonSweep.jitterDays...PersonSweep.jitterDays)
         },
-        pictures: @escaping @MainActor @Sendable (PersonPortrait, PersonPortrait?) async -> Void = { _, _ in }
+        pictures: @escaping @MainActor @Sendable (PersonPortrait, PersonPortrait?) async -> Bool = { _, _ in true },
+        hasPicture: @escaping @MainActor @Sendable (PersonPortrait) async -> Bool = { _ in true }
     ) {
         self.store = store
         self.isConnectionGood = isConnectionGood
@@ -72,6 +75,7 @@ final class PersonSweep {
         self.sleep = sleep
         self.jitter = jitter
         keepPicture = pictures
+        self.hasPicture = hasPicture
     }
 
     // MARK: Plan
@@ -159,6 +163,8 @@ final class PersonSweep {
     /// Stops the pass. The persons that it settled stay settled.
     func stop() {
         task?.cancel()
+        pictureWork?.cancel()
+        pictureID = UUID()
         task = nil
         if case .running = state { state = .idle }
     }
@@ -166,6 +172,15 @@ final class PersonSweep {
     /// Runs a pass to its end, and returns when it ends or is stopped.
     /// A failed person goes to the end of the queue, so that it does not hold up the others (ADR 0044).
     func run(_ people: [Person]) async {
+        for person in people {
+            guard !Task.isCancelled else { return }
+            if store.cache.picturePending[person.key] == nil, let found = portrait(of: person),
+                !(await hasPicture(found))
+            {
+                store.queuePicture(person.key, portrait: found, old: nil)
+            }
+            if let work = store.cache.picturePending[person.key] { queuePicture(person.key, work: work) }
+        }
         let found = plan(people)
         let jobs = order(people)
         let newOnes = Set(found.new)
@@ -272,7 +287,10 @@ final class PersonSweep {
         }
         if ok { store.markChecked(person.key, at: now(), due: dueDate(of: person)) }
         // Each lookup fetches the picture, so a page never waits for it and a changed one replaces the old (ADR 0059).
-        if ok, let found = portrait(of: person) { queuePicture(found, replacing: before) }
+        if ok, let found = portrait(of: person) {
+            store.queuePicture(person.key, portrait: found, old: before)
+            if let work = store.cache.picturePending[person.key] { queuePicture(person.key, work: work) }
+        }
         return ok
     }
 
@@ -281,12 +299,17 @@ final class PersonSweep {
         return qid.flatMap { store.cache.people[$0]?.portrait }
     }
 
-    private func queuePicture(_ portrait: PersonPortrait, replacing old: PersonPortrait?) {
+    private func queuePicture(_ key: String, work: PersonFactsStore.PictureWork) {
         let previous = pictureWork
         let keep = keepPicture
+        let id = pictureID
         pictureWork = Task {
             await previous?.value
-            await keep(portrait, old)
+            await store.saved()
+            guard !Task.isCancelled, pictureID == id, isConnectionGood() else { return }
+            if await keep(work.portrait, work.old), !Task.isCancelled, pictureID == id {
+                store.finishPicture(key, work: work)
+            }
         }
     }
 

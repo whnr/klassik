@@ -164,9 +164,17 @@ struct ImageStoreTests {
         #expect(await store.data(for: first.url.absoluteString) == red)
         #expect(server.requests.allSatisfy { !$0.allowsConstrainedNetworkAccess })
 
+        let identity = PersonHero.PortraitTask(portrait: first, screen: screen, revision: store.revision)
+        let read = PortraitLoader.stored({ _ in throw URLError(.notConnectedToInternet) }, in: { store })
+        let shown = try #require(await PortraitLoader.load(first, screen: screen, fetch: read, store: store))
+
         server.answer = (blue, 200)
         #expect(await PortraitLoader.keep(first, replacing: first, screen: screen, store: store, fetch: fetch))
         #expect(await store.data(for: first.url.absoluteString) == blue)
+        let replacement = PersonHero.PortraitTask(portrait: first, screen: screen, revision: store.revision)
+        #expect(identity != replacement)
+        let refreshed = try #require(await PortraitLoader.load(first, screen: screen, fetch: read, store: store))
+        #expect(shown.image.pngData() != refreshed.image.pngData())
         server.answer = (Data(), 500)
         #expect(!(await PortraitLoader.keep(first, replacing: first, screen: screen, store: store, fetch: fetch)))
         #expect(await store.data(for: first.url.absoluteString) == blue)

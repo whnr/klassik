@@ -387,7 +387,8 @@ struct PersonHero: View {
 
     private var load: PortraitLoad {
         PortraitLoad(
-            task: PortraitTask(portrait: facts?.portrait, screen: screen), facts: facts,
+            task: PortraitTask(portrait: facts?.portrait, screen: screen, revision: ImageStore.pictures.revision),
+            facts: facts,
             portrait: $portrait, showsPicture: $showsPicture)
     }
 
@@ -424,9 +425,10 @@ struct PersonHero: View {
         PortraitSize.Screen(hero: frame, scale: displayScale)
     }
 
-    fileprivate struct PortraitTask: Equatable {
+    struct PortraitTask: Equatable {
         var portrait: PersonPortrait?
         var screen: PortraitSize.Screen
+        var revision: Int
     }
 
     /// Loads the picture and presents it whole. Both branches of the hero carry it, so a load survives the switch.
@@ -444,7 +446,9 @@ struct PersonHero: View {
                         return
                     }
                     // A shown picture stays until its replacement loads.
-                    if let result = await PortraitLoader.load(file, screen: task.screen) { portrait = result }
+                    if let result = await PortraitLoader.load(file, screen: task.screen), !Task.isCancelled {
+                        portrait = result
+                    }
                 }
                 .fullScreenCover(isPresented: $showsPicture) {
                     if let portrait {

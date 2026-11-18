@@ -90,7 +90,7 @@ struct MiniPlayer: View {
         Button {
             navigator.openPlayer()
         } label: {
-            CoverImage(song: item.recording.songs.first, points: itemSize, playback: true)
+            CoverImage(song: model.playback.coverSong, points: itemSize, playback: true)
                 .frame(width: itemSize, height: itemSize)
                 .clipShape(.rect(cornerRadius: Layout.pillCoverCorner))
                 .padding(.vertical, max(0, (height - itemSize) / 2))
@@ -136,7 +136,7 @@ struct CoverImage: View {
                 slot: $0.id, candidates: covers.candidates(for: $0), arrival: covers.arrival(for: $0), pixels: pixels)
         }
         let cached = load?.candidates.first.flatMap { model.covers.image(hash: $0, pixels: pixels) }
-        let visible = cached ?? (shown?.slot == song?.id ? shown?.image : nil)
+        let visible = cached ?? ((playback || shown?.slot == song?.id) ? shown?.image : nil)
         // The image sits in an overlay, so a cover of any shape fills the slot and never sizes it.
         Rectangle()
             .fill(Palette.fillQuiet)

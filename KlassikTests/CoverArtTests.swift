@@ -457,4 +457,152 @@ struct CoverArtTests {
         cache.clear()
         #expect(cache.image(hash: "a", pixels: 160) == nil)
     }
+    @Test func aLargeQueueKeepsPriorityAfterManyPops() {
+        var queue = CoverQueue()
+        let keys = (0..<20_000).map(String.init)
+        queue.append(keys)
+        for key in keys.prefix(10_000) { #expect(queue.pop()?.key == key) }
+        queue.front(["15000", "10001"], reason: .playback)
+        queue.front(["10001"], reason: .page)
+        #expect(queue.pop()?.reason == .playback)
+        #expect(queue.pop()?.key == "15000")
+        let expected = keys.dropFirst(10_000).filter { $0 != "15000" && $0 != "10001" }
+        for key in expected { #expect(queue.pop()?.key == key) }
+        #expect(queue.isEmpty)
+        queue.append(["again"])
+        #expect(queue.pop()?.key == "again")
+    }
+
+    @Test func anIdlePassFetchesAlbumsAdmittedByTheFilter() async throws {
+        let songs = [Self.song("1", album: "a", cover: "a"), Self.song("2", album: "b", cover: "b")]
+        server.covers = ["a": try Self.png(), "b": try Self.png(.blue)]
+        let covers = makeCovers(try makeStore(), songs: songs, classical: [songs[0]])
+        await covers.idle()
+        #expect(server.ids == ["a"])
+        covers.plan(classical: songs, library: songs)
+        await covers.idle()
+        #expect(server.ids == ["a", "b"])
+        #expect(!covers.candidates(for: songs[1]).isEmpty)
+    }
+
+    @Test func excludedEmbeddedArtStaysOutAndArtWithoutAServerIDStillWorks() async throws {
+        let songs = [Self.song("1", album: "a", cover: nil), Self.song("2", album: "b", cover: nil)]
+        let store = try makeStore()
+        let covers = makeCovers(store, songs: songs, classical: [songs[0]])
+        let art = try Self.png(.green)
+        let audio = try flac(with: art)
+        covers.inspect(songs[1], file: audio)
+        await covers.idle()
+        #expect(covers.links.tracks.isEmpty)
+        #expect(!store.contains(named: ImageStore.contentName(art)))
+        covers.inspect(songs[0], file: audio)
+        await covers.idle()
+        #expect(covers.candidates(for: songs[0]) == [ImageStore.contentName(art)])
+        covers.plan(classical: [songs[1]], library: songs)
+        #expect(covers.candidates(for: songs[0]).isEmpty)
+    }
+
+    @Test func aFailedAdoptionKeepsTheLegacyFileAndRetries() async throws {
+        let songs = [Self.song("1", album: "a", cover: "a")]
+        let art = try Self.png()
+        let store = try makeStore()
+        await store.loaded()
+        let legacy = CoverArt.storeKey(album: "a", credentials: credentials)
+        await store.store(art, for: legacy)
+        let blocked = root.appending(path: "art/" + ImageStore.contentName(art))
+        try FileManager.default.createDirectory(at: blocked, withIntermediateDirectories: true)
+        server.isDown = true
+        let covers = makeCovers(store, songs: songs)
+        await covers.idle()
+        #expect(store.contains(legacy))
+        #expect(await store.data(for: legacy) == art)
+        #expect(covers.candidates(for: songs[0]) == [ImageStore.name(legacy)])
+        try FileManager.default.removeItem(at: blocked)
+        covers.keepAll()
+        await covers.idle()
+        #expect(covers.candidates(for: songs[0]) == [ImageStore.contentName(art)])
+        #expect(!store.contains(legacy))
+    }
+
+    @Test func aFailedAdoptionLinkCommitKeepsTheLegacyFile() async throws {
+        let songs = [Self.song("1", album: "a", cover: "a")]
+        let art = try Self.png()
+        let store = try makeStore()
+        await store.loaded()
+        let legacy = CoverArt.storeKey(album: "a", credentials: credentials)
+        await store.store(art, for: legacy)
+        let file = root.appending(path: "links/" + ImageStore.name(CoverArt.account(credentials)) + ".json")
+        try FileManager.default.createDirectory(at: file, withIntermediateDirectories: true)
+        server.isDown = true
+        let covers = makeCovers(store, songs: songs)
+        await covers.idle()
+        #expect(await store.data(for: legacy) == art)
+        #expect(store.contains(named: ImageStore.contentName(art)))
+        try FileManager.default.removeItem(at: file)
+        covers.keepAll()
+        await covers.idle()
+        #expect(!store.contains(legacy))
+        #expect(makeCovers(store, songs: songs).links.discs.values.first?.hash == ImageStore.contentName(art))
+    }
+
+    @Test func aFailedEmbeddedLinkCommitKeepsTheCommittedDisc() async throws {
+        let songs = [Self.song("1", album: "a", cover: "a")]
+        let red = try Self.png()
+        let green = try Self.png(.green)
+        server.covers = ["a": red]
+        let store = try makeStore()
+        let covers = makeCovers(store, songs: songs)
+        await covers.idle()
+        let file = root.appending(path: "links/" + ImageStore.name(CoverArt.account(credentials)) + ".json")
+        let saved = try Data(contentsOf: file)
+        try FileManager.default.removeItem(at: file)
+        try FileManager.default.createDirectory(at: file, withIntermediateDirectories: true)
+        covers.inspect(songs[0], file: try flac(with: green))
+        await covers.idle()
+        #expect(store.contains(named: ImageStore.contentName(red)))
+        try FileManager.default.removeItem(at: file)
+        try saved.write(to: file)
+        let restored = AlbumCovers(store: store, folder: root.appending(path: "links"))
+        restored.attach(credentials)
+        #expect(restored.links.tracks.isEmpty)
+        #expect(restored.links.discs.values.first?.hash == ImageStore.contentName(red))
+        covers.keepAll()
+        await covers.idle()
+        #expect(makeCovers(store, songs: songs).links.tracks[songs[0].id] == ImageStore.contentName(green))
+    }
+
+    @Test func aFailedLinksWritePreservesCommittedDiscAndTrackFiles() async throws {
+        let songs = [Self.song("1", album: "a", cover: "a")]
+        let red = try Self.png()
+        let blue = try Self.png(.blue)
+        server.covers = ["a": red]
+        let store = try makeStore()
+        let covers = makeCovers(store, songs: songs)
+        await covers.idle()
+        let green = try Self.png(.green)
+        covers.inspect(songs[0], file: try flac(with: green))
+        await covers.idle()
+        let committed = covers.links
+        let file = root.appending(path: "links/" + ImageStore.name(CoverArt.account(credentials)) + ".json")
+        let saved = try Data(contentsOf: file)
+        try FileManager.default.removeItem(at: file)
+        try FileManager.default.createDirectory(at: file, withIntermediateDirectories: true)
+        server.covers = ["a": blue]
+        covers.keepAll(full: true)
+        await covers.idle()
+        #expect(store.contains(named: ImageStore.contentName(red)))
+        try FileManager.default.removeItem(at: file)
+        try saved.write(to: file)
+        let restored = AlbumCovers(store: store, folder: root.appending(path: "links"))
+        restored.attach(credentials)
+        #expect(restored.links == committed)
+        #expect(store.contains(named: try #require(restored.links.discs.values.first?.hash)))
+        covers.keepAll()
+        await covers.idle()
+        #expect(makeCovers(store, songs: songs).links.discs.values.first?.hash == ImageStore.contentName(blue))
+        // The track keeps its own content after the disc replacement commits.
+        #expect(!store.contains(named: ImageStore.contentName(red)))
+        #expect(store.contains(named: ImageStore.contentName(green)))
+    }
+
 }

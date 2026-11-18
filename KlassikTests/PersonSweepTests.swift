@@ -78,7 +78,11 @@ struct PersonSweepTests {
         let clock = TestClock(Self.start)
         let log = PictureLog()
         let sweep = PersonSweep(
-            store: store, now: { clock.now }, jitter: { 0 }, pictures: { portrait, old in log.add(portrait, old) })
+            store: store, now: { clock.now }, jitter: { 0 },
+            pictures: { portrait, old in
+                log.add(portrait, old)
+                return true
+            })
         await sweep.run([Self.bach])
         await sweep.finish()
         #expect(log.found.map(\.url.absoluteString) == ["https://thumb.wikimedia.org/bach-1200.jpg"])
@@ -89,6 +93,82 @@ struct PersonSweepTests {
         #expect(log.found.count == 2)
         #expect(log.old.count == 2)
         #expect(log.old[1] == log.found[0])
+    }
+
+    @Test func aCheckedPersonGetsItsMissingPictureWithoutAnotherMetadataLookup() async throws {
+        let (store, stub) = try makeStore()
+        let initial = PersonSweep(store: store, now: { Self.start })
+        await initial.run([Self.bach])
+        await initial.finish()
+        let checked = store.cache.checked
+        let requests = stub.requests.count
+        let log = PictureLog()
+        let sweep = PersonSweep(
+            store: store, now: { Self.start },
+            pictures: { portrait, old in
+                log.add(portrait, old)
+                return true
+            }, hasPicture: { _ in false })
+        await sweep.run([Self.bach])
+        await sweep.finish()
+        #expect(log.found.count == 1)
+        #expect(store.cache.checked == checked)
+        #expect(stub.requests.count == requests)
+        #expect(store.cache.picturePending.isEmpty)
+    }
+
+    @Test func aFailedPictureRetriesBeforeMetadataExpires() async throws {
+        let (store, stub) = try makeStore()
+        let attempts = Counter()
+        let sweep = PersonSweep(
+            store: store, now: { Self.start },
+            pictures: { _, _ in
+                attempts.next() > 0
+            })
+        await sweep.run([Self.bach])
+        await sweep.finish()
+        #expect(store.cache.picturePending.count == 1)
+        let checked = store.cache.checked
+        let requests = stub.requests.count
+        await sweep.run([Self.bach])
+        await sweep.finish()
+        #expect(store.cache.picturePending.isEmpty)
+        #expect(store.cache.checked == checked)
+        #expect(stub.requests.count == requests)
+    }
+
+    @Test func anInterruptedPictureRemainsPendingAcrossRelaunch() async throws {
+        let (store, _) = try makeStore()
+        let started = Gate()
+        let sweep = PersonSweep(
+            store: store, now: { Self.start },
+            pictures: { _, _ in
+                started.open()
+                do { try await Task.sleep(for: .seconds(60)) } catch { return false }
+                return false
+            })
+        await sweep.run([Self.bach])
+        for _ in 0..<300 where !started.isOpen { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(started.isOpen)
+        sweep.stop()
+        await sweep.finish()
+        await store.saved()
+        #expect(store.cache.picturePending.count == 1)
+        let json = try #require(String(data: JSONEncoder().encode(store.cache), encoding: .utf8))
+        let (restored, stub) = try makeStore(cache: json)
+        let log = PictureLog()
+        let retry = PersonSweep(
+            store: restored, now: { Self.start },
+            pictures: { portrait, old in
+                log.add(portrait, old)
+                return true
+            })
+        await retry.run([Self.bach])
+        await retry.finish()
+        #expect(log.found.count == 1)
+        #expect(stub.requests.isEmpty)
+        #expect(restored.cache.picturePending.isEmpty)
+        #expect(restored.cache.checked == store.cache.checked)
     }
 
     @Test func aSecondPassAsksNothingForKnownPeople() async throws {

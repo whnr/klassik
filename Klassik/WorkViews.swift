@@ -552,12 +552,15 @@ struct RecordingView: View {
                 Section {
                     // The page and the player share one hero: the cover, then the title (specimen player.html hero).
                     VStack(spacing: Layout.bigCoverBottom) {
-                        CoverImage(song: recording.songs.first, points: Layout.bigCover)
-                            .frame(width: Layout.bigCover, height: Layout.bigCover)
-                            .clipShape(.rect(cornerRadius: Layout.bigCoverCorner))
-                            .accessibilityElement()
-                            .accessibilityLabel("Cover")
-                            .accessibilityIdentifier("hero-cover")
+                        CoverImage(
+                            song: isPlayingThis ? player.coverSong : recording.songs.first,
+                            points: Layout.bigCover, playback: isPlayingThis
+                        )
+                        .frame(width: Layout.bigCover, height: Layout.bigCover)
+                        .clipShape(.rect(cornerRadius: Layout.bigCoverCorner))
+                        .accessibilityElement()
+                        .accessibilityLabel("Cover")
+                        .accessibilityIdentifier("hero-cover")
                         heroTitle
                             .accessibilityAddTraits(.isHeader)
                     }

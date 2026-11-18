@@ -194,15 +194,17 @@ struct CoverQueue: Equatable {
         static func < (a: Self, b: Self) -> Bool { a.rawValue < b.rawValue }
     }
 
-    private(set) var keys: [String] = []
+    private var storage: [String] = []
+    private var cursor = 0
+    var keys: [String] { Array(storage[cursor...]) }
     private(set) var reasons: [String: Reason] = [:]
 
-    var isEmpty: Bool { keys.isEmpty }
+    var isEmpty: Bool { cursor == storage.count }
 
     /// Adds the keys at the end. A key in the queue keeps its place.
     mutating func append(_ added: [String]) {
         for key in added where reasons[key] == nil {
-            keys.append(key)
+            storage.append(key)
             reasons[key] = .pass
         }
     }
@@ -211,20 +213,26 @@ struct CoverQueue: Equatable {
     mutating func front(_ moved: [String], reason: Reason) {
         var seen: Set<String> = []
         let unique = moved.filter { seen.insert($0).inserted }
-        keys.removeAll { seen.contains($0) }
-        keys.insert(contentsOf: unique, at: 0)
+        storage = unique + storage[cursor...].filter { !seen.contains($0) }
+        cursor = 0
         for key in unique { reasons[key] = max(reasons[key] ?? reason, reason) }
     }
 
     mutating func pop() -> (key: String, reason: Reason)? {
-        guard !keys.isEmpty else { return nil }
-        let key = keys.removeFirst()
+        guard !isEmpty else { return nil }
+        let key = storage[cursor]
+        cursor += 1
+        if isEmpty {
+            storage.removeAll(keepingCapacity: true)
+            cursor = 0
+        }
         return (key, reasons.removeValue(forKey: key) ?? .pass)
     }
 
     /// Ends the pass. The page and playback requests stay.
     mutating func dropPass() {
-        keys.removeAll { reasons[$0] == .pass }
+        storage = storage[cursor...].filter { reasons[$0] != .pass }
+        cursor = 0
         reasons = reasons.filter { $0.value != .pass }
     }
 }
@@ -244,6 +252,9 @@ final class AlbumCovers {
     @ObservationIgnored private var order: [String] = []
     /// Every album of the library, for the files of the 0.14 builds.
     @ObservationIgnored private var libraryAlbums: Set<String> = []
+    @ObservationIgnored private var eligibleAlbums: Set<String> = []
+    /// Files stay until the replacement links reach disk.
+    @ObservationIgnored private var pendingRelease: Set<String> = []
     @ObservationIgnored private var adopted = false
     @ObservationIgnored private var queue = CoverQueue()
     /// The file of each cover ID in this pass, so that discs with one ID cost one download.
@@ -255,6 +266,7 @@ final class AlbumCovers {
     @ObservationIgnored private var workerID = UUID()
     @ObservationIgnored private var save: Task<Void, Never>?
     @ObservationIgnored private var saveQueued = false
+    @ObservationIgnored private var saveFailed = false
     @ObservationIgnored private var credentials: ServerCredentials?
     @ObservationIgnored private var file: URL?
     let store: ImageStore
@@ -286,6 +298,9 @@ final class AlbumCovers {
         order = []
         adopted = false
         inspected = []
+        pendingRelease = []
+        eligibleAlbums = []
+        saveFailed = false
     }
 
     /// Signing out removes the links of the account. The caller clears the files.
@@ -325,11 +340,14 @@ final class AlbumCovers {
         jobs = Dictionary(planned.map { ($0.key, $0) }) { first, _ in first }
         order = planned.map(\.key)
         libraryAlbums = Set(library.map(\.albumKey))
+        eligibleAlbums = Set(classical.map(\.albumKey))
+        keepAll()
     }
 
     /// Checks every planned disc. It fetches the missing covers and those with a new cover ID. A full sync
     /// fetches every cover again and keeps each old one until its replacement is stored.
     func keepAll(full: Bool = false) {
+        if saveFailed { scheduleSave() }
         passSources = [:]
         if full {
             links.refresh = Set(order)
@@ -357,7 +375,11 @@ final class AlbumCovers {
 
     /// The files to show for the song, best first: its embedded art, then the cover of its disc.
     func candidates(for song: Song) -> [String] {
-        let disc = links.discs[CoverPlan.key(of: song)]?.hash
+        guard eligibleAlbums.contains(song.albumKey) else { return [] }
+        let legacy = credentials.map { ImageStore.name(CoverArt.storeKey(album: song.albumKey, credentials: $0)) }
+        let disc =
+            links.discs[CoverPlan.key(of: song)]?.hash
+            ?? legacy.flatMap { store.contains(named: $0) ? $0 : nil }
         guard let track = links.tracks[song.id] else { return disc.map { [$0] } ?? [] }
         guard let disc, disc != track else { return [track] }
         return [track, disc]
@@ -379,6 +401,7 @@ final class AlbumCovers {
     /// A track file loaded for playback or a download. Its embedded art replaces the disc cover of this track
     /// only. Missing or invalid art changes nothing.
     func inspect(_ song: Song, file audio: URL) {
+        guard eligibleAlbums.contains(song.albumKey) else { return }
         guard inspected.insert(song.id).inserted else { return }
         if let kept = links.tracks[song.id], store.contains(named: kept) { return }
         let account = file
@@ -388,9 +411,10 @@ final class AlbumCovers {
             guard let data = await CoverArt.embeddedCover(in: audio), account == self.file,
                 let hash = await store.store(content: data), account == self.file
             else { return }
+            guard eligibleAlbums.contains(song.albumKey) else { return }
             let old = links.tracks[song.id]
             links.tracks[song.id] = hash
-            if let old, old != hash { release(old) }
+            if let old, old != hash { pendingRelease.insert(old) }
             scheduleSave()
         }
     }
@@ -475,7 +499,7 @@ final class AlbumCovers {
         links.discs[key] = CoverLinks.Link(hash: hash, source: source)
         links.refresh.remove(key)
         arrivals[key, default: 0] += 1
-        if let old, old != hash { release(old) }
+        if let old, old != hash { pendingRelease.insert(old) }
         scheduleSave()
     }
 
@@ -487,12 +511,11 @@ final class AlbumCovers {
     /// replaces it with the disc cover, so the upgrade shows no placeholder.
     private func adoptOldFiles() async {
         guard !adopted, let credentials, !libraryAlbums.isEmpty else { return }
-        adopted = true
+        var complete = true
         var discsOfAlbum: [String: [String]] = [:]
         for key in order {
             if let album = jobs[key]?.album { discsOfAlbum[album, default: []].append(key) }
         }
-        var changed = false
         for album in libraryAlbums {
             let name = ImageStore.name(CoverArt.storeKey(album: album, credentials: credentials))
             guard store.contains(named: name) else { continue }
@@ -502,11 +525,16 @@ final class AlbumCovers {
             {
                 // No cover ID is empty, so the pass fetches the disc cover and replaces this one.
                 for key in discs { links.discs[key] = CoverLinks.Link(hash: hash, source: "") }
-                changed = true
+                pendingRelease.insert(name)
+            } else if !discs.isEmpty {
+                complete = false
+                continue
+            } else if !eligibleAlbums.contains(album) || discsOfAlbum[album] != nil {
+                pendingRelease.insert(name)
             }
-            store.remove(named: name)
         }
-        if changed { scheduleSave() }
+        adopted = complete
+        scheduleSave()
     }
 
     private func scheduleSave() {
@@ -520,11 +548,22 @@ final class AlbumCovers {
             saveQueued = false
             guard self.file == file else { return }
             let snapshot = self.links
-            await Task.detached(priority: .utility) {
-                try? FileManager.default.createDirectory(
-                    at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
-                try? JSONEncoder().encode(snapshot).write(to: file, options: .atomic)
+            let releases = pendingRelease
+            let written = await Task.detached(priority: .utility) {
+                do {
+                    try FileManager.default.createDirectory(
+                        at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+                    try JSONEncoder().encode(snapshot).write(to: file, options: .atomic)
+                    return true
+                } catch { return false }
             }.value
+            guard self.file == file else { return }
+            saveFailed = !written
+            guard written else { return }
+            for hash in releases where !snapshot.references(hash) && !links.references(hash) {
+                release(hash)
+                pendingRelease.remove(hash)
+            }
         }
     }
 }

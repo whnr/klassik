@@ -48,8 +48,12 @@ final class AppModel {
         sweep = PersonSweep(
             store: people, isConnectionGood: { connection.isGood },
             pictures: { portrait, old in
-                _ = await PortraitLoader.keep(
+                await PortraitLoader.keep(
                     portrait, replacing: old, screen: PortraitLoader.deviceScreen, store: .pictures)
+            },
+            hasPicture: { portrait in
+                await ImageStore.pictures.loaded()
+                return PortraitLoader.files(of: portrait).contains { ImageStore.pictures.contains($0.absoluteString) }
             })
         // UI tests start from the connect screen.
         if ProcessInfo.processInfo.arguments.contains("-resetServer") {
@@ -75,6 +79,8 @@ final class AppModel {
         reconnect = ConnectionMonitor { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self else { return }
+                self.keepAlbumArt()
+                Self.start(self.sweep, over: self.library.index)
                 async let favourites: Void = self.recordingOrder.synchronize()
                 async let listening: Void = self.playback.synchronizeListeningData()
                 _ = await (favourites, listening)

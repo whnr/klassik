@@ -17,6 +17,7 @@ struct PerformersView: View {
                 }
                 .accessibilityIdentifier("performer")
                 .onAppear { model.sweep.prefer(performers: [performer.name]) }
+                .itemSeparator(first: performer.id == performers.first?.id, last: performer.id == performers.last?.id)
             }
         }
         .overlay {

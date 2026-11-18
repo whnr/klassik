@@ -23,9 +23,11 @@ struct ComposerPage: View {
             List {
                 Group { content(proxy: proxy, facts: facts, catalogue: catalogue) }
                     .listRowBackground(Color.clear)
+                    .listSectionSeparator(.hidden)
                     .pageRow()
             }
             .listStyle(.plain)
+            .listSectionSeparator(.hidden)
             .environment(\.defaultMinListRowHeight, 0)
             .environment(\.defaultMinListHeaderHeight, 0)
             .environment(\.isPageList, true)
@@ -70,6 +72,7 @@ struct ComposerPage: View {
             .listRowSeparator(.hidden)
             .accessibilityIdentifier("composer-tabs")
         ResolutionNotice(tag: composer.name)
+            .listRowSeparator(.hidden)
         switch tab {
         case .works: worksTab(catalogue)
         case .about: aboutTab(facts)
@@ -91,6 +94,7 @@ struct ComposerPage: View {
         if rows.isEmpty {
             Text("No works with these genres.")
                 .foregroundStyle(Palette.textSecondary)
+                .listRowSeparator(.hidden)
         }
         if composer.works.contains(where: { !$0.isTagged }) {
             Section {
@@ -104,28 +108,33 @@ struct ComposerPage: View {
         Section {
             CountedHeading(title, count: rows.reduce(0) { $0 + $1.works.count })
             ForEach(rows) { row in
-                switch row {
-                case .work(let work):
-                    WorkRow(work: work)
-                case .set(let name, let works):
-                    DisclosureGroup {
-                        ForEach(works) {
-                            WorkRow(work: $0)
-                                .pageRow()
+                Group {
+                    switch row {
+                    case .work(let work):
+                        WorkRow(work: work)
+                    case .set(let name, let works):
+                        DisclosureGroup {
+                            ForEach(works) {
+                                WorkRow(work: $0)
+                                    .pageRow()
+                                    .itemSeparator(
+                                        first: false, last: $0.id == works.last?.id && row.id == rows.last?.id)
+                            }
+                        } label: {
+                            VStack(alignment: .leading, spacing: Layout.rowLineGap) {
+                                Text(name)
+                                    .typeStyle(.body)
+                                    .ink()
+                                Text("\(works.count) works")
+                                    .typeStyle(.footnote)
+                                    .foregroundStyle(Palette.textSecondary)
+                            }
+                            .accessibilityElement(children: .combine)
                         }
-                    } label: {
-                        VStack(alignment: .leading, spacing: Layout.rowLineGap) {
-                            Text(name)
-                                .typeStyle(.body)
-                                .ink()
-                            Text("\(works.count) works")
-                                .typeStyle(.footnote)
-                                .foregroundStyle(Palette.textSecondary)
-                        }
-                        .accessibilityElement(children: .combine)
+                        .accessibilityIdentifier("set")
                     }
-                    .accessibilityIdentifier("set")
                 }
+                .itemSeparator(first: row.id == rows.first?.id, last: row.id == rows.last?.id)
             }
         }
     }
@@ -138,6 +147,7 @@ struct ComposerPage: View {
                     Text(bio)
                         .ink()
                         .accessibilityIdentifier("composer-bio")
+                        .listRowSeparator(.hidden)
                 }
             }
             if !facts.credits.isEmpty {
@@ -145,6 +155,7 @@ struct ComposerPage: View {
                     SectionHeading("Credits")
                     ForEach(facts.credits, id: \.self) { credit in
                         CreditRow(credit: credit)
+                            .itemSeparator(first: credit == facts.credits.first, last: credit == facts.credits.last)
                     }
                 }
             }
@@ -152,18 +163,24 @@ struct ComposerPage: View {
             Section {
                 Text("Wikidata has no facts for this composer. Klassik shows your tags.")
                     .foregroundStyle(Palette.textSecondary)
+                    .listRowSeparator(.hidden)
             }
         }
         Section {
             SectionHeading("Your tags")
+            let people = model.people
+            let choosesAgain =
+                people.resolution(ofComposer: composer.name) != nil && !people.loading.contains(composer.name)
             LabeledContent("Name in your tags", value: composer.name)
                 .ink()
+                .itemSeparator(first: true, last: false)
             LabeledContent("Works", value: composer.works.count.formatted())
                 .ink()
-            let people = model.people
-            if people.resolution(ofComposer: composer.name) != nil, !people.loading.contains(composer.name) {
+                .itemSeparator(first: false, last: !choosesAgain)
+            if choosesAgain {
                 Button("Choose Composer Again") { Task { await people.chooseAgain(composer: composer.name) } }
                     .accessibilityIdentifier("composer-choose-again")
+                    .itemSeparator(first: false, last: true)
             }
         }
     }

@@ -51,8 +51,6 @@ struct PlacesView: View {
                             // Keyboard safe-area changes must not shorten the timeline above the native bar.
                             .frame(height: max(0, rowTop + rowHeight - insets.top))
                             .padding(.top, insets.top)
-                            MiniPlayerCorner(side: side, top: rowTop)
-                                .allowsHitTesting(false)
                         }
                     }
                     .onChange(of: inset, initial: true) { _, value in pillInset = value }
@@ -108,6 +106,9 @@ private struct SystemPlaces: UIViewControllerRepresentable {
         let selected = Place.allCases.firstIndex(of: selection) ?? 0
         if controller.selectedIndex != selected { controller.selectedIndex = selected }
         controller.playerHost?.view.isUserInteractionEnabled = playerOpen
+        controller.navigator = navigator
+        controller.backTransition = backTransition
+        backTransition.onCompletion = { [weak controller] in controller?.view.setNeedsLayout() }
         controller.onLayout = onLayout
         controller.reservedWidth = reservedWidth
         controller.side = side
@@ -134,7 +135,12 @@ private struct SystemPlaces: UIViewControllerRepresentable {
     }
 }
 
-private final class PlacesController: UITabBarController {
+private final class PlacesController: UITabBarController, UIGestureRecognizerDelegate {
+    var navigator: AppNavigator?
+    var backTransition: PlaceBackTransition?
+    private var edgePan: UIScreenEdgePanGestureRecognizer?
+    private weak var nativePan: UIGestureRecognizer?
+    private weak var nativePanView: UIView?
     var reservedWidth: CGFloat = 0
     var side = TimelineSide.right
     var onLayout: (@MainActor (CGRect) -> Void)?
@@ -174,6 +180,73 @@ private final class PlacesController: UITabBarController {
         view.setNeedsLayout()
     }
 
+    /// The timeline is outside the navigation view. The window lets UIKit receive an edge touch through it.
+    private func configureBackGesture() {
+        guard backTransition?.isTracking != true, let navigator, let window = view.window else { return }
+        if nativePan?.state == .began || nativePan?.state == .changed { return }
+        if let nativePan, let nativePanView, nativePan.view !== nativePanView {
+            nativePanView.addGestureRecognizer(nativePan)
+        }
+        nativePan = nil
+        nativePanView = nil
+        if edgePan == nil {
+            let pan = UIScreenEdgePanGestureRecognizer(target: self, action: #selector(dragBack(_:)))
+            pan.edges = .left
+            pan.delegate = self
+            window.addGestureRecognizer(pan)
+            edgePan = pan
+        }
+        let root = navigator.pages(in: navigator.selection).isEmpty
+        edgePan?.isEnabled = root && !navigator.isPlayerOpen && navigator.backTarget(for: navigator.selection) != nil
+        if !root, side == .left, !navigator.isPlayerOpen,
+            let navigation = navigationController(in: selectedViewController),
+            let pan = navigation.interactivePopGestureRecognizer
+        {
+            nativePan = pan
+            nativePanView = pan.view
+            window.addGestureRecognizer(pan)
+        }
+    }
+
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        guard let pan = gestureRecognizer as? UIScreenEdgePanGestureRecognizer else { return false }
+        let velocity = pan.velocity(in: view)
+        return velocity.x > abs(velocity.y)
+    }
+
+    /// The timeline keeps taps and vertical scrubs; its horizontal drag must not block a cross-tab Back gesture.
+    func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
+    ) -> Bool {
+        gestureRecognizer === edgePan || other === edgePan
+    }
+
+    private func navigationController(in controller: UIViewController?) -> UINavigationController? {
+        if let navigation = controller as? UINavigationController { return navigation }
+        for child in controller?.children ?? [] {
+            if let navigation = navigationController(in: child) { return navigation }
+        }
+        return nil
+    }
+
+    @objc private func dragBack(_ pan: UIScreenEdgePanGestureRecognizer) {
+        guard let navigator, let backTransition else { return }
+        switch pan.state {
+        case .began:
+            let bottom = view.bounds.maxY - tabBar.frame.minY
+            _ = backTransition.begin(bottom: bottom) { navigator.previewBack(from: navigator.selection) }
+        case .changed:
+            backTransition.update(distance: pan.translation(in: view).x)
+        case .ended, .cancelled, .failed:
+            backTransition.finish(
+                velocity: pan.velocity(in: view).x, cancelled: pan.state != .ended,
+                reduceMotion: UIAccessibility.isReduceMotionEnabled)
+            // The next Back swipe may start while the page settles, so the gestures follow the new place now.
+            view.setNeedsLayout()
+        default: break
+        }
+    }
+
     private func invalidateLayout(of view: UIView) {
         view.invalidateIntrinsicContentSize()
         view.setNeedsLayout()
@@ -182,6 +255,7 @@ private final class PlacesController: UITabBarController {
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        configureBackGesture()
         var frame = tabBar.frame
         // UIKit removes the home-indicator inset under a keyboard.
         // Playback controls must keep the resting bar position.
@@ -286,10 +360,6 @@ struct PlaceStack<Root: View>: View {
 
     var body: some View {
         let target = navigator.backTarget(for: place)
-        // On a pushed page the system swipe works, and this one stays off.
-        let edgeSwipe = EdgeSwipe(isEnabled: target != nil && navigator.pages(in: place).isEmpty) {
-            navigator.goBack(from: place)
-        }
         NavigationStack(
             path: Binding(
                 get: { navigator.pages(in: place) },
@@ -297,7 +367,6 @@ struct PlaceStack<Root: View>: View {
         ) {
             root
                 .modifier(PlaceInsets())
-                .gesture(edgeSwipe)
                 .toolbar {
                     if let target {
                         ToolbarItem(placement: .topBarLeading) {
@@ -360,32 +429,6 @@ private struct PlaceInsets: ViewModifier {
     }
 }
 
-/// A swipe from the left screen edge, as the system back swipe, for a root that has no system back. It acts when
-/// the swipe ends, without a peel of the page: one recogniser is all the code that this needs.
-struct EdgeSwipe: UIGestureRecognizerRepresentable {
-    /// The distance that counts as a swipe, in points.
-    static let distance = 60.0
-
-    let isEnabled: Bool
-    let action: () -> Void
-
-    func makeUIGestureRecognizer(context: Context) -> UIScreenEdgePanGestureRecognizer {
-        let recognizer = UIScreenEdgePanGestureRecognizer()
-        recognizer.edges = .left
-        recognizer.isEnabled = isEnabled
-        return recognizer
-    }
-
-    func updateUIGestureRecognizer(_ recognizer: UIScreenEdgePanGestureRecognizer, context: Context) {
-        recognizer.isEnabled = isEnabled
-    }
-
-    func handleUIGestureRecognizerAction(_ recognizer: UIScreenEdgePanGestureRecognizer, context: Context) {
-        guard recognizer.state == .ended, recognizer.translation(in: recognizer.view).x > Self.distance else { return }
-        action()
-    }
-}
-
 /// Tells the listener once that the back button opens a list of the pages behind it.
 struct BackTip: Tip {
     var title: Text { Text("Hold Back to Go Further") }
@@ -405,6 +448,7 @@ struct BackTipRow: View {
                 .tipViewStyle(PageTipStyle())
                 .tipBackground(Palette.backgroundRow.color)
                 .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
         }
     }
 }

@@ -242,7 +242,7 @@ struct WorkRow: View {
     }
 }
 
-/// A work's page as work.html draws it: composer under the title, a Play pill, then the recordings on plain rows.
+/// The work cover and composer lead the playback capsules and recording list, as work.html draws them.
 struct WorkView: View {
     @Environment(AppModel.self) private var model
     let work: WorkIndex.Work
@@ -251,6 +251,25 @@ struct WorkView: View {
 
     var body: some View {
         PageList {
+            if let recording = model.recordingOrder.reference(of: work) {
+                CoverImage(song: recording.songs.first, points: Layout.workCover)
+                    .frame(width: Layout.workCover, height: Layout.workCover)
+                    .clipShape(.rect(cornerRadius: Layout.coverCorner))
+                    .accessibilityElement()
+                    .accessibilityLabel("Cover")
+                    .accessibilityIdentifier("work-cover")
+                    .listRowSeparator(.hidden)
+                    .pageEdges(top: Layout.headTop, bottom: Layout.bigCoverBottom)
+            }
+            FavouriteTitle(
+                title: work.title, isSet: model.recordingOrder.isFavourite(work),
+                action: { model.recordingOrder.toggleAtOnce(work) }
+            )
+            .disabled(model.recordingOrder.isSaving)
+            .typeStyle(Layout.pageTitle)
+            .accessibilityIdentifier("favourite-work")
+            .listRowSeparator(.hidden)
+            .pageEdges(top: Layout.headTop, bottom: Layout.metaTop)
             WorkHeader(work: work)
                 .listRowSeparator(.hidden)
                 .pageEdges(bottom: Layout.headBottom)
@@ -258,28 +277,37 @@ struct WorkView: View {
                 let player = model.playback
                 // While any recording of the work plays, the pill pauses it. Else it plays the top of the list.
                 let playsThisWork = player.item?.work.id == work.id
-                Button {
-                    if playsThisWork {
-                        player.togglePause()
-                    } else {
-                        player.play(queue: [QueueItem(work: work, recording: recording)])
+                HStack(spacing: Layout.buttonRowGap) {
+                    Button {
+                        if playsThisWork {
+                            player.togglePause()
+                        } else {
+                            player.play(queue: [QueueItem(work: work, recording: recording)])
+                        }
+                    } label: {
+                        CapsuleLabel(
+                            title: playsThisWork ? (player.isPaused ? "Resume" : "Pause") : "Play top recording",
+                            systemImage: playsThisWork && !player.isPaused ? "pause.fill" : "play.fill", filled: true)
                     }
-                } label: {
-                    HStack(spacing: Layout.capsuleGap) {
-                        Image(systemName: playsThisWork && !player.isPaused ? "pause.fill" : "play.fill")
-                            .accessibilityHidden(true)
-                        Text(playsThisWork ? (player.isPaused ? "Resume" : "Pause") : "Play top recording")
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("play-work")
+                    if let key = recording.albumKey ?? recording.songs.first?.albumKey,
+                        let album = model.library.album(key), album.tracks.count > recording.songs.count
+                    {
+                        let playsAlbum = player.recording?.id == album.recording.id
+                        Button {
+                            player.play(album.item)
+                        } label: {
+                            CapsuleLabel(
+                                title: playsAlbum ? (player.isPaused ? "Resume Album" : "Pause Album") : "Play Album",
+                                systemImage: playsAlbum && !player.isPaused ? "pause.fill" : "play.fill", filled: false)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("play-work-album")
                     }
-                    .typeStyle(Layout.capsuleLabel)
-                    .foregroundStyle(Palette.onAccent)
-                    .frame(maxWidth: .infinity, minHeight: Layout.capsuleHeight)
-                    .background(Palette.accentFill, in: .capsule)
-                    .contentShape(.capsule)
                 }
-                .buttonStyle(.plain)
                 .listRowSeparator(.hidden)
                 .pageEdges(top: Layout.buttonRowTop)
-                .accessibilityIdentifier("play-work")
             }
 
             Section {
@@ -298,6 +326,7 @@ struct WorkView: View {
                     .itemActions(QueueItem(work: work, recording: recording), downloads: true, favourite: true)
                     .accessibilityIdentifier("recording")
                     .moveDisabled(!row.isFavourite)
+                    .itemSeparator(first: row.id == recordings.first?.id, last: row.id == recordings.last?.id)
                 }
                 .onMove { model.recordingOrder.moveFavourites(of: work, from: $0, to: $1) }
                 Text("Favourite recordings come first, in your order. Then the newest.")
@@ -307,14 +336,9 @@ struct WorkView: View {
                     .pageEdges(top: Layout.workFootTop + Layout.footTop)
             }
         }
-        .pageTitle(work.title)
-        .environment(\.pageHeadingBottom, Layout.metaTop)
-        .environment(
-            \.pageFavourite,
-            FavouriteHeading(
-                isSet: model.recordingOrder.isFavourite(work),
-                action: { model.recordingOrder.toggleAtOnce(work) }, identifier: "favourite-work")
-        )
+        .navigationTitle(work.title)
+        .navigationBarTitleDisplayMode(.inline)
+        .environment(\.pageHeading, "")
         .toolbar { if recordings.filter(\.isFavourite).count > 1 { EditButton() } }
         .onAppear { model.sweep.prefer(performers: recordings.flatMap(\.recording.performerNames)) }
     }
@@ -525,38 +549,56 @@ struct RecordingView: View {
         ScrollViewReader { proxy in
             PageList {
                 Section {
-                    if isOverlay {
-                        VStack(spacing: Layout.bigCoverBottom) {
-                            CoverImage(song: recording.songs.first, points: Layout.bigCover)
-                                .frame(width: Layout.bigCover, height: Layout.bigCover)
-                                .clipShape(.rect(cornerRadius: Layout.bigCoverCorner))
-                            overlayTitle
-                        }
-                        .frame(maxWidth: .infinity)
-                        .multilineTextAlignment(.center)
-                        .listRowBackground(Color.clear)
+                    // The page and the player share one hero: the cover, then the title (specimen player.html hero).
+                    VStack(spacing: Layout.bigCoverBottom) {
+                        CoverImage(song: recording.songs.first, points: Layout.bigCover)
+                            .frame(width: Layout.bigCover, height: Layout.bigCover)
+                            .clipShape(.rect(cornerRadius: Layout.bigCoverCorner))
+                            .accessibilityElement()
+                            .accessibilityLabel("Cover")
+                            .accessibilityIdentifier("hero-cover")
+                        heroTitle
                     }
+                    .frame(maxWidth: .infinity)
+                    .multilineTextAlignment(.center)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
                     header(page)
+                        .listRowSeparator(.hidden)
                     if isPlayingThis, let error = player.error {
                         Label(error, systemImage: "exclamationmark.triangle")
                             .foregroundStyle(Palette.textPrimary)
+                            .listRowSeparator(.hidden)
                     }
                     if !isPlayingThis {
-                        Button("Play", systemImage: "play.fill") { play(from: 0) }
-                            .accessibilityIdentifier("play-recording")
-                        if let wholeAlbum {
-                            // The playing album pauses and resumes, so the button says that.
-                            let playsAlbum = player.recording?.id == wholeAlbum.recording.id
-                            let verb = playsAlbum ? (player.isPaused ? "Resume" : "Pause") : "Play"
-                            Button(
-                                "\(verb) Whole Album",
-                                systemImage: playsAlbum && !player.isPaused ? "pause.fill" : "square.stack"
-                            ) {
-                                spell.touch()
-                                player.play(wholeAlbum)
+                        // Play is the accent capsule; Play Album is muted beside it (sz-3hcq.2).
+                        HStack(spacing: Layout.buttonRowGap) {
+                            Button {
+                                play(from: 0)
+                            } label: {
+                                CapsuleLabel(title: "Play", systemImage: "play.fill", filled: true)
                             }
-                            .accessibilityIdentifier("play-album")
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("play-recording")
+                            if let wholeAlbum {
+                                // The playing album pauses and resumes, so the button says that.
+                                let playsAlbum = player.recording?.id == wholeAlbum.recording.id
+                                let verb = playsAlbum ? (player.isPaused ? "Resume" : "Pause") : "Play"
+                                Button {
+                                    spell.touch()
+                                    player.play(wholeAlbum)
+                                } label: {
+                                    CapsuleLabel(
+                                        title: "\(verb) Album",
+                                        systemImage: playsAlbum && !player.isPaused ? "pause.fill" : "play.fill",
+                                        filled: false)
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityIdentifier("play-album")
+                            }
                         }
+                        .padding(.top, Layout.buttonRowTop)
+                        .listRowSeparator(.hidden)
                     }
                 }
 
@@ -568,7 +610,9 @@ struct RecordingView: View {
                             ForEach(Array(block.tracks.enumerated()), id: \.element.id) { offset, song in
                                 movementRow(
                                     song, at: block.start + offset, page: page,
-                                    title: album.title(of: song, in: block))
+                                    title: album.title(of: song, in: block)
+                                )
+                                .itemSeparator(first: offset == 0, last: offset == block.tracks.count - 1)
                             }
                         }
                     }
@@ -577,6 +621,7 @@ struct RecordingView: View {
                         SectionHeading(recording.isAlbum ? "Tracks" : "Movements")
                         ForEach(Array(recording.songs.enumerated()), id: \.element.id) { index, song in
                             movementRow(song, at: index, page: page, title: recording.title(of: song))
+                                .itemSeparator(first: index == 0, last: index == recording.songs.count - 1)
                         }
                     }
                 }
@@ -592,11 +637,13 @@ struct RecordingView: View {
                         }
                     }
                     .accessibilityIdentifier("raw-tags")
+                    .listRowSeparator(.hidden)
                 }
 
                 Section {
                     SectionHeading("Offline")
                     OfflineControls(recording: recording, title: work.title)
+                        .listRowSeparator(.hidden)
                 }
 
                 if isPlayingThis, !player.upNext.isEmpty {
@@ -617,20 +664,11 @@ struct RecordingView: View {
                                 }
                             }
                             .accessibilityIdentifier("up-next")
+                            .itemSeparator(
+                                first: item.id == player.upNext.first?.id, last: item.id == player.upNext.last?.id)
                         }
                         .onDelete { player.removeFromQueue(at: $0) }
                         .onMove { player.moveInQueue(from: $0, to: $1) }
-                    }
-                }
-
-                // The end takes the place of the next items, at the foot of the player (specimen player.html).
-                if isOverlay, player.item == nil {
-                    Section {
-                        Text(player.queueEnded ? "The queue has ended." : "Playback stopped.")
-                            .typeStyle(.subheadline)
-                            .foregroundStyle(Palette.textSecondary)
-                            .listRowSeparator(.hidden)
-                            .accessibilityIdentifier("player-ended")
                     }
                 }
             }
@@ -660,8 +698,10 @@ struct RecordingView: View {
             .animation(
                 Motion.inPlace.animation(reduceMotion: reduceMotion), value: isPlayingThis ? player.movement : nil)
         }
-        .pageTitle(isOverlay ? "" : work.title)
-        .environment(\.pageFavourite, isOverlay ? nil : favourite)
+        // The hero draws the title, so the list draws no heading. The bar keeps the name for Back and VoiceOver.
+        .environment(\.pageHeading, "")
+        .navigationTitle(isOverlay ? "" : work.title)
+        .navigationBarTitleDisplayMode(.inline)
         .onAppear { model.sweep.prefer(performers: recording.performerNames) }
     }
 
@@ -679,7 +719,7 @@ struct RecordingView: View {
             identifier: "favourite-recording", isDisabled: order.isSaving)
     }
 
-    @ViewBuilder private var overlayTitle: some View {
+    @ViewBuilder private var heroTitle: some View {
         if let favourite {
             FavouriteTitle(
                 title: work.title, isSet: favourite.isSet, action: favourite.action, textIdentifier: "player-title"
@@ -1053,5 +1093,25 @@ private struct OfflineControls: View {
 
     static func size(_ bytes: Int64) -> String {
         bytes.formatted(.byteCount(style: .file))
+    }
+}
+
+/// A capsule button face (specimen.css .capsule): filled in the accent, or muted on the quiet fill.
+struct CapsuleLabel: View {
+    let title: String
+    let systemImage: String
+    let filled: Bool
+
+    var body: some View {
+        HStack(spacing: Layout.capsuleGap) {
+            Image(systemName: systemImage)
+                .accessibilityHidden(true)
+            Text(title)
+        }
+        .typeStyle(Layout.capsuleLabel)
+        .foregroundStyle(filled ? Palette.onAccent : Palette.tint)
+        .frame(maxWidth: .infinity, minHeight: Layout.capsuleHeight)
+        .background(filled ? Palette.accentFill : Palette.fillQuiet, in: .capsule)
+        .contentShape(.capsule)
     }
 }

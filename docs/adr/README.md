@@ -59,4 +59,5 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0045](0045-page-margins-follow-the-timeline.md)             | Page margins follow the timeline                                                                       | 2026-11-17 |
 | [0046](0046-composers-first-and-shown-performers.md)         | Composers first, and the performers of a shown page next                                               | 2026-11-17 |
 | [0050](0050-partial-works-apart.md)                          | Partial works under their own heading                                                                  | 2026-11-17 |
-| [0051](0051-pictures-and-album-art-in-local-storage.md)      | Pictures and album art in Local Storage                                                                | 2026-11-17 |
+| [0051](0051-pictures-and-album-art-in-local-storage.md)      | Pictures and album art in Local Storage (partly replaced by 0053)                                       | 2026-11-17 |
+| [0053](0053-covers-before-pages.md)                         | Fetch covers before pages need them                                                                    | 2026-11-18 |

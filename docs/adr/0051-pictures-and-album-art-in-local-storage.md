@@ -2,6 +2,7 @@
 
 Date: 2026-11-17. Decided by Flo in the 0.14.0 device notes. Bead: sz-rs30.1.105.79.
 Replaces the cache and screen rules of [0008](0008-offline-storage.md).
+The album art fetch, key and eviction rules are replaced by [0053](0053-covers-before-pages.md).
 
 ## Context
 

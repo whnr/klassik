@@ -88,13 +88,24 @@ final class PlaybackSession {
             canSaveQueue = false
             queueRevision += 1
             restored = false
-            history = server.map { PlaybackHistory(server: $0, defaults: defaults) }
+            history?.endListening()
+            history = server.map { server in
+                let key = server.listeningDataKey
+                if let existing = histories[key] {
+                    existing.server = server
+                    return existing
+                }
+                let created = PlaybackHistory(server: server, defaults: defaults)
+                histories[key] = created
+                return created
+            }
             listeningError = nil
             let currentHistory = history
             history?.onError = { [weak self, weak currentHistory] message in
                 guard let self, self.history === currentHistory else { return }
                 self.listeningError = message
             }
+            history?.retryScrobbles()
             MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
         }
     }
@@ -122,6 +133,8 @@ final class PlaybackSession {
             durations: segments)
     }
 
+    /// Login changes must share pending events and in-flight writes for each account.
+    private var histories: [String: PlaybackHistory] = [:]
     private var history: PlaybackHistory?
     private var queueRevision = 0
     private var restored = false
@@ -172,6 +185,11 @@ final class PlaybackSession {
                 listeningError = "Could not restore the queue from the server."
             }
         }
+    }
+
+    func synchronizeListeningData() async {
+        history?.retryScrobbles()
+        await history?.flush()
     }
 
     /// Saves before the app enters the background, where iOS can suspend a paused session.

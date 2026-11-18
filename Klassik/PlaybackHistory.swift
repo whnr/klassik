@@ -25,7 +25,18 @@ final class PlaybackHistory {
         var started: Date?
     }
 
-    private let server: any ServerPort
+    private struct Scrobble: Codable {
+        var token = UUID()
+        var song: String
+        var started: Date
+    }
+
+    /// Keep the newest 1,000 plays; discard the oldest events when offline storage fills.
+    static let scrobbleLimit = 1000
+
+    private var pending: [Scrobble]
+    private var scrobblesKey: String { server.listeningDataKey + ".scrobbles" }
+    var server: any ServerPort
     private let defaults: UserDefaults
     private let now: () -> Date
     private var queueError: String?
@@ -41,6 +52,10 @@ final class PlaybackHistory {
         self.server = server
         self.defaults = defaults
         self.now = now
+        pending =
+            defaults.data(forKey: server.listeningDataKey + ".scrobbles")
+            .flatMap { try? JSONDecoder().decode([Scrobble].self, from: $0) } ?? []
+        persistScrobbles()
     }
 
     func save(items: [QueueItem], movement: Int, position: Double) {
@@ -127,7 +142,9 @@ final class PlaybackHistory {
         listen = sample
         if submit, let started = sample.started {
             let id = item.recording.songs[movement].id
-            enqueue(.scrobble) { [server] in try await server.scrobble(id: id, time: started) }
+            pending.append(Scrobble(song: id, started: started))
+            persistScrobbles()
+            retryScrobbles()
         }
     }
 
@@ -137,7 +154,29 @@ final class PlaybackHistory {
 
     private enum Write { case queue, scrobble }
 
-    /// A response can fail after the server accepts it. Retrying a scrobble can count a play twice.
+    private func persistScrobbles() {
+        if pending.count > Self.scrobbleLimit { pending.removeFirst(pending.count - Self.scrobbleLimit) }
+        if let data = try? JSONEncoder().encode(pending) { defaults.set(data, forKey: scrobblesKey) }
+    }
+
+    /// Plays are events: two listens to the same movement must remain two submissions.
+    func retryScrobbles() {
+        enqueue(.scrobble) { [self] in
+            var failure: (any Error)?
+            for event in pending {
+                do {
+                    try await server.scrobble(id: event.song, time: event.started)
+                    pending.removeAll { $0.token == event.token }
+                    persistScrobbles()
+                } catch {
+                    failure = error
+                }
+            }
+            if let failure { throw failure }
+        }
+    }
+
+    /// OpenSubsonic has no submission receipt. A lost response can cause a duplicate on retry.
     private func enqueue(_ kind: Write, _ operation: @escaping @MainActor () async throws -> Void) {
         let previous = writes
         writes = Task { [weak self] in

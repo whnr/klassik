@@ -30,8 +30,8 @@ final class AppModel {
     let sweep: PersonSweep
     let swipes = SwipeSettings()
     let libraryRows = LibraryRows()
-    private let store: CredentialStore
     @ObservationIgnored private var reconnect: ConnectionMonitor?
+    private let store: CredentialStore
 
     var client: SubsonicClient? { credentials.map { SubsonicClient(credentials: $0) } }
 
@@ -58,9 +58,13 @@ final class AppModel {
         }
         credentials = store.load()
         updateServer()
-        // Favourites that wait go to the server when a connection comes back (ADR 0052).
         reconnect = ConnectionMonitor { [weak self] in
-            Task { @MainActor [weak self] in await self?.recordingOrder.synchronize() }
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                async let favourites: Void = self.recordingOrder.synchronize()
+                async let listening: Void = self.playback.synchronizeListeningData()
+                _ = await (favourites, listening)
+            }
         }
         // No build reads the URL cache folder of the pictures, so its space goes back to the device.
         Task.detached(priority: .utility) {

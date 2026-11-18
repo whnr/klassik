@@ -285,7 +285,7 @@ final class ConnectionMonitor: @unchecked Sendable {
     private let lock = NSLock()
     private var good = true
 
-    /// `onConnect` runs on each path update that has a connection, metered or not.
+    /// `onConnect` also accepts mobile data and Low Data Mode for small queued writes.
     init(onConnect: @escaping @Sendable () -> Void = {}) {
         monitor.pathUpdateHandler = { [weak self] path in
             let usable = path.status == .satisfied && !path.isConstrained && !path.isExpensive

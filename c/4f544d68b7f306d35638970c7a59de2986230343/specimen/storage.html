@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Local Storage</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="../tokens.css?v=50" />
+    <link rel="stylesheet" href="specimen.css?v=50" />
+    <script src="specimen.js?v=50"></script>
+  </head>
+  <body>
+    <script>
+      // The Local Storage page of Settings (ADR 0051): one bar for the four stores, then a limit for each cache.
+      K.start(() => {
+        const { el, href } = K;
+        const { scroll } = K.page({
+          tab: "library",
+          title: "Local Storage",
+          back: { label: "Settings", href: href("settings.html", { place: "library", back: "Library" }) },
+        });
+        const stores = [
+          { name: "Music", colour: "tint", size: 1.62 },
+          { name: "Downloads", colour: "swipe-download", size: 0.84 },
+          { name: "Pictures", colour: "text-secondary", size: 0.21 },
+          { name: "Album Art", colour: "text-tertiary", size: 0.09 },
+        ];
+        const total = stores.reduce((sum, store) => sum + store.size, 0);
+        const gb = (size) => `${size.toFixed(2)} GB`;
+        const row = (label, value) =>
+          el("div", { class: "row" }, el("span", { class: "main" }, label), el("span", { class: "trail" }, value));
+        const legend = (store) =>
+          el(
+            "div",
+            { class: "row" },
+            el("span", { class: "storage-dot", style: `background: var(--color-${store.colour})` }),
+            el("span", { class: "main" }, store.name),
+            el("span", { class: "trail" }, gb(store.size)),
+          );
+        const limit = (value) =>
+          el(
+            "div",
+            { class: "row" },
+            el("span", { class: "main" }, "Limit"),
+            el("span", { class: "trail" }, value),
+            el("span", { class: "stepper", "aria-hidden": "true" }, "− | +"),
+          );
+        const cache = (heading, value, clear, foot) =>
+          el(
+            "section",
+            { class: "section" },
+            el("div", { class: "section-head t-footnote" }, heading),
+            el(
+              "div",
+              { class: "list" },
+              limit(value),
+              el("button", { class: "row destructive", type: "button" }, clear),
+            ),
+            el("p", { class: "section-foot t-footnote" }, foot),
+          );
+        scroll.append(
+          el("div", { class: "page-head" }, el("h1", { class: "t-largeTitle" }, "Local Storage")),
+          el(
+            "section",
+            { class: "section" },
+            el(
+              "div",
+              { class: "list" },
+              el(
+                "div",
+                { class: "row" },
+                el(
+                  "span",
+                  { class: "storage-bar", "data-id": "storage-bar", role: "img", "aria-label": `${gb(total)} used` },
+                  ...stores.map((store) =>
+                    el("span", {
+                      style: `flex-grow: ${store.size}; background: var(--color-${store.colour})`,
+                    }),
+                  ),
+                ),
+              ),
+              ...stores.map(legend),
+            ),
+            el("p", { class: "section-foot t-footnote" }, `Klassik uses ${gb(total)}. 41.3 GB free on this iPhone.`),
+          ),
+          cache(
+            "Music",
+            "2 GB",
+            "Clear Music",
+            "Every track that plays stays here. When the cache is full, the tracks played longest ago go first.",
+          ),
+          cache(
+            "Pictures",
+            "No Limit",
+            "Clear Pictures",
+            "Composer and performer pictures from Wikimedia Commons. When the limit is full, the pictures shown " +
+              "longest ago go first.",
+          ),
+          cache(
+            "Album Art",
+            "No Limit",
+            "Clear Album Art",
+            "Klassik keeps the art of every album of your library, so that it shows without the server. It waits " +
+              "for a connection that is not in Low Data Mode.",
+          ),
+          el(
+            "section",
+            { class: "section" },
+            el("div", { class: "section-head t-footnote" }, "Downloads"),
+            el(
+              "div",
+              { class: "list" },
+              row("Symphony No. 3 in E-flat major", "512 MB"),
+              row("Piano Sonata No. 32 in C minor", "330 MB"),
+            ),
+            el(
+              "p",
+              { class: "section-foot t-footnote" },
+              "A download stays until you remove it. The cache limits do not count it. Signing out removes it.",
+            ),
+          ),
+        );
+      });
+    </script>
+  </body>
+</html>

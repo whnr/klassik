@@ -228,9 +228,37 @@ jobs:
           name: screens-xcresult-${{ matrix.group }}
           path: ${{ runner.temp }}/screens/*.xcresult
 
+  # TestFlight gets an optimized Release build. This job opens one after a login and after a relaunch.
+  release-launch:
+    needs: [lint, layout, fixtures]
+    runs-on: xcode-27
+    timeout-minutes: 40
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - uses: actions/download-artifact@v8
+        with:
+          name: fixture-music
+          path: ${{ runner.temp }}
+      - run: mkdir -p "$RUNNER_TEMP/fixture" && tar xzf "$RUNNER_TEMP/fixture-music.tgz" -C "$RUNNER_TEMP/fixture"
+      - name: Start Navidrome on the fixture library
+        run: scripts/fixture-server.sh "$RUNNER_TEMP/fixture"
+      - name: Open a Release build
+        run: scripts/release-launch.sh "$RUNNER_TEMP/release"
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: release-launch
+          path: |
+            ${{ runner.temp }}/release/*.log
+            ${{ runner.temp }}/release/*.xcresult
+
   # Keep the public artifact and check names stable for comparisons and release checks.
   test:
-    needs: [plan, build, walk]
+    needs: [plan, build, walk, release-launch]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -286,12 +314,14 @@ jobs:
         with:
           name: screens
           path: screens
-      - name: Require plan, build and test jobs
+      - name: Require plan, build, test and release launch jobs
         env:
           PLAN: ${{ needs.plan.result }}
           BUILD: ${{ needs.build.result }}
           WALK: ${{ needs.walk.result }}
-        run: test "$PLAN" = success && test "$BUILD" = success && test "$WALK" = success
+          RELEASE: ${{ needs.release-launch.result }}
+        run: |
+          test "$PLAN" = success && test "$BUILD" = success && test "$WALK" = success && test "$RELEASE" = success
 
   # The diff informs; it never fails the run. It runs when screenshots exist, also after a failed test job.
   # Without screenshots the job shows as skipped, and the summary of test says why.

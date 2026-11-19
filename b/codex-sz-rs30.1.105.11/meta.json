@@ -1,7 +1,7 @@
 {
-  "sha": "88696c5bf95008d3561a02853d7b91ffb05580ce",
+  "sha": "5bf8e5ff49d3c597235fc3f8a528e172a6a62009",
   "branch": "codex-sz-rs30.1.105.11",
   "path": "codex-sz-rs30.1.105.11",
-  "subject": "[sz-rs30.1.105.11] Keep portrait marks legible",
-  "ts": 1795076206
+  "subject": "[sz-rs30.1.105.11] Preserve person title spacing",
+  "ts": 1795076564
 }

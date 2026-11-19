@@ -229,13 +229,15 @@ final class BrowseScreens: ScreensTestCase {
     func testSearch() throws {
         let app = try launchAndConnect(openComposers: false)
         openPlace(app, "Search")
-        let field = app.searchFields.firstMatch
+        let field = app.textFields["search-field"]
         XCTAssertTrue(field.waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["search-hint"].waitForExistence(timeout: 10))
         XCTAssertFalse(app.staticTexts["page-heading"].exists, "Search shows a large title")
         let arrow = app.buttons["place-back"]
         XCTAssertTrue(arrow.exists)
         XCTAssertGreaterThanOrEqual(field.frame.minY, arrow.frame.maxY - 1, "The field is not under the back arrow")
+        XCTAssertLessThan(field.frame.maxY, app.frame.midY, "The field is not at the top")
+        XCTAssertLessThan(field.frame.maxY, app.staticTexts["search-hint"].frame.minY, "The hint is above the field")
         snap(app, "19a-search-empty")
 
         field.tap()
@@ -245,8 +247,9 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertEqual(works.count, 4, "The Chopin nocturnes are not all found")
         XCTAssertTrue(app.buttons.matching(identifier: "search-person").firstMatch.exists)
         XCTAssertTrue(app.buttons.matching(identifier: "search-album").firstMatch.exists)
-        snap(app, "19b-search-results")
         field.typeText("\n")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5), "Search does not close the keyboard")
+        snap(app, "19b-search-results")
         let fieldTop = field.frame.minY
         app.swipeUp()
         XCTAssertEqual(field.frame.minY, fieldTop, accuracy: 1, "The field scrolls with the results")
@@ -271,6 +274,7 @@ final class BrowseScreens: ScreensTestCase {
         openPlace(app, "Library")
         openPlace(app, "Search")
         XCTAssertTrue(app.staticTexts["search-hint"].waitForExistence(timeout: 10), "A tab kept the old search")
+        XCTAssertFalse(app.buttons["search-clear"].exists)
     }
 
     /// The overview of the composers with life dates, then one composer among the contemporaries, the scrub, the

@@ -2,10 +2,13 @@ import SwiftUI
 
 /// The Search place (ADR 0025, 0029, 0057): one field at the top under the back arrow, no large title, and the
 /// results in sections under it. Only the results scroll.
+/// The field is drawn here, not by `searchable`: in a `UISearchTab` the system moves that field to the bottom of
+/// the screen, onto the keyboard.
 struct SearchView: View {
     @Environment(AppModel.self) private var model
     @Environment(AppNavigator.self) private var navigator
     @State private var text = ""
+    @FocusState private var focused: Bool
 
     var body: some View {
         let typed = !text.trimmingCharacters(in: .whitespaces).isEmpty
@@ -41,13 +44,61 @@ struct SearchView: View {
         .navigationTitle(Place.search.title)
         .navigationBarTitleDisplayMode(.inline)
         .environment(\.pageHeading, "")
-        .searchable(text: $text, placement: .navigationBarDrawer(displayMode: .always), prompt: "Work or name")
-        // The back arrow stays above the field while the listener types.
-        .searchPresentationToolbarBehavior(.avoidHidingContent)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            SearchField(text: $text, focused: $focused)
+        }
         .scrollDismissesKeyboard(.immediately)
-        .autocorrectionDisabled()
-        .textInputAutocapitalization(.never)
-        .onChange(of: navigator.searchStarts) { text = "" }
+        // A tab or a link opens Search empty, with the keyboard up, as the system Search tab does.
+        .onChange(of: navigator.searchStarts, initial: true) {
+            text = ""
+            focused = navigator.selection == .search
+        }
+    }
+}
+
+/// The field row of search.html: a magnifier, the text and a clear button that clears the text only.
+private struct SearchField: View {
+    @Binding var text: String
+    var focused: FocusState<Bool>.Binding
+    @ScaledMetric(relativeTo: .body) private var height = Layout.searchFieldHeight
+    @ScaledMetric(relativeTo: .body) private var icon = Layout.searchFieldIcon
+
+    var body: some View {
+        HStack(spacing: Layout.searchFieldGap) {
+            Image(systemName: "magnifyingglass")
+                .resizable()
+                .scaledToFit()
+                .frame(width: icon, height: icon)
+                .foregroundStyle(Palette.textSecondary)
+                .accessibilityHidden(true)
+            TextField("Work or name", text: $text)
+                .typeStyle(.body)
+                .foregroundStyle(Palette.textPrimary)
+                .focused(focused)
+                .submitLabel(.search)
+                .onSubmit { focused.wrappedValue = false }
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+                .accessibilityIdentifier("search-field")
+            if !text.isEmpty {
+                Button {
+                    text = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(Palette.textSecondary)
+                }
+                .buttonStyle(FlatPress())
+                .accessibilityLabel("Clear")
+                .accessibilityIdentifier("search-clear")
+            }
+        }
+        .padding(.leading, Layout.searchFieldLeading)
+        .padding(.trailing, Layout.searchFieldTrailing)
+        .frame(minHeight: height)
+        .background(Palette.fillQuiet, in: RoundedRectangle(cornerRadius: Layout.searchFieldCorner))
+        .pagePadding()
+        .padding(.bottom, Layout.searchRowBottom)
+        .background(Palette.backgroundPage)
     }
 }
 

@@ -65,6 +65,7 @@ struct FavouriteTitle: View {
     let action: @MainActor () -> Void
     var textIdentifier = "page-heading"
     var ink: Color = Palette.textPrimary.color
+    var minimumHeight: CGFloat? = Measure.hitTarget
     @ScaledMetric(relativeTo: .title) private var em = TypeStyle.pageTitle.size
     @Environment(\.displayScale) private var scale
     @Environment(\.colorScheme) private var scheme
@@ -82,7 +83,7 @@ struct FavouriteTitle: View {
         }
         // The mark changes state at once. A pressed button must not fade the title.
         .buttonStyle(.still)
-        .frame(minHeight: Measure.hitTarget)
+        .frame(minHeight: minimumHeight)
         .accessibilityLabel(title)
         .accessibilityValue(isSet ? "Favourite" : "Not a favourite")
     }

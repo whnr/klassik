@@ -447,7 +447,7 @@ struct PersonHero: View {
                 FavouriteTitle(
                     title: name, isSet: model.recordingOrder.isFavourite(person: name),
                     action: { model.recordingOrder.toggleAtOnce(person: name) }, textIdentifier: "\(kind)-title",
-                    ink: portrait == nil ? Palette.textPrimary.color : paper
+                    ink: portrait == nil ? Palette.textPrimary.color : paper, minimumHeight: nil
                 )
                 // The portrait scrim uses the dark room's ink and favourite colours (picture.css).
                 .environment(\.colorScheme, portrait == nil ? scheme : .dark)

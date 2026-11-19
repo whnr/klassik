@@ -1,7 +1,7 @@
 {
-  "sha": "bc2770543a334169511ff424d540b274eb7e3401",
+  "sha": "24e290083da9ac5d3775468584dc4d877fb2de58",
   "branch": "main",
   "path": "main",
-  "subject": "[sz-kaqj] Fix Flo's 0.15.0 notes (#112)",
-  "ts": 1795116376
+  "subject": "Merge pull request #113 from whnr/claude-release-0.16.0",
+  "ts": 1795125562
 }

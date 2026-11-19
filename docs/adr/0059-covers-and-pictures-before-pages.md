@@ -4,6 +4,8 @@ Date: 2026-11-18. Decided by Flo for sz-rs30.1.117.7, sz-rs30.1.118 and sz-rs30.
 Replaces the image fetch, cover key and refresh rules of [0051](0051-pictures-and-album-art-in-local-storage.md).
 Refines [0010](0010-incremental-sync.md) for image refreshes.
 
+The person-picture Low Data Mode rules are replaced by [0061](0061-work-pages-and-ready-person-pictures.md).
+
 ## Context
 
 Flo requires stored album covers before use, indexed by album and disc, with shared files for identical covers.

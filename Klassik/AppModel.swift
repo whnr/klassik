@@ -30,6 +30,7 @@ final class AppModel {
     let sweep: PersonSweep
     let swipes = SwipeSettings()
     let libraryRows = LibraryRows()
+    let chronology = ChronologyPlace()
     @ObservationIgnored private var reconnect: ConnectionMonitor?
     private let store: CredentialStore
 
@@ -53,7 +54,7 @@ final class AppModel {
             },
             hasPicture: { portrait in
                 await ImageStore.pictures.loaded()
-                return PortraitLoader.files(of: portrait).contains { ImageStore.pictures.contains($0.absoluteString) }
+                return PortraitLoader.isKept(portrait)
             })
         // UI tests start from the connect screen.
         if ProcessInfo.processInfo.arguments.contains("-resetServer") {
@@ -66,6 +67,7 @@ final class AppModel {
             enrichment.clear()
             people.clear()
             libraryRows.reset()
+            chronology.clear()
         }
         credentials = store.load()
         updateServer()
@@ -117,6 +119,7 @@ final class AppModel {
     func start() async {
         guard let credentials, let client else { return }
         await library.load(for: credentials)
+        sweepPeople()
         // The UI walk requires a fresh player on each reset launch.
         if !ProcessInfo.processInfo.arguments.contains("-resetServer") { await playback.restoreQueue() }
         await check()
@@ -169,6 +172,10 @@ final class AppModel {
         guard let client else { return }
         await library.sync(with: client)
         keepAlbumArt(full: true)
+        Task {
+            await sweep.finish()
+            sweepPeople()
+        }
     }
 
     /// Album Art Clear. The next library sync and every page that opens fetch the covers again.

@@ -102,6 +102,60 @@ extension Page {
     }
 }
 
+/// A person page needs decoded local pixels before the system starts its push transition.
+struct PersonPageLink<Label: View>: View {
+    @Environment(AppModel.self) private var model
+    @Environment(AppNavigator.self) private var navigator
+    let page: Page
+    var disclosure = true
+    @ViewBuilder let label: Label
+    @State private var opening = false
+
+    var body: some View {
+        Button {
+            guard !opening else { return }
+            opening = true
+            let place = navigator.selection
+            let stack = navigator.pages(in: place)
+            Task {
+                await model.preparePortrait(for: page)
+                opening = false
+                guard navigator.selection == place, navigator.pages(in: place) == stack else { return }
+                navigator.open(page, in: place)
+            }
+        } label: {
+            HStack(spacing: Layout.rowGap) {
+                label
+                if disclosure {
+                    Image(systemName: "chevron.right")
+                        .typeStyle(.footnote)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(Palette.textTertiary)
+                }
+            }
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        // A row decodes its picture when the list is about to show it, so a tap finds it ready.
+        .task { await model.preparePortrait(for: page) }
+    }
+}
+
+extension AppModel {
+    /// Only local decoding can delay a push. The first image pass must never block browsing on a network request.
+    func preparePortrait(for page: Page) async {
+        let portrait: PersonPortrait?
+        switch page {
+        case .composer(let name): portrait = people.facts(ofComposer: name)?.portrait
+        case .performer(let name): portrait = people.facts(ofPerformer: name)?.portrait
+        default: return
+        }
+        guard let portrait, PortraitLoader.ready(portrait) == nil else { return }
+        let local = PortraitLoader.stored({ _ in throw URLError(.notConnectedToInternet) }, in: { .pictures })
+        _ = await PortraitLoader.load(portrait, screen: PortraitLoader.deviceScreen, fetch: local)
+    }
+}
+
 /// The view of a page. A page whose thing a sync has removed says so.
 struct PageView: View {
     @Environment(AppModel.self) private var model

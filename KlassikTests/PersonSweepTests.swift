@@ -26,6 +26,11 @@ private final class Counter: @unchecked Sendable {
 }
 
 /// The pictures that the sweep hands on, with the picture that each person had before.
+@MainActor private final class KeptFlag {
+    var value: Bool
+    init(_ value: Bool) { self.value = value }
+}
+
 @MainActor private final class PictureLog {
     private(set) var found: [PersonPortrait] = []
     private(set) var old: [PersonPortrait?] = []
@@ -115,6 +120,28 @@ struct PersonSweepTests {
         #expect(store.cache.checked == checked)
         #expect(stub.requests.count == requests)
         #expect(store.cache.picturePending.isEmpty)
+    }
+
+    @Test func aKeptPictureIsNotFetchedAgainAndALaterPassQueuesAMissingOne() async throws {
+        let (store, _) = try makeStore()
+        let initial = PersonSweep(store: store, now: { Self.start })
+        await initial.run([Self.bach])
+        await initial.finish()
+        let log = PictureLog()
+        let kept = KeptFlag(true)
+        let sweep = PersonSweep(
+            store: store, now: { Self.start },
+            pictures: { portrait, old in
+                log.add(portrait, old)
+                return true
+            }, hasPicture: { _ in kept.value })
+        await sweep.run([Self.bach])
+        await sweep.finish()
+        #expect(log.found.isEmpty)
+        kept.value = false
+        await sweep.run([Self.bach])
+        await sweep.finish()
+        #expect(log.found.count == 1)
     }
 
     @Test func aFailedPictureRetriesBeforeMetadataExpires() async throws {

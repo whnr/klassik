@@ -221,7 +221,7 @@ struct EnrichmentTests {
         #expect(stub.requests.count == count)
     }
 
-    @Test func listenerConfirmsOnceAndTheirYearWins() async throws {
+    @Test func listenerConfirmsOnce() async throws {
         let stub = MusicBrainzStub()
         let url = Self.cacheURL()
         let enrichment = Enrichment(musicBrainz: stub.musicBrainz, wikidata: stub.wikidata, cacheURL: url)
@@ -234,15 +234,9 @@ struct EnrichmentTests {
         await enrichment.confirm(found[0], for: work)
         #expect(enrichment.link(of: work) == .found(found[0].id))
 
-        let summer = Self.work("Summer")
-        enrichment.setYear(1720, for: summer)
-        #expect(enrichment.composed(summer)?.span == YearSpan(1720))
-        #expect(enrichment.composed(summer)?.source == .listener)
-
         try await Task.sleep(for: .milliseconds(200))
         let reloaded = Enrichment(musicBrainz: stub.musicBrainz, wikidata: stub.wikidata, cacheURL: url)
         #expect(reloaded.link(of: work) == .found(found[0].id))
-        #expect(reloaded.composed(summer)?.span == YearSpan(1720))
     }
 
     @Test func rejectedMatchStaysRejected() async {
@@ -349,45 +343,5 @@ struct ComposerListTests {
         await enrichment.enrich(Self.index)
         #expect(enrichment.composed(Self.work("Étude in C major, Op. 10 No. 1"))?.span == YearSpan(1829))
         #expect(stub.requests.contains("work?\"op. 10 no. 1\" AND artist:\"Chopin\""))
-    }
-
-    @Test func oldCacheKeepsTheListenersYears() throws {
-        let url = EnrichmentTests.cacheURL()
-        try Data(#"{"years":{"work:Frédéric Chopin|Bolero":1833}}"#.utf8).write(to: url)
-        #expect(Enrichment(cacheURL: url).cache.years["work:Frédéric Chopin|Bolero"] == 1833)
-    }
-}
-
-struct TimelineTests {
-    @Test func periodsOfComposers() {
-        #expect(Timeline.Period.of(born: 1678, died: 1741) == .baroque)
-        #expect(Timeline.Period.of(born: 1756, died: 1791) == .classical)
-        #expect(Timeline.Period.of(born: 1797, died: 1828) == .romantic)
-        #expect(Timeline.Period.of(born: 1810, died: 1849) == .romantic)
-        #expect(Timeline.Period.of(born: nil, died: nil) == nil)
-        #expect(Timeline.Period.of(year: 1500) == .early)
-        #expect(Timeline.Period.of(year: 2001) == .contemporary)
-    }
-
-    @Test func undatedWorksSitInTheLifetime() {
-        let index = EnrichmentTests.index
-        let years = ["Summer": 1723, "Étude in C major, Op. 10 No. 1": 1829]
-        let timeline = Timeline(
-            index: index, composed: { years[$0.title].map { YearSpan($0) } },
-            lifetime: { $0 == "Frédéric Chopin" ? (1810, 1849) : nil })
-
-        #expect(timeline.sections.map(\.period) == [.baroque, .romantic])
-        #expect(timeline.sections[0].entries.map(\.work.title) == ["Summer"])
-        let romantic = timeline.sections[1].entries
-        #expect(romantic.first?.work.title == "Étude in C major, Op. 10 No. 1")
-        #expect(romantic.first?.isApproximate == false)
-        #expect(romantic.dropFirst().allSatisfy { $0.isApproximate && $0.span == YearSpan(1810, 1849) })
-        #expect(timeline.undated.isEmpty)
-    }
-
-    @Test func composerWithoutAnyDateIsUndated() {
-        let timeline = Timeline(index: EnrichmentTests.index, composed: { _ in nil }, lifetime: { _ in nil })
-        #expect(timeline.sections.isEmpty)
-        #expect(timeline.undated.count == 5)
     }
 }

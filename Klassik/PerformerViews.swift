@@ -11,7 +11,7 @@ struct PerformersView: View {
         }
         PageList {
             ForEach(performers) { performer in
-                NavigationLink(value: Page.performer(performer.name)) {
+                PersonPageLink(page: .performer(performer.name)) {
                     LabeledContent {
                         Text(performer.entries.count.formatted())
                     } label: {

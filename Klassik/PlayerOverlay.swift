@@ -41,6 +41,11 @@ private struct PlayerOverlay: View {
     let item: QueueItem
     @GestureState private var dragged: CGFloat = 0
 
+    /// The specimen's rise: the old content leaves upwards, the next one comes from below.
+    private static let rise = AnyTransition.asymmetric(
+        insertion: .offset(y: Layout.riseIn).combined(with: .opacity),
+        removal: .offset(y: -Layout.riseOut).combined(with: .opacity))
+
     var body: some View {
         VStack(spacing: 0) {
             Button {
@@ -64,16 +69,26 @@ private struct PlayerOverlay: View {
                             navigator.closePlayer()
                         }
                     })
-            RecordingView(
-                work: item.work, recording: item.recording,
-                album: item.recording.albumKey.flatMap { model.library.album($0) }, isOverlay: true
-            )
-            .id(item.id)
+            ZStack {
+                // When an item ends, its content leaves upwards and the next item rises in its place.
+                RecordingView(
+                    work: item.work, recording: item.recording,
+                    album: item.recording.albumKey.flatMap { model.library.album($0) }, isOverlay: true
+                )
+                .id(item.id)
+                .transition(reduceMotion ? .opacity : Self.rise)
+            }
+            .animation(Motion.rise.animation(reduceMotion: reduceMotion), value: item.id)
         }
         .padding(.top, layout.top)
         .padding(.bottom, layout.bottom)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Palette.backgroundGrouped.color.ignoresSafeArea())
+        .background { PlayerGround() }
+        .coverWash(
+            item: item.id,
+            song: model.playback.item?.id == item.id ? model.playback.coverSong : item.recording.songs.first,
+            isPlaying: model.playback.item?.id == item.id
+        )
         .offset(y: dragged)
         .animation(Motion.rise.animation(reduceMotion: reduceMotion), value: dragged == 0)
         .accessibilityElement(children: .contain)

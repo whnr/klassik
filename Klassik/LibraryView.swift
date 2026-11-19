@@ -79,7 +79,7 @@ struct ComposersView: View {
         let library = model.library
         PageList {
             ForEach(library.index.composers) { composer in
-                NavigationLink(value: Page.composer(composer.name)) {
+                PersonPageLink(page: .composer(composer.name)) {
                     LabeledContent {
                         Text(composer.works.count.formatted())
                     } label: {

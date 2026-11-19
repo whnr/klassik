@@ -116,6 +116,7 @@ extension ScaledMetric where Value == CGFloat {
 /// Every row takes the specimen row insets. A row that sets its own insets keeps them.
 struct PageList<Content: View>: View {
     @Environment(\.pageHeading) private var heading
+    @Environment(\.playerWash) private var wash
     @ViewBuilder let content: Content
 
     var body: some View {
@@ -136,8 +137,14 @@ struct PageList<Content: View>: View {
         .environment(\.defaultMinListHeaderHeight, 0)
         .environment(\.isPageList, true)
         .scrollContentBackground(.hidden)
+        .onScrollGeometryChange(for: CGFloat.self) { geometry in
+            geometry.contentOffset.y + geometry.contentInsets.top
+        } action: { _, offset in
+            wash?.scroll.offset = offset
+        }
         .pageContentPosition()
-        .background(Palette.backgroundPage)
+        // The player draws its wash behind the list, so the list keeps a clear ground and reports its scroll.
+        .background(wash == nil ? AnyShapeStyle(Palette.backgroundPage) : AnyShapeStyle(.clear))
     }
 }
 
@@ -238,6 +245,7 @@ private struct PageHeading: View {
             .multilineTextAlignment(.leading)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityAddTraits(.isHeader)
+            .padding(.top, plain ? 0 : Layout.headTop)
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
             .listRowInsets(

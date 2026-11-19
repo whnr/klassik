@@ -88,3 +88,18 @@ struct QuietSpell: Sendable {
         return true
     }
 }
+
+/// What the player shows after its rows (ADR 0014).
+enum PlayerTail: Equatable, Sendable {
+    /// The row of the next queue item, which becomes the player when the playing item ends.
+    case next(UUID)
+    /// The item plays, and no item follows it.
+    case endsHere
+    /// The player shows an item that does not play.
+    case nothing
+
+    /// `upNext` holds the queue after the item. The player closes when no item plays (ADR 0053).
+    init(isPlaying: Bool, upNext: [UUID]) {
+        self = isPlaying ? upNext.first.map(Self.next) ?? .endsHere : .nothing
+    }
+}

@@ -82,7 +82,7 @@ private struct SystemPlaces: UIViewControllerRepresentable {
             let root: AnyView
             switch place {
             case .library: root = AnyView(PlaceStack(place: place) { LibraryView() })
-            case .chronology: root = AnyView(PlaceStack(place: place) { WorkTimelineView() })
+            case .chronology: root = AnyView(PlaceStack(place: place) { ChronologyView() })
             case .search: root = AnyView(PlaceStack(place: place) { SearchView() })
             }
             let host = UIHostingController(
@@ -184,11 +184,6 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
     private func configureBackGesture() {
         guard backTransition?.isTracking != true, let navigator, let window = view.window else { return }
         if nativePan?.state == .began || nativePan?.state == .changed { return }
-        if let nativePan, let nativePanView, nativePan.view !== nativePanView {
-            nativePanView.addGestureRecognizer(nativePan)
-        }
-        nativePan = nil
-        nativePanView = nil
         if edgePan == nil {
             let pan = UIScreenEdgePanGestureRecognizer(target: self, action: #selector(dragBack(_:)))
             pan.edges = .left
@@ -198,18 +193,26 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
         }
         let root = navigator.pages(in: navigator.selection).isEmpty
         edgePan?.isEnabled = root && !navigator.isPlayerOpen && navigator.backTarget(for: navigator.selection) != nil
-        if !root, side == .left, !navigator.isPlayerOpen,
-            let navigation = navigationController(in: selectedViewController),
-            let pan = navigation.interactivePopGestureRecognizer
-        {
-            nativePan = pan
-            nativePanView = pan.view
-            window.addGestureRecognizer(pan)
+        let navigation = navigationController(in: selectedViewController)
+        let next =
+            !root && side == .left && !navigator.isPlayerOpen
+            ? navigation?.interactivePopGestureRecognizer : nil
+        if nativePan !== next {
+            if let nativePan, let nativePanView, nativePan.view !== nativePanView {
+                nativePanView.addGestureRecognizer(nativePan)
+            }
+            nativePan = next
+            nativePanView = next?.view
+            if let next { window.addGestureRecognizer(next) }
         }
     }
 
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-        guard let pan = gestureRecognizer as? UIScreenEdgePanGestureRecognizer else { return false }
+        guard let pan = gestureRecognizer as? UIScreenEdgePanGestureRecognizer,
+            backTransition?.isRunning != true, let navigator,
+            navigator.pages(in: navigator.selection).isEmpty,
+            !navigator.isPlayerOpen, navigator.backTarget(for: navigator.selection) != nil
+        else { return false }
         let velocity = pan.velocity(in: view)
         return velocity.x > abs(velocity.y)
     }
@@ -218,7 +221,14 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
     func gestureRecognizer(
         _ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
     ) -> Bool {
-        gestureRecognizer === edgePan || other === edgePan
+        // Row taps must fail when Back begins; only the timeline's continuous drag can run beside it.
+        (gestureRecognizer === edgePan || other === edgePan) && other is UIPanGestureRecognizer
+    }
+
+    func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer, shouldBeRequiredToFailBy other: UIGestureRecognizer
+    ) -> Bool {
+        gestureRecognizer === edgePan
     }
 
     private func navigationController(in controller: UIViewController?) -> UINavigationController? {

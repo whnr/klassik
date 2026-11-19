@@ -174,10 +174,11 @@ final class PersonSweep {
     func run(_ people: [Person]) async {
         for person in people {
             guard !Task.isCancelled else { return }
-            if store.cache.picturePending[person.key] == nil, let found = portrait(of: person),
-                !(await hasPicture(found))
-            {
-                store.queuePicture(person.key, portrait: found, old: nil)
+            if let found = portrait(of: person) {
+                let kept = await hasPicture(found)
+                if store.cache.picturePending[person.key] == nil, !kept {
+                    store.queuePicture(person.key, portrait: found, old: nil)
+                }
             }
             if let work = store.cache.picturePending[person.key] { queuePicture(person.key, work: work) }
         }
@@ -325,8 +326,8 @@ final class PersonSweep {
     }
 }
 
-/// Tells whether the connection suits a long run of small requests: it works, and it is neither metered nor
-/// in Low Data Mode (ADR 0042).
+/// Tells whether the connection suits a long run of small requests: it works and it is not metered. Low Data
+/// Mode alone does not stop people pictures (ADR 0061); mobile data keeps the limit of ADR 0042.
 final class ConnectionMonitor: @unchecked Sendable {
     private let monitor = NWPathMonitor()
     private let lock = NSLock()
@@ -335,7 +336,7 @@ final class ConnectionMonitor: @unchecked Sendable {
     /// `onConnect` also accepts mobile data and Low Data Mode for small queued writes.
     init(onConnect: @escaping @Sendable () -> Void = {}) {
         monitor.pathUpdateHandler = { [weak self] path in
-            let usable = path.status == .satisfied && !path.isConstrained && !path.isExpensive
+            let usable = path.status == .satisfied && !path.isExpensive
             self?.lock.withLock { self?.good = usable }
             if path.status == .satisfied { onConnect() }
         }

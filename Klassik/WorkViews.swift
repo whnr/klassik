@@ -251,16 +251,6 @@ struct WorkView: View {
 
     var body: some View {
         PageList {
-            if let recording = model.recordingOrder.reference(of: work) {
-                CoverImage(song: recording.songs.first, points: Layout.workCover)
-                    .frame(width: Layout.workCover, height: Layout.workCover)
-                    .clipShape(.rect(cornerRadius: Layout.coverCorner))
-                    .accessibilityElement()
-                    .accessibilityLabel("Cover")
-                    .accessibilityIdentifier("work-cover")
-                    .listRowSeparator(.hidden)
-                    .pageEdges(top: Layout.headTop, bottom: Layout.bigCoverBottom)
-            }
             FavouriteTitle(
                 title: work.title, isSet: model.recordingOrder.isFavourite(work),
                 action: { model.recordingOrder.toggleAtOnce(work) }
@@ -292,20 +282,6 @@ struct WorkView: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("play-work")
-                    if let key = recording.albumKey ?? recording.songs.first?.albumKey,
-                        let album = model.library.album(key), album.tracks.count > recording.songs.count
-                    {
-                        let playsAlbum = player.recording?.id == album.recording.id
-                        Button {
-                            player.play(album.item)
-                        } label: {
-                            CapsuleLabel(
-                                title: playsAlbum ? (player.isPaused ? "Resume Album" : "Pause Album") : "Play Album",
-                                systemImage: playsAlbum && !player.isPaused ? "pause.fill" : "play.fill", filled: false)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier("play-work-album")
-                    }
                 }
                 .listRowSeparator(.hidden)
                 .pageEdges(top: Layout.buttonRowTop)
@@ -384,8 +360,8 @@ private struct WorkHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: gap) {
             HStack(alignment: .firstTextBaseline, spacing: 0) {
-                Button(work.composer) {
-                    navigator.open(.composer(work.composer), in: navigator.selection)
+                PersonPageLink(page: .composer(work.composer), disclosure: false) {
+                    Text(work.composer)
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(Palette.tint)
@@ -651,31 +627,7 @@ struct RecordingView: View {
                         .listRowSeparator(.hidden)
                 }
 
-                if isPlayingThis, !player.upNext.isEmpty {
-                    Section {
-                        SectionHeading("Up next")
-                        ForEach(player.upNext) { item in
-                            Button {
-                                player.playQueued(item.id)
-                            } label: {
-                                VStack(alignment: .leading) {
-                                    Text(item.work.title)
-                                        .ink()
-                                    Text(item.work.composer)
-                                        .typeStyle(.subheadline)
-                                        .foregroundStyle(Palette.textSecondary)
-                                    RoleLines(lines: item.recording.principalNames, style: .subheadline)
-                                        .foregroundStyle(Palette.textSecondary)
-                                }
-                            }
-                            .accessibilityIdentifier("up-next")
-                            .itemSeparator(
-                                first: item.id == player.upNext.first?.id, last: item.id == player.upNext.last?.id)
-                        }
-                        .onDelete { player.removeFromQueue(at: $0) }
-                        .onMove { player.moveInQueue(from: $0, to: $1) }
-                    }
-                }
+                if isOverlay { tail }
             }
             // A finger on the page, or a scroll that it started, holds the rows. The spell begins when the page is still.
             // A scroll by the app itself is not a touch. The list has no tap gesture of its own, so row controls keep their
@@ -734,6 +686,33 @@ struct RecordingView: View {
         } else {
             Text(work.title).typeStyle(Layout.pageTitle).ink()
                 .accessibilityIdentifier("player-title")
+        }
+    }
+
+    /// The end of the player: the next queue item, or where the queue ends (ADR 0014, specimen player.html).
+    @ViewBuilder private var tail: some View {
+        let player = model.playback
+        switch PlayerTail(isPlaying: isPlayingThis, upNext: player.upNext.map(\.id)) {
+        case .next:
+            if let next = player.upNext.first {
+                Section {
+                    SectionHeading("Next")
+                    NextItemRow(item: next)
+                        .pageRow()
+                }
+            }
+        case .endsHere:
+            Section {
+                SectionHeading("Next")
+                Text("The queue ends here.")
+                    .typeStyle(.body)
+                    .foregroundStyle(Palette.textSecondary)
+                    .frame(maxWidth: .infinity, minHeight: Measure.hitTarget, alignment: .leading)
+                    .pageRow()
+                    .accessibilityIdentifier("up-next-end")
+            }
+        case .nothing:
+            EmptyView()
         }
     }
 
@@ -1101,6 +1080,34 @@ private struct OfflineControls: View {
 
     static func size(_ bytes: Int64) -> String {
         bytes.formatted(.byteCount(style: .file))
+    }
+}
+
+/// The row of the next queue item at the end of the player (ADR 0014). It shows the cover, title and album.
+/// It only shows what comes. The item starts when the playing one ends.
+private struct NextItemRow: View {
+    let item: QueueItem
+
+    var body: some View {
+        HStack(spacing: Space.m.points) {
+            CoverImage(song: item.recording.songs.first, points: Measure.coverRow)
+                .frame(width: Measure.coverRow, height: Measure.coverRow)
+                .clipShape(.rect(cornerRadius: Radius.s))
+            VStack(alignment: .leading, spacing: Space.inGroup.points) {
+                Text(item.work.title)
+                    .typeStyle(.body)
+                    .foregroundStyle(Palette.textPrimary)
+                if !item.recording.album.isEmpty {
+                    Text(item.recording.album)
+                        .typeStyle(.subheadline)
+                        .foregroundStyle(Palette.textSecondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(minHeight: Measure.hitTarget)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("up-next")
     }
 }
 

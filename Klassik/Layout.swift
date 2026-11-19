@@ -39,7 +39,7 @@ enum Layout {
 
     /// The gap above the page title, under the back arrow.
     /// css: specimen.css .page-head | padding-top
-    static let headTop = Space.xs.points
+    static let headTop = Space.l.points
     /// The gap under the page heading block, after its meta lines.
     /// css: specimen.css .page-head | padding-bottom
     static let headBottom = Space.s.points
@@ -175,10 +175,6 @@ enum Layout {
     /// css: person.html "margin-top: var(--space-xs)" | margin-top
     static let albumTitleGap = Space.xs.points
 
-    /// The reference recording supplies the work cover.
-    /// css: work.html .work-cover .cover | width
-    static let workCover = Measure.coverRow
-
     // MARK: Player page
 
     /// The gap between the header lines of the player.
@@ -203,6 +199,18 @@ enum Layout {
     /// How far the touch area of the playback bar reaches above and below it, as a CSS inset: 44 points in all.
     /// css: player.html .mv-bar::after | top
     static let positionBarInset: CGFloat = -19
+    /// The height of the player wash. It keeps its colour to `washSolid`, then fades into the page ground.
+    /// css: player.html .wash | height
+    static let washHeight: CGFloat = 640
+    /// The share of the wash height that keeps the full wash colour.
+    /// css: player.html .wash | background | 30%
+    static let washSolid: CGFloat = 0.3
+    /// The rise when an item ends: the old content leaves this far upwards.
+    /// css: player.html .rise-out | transform | 40px
+    static let riseOut: CGFloat = 40
+    /// The rise when an item ends: the next content comes from this far below.
+    /// css: player.html "transform: translateY(120px);" | transform | 120px
+    static let riseIn: CGFloat = 120
     /// The handle at the top of the player overlay.
     /// css: overlay.css .player-overlay .grab::after | width
     static let grabberWidth: CGFloat = 36
@@ -232,6 +240,79 @@ enum Layout {
     static let scrubLabelHorizontal = Space.s.points
     /// css: specimen.css .scrub-label | border-top-left-radius
     static let scrubLabelCorner = Radius.s
+
+    // MARK: Chronology
+
+    /// The gap above the name of the composer in focus.
+    /// css: chronology.html .chrono-head | padding-top
+    static let chronologyHeadTop = Space.xs.points
+    /// The heading keeps its height when the name and the line change, so the chart does not jump.
+    /// css: chronology.html .chrono-head | min-height
+    static let chronologyHeadHeight: CGFloat = 64
+    /// The chart stays clear of the timeline on its side.
+    /// css: chronology.html .chart | right
+    static let chartTimelineGap = Measure.timeline + Space.s.points
+    /// css: chronology.html .band-label | left
+    static let bandLabelLeading = Space.l.points
+    /// The column of decade years at the leading edge of the chart.
+    /// css: chronology.html .tick | width
+    static let tickWidth: CGFloat = 36
+    /// A plain line: a contemporary, or a composer in the overview.
+    /// css: chronology.html .line | width
+    static let line: CGFloat = 2
+    /// The focus composer and the composer last opened.
+    /// css: chronology.html .line.focus | width
+    static let lineMarked: CGFloat = 4
+    /// The composer of what plays.
+    /// css: chronology.html .line.playing | width
+    static let linePlaying: CGFloat = 4
+    /// The line under the finger of a scrub.
+    /// css: chronology.html .line.picked | width
+    static let linePicked: CGFloat = 6
+    /// A line before the work period start.
+    /// css: chronology.html .line.dim | opacity
+    static let lineDim: CGFloat = 0.35
+    /// A work of a contemporary.
+    /// css: chronology.html .dot | width
+    static let dot: CGFloat = 5
+    /// A work of the focus composer.
+    /// css: chronology.html .dot.focus | width
+    static let dotFocus: CGFloat = 9
+    /// The ring of page colour that sets a focus dot off its line.
+    /// css: chronology.html .dot.focus | box-shadow | 2px
+    static let dotFocusRing: CGFloat = 2
+    /// The work that plays.
+    /// css: chronology.html .dot.marked | width
+    static let dotMarked: CGFloat = 15
+    /// css: chronology.html .dot.marked | box-shadow | 4px
+    static let dotMarkedRing: CGFloat = 4
+    /// css: chronology.html .wrow | gap
+    static let workRowGap = Space.s.points
+    /// css: chronology.html .wrow | padding-left
+    static let workRowPadding = Space.xs.points
+    /// css: chronology.html .wrow | border-top-left-radius
+    static let workRowCorner = Radius.s
+    /// css: chronology.html .pick-label | padding-top
+    static let pickLabelVertical = Space.xs.points
+    /// css: chronology.html .pick-label | padding-left
+    static let pickLabelHorizontal = Space.s.points
+    /// css: chronology.html .pick-label | border-top-left-radius
+    static let pickLabelCorner = Radius.s
+    /// css: chronology.html .pick-label | box-shadow | 10px
+    static let pickLabelShadow: CGFloat = 10
+    /// css: chronology.html .pick-label | box-shadow | 2px
+    static let pickLabelShadowY: CGFloat = 2
+    /// css: chronology.html .pick-label | box-shadow | 0.18
+    static let pickLabelShadowOpacity: CGFloat = 0.18
+    /// The life, the count of works and the work period start.
+    /// css: chronology.html "t-subheadline secondary" | class
+    static let chronologyLine = TypeStyle.subheadline
+    /// The decade years and the period names.
+    /// css: chronology.html "tick t-caption2 nums" | class
+    static let chronologyYear = TypeStyle.caption2
+    /// A row of works, and the scrub label.
+    /// css: chronology.html "wrow t-footnote" | class
+    static let workRow = TypeStyle.footnote
 
     // MARK: Local Storage
 

@@ -316,6 +316,15 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertGreaterThanOrEqual(density, 1, "The hero shows fewer picture pixels than screen pixels")
         snap(app, "03b-composer-picture")
 
+        let mark = app.buttons["favourite-composer"]
+        XCTAssertTrue(mark.waitForExistence(timeout: 10))
+        let initial = mark.value as? String
+        mark.tap()
+        XCTAssertNotEqual(mark.value as? String, initial)
+        snap(app, "03m-composer-picture-favourite")
+        mark.tap()
+        XCTAssertEqual(mark.value as? String, initial)
+
         picture.tap()
         let whole = app.descendants(matching: .any)["whole-picture"]
         XCTAssertTrue(whole.waitForExistence(timeout: 10))

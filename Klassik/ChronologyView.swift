@@ -151,7 +151,7 @@ private struct ListedWorksSheet: View {
                 } label: {
                     HStack {
                         VStack(alignment: .leading) {
-                            Text(work.title)
+                            MarkedTitle(title: work.title, isFavourite: model.recordingOrder.isFavourite(work))
                                 .ink()
                             Text(model.enrichment.composed(work).map { String($0.span.start) } ?? "No date")
                                 .typeStyle(.footnote)
@@ -484,6 +484,7 @@ private struct ChronologyChart: View {
 
 /// A row in the column of works: the year or span, then the title or the count. The playing work takes the tint.
 private struct ChronologyRow: View {
+    @Environment(AppModel.self) private var model
     let row: Chronology.Row
     let marked: Bool
     let action: () -> Void
@@ -495,10 +496,14 @@ private struct ChronologyRow: View {
                     .monospacedDigit()
                     .foregroundStyle(Palette.textSecondary)
                     .fixedSize()
-                Text(row.title)
-                    .foregroundStyle(marked ? Palette.tint : Palette.textPrimary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+                MarkedTitle(
+                    title: row.title,
+                    isFavourite: row.from != nil && row.works.count == 1
+                        && model.recordingOrder.isFavourite(row.works[0])
+                )
+                .foregroundStyle(marked ? Palette.tint : Palette.textPrimary)
+                .lineLimit(1)
+                .truncationMode(.tail)
             }
             .typeStyle(Layout.workRow)
             .padding(.horizontal, Layout.workRowPadding)

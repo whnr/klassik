@@ -373,9 +373,24 @@ final class BrowseScreens: ScreensTestCase {
         composer(app, "Frédéric Chopin").tap()
         let set = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Nocturnes, Op. 9'")).firstMatch
         XCTAssertTrue(set.waitForExistence(timeout: 10))
+        let before = set.frame.minY
         set.tap()
-        XCTAssertTrue(app.buttons.matching(identifier: "work").firstMatch.waitForExistence(timeout: 10))
+        let member = app.buttons.matching(
+            NSPredicate(format: "identifier == 'work' AND label BEGINSWITH 'Nocturne No. 1 in B-flat minor'")
+        ).firstMatch
+        XCTAssertTrue(member.waitForExistence(timeout: 10))
+        // Opening a set keeps its title where it is and pushes the works in below (sz-rs30.1.123).
+        XCTAssertEqual(set.frame.minY, before, accuracy: 1, "Opening a set scrolled the list")
+        // A list row's frame spans the whole cell, so the inset shows on the title text.
+        let title = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Nocturne No. 1'")).firstMatch
+        XCTAssertTrue(title.waitForExistence(timeout: 10), "The set member title is not exposed")
+        XCTAssertEqual(
+            title.frame.minX, app.frame.minX + Layout.setMemberLeading,
+            accuracy: 1, "Set members lost their leading inset")
         snap(app, "02a-sets")
+        set.tap()
+        XCTAssertEqual(set.frame.minY, before, accuracy: 1, "Closing a set scrolled the list")
+        XCTAssertEqual(set.value as? String, "Collapsed")
     }
 
     /// Chopin has no picture: his name sits under the back arrow. His works differ in genre, so chips show, and
@@ -1032,6 +1047,12 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertEqual(app.buttons.matching(identifier: "favourite").count, 2)
         XCTAssertTrue(app.buttons.matching(identifier: "work").firstMatch.exists)
         snap(app, "06d-favourites")
+        // The composer page lists the favourite work with the set fermata after its title.
+        back(app)
+        app.buttons["library-composers"].tap()
+        composer(app, "Ludwig van Beethoven").tap()
+        XCTAssertTrue(app.buttons.matching(identifier: "work").firstMatch.waitForExistence(timeout: 10))
+        snap(app, "06e-favourite-in-composer-works")
     }
 
 }

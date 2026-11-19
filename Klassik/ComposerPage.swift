@@ -12,6 +12,9 @@ struct ComposerPage: View {
     let composer: WorkIndex.Composer
     @State private var tab = Tab.works
     @State private var chips: Set<String> = []
+    /// The open sets. Their works are rows of the list, so opening one adds rows below its title and the list
+    /// keeps its offset. A system disclosure group scrolls the list to its new rows.
+    @State private var openSets: Set<ComposerWorks.SetID> = []
     @AppStorage(ComposerWorks.separatesPartialKey) private var separatesPartial = true
 
     var body: some View {
@@ -91,7 +94,7 @@ struct ComposerPage: View {
                 .listRowSeparator(.hidden)
         }
         ForEach(parts) { part in
-            worksSection(part.title, rows: part.rows)
+            worksSection(part)
         }
         let rows = parts.flatMap(\.rows)
         if rows.isEmpty {
@@ -107,37 +110,65 @@ struct ComposerPage: View {
         }
     }
 
-    @ViewBuilder private func worksSection(_ title: String, rows: [ComposerWorks.Row]) -> some View {
+    @ViewBuilder private func worksSection(_ part: ComposerWorks.Part) -> some View {
+        let rows = part.rows
         Section {
-            CountedHeading(title, count: rows.reduce(0) { $0 + $1.works.count })
+            CountedHeading(part.title, count: rows.reduce(0) { $0 + $1.works.count })
             ForEach(rows) { row in
                 Group {
                     switch row {
                     case .work(let work):
                         WorkRow(work: work)
                     case .set(let name, let works):
-                        DisclosureGroup {
-                            ForEach(works) {
-                                WorkRow(work: $0)
-                                    .pageRow()
-                                    .itemSeparator(
-                                        first: false, last: $0.id == works.last?.id && row.id == rows.last?.id)
-                            }
-                        } label: {
-                            VStack(alignment: .leading, spacing: Layout.rowLineGap) {
-                                Text(name)
-                                    .typeStyle(.body)
-                                    .ink()
-                                Text("\(works.count) works")
-                                    .typeStyle(.footnote)
-                                    .foregroundStyle(Palette.textSecondary)
-                            }
-                            .accessibilityElement(children: .combine)
-                        }
-                        .accessibilityIdentifier("set")
+                        setRow(id: part.setID(named: name), works: works, row: row, rows: rows)
                     }
                 }
                 .itemSeparator(first: row.id == rows.first?.id, last: row.id == rows.last?.id)
+            }
+        }
+    }
+
+    /// The title of a set stays where it is. Its works follow as rows below it, at once and without scrolling.
+    @ViewBuilder private func setRow(
+        id: ComposerWorks.SetID, works: [WorkIndex.Work], row: ComposerWorks.Row, rows: [ComposerWorks.Row]
+    ) -> some View {
+        let isOpen = openSets.contains(id)
+        Button {
+            var change = Transaction()
+            change.disablesAnimations = true
+            withTransaction(change) {
+                if isOpen { openSets.remove(id) } else { openSets.insert(id) }
+            }
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: Layout.rowLineGap) {
+                    Text(id.name)
+                        .typeStyle(.body)
+                        .ink()
+                    Text("\(works.count) works")
+                        .typeStyle(.footnote)
+                        .foregroundStyle(Palette.textSecondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .typeStyle(.footnote)
+                    .foregroundStyle(Palette.textSecondary)
+                    .rotationEffect(.degrees(isOpen ? 90 : 0))
+                    .accessibilityHidden(true)
+            }
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(isOpen ? "Expanded" : "Collapsed")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityIdentifier("set")
+        if isOpen {
+            ForEach(works) {
+                WorkRow(work: $0)
+                    .padding(.leading, Layout.setMemberLeading - Layout.centredEdge)
+                    .pageRow()
+                    .itemSeparator(first: false, last: $0.id == works.last?.id && row.id == rows.last?.id)
             }
         }
     }

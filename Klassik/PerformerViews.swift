@@ -12,8 +12,14 @@ struct PerformersView: View {
         PageList {
             ForEach(performers) { performer in
                 NavigationLink(value: Page.performer(performer.name)) {
-                    LabeledContent(performer.name, value: performer.entries.count.formatted())
-                        .ink()
+                    LabeledContent {
+                        Text(performer.entries.count.formatted())
+                    } label: {
+                        MarkedTitle(
+                            title: performer.name,
+                            isFavourite: model.recordingOrder.isFavourite(person: performer.name))
+                    }
+                    .ink()
                 }
                 .accessibilityIdentifier("performer")
                 .onAppear { model.sweep.prefer(performers: [performer.name]) }

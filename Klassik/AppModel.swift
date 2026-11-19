@@ -30,6 +30,7 @@ final class AppModel {
     let sweep: PersonSweep
     let swipes = SwipeSettings()
     let libraryRows = LibraryRows()
+    let chronology = ChronologyPlace()
     @ObservationIgnored private var reconnect: ConnectionMonitor?
     private let store: CredentialStore
 
@@ -66,6 +67,7 @@ final class AppModel {
             enrichment.clear()
             people.clear()
             libraryRows.reset()
+            chronology.clear()
         }
         credentials = store.load()
         updateServer()

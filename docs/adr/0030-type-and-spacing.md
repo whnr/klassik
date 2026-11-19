@@ -6,6 +6,8 @@ The title spacing is refined by [0061](0061-work-pages-and-ready-person-pictures
 
 The hairline rules are refined by [0055](0055-hairlines-between-list-items.md).
 
+The Chronology drawer list rule is replaced by [0063](0063-chronology-works-drawer.md).
+
 ## Context
 
 The specimen in neutral iOS styles had a weak hierarchy and no character. The work page read like a settings list. Small grey labels carried the facts that tell recordings apart. Flo compared 18 display faces and 10 text faces on a type sheet, then judged the baseline on the real pages.

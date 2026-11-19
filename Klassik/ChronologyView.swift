@@ -149,6 +149,7 @@ private struct ListedWorksSheet: View {
 
     var body: some View {
         NavigationStack {
+            // This drawer holds works, so it follows the plain page list at every detent (ADR 0063).
             PageList {
                 ForEach(listed.works) { work in
                     Button {

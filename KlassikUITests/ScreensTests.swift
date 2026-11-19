@@ -267,6 +267,7 @@ final class BrowseScreens: ScreensTestCase {
             app.navigationBars.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
                 .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.05)))
             XCTAssertTrue(listed.isHittable)
+            XCTAssertLessThan(app.navigationBars.firstMatch.frame.minY, app.frame.minY + 100)
             snap(app, "02g-chronology-listed-full")
             listed.tap()
             XCTAssertTrue(app.buttons.matching(identifier: "recording").firstMatch.waitForExistence(timeout: 10))
@@ -1011,7 +1012,7 @@ final class PlaybackScreens: ScreensTestCase {
         pause(app)
         XCTAssertTrue(app.sliders["position"].waitForExistence(timeout: 10))
         XCTAssertTrue(miniPlayer.buttons["mini-player-cover"].exists)
-        XCTAssertTrue(reveal(app.staticTexts["up-next-end"], in: app).exists)
+        XCTAssertTrue(reveal(app.descendants(matching: .any)["up-next-end"].firstMatch, in: app).exists)
         snap(app, "08e-next-queue-end")
     }
 

@@ -259,7 +259,7 @@ enum WashRoom: CaseIterable, Sendable {
 
 /// The wash of the player while it plays, and the colours that stay readable on it (ADR 0034).
 enum CoverWash {
-    /// Temporary installed-app comparison until Flo selects the cover tint strength.
+    /// Temporary installed-app comparison until Flo selects the cover tint strength (ADR 0064).
     static let strengthKey = "player.tintStrength"
 
     /// The colours that are solved again on the wash.

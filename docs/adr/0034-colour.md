@@ -2,6 +2,8 @@
 
 Date: 2026-11-09. Decided by Flo after specimen rounds 19 to 24 on the phone. Beads: the colour map sz-rs30.1.83.19 and its tickets .1 to .16. The dark unplayed timeline colour is replaced by [0035](0035-timeline-shape.md). Where the values come from is replaced by [0037](0037-palette-from-targets.md).
 
+The temporary player tint comparison is added by [0064](0064-player-tint-comparison.md).
+
 ## Context
 
 The specimen used neutral iOS colours and system blue. Klassik needs its own voice: a concert programme, elegant and structured, with the warmth of classical music. Colour must also stay readable for every listener, on any cover and any picture. Research (sz-rs30.1.83.19.14) set the method: design in OKLCH, lightness first, and check WCAG from the final hex.

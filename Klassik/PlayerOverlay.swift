@@ -86,7 +86,7 @@ private struct PlayerOverlay: View {
         .background { PlayerGround() }
         .coverWash(
             item: item.id,
-            song: model.playback.item?.id == item.id ? model.playback.coverSong : item.recording.songs.first,
+            song: item.recording.songs.first,
             isPlaying: model.playback.item?.id == item.id
         )
         .offset(y: dragged)

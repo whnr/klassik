@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Settings</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="../tokens.css?v=48" />
-    <link rel="stylesheet" href="specimen.css?v=48" />
-    <script src="specimen.js?v=48"></script>
+    <link rel="stylesheet" href="../tokens.css?v=50" />
+    <link rel="stylesheet" href="specimen.css?v=50" />
+    <script src="specimen.js?v=50"></script>
   </head>
   <body>
     <script>
@@ -63,6 +63,7 @@
               { class: "row", href: href("lookup.html", { back: "Settings" }) },
               "MusicBrainz and Wikidata lookup",
             ),
+            el("a", { class: "row", href: href("storage.html", { back: "Settings" }) }, "Local Storage"),
             el("a", { class: "row", href: href("tokens.html", { back: "Settings" }) }, "Specimen token sheet"),
             el(
               "p",

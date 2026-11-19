@@ -329,7 +329,7 @@ const K = (() => {
     },
     none: { label: "Nothing", items: [], start: [0, 0] },
   };
-  const P = { queue: [], item: 0, index: 0, pos: 0, paused: false, listeners: new Set() };
+  const P = { queue: [], item: 0, index: 0, pos: 0, paused: false, net: null, listeners: new Set() };
 
   function resolveItem(spec) {
     const [kind, id, work] = spec;
@@ -379,12 +379,14 @@ const K = (() => {
     } else Object.assign(P, { item: 0, index: q.start[0], pos: q.start[1], paused: false });
     P.name = name;
     normalise();
-    // The place under the overlay owns the clock; the overlay frame follows it through the shared session.
-    if (embedded) addEventListener("storage", follow);
-    else
+    // The place under the overlay owns the clock. Each page follows what the other writes to the shared session,
+    // so a seek in the overlay frame moves the clock and the next tick does not undo it.
+    addEventListener("storage", follow);
+    if (!embedded)
       setInterval(() => {
         if (!P.paused && current()) {
-          P.pos += 0.5;
+          if (P.net) slowStep(0.5);
+          else P.pos += 0.5;
           normalise();
           emit();
         }
@@ -393,11 +395,12 @@ const K = (() => {
   }
 
   function follow(event) {
-    if (event.key !== "specimen.play" || !event.newValue) return;
+    // A finger on the playback bar owns the position until it lifts.
+    if (event.key !== "specimen.play" || !event.newValue || P.holding) return;
     const saved = JSON.parse(event.newValue);
     const ended = saved.item > P.item;
     if (saved.queue) P.queue = saved.queue.map(resolveItem);
-    Object.assign(P, { item: saved.item, index: saved.index, pos: saved.pos, paused: saved.paused });
+    Object.assign(P, { item: saved.item, index: saved.index, pos: saved.pos, paused: saved.paused, net: saved.net });
     P.listeners.forEach((f) => {
       f();
     });
@@ -412,6 +415,7 @@ const K = (() => {
       index: P.index,
       pos: P.pos,
       paused: P.paused,
+      net: P.net,
       at: Date.now(),
     });
   }
@@ -438,8 +442,44 @@ const K = (() => {
       f();
     });
   }
+  // The slow connection of ADR 0060, faked: the buffer gains playable seconds slower than playback uses them.
+  // `need` is the start target in seconds; the line shows after one second without sound.
+  const SLOW = { fill: 2.5, play: 0.4, need: 8, line: 1, after: 4 };
+  const SLOW_TEXT = {
+    start: "Slow connection. Playback will start shortly.",
+    stall: "Slow connection. Playback will continue shortly.",
+  };
+  function slowStart() {
+    if (!current()) return;
+    seek(P.index, 0);
+    P.paused = false;
+    P.net = { mode: "start", index: P.index, since: 0, buffered: 0, stalls: 0, line: null };
+    emit();
+  }
+  function slowStep(dt) {
+    const n = P.net;
+    const length = current().songs[P.index].duration;
+    if (n.index !== P.index) P.net = null;
+    else if (n.mode === "play") {
+      n.since += dt;
+      // After the recovery the connection is fast again, and nothing shows.
+      if (n.stalls && n.since >= SLOW.after) P.net = null;
+      else if (P.pos + dt > n.buffered && n.buffered < length) Object.assign(n, { mode: "stall", since: 0, stalls: 1 });
+      else {
+        P.pos += dt;
+        n.buffered = Math.min(length, n.buffered + SLOW.play * dt);
+      }
+    } else {
+      n.buffered = Math.min(length, n.buffered + SLOW.fill * dt);
+      n.since += dt;
+      if (n.since >= SLOW.line) n.line = SLOW_TEXT[n.mode];
+      if (n.buffered - P.pos >= SLOW.need || n.buffered >= length)
+        Object.assign(n, { mode: "play", since: 0, line: null });
+    }
+  }
   // A seek lands at most on the last second of its movement; the end itself would end the queue item.
   function seek(index, pos = 0) {
+    P.net = null;
     P.index = index;
     P.pos = Math.min(pos, current().songs[index].duration - 1);
     normalise();
@@ -453,6 +493,7 @@ const K = (() => {
   }
   function togglePause() {
     P.paused = !P.paused;
+    P.net = null;
     emit();
   }
   function onPlay(f) {
@@ -757,6 +798,28 @@ const K = (() => {
       ),
     );
     bar.append(theme, accent, player, contrast, size, playing, overlay);
+    // ADR 0060: the player page fakes a play tap on a slow connection; a second tap ends it.
+    if (here === "player") {
+      const slow = el("button", {
+        onclick: () => {
+          if (P.net) {
+            P.net = null;
+            emit();
+          } else {
+            if (!chrome.overlay?.isOpen()) chrome.overlay?.open();
+            slowStart();
+          }
+        },
+      });
+      const show = () => {
+        slow.textContent = P.net ? "■ Slow start" : "▶ Slow start";
+        slow.classList.toggle("on", Boolean(P.net));
+      };
+      onPlay(show);
+      show();
+      slow.disabled = !current();
+      bar.append(slow);
+    }
     // The timeline edge is a listener option on every page; it leads the pill so a narrow screen never hides it.
     const sides = { right: "Timeline ⇥", left: "⇤ Timeline" };
     bar.prepend(
@@ -826,16 +889,15 @@ const K = (() => {
       });
       return link;
     };
+    // iOS draws the search tab apart from the capsule, in its own circle, with no name under the glass.
+    const search = item("search", "Search");
+    search.className = "tab-search glass" + (tab === "search" ? " on" : "");
+    search.innerHTML = ICON.search;
     return el(
       "nav",
       { class: "tabbar" },
-      el(
-        "div",
-        { class: "tabs glass" },
-        item("library", "Library"),
-        item("chronology", "Chronology"),
-        item("search", "Search"),
-      ),
+      el("div", { class: "tabs glass" }, item("library", "Library"), item("chronology", "Chronology")),
+      search,
     );
   }
 
@@ -950,6 +1012,7 @@ const K = (() => {
   function setPlayerOpen(open) {
     chrome.player = open;
     layoutChrome();
+    updatePlayingChrome();
   }
 
   function layoutChrome() {
@@ -969,7 +1032,7 @@ const K = (() => {
   function updatePlayingChrome() {
     drawTimelineProgress();
     if (!current()) {
-      // At the end of the queue the open player stays and says so; elsewhere the mini player and the timeline go.
+      // When nothing plays, the mini player and the timeline go. The open player closes first (ADR 0053).
       if (!chrome.player) {
         MINI.remove();
         if (chrome.timeline) chrome.timeline.remove();

@@ -117,6 +117,7 @@ extension ScaledMetric where Value == CGFloat {
 struct PageList<Content: View>: View {
     @Environment(\.pageHeading) private var heading
     @Environment(\.playerWash) private var wash
+    @Environment(\.washOwner) private var washOwner
     @ViewBuilder let content: Content
 
     var body: some View {
@@ -140,7 +141,7 @@ struct PageList<Content: View>: View {
         .onScrollGeometryChange(for: CGFloat.self) { geometry in
             geometry.contentOffset.y + geometry.contentInsets.top
         } action: { _, offset in
-            wash?.scroll.offset = offset
+            wash?.scroll.report(offset, from: washOwner)
         }
         .pageContentPosition()
         // The player draws its wash behind the list, so the list keeps a clear ground and reports its scroll.

@@ -75,6 +75,7 @@ private struct PlayerOverlay: View {
                     work: item.work, recording: item.recording,
                     album: item.recording.albumKey.flatMap { model.library.album($0) }, isOverlay: true
                 )
+                .environment(\.washOwner, item.id)
                 .id(item.id)
                 .transition(reduceMotion ? .opacity : Self.rise)
             }

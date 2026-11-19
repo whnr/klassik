@@ -321,9 +321,25 @@ enum CoverWash {
 }
 
 /// How far the player list has scrolled, so that the wash moves with the content.
+/// The list of the old item stays alive while it leaves upwards, and its scroll can still change. Only the list of
+/// the item that the player shows moves the wash, so the next item opens with its wash at the top.
 @MainActor @Observable
 final class WashScroll {
-    var offset: CGFloat = 0
+    private(set) var item: UUID?
+    private(set) var offset: CGFloat = 0
+
+    /// The player shows `item`. Its list opens at its top and reports scroll only after movement.
+    func open(_ item: UUID) {
+        guard item != self.item else { return }
+        self.item = item
+        offset = 0
+    }
+
+    /// The list of `owner` scrolled to `offset`.
+    func report(_ offset: CGFloat, from owner: UUID?) {
+        guard owner != nil, owner == item else { return }
+        self.offset = offset
+    }
 }
 
 /// The wash that the player shows while its item plays.
@@ -335,6 +351,8 @@ struct PlayerWash {
 extension EnvironmentValues {
     /// Set under the player while its item plays. A page list then shows the wash through a clear ground.
     @Entry var playerWash: PlayerWash?
+    /// The queue item whose page holds this list in the player. Only that list moves the wash.
+    @Entry var washOwner: UUID?
 }
 
 /// The ground of the player. While its item plays, the wash lies at the top of the content and fades into the page
@@ -419,8 +437,7 @@ struct CoverWashModifier: ViewModifier {
             .environment(\.paletteOverrides, colours)
             .environment(\.playerWash, wash.map { PlayerWash(colour: $0.ground.resolved, scroll: scroll) })
             .animation(Motion.inPlace.animation(reduceMotion: reduceMotion), value: wash == nil)
-            // Each item opens at the top, but its list reports scroll only after movement.
-            .onChange(of: item) { scroll.offset = 0 }
+            .onChange(of: item, initial: true) { scroll.open(item) }
             .task(id: load) {
                 if let found = await Self.loaded(load, song: song, store: model.albumArt) {
                     if !Task.isCancelled { loaded = found }

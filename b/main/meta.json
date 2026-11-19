@@ -1,7 +1,7 @@
 {
-  "sha": "a58161094670123199f9ed3511906a2b32edda37",
+  "sha": "c9d3e5d61bd2a5349cf0c9e39ce6ccbce00fce6c",
   "branch": "main",
   "path": "main",
-  "subject": "Merge pull request #106 from whnr/claude-release-0.14.5",
-  "ts": 1795050168
+  "subject": "[sz-rs30.1.123 and sz-rs30.1.101] Keep set titles in place; mark favourites in lists (#103)",
+  "ts": 1795054676
 }

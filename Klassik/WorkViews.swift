@@ -360,8 +360,8 @@ private struct WorkHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: gap) {
             HStack(alignment: .firstTextBaseline, spacing: 0) {
-                Button(work.composer) {
-                    navigator.open(.composer(work.composer), in: navigator.selection)
+                PersonPageLink(page: .composer(work.composer), disclosure: false) {
+                    Text(work.composer)
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(Palette.tint)

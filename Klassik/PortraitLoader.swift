@@ -70,7 +70,13 @@ enum PortraitLoader {
     }
 
     /// Decoded pixels can be discarded under memory pressure; the persistent picture store remains complete.
-    @MainActor private static let prepared = NSCache<NSString, Prepared>()
+    /// The cap stops a large library from reaching the jetsam limit before a memory warning arrives.
+    /// A person page outside the cache decodes its stored file before the push.
+    @MainActor private static let prepared: NSCache<NSString, Prepared> = {
+        let cache = NSCache<NSString, Prepared>()
+        cache.totalCostLimit = 192 * 1024 * 1024
+        return cache
+    }()
 
     @MainActor private static func preparedKey(_ portrait: PersonPortrait, store: ImageStore) -> NSString {
         "\(ObjectIdentifier(store))|\(portrait.url.absoluteString)" as NSString

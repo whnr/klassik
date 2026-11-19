@@ -163,7 +163,7 @@ struct ComposerPage: View {
         if isOpen {
             ForEach(works) {
                 WorkRow(work: $0)
-                    .padding(.leading, Layout.setMemberLeading - Layout.edge)
+                    .padding(.leading, Layout.setMemberLeading - Layout.centredEdge)
                     .pageRow()
                     .itemSeparator(first: false, last: $0.id == works.last?.id && row.id == rows.last?.id)
             }

@@ -326,24 +326,24 @@ final class PersonSweep {
     }
 }
 
-/// People pictures and queued writes use every connected path, including Low Data Mode (ADR 0061).
+/// Tells whether the connection suits a long run of small requests: it works and it is not metered. Low Data
+/// Mode alone does not stop people pictures (ADR 0061); mobile data keeps the limit of ADR 0042.
 final class ConnectionMonitor: @unchecked Sendable {
     private let monitor = NWPathMonitor()
     private let lock = NSLock()
-    private var available = true
+    private var good = true
 
     /// `onConnect` also accepts mobile data and Low Data Mode for small queued writes.
     init(onConnect: @escaping @Sendable () -> Void = {}) {
         monitor.pathUpdateHandler = { [weak self] path in
-            self?.lock.withLock {
-                self?.available = path.status == .satisfied
-            }
+            let usable = path.status == .satisfied && !path.isExpensive
+            self?.lock.withLock { self?.good = usable }
             if path.status == .satisfied { onConnect() }
         }
         monitor.start(queue: DispatchQueue(label: "de.whnr.klassik.connection"))
     }
 
-    var isAvailable: Bool { lock.withLock { available } }
+    var isGood: Bool { lock.withLock { good } }
 
     deinit { monitor.cancel() }
 }

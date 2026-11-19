@@ -47,19 +47,14 @@ final class AppModel {
         people = PersonFactsStore.forLaunch()
         let connection = ConnectionMonitor()
         sweep = PersonSweep(
-            store: people, isConnectionGood: { connection.isAvailable },
+            store: people, isConnectionGood: { connection.isGood },
             pictures: { portrait, old in
                 await PortraitLoader.keep(
                     portrait, replacing: old, screen: PortraitLoader.deviceScreen, store: .pictures)
             },
             hasPicture: { portrait in
                 await ImageStore.pictures.loaded()
-                guard
-                    PortraitLoader.files(of: portrait).contains(where: {
-                        ImageStore.pictures.contains($0.absoluteString)
-                    })
-                else { return false }
-                return await PortraitLoader.load(portrait, screen: PortraitLoader.deviceScreen) != nil
+                return PortraitLoader.isKept(portrait)
             })
         // UI tests start from the connect screen.
         if ProcessInfo.processInfo.arguments.contains("-resetServer") {

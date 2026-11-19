@@ -136,6 +136,8 @@ struct PersonPageLink<Label: View>: View {
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
+        // A row decodes its picture when the list is about to show it, so a tap finds it ready.
+        .task { await model.preparePortrait(for: page) }
     }
 }
 

@@ -16,6 +16,8 @@ The top blur touched titles on pages without pictures.
 - Each recording row keeps its own album art. Recording and album pages keep their covers and playback controls.
 - Prepare person pictures before page visits. Decode them at the display size and keep their face framing ready.
 - Low Data Mode permits person pictures. It restricts album art under the existing cover policy.
+  Flo: "We want to only show placeholders for album art. NOT for people." Mobile data keeps the limit of 0042.
+- The people pass checks only that a picture file exists. Rows decode the pictures that a list is about to show.
 - Keep the system top blur. Move titles without pictures below it with the specimen's large top gap.
 
 ## Consequences

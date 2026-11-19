@@ -1261,6 +1261,7 @@ final class SettingsScreens: ScreensTestCase {
         // The mini player must leave the last rows free, so something must be playing.
         _ = pausedPlayerInLibrary(app)
         openSettings(app)
+        snap(app, "08c-settings-top")
         XCTAssertTrue(reveal(app.buttons["diagnostics"], in: app).isHittable)
         snap(app, "08c-settings")
 

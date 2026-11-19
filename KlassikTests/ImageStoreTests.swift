@@ -236,6 +236,25 @@ struct ImageStoreTests {
         #expect(PortraitLoader.ready(portrait, store: store) != nil)
     }
 
+    @Test func aKeptFileCountsWithoutDecodingOrANetwork() async throws {
+        let store = try await makeStore()
+        let portrait = PersonPortrait(url: URL(string: "https://upload.wikimedia.org/corrupt.png")!)
+        #expect(!PortraitLoader.isKept(portrait, store: store))
+        await store.store(Data("not an image".utf8), for: portrait.url.absoluteString)
+        #expect(PortraitLoader.isKept(portrait, store: store))
+        #expect(PortraitLoader.ready(portrait, store: store) == nil)
+    }
+
+    @Test func aCorruptStoredFileNeverPreparesPixels() async throws {
+        let store = try await makeStore()
+        let portrait = PersonPortrait(url: URL(string: "https://upload.wikimedia.org/corrupt.png")!)
+        await store.store(Data("not an image".utf8), for: portrait.url.absoluteString)
+        let local = PortraitLoader.stored({ _ in throw URLError(.notConnectedToInternet) }, in: { store })
+        let screen = PortraitSize.Screen(hero: CGSize(width: 400, height: 470), scale: 3)
+        #expect(await PortraitLoader.load(portrait, screen: screen, fetch: local, store: store) == nil)
+        #expect(PortraitLoader.ready(portrait, store: store) == nil)
+    }
+
     @Test func aNewPasswordKeepsTheAlbumArt() {
         var changed = credentials
         changed.password = "replacement"

@@ -41,7 +41,7 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0027](0027-player-rows.md)                                  | Player rows: play at the end, open only what differs                                                         | 2026-11-08 |
 | [0028](0028-mini-player-pill.md)                             | The mini player is a pill at the end of the timeline (partly replaced by 0041)                               | 2026-11-08 |
 | [0029](0029-search-at-the-top.md)                            | Search at the top, with a back arrow and recent searches (partly replaced by 0038 and 0057)                  | 2026-11-08 |
-| [0030](0030-type-and-spacing.md)                             | Type and spacing from one ratio (refined by 0055 and 0061)                                                            | 2026-11-08 |
+| [0030](0030-type-and-spacing.md)                             | Type and spacing from one ratio (refined by 0055 and 0061)                                                   | 2026-11-08 |
 | [0031](0031-no-separator-glyph.md)                           | No separator glyph: prose, words and role lines                                                              | 2026-11-09 |
 | [0032](0032-fermata-mark.md)                                 | The fermata: one solid drawing, grey when not set (partly replaced by 0033)                                  | 2026-11-08 |
 | [0033](0033-engraved-fermata.md)                             | The engraved fermata, strong when set and quiet when not                                                     | 2026-11-09 |

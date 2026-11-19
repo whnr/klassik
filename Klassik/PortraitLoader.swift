@@ -92,6 +92,12 @@ enum PortraitLoader {
         return found.portrait
     }
 
+    /// Tells whether a file of the picture is on the device. It reads no pixels and never uses the network, so a
+    /// pass over every person stays cheap.
+    @MainActor static func isKept(_ portrait: PersonPortrait, store: ImageStore = .pictures) -> Bool {
+        files(of: portrait).contains { store.contains($0.absoluteString) }
+    }
+
     @MainActor private static func prepare(_ loaded: LoadedPortrait, for portrait: PersonPortrait, store: ImageStore) {
         guard files(of: portrait).contains(where: { store.contains($0.absoluteString) }) else { return }
         let entry = Prepared(

@@ -2043,14 +2043,18 @@ class ScreensTestCase: XCTestCase {
     @discardableResult
     func reveal(_ element: XCUIElement, in app: XCUIApplication) -> XCUIElement {
         let row = app.descendants(matching: .any)["tab-row"].firstMatch
-        let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
-        let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35))
+        let bar = app.sliders["position"].firstMatch
         for _ in 0..<14 {
             if element.exists {
                 // A tap on a row under the tab row would open a place or the player.
                 let floor = row.exists ? row.frame.minY : app.frame.maxY
                 if element.frame.maxY <= floor, element.isHittable { return element }
             }
+            // A drag that starts on the playback bar scrubs and does not scroll, so it starts below the bar.
+            let start = CGPoint(x: app.frame.midX, y: app.frame.minY + app.frame.height * 0.6)
+            let onBar = bar.exists && bar.frame.insetBy(dx: 0, dy: -Measure.hitTarget).contains(start)
+            let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: onBar ? 0.78 : 0.6))
+            let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: onBar ? 0.53 : 0.35))
             from.press(forDuration: 0.05, thenDragTo: to)
         }
         return element

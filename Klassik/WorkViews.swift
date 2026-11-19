@@ -1135,9 +1135,10 @@ struct PlaybackProgress: View {
         Group {
             if let progress = player.progress {
                 PositionBar(
-                    player: player, elapsed: progress.elapsed, duration: progress.duration, notes: notes, jump: jump)
-                    .id(progress.movement)
-                    .padding(.vertical, lineGap)
+                    player: player, elapsed: progress.elapsed, duration: progress.duration, notes: notes, jump: jump
+                )
+                .id(progress.movement)
+                .padding(.vertical, lineGap)
             }
         }
         // A container keeps the identifiers of its children, such as the position bar.

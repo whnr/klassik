@@ -1,6 +1,7 @@
 # 0050. Partial works under their own heading
 
 Date: 2026-11-17. Decided by Flo after the 0.14.0 build. Bead: sz-rs30.1.105.76.
+The set placement rule is replaced by [0062](0062-sets-stay-in-works.md).
 Adds to the Works tab of [0017](0017-composer-and-performer-pages.md).
 
 ## Context

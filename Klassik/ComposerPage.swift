@@ -152,7 +152,8 @@ struct ComposerPage: View {
                 Spacer()
                 Image(systemName: "chevron.right")
                     .typeStyle(.footnote)
-                    .foregroundStyle(Palette.textSecondary)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Palette.textTertiary)
                     .rotationEffect(.degrees(isOpen ? 90 : 0))
                     .accessibilityHidden(true)
             }

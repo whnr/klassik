@@ -149,25 +149,33 @@ private struct ListedWorksSheet: View {
 
     var body: some View {
         NavigationStack {
-            List(listed.works) { work in
-                Button {
-                    open(work)
-                } label: {
-                    HStack {
-                        VStack(alignment: .leading) {
-                            MarkedTitle(title: work.title, isFavourite: model.recordingOrder.isFavourite(work))
-                                .ink()
-                            Text(model.enrichment.composed(work).map { String($0.span.start) } ?? "No date")
+            // This drawer holds works, so it follows the plain page list at every detent (ADR 0063).
+            PageList {
+                ForEach(listed.works) { work in
+                    Button {
+                        open(work)
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: Layout.rowLineGap) {
+                                MarkedTitle(title: work.title, isFavourite: model.recordingOrder.isFavourite(work))
+                                    .ink()
+                                Text(WorkRow.detail(of: work, composed: model.enrichment.composed(work)?.span.text))
+                                    .typeStyle(.footnote)
+                                    .foregroundStyle(Palette.textSecondary)
+                            }
+                            Spacer(minLength: 0)
+                            Image(systemName: "chevron.right")
                                 .typeStyle(.footnote)
-                                .foregroundStyle(Palette.textSecondary)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(Palette.textTertiary)
                         }
-                        Spacer(minLength: 0)
-                        Image(systemName: "chevron.forward")
-                            .foregroundStyle(Palette.textTertiary)
                     }
+                    .buttonStyle(.plain)
+                    .itemSeparator(first: work.id == listed.works.first?.id, last: work.id == listed.works.last?.id)
+                    .accessibilityIdentifier("chronology-listed-work")
                 }
-                .accessibilityIdentifier("chronology-listed-work")
             }
+            .environment(\.pageHeading, "")
             .navigationTitle(listed.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -177,6 +185,7 @@ private struct ListedWorksSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
+        .presentationBackground(Palette.backgroundPage)
     }
 }
 
@@ -244,6 +253,10 @@ private struct ChronologyChart: View {
                         .position(x: left + (size.width - left) / 2, y: row.y)
                 }
             }
+        }
+        .frame(width: size.width, height: size.height, alignment: .topLeading)
+        .clipped()
+        .overlay(alignment: .topLeading) {
             if let scrub, let picked {
                 Text(picked)
                     .typeStyle(Layout.workRow)
@@ -258,14 +271,12 @@ private struct ChronologyChart: View {
                     .fixedSize()
                     .position(
                         x: min(max(scrub.location.x, Chart.pickInset), size.width - Chart.pickInset),
-                        y: scrub.location.y - Chart.pickAbove
+                        y: scrub.location.y - Layout.pickLabelAbove
                     )
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
             }
         }
-        .frame(width: size.width, height: size.height, alignment: .topLeading)
-        .clipped()
         .contentShape(.rect)
         .onTapGesture(coordinateSpace: .local) { point in tap(at: point, lanes: lanes, scale: scale) }
         .simultaneousGesture(scrubGesture(lanes: lanes))

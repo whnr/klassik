@@ -702,8 +702,15 @@ struct RecordingView: View {
             if let next = player.upNext.first {
                 Section {
                     SectionHeading("Next")
-                    NextItemRow(item: next)
-                        .pageRow()
+                    Button {
+                        player.nextItem()
+                    } label: {
+                        NextItemRow(item: next)
+                            .contentShape(.rect)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("up-next")
+                    .pageRow()
                 }
             }
         case .endsHere:
@@ -1112,7 +1119,6 @@ private struct NextItemRow: View {
         }
         .frame(minHeight: Measure.hitTarget)
         .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("up-next")
     }
 }
 

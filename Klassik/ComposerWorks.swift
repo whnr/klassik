@@ -60,11 +60,10 @@ struct ComposerWorks: Sendable {
     }
 
     /// The rows A to Z. With chips on, a work shows when it carries any of them ("or"), and a set keeps
-    /// only the works that do. `partial` keeps only the partial works (true) or only the other works (false).
+    /// only the works that do. Sets stay in Works because their completeness is unknown.
     func rows(filter chips: Set<String> = [], partial: Bool? = nil) -> [Row] {
         let shown = works.filter { work in
-            (chips.isEmpty || !Self.genres(of: work).isDisjoint(with: chips))
-                && (partial.map { $0 == Self.isPartial(work) } ?? true)
+            chips.isEmpty || !Self.genres(of: work).isDisjoint(with: chips)
         }
         var rows: [Row] = []
         var sets: [String: [WorkIndex.Work]] = [:]
@@ -79,7 +78,13 @@ struct ComposerWorks: Sendable {
             // A set of one work is a work: a row that opens to a single line says nothing.
             rows.append(works.count == 1 ? .work(works[0]) : .set(name: name, works: Self.sorted(works)))
         }
-        return rows.sorted { Self.before($0.title, $1.title) }
+        return rows.filter { row in
+            guard let partial else { return true }
+            switch row {
+            case .set: return !partial
+            case .work(let work): return partial == Self.isPartial(work)
+            }
+        }.sorted { Self.before($0.title, $1.title) }
     }
 
     /// One section of the Works tab under its own heading.
@@ -93,7 +98,7 @@ struct ComposerWorks: Sendable {
         }
     }
 
-    /// A grouping can contain separate sets of complete and partial works (ADR 0050).
+    /// The section and name identify an open set.
     struct SetID: Hashable, Sendable {
         let section: String
         let name: String

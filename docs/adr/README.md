@@ -41,11 +41,11 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0027](0027-player-rows.md)                                  | Player rows: play at the end, open only what differs                                                         | 2026-11-08 |
 | [0028](0028-mini-player-pill.md)                             | The mini player is a pill at the end of the timeline (partly replaced by 0041)                               | 2026-11-08 |
 | [0029](0029-search-at-the-top.md)                            | Search at the top, with a back arrow and recent searches (partly replaced by 0038 and 0057)                  | 2026-11-08 |
-| [0030](0030-type-and-spacing.md)                             | Type and spacing from one ratio (refined by 0055 and 0061)                                                   | 2026-11-08 |
+| [0030](0030-type-and-spacing.md)                             | Type and spacing from one ratio (refined by 0055 and 0061; partly replaced by 0063)                                                   | 2026-11-08 |
 | [0031](0031-no-separator-glyph.md)                           | No separator glyph: prose, words and role lines                                                              | 2026-11-09 |
 | [0032](0032-fermata-mark.md)                                 | The fermata: one solid drawing, grey when not set (partly replaced by 0033)                                  | 2026-11-08 |
 | [0033](0033-engraved-fermata.md)                             | The engraved fermata, strong when set and quiet when not                                                     | 2026-11-09 |
-| [0034](0034-colour.md)                                       | Colour: a programme by day, the hall at night (partly replaced by 0035 and 0037)                             | 2026-11-09 |
+| [0034](0034-colour.md)                                       | Colour: a programme by day, the hall at night (partly replaced by 0035 and 0037; extended by 0064)                             | 2026-11-09 |
 | [0035](0035-timeline-shape.md)                               | The timeline: flush, round on the content side, a gap for each movement                                      | 2026-11-10 |
 | [0036](0036-design-folder-and-checks.md)                     | The design folder and its checks                                                                             | 2026-11-10 |
 | [0037](0037-palette-from-targets.md)                         | The palette is solved from its targets on main                                                               | 2026-11-10 |
@@ -58,7 +58,7 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0044](0044-a-failed-person-goes-to-the-end.md)              | A failed person goes to the end of the queue                                                                 | 2026-11-17 |
 | [0045](0045-page-margins-follow-the-timeline.md)             | Page margins follow the timeline                                                                             | 2026-11-17 |
 | [0046](0046-composers-first-and-shown-performers.md)         | Composers first, and the performers of a shown page next                                                     | 2026-11-17 |
-| [0050](0050-partial-works-apart.md)                          | Partial works under their own heading                                                                        | 2026-11-17 |
+| [0050](0050-partial-works-apart.md)                          | Partial works under their own heading (partly replaced by 0062)                                                                        | 2026-11-17 |
 | [0051](0051-pictures-and-album-art-in-local-storage.md)      | Pictures and album art in Local Storage (partly replaced by 0059; extended by 0060) | 2026-11-17 |
 | [0052](0052-favourites-stay-in-the-app.md)                   | Favourites stay in the app (partly replaced by 0058)                                                         | 2026-11-18 |
 | [0053](0053-queue-end-and-stop-close-the-player.md)          | The queue end and Stop close the player                                                                      | 2026-11-17 |
@@ -70,3 +70,6 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0059](0059-covers-and-pictures-before-pages.md) | Fetch covers and pictures before pages need them (partly replaced by 0061) | 2026-11-18 |
 | [0060](0060-early-playback-and-read-ahead.md) | Start playback early and read ahead quietly (partly replaces 0005 and 0008; extends 0051) | 2026-11-18 |
 | [0061](0061-work-pages-and-ready-person-pictures.md) | Work pages and ready person pictures | 2026-11-19 |
+| [0062](0062-sets-stay-in-works.md) | Sets stay in Works | 2026-11-19 |
+| [0063](0063-chronology-works-drawer.md) | Chronology uses a plain works drawer | 2026-11-19 |
+| [0064](0064-player-tint-comparison.md) | Compare stronger player tints | 2026-11-19 |

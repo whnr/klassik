@@ -63,7 +63,6 @@ struct TrackStoreTests {
         #expect(store.cacheBytes == 10)
     }
 
-    /// The cache drops the track played longest ago first, and a download is not part of the count.
     @Test func fullCacheDropsTheOldestTracks() throws {
         try write("old", in: "cache", bytes: 600_000_000, age: 300)
         try write("middle", in: "cache", bytes: 600_000_000, age: 200)

@@ -4,6 +4,7 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @AppStorage(TimelineSide.storageKey) private var timelineSide = TimelineSide.standard
+    @AppStorage(ComposerWorks.separatesPartialKey) private var separatesPartial = true
 
     var body: some View {
         let library = model.library
@@ -63,9 +64,6 @@ struct SettingsView: View {
             Section {
                 Toggle("Scrobbles", isOn: $player.scrobblesEnabled)
                     .accessibilityIdentifier("scrobbles")
-                if let error = player.listeningError {
-                    Text(error).foregroundStyle(Palette.textSecondary)
-                }
             } footer: {
                 Text("Count played movements on your server. Your server can send them to linked listening services.")
             }
@@ -77,6 +75,13 @@ struct SettingsView: View {
                 .accessibilityIdentifier("timeline-side")
             } footer: {
                 Text("While music plays, the timeline runs on this screen edge.")
+            }
+
+            Section {
+                Toggle("Separate Partial Works", isOn: $separatesPartial)
+                    .accessibilityIdentifier("partial-works")
+            } footer: {
+                Text("A composer page lists a work with no complete recording under Partial works.")
             }
 
             Section {
@@ -146,8 +151,9 @@ struct AlbumsView: View {
                             .foregroundStyle(Palette.textSecondary)
                     }
                 }
-                .itemActions(album.item, downloads: true)
+                .itemActions(album.item, downloads: true, favouriteAlbum: true)
                 .accessibilityIdentifier("album")
+                .itemSeparator(first: album.id == albums.first?.id, last: album.id == albums.last?.id)
             }
         }
         .overlay {

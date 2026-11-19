@@ -18,6 +18,22 @@ struct PersonCredit: Codable, Equatable, Hashable, Sendable {
     /// Author and licence, or the name of the source.
     var text: String
     var url: URL?
+
+    /// The words before the link of an About credit line. With a link, the link names Commons for a picture.
+    func lead(linked: Bool) -> String {
+        let commons = ", Wikimedia Commons"
+        let source = linked && kind == .picture && text.hasSuffix(commons) ? String(text.dropLast(commons.count)) : text
+        return "\(kind.title): \(source)."
+    }
+
+    /// The label of the link, as person.html words it.
+    func linkLabel(_ url: URL) -> String {
+        switch kind {
+        case .picture: "Wikimedia Commons"
+        case .text: "Article"
+        case .facts: url.lastPathComponent
+        }
+    }
 }
 
 /// A portrait on Wikimedia Commons.
@@ -342,7 +358,8 @@ struct PersonFactsService: Sendable {
             !text.isEmpty
         else { return nil }
         let page = ((object["content_urls"] as? [String: Any])?["desktop"] as? [String: Any])?["page"] as? String
-        return (text, Self.trusted(page.flatMap { URL(string: $0) }))
+        let article = URL(string: "https://en.wikipedia.org/wiki/" + segment)
+        return (text, Self.trusted(page.flatMap { URL(string: $0) }) ?? article)
     }
 
     private func portrait(file: String) async throws -> (portrait: PersonPortrait, credit: PersonCredit)? {

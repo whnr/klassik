@@ -1,16 +1,14 @@
 name: Test
 
-# One build supplies parallel unit and UI jobs against fixture Navidrome.
-# Every push to main and ci walks all screens. A pull request walks only the areas that a line
-# "[ui: <areas>]" in one of its commit messages requests; without one it runs no UI job.
-# During the interface rebuild a failed walk shows in the job summary
-# and fails the run only if the repository variable UI_TESTS_REQUIRED is "true". The screenshots always upload.
-# After a walk, screens-diff compares each screenshot with the newest walk on the same branch, else on ci.
-# A failed build or unit test fails the run. The "ui" input of a run by hand narrows the walk, such as "browse,settings".
+# One build runs unit tests and supplies the requested UI shards.
+# Main pushes run no walk. Nightly runs and release pull requests walk every group.
+# UI_TESTS_REQUIRED controls whether a failed walk blocks the run.
 # TestFlight needs a green run for the exact merge commit on main.
 on:
   push:
     branches: [ci, main]
+  schedule:
+    - cron: "23 3 * * *"
   pull_request:
     paths-ignore: ["**.md", "LICENSE", "docs/**"]
   workflow_dispatch:
@@ -46,6 +44,7 @@ jobs:
           EVENT: ${{ github.event_name }}
           INPUT: ${{ inputs.ui }}
           PR: ${{ github.event.pull_request.number }}
+          TITLE: ${{ github.event.pull_request.title }}
         # Explicit bash adds pipefail, so a parser error fails this job and not only the walk's matrix.
         shell: bash
         run: |
@@ -54,7 +53,7 @@ jobs:
           else
             : > "$RUNNER_TEMP/messages"
           fi
-          python3 scripts/screen_report.py plan "$EVENT" "$INPUT" < "$RUNNER_TEMP/messages" | tee -a "$GITHUB_OUTPUT"
+          python3 scripts/screen_report.py plan "$EVENT" "$INPUT" "$TITLE" "$GITHUB_REF" < "$RUNNER_TEMP/messages" | tee -a "$GITHUB_OUTPUT"
 
   # Runs on Linux, because macOS runner time is expensive. The macOS job starts only on clean code.
   lint:
@@ -118,7 +117,7 @@ jobs:
           retention-days: 1
 
   build:
-    needs: [lint, layout]
+    needs: [lint, layout, fixtures]
     runs-on: xcode-27
     timeout-minutes: 40
     # The xcode-27 image holds the iOS 27 SDK. Its default Xcode 27.1 has one simulator on its own iOS;
@@ -129,20 +128,35 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      # The runner image includes devices whose watchOS and tvOS runtimes are absent.
+      - name: Remove unavailable runner simulators
+        run: xcrun simctl delete unavailable
       # The cached DerivedData helps only if unchanged files keep their time.
       - run: python3 scripts/git_mtimes.py
       - id: xcode
-        run: echo "version=$(xcodebuild -version | tr -s '\n ' '--')" >> "$GITHUB_OUTPUT"
+        env:
+          SOURCES_HASH: ${{ hashFiles('project.yml', 'Klassik/**', 'KlassikTests/**', 'KlassikUITests/**') }}
+        run: |
+          echo "version=$(xcodebuild -version | tr -s '\n ' '--')" >> "$GITHUB_OUTPUT"
+          echo "sources=$SOURCES_HASH" >> "$GITHUB_OUTPUT"
       - uses: actions/cache@v6
         with:
           path: build/DerivedData
-          key: deriveddata-${{ steps.xcode.outputs.version }}-${{ hashFiles('project.yml', 'Klassik/**', 'KlassikTests/**', 'KlassikUITests/**') }}
+          key: deriveddata-${{ steps.xcode.outputs.version }}-${{ steps.xcode.outputs.sources }}
           restore-keys: deriveddata-${{ steps.xcode.outputs.version }}-
       - name: Install XcodeGen
         run: brew install xcodegen
-      - name: Build test products
+      - uses: actions/download-artifact@v8
+        with:
+          name: fixture-music
+          path: ${{ runner.temp }}
+      - run: mkdir -p "$RUNNER_TEMP/fixture" && tar xzf "$RUNNER_TEMP/fixture-music.tgz" -C "$RUNNER_TEMP/fixture"
+      - name: Start Navidrome on the fixture library
+        run: scripts/fixture-server.sh "$RUNNER_TEMP/fixture"
+      - name: Build and run unit tests
         env:
-          KLASSIK_PHASE: build
+          KLASSIK_UI: "false"
+          KLASSIK_PHASE: all
         run: |
           scripts/screens.sh "$RUNNER_TEMP/build-report"
           tar czf "$RUNNER_TEMP/test-products.tgz" -C build/DerivedData/Build Products
@@ -153,18 +167,29 @@ jobs:
           retention-days: 1
       - name: Build timing
         if: always()
-        run: cat "$RUNNER_TEMP/build-report/timings.txt" >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          cat "$RUNNER_TEMP/build-report/timings.txt" >> "$GITHUB_STEP_SUMMARY" || true
+          cat "$RUNNER_TEMP/build-report/"*-retries.txt >> "$GITHUB_STEP_SUMMARY" || true
       - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: build-report
-          path: ${{ runner.temp }}/build-report
+          path: |
+            ${{ runner.temp }}/build-report/*.txt
+            ${{ runner.temp }}/build-report/*.log
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: unit-xcresult
+          path: ${{ runner.temp }}/build-report/*.xcresult
 
   # The groups are UI_GROUPS in scripts/screen_report.py; the plan job drops the unrequested ones.
   walk:
+    if: needs.plan.outputs.ui != 'false'
     needs: [plan, build, fixtures]
     runs-on: xcode-27
-    timeout-minutes: 30
+    # A failed test gets one retry within its shard.
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
@@ -172,6 +197,11 @@ jobs:
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
     steps:
       - uses: actions/checkout@v7
+      # The runner image includes devices whose watchOS and tvOS runtimes are absent.
+      - name: Remove unavailable runner simulators
+        run: xcrun simctl delete unavailable
+      - name: Boot the simulator early
+        run: scripts/start-simulator.sh
       - name: Choose the UI areas
         id: ui
         env:
@@ -187,14 +217,15 @@ jobs:
       - run: mkdir -p build/DerivedData/Build && tar xzf "$RUNNER_TEMP/test-products.tgz" -C build/DerivedData/Build
       - uses: actions/download-artifact@v8
         with:
-          name: ${{ matrix.fixture }}
+          name: fixture-ui-music
           path: ${{ runner.temp }}
-      - run: mkdir -p "$RUNNER_TEMP/fixture" && tar xzf "$RUNNER_TEMP/${{ matrix.fixture }}.tgz" -C "$RUNNER_TEMP/fixture"
+      - run: mkdir -p "$RUNNER_TEMP/fixture" && tar xzf "$RUNNER_TEMP/fixture-ui-music.tgz" -C "$RUNNER_TEMP/fixture"
       - name: Start Navidrome on the fixture library
         run: scripts/fixture-server.sh "$RUNNER_TEMP/fixture"
       - name: Run the tests
         env:
-          KLASSIK_PHASE: ${{ matrix.phase }}
+          KLASSIK_PHASE: ui
+          KLASSIK_UI_TESTS: ${{ matrix.tests }}
           KLASSIK_UI: ${{ steps.ui.outputs.ui }}
           UI_TESTS_REQUIRED: ${{ vars.UI_TESTS_REQUIRED || 'false' }}
         run: scripts/screens.sh "$RUNNER_TEMP/screens"
@@ -219,14 +250,46 @@ jobs:
         if: failure() || steps.report.outputs.ui == 'failed'
         run: tail -50 "$RUNNER_TEMP/fixture/navidrome.log"
       - uses: actions/upload-artifact@v7
-        if: failure() || steps.report.outputs.ui == 'failed'
+        if: always()
         with:
           name: screens-xcresult-${{ matrix.group }}
           path: ${{ runner.temp }}/screens/*.xcresult
 
+  # TestFlight gets an optimized Release build. This job opens one after a login and after a relaunch.
+  release-launch:
+    needs: [lint, layout, fixtures]
+    runs-on: xcode-27
+    timeout-minutes: 40
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v7
+      # The runner image includes devices whose watchOS and tvOS runtimes are absent.
+      - name: Remove unavailable runner simulators
+        run: xcrun simctl delete unavailable
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - uses: actions/download-artifact@v8
+        with:
+          name: fixture-music
+          path: ${{ runner.temp }}
+      - run: mkdir -p "$RUNNER_TEMP/fixture" && tar xzf "$RUNNER_TEMP/fixture-music.tgz" -C "$RUNNER_TEMP/fixture"
+      - name: Start Navidrome on the fixture library
+        run: scripts/fixture-server.sh "$RUNNER_TEMP/fixture"
+      - name: Open a Release build
+        run: scripts/release-launch.sh "$RUNNER_TEMP/release"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: release-launch
+          path: |
+            ${{ runner.temp }}/release/*.txt
+            ${{ runner.temp }}/release/*.log
+            ${{ runner.temp }}/release/*.xcresult
+
   # Keep the public artifact and check names stable for comparisons and release checks.
   test:
-    needs: [plan, build, walk]
+    needs: [plan, build, walk, release-launch]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -260,17 +323,17 @@ jobs:
             done
             if [ -f "$report/timings.txt" ]; then
               echo "### $(basename "$report")" >> "$GITHUB_STEP_SUMMARY"
-              cat "$report/timings.txt" >> "$GITHUB_STEP_SUMMARY"
+              cat "$report/timings.txt" >> "$GITHUB_STEP_SUMMARY" || true
             fi
           done
-          if [ -f reports/walk-unit/gapless-report.txt ]; then
-            cp reports/walk-unit/gapless-report.txt screens/
+          if [ -f reports/build-report/gapless-report.txt ]; then
+            cp reports/build-report/gapless-report.txt screens/
           fi
           {
             echo "ui_areas=$INPUT"
             echo "ui_required=$UI_TESTS_REQUIRED"
             echo "build=$([ "$BUILD" = success ] && echo passed || echo failed)"
-            grep '^unit=' reports/walk-unit/results.txt | tail -1 || echo 'unit=not run'
+            grep '^unit=' reports/build-report/results.txt | tail -1 || echo 'unit=not run'
           } > screens/results.txt
           incomplete=0
           python3 scripts/screen_report.py aggregate-ui reports "$INPUT" >> screens/results.txt || incomplete=$?
@@ -282,12 +345,14 @@ jobs:
         with:
           name: screens
           path: screens
-      - name: Require plan, build and test jobs
+      - name: Require plan, build, test and release launch jobs
         env:
           PLAN: ${{ needs.plan.result }}
           BUILD: ${{ needs.build.result }}
           WALK: ${{ needs.walk.result }}
-        run: test "$PLAN" = success && test "$BUILD" = success && test "$WALK" = success
+          RELEASE: ${{ needs.release-launch.result }}
+        run: |
+          test "$PLAN" = success && test "$BUILD" = success && { test "$WALK" = success || test "$WALK" = skipped; } && test "$RELEASE" = success
 
   # The diff informs; it never fails the run. It runs when screenshots exist, also after a failed test job.
   # Without screenshots the job shows as skipped, and the summary of test says why.

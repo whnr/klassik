@@ -13,12 +13,24 @@ import SwiftUI
 enum Layout {
     // MARK: Page edges
 
-    /// The content inset on the side away from the timeline.
+    /// The content inset on both sides without a timeline. The content keeps its width with a timeline.
     /// css: specimen.css :root | --pad-left
+    static let centredEdge = Space.l.points + Measure.timeline / 2
+    /// The content inset on the side away from a shown timeline.
+    /// css: specimen.css :root.has-timeline | --pad-left
     static let edge = Space.l.points
-    /// The content inset on the timeline side, clear of the timeline.
-    /// css: specimen.css :root | --pad-right
-    static let timelineEdge = Space.l.points + Measure.timeline + Space.s.points
+    /// The content inset on the side of a shown timeline: the margin of the other side plus the timeline.
+    /// css: specimen.css :root.has-timeline | --pad-right
+    static let timelineEdge = Space.l.points + Measure.timeline
+
+    /// The left and right page insets. `timelineOnLeft` is nil when no timeline shows.
+    static func sideInsets(timelineOnLeft: Bool?) -> (left: CGFloat, right: CGFloat) {
+        switch timelineOnLeft {
+        case nil: (centredEdge, centredEdge)
+        case true?: (timelineEdge, edge)
+        case false?: (edge, timelineEdge)
+        }
+    }
 
     // MARK: Page heading
 
@@ -82,8 +94,14 @@ enum Layout {
     /// The gap above a row of capsule buttons.
     /// css: specimen.css .button-row | padding-top
     static let buttonRowTop = Space.m.points
+    /// css: specimen.css .button-row | gap
+    static let buttonRowGap = Space.m.points
     /// css: specimen.css .capsule | min-height
     static let capsuleHeight = Measure.hitTarget
+    /// css: specimen.css .capsule | gap
+    static let capsuleGap = Space.s.points
+    /// css: specimen.css .capsule | padding-left
+    static let capsuleInset = Space.l.points
     /// A filter chip is lower than a capsule, so the chips read as a filter, not as buttons of the page.
     /// css: specimen.css .chip | min-height
     static let chipHeight: CGFloat = 30
@@ -97,6 +115,22 @@ enum Layout {
     /// The gap above the Works and About control.
     /// css: person.html .segmented | margin-top
     static let segmentedTop = Space.l.points
+
+    /// The inset of the thumb in the Works and About control.
+    /// css: person.html .segmented | padding-top
+    static let segmentedPadding: CGFloat = 2
+    /// css: person.html .segmented | border-top-left-radius
+    static let segmentedCorner = Radius.m
+    /// css: person.html .segmented button | min-height
+    static let segmentedHeight: CGFloat = 32
+    /// The soft shadow under the thumb.
+    /// css: person.html .segmented button.on | box-shadow | 3px
+    static let segmentedShadow: CGFloat = 3
+    /// css: person.html .segmented button.on | box-shadow | 1px
+    static let segmentedShadowY: CGFloat = 1
+    /// The label of a tab in the Works and About control.
+    /// css: person.html "segmented t-subheadline" | class
+    static let segmentedLabel = TypeStyle.subheadline
 
     // MARK: Person page
 
@@ -117,6 +151,15 @@ enum Layout {
     /// The least picture height above the fade.
     /// css: person.html .pic | height | 220px
     static let pictureAboveFade: CGFloat = 220
+    /// The blur under the name reaches this far above the name block.
+    /// css: picture.css :root[data-page="person"] .hero .pic .blur | height | 72px
+    static let pictureBlurAbove: CGFloat = 72
+    /// The scrim under the name fades out this far above the name block.
+    /// css: picture.css :root[data-page="person"] .hero .pic::after | height | 72px
+    static let pictureScrimAbove: CGFloat = 72
+    /// Blur and scrim stay full for `space-l` beside the longest text line, then fade out over this width.
+    /// css: picture.css :root[data-page="person"] .hero .pic | --side-mask | 64px
+    static let pictureSideFade: CGFloat = 64
     /// The column gap of the album grid.
     /// css: person.html .albums | column-gap
     static let albumColumnGap = Space.m.points
@@ -128,6 +171,10 @@ enum Layout {
     /// The gap from an album cover to its title. The year follows the title with no gap.
     /// css: person.html "margin-top: var(--space-xs)" | margin-top
     static let albumTitleGap = Space.xs.points
+
+    /// The reference recording supplies the work cover.
+    /// css: work.html .work-cover .cover | width
+    static let workCover = Measure.coverRow
 
     // MARK: Player page
 
@@ -147,6 +194,12 @@ enum Layout {
     /// The gap from the playback bar to its times.
     /// css: player.html .bar-box | row-gap
     static let barGap = Space.xs.points
+    /// The playback bar of the playing movement. It has no handle.
+    /// css: player.html .mv-bar | height
+    static let positionBar: CGFloat = 6
+    /// How far the touch area of the playback bar reaches above and below it, as a CSS inset: 44 points in all.
+    /// css: player.html .mv-bar::after | top
+    static let positionBarInset: CGFloat = -19
     /// The height of the player wash. It keeps its colour to `washSolid`, then fades into the page ground.
     /// css: player.html .wash | height
     static let washHeight: CGFloat = 640
@@ -188,6 +241,23 @@ enum Layout {
     static let scrubLabelHorizontal = Space.s.points
     /// css: specimen.css .scrub-label | border-top-left-radius
     static let scrubLabelCorner = Radius.s
+
+    // MARK: Local Storage
+
+    /// The height of the bar of the stores.
+    /// css: specimen.css .storage-bar | height
+    static let storageBar = Space.m.points
+    /// The gap between two stores in the bar.
+    /// css: specimen.css .storage-bar | gap
+    static let storageBarGap = Space.xxs.points
+    /// css: specimen.css .storage-bar | border-top-left-radius
+    static let storageBarCorner = Radius.xs
+    /// The narrowest store in the bar, so that a small store still shows.
+    /// css: specimen.css .storage-bar > span | min-width
+    static let storageBarMinimum = Space.xxs.points
+    /// The colour dot of a store in the list under the bar.
+    /// css: specimen.css .storage-dot | width
+    static let storageDot = Space.s.points
 
     // MARK: Text
 

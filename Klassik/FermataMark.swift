@@ -29,6 +29,20 @@ struct FermataShape: Shape {
     }
 }
 
+extension FermataShape {
+    /// The mark as a template image, for a place that takes an image and tints it, such as a swipe action. It has the
+    /// size of the symbols on the other swipe actions.
+    @MainActor static let icon: UIImage = {
+        let em = TypeStyle.title3.size
+        let size = CGSize(width: em * Layout.fermataWidth, height: em * Layout.fermataHeight)
+        return UIGraphicsImageRenderer(size: size).image { _ in
+            UIColor.black.setFill()
+            UIBezierPath(cgPath: FermataShape().path(in: CGRect(origin: .zero, size: size)).cgPath).fill()
+        }
+        .withRenderingMode(.alwaysTemplate)
+    }()
+}
+
 /// The favourite mark after a line of text. It is 0.64 em high and sits on the baseline (ADR 0032).
 struct FermataMark: View {
     let isSet: Bool
@@ -40,6 +54,7 @@ struct FermataMark: View {
             .frame(width: em * Layout.fermataWidth, height: em * Layout.fermataHeight)
             .alignmentGuide(.firstTextBaseline) { $0[.bottom] }
             .accessibilityLabel(isSet ? "Favourite" : "Not a favourite")
+            .transaction { $0.animation = nil }
     }
 }
 
@@ -60,15 +75,19 @@ struct FavouriteTitle: View {
                 .typeStyle(.pageTitle)
                 .foregroundStyle(Palette.textPrimary)
                 .accessibilityIdentifier(textIdentifier)
+                // A new mark replaces the old one in the same frame, also under an animation of the page.
+                .contentTransition(.identity)
+                .transaction { $0.animation = nil }
         }
-        .buttonStyle(.plain)
+        // The mark changes state at once. A pressed button must not fade the title.
+        .buttonStyle(.still)
         .frame(minHeight: Measure.hitTarget)
         .accessibilityLabel(title)
         .accessibilityValue(isSet ? "Favourite" : "Not a favourite")
     }
 
     private var mark: UIImage {
-        let size = CGSize(width: em * 0.64 * 17 / 10.5, height: em * 0.64)
+        let size = CGSize(width: em * Layout.fermataWidth, height: em * Layout.fermataHeight)
         let format = UIGraphicsImageRendererFormat()
         format.scale = scale
         let traits = UITraitCollection {

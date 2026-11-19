@@ -9,9 +9,16 @@ final class Library {
         didSet {
             index = WorkIndex(songs: classical)
             otherAlbumCache = nil
+            classicalChanged?()
         }
     }
+    /// The covers follow the classical part of the library (ADR 0059).
+    @ObservationIgnored var classicalChanged: (@MainActor () -> Void)?
     private(set) var index = WorkIndex()
+    /// The songs with a star: the server's stars with the changes that wait over them. A star change sets only this
+    /// and `songs`, because a rebuild of the index holds the main actor under the tap (ADR 0052). The songs inside
+    /// the index keep the stars of the last rebuild, so favourite state reads this set.
+    private(set) var starredSongs: Set<String> = []
     @ObservationIgnored private var otherAlbumCache: [WorkIndex.Album]?
     private(set) var syncedAt: Date?
     private(set) var isSyncing = false
@@ -32,7 +39,7 @@ final class Library {
     /// The albums that the filter keeps out of the index. Built when first read, because few pages need them.
     var otherAlbums: [WorkIndex.Album] {
         if let otherAlbumCache { return otherAlbumCache }
-        let classicalKeys = Set(index.albums.map(\.id))
+        let classicalKeys = Set(index.albums.flatMap(\.keys))
         let built = WorkIndex.albums(of: songs.filter { !classicalKeys.contains($0.albumKey) })
         otherAlbumCache = built
         return built
@@ -40,7 +47,7 @@ final class Library {
 
     /// An album of the index, else one that the filter keeps out of it.
     func album(_ key: String) -> WorkIndex.Album? {
-        index.album(key) ?? otherAlbums.first { $0.id == key }
+        index.album(key) ?? otherAlbums.first { $0.keys.contains(key) }
     }
 
     var albumCount: Int { Set(songs.map(\.albumKey)).count }
@@ -49,6 +56,8 @@ final class Library {
     private var owner: (server: URL, username: String)?
     private let cacheURL: URL
     private let defaults: UserDefaults
+    @ObservationIgnored private(set) var cacheWrite: Task<Void, Never>?
+    @ObservationIgnored private var pendingStars: [String: Bool] = [:]
     private static let filterKey = "library.filter.rules"
     static let pageSize = 500
 
@@ -94,15 +103,15 @@ final class Library {
                 self.received += page.count
                 return page
             }
-            let cache = LibraryCache(
-                server: client.credentials.url, username: client.credentials.username, syncedAt: .now, songs: songs,
-                marker: marker)
             self.marker = marker
             owner = (client.credentials.url, client.credentials.username)
-            show(songs, syncedAt: cache.syncedAt)
+            let syncedAt = Date.now
+            show(songs, syncedAt: syncedAt)
+            let cache = LibraryCache(
+                server: client.credentials.url, username: client.credentials.username, syncedAt: syncedAt,
+                songs: self.songs, marker: marker)
             syncError = nil
-            let url = cacheURL
-            try await Task.detached { try cache.write(to: url) }.value
+            await enqueueCache(cache).value
         } catch {
             syncError = error.localizedDescription
         }
@@ -123,23 +132,55 @@ final class Library {
         let stamp = ISO8601DateFormatter().string(from: .now)
         var changed = songs
         for index in changed.indices {
-            changed[index].starred = ids.contains(changed[index].id) ? (changed[index].starred ?? stamp) : nil
+            let isSet = pendingStars[changed[index].id] ?? ids.contains(changed[index].id)
+            changed[index].starred = isSet ? (changed[index].starred ?? stamp) : nil
         }
         // An unchanged refresh must not rebuild the index: the rebuild re-renders every page under a tap.
         guard changed.map(\.starred) != songs.map(\.starred) else { return }
         saveStars(changed, owner: owner, syncedAt: syncedAt)
     }
 
+    /// Pending device choices take priority over every server snapshot (ADR 0052).
+    func project(_ changes: [DeviceStore.FavouriteChange]) {
+        pendingStars = [:]
+        for change in changes where change.album == nil {
+            for id in change.songs { pendingStars[id] = change.isSet }
+        }
+        replaceStars(Set(songs.filter { $0.starred != nil }.map(\.id)))
+    }
+
     private func saveStars(_ songs: [Song], owner: (server: URL, username: String), syncedAt: Date) {
-        show(songs, syncedAt: syncedAt)
+        self.songs = songs
+        starredSongs = Self.starred(songs)
         let cache = LibraryCache(
-            server: owner.server, username: owner.username, syncedAt: syncedAt, songs: songs, marker: marker)
-        // Star writes must reach disk in the same order as the listener's actions.
-        do { try cache.write(to: cacheURL) } catch { syncError = error.localizedDescription }
+            server: owner.server, username: owner.username, syncedAt: syncedAt, songs: self.songs, marker: marker)
+        enqueueCache(cache)
+    }
+
+    /// Cache writes and deletion follow the listener's actions without blocking the main actor.
+    @discardableResult private func enqueueCache(_ cache: LibraryCache?) -> Task<Void, Never> {
+        let previous = cacheWrite
+        let url = cacheURL
+        let task = Task {
+            await previous?.value
+            let failure = await Task.detached {
+                do {
+                    if let cache {
+                        try cache.write(to: url)
+                    } else if FileManager.default.fileExists(atPath: url.path) {
+                        try FileManager.default.removeItem(at: url)
+                    }
+                    return nil as String?
+                } catch { return error.localizedDescription }
+            }.value
+            if let failure { syncError = failure }
+        }
+        cacheWrite = task
+        return task
     }
 
     func clear() {
-        try? FileManager.default.removeItem(at: cacheURL)
+        enqueueCache(nil)
         songs = []
         classical = []
         syncedAt = nil
@@ -157,15 +198,27 @@ final class Library {
     }
 
     private func show(_ songs: [Song], syncedAt: Date) {
+        var songs = songs
+        let stamp = ISO8601DateFormatter().string(from: .now)
+        for index in songs.indices {
+            if let isSet = pendingStars[songs[index].id] {
+                songs[index].starred = isSet ? (songs[index].starred ?? stamp) : nil
+            }
+        }
         self.songs = songs
+        starredSongs = Self.starred(songs)
         self.syncedAt = syncedAt
         classical = filter.classical(songs)
+    }
+
+    private static func starred(_ songs: [Song]) -> Set<String> {
+        Set(songs.lazy.filter { $0.starred != nil }.map(\.id))
     }
 }
 
 struct LibraryCache: Codable, Sendable {
     /// Goes up when a sync fills a song field that older caches lack.
-    static let currentFormat = 2
+    static let currentFormat = 3
 
     var server: URL
     var username: String
@@ -187,20 +240,19 @@ struct LibraryCache: Codable, Sendable {
 }
 
 extension Library {
-    /// A work and recording as the library holds them now. A queue copy lacks later stars and can lack movements
-    /// or other recordings, so favourite state and changes must not read it.
+    /// A work and recording as the library holds them now. A queue copy can lack movements or other recordings, so
+    /// favourite changes must not read it.
     func current(work: WorkIndex.Work, recording: WorkIndex.Recording) -> (
         work: WorkIndex.Work, recording: WorkIndex.Recording
     ) {
         if let live = index.work(work.id), let found = live.recordings.first(where: { $0.id == recording.id }) {
             return (live, found)
         }
-        // An unindexed work keeps its copy, with the stars of the library.
-        let stars = Dictionary(songs.map { ($0.id, $0.starred) }, uniquingKeysWith: { first, _ in first })
-        var copy = recording
-        for position in copy.songs.indices {
-            if let starred = stars[copy.songs[position].id] { copy.songs[position].starred = starred }
-        }
-        return (work, copy)
+        return (work, recording)
+    }
+
+    /// A favourite recording has a star on every track.
+    func isFavourite(_ recording: WorkIndex.Recording) -> Bool {
+        !recording.songs.isEmpty && recording.songs.allSatisfy { starredSongs.contains($0.id) }
     }
 }

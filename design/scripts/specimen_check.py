@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["playwright==1.64.1"]
+# ///
 """Opens every specimen page in headless Chromium, in each room, contrast mode and accent, and fails on a script error.
 
 Usage: uv run --with playwright==1.64.1 design/scripts/specimen_check.py
@@ -33,6 +37,7 @@ PAGES = (
     "lookup.html",
     "lookup.html?state=running",
     "lookup.html?state=slowDown",
+    "storage.html",
     "index.html?overlay=opening",
     "work.html?overlay=open",
     "chronology.html?overlay=closing",
@@ -113,6 +118,72 @@ def check_overlay(page, where, failures):
         url = page.url
 
 
+def check_work_capsules(context, base, failures):
+    """Only a reference that covers part of its album offers album playback."""
+    page = context.new_page()
+    page.goto(f"{base}work.html", wait_until="load")
+    page.wait_for_selector(".button-row .capsule")
+    cases = page.evaluate(
+        """() => {
+            const works = [...K.M.works.values()].map(work => {
+                const recording = K.orderedRecordings(work)[0];
+                return {id: work.id, extra: recording.album.song.length > recording.songs.length};
+            });
+            return [works.find(work => !work.extra), works.find(work => work.extra)];
+        }"""
+    )
+    for case in cases:
+        if case is None:
+            failures.append("work capsules: fixtures need both whole-album and part-album references")
+            continue
+        page.goto(f"{base}work.html?work=" + page.evaluate("encodeURIComponent", case["id"]), wait_until="load")
+        page.wait_for_selector(".button-row .capsule")
+        album = page.locator(".button-row .capsule").nth(1)
+        if album.is_visible() != case["extra"]:
+            failures.append(f"{case['id']}: redundant or missing Play Album capsule")
+    page.close()
+
+
+def check_slow_start(context, base, failures):
+    """The waiting messages share stable space with the times, including when they wrap."""
+    for size in ("large", "AX5"):
+        page = context.new_page()
+        page.goto(f"{base}player.html?size={size}&playing=recording", wait_until="load")
+        page.clock.install()
+        page.get_by_role("button", name="▶ Slow start", exact=True).tap()
+        page.clock.run_for(900)
+        frame = page.frame_locator(".player-overlay iframe")
+        status = frame.locator(".mv-state [role=status]")
+        box = frame.locator(".bar-box")
+        # The player scrolls to the playing row after a quiet spell. Compare positions inside that row.
+        geometry = """box => [
+            box.nextElementSibling.getBoundingClientRect().top - box.getBoundingClientRect().top,
+            box.querySelector('.mv-under').getBoundingClientRect().height
+        ]"""
+        offset, height = box.evaluate(geometry)
+        seen = set()
+        for _ in range(52):
+            page.clock.run_for(500)
+            seen.add(status.text_content())
+            current_offset, row_height = box.evaluate(geometry)
+            if abs(current_offset - offset) > 0.1 or row_height != height:
+                failures.append(
+                    f"slow start {size}: controls offset {offset} -> {current_offset}; "
+                    f"status height {height} -> {row_height}"
+                )
+                break
+        expected = {
+            "",
+            "Slow connection. Playback will start shortly.",
+            "Slow connection. Playback will continue shortly.",
+        }
+        if seen != expected:
+            failures.append(f"slow start {size}: missing startup, recovery or restored times: {seen}")
+        if page.locator("select[aria-label=Variant]").count():
+            failures.append(f"slow start {size}: the comparison menu remains")
+        page.close()
+
+
 def main():
     server = serve()
     base = f"http://127.0.0.1:{server.server_address[1]}/specimen/"
@@ -122,6 +193,8 @@ def main():
         context = browser.new_context(
             viewport={"width": 393, "height": 852}, device_scale_factor=3, is_mobile=True, has_touch=True
         )
+        check_work_capsules(context, base, failures)
+        check_slow_start(context, base, failures)
         for page_path in PAGES:
             for theme, contrast, accent, player, playing, side in MODES:
                 sep = "&" if "?" in page_path else "?"

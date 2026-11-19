@@ -109,11 +109,11 @@ struct PlaybackSessionHistoryTests {
         var copy = try #require(work.recordings.first)
         copy.songs = [copy.songs[1]]
         #expect(library.current(work: work, recording: copy).recording.songs.map(\.id) == ["a", "b"])
-        #expect(!library.current(work: work, recording: copy).recording.isFavourite)
+        #expect(!library.isFavourite(library.current(work: work, recording: copy).recording))
         library.setStarred(["a", "b"], true)
-        #expect(library.current(work: work, recording: copy).recording.isFavourite)
+        #expect(library.isFavourite(library.current(work: work, recording: copy).recording))
         library.setStarred(["a", "b"], false)
-        #expect(!library.current(work: work, recording: copy).recording.isFavourite)
+        #expect(!library.isFavourite(library.current(work: work, recording: copy).recording))
     }
 
     @Test func anUntouchedLaunchDoesNotClearTheServerQueue() async throws {
@@ -182,6 +182,63 @@ struct PlaybackSessionHistoryTests {
         #expect(await server.scrobbles == ["first-0", "first-1"])
         #expect(await server.queue?.entry?.isEmpty == true)
         #expect(session.state.queueEnded)
+    }
+
+    @Test func offlinePlaybackSendsOnReconnectWithoutMorePlayback() async throws {
+        let server = InMemoryServer()
+        let (session, engine) = makeSession(server, defaults: try defaults())
+        await server.setFailure(true)
+        session.play(item("first"))
+        engine.end(0)
+        engine.end(1)
+        await session.saveQueue()
+        #expect(await server.scrobbles.isEmpty)
+        #expect(session.state.queueEnded)
+        await server.setFailure(false)
+        await session.synchronizeListeningData()
+        #expect(await server.scrobbles == ["first-0", "first-1"])
+    }
+
+    @Test func loginRetriesOfflinePlaysAfterSignOut() async throws {
+        let server = InMemoryServer()
+        let defaults = try defaults()
+        let (session, engine) = makeSession(server, defaults: defaults)
+        await server.setFailure(true)
+        session.play(item("first"))
+        engine.end(0)
+        engine.end(1)
+        await session.saveQueue()
+        session.server = nil
+        await server.setFailure(false)
+        let (relaunched, _) = makeSession(server, defaults: defaults)
+        await relaunched.saveQueue()
+        #expect(await server.scrobbles == ["first-0", "first-1"])
+    }
+
+    @Test func loginSharesAnInFlightScrobbleAndRetainsNewPlays() async throws {
+        let server = InMemoryServer()
+        let defaults = try defaults()
+        let (session, engine) = makeSession(server, defaults: defaults)
+        await server.suspendScrobble()
+        session.play(item("first"))
+        engine.end(0)
+        while !(await server.isScrobbling) { await Task.yield() }
+        session.server = nil
+        let reconnected = InMemoryServer(listeningDataKey: server.listeningDataKey)
+        session.server = reconnected
+        session.play(item("second"))
+        engine.end(0)
+        session.pause()
+        await server.releaseScrobble()
+        await session.synchronizeListeningData()
+        #expect(await server.scrobbleAttempts == ["first-0"])
+        #expect(await server.scrobbles == ["first-0"])
+        #expect(await reconnected.scrobbleAttempts == ["second-0"])
+        #expect(await reconnected.scrobbles == ["second-0"])
+        let (relaunched, _) = makeSession(reconnected, defaults: defaults)
+        await relaunched.synchronizeListeningData()
+        #expect(await reconnected.scrobbles == ["second-0"])
+        session.stop()
     }
 
     @Test func pauseSeekAndResumeDoNotDuplicateOrInventAPlay() async throws {

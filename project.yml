@@ -6,7 +6,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "6.0"
-    MARKETING_VERSION: "0.14.1"
+    MARKETING_VERSION: "0.14.5"
     CURRENT_PROJECT_VERSION: "1"
 targets:
   Klassik:
@@ -74,4 +74,15 @@ schemes:
       targets:
         Klassik: all
     test:
+      # Automatic video capture competes with UI automation on the simulator.
+      preferredScreenCaptureFormat: screenshots
       targets: [KlassikTests, KlassikUITests]
+  # TestFlight gets a Release build, which can differ from the debug build at run time.
+  KlassikRelease:
+    build:
+      targets:
+        Klassik: all
+    test:
+      config: Release
+      preferredScreenCaptureFormat: screenshots
+      targets: [KlassikUITests]

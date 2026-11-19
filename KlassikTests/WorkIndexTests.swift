@@ -174,6 +174,16 @@ struct WorkIndexTests {
         #expect(work.context == "Symphonie Nr.5 c-moll")
     }
 
+    /// A row in a list of works shows the title and one detail line, never the track titles (sz-rs30.1.105.75).
+    @Test func workRowDetailLeavesOutTheTrackTitles() throws {
+        var first = Self.song("s1", album: "Symphonie Nr.3", track: 1, work: "Op. 55")
+        first.title = "Symphonie Nr.3 Es-Dur \"Eroica\": I. Allegro con brio"
+        let work = try #require(WorkIndex(songs: [first]).composers.first?.works.first)
+        #expect(!work.context.isEmpty)
+        #expect(WorkRow.detail(of: work, composed: "1804") == "Composed\u{00A0}1804, 1\u{00A0}recording")
+        #expect(WorkRow.detail(of: work, composed: nil) == "1\u{00A0}recording")
+    }
+
     @Test func namesKeepTheirOrderWhateverOrderTheServerSends() {
         func contributor(_ role: String, _ name: String, _ subRole: String? = nil) -> Song.Contributor {
             Song.Contributor(role: role, subRole: subRole, artist: Song.Artist(id: name, name: name))
@@ -198,10 +208,14 @@ struct WorkIndexTests {
                 Self.song("c", album: "A", track: 3, movement: (4, 5)),
             ])
         #expect(part.completeness == "3 of 5 movements")
+        #expect(part.isPartial)
         let whole = WorkIndex.Recording(
             id: "r", album: "A", songs: [Self.song("a", album: "A", track: 1, movement: (1, 1))])
         #expect(whole.completeness == nil)
+        #expect(!whole.isPartial)
         #expect(WorkIndex.Recording(id: "r", album: "A", songs: []).completeness == nil)
+        // Without a movement total the tags do not say, so the recording counts as whole.
+        #expect(!WorkIndex.Recording(id: "r", album: "A", songs: [Self.song("a", album: "A", track: 2)]).isPartial)
     }
 
     /// ADR 0024: one work with two movements on consecutive tracks gives every work a heading.

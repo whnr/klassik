@@ -2,6 +2,8 @@
 
 Date: 2026-11-08. Decided by Flo after specimen rounds 10 to 14 on the phone. Beads: sz-rs30.1.83.5, sz-rs30.1.83.15.
 
+The hairline rules are refined by [0055](0055-hairlines-between-list-items.md).
+
 ## Context
 
 The specimen in neutral iOS styles had a weak hierarchy and no character. The work page read like a settings list. Small grey labels carried the facts that tell recordings apart. Flo compared 18 display faces and 10 text faces on a type sheet, then judged the baseline on the real pages.

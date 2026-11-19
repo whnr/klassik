@@ -17,6 +17,11 @@ enum ComposerResolution: Codable, Equatable, Sendable {
 /// Missing facts stay open for another lookup on the next visit.
 @MainActor @Observable
 final class PersonFactsStore {
+    struct PictureWork: Codable, Equatable, Sendable {
+        var portrait: PersonPortrait
+        var old: PersonPortrait?
+    }
+
     struct Cache: Codable, Sendable {
         /// Facts need a new version when parsing rules require another lookup.
         static let version = 1
@@ -36,6 +41,7 @@ final class PersonFactsStore {
         var checked: [String: Date] = [:]
         /// When each check of the background pass falls due, with its random spread (ADR 0042).
         var due: [String: Date] = [:]
+        var picturePending: [String: PictureWork] = [:]
 
         init() {}
 
@@ -51,6 +57,7 @@ final class PersonFactsStore {
             performers = try container.decodeIfPresent([String: String].self, forKey: .performers) ?? [:]
             checked = try container.decodeIfPresent([String: Date].self, forKey: .checked) ?? [:]
             due = try container.decodeIfPresent([String: Date].self, forKey: .due) ?? [:]
+            picturePending = try container.decodeIfPresent([String: PictureWork].self, forKey: .picturePending) ?? [:]
             // Resolutions and listener choices must survive facts invalidation.
             if version < Cache.version {
                 people = [:]
@@ -213,6 +220,25 @@ final class PersonFactsStore {
     /// Records that the background pass settled a person, and when the person falls due again.
     func markChecked(_ key: String, at date: Date, due: Date) {
         cache.checked[key] = date
+        cache.due[key] = due
+        save()
+    }
+
+    func queuePicture(_ key: String, portrait: PersonPortrait, old: PersonPortrait?) {
+        cache.picturePending[key] = PictureWork(portrait: portrait, old: old)
+        save()
+    }
+
+    func finishPicture(_ key: String, work: PictureWork) {
+        guard cache.picturePending[key] == work else { return }
+        cache.picturePending[key] = nil
+        save()
+    }
+
+    func saved() async { await saving?.value }
+
+    /// Records when the background pass tries a failed person again. The person stays unchecked.
+    func postpone(_ key: String, due: Date) {
         cache.due[key] = due
         save()
     }

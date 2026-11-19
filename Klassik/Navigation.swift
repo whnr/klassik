@@ -45,6 +45,11 @@ final class Navigator<Page: Hashable> {
 
     func closePlayer() { isPlayerOpen = false }
 
+    /// The player shows what plays, so the queue end and Stop close it (ADR 0053).
+    func playbackChanged(hasItem: Bool) {
+        if !hasItem { closePlayer() }
+    }
+
     /// Takes the stack from the system after a push or a pop.
     func setPages(_ pages: [Page], in place: Place) {
         stacks[place] = pages
@@ -82,6 +87,17 @@ final class Navigator<Page: Hashable> {
             goBack(from: selection)
         } else {
             stacks[selection]?.removeLast()
+        }
+    }
+
+    /// A preview changes only the selected place. Its stacks and their scroll positions stay alive.
+    func previewBack(from place: Place) -> () -> Void {
+        let selection = selection
+        let origins = origins
+        goBack(from: place)
+        return { [self] in
+            self.selection = selection
+            self.origins = origins
         }
     }
 

@@ -29,10 +29,12 @@ Rules for coding agents in this repository.
 - `design/scripts/lint.sh` checks the design and all Python, HTML, CSS and JavaScript: format, lint, tokens, contrast, ADR links and the specimen pages. It needs uv and Node. Run it before you push a change to `design/`, `docs/adr/` or a Python script.
 - `Klassik/Layout.swift` holds every inset, gap, corner, fixed size and text role of the views. Each value cites its specimen CSS rule. `scripts/layout_tokens.py --check` proves the citations. `scripts/layout_lint.py` refuses a literal layout number in `Klassik/`; an exception goes into `scripts/layout_literals.txt` with its reason. A specimen change that moves a value changes `Layout.swift` in the same PR. The `layout` job of `test.yml` runs both, and `design/scripts/lint.sh` runs the citation check.
 - `design/scripts/tokens.py` writes `design/tokens.css`, `Klassik/Tokens.swift` and the colour sets in `Klassik/Assets.xcassets/Colors/`. Never edit them by hand. The design lint fails when one is not current. `.github/workflows/design.yml` runs it on Linux when those files change.
-- `.github/workflows/test.yml` runs `scripts/lint.sh` on Linux, then unit, library sync and gapless tests on `xcode-27` with Xcode 27.2 against fixture Navidrome. It runs on `main` and `ci` pushes, pull requests except documentation-only changes, and manual requests. Every push to `main` and `ci` runs the full UI walk. A pull request runs the walk only when it requests it. The walk uploads the screenshots as artifact `screens`.
+- `.github/workflows/test.yml` runs `scripts/lint.sh` on Linux, then unit, library sync and gapless tests on `xcode-27` with Xcode 27.2 against fixture Navidrome. It runs on `main` and `ci` pushes, pull requests except documentation-only changes, and manual requests. Main pushes run build, unit tests and the Release launch check, without a UI walk. Nightly runs walk all groups on main. A release PR titled `Release Klassik ...` walks all groups. Other pull requests walk only requested areas. The legacy `ci` branch still walks all groups. The walk uploads the screenshots as artifact `screens`.
+- The walk has four groups: `playback-queue`, `playback-controls`, `places-browse` and `settings-timeline`. Both playback groups select methods from `PlaybackScreens`. Each failed test gets one retry inside its job. Reports name failed tests, count attempts, and retain first failures. Result bundles remain available after recovered retries.
 - The UI walk and its screenshots take most of a run's macOS time. A pull request requests the walk with a line `[ui: <areas>]` in a commit message, such as `[ui: playback,browse]` or `[ui: all]`. The areas are the classes in `ScreensTests.swift` without `Screens`. The run walks the union of the requests in all commits of the PR, so later pushes walk the same areas. An unknown area fails the run.
 - A pull request that changes the UI requests the walk for each area that it changes. Its review compares the screenshots with the specimen pages and ADRs, and checks that the PR requested the walk for the changed areas.
 - A pull request that changes only logic does not request the walk. Its run starts no UI job, and the `test` check is green when the build and unit tests pass.
+- The build job boots its simulator before the build and runs unit tests against the same products. Walk jobs boot during artifact setup. The Release launch check boots its simulator before building optimized products separately.
 - On a run by hand, set input `ui` to the areas to walk, such as `browse,settings`, `all` (the default when the input is empty), or `false` to skip the walk. Each test of an area starts from a reset app and keeps a few screenshots. A release needs a green test run, not a passed UI walk.
 - A failure of lint, fixtures, the build or a unit test always fails the run. A failed UI walk fails the `test` job only when `UI_TESTS_REQUIRED` is `true`. Set it as a repository variable, in the Actions variables of the repository settings. Without the variable the value is `false`, the default during the interface rebuild.
 - A failed walk uploads `screens` and the result bundles `screens-xcresult-<group>`. The `screens-diff` job still runs. The job summary of `test` shows the build, unit and UI results, the enforcement and the missing screenshots. It shows a tolerated failure as FAILED.
@@ -75,6 +77,12 @@ Rules for coding agents in this repository.
 - Each later push that changes the UI adds a PR comment with the new screenshots, inline, and the head SHA.
 - Report on the PR and on the bead. A bead comment alone is not enough.
 - Put the images on branch `screenshots`, at `pr-<number>/<short sha>/<name>.png`. Link them as `https://raw.githubusercontent.com/whnr/klassik/screenshots/pr-<number>/<short sha>/<name>.png`. Never put them on `gh-pages`: the preview workflow prunes it. A link to the `screens` artifact zip does not show inline, so it is not enough.
+
+## Pushing
+
+Never push main. The pre-push hook in worker checkouts refuses it.
+Push your branch: `git push origin HEAD:refs/heads/<branch>`
+Then open a PR with `gh pr create`. An approved review and green CI merge it.
 
 ## Writing
 

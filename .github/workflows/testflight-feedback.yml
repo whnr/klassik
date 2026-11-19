@@ -14,12 +14,15 @@ jobs:
       ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
     steps:
       - uses: actions/checkout@v7
-      - run: pip install 'pyjwt[crypto]'
-      - run: python3 scripts/asc_check.py
-      - run: python3 scripts/testflight_feedback.py
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          enable-cache: false
+      - run: uv run --no-project --with 'pyjwt[crypto]' scripts/asc_check.py
+      - run: uv run --script scripts/testflight_feedback.py
       - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: testflight-feedback
+          retention-days: 7
           path: feedback/
           if-no-files-found: ignore

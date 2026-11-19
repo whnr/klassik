@@ -26,7 +26,9 @@ struct PlayerOverlayLayer: View {
         .ignoresSafeArea(.container)
         .animation(Motion.rise.animation(reduceMotion: reduceMotion), value: navigator.isPlayerOpen)
         .onChange(of: model.playback.item?.id, initial: true) { _, _ in
+            // The last item stays in the overlay while it slides away.
             if let item = model.playback.item { lastItem = item }
+            navigator.playbackChanged(hasItem: model.playback.item != nil)
         }
     }
 }

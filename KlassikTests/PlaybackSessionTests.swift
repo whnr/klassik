@@ -86,6 +86,21 @@ struct PlaybackSessionTests {
         #expect(engine.loads == [load("a", movements: 3, from: 2, at: 12.5)])
         #expect(session.state.movement == 2)
         #expect(session.state.position == 12.5)
+        #expect(session.coverSong?.id == "a-2")
+    }
+
+    @Test func playingCoverFollowsALaterStartAndDiscChange() throws {
+        let (session, engine) = try makeSession()
+        var playing = item("a", movements: 3)
+        playing.recording.songs[0].discNumber = 1
+        playing.recording.songs[1].discNumber = 1
+        playing.recording.songs[2].discNumber = 2
+        session.play(playing, from: 1)
+        #expect(session.coverSong?.id == "a-1")
+        #expect(session.coverSong?.discNumber == 1)
+        engine.end(1)
+        #expect(session.coverSong?.id == "a-2")
+        #expect(session.coverSong?.discNumber == 2)
     }
 
     @Test func playingAnotherItemReplacesTheQueue() throws {
@@ -181,6 +196,7 @@ struct PlaybackSessionTests {
         #expect(session.state.movement == 1)
         #expect(session.state.position == 0)
         #expect(engine.loads.count == 1)
+        #expect(session.coverSong?.id == "a-1")
     }
 
     @Test func theLastMovementEndStartsTheNextItem() throws {

@@ -124,23 +124,27 @@ struct PageList<Content: View>: View {
             PageHeading(title: heading, plain: true)
             BackTipRow()
                 .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
             content
                 .listRowBackground(Color.clear)
+                .listSectionSeparator(.hidden)
                 .pageRow()
         }
         .listStyle(.plain)
+        .listSectionSeparator(.hidden)
         // The specimen gaps are the whole distance between two lines. A system minimum would add to them.
         .environment(\.defaultMinListRowHeight, 0)
         .environment(\.defaultMinListHeaderHeight, 0)
         .environment(\.isPageList, true)
         .scrollContentBackground(.hidden)
-        // The player draws its wash behind the list, so the list keeps a clear ground and reports its scroll.
-        .background(wash == nil ? AnyShapeStyle(Palette.backgroundPage) : AnyShapeStyle(.clear))
         .onScrollGeometryChange(for: CGFloat.self) { geometry in
             geometry.contentOffset.y + geometry.contentInsets.top
         } action: { _, offset in
             wash?.scroll.offset = offset
         }
+        .pageContentPosition()
+        // The player draws its wash behind the list, so the list keeps a clear ground and reports its scroll.
+        .background(wash == nil ? AnyShapeStyle(Palette.backgroundPage) : AnyShapeStyle(.clear))
     }
 }
 
@@ -219,7 +223,6 @@ struct SectionHeading: View {
 
 /// The heading scrolls as content, so UIKit cannot collapse it before it crosses the soft edge.
 private struct PageHeading: View {
-    @AppStorage(TimelineSide.storageKey) private var side = TimelineSide.standard
     @Environment(\.pageHeadingBottom) private var bottom
     let title: String
     @Environment(\.pageFavourite) private var favourite
@@ -231,6 +234,7 @@ private struct PageHeading: View {
             Group {
                 if let favourite {
                     FavouriteTitle(title: title, isSet: favourite.isSet, action: favourite.action)
+                        .disabled(favourite.isDisabled)
                         .accessibilityIdentifier(favourite.identifier)
                 } else {
                     Text(title).accessibilityIdentifier("page-heading")
@@ -243,7 +247,9 @@ private struct PageHeading: View {
             .accessibilityAddTraits(.isHeader)
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
-            .listRowInsets(plain ? Layout.edges(side: side, top: Layout.headTop, bottom: bottom) : nil)
+            .listRowInsets(
+                plain ? Layout.edges(side: .standard, timeline: false, top: Layout.headTop, bottom: bottom) : nil
+            )
         }
     }
 }
@@ -261,6 +267,7 @@ struct FavouriteHeading {
     var isSet: Bool
     var action: @MainActor () -> Void
     var identifier: String
+    var isDisabled = false
 }
 
 extension EnvironmentValues {
@@ -270,28 +277,40 @@ extension EnvironmentValues {
     @Entry var pageHeadingBottom = Layout.headBottom
     /// True inside `PageList`. A grouped list keeps the system insets of its headers.
     @Entry var isPageList = false
+    /// A parent moves this page as one unit, so nested padding keeps its centred width.
+    @Entry var pageContentPositioned = false
 }
 
 extension Layout {
-    /// The page insets for a timeline on `side`: the timeline side keeps clear of the timeline.
-    /// Each content page uses them. Settings and sheets keep the system insets.
-    static func edges(side: TimelineSide, top: CGFloat = 0, bottom: CGFloat = 0) -> EdgeInsets {
-        EdgeInsets(
-            top: top, leading: side == .left ? timelineEdge : edge,
-            bottom: bottom, trailing: side == .left ? edge : timelineEdge)
+    /// Stable insets avoid independent UIKit row updates when playback starts or ends.
+    static func contentShift(side: TimelineSide, timeline: Bool) -> CGFloat {
+        let insets = sideInsets(timelineOnLeft: timeline ? side == .left : nil)
+        return (insets.left - insets.right) / 2
+    }
+
+    /// The list transform also moves its indicator; this inset keeps it beside the timeline.
+    static func shiftedIndicatorInset(side: TimelineSide, timeline: Bool) -> CGFloat {
+        let beside = timeline && side == .right ? Measure.timeline : 0
+        return beside + contentShift(side: side, timeline: timeline)
+    }
+
+    /// The page insets for a timeline on `side`, or for no timeline. Each content page uses them.
+    /// Settings and sheets keep the system insets.
+    static func edges(side: TimelineSide, timeline: Bool, top: CGFloat = 0, bottom: CGFloat = 0) -> EdgeInsets {
+        let insets = sideInsets(timelineOnLeft: timeline ? side == .left : nil)
+        return EdgeInsets(top: top, leading: insets.left, bottom: bottom, trailing: insets.right)
     }
 }
 
-/// Sets the specimen page insets on a list row, for the timeline side that the listener chose.
+/// Keeps list row insets fixed. The page transform accounts for the timeline side.
 /// The hairline spans the content, from the leading to the trailing page edge, as in the specimen.
 private struct PageEdges: ViewModifier {
-    @AppStorage(TimelineSide.storageKey) private var side = TimelineSide.standard
     let top: CGFloat
     let bottom: CGFloat
 
     func body(content: Content) -> some View {
         content
-            .listRowInsets(Layout.edges(side: side, top: top, bottom: bottom))
+            .listRowInsets(Layout.edges(side: .standard, timeline: false, top: top, bottom: bottom))
             .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
             .alignmentGuide(.listRowSeparatorTrailing) { $0.width }
     }
@@ -300,16 +319,40 @@ private struct PageEdges: ViewModifier {
 /// The page edges of the timeline side without a list row, such as a scrolling row of chips.
 private struct PagePadding: ViewModifier {
     @AppStorage(TimelineSide.storageKey) private var side = TimelineSide.standard
+    @Environment(AppModel.self) private var model: AppModel?
+    @Environment(\.pageContentPositioned) private var positioned
+    private var timeline: Bool { !positioned && model?.showsTimeline == true }
 
     func body(content: Content) -> some View {
-        let insets = Layout.edges(side: side)
+        let insets = Layout.edges(side: side, timeline: timeline)
         content
             .padding(.leading, insets.leading)
             .padding(.trailing, insets.trailing)
     }
 }
 
+/// Moves the whole list with one transform. UIKit keeps every row's layout and text width unchanged.
+private struct PageContentPosition: ViewModifier {
+    @AppStorage(TimelineSide.storageKey) private var side = TimelineSide.standard
+    @Environment(AppModel.self) private var model: AppModel?
+
+    func body(content: Content) -> some View {
+        let timeline = model?.showsTimeline == true
+        content
+            .environment(\.pageContentPositioned, true)
+            .contentMargins(
+                .trailing, Layout.shiftedIndicatorInset(side: side, timeline: timeline), for: .scrollIndicators
+            )
+            .scrollClipDisabled()
+            .offset(x: Layout.contentShift(side: side, timeline: timeline))
+    }
+}
+
 extension View {
+    func pageContentPosition() -> some View {
+        modifier(PageContentPosition())
+    }
+
     /// The row insets of a content page.
     func pageEdges(top: CGFloat = 0, bottom: CGFloat = 0) -> some View {
         modifier(PageEdges(top: top, bottom: bottom))
@@ -318,6 +361,13 @@ extension View {
     /// The insets of a row of a content page.
     func pageRow() -> some View {
         pageEdges(top: Layout.rowPadding, bottom: Layout.rowPadding)
+    }
+
+    /// A hairline runs only between two list items (ADR 0055). The system draws the line between two rows as the
+    /// bottom edge of the upper row, and a hidden edge on either row removes it. So only the outer edges hide.
+    func itemSeparator(first: Bool, last: Bool) -> some View {
+        listRowSeparator(first ? .hidden : .automatic, edges: .top)
+            .listRowSeparator(last ? .hidden : .visible, edges: .bottom)
     }
 
     /// The row of a section heading on a content page. A grouped list keeps the system insets.

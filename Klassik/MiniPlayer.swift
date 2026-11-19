@@ -90,7 +90,7 @@ struct MiniPlayer: View {
         Button {
             navigator.openPlayer()
         } label: {
-            CoverImage(id: item.recording.songs.first?.coverArt, points: itemSize)
+            CoverImage(song: model.playback.coverSong, points: itemSize, playback: true)
                 .frame(width: itemSize, height: itemSize)
                 .clipShape(.rect(cornerRadius: Layout.pillCoverCorner))
                 .padding(.vertical, max(0, (height - itemSize) / 2))
@@ -104,70 +104,75 @@ struct MiniPlayer: View {
     }
 }
 
-/// The cover of a song. It loads once for each cover ID; without one, a note stands in.
+/// A cover slot of a fixed size. It shows the kept file at once, else a fixed placeholder, and asks for a missing
+/// cover. A cover that arrives replaces the placeholder or the older cover in place, so the layout never moves
+/// (ADR 0059).
 struct CoverImage: View {
     @Environment(AppModel.self) private var model
     @Environment(\.displayScale) private var scale
-    let id: String?
+    let song: Song?
     let points: CGFloat
-    @State private var image: UIImage?
+    /// The cover of what plays loads in Low Data Mode too.
+    var playback = false
+    @State private var shown: Shown?
+
+    private struct Shown {
+        var slot: String
+        var image: UIImage
+    }
+
+    private struct Load: Equatable {
+        var slot: String
+        var candidates: [String]
+        var arrival: Int
+        var pixels: Int
+    }
 
     var body: some View {
-        ZStack {
-            Rectangle().fill(Palette.fillQuiet)
-            if let image {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                Image(systemName: "music.note")
-                    .foregroundStyle(Palette.textSecondary)
-            }
+        let pixels = Int((points * scale).rounded(.up))
+        let covers = model.albumCovers
+        let load = song.map {
+            Load(
+                slot: $0.id, candidates: covers.candidates(for: $0), arrival: covers.arrival(for: $0), pixels: pixels)
         }
-        .task(id: id) {
-            image = nil
-            guard let id, let client = model.client else { return }
-            let url = client.coverArtURL(id: id, size: Int((points * scale).rounded(.up)))
-            guard let response = try? await URLSession.shared.data(from: url) else { return }
-            image = UIImage(data: response.0)
-        }
-    }
-}
-
-/// The bump follows the display corner. Two system-resolved contours keep the strip eight points wide.
-private struct DisplayCornerStrip: Shape {
-    let outer: Path
-    let inner: Path
-
-    func path(in rect: CGRect) -> Path {
-        var path = outer
-        path.addPath(inner)
-        return path
-    }
-}
-
-struct MiniPlayerCorner: View {
-    let side: TimelineSide
-    let top: CGFloat
-
-    var body: some View {
-        GeometryReader { geometry in
-            let bounds = CGRect(origin: .zero, size: geometry.size)
-            let inset = bounds.insetBy(dx: Measure.timeline, dy: Measure.timeline)
-            if let outer = geometry.concentricCornerRadii,
-                let inner = geometry.concentricCornerRadii(in: inset)
-            {
-                let radius = side == .right ? outer.bottomTrailing : outer.bottomLeading
-                DisplayCornerStrip(
-                    outer: Path(roundedRect: bounds, cornerRadii: outer, style: .continuous),
-                    inner: Path(roundedRect: inset, cornerRadii: inner, style: .continuous)
-                )
-                .fill(Palette.timelineUnplayed, style: FillStyle(eoFill: true))
-                .mask(alignment: side == .right ? .bottomTrailing : .bottomLeading) {
-                    Rectangle().frame(width: max(radius, Measure.timeline), height: max(0, bounds.height - top))
+        let cached = load?.candidates.first.flatMap { model.covers.image(hash: $0, pixels: pixels) }
+        let visible = cached ?? ((playback || shown?.slot == song?.id) ? shown?.image : nil)
+        // The image sits in an overlay, so a cover of any shape fills the slot and never sizes it.
+        Rectangle()
+            .fill(Palette.fillQuiet)
+            .overlay {
+                if let visible {
+                    Image(uiImage: visible)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    Image(systemName: "music.note")
+                        .foregroundStyle(Palette.textSecondary)
                 }
             }
+            .clipped()
+            .task(id: load) { await show(load) }
+    }
+
+    /// The best kept file shows. Without one, the cover goes to the front of the queue, and its arrival starts
+    /// this task again.
+    private func show(_ load: Load?) async {
+        guard let load, let song else { return }
+        for hash in load.candidates {
+            if let image = model.covers.image(hash: hash, pixels: load.pixels) {
+                shown = Shown(slot: load.slot, image: image)
+                return
+            }
+            if let data = await model.albumArt.data(named: hash),
+                let image = await CoverArt.scaled(data, to: load.pixels)
+            {
+                guard !Task.isCancelled else { return }
+                model.covers.store(image, hash: hash, pixels: load.pixels)
+                shown = Shown(slot: load.slot, image: image)
+                return
+            }
+            guard !Task.isCancelled else { return }
         }
-        .accessibilityHidden(true)
+        model.albumCovers.request(song, playback: playback)
     }
 }

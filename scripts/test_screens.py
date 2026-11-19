@@ -1,6 +1,8 @@
 """Tests for the screenshot scripts: python3 -m unittest discover -s scripts -p "test_screens.py"."""
 
+import os
 import pathlib
+import re
 import subprocess
 import sys
 import tempfile
@@ -54,6 +56,105 @@ class ExpectedTests(unittest.TestCase):
         self.assertTrue(screen_report.expected(source, "all"))
         for area in ("browse", "playback", "settings"):
             self.assertTrue(screen_report.expected(source, area), area)
+
+
+class RetryReportTests(unittest.TestCase):
+    def test_scripts_report_retries_and_preserve_test_exit_status(self):
+        root = screen_report.ROOT
+        for script in ("screens.sh", "release-launch.sh"):
+            for status in (0, 65):
+                with self.subTest(script=script, status=status), tempfile.TemporaryDirectory() as directory:
+                    temporary = pathlib.Path(directory)
+                    for name in ("xcodegen", "xcrun"):
+                        path = temporary / name
+                        path.write_text('#!/bin/bash\necho "${2:-$1}" >> "$TEST_COMMANDS"\nexit 0\n')
+                        path.chmod(0o755)
+                    xcodebuild = temporary / "xcodebuild"
+                    xcodebuild.write_text(
+                        "#!/bin/bash\n"
+                        'echo "$1" >> "$TEST_COMMANDS"\n'
+                        '[ "$1" != build-for-testing ] || exit 0\n'
+                        "echo \"Test Case '-[Tests testPlay]' failed (1.0 seconds).\"\n"
+                        'if [ "$TEST_STATUS" = 0 ]; then state=passed; else state=failed; fi\n'
+                        "echo \"Test Case '-[Tests testPlay]' $state (1.0 seconds).\"\n"
+                        'exit "$TEST_STATUS"\n'
+                    )
+                    xcodebuild.chmod(0o755)
+                    env = {
+                        **os.environ,
+                        "PATH": f"{temporary}:{os.environ['PATH']}",
+                        "KLASSIK_PHASE": "all",
+                        "KLASSIK_UI": "false",
+                        "KLASSIK_SIMULATOR_UDID": "fixture",
+                        "TEST_STATUS": str(status),
+                        "TEST_COMMANDS": str(temporary / "commands"),
+                        "GITHUB_STEP_SUMMARY": str(temporary / "summary"),
+                    }
+                    out = temporary / "out"
+                    run = subprocess.run(
+                        ["bash", str(root / "scripts" / script), str(out)],
+                        env=env,
+                        capture_output=True,
+                        text=True,
+                    )
+                    self.assertEqual(run.returncode, status, run.stdout + run.stderr)
+                    reports = list(out.glob("*-retries.txt"))
+                    self.assertEqual(len(reports), 1)
+                    outcome = "recovered" if status == 0 else "failed"
+                    self.assertIn(f"| 2 | {outcome} |", reports[0].read_text())
+                    self.assertTrue(list(out.glob("*.log")))
+                    commands = (temporary / "commands").read_text().splitlines()
+                    self.assertLess(commands.index("bootstatus"), commands.index("build-for-testing"))
+
+    def test_clean_run_has_no_failed_attempts(self):
+        text = screen_report.retry_report("Test Case '-[Tests testPlay]' passed (1.0 seconds).")
+        self.assertIn("No failed test attempts", text)
+        self.assertNotIn("recovered", text)
+
+    def test_recovered_xctest_keeps_first_failure_and_attempt_count(self):
+        text = screen_report.retry_report(
+            "Test Case '-[Tests testPlay]' started.\n"
+            "Tests.swift:9: error: -[Tests testPlay] : XCTAssertTrue failed\n"
+            "Test Case '-[Tests testPlay]' failed (1.0 seconds).\n"
+            "Test Case '-[Tests testPlay]' started.\n"
+            "Test Case '-[Tests testPlay]' passed (1.0 seconds).\n"
+        )
+        self.assertIn("-[Tests testPlay] | 2 | recovered | line 3:", text)
+        self.assertIn("XCTAssertTrue failed", text)
+
+    def test_exhausted_xctest_reports_failure(self):
+        text = screen_report.retry_report("Test Case '-[Tests testPlay]' failed (1.0 seconds).\n" * 2)
+        self.assertIn("-[Tests testPlay] | 2 | failed | line 1:", text)
+
+    def test_interleaved_swift_tests_keep_their_issues(self):
+        text = screen_report.retry_report(
+            "✘ Test play() recorded an issue at Tests.swift:9: Expectation failed: ready\n"
+            "✔ Test stop() passed after 0.001 seconds.\n"
+            "✘ Test play() failed after 0.002 seconds with 1 issue.\n"
+            "✔ Test play() passed after 0.001 seconds.\n"
+        )
+        self.assertIn("play() | 2 | recovered | line 3:", text)
+        self.assertIn("Expectation failed: ready", text)
+        self.assertNotIn("stop()", text)
+
+    def test_swift_parameterized_failure_is_one_attempt(self):
+        text = screen_report.retry_report(
+            "✘ Test play(mode:) recorded an issue at Tests.swift:9: Expectation failed\n"
+            "✘ Test play(mode:) with 3 test cases failed after 0.002 seconds with 1 issue.\n"
+            "✘ Test play(mode:) recorded an issue at Tests.swift:9: Expectation failed again\n"
+            "✘ Test play(mode:) with 3 test cases failed after 0.002 seconds with 1 issue.\n"
+        )
+        self.assertIn("play(mode:) | 2 | failed", text)
+        self.assertNotIn("failed again", text)
+
+    def test_unretried_failure_and_markdown_escaping(self):
+        text = screen_report.retry_report(
+            "Test Case '-[Tests testPlay]' started.\n"
+            "Tests.swift:9: error: Expected a | b\n"
+            "Test Case '-[Tests testPlay]' failed (1.0 seconds).\n"
+        )
+        self.assertIn("| 1 | failed |", text)
+        self.assertIn("a \\| b", text)
 
 
 class SummaryTests(unittest.TestCase):
@@ -121,7 +222,7 @@ class MatrixTests(unittest.TestCase):
                 path.mkdir()
                 (path / "results.txt").write_text("build=passed\nui=not run\nui=passed\n")
             self.assertEqual(screen_report.aggregate_ui(reports, "all", ""), "passed")
-            path = reports / "walk-playback" / "results.txt"
+            path = reports / "walk-playback-queue" / "results.txt"
             path.unlink()
             self.assertEqual(screen_report.aggregate_ui(reports, "all", ""), "incomplete")
             self.assertEqual(screen_report.aggregate_ui(reports, "Browse,Settings", ""), "passed")
@@ -217,14 +318,13 @@ class PlanTests(unittest.TestCase):
         return ui, [entry["group"] for entry in matrix["include"]]
 
     def test_pull_request_without_request_runs_only_unit_tests(self):
-        self.assertEqual(
-            self.groups("pull_request", messages="Fix parsing\n\nui: is not a request"), ("false", ["unit"])
-        )
+        self.assertEqual(self.groups("pull_request", messages="Fix parsing\n\nui: is not a request"), ("false", []))
 
     def test_pull_request_walks_the_union_of_its_requests(self):
         messages = "First\n\n[ui: browse]\n\nSecond\n\n[UI: Playback, browse]\n"
         self.assertEqual(
-            self.groups("pull_request", messages=messages), ("playback,browse", ["unit", "playback", "places-browse"])
+            self.groups("pull_request", messages=messages),
+            ("playback,browse", ["playback-queue", "playback-controls", "places-browse"]),
         )
 
     def test_pull_request_can_request_everything(self):
@@ -239,15 +339,59 @@ class PlanTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             screen_report.plan("pull_request", "", "[ui: all]\n[ui: brwse]")
 
-    def test_pushes_walk_everything(self):
-        self.assertEqual(self.groups("push"), ("all", ["unit", "playback", "places-browse", "settings-timeline"]))
+    def test_main_push_runs_no_walk(self):
+        self.assertEqual(self.groups("push"), ("false", []))
+
+    def test_nightly_and_ci_push_walk_everything(self):
+        for event, ref in (("schedule", "refs/heads/main"), ("push", "refs/heads/ci")):
+            ui, matrix = screen_report.plan(event, "", "", ref=ref)
+            self.assertEqual(ui, "all")
+            self.assertEqual(len(matrix["include"]), 4)
+
+    def test_release_title_walks_everything(self):
+        for title in ("Release Klassik 0.15.0", "[sz-123] Release Klassik 0.15.0"):
+            ui, matrix = screen_report.plan("pull_request", "", "", title)
+            self.assertEqual(ui, "all")
+            self.assertEqual(len(matrix["include"]), 4)
+
+    def test_playback_shards_cover_every_method_and_screenshot_once(self):
+        source = screen_report.WALK.read_text()
+        queue = screen_report.group_tests("playback-queue")
+        controls = screen_report.group_tests("playback-controls")
+        self.assertFalse(set(queue) & set(controls))
+        playback = source.split("class PlaybackScreens:", 1)[1].split("class TimelineScreens:", 1)[0]
+        self.assertEqual(set(queue + controls), set(re.findall(r"func (test\w+)\(", playback)))
+        queue_shots = set(screen_report.expected(source, "playback", queue))
+        control_shots = set(screen_report.expected(source, "playback", controls))
+        self.assertFalse(queue_shots & control_shots)
+        self.assertEqual(queue_shots | control_shots, set(screen_report.expected(source, "playback")))
+        self.assertTrue(queue_shots)
+        self.assertTrue(control_shots)
+
+    def test_each_playback_shard_requires_only_its_own_screenshots(self):
+        source = screen_report.WALK.read_text()
+        with tempfile.TemporaryDirectory() as directory:
+            reports = pathlib.Path(directory)
+            for group in ("playback-queue", "playback-controls"):
+                report = reports / f"walk-{group}"
+                report.mkdir()
+                (report / "results.txt").write_text("build=passed\nui=passed\n")
+                for name in screen_report.expected(source, "playback", screen_report.group_tests(group)):
+                    (report / f"{name}.png").touch()
+            self.assertEqual(screen_report.aggregate_ui(reports, "playback", source), "passed")
+            missing = next((reports / "walk-playback-queue").glob("*.png"))
+            missing.unlink()
+            self.assertEqual(
+                screen_report.unexplained_gaps(reports, "playback", source), {"playback-queue": [missing.stem]}
+            )
 
     def test_run_by_hand_takes_the_input(self):
         self.assertEqual(
-            self.groups("workflow_dispatch"), ("all", ["unit", "playback", "places-browse", "settings-timeline"])
+            self.groups("workflow_dispatch"),
+            ("all", ["playback-queue", "playback-controls", "places-browse", "settings-timeline"]),
         )
-        self.assertEqual(self.groups("workflow_dispatch", "Settings"), ("settings", ["unit", "settings-timeline"]))
-        self.assertEqual(self.groups("workflow_dispatch", "false"), ("false", ["unit"]))
+        self.assertEqual(self.groups("workflow_dispatch", "Settings"), ("settings", ["settings-timeline"]))
+        self.assertEqual(self.groups("workflow_dispatch", "false"), ("false", []))
         with self.assertRaises(ValueError):
             screen_report.plan("workflow_dispatch", "brwse", "")
 

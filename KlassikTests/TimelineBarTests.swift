@@ -113,31 +113,21 @@ struct TimelineBarTests {
 
     @Test func aTapPlaysTheMovementUnderTheFingerFromItsStart() {
         let place = bar.place(at: 74)
-        #expect(TimelineTouch.undecided.end(dx: 0, side: .right, at: place) == .play(movement: 2))
+        #expect(TimelineTouch.undecided.end(at: place) == .play(movement: 2))
     }
 
     @Test func aScrubMovesToThePlaceUnderTheFinger() {
         let place = bar.place(at: 32)
-        #expect(TimelineTouch.scrub.end(dx: 30, side: .left, at: place) == .seek(.init(movement: 1, seconds: 5)))
+        #expect(TimelineTouch.scrub.end(at: place) == .seek(.init(movement: 1, seconds: 5)))
     }
 
-    /// On the left edge the timeline covers the start of the system back swipe, so it goes back itself.
-    @Test func aSwipeToTheRightOnTheLeftEdgeGoesBack() {
-        #expect(TimelineTouch.sideways.end(dx: 80, side: .left, at: bar.place(at: 10)) == .back)
-    }
-
-    @Test func aShortSwipeOnTheLeftEdgeDoesNothing() {
-        #expect(TimelineTouch.sideways.end(dx: 40, side: .left, at: bar.place(at: 10)) == .nothing)
-    }
-
-    @Test func aSidewaysSwipeOnTheRightEdgeDoesNothing() {
-        #expect(TimelineTouch.sideways.end(dx: -80, side: .right, at: bar.place(at: 10)) == .nothing)
-        #expect(TimelineTouch.sideways.end(dx: 80, side: .right, at: bar.place(at: 10)) == .nothing)
+    @Test func aHorizontalBackGestureCannotSeekOrStartPlayback() {
+        #expect(TimelineTouch.sideways.end(at: bar.place(at: 10)) == .nothing)
     }
 
     @Test func aTouchWithNothingPlayingDoesNothing() {
-        #expect(TimelineTouch.undecided.end(dx: 0, side: .right, at: nil) == .nothing)
-        #expect(TimelineTouch.scrub.end(dx: 0, side: .right, at: nil) == .nothing)
+        #expect(TimelineTouch.undecided.end(at: nil) == .nothing)
+        #expect(TimelineTouch.scrub.end(at: nil) == .nothing)
     }
 
     // MARK: Side

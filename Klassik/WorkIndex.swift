@@ -95,20 +95,24 @@ struct WorkIndex: Sendable {
         /// The conductor, soloists and ensembles, each once.
         var performerNames: [String] { principalNames.flatMap(\.names) }
 
-        /// A recording is a favourite only when the server stars every track.
-        var isFavourite: Bool { !songs.isEmpty && songs.allSatisfy { $0.starred != nil } }
-
         /// How many movements the tags name for the work, if the tags say.
         var movementTotal: Int? {
             songs.compactMap { $0.movements?.first?.count }.max().flatMap { $0 > 0 ? $0 : nil }
         }
 
-        /// "3 of 5 movements" when the recording holds only part of its work.
-        var completeness: String? {
+        /// The movements present and the movement total, when the recording holds only part of its work. Without a
+        /// total in the tags, Klassik cannot tell and counts the recording as whole.
+        private var part: (present: Int, total: Int)? {
             guard !isAlbum, let total = movementTotal else { return nil }
             let present = Set(songs.compactMap { $0.movements?.first?.number }).count
-            return present > 0 && present < total ? "\(present) of \(total) movements" : nil
+            return present > 0 && present < total ? (present, total) : nil
         }
+
+        /// True when the recording holds only part of its work.
+        var isPartial: Bool { part != nil }
+
+        /// "3 of 5 movements" when the recording holds only part of its work.
+        var completeness: String? { part.map { "\($0.present) of \($0.total) movements" } }
 
         /// A movement name alone does not say which work of an album it belongs to.
         func title(of song: Song) -> String {
@@ -149,8 +153,11 @@ struct WorkIndex: Sendable {
             var id: Int { start }
         }
 
-        /// The key that groups the tracks, as `Song.albumKey` says.
+        /// The smallest of `keys`.
         var id: String
+        /// Every `Song.albumKey` of the tracks. The server gives one album several keys when its tracks carry
+        /// different release dates.
+        var keys: [String]
         /// The whole album as one work with one recording: one queue item.
         var work: Work
         var recording: Recording
@@ -191,8 +198,10 @@ struct WorkIndex: Sendable {
         }
 
         init?(tracks: [Song]) {
-            guard let first = tracks.first, let whole = WorkIndex.album(tracks) else { return nil }
-            id = first.albumKey
+            let albumKeys = Set(tracks.map(\.albumKey)).sorted()
+            guard let first = albumKeys.first, let whole = WorkIndex.album(tracks, key: first) else { return nil }
+            id = first
+            keys = albumKeys
             work = whole.work
             recording = whole.recording
             let keys = recording.songs.map(Self.workKey)
@@ -202,7 +211,7 @@ struct WorkIndex: Sendable {
                 guard let key, let tag = song.works?.first, !parts.contains(where: { $0.workID == key }) else {
                     continue
                 }
-                parts.append(Part(workID: key, title: tag.name, recordingID: "\(key)|\(first.albumKey)"))
+                parts.append(Part(workID: key, title: tag.name, recordingID: "\(key)|\(song.albumKey)"))
             }
             self.parts = parts
         }
@@ -225,16 +234,54 @@ struct WorkIndex: Sendable {
         albumPositions[key].map { albums[$0] }
     }
 
-    /// The albums of some tracks, by title.
+    /// The albums of some tracks, by title. The tracks of one server album stay together. Server albums with one
+    /// name and one album artist form one album when no track position is in two of them.
     static func albums(of songs: [Song]) -> [Album] {
-        Dictionary(grouping: songs, by: \.albumKey).values
-            .compactMap { Album(tracks: $0) }
-            .sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
+        var groups: [[Song]] = []
+        var open: [String: [Int]] = [:]
+        for (_, tracks) in Dictionary(grouping: songs, by: \.albumKey).sorted(by: { $0.key < $1.key }) {
+            guard let release = releaseName(tracks) else {
+                groups.append(tracks)
+                continue
+            }
+            let positions = Set(tracks.map(trackPosition))
+            let fits = { (group: Int) in Set(groups[group].map(trackPosition)).isDisjoint(with: positions) }
+            if let target = open[release]?.first(where: fits) {
+                groups[target] += tracks
+            } else {
+                open[release, default: []].append(groups.count)
+                groups.append(tracks)
+            }
+        }
+        return groups.compactMap { Album(tracks: $0) }
+            .sorted {
+                let order = $0.title.localizedStandardCompare($1.title)
+                return order == .orderedSame ? $0.id < $1.id : order == .orderedAscending
+            }
+    }
+
+    /// Navidrome puts the release date into its album ID, so the tracks of one album can carry several IDs. Each
+    /// ID then holds other track positions. Two releases with one name and one album artist share positions, so
+    /// they stay apart. Without one album name and one album artist on all tracks, the ID alone decides.
+    private static func releaseName(_ tracks: [Song]) -> String? {
+        let first = tracks.first
+        guard let name = first?.album, let artist = first?.displayAlbumArtist, !name.isEmpty, !artist.isEmpty else {
+            return nil
+        }
+        guard tracks.allSatisfy({ $0.album == name && $0.displayAlbumArtist == artist }) else { return nil }
+        return "\(name)|\(artist)"
+    }
+
+    private static func trackPosition(_ song: Song) -> String {
+        "\(song.discNumber ?? 0)|\(song.track ?? 0)"
     }
 
     init(songs: [Song]) {
         albums = Self.albums(of: songs)
-        albumPositions = Dictionary(uniqueKeysWithValues: albums.enumerated().map { ($1.id, $0) })
+        // Each server album is in one album, so the keys are unique. A broken grouping must still not trap.
+        albumPositions = Dictionary(
+            albums.enumerated().flatMap { position, album in album.keys.map { ($0, position) } },
+            uniquingKeysWith: { first, _ in first })
         var works: [String: Work] = [:]
         for (key, tracks) in Dictionary(grouping: songs, by: Self.workKey) {
             let first = tracks[0]
@@ -297,9 +344,9 @@ struct WorkIndex: Sendable {
     }
 
     /// A whole album as one work with one recording, to play it from start to end.
-    static func album(_ tracks: [Song]) -> (work: Work, recording: Recording)? {
+    static func album(_ tracks: [Song], key: String? = nil) -> (work: Work, recording: Recording)? {
         guard let first = tracks.first else { return nil }
-        var whole = Self.recording(id: "album|\(first.albumKey)", tracks)
+        var whole = Self.recording(id: "album|\(key ?? first.albumKey)", tracks)
         whole.isAlbum = true
         let work = Work(
             id: whole.id, title: whole.album.isEmpty ? first.title : whole.album,

@@ -129,6 +129,15 @@ struct LibraryTests {
         #expect(read.marker == "m")
     }
 
+    /// Format 2 caches lack the album artist that merges an album the server splits by date.
+    @Test func aFormatTwoCacheIsNotCurrent() {
+        var cache = LibraryCache(
+            server: URL(string: "https://music.example.org")!, username: "joe",
+            syncedAt: Date(timeIntervalSince1970: 0), songs: [], marker: "m")
+        cache.format = 2
+        #expect(!cache.isCurrent)
+    }
+
     @Test func aSongKeepsItsCoverArt() throws {
         let json = #"{"id":"t1","title":"Allegro","coverArt":"al-1"}"#
         #expect(try JSONDecoder().decode(Song.self, from: Data(json.utf8)).coverArt == "al-1")

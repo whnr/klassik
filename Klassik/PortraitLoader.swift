@@ -13,6 +13,10 @@ struct LoadedPortrait: @unchecked Sendable {
     /// A portrait shows one person: a picture with no face or with several faces is no portrait (ADR 0019).
     var isPortrait: Bool { faces.count == 1 }
 
+    /// The face that the frame centres on. A composer picture centres on its largest face. A performer group or
+    /// hall has none: it fills the frame from its centre (ADR 0043).
+    func framingFace(performer: Bool) -> CGRect? { performer && !isPortrait ? nil : face }
+
     /// The brightest quarter of a region of the picture, as one colour. A region is in the unit square of the
     /// picture. The brightest part decides, because the scrim must lift the text over the lightest spot.
     func brightestColour(in region: CGRect) -> PictureScrim.RGB {
@@ -59,18 +63,33 @@ enum PortraitLoader {
 
     struct TooLarge: Error {}
 
-    /// A disk cache of its own, so that a large picture loads once and other downloads do not push it out.
+    /// The pictures stay in `ImageStore.pictures`, which the listener can see and limit (ADR 0051). A URL cache
+    /// beside it would hold each picture twice.
     static let session: URLSession = {
         let configuration = URLSessionConfiguration.default
-        let folder = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?
-            .appending(path: "Portraits")
-        configuration.urlCache = URLCache(memoryCapacity: 0, diskCapacity: 200_000_000, directory: folder)
+        configuration.urlCache = nil
         return URLSession(configuration: configuration)
     }()
 
+    /// The download of the app: a picture that is on the device loads from there.
+    static let download: MusicBrainz.Fetch = stored(network) { ImageStore.pictures }
+
+    /// A fetch that reads the store first and keeps each successful answer in it.
+    static func stored(_ fetch: @escaping MusicBrainz.Fetch, in store: @escaping @MainActor @Sendable () -> ImageStore)
+        -> MusicBrainz.Fetch
+    {
+        { request in
+            let key = request.url?.absoluteString ?? ""
+            if let data = await store().data(for: key) { return (data, 200) }
+            let (data, status) = try await fetch(request)
+            if (200..<300).contains(status), !data.isEmpty { await store().store(data, for: key) }
+            return (data, status)
+        }
+    }
+
     /// Streams the body and stops at the cap, so that a huge file never sits in memory. A redirect to a host
     /// outside the trusted list ends the request.
-    static let download: MusicBrainz.Fetch = { request in
+    static let network: MusicBrainz.Fetch = { request in
         let (bytes, response) = try await session.bytes(for: request, delegate: RedirectGuard())
         guard response.expectedContentLength <= Int64(maxBytes) else { throw TooLarge() }
         var data = Data()
@@ -89,14 +108,78 @@ enum PortraitLoader {
         return download
     }
 
+    /// The network of the people lookup, past the store, because a lookup replaces the kept picture.
+    static var launchNetwork: MusicBrainz.Fetch {
+        #if DEBUG
+            if PersonLaunchStub.fetch != nil { return PersonLaunchStub.picture }
+        #endif
+        return network
+    }
+
+    /// The hero of this device before a page measures it: the screen width, at the specimen proportion.
+    @MainActor static var deviceScreen: PortraitSize.Screen {
+        let screen = UIApplication.shared.connectedScenes.compactMap { ($0 as? UIWindowScene)?.screen }.first
+        // Without a scene, as in a background launch, the largest iPhone stands in.
+        let width = screen?.bounds.width ?? 440
+        return PortraitSize.Screen(
+            hero: CGSize(width: width, height: min(width * Layout.pictureRatio, Layout.pictureMaxHeight)),
+            scale: screen?.scale ?? 3)
+    }
+
+    /// Keeps the picture that a people lookup found, before any page needs it (ADR 0059). Each later lookup
+    /// fetches it again, and only a valid picture replaces the kept file. When the picture of the person changed,
+    /// the files of the old one go. The lookup stops at the Pictures limit and waits in Low Data Mode, like the
+    /// cover pass. Returns false when nothing was kept.
+    @MainActor @discardableResult static func keep(
+        _ portrait: PersonPortrait, replacing old: PersonPortrait?, screen: PortraitSize.Screen,
+        store: ImageStore, fetch: MusicBrainz.Fetch = PortraitLoader.launchNetwork
+    ) async -> Bool {
+        await store.loaded()
+        guard !store.isFull, store.hasRoomForTypicalFile else { return false }
+        let wanted = PortraitSize.candidates(portrait, screen: screen)
+        for candidate in wanted {
+            guard let url = PersonFactsService.trusted(candidate) else { continue }
+            var request = URLRequest(url: url, timeoutInterval: PersonFactsService.timeout)
+            request.setValue(MusicBrainz.userAgent, forHTTPHeaderField: "User-Agent")
+            request.allowsConstrainedNetworkAccess = false
+            guard let (data, status) = try? await fetch(request), (200..<300).contains(status), !data.isEmpty,
+                data.count <= maxBytes, UIImage(data: data) != nil
+            else { continue }
+            let key = url.absoluteString
+            guard store.contains(key) || store.fits(Int64(data.count)), await store.store(data, for: key) else {
+                return false
+            }
+            if let old, old != portrait {
+                let kept = Set(wanted.map(\.absoluteString))
+                for file in files(of: old) where !kept.contains(file.absoluteString) {
+                    store.remove(named: ImageStore.name(file.absoluteString))
+                }
+            }
+            return true
+        }
+        return false
+    }
+
+    /// Every file of a picture that a page of any size can keep.
+    static func files(of portrait: PersonPortrait) -> [URL] {
+        PortraitSize.steps.compactMap { PortraitSize.file(portrait, width: $0) } + [portrait.url]
+    }
+
     /// The picture at the size that the screen needs (`PortraitSize`), or nil when no candidate loads. A
-    /// candidate that fails gives way to the next one, so Low Data Mode and cellular get a screen-width file.
-    static func load(
+    /// candidate that fails gives way to the next one. Network cost never reduces the requested quality.
+    /// A file that the lookup kept for this device loads first, so a page never waits for the network then.
+    @MainActor static func load(
         _ portrait: PersonPortrait, screen: PortraitSize.Screen,
-        fetch: MusicBrainz.Fetch = PortraitLoader.launchDownload
+        fetch: MusicBrainz.Fetch = PortraitLoader.launchDownload, store: ImageStore = .pictures,
+        kept device: PortraitSize.Screen = PortraitLoader.deviceScreen
     ) async -> LoadedPortrait? {
-        for candidate in PortraitSize.candidates(portrait, screen: screen) {
-            let loaded = await load(candidate.url, wifiOnly: candidate.wifiOnly, screen: screen, fetch: fetch)
+        let wanted = PortraitSize.candidates(portrait, screen: screen)
+        let stored = (wanted + PortraitSize.candidates(portrait, screen: device)).filter {
+            store.contains($0.absoluteString)
+        }
+        var seen: Set<URL> = []
+        for candidate in (stored + wanted).filter({ seen.insert($0).inserted }) {
+            let loaded = await load(candidate, screen: screen, fetch: fetch)
             if let loaded { return loaded }
         }
         return nil
@@ -105,14 +188,14 @@ enum PortraitLoader {
     /// The picture, or nil: for a URL outside the trusted list, a failed or oversize download, or bytes that
     /// are no image. With a screen, the copy keeps only the pixels that the screen needs.
     static func load(
-        _ url: URL, wifiOnly: Bool = false, screen: PortraitSize.Screen? = nil,
+        _ url: URL, screen: PortraitSize.Screen? = nil,
         fetch: MusicBrainz.Fetch = PortraitLoader.launchDownload
     ) async -> LoadedPortrait? {
         guard let url = PersonFactsService.trusted(url) else { return nil }
         var request = URLRequest(url: url, timeoutInterval: PersonFactsService.timeout)
         request.setValue(MusicBrainz.userAgent, forHTTPHeaderField: "User-Agent")
-        request.allowsExpensiveNetworkAccess = !wifiOnly
-        request.allowsConstrainedNetworkAccess = !wifiOnly
+        // Low Data Mode keeps a missing picture for later (ADR 0059); a kept one loads from the store.
+        request.allowsConstrainedNetworkAccess = false
         guard let (data, status) = try? await fetch(request), (200..<300).contains(status),
             data.count <= maxBytes
         else { return nil }

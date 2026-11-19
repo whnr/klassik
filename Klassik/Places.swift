@@ -12,7 +12,7 @@ struct PlacesView: View {
     @State private var pillInset = Measure.timeline + Space.xs.points
 
     var body: some View {
-        let playing = model.playback.item != nil
+        let playing = model.showsTimeline
         let rowHeight = tabBarFrame?.height ?? TabRow.height
         SystemPlaces(
             model: model, navigator: navigator, selection: navigator.selection, backTransition: backTransition,
@@ -51,8 +51,6 @@ struct PlacesView: View {
                             // Keyboard safe-area changes must not shorten the timeline above the native bar.
                             .frame(height: max(0, rowTop + rowHeight - insets.top))
                             .padding(.top, insets.top)
-                            MiniPlayerCorner(side: side, top: rowTop)
-                                .allowsHitTesting(false)
                         }
                     }
                     .onChange(of: inset, initial: true) { _, value in pillInset = value }
@@ -80,7 +78,7 @@ private struct SystemPlaces: UIViewControllerRepresentable {
         let controller = PlacesController()
         controller.delegate = context.coordinator
         controller.tabBar.accessibilityIdentifier = "tab-row"
-        controller.viewControllers = Place.allCases.map { place in
+        controller.tabs = Place.allCases.map { place in
             let root: AnyView
             switch place {
             case .library: root = AnyView(PlaceStack(place: place) { LibraryView() })
@@ -95,11 +93,7 @@ private struct SystemPlaces: UIViewControllerRepresentable {
                     .environment(\.placeBackTransition, backTransition)
                     .environment(\.tabRowClearance, Space.s.points)
                     .tint(Palette.tint))
-            host.tabBarItem = UITabBarItem(
-                title: place.title, image: UIImage(systemName: place.symbol),
-                selectedImage: UIImage(systemName: place == .library ? "books.vertical.fill" : place.symbol))
-            host.tabBarItem.accessibilityIdentifier = "tab-\(place.rawValue)"
-            return host
+            return place.tab(host)
         }
         controller.installPlayer(
             AnyView(
@@ -112,6 +106,9 @@ private struct SystemPlaces: UIViewControllerRepresentable {
         let selected = Place.allCases.firstIndex(of: selection) ?? 0
         if controller.selectedIndex != selected { controller.selectedIndex = selected }
         controller.playerHost?.view.isUserInteractionEnabled = playerOpen
+        controller.navigator = navigator
+        controller.backTransition = backTransition
+        backTransition.onCompletion = { [weak controller] in controller?.view.setNeedsLayout() }
         controller.onLayout = onLayout
         controller.reservedWidth = reservedWidth
         controller.side = side
@@ -126,8 +123,9 @@ private struct SystemPlaces: UIViewControllerRepresentable {
 
         init(navigator: AppNavigator) { self.navigator = navigator }
 
-        func tabBarController(_ controller: UITabBarController, shouldSelect viewController: UIViewController) -> Bool {
-            guard let index = controller.viewControllers?.firstIndex(of: viewController) else { return false }
+        func tabBarController(_ controller: UITabBarController, shouldSelectTab tab: UITab) -> Bool {
+            // The search tab keeps the identifier that UIKit gives it, so the position names the place.
+            guard let index = controller.tabs.firstIndex(where: { $0 === tab }) else { return false }
             let place = Place.allCases[index]
             let dismissesCurrent = navigator.isPlayerOpen && navigator.selection == place
             navigator.selectTab(place)
@@ -137,13 +135,20 @@ private struct SystemPlaces: UIViewControllerRepresentable {
     }
 }
 
-private final class PlacesController: UITabBarController {
+private final class PlacesController: UITabBarController, UIGestureRecognizerDelegate {
+    var navigator: AppNavigator?
+    var backTransition: PlaceBackTransition?
+    private var edgePan: UIScreenEdgePanGestureRecognizer?
+    private weak var nativePan: UIGestureRecognizer?
+    private weak var nativePanView: UIView?
     var reservedWidth: CGFloat = 0
     var side = TimelineSide.right
     var onLayout: (@MainActor (CGRect) -> Void)?
     private var reportedFrame: CGRect?
     private var restingFrame: CGRect?
     private var keyboardVisible = false
+    /// Set when the keyboard closes. The bar's items then measure their labels again.
+    private var remeasuresItems = false
     private(set) var playerHost: UIHostingController<AnyView>?
     let playerLayout = PlayerOverlayLayout()
 
@@ -171,11 +176,86 @@ private final class PlacesController: UITabBarController {
 
     @objc private func keyboardVisibilityChanged(_ notification: Notification) {
         keyboardVisible = notification.name == UIResponder.keyboardWillShowNotification
+        if !keyboardVisible { remeasuresItems = true }
         view.setNeedsLayout()
+    }
+
+    /// The timeline is outside the navigation view. The window lets UIKit receive an edge touch through it.
+    private func configureBackGesture() {
+        guard backTransition?.isTracking != true, let navigator, let window = view.window else { return }
+        if nativePan?.state == .began || nativePan?.state == .changed { return }
+        if let nativePan, let nativePanView, nativePan.view !== nativePanView {
+            nativePanView.addGestureRecognizer(nativePan)
+        }
+        nativePan = nil
+        nativePanView = nil
+        if edgePan == nil {
+            let pan = UIScreenEdgePanGestureRecognizer(target: self, action: #selector(dragBack(_:)))
+            pan.edges = .left
+            pan.delegate = self
+            window.addGestureRecognizer(pan)
+            edgePan = pan
+        }
+        let root = navigator.pages(in: navigator.selection).isEmpty
+        edgePan?.isEnabled = root && !navigator.isPlayerOpen && navigator.backTarget(for: navigator.selection) != nil
+        if !root, side == .left, !navigator.isPlayerOpen,
+            let navigation = navigationController(in: selectedViewController),
+            let pan = navigation.interactivePopGestureRecognizer
+        {
+            nativePan = pan
+            nativePanView = pan.view
+            window.addGestureRecognizer(pan)
+        }
+    }
+
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        guard let pan = gestureRecognizer as? UIScreenEdgePanGestureRecognizer else { return false }
+        let velocity = pan.velocity(in: view)
+        return velocity.x > abs(velocity.y)
+    }
+
+    /// The timeline keeps taps and vertical scrubs; its horizontal drag must not block a cross-tab Back gesture.
+    func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
+    ) -> Bool {
+        gestureRecognizer === edgePan || other === edgePan
+    }
+
+    private func navigationController(in controller: UIViewController?) -> UINavigationController? {
+        if let navigation = controller as? UINavigationController { return navigation }
+        for child in controller?.children ?? [] {
+            if let navigation = navigationController(in: child) { return navigation }
+        }
+        return nil
+    }
+
+    @objc private func dragBack(_ pan: UIScreenEdgePanGestureRecognizer) {
+        guard let navigator, let backTransition else { return }
+        switch pan.state {
+        case .began:
+            let bottom = view.bounds.maxY - tabBar.frame.minY
+            _ = backTransition.begin(bottom: bottom) { navigator.previewBack(from: navigator.selection) }
+        case .changed:
+            backTransition.update(distance: pan.translation(in: view).x)
+        case .ended, .cancelled, .failed:
+            backTransition.finish(
+                velocity: pan.velocity(in: view).x, cancelled: pan.state != .ended,
+                reduceMotion: UIAccessibility.isReduceMotionEnabled)
+            // The next Back swipe may start while the page settles, so the gestures follow the new place now.
+            view.setNeedsLayout()
+        default: break
+        }
+    }
+
+    private func invalidateLayout(of view: UIView) {
+        view.invalidateIntrinsicContentSize()
+        view.setNeedsLayout()
+        view.subviews.forEach(invalidateLayout(of:))
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        configureBackGesture()
         var frame = tabBar.frame
         // UIKit removes the home-indicator inset under a keyboard.
         // Playback controls must keep the resting bar position.
@@ -187,6 +267,14 @@ private final class PlacesController: UITabBarController {
         }
         frame.origin.x = side == .left ? reservedWidth : 0
         frame.size.width = max(0, view.bounds.width - reservedWidth)
+        if remeasuresItems {
+            // After a keyboard the items can keep truncated labels: the resting frame is unchanged, so UIKit does
+            // not lay them out again. A changed width forces a new layout of each item before the bar draws.
+            remeasuresItems = false
+            invalidateLayout(of: tabBar)
+            tabBar.frame = frame.insetBy(dx: 1, dy: 0)
+            tabBar.layoutIfNeeded()
+        }
         tabBar.frame = frame
         playerHost?.view.frame = view.bounds
         let top = view.window?.safeAreaInsets.top ?? view.safeAreaInsets.top
@@ -217,6 +305,24 @@ private final class PlacesController: UITabBarController {
 }
 
 extension Place {
+    /// Search is a `UISearchTab` that activates search. iOS 27 draws only such a tab apart from the other tabs, in
+    /// its own circle at the trailing end of the bar; without the flag the tab stays in the capsule.
+    @MainActor func tab(_ host: UIViewController) -> UITab {
+        let tab: UITab
+        if self == .search {
+            let search = UISearchTab { _ in host }
+            search.automaticallyActivatesSearch = true
+            tab = search
+        } else {
+            tab = UITab(title: title, image: UIImage(systemName: symbol), identifier: rawValue) { _ in host }
+        }
+        // UITab declares no accessibility identifier. In a Release build a protocol cast of the tab is a forced
+        // cast that stops the app at launch. A run-time check of the setter is safe in every build.
+        let identifier = #selector(setter: UIAccessibilityIdentification.accessibilityIdentifier)
+        if tab.responds(to: identifier) { tab.perform(identifier, with: "tab-\(rawValue)") }
+        return tab
+    }
+
     var symbol: String {
         switch self {
         case .library: "books.vertical"
@@ -254,10 +360,6 @@ struct PlaceStack<Root: View>: View {
 
     var body: some View {
         let target = navigator.backTarget(for: place)
-        // On a pushed page the system swipe works, and this one stays off.
-        let edgeSwipe = EdgeSwipe(isEnabled: target != nil && navigator.pages(in: place).isEmpty) {
-            navigator.goBack(from: place)
-        }
         NavigationStack(
             path: Binding(
                 get: { navigator.pages(in: place) },
@@ -265,7 +367,6 @@ struct PlaceStack<Root: View>: View {
         ) {
             root
                 .modifier(PlaceInsets())
-                .gesture(edgeSwipe)
                 .toolbar {
                     if let target {
                         ToolbarItem(placement: .topBarLeading) {
@@ -322,39 +423,9 @@ private struct PlaceInsets: ViewModifier {
             }
             .scrollEdgeEffectStyle(.soft, for: .top)
             .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    // Keep the large title and back labels while suppressing the inline title (ADR 0023).
-                    Color.clear.frame(width: 1, height: 1).accessibilityHidden(true)
-                }
-            }
+            // The bar shows no title (ADR 0023). The navigation title still names the back button of the next page.
+            .toolbar(removing: .title)
             .contentMargins(.trailing, beside, for: .scrollIndicators)
-    }
-}
-
-/// A swipe from the left screen edge, as the system back swipe, for a root that has no system back. It acts when
-/// the swipe ends, without a peel of the page: one recogniser is all the code that this needs.
-struct EdgeSwipe: UIGestureRecognizerRepresentable {
-    /// The distance that counts as a swipe, in points.
-    static let distance = 60.0
-
-    let isEnabled: Bool
-    let action: () -> Void
-
-    func makeUIGestureRecognizer(context: Context) -> UIScreenEdgePanGestureRecognizer {
-        let recognizer = UIScreenEdgePanGestureRecognizer()
-        recognizer.edges = .left
-        recognizer.isEnabled = isEnabled
-        return recognizer
-    }
-
-    func updateUIGestureRecognizer(_ recognizer: UIScreenEdgePanGestureRecognizer, context: Context) {
-        recognizer.isEnabled = isEnabled
-    }
-
-    func handleUIGestureRecognizerAction(_ recognizer: UIScreenEdgePanGestureRecognizer, context: Context) {
-        guard recognizer.state == .ended, recognizer.translation(in: recognizer.view).x > Self.distance else { return }
-        action()
     }
 }
 
@@ -366,16 +437,54 @@ struct BackTip: Tip {
     var options: [any TipOption] { [Tips.MaxDisplayCount(1)] }
 }
 
-/// The row of the tip in a list. The row takes no ground of its own, so that the tip does not draw as a card
-/// on the ground of the page.
+/// The row of the tip in a list. The row takes no ground of its own, and the tip takes the ground of a row, so
+/// that it does not draw as TipKit's grey card on the ground of the page.
 struct BackTipRow: View {
     @Environment(\.showsBackTip) private var showsBackTip
 
     var body: some View {
         if showsBackTip {
             TipView(BackTip())
+                .tipViewStyle(PageTipStyle())
+                .tipBackground(Palette.backgroundRow.color)
                 .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
         }
+    }
+}
+
+/// A tip in the type and colours of a page row: the title in ink, the message one level quieter, the mark in
+/// the tint of the app.
+struct PageTipStyle: TipViewStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: Space.m.points) {
+            configuration.image?
+                .typeStyle(.headline)
+                .foregroundStyle(Palette.tint)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: Layout.rowLineGap) {
+                configuration.title?
+                    .typeStyle(.headline)
+                    .foregroundStyle(Palette.textPrimary)
+                configuration.message?
+                    .typeStyle(.subheadline)
+                    .foregroundStyle(Palette.textSecondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Button {
+                configuration.tip.invalidate(reason: .tipClosed)
+            } label: {
+                Image(systemName: "xmark")
+                    .typeStyle(.footnote)
+                    .foregroundStyle(Palette.textTertiary)
+            }
+            .buttonStyle(FlatPress())
+            .accessibilityLabel("Close Tip")
+            .accessibilityIdentifier("back-tip-close")
+        }
+        // The row insets of the list give the page edges; the tip adds only its height.
+        .padding(.vertical, Space.l.points)
+        .accessibilityElement(children: .contain)
     }
 }
 

@@ -60,6 +60,12 @@ struct DiagnosticsView: View {
                     LabeledContent("Sync error", value: error)
                         .ink()
                 }
+                if let error = model.recordingOrder.refreshError {
+                    LabeledContent("Favourite refresh error", value: error).ink()
+                }
+                if let error = model.recordingOrder.loadError {
+                    LabeledContent("Favourite file error", value: error).ink()
+                }
             }
 
             Section("Last Error") {

@@ -44,36 +44,46 @@ struct PerformerPage: View {
         let albums = index.albums(ofPerformer: performer.name)
         let roles = index.roles(ofPerformer: performer)
         GeometryReader { proxy in
+            // The same plain list as the composer page: a grouped list adds its own top margin and section gaps.
             List {
-                PersonHero(
-                    name: performer.name, facts: facts, line: Self.line(facts: facts, roles: roles),
-                    kind: "performer", topInset: proxy.safeAreaInsets.top, width: proxy.size.width
-                )
-                .listRowInsets(EdgeInsets())
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
-                BackTipRow()
-                Section {
-                    Picker("Show", selection: $tab) {
-                        Text("Albums").tag(Tab.albums)
-                        Text("About").tag(Tab.about)
-                    }
-                    .pickerStyle(.segmented)
+                Group {
+                    PersonHero(
+                        name: performer.name, facts: facts, line: Self.line(facts: facts, roles: roles),
+                        kind: "performer", topInset: proxy.safeAreaInsets.top, width: proxy.size.width
+                    )
+                    .listRowInsets(EdgeInsets())
+                    .listRowSeparator(.hidden)
+                    BackTipRow()
+                    PageTabs(
+                        tabs: [Tab.albums, .about], title: { $0 == .albums ? "Albums" : "About" }, selection: $tab
+                    )
+                    .pageEdges(top: Layout.segmentedTop)
+                    .listRowSeparator(.hidden)
                     .accessibilityIdentifier("performer-tabs")
+                    switch tab {
+                    case .albums: albumsTab(albums)
+                    case .about: aboutTab(facts)
+                    }
                 }
                 .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-                switch tab {
-                case .albums: albumsTab(albums)
-                case .about: aboutTab(facts)
-                }
+                .listSectionSeparator(.hidden)
+                .pageRow()
             }
-            .grounds()
+            .listStyle(.plain)
+            .listSectionSeparator(.hidden)
+            .environment(\.defaultMinListRowHeight, 0)
+            .environment(\.defaultMinListHeaderHeight, 0)
+            .environment(\.isPageList, true)
+            .scrollContentBackground(.hidden)
+            .pageContentPosition()
+            .background(Palette.backgroundPage)
             .ignoresSafeArea(.container, edges: .top)
         }
         .navigationTitle(performer.name)
         .navigationBarTitleDisplayMode(.inline)
         .task { await people.resolve(performer: performer.name) }
+        // A person page puts all its covers in front of the cover queue (ADR 0059).
+        .onAppear { model.albumCovers.prefer(albums.compactMap(\.tracks.first)) }
     }
 
     /// The Wikidata description with the years. The tag roles stand in only when Wikidata has no description.
@@ -89,7 +99,7 @@ struct PerformerPage: View {
         if albums.isEmpty {
             Text("No albums name this performer.")
                 .foregroundStyle(Palette.textSecondary)
-                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
         } else {
             LazyVGrid(
                 columns: [GridItem(.flexible(), spacing: Layout.albumColumnGap), GridItem(.flexible())],
@@ -97,9 +107,9 @@ struct PerformerPage: View {
             ) {
                 ForEach(albums) { AlbumCover(album: $0) }
             }
-            .listRowInsets(EdgeInsets(top: 0, leading: Space.l.points, bottom: 0, trailing: Space.l.points))
+            // person.html: the grid is a .section, which keeps the section gap above it.
+            .pageEdges(top: Layout.sectionTop)
             .listRowSeparator(.hidden)
-            .listRowBackground(Color.clear)
         }
     }
 
@@ -107,49 +117,54 @@ struct PerformerPage: View {
         if let facts {
             if let bio = facts.bio {
                 Section {
+                    SectionHeading("Biography")
                     Text(bio)
                         .ink()
                         .accessibilityIdentifier("performer-bio")
-                } header: {
-                    SectionHeading("Biography")
+                        .listRowSeparator(.hidden)
                 }
-                .listRowBackground(Palette.backgroundRow.color)
             }
             if !facts.credits.isEmpty {
                 Section {
-                    ForEach(facts.credits, id: \.self) { CreditRow(credit: $0) }
-                } header: {
                     SectionHeading("Credits")
+                    ForEach(facts.credits, id: \.self) { credit in
+                        CreditRow(credit: credit)
+                            .itemSeparator(first: credit == facts.credits.first, last: credit == facts.credits.last)
+                    }
                 }
-                .listRowBackground(Palette.backgroundRow.color)
             }
         } else {
             Section {
                 Text("Wikidata has no facts for this performer. Klassik shows your tags.")
                     .foregroundStyle(Palette.textSecondary)
+                    .listRowSeparator(.hidden)
             }
-            .listRowBackground(Palette.backgroundRow.color)
         }
         Section {
+            SectionHeading("Your tags")
             LabeledContent("Name in your tags", value: performer.name)
                 .ink()
+                .itemSeparator(first: true, last: false)
             LabeledContent("Recordings", value: performer.entries.count.formatted())
                 .ink()
-        } header: {
-            SectionHeading("Your tags")
+                .itemSeparator(first: false, last: true)
         }
-        .listRowBackground(Palette.backgroundRow.color)
     }
 }
 
 /// A cover with the album title and year. It opens the album page.
+/// The grid is one list row, and a row with several links follows all of them on one tap. So each cover is a
+/// button that pushes its own page.
 private struct AlbumCover: View {
+    @Environment(AppNavigator.self) private var navigator
     let album: WorkIndex.Album
 
     var body: some View {
-        NavigationLink(value: Page.album(album.id)) {
+        Button {
+            navigator.open(.album(album.id), in: navigator.selection)
+        } label: {
             VStack(alignment: .leading, spacing: 0) {
-                CoverImage(id: album.tracks.first?.coverArt, points: 160)
+                CoverImage(song: album.tracks.first, points: 160)
                     .aspectRatio(1, contentMode: .fit)
                     .clipShape(RoundedRectangle(cornerRadius: Layout.albumCorner))
                 Text(album.title)
@@ -164,10 +179,9 @@ private struct AlbumCover: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        // A link in a list row adds a chevron; the cover is the whole row.
-        .navigationLinkIndicatorVisibility(.hidden)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("performer-album")
     }

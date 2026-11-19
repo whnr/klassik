@@ -95,17 +95,11 @@ enum PlayerTail: Equatable, Sendable {
     case next(UUID)
     /// The item plays, and no item follows it.
     case endsHere
-    /// The queue ended or the listener stopped it. The player stays and says so.
-    case ended
     /// The player shows an item that does not play.
     case nothing
 
-    /// `upNext` holds the queue after the item. `ended` is true when no item plays any more.
-    init(isPlaying: Bool, upNext: [UUID], ended: Bool) {
-        if isPlaying {
-            self = upNext.first.map(Self.next) ?? .endsHere
-        } else {
-            self = ended ? .ended : .nothing
-        }
+    /// `upNext` holds the queue after the item. The player closes when no item plays (ADR 0053).
+    init(isPlaying: Bool, upNext: [UUID]) {
+        self = isPlaying ? upNext.first.map(Self.next) ?? .endsHere : .nothing
     }
 }

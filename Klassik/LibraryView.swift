@@ -15,12 +15,20 @@ struct LibraryView: View {
                             .ink()
                     }
                     .accessibilityIdentifier("library-\(row.rawValue)")
+                    .itemSeparator(first: row.id == rows.rows.first?.id, last: row.id == rows.rows.last?.id)
                 }
                 .onMove { rows.move(fromOffsets: $0, toOffset: $1) }
             } footer: {
-                if let status {
-                    Text(status)
-                        .accessibilityIdentifier("library-synced")
+                VStack(alignment: .leading) {
+                    if let status {
+                        Text(status)
+                            .accessibilityIdentifier("library-synced")
+                    }
+                    // Server trouble shows here only, never as a notice for each failed sync (ADR 0058).
+                    if let trouble = model.serverTrouble {
+                        Text(trouble.status)
+                            .accessibilityIdentifier("server-status")
+                    }
                 }
             }
         }
@@ -38,8 +46,7 @@ struct LibraryView: View {
             }
         }
         .refreshable {
-            guard let client = model.client else { return }
-            await library.sync(with: client)
+            await model.fullSync()
             // The lookup can take minutes; the pull to refresh ends with the sync.
             Task { await model.enrichment.enrich(library.index) }
         }
@@ -77,6 +84,9 @@ struct ComposersView: View {
                         .ink()
                 }
                 .accessibilityIdentifier("composer")
+                .itemSeparator(
+                    first: composer.id == library.index.composers.first?.id,
+                    last: composer.id == library.index.composers.last?.id)
             }
         }
         .overlay {
@@ -98,6 +108,8 @@ struct FavouritesView: View {
         PageList {
             ForEach(works) { work in
                 WorkRow(work: work)
+                    .itemSeparator(
+                        first: work.id == works.first?.id, last: favourites.isEmpty && work.id == works.last?.id)
             }
             ForEach(favourites) { favourite in
                 NavigationLink(value: Page.recording(work: favourite.work.id, recording: favourite.recording.id)) {
@@ -115,6 +127,9 @@ struct FavouritesView: View {
                     QueueItem(work: favourite.work, recording: favourite.recording), downloads: true, favourite: true
                 )
                 .accessibilityIdentifier("favourite")
+                .itemSeparator(
+                    first: works.isEmpty && favourite.id == favourites.first?.id,
+                    last: favourite.id == favourites.last?.id)
             }
         }
         .overlay {

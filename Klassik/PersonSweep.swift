@@ -34,6 +34,10 @@ final class PersonSweep {
     static let unknownDays = 90
     /// Each due time moves by a random amount up to this many days, so that a library does not fall due at once.
     nonisolated static let jitterDays = 10.0
+    /// A pass tries one person at most this many times (ADR 0044). Then the person waits for its next due time.
+    static let triesPerPass = 2
+    /// The most shown performers that the pass keeps in front. A long scroll through the performers adds more.
+    static let shownLimit = 100
 
     private(set) var state = State.idle
     /// The persons that have no check yet, and the persons whose check is due.
@@ -45,7 +49,15 @@ final class PersonSweep {
     private let now: @Sendable () -> Date
     private let sleep: @Sendable (Duration) async -> Void
     private let jitter: @Sendable () -> Double
+    /// Keeps a found picture on the device, given the picture that the person had before the lookup.
+    private let keepPicture: @MainActor @Sendable (PersonPortrait, PersonPortrait?) async -> Bool
+    private let hasPicture: @MainActor @Sendable (PersonPortrait) async -> Bool
     private var task: Task<Void, Never>?
+    /// Picture downloads run one after the other beside the lookup, so that they never slow it down.
+    @ObservationIgnored private var pictureWork: Task<Void, Never>?
+    @ObservationIgnored private var pictureID = UUID()
+    /// Performers that a page shows and that have no saved check, the latest page first (ADR 0046).
+    @ObservationIgnored private(set) var shown: [Person] = []
 
     init(
         store: PersonFactsStore, isConnectionGood: @escaping @Sendable () -> Bool = { true },
@@ -53,18 +65,22 @@ final class PersonSweep {
         sleep: @escaping @Sendable (Duration) async -> Void = { try? await Task.sleep(for: $0) },
         jitter: @escaping @Sendable () -> Double = {
             Double.random(in: -PersonSweep.jitterDays...PersonSweep.jitterDays)
-        }
+        },
+        pictures: @escaping @MainActor @Sendable (PersonPortrait, PersonPortrait?) async -> Bool = { _, _ in true },
+        hasPicture: @escaping @MainActor @Sendable (PersonPortrait) async -> Bool = { _ in true }
     ) {
         self.store = store
         self.isConnectionGood = isConnectionGood
         self.now = now
         self.sleep = sleep
         self.jitter = jitter
+        keepPicture = pictures
+        self.hasPicture = hasPicture
     }
 
     // MARK: Plan
 
-    /// The persons of the library, composers first, in the order the pass takes them.
+    /// The persons of the library, composers first, in library order.
     static func people(of index: WorkIndex) -> [Person] {
         let composers = index.composers.filter { $0.name != Song.unknownComposer }.map {
             Person(kind: .composer, tag: $0.name)
@@ -79,13 +95,15 @@ final class PersonSweep {
         return facts.died == nil ? Self.livingDays : Self.deadDays
     }
 
-    /// The persons to look up, new ones first in library order, then due ones with the longest wait first.
+    /// The persons to look up, new ones in library order, and due ones with the longest wait first.
     func plan(_ people: [Person]) -> (new: [Person], due: [Person]) {
         let current = now()
         var new: [Person] = []
         var due: [(person: Person, overdue: TimeInterval)] = []
         for person in people {
             guard let last = store.cache.checked[person.key] else {
+                // A person that failed in an earlier pass waits for the due time that the pass saved.
+                if let due = store.cache.due[person.key], due > current { continue }
                 new.append(person)
                 continue
             }
@@ -93,6 +111,24 @@ final class PersonSweep {
             if expires <= current { due.append((person, current.timeIntervalSince(expires))) }
         }
         return (new, due.sorted { $0.overdue > $1.overdue }.map(\.person))
+    }
+
+    /// The order of a pass: all composers before all performers, new ones before due ones in each group
+    /// (ADR 0046).
+    func order(_ people: [Person]) -> [Person] {
+        let found = plan(people)
+        let all = found.new + found.due
+        return all.filter { $0.kind == .composer } + all.filter { $0.kind == .performer }
+    }
+
+    /// Puts the performers of a page in front of the pass, when they were never looked up (ADR 0046).
+    func prefer(performers tags: [String]) {
+        var seen: Set<Person> = []
+        let fresh = tags.map { Person(kind: .performer, tag: $0) }.filter {
+            store.cache.checked[$0.key] == nil && seen.insert($0).inserted
+        }
+        guard !fresh.isEmpty else { return }
+        shown = Array((fresh + shown.filter { !seen.contains($0) }).prefix(Self.shownLimit))
     }
 
     /// Counts what waits, for Settings.
@@ -118,62 +154,129 @@ final class PersonSweep {
         }
     }
 
-    /// Returns when the pass has ended.
+    /// Returns when the pass and its picture downloads have ended.
     func finish() async {
         await task?.value
+        await pictureWork?.value
     }
 
     /// Stops the pass. The persons that it settled stay settled.
     func stop() {
         task?.cancel()
+        pictureWork?.cancel()
+        pictureID = UUID()
         task = nil
         if case .running = state { state = .idle }
     }
 
     /// Runs a pass to its end, and returns when it ends or is stopped.
+    /// A failed person goes to the end of the queue, so that it does not hold up the others (ADR 0044).
     func run(_ people: [Person]) async {
+        for person in people {
+            guard !Task.isCancelled else { return }
+            if store.cache.picturePending[person.key] == nil, let found = portrait(of: person),
+                !(await hasPicture(found))
+            {
+                store.queuePicture(person.key, portrait: found, old: nil)
+            }
+            if let work = store.cache.picturePending[person.key] { queuePicture(person.key, work: work) }
+        }
         let found = plan(people)
-        let jobs = found.new + found.due
+        let jobs = order(people)
+        let newOnes = Set(found.new)
         newCount = found.new.count
         dueCount = found.due.count
         guard !jobs.isEmpty else {
             state = .upToDate
             return
         }
-        var failures = 0
+        var queue = jobs
+        var next = 0
+        var tries: [Person: Int] = [:]
+        var failuresInARow = 0
         var done = 0
-        for person in jobs {
-            while !Task.isCancelled {
-                guard isConnectionGood() else {
-                    state = .paused(.connection)
-                    await sleep(.seconds(30))
-                    continue
-                }
-                state = .running(done: done, total: jobs.count)
-                if await settle(person) {
-                    failures = 0
-                    break
-                }
-                failures += 1
-                // A Retry-After longer than the back-off wins: Wikimedia asks for no request before it ends.
-                let backoff = min(3600, 60 * (1 << min(failures - 1, 6)))
-                let wait = max(backoff, Int((await store.throttleHold()).rounded(.up)))
-                state = .paused(.slowDown(until: now().addingTimeInterval(Double(wait))))
-                await sleep(.seconds(wait))
-            }
-            if Task.isCancelled {
+        while next < queue.count {
+            guard await waitForConnection() else {
                 state = .idle
                 return
             }
+            // The pick comes after the wait, so that a page shown during a pause still goes first.
+            if let front = shownIndex(in: queue, from: next, tries: tries), front != next {
+                let moved = queue.remove(at: front)
+                queue.insert(moved, at: next)
+            }
+            let person = queue[next]
+            next += 1
+            state = .running(done: done, total: jobs.count)
+            let settled = await settle(person)
+            guard !Task.isCancelled else {
+                state = .idle
+                return
+            }
+            shown.removeAll { $0 == person }
+            if settled {
+                failuresInARow = 0
+            } else {
+                failuresInARow += 1
+                tries[person, default: 0] += 1
+                let retries = tries[person, default: 0] < Self.triesPerPass
+                if retries { queue.append(person) } else { postpone(person) }
+                if next < queue.count { await backOff(failuresInARow: failuresInARow) }
+                if Task.isCancelled {
+                    state = .idle
+                    return
+                }
+                if retries { continue }
+            }
             done += 1
-            if done <= found.new.count { newCount -= 1 } else { dueCount -= 1 }
+            if newOnes.contains(person) { newCount -= 1 } else { dueCount -= 1 }
         }
         state = .idle
         measure(people)
     }
 
+    /// The place of the first shown performer that waits in the queue and has no try in this pass. A failed
+    /// performer keeps its place at the end of the queue (ADR 0044).
+    private func shownIndex(in queue: [Person], from next: Int, tries: [Person: Int]) -> Int? {
+        for person in shown where tries[person] == nil && store.cache.checked[person.key] == nil {
+            if let index = queue[next...].firstIndex(of: person) { return index }
+        }
+        return nil
+    }
+
+    /// Returns false when the pass is stopped before the connection suits it.
+    private func waitForConnection() async -> Bool {
+        while !Task.isCancelled {
+            if isConnectionGood() { return true }
+            state = .paused(.connection)
+            await sleep(.seconds(30))
+        }
+        return false
+    }
+
+    /// One failure waits only for Wikimedia's Retry-After. Failures in a row point to a service problem: from
+    /// the second, the pass waits 1, 2, 4 minutes and so on, at most one hour, or longer when Retry-After asks.
+    private func backOff(failuresInARow failures: Int) async {
+        let backoff = failures < 2 ? 0 : min(3600, 60 * (1 << min(failures - 2, 6)))
+        let wait = max(backoff, Int((await store.throttleHold()).rounded(.up)))
+        guard wait > 0 else { return }
+        state = .paused(.slowDown(until: now().addingTimeInterval(Double(wait))))
+        await sleep(.seconds(wait))
+    }
+
+    /// A person that failed every try of the pass gets the due time of a check, without being marked checked.
+    private func postpone(_ person: Person) {
+        store.postpone(person.key, due: dueDate(of: person))
+    }
+
+    private func dueDate(of person: Person) -> Date {
+        let days = Double(interval(of: person)) + min(max(jitter(), -Self.jitterDays), Self.jitterDays)
+        return now().addingTimeInterval(days * 86_400)
+    }
+
     /// Looks one person up, or asks again for their facts. Returns false when a request failed.
     private func settle(_ person: Person) async -> Bool {
+        let before = portrait(of: person)
         let isNew = store.cache.checked[person.key] == nil
         let ok: Bool
         switch person.kind {
@@ -182,11 +285,32 @@ final class PersonSweep {
         case .performer:
             ok = await settle(performer: person, isNew: isNew)
         }
-        if ok {
-            let days = Double(interval(of: person)) + min(max(jitter(), -Self.jitterDays), Self.jitterDays)
-            store.markChecked(person.key, at: now(), due: now().addingTimeInterval(days * 86_400))
+        if ok { store.markChecked(person.key, at: now(), due: dueDate(of: person)) }
+        // Each lookup fetches the picture, so a page never waits for it and a changed one replaces the old (ADR 0059).
+        if ok, let found = portrait(of: person) {
+            store.queuePicture(person.key, portrait: found, old: before)
+            if let work = store.cache.picturePending[person.key] { queuePicture(person.key, work: work) }
         }
         return ok
+    }
+
+    private func portrait(of person: Person) -> PersonPortrait? {
+        let qid = person.kind == .composer ? store.qid(ofComposer: person.tag) : store.qid(ofPerformer: person.tag)
+        return qid.flatMap { store.cache.people[$0]?.portrait }
+    }
+
+    private func queuePicture(_ key: String, work: PersonFactsStore.PictureWork) {
+        let previous = pictureWork
+        let keep = keepPicture
+        let id = pictureID
+        pictureWork = Task {
+            await previous?.value
+            await store.saved()
+            guard !Task.isCancelled, pictureID == id, isConnectionGood() else { return }
+            if await keep(work.portrait, work.old), !Task.isCancelled, pictureID == id {
+                store.finishPicture(key, work: work)
+            }
+        }
     }
 
     private func settle(composer person: Person, isNew: Bool) async -> Bool {
@@ -208,10 +332,12 @@ final class ConnectionMonitor: @unchecked Sendable {
     private let lock = NSLock()
     private var good = true
 
-    init() {
+    /// `onConnect` also accepts mobile data and Low Data Mode for small queued writes.
+    init(onConnect: @escaping @Sendable () -> Void = {}) {
         monitor.pathUpdateHandler = { [weak self] path in
             let usable = path.status == .satisfied && !path.isConstrained && !path.isExpensive
             self?.lock.withLock { self?.good = usable }
+            if path.status == .satisfied { onConnect() }
         }
         monitor.start(queue: DispatchQueue(label: "de.whnr.klassik.connection"))
     }

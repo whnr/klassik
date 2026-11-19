@@ -107,6 +107,9 @@ struct PersonFactsServiceTests {
         #expect(facts.bio == "Johann Sebastian Bach was a German composer.")
         #expect(facts.portrait?.url.absoluteString == "https://thumb.wikimedia.org/bach-1200.jpg")
         #expect(Set(facts.credits.map(\.kind)) == [.facts, .text, .picture])
+        let text = try #require(facts.credits.first { $0.kind == .text })
+        #expect(text.text == "Wikipedia, CC BY-SA 4.0")
+        #expect(text.url?.absoluteString == "https://en.wikipedia.org/wiki/Johann_Sebastian_Bach")
         let picture = try #require(facts.credits.first { $0.kind == .picture })
         #expect(picture.text == "Elias Gottlob Haussmann & workshop, Public domain, Wikimedia Commons")
     }
@@ -126,6 +129,15 @@ struct PersonFactsServiceTests {
         let facts = try #require(try await PersonStub(rules).service.facts(qid: "Q1339"))
         #expect(facts.bio == nil)
         #expect(facts.born == 1685)
+    }
+
+    @Test func aSummaryWithoutPageLinksToItsArticle() async throws {
+        let rules = PersonStub.bachRules.map {
+            $0.contains.contains("wikipedia") ? ($0.contains, #"{"extract":"A composer."}"#) : $0
+        }
+        let facts = try #require(try await PersonStub(rules).service.facts(qid: "Q1339"))
+        let credit = try #require(facts.credits.first { $0.kind == .text })
+        #expect(credit.url?.absoluteString == "https://en.wikipedia.org/wiki/Johann_Sebastian_Bach")
     }
 
     @Test func descriptionLineDropsTheYearsThenAddsThem() {
@@ -578,5 +590,27 @@ struct PerformerFactsTests {
         #expect(cache.composers["Johann Sebastian Bach"] == .person("Q1339"))
         #expect(cache.chosen == ["Johann Sebastian Bach"])
         #expect(cache.version == PersonFactsStore.Cache.version)
+    }
+}
+
+/// About credit lines put the source first and name the link as person.html does.
+struct PersonCreditLineTests {
+    @Test func aPictureLinkNamesCommonsOnce() throws {
+        let url = try #require(URL(string: "https://commons.wikimedia.org/wiki/File:Bach.jpg"))
+        let credit = PersonCredit(kind: .picture, text: "Haussmann, Public domain, Wikimedia Commons", url: url)
+        #expect(credit.lead(linked: true) == "Picture: Haussmann, Public domain.")
+        #expect(credit.linkLabel(url) == "Wikimedia Commons")
+        #expect(credit.lead(linked: false) == "Picture: Haussmann, Public domain, Wikimedia Commons.")
+    }
+
+    @Test func textAndFactsLinksNameTheArticleAndTheItem() throws {
+        let article = try #require(URL(string: "https://en.wikipedia.org/wiki/Johann_Sebastian_Bach"))
+        let text = PersonCredit(kind: .text, text: "Wikipedia, CC BY-SA 4.0", url: article)
+        #expect(text.lead(linked: true) == "Text: Wikipedia, CC BY-SA 4.0.")
+        #expect(text.linkLabel(article) == "Article")
+        let item = try #require(URL(string: "https://www.wikidata.org/wiki/Q1339"))
+        let facts = PersonCredit(kind: .facts, text: "Wikidata, CC0", url: item)
+        #expect(facts.lead(linked: true) == "Facts: Wikidata, CC0.")
+        #expect(facts.linkLabel(item) == "Q1339")
     }
 }

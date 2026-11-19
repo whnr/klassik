@@ -7,12 +7,13 @@
 # Exports the screenshots, the gapless report, the time of each phase and results.txt (build, unit, ui).
 # KLASSIK_PHASE: all (local default), build, unit, or ui. Test phases consume archived Build/Products.
 # Usage: [KLASSIK_UI=...] [UI_TESTS_REQUIRED=...] scripts/screens.sh <output-dir>
+# KLASSIK_UI_TESTS narrows a playback shard to comma-separated test methods.
 # Start scripts/fixture-server.sh first.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 out=$(mkdir -p "$1" && cd "$1" && pwd)
-rm -rf "$out"/*.xcresult "$out/timings.txt" "$out/results.txt"
+rm -rf "$out"/*.xcresult "$out/timings.txt" "$out/results.txt" "$out/"*-retries.txt
 required=${UI_TESTS_REQUIRED:-false}
 mode=${KLASSIK_PHASE:-all}
 case "$mode" in all | build | unit | ui) ;; *) echo "Unknown phase: $mode" >&2; exit 2 ;; esac
@@ -20,6 +21,7 @@ case "$mode" in all | build | unit | ui) ;; *) echo "Unknown phase: $mode" >&2; 
 record() { echo "$1=$2" >> "$out/results.txt"; }
 record ui_areas "${KLASSIK_UI:-false}"
 record ui_required "$required"
+record ui_methods "${KLASSIK_UI_TESTS:-}"
 record build failed
 record unit "not run"
 record ui "not run"
@@ -45,24 +47,20 @@ if [ "$mode" = all ] || [ "$mode" = build ]; then
   xcodegen generate
 fi
 phase project
-udid=$(scripts/simulator.sh)
+udid=${KLASSIK_SIMULATOR_UDID:-$(scripts/simulator.sh)}
 echo "Simulator: $udid"
 phase simulator
-# The first boot of a simulator takes about 3 minutes, so it runs during the build. An earlier start slows the
-# other CI steps, because the boot takes the whole runner.
+# A ready simulator avoids cold destination discovery and startup contention during compilation.
 if [ "$mode" != build ]; then
-  (
-    xcrun simctl bootstatus "$udid" -b >/dev/null
-    # A fixed status bar keeps the clock out of the screenshot diff.
-    xcrun simctl status_bar "$udid" override --time 9:41 --dataNetwork wifi --wifiBars 3 --cellularMode notSupported \
-      --batteryState charged --batteryLevel 100 || echo "No status bar override: the screenshot diff shows the clock."
-  ) &
-  boot=$!
+  xcrun simctl bootstatus "$udid" -b >/dev/null
+  xcrun simctl status_bar "$udid" override --time 9:41 --dataNetwork wifi --wifiBars 3 --cellularMode notSupported \
+    --batteryState charged --batteryLevel 100 || echo "No status bar override: the screenshot diff shows the clock."
+  phase boot
 fi
 
 # The simulator answers in two architectures; naming one spares xcodebuild the choice.
-common=(-project Klassik.xcodeproj -scheme Klassik -destination "platform=iOS Simulator,id=$udid,arch=arm64"
-  -derivedDataPath build/DerivedData)
+project=(-project Klassik.xcodeproj -scheme Klassik -derivedDataPath build/DerivedData)
+common=("${project[@]}" -destination "platform=iOS Simulator,id=$udid,arch=arm64")
 # The index store and the preview dylibs serve only the editor.
 if [ "$mode" = all ] || [ "$mode" = build ]; then
   xcodebuild build-for-testing "${common[@]}" -showBuildTimingSummary CODE_SIGN_IDENTITY=- \
@@ -78,14 +76,13 @@ if [ "$mode" != all ]; then
   common=(-xctestrun "${plans[0]}" -destination "platform=iOS Simulator,id=$udid,arch=arm64")
   record build passed
 fi
-wait "$boot"
-phase boot
 
 # Runs one group of tests into its own result bundle, so the unit tests and the UI walk each have an exit status.
 # xcodebuild hands TEST_RUNNER_* variables to the test runner without the prefix.
 # Simulator diagnostic archives add minutes after test execution. Result bundles keep test logs and attachments without them.
 run_tests() {
   local bundle=$1
+  local status=0
   shift
   TEST_RUNNER_KLASSIK_SERVER_URL=http://localhost:4533 \
   TEST_RUNNER_KLASSIK_USERNAME=fixture \
@@ -93,9 +90,13 @@ run_tests() {
   xcodebuild test-without-building \
     "${common[@]}" \
     -collect-test-diagnostics never \
+    -retry-tests-on-failure -test-iterations 2 -test-repetition-relaunch-enabled YES \
     "$@" \
     -resultBundlePath "$out/$bundle.xcresult" \
-    | tee "$out/$bundle.log" | $formatter
+    | tee "$out/$bundle.log" | $formatter || status=$?
+  python3 scripts/screen_report.py retries "$out/$bundle.log" > "$out/$bundle-retries.txt" || return $?
+  cat "$out/$bundle-retries.txt"
+  return "$status"
 }
 
 # A failed test run still holds its attachments. A run that never started holds none.
@@ -131,6 +132,14 @@ case "${KLASSIK_UI:-false}" in
     done
     ;;
 esac
+if [ -n "${KLASSIK_UI_TESTS:-}" ]; then
+  suites=()
+  IFS=, read -ra methods <<< "$KLASSIK_UI_TESTS"
+  for method in "${methods[@]}"; do
+    suites+=("-only-testing:KlassikUITests/PlaybackScreens/$method")
+  done
+fi
+
 if [ "$mode" != unit ] && [ ${#suites[@]} -gt 0 ]; then
   # The bundle keeps the name that the workflow uploads after a failure.
   # Each runner owns one simulator, so UI automation does not compete for its resources.

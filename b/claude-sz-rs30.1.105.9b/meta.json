@@ -1,7 +1,7 @@
 {
-  "sha": "86b8427e8b67e192cbe756a58d894ccc1c20b66e",
+  "sha": "5d7cdf7e6342f14c0c6d7b045902704c4eeff865",
   "branch": "claude-sz-rs30.1.105.9b",
   "path": "claude-sz-rs30.1.105.9b",
-  "subject": "[sz-rs30.1.105.9] Use the accent for unreadable covers",
-  "ts": 1795061639
+  "subject": "[sz-rs30.1.105.9] Merge main",
+  "ts": 1795064853
 }

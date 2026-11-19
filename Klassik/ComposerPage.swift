@@ -352,7 +352,8 @@ struct PersonHero: View {
     let width: CGFloat
     /// True when the Chronology button follows. The hero then keeps the specimen gap below it.
     var spacesChronology = false
-    @State private var portrait: LoadedPortrait?
+    @State private var loadedPortrait: LoadedPortrait?
+    private var portrait: LoadedPortrait? { PortraitLoader.ready(facts?.portrait) ?? loadedPortrait }
     @State private var showsPicture = false
     /// The height of the name and the facts line, which sets the blur and the scrim under them.
     @State private var textHeight: CGFloat = 96
@@ -421,7 +422,7 @@ struct PersonHero: View {
         PortraitLoad(
             task: PortraitTask(portrait: facts?.portrait, screen: screen, store: .pictures),
             facts: facts,
-            portrait: $portrait, showsPicture: $showsPicture)
+            portrait: $loadedPortrait, showsPicture: $showsPicture)
     }
 
     private var heading: some View {

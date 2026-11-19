@@ -119,7 +119,7 @@ def check_overlay(page, where, failures):
 
 
 def check_work_capsules(context, base, failures):
-    """Only a reference that covers part of its album offers album playback."""
+    """A work offers its reference recording without album playback or a page cover."""
     page = context.new_page()
     page.goto(f"{base}work.html", wait_until="load")
     page.wait_for_selector(".button-row .capsule")
@@ -138,9 +138,10 @@ def check_work_capsules(context, base, failures):
             continue
         page.goto(f"{base}work.html?work=" + page.evaluate("encodeURIComponent", case["id"]), wait_until="load")
         page.wait_for_selector(".button-row .capsule")
-        album = page.locator(".button-row .capsule").nth(1)
-        if album.is_visible() != case["extra"]:
-            failures.append(f"{case['id']}: redundant or missing Play Album capsule")
+        if page.locator(".button-row .capsule").count() != 1:
+            failures.append(f"{case['id']}: work must offer only its reference recording")
+        if page.locator(".work-cover").count() != 0:
+            failures.append(f"{case['id']}: work must have no album art")
     page.close()
 
 

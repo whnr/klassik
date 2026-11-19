@@ -294,6 +294,9 @@ enum Layout {
     static let workRowCorner = Radius.s
     /// css: chronology.html .pick-label | padding-top
     static let pickLabelVertical = Space.xs.points
+    /// The label clears the finger during a scrub.
+    /// css: chronology.html .pick-label | --pick-above
+    static let pickLabelAbove: CGFloat = 64
     /// css: chronology.html .pick-label | padding-left
     static let pickLabelHorizontal = Space.s.points
     /// css: chronology.html .pick-label | border-top-left-radius

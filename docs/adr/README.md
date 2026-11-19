@@ -58,7 +58,7 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0044](0044-a-failed-person-goes-to-the-end.md)              | A failed person goes to the end of the queue                                                                 | 2026-11-17 |
 | [0045](0045-page-margins-follow-the-timeline.md)             | Page margins follow the timeline                                                                             | 2026-11-17 |
 | [0046](0046-composers-first-and-shown-performers.md)         | Composers first, and the performers of a shown page next                                                     | 2026-11-17 |
-| [0050](0050-partial-works-apart.md)                          | Partial works under their own heading                                                                        | 2026-11-17 |
+| [0050](0050-partial-works-apart.md)                          | Partial works under their own heading (partly replaced by 0062)                                                                        | 2026-11-17 |
 | [0051](0051-pictures-and-album-art-in-local-storage.md)      | Pictures and album art in Local Storage (partly replaced by 0059; extended by 0060) | 2026-11-17 |
 | [0052](0052-favourites-stay-in-the-app.md)                   | Favourites stay in the app (partly replaced by 0058)                                                         | 2026-11-18 |
 | [0053](0053-queue-end-and-stop-close-the-player.md)          | The queue end and Stop close the player                                                                      | 2026-11-17 |
@@ -70,3 +70,4 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0059](0059-covers-and-pictures-before-pages.md) | Fetch covers and pictures before pages need them (partly replaced by 0061) | 2026-11-18 |
 | [0060](0060-early-playback-and-read-ahead.md) | Start playback early and read ahead quietly (partly replaces 0005 and 0008; extends 0051) | 2026-11-18 |
 | [0061](0061-work-pages-and-ready-person-pictures.md) | Work pages and ready person pictures | 2026-11-19 |
+| [0062](0062-sets-stay-in-works.md) | Sets stay in Works | 2026-11-19 |

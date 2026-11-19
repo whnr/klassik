@@ -309,8 +309,6 @@ extension Chronology {
         static let rowPadding: CGFloat = 8
         /// The gap from the top of a period band to its name.
         static let bandLabelTop: CGFloat = 4
-        /// The scrub label sits this far above the finger, so the finger never covers it.
-        static let pickAbove: CGFloat = 28
         /// The centre of the scrub label keeps this distance from each chart edge.
         static let pickInset: CGFloat = 90
         /// A tap this close to the focus line picks its nearest dot.

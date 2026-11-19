@@ -6,6 +6,8 @@ struct SettingsView: View {
     @AppStorage(TimelineSide.storageKey) private var timelineSide = TimelineSide.standard
     @AppStorage(ComposerWorks.separatesPartialKey) private var separatesPartial = true
 
+    @AppStorage(CoverWash.strengthKey) private var tintStrength = 2
+
     var body: some View {
         let library = model.library
         @Bindable var player = model.playback
@@ -75,6 +77,17 @@ struct SettingsView: View {
                 .accessibilityIdentifier("timeline-side")
             } footer: {
                 Text("While music plays, the timeline runs on this screen edge.")
+            }
+
+            Section {
+                Picker("Player Tint", selection: $tintStrength) {
+                    Text("1×").tag(1)
+                    Text("2×").tag(2)
+                    Text("3×").tag(3)
+                }
+                .accessibilityIdentifier("player-tint-strength")
+            } footer: {
+                Text("Temporary comparison of the cover tint strength.")
             }
 
             Section {

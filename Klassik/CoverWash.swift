@@ -259,6 +259,9 @@ enum WashRoom: CaseIterable, Sendable {
 
 /// The wash of the player while it plays, and the colours that stay readable on it (ADR 0034).
 enum CoverWash {
+    /// Temporary installed-app comparison until Flo selects the cover tint strength.
+    static let strengthKey = "player.tintStrength"
+
     /// The colours that are solved again on the wash.
     static let solvedColours: [Palette] = [.textPrimary, .textSecondary, .tint, .favourite, .favouriteOff]
 
@@ -269,8 +272,10 @@ enum CoverWash {
     }
 
     /// The ground for a hue in a room: the room's lightness, and the hue's chroma up to the room's limit.
-    static func ground(_ pick: CoverHue.Pick, in room: WashRoom) -> SRGB {
-        OKLCH(lightness: room.lightness, chroma: min(pick.chroma, room.chromaLimit), hue: pick.hue).srgb
+    static func ground(_ pick: CoverHue.Pick, in room: WashRoom, strength: Double = 1) -> SRGB {
+        OKLCH(
+            lightness: room.lightness, chroma: min(pick.chroma, room.chromaLimit) * strength, hue: pick.hue
+        ).srgb
     }
 
     /// The hue that a grey cover takes: the accent, measured from the tint.
@@ -301,8 +306,8 @@ enum CoverWash {
     /// The wash and the colours that it replaces. `base` gives a colour of the asset catalog in the room.
     /// The wash fades into the page ground, so each colour reaches its target on both ends of the fade. Every
     /// colour between the two ends has a luminance between theirs, so the colour reaches its target there too.
-    static func wash(_ pick: CoverHue.Pick?, in room: WashRoom, base: (Palette) -> SRGB) -> Wash {
-        let ground = ground(pick ?? accent(base(.tint)), in: room)
+    static func wash(_ pick: CoverHue.Pick?, in room: WashRoom, strength: Double = 1, base: (Palette) -> SRGB) -> Wash {
+        let ground = ground(pick ?? accent(base(.tint)), in: room, strength: strength)
         let page = base(.backgroundPage)
         var colours: [Palette: SRGB] = [:]
         for colour in solvedColours {
@@ -373,6 +378,7 @@ struct CoverWashModifier: ViewModifier {
     /// The song whose cover gives the hue, or nil when the item has no song.
     let song: Song?
     let isPlaying: Bool
+    @AppStorage(CoverWash.strengthKey) private var strength = 2
     @State private var loaded: Loaded?
     @State private var scroll = WashScroll()
 
@@ -400,7 +406,9 @@ struct CoverWashModifier: ViewModifier {
         let load = Load(song: song, covers: covers)
         let wash: CoverWash.Wash? =
             if isPlaying, let loaded, loaded.slot == load.slot {
-                CoverWash.wash(loaded.pick, in: room) { SRGB($0.color.resolve(in: environment)) }
+                CoverWash.wash(loaded.pick, in: room, strength: Double(strength)) {
+                    SRGB($0.color.resolve(in: environment))
+                }
             } else {
                 nil
             }

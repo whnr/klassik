@@ -264,6 +264,10 @@ final class BrowseScreens: ScreensTestCase {
             let listed = app.buttons.matching(identifier: "chronology-listed-work").firstMatch
             XCTAssertTrue(listed.waitForExistence(timeout: 10), "A row of several works lists none")
             snap(app, "02d-chronology-listed")
+            app.navigationBars.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+                .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.05)))
+            XCTAssertTrue(listed.isHittable)
+            snap(app, "02g-chronology-listed-full")
             listed.tap()
             XCTAssertTrue(app.buttons.matching(identifier: "recording").firstMatch.waitForExistence(timeout: 10))
             back(app)
@@ -997,7 +1001,7 @@ final class PlaybackScreens: ScreensTestCase {
         let queued = reveal(app.descendants(matching: .any).matching(identifier: "up-next").firstMatch, in: app)
         XCTAssertTrue(queued.label.contains("Symphony No. 5"), queued.label)
         snap(app, "08-up-next")
-        reveal(app.buttons["Next Work"].firstMatch, in: app).tap()
+        queued.tap()
         let title = app.buttons.matching(identifier: "favourite-recording")
             .matching(NSPredicate(format: "label CONTAINS 'Symphony No. 5'")).firstMatch
         XCTAssertTrue(title.waitForExistence(timeout: 15))
@@ -1007,6 +1011,8 @@ final class PlaybackScreens: ScreensTestCase {
         pause(app)
         XCTAssertTrue(app.sliders["position"].waitForExistence(timeout: 10))
         XCTAssertTrue(miniPlayer.buttons["mini-player-cover"].exists)
+        XCTAssertTrue(reveal(app.staticTexts["up-next-end"], in: app).exists)
+        snap(app, "08e-next-queue-end")
     }
 
     /// With no item after the one that plays, the player ends with a Next section that says where the queue ends
@@ -1343,6 +1349,9 @@ final class SettingsScreens: ScreensTestCase {
         _ = pausedPlayerInLibrary(app)
         openSettings(app)
         snap(app, "08c-settings-top")
+        let tint = reveal(app.descendants(matching: .any)["player-tint-strength"].firstMatch, in: app)
+        XCTAssertTrue(tint.isHittable)
+        snap(app, "08f-player-tint-setting")
         XCTAssertTrue(reveal(app.buttons["diagnostics"], in: app).isHittable)
         snap(app, "08c-settings")
 

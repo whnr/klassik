@@ -151,12 +151,15 @@ struct CoverWashTests {
 
     /// Text, the tint and the favourite keep their targets on every wash and on the page ground that it fades into,
     /// in every room. The wash replaces no ground.
-    @Test func solvedColoursKeepTheirTargets() throws {
+    @Test(arguments: [1.0, 2.0, 3.0])
+    func solvedColoursKeepTheirTargets(strength: Double) throws {
         for (room, style, contrast) in Self.rooms {
             let page = Self.base(.backgroundPage, style: style, contrast: contrast)
             for hue in stride(from: 0.0, to: 360, by: 20) {
                 let pick = CoverHue.Pick(hue: hue, chroma: 0.15)
-                let wash = CoverWash.wash(pick, in: room) { Self.base($0, style: style, contrast: contrast) }
+                let wash = CoverWash.wash(pick, in: room, strength: strength) {
+                    Self.base($0, style: style, contrast: contrast)
+                }
                 #expect(Set(wash.colours.keys).isSubset(of: CoverWash.solvedColours))
                 for colour in CoverWash.solvedColours {
                     let target = try #require(room.target(of: colour))

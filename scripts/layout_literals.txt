@@ -15,7 +15,6 @@ Klassik/Chronology.swift | static let laneShare: CGFloat = 0.42 | A placement of
 Klassik/Chronology.swift | static let rowGap: CGFloat = 8 | A placement of the chronology.html script, which has no CSS rule for it.
 Klassik/Chronology.swift | static let rowPadding: CGFloat = 8 | A placement of the chronology.html script, which has no CSS rule for it.
 Klassik/Chronology.swift | static let bandLabelTop: CGFloat = 4 | A placement of the chronology.html script, which has no CSS rule for it.
-Klassik/Chronology.swift | static let pickAbove: CGFloat = 28 | A placement of the chronology.html script, which has no CSS rule for it.
 Klassik/Chronology.swift | static let pickInset: CGFloat = 90 | A placement of the chronology.html script, which has no CSS rule for it.
 Klassik/Chronology.swift | static let focusReach: CGFloat = 22 | A placement of the chronology.html script, which has no CSS rule for it.
 Klassik/Chronology.swift | static let dotReach: CGFloat = 24 | A placement of the chronology.html script, which has no CSS rule for it.

@@ -15,10 +15,11 @@ final class PlacesScreens: ScreensTestCase {
         app.buttons["library-composers"].tap()
         XCTAssertTrue(composer(app, "Felix Mendelssohn").waitForExistence(timeout: 30))
         snap(app, "02d-composers")
-        // ADR 0030: the title sits right under the back arrow, as on the specimen.
+        // The title must clear the system top blur, with the specimen gap below the bar.
         let heading = app.staticTexts["page-heading"]
         XCTAssertTrue(heading.exists)
-        XCTAssertLessThan(heading.frame.minY, 130)
+        XCTAssertGreaterThanOrEqual(
+            heading.frame.minY, app.navigationBars.firstMatch.frame.maxY + Layout.headTop - 1)
         expectPageEdges(drawn(heading, in: app), in: app, "Composers title")
         let rows = app.buttons.matching(identifier: "composer")
         XCTAssertGreaterThan(rows.count, 1, "The list has no two composers")

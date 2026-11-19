@@ -58,6 +58,7 @@ struct ComposerPage: View {
         .listRowSeparator(.hidden)
         BackTipRow()
         Button {
+            model.chronology.show(composer: composer.name, playing: model.playback.work)
             navigator.select(.chronology)
         } label: {
             Text("Chronology")

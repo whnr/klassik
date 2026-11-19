@@ -1016,6 +1016,9 @@ private struct NoteList: View {
                     .typeStyle(.subheadline)
                 }
             }
+            // A container keeps the identifiers of its buttons inside the row's identifier.
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("notes")
         }
     }
 }
@@ -1036,6 +1039,13 @@ private struct NoteEditor: View {
     @ScaledMetric(space: .xxs) private var fieldPadding: CGFloat
 
     var body: some View {
+        // A container keeps the identifiers of its controls inside the row's identifier.
+        editor
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("note-editor")
+    }
+
+    @ViewBuilder private var editor: some View {
         if let current = draft {
             VStack(alignment: .leading, spacing: lineGap) {
                 HStack(alignment: .firstTextBaseline, spacing: gap) {

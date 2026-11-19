@@ -87,6 +87,16 @@ struct ComposerWorks: Sendable {
         var title: String
         var rows: [Row]
         var id: String { title }
+
+        func setID(named name: String) -> SetID {
+            SetID(section: id, name: name)
+        }
+    }
+
+    /// A grouping can contain separate sets of complete and partial works (ADR 0050).
+    struct SetID: Hashable, Sendable {
+        let section: String
+        let name: String
     }
 
     /// The sections of the Works tab. With `separatingPartial`, works that no recording holds whole follow under

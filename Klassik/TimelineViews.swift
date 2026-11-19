@@ -27,7 +27,7 @@ struct WorkTimelineView: View {
                     ForEach(timeline.undated) { work in
                         NavigationLink(value: Page.work(work.id)) {
                             VStack(alignment: .leading) {
-                                Text(work.title)
+                                MarkedTitle(title: work.title, isFavourite: model.recordingOrder.isFavourite(work))
                                     .ink()
                                 Text(work.composer)
                                     .typeStyle(.subheadline)
@@ -59,6 +59,7 @@ struct WorkTimelineView: View {
 /// One work on the timeline. A work without a date shows its composer's lifetime and is marked approximate.
 private struct TimelineRow: View {
     let entry: Timeline.Entry
+    @Environment(AppModel.self) private var model
     @ScaledMetric(space: .m) private var gap: CGFloat
     /// Four figures of a year must fit at every text size.
     @ScaledMetric private var yearWidth = Measure.hitTarget
@@ -71,7 +72,7 @@ private struct TimelineRow: View {
                     .frame(width: yearWidth, alignment: .leading)
                     .accessibilityLabel(entry.isApproximate ? "Approximate" : String(entry.span.start))
                 VStack(alignment: .leading) {
-                    Text(entry.work.title)
+                    MarkedTitle(title: entry.work.title, isFavourite: model.recordingOrder.isFavourite(entry.work))
                         .ink()
                     Text(subtitle)
                         .typeStyle(.subheadline)

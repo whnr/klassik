@@ -88,6 +88,12 @@ enum Layout {
     static let rowCover = Measure.coverRow
     /// css: specimen.css .cover | border-top-left-radius
     static let coverCorner = Radius.s
+    /// The gap above the hint of the empty Search page.
+    /// css: search.html .hint | padding-top
+    static let searchHintTop = Space.xl.points
+    /// The gap above the line that says nothing matches.
+    /// css: search.html .nomatch | padding-top
+    static let searchNoMatchTop = Space.l.points
     /// A round button in a row, such as play from here.
     /// css: specimen.css .round | width
     static let roundButton: CGFloat = 32

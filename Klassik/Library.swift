@@ -9,6 +9,7 @@ final class Library {
         didSet {
             index = WorkIndex(songs: classical)
             otherAlbumCache = nil
+            searchCache = nil
             classicalChanged?()
         }
     }
@@ -20,6 +21,7 @@ final class Library {
     /// the index keep the stars of the last rebuild, so favourite state reads this set.
     private(set) var starredSongs: Set<String> = []
     @ObservationIgnored private var otherAlbumCache: [WorkIndex.Album]?
+    @ObservationIgnored private var searchCache: Search?
     private(set) var syncedAt: Date?
     private(set) var isSyncing = false
     /// Tracks received so far in the running sync.
@@ -42,6 +44,16 @@ final class Library {
         let classicalKeys = Set(index.albums.flatMap(\.keys))
         let built = WorkIndex.albums(of: songs.filter { !classicalKeys.contains($0.albumKey) })
         otherAlbumCache = built
+        return built
+    }
+
+    /// The search over the index. Built when first read, and again after the index changes.
+    var search: Search {
+        // Reading the index lets a view that searches follow a rebuild.
+        let index = index
+        if let searchCache { return searchCache }
+        let built = Search(index: index)
+        searchCache = built
         return built
     }
 

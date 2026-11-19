@@ -30,6 +30,9 @@ final class Navigator<Page: Hashable> {
     private(set) var isPlayerOpen = false
     private var stacks: [Place: [Page]] = [:]
     private var origins: [Place: Origin] = [:]
+    /// Counts the arrivals that open Search empty: a tab or a link to its root. Back from a result is none, so the
+    /// search stays (ADR 0029).
+    private(set) var searchStarts = 0
 
     func pages(in place: Place) -> [Page] {
         stacks[place] ?? []
@@ -60,6 +63,8 @@ final class Navigator<Page: Hashable> {
         guard place != selection else { return }
         origins[place] = Origin(place: selection, page: pages(in: selection).last)
         selection = place
+        // A tab restores the page on top of the stack. Back from that result must still find its search.
+        if place == .search, pages(in: place).isEmpty { searchStarts += 1 }
     }
 
     /// A second tap on the selected tab returns to its root without changing other stacks.
@@ -69,6 +74,7 @@ final class Navigator<Page: Hashable> {
             select(place)
         } else if place == selection {
             stacks[place] = []
+            if place == .search { searchStarts += 1 }
         } else {
             select(place)
         }

@@ -1,7 +1,7 @@
 {
-  "sha": "635f33796d2b20a591af6e24c382b4b504b1c166",
+  "sha": "86b8427e8b67e192cbe756a58d894ccc1c20b66e",
   "branch": "claude-sz-rs30.1.105.9b",
   "path": "claude-sz-rs30.1.105.9b",
-  "subject": "[sz-rs30.1.105.9] Match wash to kept covers",
-  "ts": 1795059769
+  "subject": "[sz-rs30.1.105.9] Use the accent for unreadable covers",
+  "ts": 1795061639
 }

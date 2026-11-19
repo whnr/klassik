@@ -302,7 +302,7 @@ input {
   --indicator-inset: calc(var(--size-timeline) + 3px);
 }
 .page-head {
-  padding: var(--space-xs) var(--pad-right) var(--space-s) var(--pad-left);
+  padding: var(--space-l) var(--pad-right) var(--space-s) var(--pad-left);
 }
 .page-head h1 {
   overflow-wrap: anywhere;
@@ -435,6 +435,9 @@ input {
   background: var(--color-accent-fill, var(--color-tint));
   color: var(--color-on-accent, #fff);
 }
+.capsule[hidden] {
+  display: none;
+}
 .capsule:active {
   opacity: 0.6;
 }
@@ -557,9 +560,6 @@ input::placeholder {
   flex: none;
   width: 56px;
   border-radius: var(--radius-full);
-}
-.tab-search.on {
-  color: var(--color-tint);
 }
 .tab-search.on {
   color: var(--color-tint);

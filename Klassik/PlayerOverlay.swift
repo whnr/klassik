@@ -46,8 +46,6 @@ private struct PlayerOverlay: View {
         insertion: .offset(y: Layout.riseIn).combined(with: .opacity),
         removal: .offset(y: -Layout.riseOut).combined(with: .opacity))
 
-    private var cover: String? { item.recording.songs.first?.coverArt }
-
     var body: some View {
         VStack(spacing: 0) {
             Button {
@@ -86,7 +84,7 @@ private struct PlayerOverlay: View {
         .padding(.bottom, layout.bottom)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background { PlayerGround() }
-        .coverWash(item: item.id, cover: cover, isPlaying: model.playback.item?.id == item.id)
+        .coverWash(item: item.id, song: item.recording.songs.first, isPlaying: model.playback.item?.id == item.id)
         .offset(y: dragged)
         .animation(Motion.rise.animation(reduceMotion: reduceMotion), value: dragged == 0)
         .accessibilityElement(children: .contain)

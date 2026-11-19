@@ -158,6 +158,23 @@ enum CoverHue {
         return Pick(hue: hue, chroma: (a * a + b * b).squareRoot())
     }
 
+    /// The hue of a kept cover file. Its `pick` is nil for a grey cover.
+    struct Kept: Equatable, Sendable {
+        var pick: Pick?
+    }
+
+    /// The hue of the first of `files` that `read` finds and that decodes. Nil when none does.
+    /// The wash reads only kept covers (ADR 0059), never the network.
+    @MainActor static func kept(_ files: [String], read: (String) async -> Data?) async -> Kept? {
+        for file in files {
+            guard let data = await read(file), let image = await CoverArt.scaled(data, to: side)?.cgImage else {
+                continue
+            }
+            return Kept(pick: pick(from: pixels(of: image)))
+        }
+        return nil
+    }
+
     /// The pixels of the small copy of a picture, in sRGB.
     static func pixels(of image: CGImage) -> [SRGB] {
         var bytes = [UInt8](repeating: 0, count: side * side * 4)
@@ -350,25 +367,35 @@ struct CoverWashModifier: ViewModifier {
     @Environment(\.self) private var environment
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.colorSchemeContrast) private var contrast
-    @Environment(\.displayScale) private var scale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// The item that the player shows. Each item has its own list, which opens at its top.
     let item: UUID
-    /// The cover of the item, or nil when the item has no cover.
-    let cover: String?
+    /// The song whose cover gives the hue, or nil when the item has no song.
+    let song: Song?
     let isPlaying: Bool
     @State private var loaded: Loaded?
     @State private var scroll = WashScroll()
 
     private struct Loaded: Equatable {
-        var cover: String?
+        var slot: String?
         var pick: CoverHue.Pick?
+    }
+
+    /// The kept files of the cover and their arrival count. A new file starts the pick again.
+    private struct Load: Equatable {
+        var slot: String?
+        var candidates: [String]
+        var arrival: Int
     }
 
     func body(content: Content) -> some View {
         let room = WashRoom(colorScheme: colorScheme, contrast: contrast)
+        let covers = model.albumCovers
+        let load = Load(
+            slot: song?.id, candidates: song.map { covers.candidates(for: $0) } ?? [],
+            arrival: song.map { covers.arrival(for: $0) } ?? 0)
         let wash: CoverWash.Wash? =
-            if isPlaying, let loaded, loaded.cover == cover {
+            if isPlaying, let loaded, loaded.slot == load.slot {
                 CoverWash.wash(loaded.pick, in: room) { SRGB($0.color.resolve(in: environment)) }
             } else {
                 nil
@@ -381,27 +408,27 @@ struct CoverWashModifier: ViewModifier {
             .animation(Motion.inPlace.animation(reduceMotion: reduceMotion), value: wash == nil)
             // The list of the next item reports its scroll only when it moves, so the offset of the old list stays.
             .onChange(of: item) { scroll.offset = 0 }
-            .task(id: cover) {
-                let pick = await Self.pick(cover: cover, model: model, points: Measure.coverPage * scale)
-                if Task.isCancelled { return }
-                loaded = Loaded(cover: cover, pick: pick)
+            .task(id: load) {
+                if let found = await Self.loaded(load, song: song, model: model) {
+                    if !Task.isCancelled { loaded = found }
+                } else if let song {
+                    // The kept file arrives later and starts this task again. The wash waits for it.
+                    covers.request(song, playback: true)
+                }
             }
     }
 
-    /// The same copy that the player's cover loads, so the system cache serves it once.
-    @MainActor private static func pick(cover: String?, model: AppModel, points: CGFloat) async -> CoverHue.Pick? {
-        guard let cover, let client = model.client else { return nil }
-        let url = client.coverArtURL(id: cover, size: Int(points.rounded(.up)))
-        guard let response = try? await URLSession.shared.data(from: url),
-            let image = UIImage(data: response.0)?.cgImage
-        else { return nil }
-        return CoverHue.pick(from: CoverHue.pixels(of: image))
+    /// A song without a cover takes the accent, as a grey cover does. Nil while no file is kept.
+    @MainActor private static func loaded(_ load: Load, song: Song?, model: AppModel) async -> Loaded? {
+        guard song?.coverArt != nil else { return Loaded(slot: load.slot, pick: nil) }
+        let kept = await CoverHue.kept(load.candidates) { await model.albumArt.data(named: $0) }
+        return kept.map { Loaded(slot: load.slot, pick: $0.pick) }
     }
 }
 
 extension View {
     /// Washes the view in its cover's hue while its item plays (ADR 0034).
-    func coverWash(item: UUID, cover: String?, isPlaying: Bool) -> some View {
-        modifier(CoverWashModifier(item: item, cover: cover, isPlaying: isPlaying))
+    func coverWash(item: UUID, song: Song?, isPlaying: Bool) -> some View {
+        modifier(CoverWashModifier(item: item, song: song, isPlaying: isPlaying))
     }
 }

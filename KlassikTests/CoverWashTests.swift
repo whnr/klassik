@@ -201,6 +201,43 @@ struct CoverWashTests {
         }
     }
 
+    // MARK: Kept covers
+
+    /// A plain cover file of one colour, as the album art store keeps it.
+    static func file(_ colour: UIColor) -> Data {
+        UIGraphicsImageRenderer(size: CGSize(width: 8, height: 8)).pngData { context in
+            colour.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 8, height: 8))
+        }
+    }
+
+    /// The wash takes its hue from the first kept file that decodes (ADR 0059). It skips a missing or broken file.
+    @Test func keptCoverGivesTheHue() async throws {
+        let files = ["missing": nil, "broken": Data([1, 2, 3]), "red": Self.file(.red), "blue": Self.file(.blue)]
+        var asked: [String] = []
+        let found = await CoverHue.kept(["missing", "broken", "red", "blue"]) { name in
+            asked.append(name)
+            return files[name] ?? nil
+        }
+        let pick = try #require(found?.pick)
+        #expect(Self.distance(pick.hue, OKLCH(SRGB(red: 1, green: 0, blue: 0)).hue) < 5)
+        #expect(asked == ["missing", "broken", "red"])
+    }
+
+    /// Without a kept file the wash waits: no pick, and no grey accent either.
+    @Test func noKeptCoverGivesNoPick() async {
+        let none = await CoverHue.kept([]) { _ in Self.file(.red) }
+        let missing = await CoverHue.kept(["missing"]) { _ in nil }
+        #expect(none == nil)
+        #expect(missing == nil)
+    }
+
+    /// A grey kept cover gives a kept result without a hue, so the wash takes the accent.
+    @Test func greyKeptCoverGivesNoHue() async throws {
+        let found = await CoverHue.kept(["grey"]) { _ in Self.file(.gray) }
+        #expect(found == CoverHue.Kept(pick: nil))
+    }
+
     // MARK: The end of the player
 
     @Test func tailShowsTheNextItem() {

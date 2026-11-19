@@ -514,6 +514,10 @@ struct RecordingView: View {
     /// The rows that the listener opened, by track position.
     @State private var opened: Set<Int> = []
     @State private var spell = QuietSpell()
+    /// The note that the listener writes in the playing row. It stays while the listener scrubs (ADR 0027).
+    @State private var draft: NoteDraft?
+    /// Where the notes of each row live, by track position.
+    @State private var places: [NotePlace?] = []
 
     private var isPlayingThis: Bool { model.playback.recording?.id == recording.id }
 
@@ -665,6 +669,12 @@ struct RecordingView: View {
         .navigationTitle(isOverlay ? "" : work.title)
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { model.sweep.prefer(performers: recording.performerNames) }
+        .task(id: placesKey) { places = NotePlace.places(in: recording, index: model.library.index) }
+    }
+
+    /// Changes when a sync or a new classical filter can move a track to another recording.
+    private var placesKey: String {
+        "\(recording.id)|\(model.library.classical.count)|\(model.library.syncedAt?.timeIntervalSince1970 ?? 0)"
     }
 
     /// The favourite of the page: the album on an album page, else the recording (ADR 0013, 0017).
@@ -782,15 +792,23 @@ struct RecordingView: View {
     }
 
     private func movementRow(_ song: Song, at index: Int, page: PlayerPage, title: String) -> some View {
-        MovementRow(
-            song: song, title: title, names: page.differing.indices.contains(index) ? page.differing[index] : [],
+        let place = places.indices.contains(index) ? places[index] : nil
+        return MovementRow(
+            song: song, row: index, title: title,
+            names: page.differing.indices.contains(index) ? page.differing[index] : [],
+            notes: place.map { model.notes.notes(at: $0) } ?? [],
+            place: place,
             isPlaying: isPlayingThis && model.playback.movement == index,
             isOpen: opened.contains(index),
+            draft: Binding(
+                get: { draft?.row == index ? draft : nil },
+                set: { draft = $0 }),
             toggle: {
                 spell.touch()
                 if opened.contains(index) { opened.remove(index) } else { opened.insert(index) }
             },
-            play: { play(from: index) }
+            play: { play(from: index) },
+            jump: { note, plays in jump(to: note, row: index, plays: plays) }
         )
         .id(song.id)
     }
@@ -800,24 +818,45 @@ struct RecordingView: View {
         opened.removeAll()
         model.playback.play(QueueItem(work: work, recording: recording), from: index)
     }
+
+    /// A tap on a note moves to its time; a tap on its time also plays (ADR 0014). A note of a page that does not
+    /// play starts that page there.
+    private func jump(to note: ListeningNote, row: Int, plays: Bool) {
+        spell.touch()
+        let player = model.playback
+        if isPlayingThis && !plays {
+            player.seek(movement: row, to: note.at)
+        } else {
+            player.play(QueueItem(work: work, recording: recording), from: row, at: note.at)
+        }
+    }
 }
 
 /// One movement or track. A row that does not play has a faint play button at its trailing edge. It opens only when
-/// it holds names that differ from the header, and then shows the disclosure chevron. The playing row stays open and
-/// holds the only playback bar (ADR 0027).
+/// it holds names that differ from the header or listening notes, and then shows the disclosure chevron. The playing
+/// row stays open, holds the only playback bar and takes a new note (ADR 0027).
 private struct MovementRow: View {
     @Environment(AppModel.self) private var model
     let song: Song
+    /// The position of the row on its page.
+    let row: Int
     let title: String
     /// The names that differ from the header.
     let names: [Roles.Line]
+    let notes: [ListeningNote]
+    /// Where a new note of this row goes. A row without a place takes no note.
+    let place: NotePlace?
     let isPlaying: Bool
     let isOpen: Bool
+    @Binding var draft: NoteDraft?
     let toggle: () -> Void
     let play: () -> Void
+    /// Moves to a note; true also plays.
+    let jump: (ListeningNote, Bool) -> Void
     @ScaledMetric(space: .m) private var gap: CGFloat
 
-    private var opens: Bool { names.contains { !$0.names.isEmpty } }
+    private var hasNames: Bool { names.contains { !$0.names.isEmpty } }
+    private var opens: Bool { hasNames || !notes.isEmpty }
 
     var body: some View {
         if isPlaying {
@@ -829,8 +868,11 @@ private struct MovementRow: View {
                     playButton
                 }
                 if opens && isOpen {
-                    RoleLines(lines: names, style: .subheadline)
-                        .ink()
+                    if hasNames {
+                        RoleLines(lines: names, style: .subheadline)
+                            .ink()
+                    }
+                    NoteList(notes: notes, jump: jump)
                 }
             }
             .accessibilityIdentifier("movement")
@@ -842,10 +884,15 @@ private struct MovementRow: View {
         if opens {
             Button(action: toggle) { label }
                 .buttonStyle(.still)
-                .accessibilityHint(isOpen ? "Hides the names" : "Shows the names")
+                .accessibilityHint(hint)
         } else {
             label
         }
+    }
+
+    private var hint: String {
+        let what = hasNames ? (notes.isEmpty ? "the names" : "the names and notes") : "the notes"
+        return (isOpen ? "Hides " : "Shows ") + what
     }
 
     private var label: some View {
@@ -885,7 +932,8 @@ private struct MovementRow: View {
         .accessibilityIdentifier("play-movement")
     }
 
-    /// The playing row: its title, the names that differ, the playback bar and the controls.
+    /// The playing row: its title, the names that differ, the playback bar with the note marks, the controls, the
+    /// notes and the note that the listener writes (specimen player.html `openBody`).
     private var playing: some View {
         let player = model.playback
         return VStack(alignment: .leading, spacing: gap) {
@@ -901,7 +949,7 @@ private struct MovementRow: View {
             }
             RoleLines(lines: names, style: .subheadline)
                 .ink()
-            PlaybackProgress(player: player)
+            PlaybackProgress(player: player, notes: notes, jump: { jump($0, false) })
             HStack {
                 Button("Previous", systemImage: "backward.fill") { player.previous() }
                 Spacer()
@@ -924,8 +972,126 @@ private struct MovementRow: View {
             .buttonStyle(.borderless)
             .typeStyle(.title2)
             .padding(.horizontal)
+            NoteList(notes: notes, jump: jump)
+            if let place {
+                NoteEditor(
+                    draft: $draft, row: row, place: place, elapsed: { player.progress?.elapsed ?? player.position })
+            }
         }
         .accessibilityIdentifier("movement")
+    }
+}
+
+/// The notes of a movement, earliest first. The time is a prefix in the tint (specimen player.html `.note`). A tap
+/// on the text moves to the note; a tap on its time moves there and plays (ADR 0014).
+private struct NoteList: View {
+    let notes: [ListeningNote]
+    let jump: (ListeningNote, Bool) -> Void
+    @ScaledMetric(space: .xs) private var lineGap: CGFloat
+    @ScaledMetric(space: .s) private var gap: CGFloat
+
+    var body: some View {
+        if !notes.isEmpty {
+            VStack(alignment: .leading, spacing: lineGap) {
+                ForEach(notes) { note in
+                    HStack(alignment: .firstTextBaseline, spacing: gap) {
+                        Button(ListeningNotes.time(of: note)) { jump(note, true) }
+                            .monospacedDigit()
+                            .foregroundStyle(Palette.tint)
+                            .accessibilityLabel("Play from \(ListeningNotes.time(of: note))")
+                            .accessibilityIdentifier("note-time")
+                        Button {
+                            jump(note, false)
+                        } label: {
+                            Text(note.text)
+                                .ink()
+                                .multilineTextAlignment(.leading)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(.rect)
+                        }
+                        .accessibilityHint("Moves to \(ListeningNotes.time(of: note))")
+                        .accessibilityIdentifier("note-text")
+                    }
+                    .buttonStyle(.borderless)
+                    .typeStyle(.subheadline)
+                }
+            }
+        }
+    }
+}
+
+/// "Add a note here", then the note in the row: never a modal (ADR 0027). The note stays open until Save or Return,
+/// so the listener can scrub the bar or the timeline to find the end.
+private struct NoteEditor: View {
+    @Environment(AppModel.self) private var model
+    @Binding var draft: NoteDraft?
+    let row: Int
+    let place: NotePlace
+    /// The playing time of the row.
+    let elapsed: () -> Double
+    @FocusState private var isWriting: Bool
+    @ScaledMetric(space: .xs) private var lineGap: CGFloat
+    @ScaledMetric(space: .s) private var gap: CGFloat
+    @ScaledMetric(space: .l) private var actionGap: CGFloat
+    @ScaledMetric(space: .xxs) private var fieldPadding: CGFloat
+
+    var body: some View {
+        if let current = draft {
+            VStack(alignment: .leading, spacing: lineGap) {
+                HStack(alignment: .firstTextBaseline, spacing: gap) {
+                    Text(ListeningNotes.time(at: current.at, end: current.end))
+                        .typeStyle(.subheadline)
+                        .monospacedDigit()
+                        .foregroundStyle(Palette.tint)
+                        .accessibilityIdentifier("note-draft-time")
+                    TextField("Write the note", text: text)
+                        .typeStyle(.body)
+                        .foregroundStyle(Palette.textPrimary)
+                        .focused($isWriting)
+                        .submitLabel(.done)
+                        .onSubmit(save)
+                        .padding(.vertical, fieldPadding)
+                        .overlay(alignment: .bottom) { Divider().overlay(Palette.separator) }
+                        .accessibilityIdentifier("note-field")
+                }
+                HStack(spacing: actionGap) {
+                    Spacer()
+                    Button("End here") { draft?.end(at: elapsed()) }
+                        .typeStyle(.subheadline)
+                        .accessibilityIdentifier("end-note")
+                    Button("Cancel") { draft = nil }
+                        .typeStyle(.subheadline)
+                        .accessibilityIdentifier("cancel-note")
+                    Button("Save", action: save)
+                        .typeStyle(.headline)
+                        .accessibilityIdentifier("save-note")
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(Palette.tint)
+                if let error = model.notes.error {
+                    Text(error)
+                        .typeStyle(.footnote)
+                        .foregroundStyle(Palette.textSecondary)
+                }
+            }
+            .onAppear { isWriting = true }
+        } else {
+            Button("Add a note here") { draft = NoteDraft(row: row, at: elapsed()) }
+                .typeStyle(.subheadline)
+                .foregroundStyle(Palette.tint)
+                .buttonStyle(.borderless)
+                .accessibilityIdentifier("add-note")
+        }
+    }
+
+    private var text: Binding<String> {
+        Binding(get: { draft?.text ?? "" }, set: { draft?.text = $0 })
+    }
+
+    /// A failed write keeps the draft, so the text is not lost.
+    private func save() {
+        guard let current = draft, model.notes.save(current, at: place) else { return }
+        draft = nil
     }
 }
 
@@ -960,12 +1126,16 @@ extension ButtonStyle where Self == StillButtonStyle {
 /// How far the playing movement has played.
 struct PlaybackProgress: View {
     let player: PlaybackSession
+    /// The listening notes of the movement, as marks on the bar.
+    var notes: [ListeningNote] = []
+    var jump: (ListeningNote) -> Void = { _ in }
     @ScaledMetric(space: .xs) private var lineGap: CGFloat
 
     var body: some View {
         Group {
             if let progress = player.progress {
-                PositionBar(player: player, elapsed: progress.elapsed, duration: progress.duration)
+                PositionBar(
+                    player: player, elapsed: progress.elapsed, duration: progress.duration, notes: notes, jump: jump)
                     .id(progress.movement)
                     .padding(.vertical, lineGap)
             }
@@ -998,6 +1168,8 @@ private struct PositionBar: View {
     let player: PlaybackSession
     let elapsed: Double
     let duration: Double
+    let notes: [ListeningNote]
+    let jump: (ListeningNote) -> Void
     @State private var scrub = PositionScrub()
     @State private var width = 0.0
     @GestureState private var isTouching = false
@@ -1029,6 +1201,7 @@ private struct PositionBar: View {
                 .frame(width: width * PositionScrub.share(shown, of: duration))
         }
         .frame(height: Layout.positionBar)
+        .overlay(alignment: .topLeading) { marks }
         .onGeometryChange(for: Double.self) {
             Double($0.size.width)
         } action: {
@@ -1046,6 +1219,11 @@ private struct PositionBar: View {
                 }
                 .onEnded { value in
                     model.isScrubbing = false
+                    if let note = tapped(value) {
+                        scrub.cancel()
+                        jump(note)
+                        return
+                    }
                     scrub.drag(to: PositionScrub.seconds(at: value.location.x, width: width, duration: duration))
                     if let target = scrub.release() { player.seek(to: target) }
                 }
@@ -1059,6 +1237,46 @@ private struct PositionBar: View {
         .accessibilityLabel("Position")
         .accessibilityValue(PlaybackProgress.time(shown))
         .accessibilityIdentifier("position")
+    }
+}
+
+extension PositionBar {
+    /// A note mark is this many seconds wide on the bar.
+    private var reach: Double { width > 0 ? Double(Layout.noteDot) / width * duration : 0 }
+
+    /// Dots for moments and lines for spans above the bar. Notes that overlap stack in lanes (ADR 0014).
+    private var marks: some View {
+        let lanes = ListeningNotes.lanes(notes, reach: reach)
+        let pitch = -Layout.noteDotTop
+        return ZStack(alignment: .topLeading) {
+            ForEach(notes) { note in
+                let lift = pitch * CGFloat(lanes[note.id] ?? 0)
+                let from = CGFloat(width * PositionScrub.share(note.at, of: duration))
+                if let end = note.end {
+                    let to = CGFloat(width * PositionScrub.share(end, of: duration))
+                    Capsule()
+                        .fill(Palette.textSecondary)
+                        .frame(width: max(to - from, Layout.noteSpan), height: Layout.noteSpan)
+                        .position(x: (from + to) / 2, y: Layout.noteSpanTop + Layout.noteSpan / 2 - lift)
+                } else {
+                    Circle()
+                        .fill(Palette.textSecondary)
+                        .frame(width: Layout.noteDot, height: Layout.noteDot)
+                        .position(x: from, y: Layout.noteDotTop + Layout.noteDot / 2 - lift)
+                }
+            }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    /// The note of a tap above the bar, where the marks are. A tap or a drag on the bar itself scrubs.
+    private func tapped(_ value: DragGesture.Value) -> ListeningNote? {
+        let still = max(abs(value.translation.width), abs(value.translation.height)) <= Layout.noteDot
+        // The touch area reaches `-positionBarInset` above the bar, and the marks sit in it.
+        guard still, value.startLocation.y < -Layout.positionBarInset else { return nil }
+        let seconds = PositionScrub.seconds(at: value.startLocation.x, width: width, duration: duration)
+        return ListeningNotes.note(near: seconds, in: notes, reach: reach)
     }
 }
 

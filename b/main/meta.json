@@ -1,7 +1,7 @@
 {
-  "sha": "6223253ed018cdcd3020914ece76ac5a77b90141",
+  "sha": "e21421f87166e3eb43747351ebfc5289dbc5ddea",
   "branch": "main",
   "path": "main",
-  "subject": "[sz-rs30.1.128] Ignore unknown UI areas; fix the Library edit test (#108)",
-  "ts": 1795078141
+  "subject": "[sz-rs30.1.105.11] Favourites everywhere (#111)",
+  "ts": 1795083117
 }

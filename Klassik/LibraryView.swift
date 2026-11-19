@@ -110,11 +110,47 @@ struct FavouritesView: View {
     var body: some View {
         let works = model.recordingOrder.favouriteWorks
         let favourites = model.recordingOrder.favouriteRecordings
+        let albums = model.recordingOrder.favouriteAlbums
+        let composers = model.recordingOrder.favouriteComposers
+        let performers = model.recordingOrder.favouritePerformers
         PageList {
+            ForEach(composers) { composer in
+                PersonPageLink(page: .composer(composer.name)) {
+                    MarkedTitle(title: composer.name, isFavourite: true).ink()
+                }
+                .accessibilityIdentifier("favourite-composer-row")
+                .itemSeparator(
+                    first: composer.id == composers.first?.id,
+                    last: composer.id == composers.last?.id && performers.isEmpty && albums.isEmpty
+                        && works.isEmpty && favourites.isEmpty)
+            }
+            ForEach(performers) { performer in
+                PersonPageLink(page: .performer(performer.name)) {
+                    MarkedTitle(title: performer.name, isFavourite: true).ink()
+                }
+                .accessibilityIdentifier("favourite-performer-row")
+                .itemSeparator(
+                    first: composers.isEmpty && performer.id == performers.first?.id,
+                    last: performer.id == performers.last?.id && albums.isEmpty && works.isEmpty && favourites.isEmpty)
+            }
+            ForEach(albums) { album in
+                NavigationLink(value: Page.album(album.id)) {
+                    VStack(alignment: .leading) {
+                        MarkedTitle(title: album.title, isFavourite: true).ink()
+                        Text("Album").typeStyle(.subheadline).foregroundStyle(Palette.textSecondary)
+                    }
+                }
+                .itemActions(album.item, downloads: true, favouriteAlbum: true)
+                .accessibilityIdentifier("favourite-album-row")
+                .itemSeparator(
+                    first: composers.isEmpty && performers.isEmpty && album.id == albums.first?.id,
+                    last: album.id == albums.last?.id && works.isEmpty && favourites.isEmpty)
+            }
             ForEach(works) { work in
                 WorkRow(work: work)
                     .itemSeparator(
-                        first: work.id == works.first?.id, last: favourites.isEmpty && work.id == works.last?.id)
+                        first: composers.isEmpty && performers.isEmpty && albums.isEmpty && work.id == works.first?.id,
+                        last: favourites.isEmpty && work.id == works.last?.id)
             }
             ForEach(favourites) { favourite in
                 NavigationLink(value: Page.recording(work: favourite.work.id, recording: favourite.recording.id)) {
@@ -133,15 +169,16 @@ struct FavouritesView: View {
                 )
                 .accessibilityIdentifier("favourite")
                 .itemSeparator(
-                    first: works.isEmpty && favourite.id == favourites.first?.id,
+                    first: composers.isEmpty && performers.isEmpty && albums.isEmpty && works.isEmpty
+                        && favourite.id == favourites.first?.id,
                     last: favourite.id == favourites.last?.id)
             }
         }
         .overlay {
-            if favourites.isEmpty && works.isEmpty {
+            if favourites.isEmpty && works.isEmpty && albums.isEmpty && composers.isEmpty && performers.isEmpty {
                 ContentUnavailableView(
                     "No Favourites", systemImage: "star",
-                    description: Text("Swipe a recording and choose Favourite to see it here."))
+                    description: Text("Mark a person, work, recording or album as a favourite to see it here."))
             }
         }
         .pageTitle("Favourites")

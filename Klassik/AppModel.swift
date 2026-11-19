@@ -83,7 +83,7 @@ final class AppModel {
                 guard let self else { return }
                 self.keepAlbumArt()
                 Self.start(self.sweep, over: self.library.index)
-                async let favourites: Void = self.recordingOrder.synchronize()
+                async let favourites: Void = self.recordingOrder.refresh()
                 async let listening: Void = self.playback.synchronizeListeningData()
                 _ = await (favourites, listening)
             }

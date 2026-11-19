@@ -224,6 +224,8 @@ struct WorkIndex: Sendable {
 
     var composers: [Composer] = []
     var performers: [Performer] = []
+    /// Server identities for person favourites. A page reads this without scanning the library in a tap.
+    private(set) var artists: [String: Song.Artist] = [:]
     /// By title. Every album of the tracks that built the index.
     private(set) var albums: [Album] = []
     private var albumPositions: [String: Int] = [:]
@@ -277,6 +279,9 @@ struct WorkIndex: Sendable {
     }
 
     init(songs: [Song]) {
+        for artist in songs.flatMap({ $0.contributors ?? [] }).map(\.artist) where !artist.id.isEmpty {
+            if artists[artist.name] == nil { artists[artist.name] = artist }
+        }
         albums = Self.albums(of: songs)
         // Each server album is in one album, so the keys are unique. A broken grouping must still not trap.
         albumPositions = Dictionary(

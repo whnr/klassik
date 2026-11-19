@@ -64,6 +64,7 @@ struct FavouriteTitle: View {
     let isSet: Bool
     let action: @MainActor () -> Void
     var textIdentifier = "page-heading"
+    var ink: Color = Palette.textPrimary.color
     @ScaledMetric(relativeTo: .title) private var em = TypeStyle.pageTitle.size
     @Environment(\.displayScale) private var scale
     @Environment(\.colorScheme) private var scheme
@@ -73,7 +74,7 @@ struct FavouriteTitle: View {
         Button(action: action) {
             Text("\(title)\u{00A0}\(Image(uiImage: mark))")
                 .typeStyle(.pageTitle)
-                .foregroundStyle(Palette.textPrimary)
+                .foregroundStyle(ink)
                 .accessibilityIdentifier(textIdentifier)
                 // A new mark replaces the old one in the same frame, also under an animation of the page.
                 .contentTransition(.identity)

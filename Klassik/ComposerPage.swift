@@ -434,7 +434,7 @@ struct PersonHero: View {
             }
             .pagePadding()
             .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityElement(children: .combine)
+            .accessibilityElement(children: .contain)
             .accessibilityAddTraits(.isHeader)
             .accessibilityIdentifier("\(kind)-name")
     }
@@ -442,9 +442,18 @@ struct PersonHero: View {
     /// The name and the line, as wide as the longer of the two.
     private var textLines: some View {
         VStack(alignment: .leading, spacing: gap) {
-            Text(name)
-                .typeStyle(Layout.pageTitle)
-                .foregroundStyle(portrait == nil ? Palette.textPrimary.color : paper)
+            if model.recordingOrder.artist(named: name) != nil {
+                FavouriteTitle(
+                    title: name, isSet: model.recordingOrder.isFavourite(person: name),
+                    action: { model.recordingOrder.toggleAtOnce(person: name) }, textIdentifier: "\(kind)-title",
+                    ink: portrait == nil ? Palette.textPrimary.color : paper
+                )
+                .accessibilityIdentifier("favourite-\(kind)")
+            } else {
+                Text(name)
+                    .typeStyle(Layout.pageTitle)
+                    .foregroundStyle(portrait == nil ? Palette.textPrimary.color : paper)
+            }
             if let line {
                 Text(line)
                     .typeStyle(Layout.metaLine)

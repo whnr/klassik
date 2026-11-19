@@ -56,6 +56,8 @@ actor SilentServer: FavouriteServer {
     func unstar(_ ids: [String]) async { await hold() }
     func starAlbum(_ id: String) async { await hold() }
     func unstarAlbum(_ id: String) async { await hold() }
+    func starArtist(_ id: String) async { await hold() }
+    func unstarArtist(_ id: String) async { await hold() }
     func getStarred() async -> Starred {
         await hold()
         return Starred()
@@ -104,6 +106,16 @@ actor FavouriteFixture: FavouriteServer {
     func getStarred() throws -> Starred {
         if let failure, readsFail { throw failure }
         return stars
+    }
+
+    func starArtist(_ id: String) throws {
+        if let failure { throw failure }
+        writes.append(["artist:" + id])
+    }
+
+    func unstarArtist(_ id: String) throws {
+        if let failure { throw failure }
+        writes.append(["-artist:" + id])
     }
 }
 
@@ -593,6 +605,71 @@ struct RecordingOrderTests {
         await order.refresh()
         #expect(order.isFavourite(person: "Person a"))
         #expect(!order.isFavourite(person: "Person b"))
+    }
+
+    @Test func artistChoicesStayOfflineThenRefreshFromTheServer() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        var track = song("a")
+        let composer = Song.Artist(id: "composer", name: "Composer")
+        track.contributors?.append(.init(role: "composer", artist: composer))
+        let library = try await library([track, song("b", year: 2020)], root: root)
+        let server = FavouriteFixture()
+        await server.configure(Starred(), failure: FavouriteFixture.offline)
+        let order = RecordingOrder(library: library, store: store(root), server: server)
+        let sendComposer = try #require(order.begin(person: "Composer"))
+        #expect(order.isFavourite(person: "Composer"))
+        #expect(order.favouriteComposers.map(\.name) == ["Composer"])
+        await sendComposer()
+        let sendPerformer = try #require(order.begin(person: "Person a"))
+        #expect(order.isFavourite(person: "Person a"))
+        await sendPerformer()
+        #expect(order.error == nil)
+        #expect(order.pendingChanges.count == 2)
+        #expect(order.title(of: order.pendingChanges[0]) == "Composer")
+        let restored = RecordingOrder(library: library, store: store(root), server: server)
+        #expect(restored.isFavourite(person: "Composer"))
+        #expect(restored.isFavourite(person: "Person a"))
+        #expect(restored.favouritePerformers.map(\.name) == ["Person a"])
+        await server.configure(Starred(artist: [composer, .init(id: "person-a", name: "Person a")]))
+        await restored.refresh()
+        #expect(await server.writes == [["artist:composer"], ["artist:person-a"]])
+        #expect(restored.pendingChanges.isEmpty)
+        #expect(library.songs.allSatisfy { $0.starred == nil })
+        await server.configure(Starred())
+        await restored.refresh()
+        #expect(!restored.isFavourite(person: "Composer"))
+        #expect(!restored.isFavourite(person: "Person a"))
+        #expect(order.begin(person: "No server ID") == nil)
+    }
+
+    @Test func mixedOfflineTargetsKeepOnlyTheNewestChoiceAndTheirOrder() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let library = try await library([song("a")], root: root)
+        let server = FavouriteFixture()
+        await server.configure(Starred(), failure: FavouriteFixture.offline, readsFail: false)
+        let order = RecordingOrder(library: library, store: store(root), server: server)
+        await order.begin(person: "Person a")?()
+        await order.toggle(album: "a")
+        let work = try #require(library.index.composers.first?.works.first)
+        let recording = try #require(work.recordings.first)
+        await order.toggle(recording, of: work)
+        await order.begin(person: "Person a")?()
+        await order.refresh()
+        #expect(order.pendingChanges.count == 3)
+        #expect(order.pendingChanges[0].album == "a")
+        #expect(order.pendingChanges[1].songs == ["a-1"])
+        #expect(order.pendingChanges[2].artist?.id == "person-a")
+        #expect(order.pendingChanges[2].isSet == false)
+        #expect(order.isFavourite(album: "a"))
+        #expect(!order.isFavourite(person: "Person a"))
+        #expect(order.favouriteAlbums.map(\.title) == ["a"])
+        #expect(order.favouriteCount == 2)
+        await server.configure(Starred())
+        await order.synchronize()
+        #expect(await server.writes == [["album:a"], ["a-1"], ["-artist:person-a"]])
+        #expect(order.pendingChanges.isEmpty)
     }
 
     @Test func newestIsReferenceWithoutFavouritesAndInvalidMovesCannotChangeIt() async throws {

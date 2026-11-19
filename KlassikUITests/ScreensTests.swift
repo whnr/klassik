@@ -787,7 +787,8 @@ final class PlaybackScreens: ScreensTestCase {
         snap(app, "41b-note-saved")
 
         // Another movement plays; the row of the note now opens and shows it.
-        reveal(app.buttons["play-movement"].firstMatch, in: app).tap()
+        // The row identifier covers the play button, so the walk finds it by its label.
+        reveal(app.buttons["Play from here"].firstMatch, in: app).tap()
         pause(app)
         let row = reveal(app.descendants(matching: .any).matching(identifier: "movement").firstMatch, in: app)
         XCTAssertFalse(app.buttons["note-text"].exists, "A closed row shows its note")

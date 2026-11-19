@@ -68,6 +68,20 @@ struct DiagnosticsView: View {
                 }
             }
 
+            Section("Favourite changes waiting") {
+                let order = model.recordingOrder
+                if order.pendingChanges.isEmpty {
+                    Text("None").ink()
+                }
+                ForEach(order.pendingChanges) { change in
+                    LabeledContent(
+                        order.title(of: change), value: change.isSet ? "Favourite" : "Not a favourite"
+                    )
+                    .ink()
+                    .accessibilityIdentifier("pending-favourite")
+                }
+            }
+
             Section("Last Error") {
                 if let error = model.lastError {
                     Text(error)

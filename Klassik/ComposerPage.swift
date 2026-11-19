@@ -341,6 +341,7 @@ private struct ResolutionNotice: View {
 /// `kind` prefixes the accessibility identifiers. Every picture shows (ADR 0043).
 struct PersonHero: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.colorScheme) private var scheme
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.displayScale) private var displayScale
     @AppStorage(TimelineSide.storageKey) private var side = TimelineSide.standard
@@ -434,7 +435,7 @@ struct PersonHero: View {
             }
             .pagePadding()
             .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityElement(children: .combine)
+            .accessibilityElement(children: .contain)
             .accessibilityAddTraits(.isHeader)
             .accessibilityIdentifier("\(kind)-name")
     }
@@ -442,9 +443,20 @@ struct PersonHero: View {
     /// The name and the line, as wide as the longer of the two.
     private var textLines: some View {
         VStack(alignment: .leading, spacing: gap) {
-            Text(name)
-                .typeStyle(Layout.pageTitle)
-                .foregroundStyle(portrait == nil ? Palette.textPrimary.color : paper)
+            if model.recordingOrder.artist(named: name) != nil {
+                FavouriteTitle(
+                    title: name, isSet: model.recordingOrder.isFavourite(person: name),
+                    action: { model.recordingOrder.toggleAtOnce(person: name) }, textIdentifier: "\(kind)-title",
+                    ink: portrait == nil ? Palette.textPrimary.color : paper, minimumHeight: nil
+                )
+                // The portrait scrim uses the dark room's ink and favourite colours (picture.css).
+                .environment(\.colorScheme, portrait == nil ? scheme : .dark)
+                .accessibilityIdentifier("favourite-\(kind)")
+            } else {
+                Text(name)
+                    .typeStyle(Layout.pageTitle)
+                    .foregroundStyle(portrait == nil ? Palette.textPrimary.color : paper)
+            }
             if let line {
                 Text(line)
                     .typeStyle(Layout.metaLine)

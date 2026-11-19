@@ -167,6 +167,11 @@ extension RecordingOrder {
         guard let confirm = withoutAnimation({ begin(album: id) }) else { return }
         Task { await confirm() }
     }
+
+    func toggleAtOnce(person name: String) {
+        guard let confirm = withoutAnimation({ begin(person: name) }) else { return }
+        Task { await confirm() }
+    }
 }
 
 /// Runs a change with no animation, also inside a swipe action or a button that animates.

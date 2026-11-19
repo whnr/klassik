@@ -69,6 +69,17 @@ final class LibrarySyncTests: XCTestCase {
         XCTAssertTrue(Set(stars.song?.map(\.id) ?? []).isSuperset(of: ids))
         try await client.unstar(ids)
 
+        let composer = try XCTUnwrap(
+            reference.songs.flatMap { $0.contributors ?? [] }.first { $0.role == "composer" }?.artist)
+        try await client.starArtist(composer.id)
+        try await client.starAlbum(try XCTUnwrap(reference.songs.first?.albumId))
+        let personAndAlbumStars = try await client.getStarred()
+        XCTAssertTrue(personAndAlbumStars.artist?.contains { $0.id == composer.id } == true)
+        XCTAssertTrue(personAndAlbumStars.album?.contains { $0.id == reference.songs.first?.albumId } == true)
+        XCTAssertFalse(personAndAlbumStars.song?.contains { ids.contains($0.id) } == true)
+        try await client.unstarArtist(composer.id)
+        try await client.unstarAlbum(try XCTUnwrap(reference.songs.first?.albumId))
+
         let reloaded = Library(cacheURL: cache, defaults: defaults)
         await reloaded.load(for: client.credentials)
         XCTAssertEqual(reloaded.songs.count, 31)

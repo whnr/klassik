@@ -64,6 +64,8 @@ struct FavouriteTitle: View {
     let isSet: Bool
     let action: @MainActor () -> Void
     var textIdentifier = "page-heading"
+    var ink: Color?
+    var minimumHeight: CGFloat? = Measure.hitTarget
     @ScaledMetric(relativeTo: .title) private var em = TypeStyle.pageTitle.size
     @Environment(\.displayScale) private var scale
     @Environment(\.colorScheme) private var scheme
@@ -73,7 +75,7 @@ struct FavouriteTitle: View {
         Button(action: action) {
             Text("\(title)\u{00A0}\(Image(uiImage: mark))")
                 .typeStyle(.pageTitle)
-                .foregroundStyle(Palette.textPrimary)
+                .foregroundStyle(ink.map { AnyShapeStyle($0) } ?? AnyShapeStyle(Palette.textPrimary))
                 .accessibilityIdentifier(textIdentifier)
                 // A new mark replaces the old one in the same frame, also under an animation of the page.
                 .contentTransition(.identity)
@@ -81,7 +83,7 @@ struct FavouriteTitle: View {
         }
         // The mark changes state at once. A pressed button must not fade the title.
         .buttonStyle(.still)
-        .frame(minHeight: Measure.hitTarget)
+        .frame(minHeight: minimumHeight)
         .accessibilityLabel(title)
         .accessibilityValue(isSet ? "Favourite" : "Not a favourite")
     }

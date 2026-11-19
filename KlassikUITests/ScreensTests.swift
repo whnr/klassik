@@ -314,6 +314,15 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertGreaterThanOrEqual(density, 1, "The hero shows fewer picture pixels than screen pixels")
         snap(app, "03b-composer-picture")
 
+        let mark = app.buttons["favourite-composer"]
+        XCTAssertTrue(mark.waitForExistence(timeout: 10))
+        let initial = mark.value as? String
+        mark.tap()
+        XCTAssertNotEqual(mark.value as? String, initial)
+        snap(app, "03m-composer-picture-favourite")
+        mark.tap()
+        XCTAssertEqual(mark.value as? String, initial)
+
         picture.tap()
         let whole = app.descendants(matching: .any)["whole-picture"]
         XCTAssertTrue(whole.waitForExistence(timeout: 10))
@@ -444,6 +453,33 @@ final class BrowseScreens: ScreensTestCase {
         snap(app, "03e-composer-chips")
         checkTabs(app, "composer-tabs", from: "Works", to: "About")
         snap(app, "03f-composer-about")
+    }
+
+    @MainActor
+    func testOfflineComposerFavourite() throws {
+        let app = try launchAndConnect(arguments: ["-offlineFavourites"])
+        composer(app, "Frédéric Chopin").tap()
+        let mark = app.buttons["favourite-composer"]
+        XCTAssertTrue(mark.waitForExistence(timeout: 10))
+        XCTAssertEqual(mark.value as? String, "Not a favourite")
+        mark.tap()
+        XCTAssertEqual(mark.value as? String, "Favourite")
+        snap(app, "03k-composer-favourite")
+        back(app, times: 2)
+        app.buttons["library-favourites"].tap()
+        let row = app.buttons["favourite-composer-row"]
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        snap(app, "03l-favourite-composer-list")
+        row.tap()
+        XCTAssertEqual(mark.value as? String, "Favourite")
+        mark.tap()
+        XCTAssertEqual(mark.value as? String, "Not a favourite")
+        openSettings(app)
+        reveal(app.buttons["diagnostics"], in: app).tap()
+        let pending = app.descendants(matching: .any)["pending-favourite"].firstMatch
+        XCTAssertTrue(reveal(pending, in: app).exists)
+        XCTAssertTrue(pending.label.contains("Frédéric Chopin"), pending.label)
+        snap(app, "11a-pending-favourites")
     }
 
     /// The fixture holds only the third movement of Brahms's Fourth, so it shows under "Partial works". With the
@@ -910,7 +946,7 @@ final class PlaybackScreens: ScreensTestCase {
 
     @MainActor
     func testPerformers() throws {
-        let app = try launchAndConnect()
+        let app = try launchAndConnect(arguments: ["-offlineFavourites"])
         openPlace(app, "Search")
         app.buttons["performers"].tap()
         let performer = app.buttons.matching(identifier: "performer").firstMatch
@@ -926,6 +962,11 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(cover.exists)
         snap(app, "06b-performer")
         checkPerformerHead(app, titleBottom: title.maxY)
+        let mark = app.buttons["favourite-performer"]
+        XCTAssertTrue(mark.waitForExistence(timeout: 10))
+        mark.tap()
+        XCTAssertEqual(mark.value as? String, "Favourite")
+        snap(app, "06d-performer-favourite")
         cover.tap()
         reveal(app.buttons["raw-tags"], in: app).tap()
         XCTAssertTrue(app.navigationBars["Tags"].waitForExistence(timeout: 10))
@@ -1009,6 +1050,33 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(status.waitForExistence(timeout: 10), "No server status on Library")
         XCTAssertEqual(status.label, "Server not reachable. Changes wait on this iPhone.")
         snap(app, "05e-offline-server-status")
+    }
+
+    @MainActor
+    func testOfflineAlbumAppearsInFavourites() throws {
+        let app = try launchAndConnect(arguments: ["-offlineFavourites"])
+        openSettings(app)
+        reveal(app.buttons["classical-albums"], in: app).tap()
+        let album = app.buttons.matching(identifier: "album")
+            .matching(NSPredicate(format: "label CONTAINS 'Romantic Encores'")).firstMatch
+        reveal(album, in: app).tap()
+        let mark = app.buttons["favourite-album"]
+        XCTAssertTrue(mark.waitForExistence(timeout: 10))
+        mark.tap()
+        XCTAssertEqual(mark.value as? String, "Favourite")
+        snap(app, "05j-offline-album")
+        back(app, times: 3)
+        app.buttons["library-favourites"].tap()
+        let row = app.buttons["favourite-album-row"]
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        XCTAssertTrue(row.label.contains("Romantic Encores"))
+        snap(app, "05k-favourite-albums")
+        row.tap()
+        XCTAssertEqual(mark.value as? String, "Favourite")
+        mark.tap()
+        XCTAssertEqual(mark.value as? String, "Not a favourite")
+        back(app)
+        XCTAssertFalse(row.exists)
     }
 
     /// A swipe favourite moves ahead of a newer recording before the listener plays the work.

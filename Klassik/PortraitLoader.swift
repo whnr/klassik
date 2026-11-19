@@ -57,17 +57,28 @@ struct LoadedPortrait: @unchecked Sendable {
 }
 
 enum PortraitLoader {
-    private struct Prepared {
+    private final class Prepared: NSObject {
         weak var store: ImageStore?
         let revision: Int
         let portrait: LoadedPortrait
+
+        init(store: ImageStore, revision: Int, portrait: LoadedPortrait) {
+            self.store = store
+            self.revision = revision
+            self.portrait = portrait
+        }
     }
 
-    @MainActor private static var prepared: [ObjectIdentifier: [String: Prepared]] = [:]
+    /// Decoded pixels can be discarded under memory pressure; the persistent picture store remains complete.
+    @MainActor private static let prepared = NSCache<NSString, Prepared>()
+
+    @MainActor private static func preparedKey(_ portrait: PersonPortrait, store: ImageStore) -> NSString {
+        "\(ObjectIdentifier(store))|\(portrait.url.absoluteString)" as NSString
+    }
 
     /// A hero reads decoded pixels synchronously, before its navigation transition draws the first frame.
     @MainActor static func ready(_ portrait: PersonPortrait?, store: ImageStore = .pictures) -> LoadedPortrait? {
-        guard let portrait, let found = prepared[ObjectIdentifier(store)]?[portrait.url.absoluteString],
+        guard let portrait, let found = prepared.object(forKey: preparedKey(portrait, store: store)),
             found.store === store,
             files(of: portrait).contains(where: { store.contains($0.absoluteString) }),
             found.revision == store.revision(of: files(of: portrait).map(\.absoluteString))
@@ -77,8 +88,12 @@ enum PortraitLoader {
 
     @MainActor private static func prepare(_ loaded: LoadedPortrait, for portrait: PersonPortrait, store: ImageStore) {
         guard files(of: portrait).contains(where: { store.contains($0.absoluteString) }) else { return }
-        prepared[ObjectIdentifier(store), default: [:]][portrait.url.absoluteString] = Prepared(
+        let entry = Prepared(
             store: store, revision: store.revision(of: files(of: portrait).map(\.absoluteString)), portrait: loaded)
+        let pixels = loaded.image.cgImage
+        prepared.setObject(
+            entry, forKey: preparedKey(portrait, store: store),
+            cost: (pixels?.bytesPerRow ?? 0) * (pixels?.height ?? 0))
     }
 
     /// The longest side of the copy that the app keeps when it does not know the screen, in pixels.

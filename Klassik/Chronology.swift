@@ -180,8 +180,12 @@ struct Chronology: Sendable {
             return start.prefix(2) == end.prefix(2) && end.count == 4 ? "\(start)–\(end.suffix(2))" : "\(start)–\(end)"
         }
 
-        /// The title of the one work, else the count.
-        var title: String { works.count == 1 ? works[0].title : "\(works.count) works" }
+        var opensList: Bool { from == nil || works.count != 1 }
+
+        /// Undated works always have a count and open a list (ADR 0016).
+        var title: String {
+            opensList ? "\(works.count) \(works.count == 1 ? "work" : "works")" : works[0].title
+        }
     }
 
     /// The rows of the focus composer: one per year while they fit; else one row stands for the span of years that
@@ -189,16 +193,20 @@ struct Chronology: Sendable {
     /// its years, at least one row below the row before it, and never below the last year of the life.
     func rows(of focus: Composer, scale: Scale) -> [Row] {
         var rows: [Row] = []
+        // Source dates can fall outside the life. Keep their labels, but fit their rows inside the chart.
+        func rowY(_ year: Double) -> CGFloat {
+            scale.y(min(max(year, Double(scale.years.lowerBound)), Double(scale.years.upperBound)))
+        }
         let dated = focus.dated
         let years = dated.compactMap(\.year).reduce(into: [Int]()) { if $0.last != $1 { $0.append($1) } }
         for year in years {
             let works = dated.filter { $0.year == year }.map(\.work)
-            let y = scale.y(year)
+            let y = rowY(Double(year))
             let floor = rows.dropLast().last.map { $0.y + scale.rowHeight } ?? -CGFloat.infinity
             if var last = rows.last, y < last.y + scale.rowHeight || last.y + scale.rowHeight > scale.span {
                 last.to = year
                 last.works += works
-                last.y = max(scale.y((Double(last.from ?? year) + Double(year)) / 2), floor)
+                last.y = max(rowY((Double(last.from ?? year) + Double(year)) / 2), floor)
                 rows[rows.count - 1] = last
                 continue
             }
@@ -256,7 +264,10 @@ final class ChronologyPlace {
     /// The place opens: on the composer of a newly playing work, else where the listener left it.
     func open(_ chronology: Chronology, playing: WorkIndex.Work?) -> Chronology.Position {
         let fresh = playing.map(\.id) != openedOn ? playing : nil
-        openedOn = playing?.id
+        // Missing person facts must not consume the request to open the playing composer.
+        if playing == nil || chronology.composer(named: playing?.composer) != nil {
+            openedOn = playing?.id
+        }
         let position = chronology.opening(playing: fresh, left: left)
         if position != left { keep(position) }
         return position

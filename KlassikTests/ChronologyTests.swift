@@ -133,6 +133,45 @@ struct ChronologyTests {
         #expect(row.years == "1898–1901")
     }
 
+    @Test func posthumousSourceYearKeepsItsLabelAndReachableRow() throws {
+        let work = Self.work("Ballade No. 4")
+        let index = WorkIndex(songs: work.recordings.flatMap(\.songs))
+        let chronology = Chronology(index: index, facts: { Self.facts[$0] }, year: { _ in 1870 }, now: 2026)
+        let chopin = try #require(chronology.composer(named: "Frédéric Chopin"))
+        let scale = chronology.scale(of: chopin, height: 600, rowHeight: 20)
+        let row = try #require(chronology.rows(of: chopin, scale: scale).first)
+        #expect(scale.years == 1810...1849)
+        #expect(row.years == "1870")
+        #expect(row.title == "Ballade No. 4")
+        #expect(row.works.map(\.id) == [work.id])
+        #expect(!row.opensList)
+        #expect(row.y - scale.rowHeight / 2 >= 0)
+        #expect(row.y + scale.rowHeight / 2 <= scale.height)
+        #expect(chopin.dated.first?.year == 1870)
+    }
+
+    @Test func outOfLifeRowsFitWithoutOverlappingOtherRows() {
+        var chopin = Self.composer("Frédéric Chopin")
+        chopin.works[0].year = 1700
+        chopin.works[5].year = 1900
+        let scale = Self.chronology.scale(of: chopin, height: 200, rowHeight: 20)
+        let rows = Self.chronology.rows(of: chopin, scale: scale)
+        #expect(rows.allSatisfy { $0.y >= scale.rowHeight / 2 && $0.y <= scale.height - scale.rowHeight / 2 })
+        #expect(zip(rows, rows.dropFirst()).allSatisfy { $1.y - $0.y >= scale.rowHeight - 0.001 })
+        #expect(rows.flatMap(\.works).map(\.id).sorted() == chopin.works.map(\.id).sorted())
+    }
+
+    @Test func oneUndatedWorkHasACountAndOpensAList() throws {
+        let brahms = Self.composer("Johannes Brahms")
+        let scale = Self.chronology.scale(of: brahms, height: 600, rowHeight: 20)
+        let row = try #require(Self.chronology.rows(of: brahms, scale: scale).last)
+        #expect(row.years == "No date")
+        #expect(row.title == "1 work")
+        #expect(row.opensList)
+        #expect(row.works.map(\.title) == ["Symphony No. 4"])
+        #expect(row.y == scale.undatedY)
+    }
+
     @Test func undatedWorksAreOneRowAtTheEnd() {
         let chopin = Self.composer("Frédéric Chopin")
         let scale = Self.chronology.scale(of: chopin, height: 600, rowHeight: 20)
@@ -194,6 +233,20 @@ struct ChronologyTests {
         // The composer page opens on its composer, also while another composer plays.
         again.show(composer: "Felix Mendelssohn", playing: fifth)
         #expect(again.open(Self.chronology, playing: fifth).composer == "Felix Mendelssohn")
+    }
+
+    @Test func playingComposerOpensWhenPendingPersonFactsArrive() throws {
+        let suite = "chronology-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let place = ChronologyPlace(defaults: defaults)
+        let fifth = Self.work("Symphony No. 5")
+        let pending = Chronology(index: Self.index, facts: { _ in nil }, year: { Self.years[$0.title] })
+        #expect(place.open(pending, playing: fifth).level == .overview)
+        #expect(place.open(pending, playing: fifth).level == .overview)
+        #expect(place.open(Self.chronology, playing: fifth) == .init(level: .composer, composer: fifth.composer))
+        place.keep(.init(level: .composer, composer: "Frédéric Chopin"))
+        #expect(place.open(Self.chronology, playing: fifth).composer == "Frédéric Chopin")
     }
 
     // MARK: ADR 0022: the scrub

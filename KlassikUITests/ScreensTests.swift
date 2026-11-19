@@ -258,6 +258,15 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [brahms], timeout: 10), .completed, "The scrub did not move: \(name.label)")
         snap(app, "02e-chronology-scrubbed")
 
+        let undated = app.buttons.matching(identifier: "chronology-works").firstMatch
+        XCTAssertTrue(undated.exists, "The single undated work needs a counted list row")
+        XCTAssertEqual(undated.label, "No date, 1 work")
+        undated.tap()
+        let undatedWork = app.buttons.matching(identifier: "chronology-listed-work").firstMatch
+        XCTAssertTrue(undatedWork.waitForExistence(timeout: 10), "The single undated work did not open a list")
+        snap(app, "02f-chronology-undated")
+        app.buttons["Done"].tap()
+
         // The name opens the composer page.
         name.tap()
         XCTAssertTrue(app.navigationBars["Johannes Brahms"].waitForExistence(timeout: 10))

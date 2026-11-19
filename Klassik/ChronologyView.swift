@@ -70,6 +70,10 @@ struct ChronologyView: View {
             position = model.chronology.open(chronology, playing: model.playback.work)
         }
         .onChange(of: chronology.composers.map(\.name)) {
+            if navigator.selection == .chronology {
+                position = model.chronology.open(chronology, playing: model.playback.work)
+                return
+            }
             // A sync or a lookup can take the composer off the chart.
             if position.level == .composer, chronology.composer(named: position.composer) == nil {
                 position = chronology.opening(playing: nil, left: position)
@@ -436,7 +440,7 @@ private struct ChronologyChart: View {
     /// A row of one work opens its work page; a row of several lists them (ADR 0022).
     private func open(_ row: Chronology.Row) {
         guard tapIsLive else { return }
-        if row.works.count == 1 {
+        if !row.opensList {
             navigator.open(.work(row.works[0].id), in: .chronology)
         } else {
             list(row)
@@ -498,8 +502,7 @@ private struct ChronologyRow: View {
                     .fixedSize()
                 MarkedTitle(
                     title: row.title,
-                    isFavourite: row.from != nil && row.works.count == 1
-                        && model.recordingOrder.isFavourite(row.works[0])
+                    isFavourite: !row.opensList && model.recordingOrder.isFavourite(row.works[0])
                 )
                 .foregroundStyle(marked ? Palette.tint : Palette.textPrimary)
                 .lineLimit(1)
@@ -513,7 +516,7 @@ private struct ChronologyRow: View {
         .buttonStyle(ChronologyRowPress())
         .accessibilityLabel("\(row.years), \(row.title)")
         .accessibilityAddTraits(marked ? .isSelected : [])
-        .accessibilityIdentifier(row.works.count == 1 ? "chronology-work" : "chronology-works")
+        .accessibilityIdentifier(row.opensList ? "chronology-works" : "chronology-work")
     }
 }
 

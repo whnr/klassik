@@ -323,6 +323,8 @@ private struct ChronologyChart: View {
                         id: "band:" + period.name, kind: .band(index.isMultiple(of: 2)),
                         center: CGPoint(x: size.width / 2, y: (top + bottom) / 2),
                         size: CGSize(width: size.width, height: max(0, bottom - top))))
+                // A band too short for its name, such as the edge of a period, shows no name.
+                guard bottom - top >= Chart.bandLabelTop + rowLine else { continue }
                 let labelWidth = max(0, size.width - Layout.bandLabelLeading)
                 marks.append(
                     Mark(

@@ -271,10 +271,11 @@ enum CoverWash {
         var colours: [Palette: SRGB]
     }
 
-    /// The ground for a hue in a room: the room's lightness, and the hue's chroma up to the room's limit.
+    /// Stronger chroma needs lightness headroom, so gamut mapping does not collapse the comparison choices.
     static func ground(_ pick: CoverHue.Pick, in room: WashRoom, strength: Double = 1) -> SRGB {
         OKLCH(
-            lightness: room.lightness, chroma: min(pick.chroma, room.chromaLimit) * strength, hue: pick.hue
+            lightness: room.lightness - (strength - 1) * (room.isDark ? 0.01 : 0.03),
+            chroma: min(pick.chroma, room.chromaLimit) * strength, hue: pick.hue
         ).srgb
     }
 

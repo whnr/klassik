@@ -122,6 +122,16 @@ struct CoverWashTests {
         }
     }
 
+    @Test(arguments: WashRoom.allCases)
+    func strengthChoicesStayDistinctAfterGamutMapping(room: WashRoom) {
+        for hue in stride(from: 0.0, to: 360, by: 20) {
+            let pick = CoverHue.Pick(hue: hue, chroma: 0.15)
+            let grounds = [1.0, 2.0, 3.0].map { CoverWash.ground(pick, in: room, strength: $0) }
+            #expect(grounds[0] != grounds[1])
+            #expect(grounds[1] != grounds[2])
+        }
+    }
+
     @Test func roomLimitsAreTheDecidedValues() {
         #expect(WashRoom.light.lightness == 0.935 && WashRoom.light.chromaLimit == 0.026)
         #expect(WashRoom.dark.lightness == 0.235 && WashRoom.dark.chromaLimit == 0.04)

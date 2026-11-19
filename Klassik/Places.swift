@@ -82,7 +82,7 @@ private struct SystemPlaces: UIViewControllerRepresentable {
             let root: AnyView
             switch place {
             case .library: root = AnyView(PlaceStack(place: place) { LibraryView() })
-            case .chronology: root = AnyView(PlaceStack(place: place) { WorkTimelineView() })
+            case .chronology: root = AnyView(PlaceStack(place: place) { ChronologyView() })
             case .search: root = AnyView(PlaceStack(place: place) { SearchView() })
             }
             let host = UIHostingController(

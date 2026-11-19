@@ -3,7 +3,6 @@ import Observation
 
 /// Composition dates, MusicBrainz links and composer dates for the works of the library.
 /// Tags are the truth: this only fills gaps. Facts are cached by MusicBrainz ID and fetched once.
-/// The listener's own years stay on the device and win over every source.
 @MainActor @Observable
 final class Enrichment {
     struct Cache: Codable, Sendable {
@@ -22,8 +21,6 @@ final class Enrichment {
         /// MusicBrainz artist IDs by the composer name in the tags.
         var composerIDs: [String: String] = [:]
         var unknownComposers: Set<String> = []
-        /// Composition years that the listener typed, by Klassik work ID.
-        var years: [String: Int] = [:]
         /// MusicBrainz IDs of undated works that Wikidata was asked about.
         var askedWikidata: Set<String> = []
         /// Klassik work IDs whose match the listener turned down. They are never looked up again.
@@ -31,7 +28,7 @@ final class Enrichment {
 
         init() {}
 
-        /// A cache from an older version lacks the newer fields; the listener's years must survive.
+        /// A cache from an older version lacks the newer fields.
         init(from decoder: Decoder) throws {
             let values = try decoder.container(keyedBy: CodingKeys.self)
             works = try values.decodeIfPresent([String: WorkFacts].self, forKey: .works) ?? [:]
@@ -42,18 +39,16 @@ final class Enrichment {
             composers = try values.decodeIfPresent([String: ComposerFacts].self, forKey: .composers) ?? [:]
             composerIDs = try values.decodeIfPresent([String: String].self, forKey: .composerIDs) ?? [:]
             unknownComposers = try values.decodeIfPresent(Set<String>.self, forKey: .unknownComposers) ?? []
-            years = try values.decodeIfPresent([String: Int].self, forKey: .years) ?? [:]
             askedWikidata = try values.decodeIfPresent(Set<String>.self, forKey: .askedWikidata) ?? []
             rejected = try values.decodeIfPresent(Set<String>.self, forKey: .rejected) ?? []
         }
     }
 
     enum Source: Equatable, Sendable {
-        case listener, musicBrainz, wikidata
+        case musicBrainz, wikidata
 
         var title: String {
             switch self {
-            case .listener: "You"
             case .musicBrainz: "MusicBrainz"
             case .wikidata: "Wikidata"
             }
@@ -139,7 +134,6 @@ final class Enrichment {
 
     /// When the work was composed, and who says so.
     func composed(_ work: WorkIndex.Work) -> (span: YearSpan, source: Source)? {
-        if let year = cache.years[work.id] { return (YearSpan(year), .listener) }
         guard let facts = facts(of: work), let span = facts.composed else { return nil }
         return (span, facts.source == .wikidata ? .wikidata : .musicBrainz)
     }
@@ -172,11 +166,6 @@ final class Enrichment {
     }
 
     // MARK: Listener
-
-    func setYear(_ year: Int?, for work: WorkIndex.Work) {
-        cache.years[work.id] = year
-        save()
-    }
 
     func confirm(_ candidate: WorkCandidate, for work: WorkIndex.Work) async {
         cache.candidates[work.id] = nil

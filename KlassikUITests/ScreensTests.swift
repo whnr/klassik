@@ -1893,6 +1893,7 @@ class ScreensTestCase: XCTestCase {
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.5))
         } while Date() < deadline
+        snap(app, "08d-next-player")
         XCTFail("The wash of the next item does not start at the top: \(found)", file: file, line: line)
     }
 

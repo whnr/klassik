@@ -31,7 +31,7 @@ Rules for coding agents in this repository.
 - `design/scripts/tokens.py` writes `design/tokens.css`, `Klassik/Tokens.swift` and the colour sets in `Klassik/Assets.xcassets/Colors/`. Never edit them by hand. The design lint fails when one is not current. `.github/workflows/design.yml` runs it on Linux when those files change.
 - `.github/workflows/test.yml` runs `scripts/lint.sh` on Linux, then unit, library sync and gapless tests on `xcode-27` with Xcode 27.2 against fixture Navidrome. It runs on `main` and `ci` pushes, pull requests except documentation-only changes, and manual requests. Main pushes run build, unit tests and the Release launch check, without a UI walk. Nightly runs walk all groups on main. A release PR titled `Release Klassik ...` walks all groups. Other pull requests walk only requested areas. The legacy `ci` branch still walks all groups. The walk uploads the screenshots as artifact `screens`.
 - The walk has four groups: `playback-queue`, `playback-controls`, `places-browse` and `settings-timeline`. Both playback groups select methods from `PlaybackScreens`. Each failed test gets one retry inside its job. Reports name failed tests, count attempts, and retain first failures. Result bundles remain available after recovered retries.
-- The UI walk and its screenshots take most of a run's macOS time. A pull request requests the walk with a line `[ui: <areas>]` in a commit message, such as `[ui: playback,browse]` or `[ui: all]`. The areas are the classes in `ScreensTests.swift` without `Screens`. The run walks the union of the requests in all commits of the PR, so later pushes walk the same areas. An unknown area fails the run.
+- The UI walk and its screenshots take most of a run's macOS time. A pull request requests the walk with a line `[ui: <areas>]` in a commit message, such as `[ui: playback,browse]` or `[ui: all]`. The areas are the classes in `ScreensTests.swift` without `Screens`. The run walks the union of the requests in all commits of the PR, so later pushes walk the same areas. The plan warns about unknown areas and ignores them. It prints valid areas and UI group names.
 - A pull request that changes the UI requests the walk for each area that it changes. Its review compares the screenshots with the specimen pages and ADRs, and checks that the PR requested the walk for the changed areas.
 - A pull request that changes only logic does not request the walk. Its run starts no UI job, and the `test` check is green when the build and unit tests pass.
 - The build job boots its simulator before the build and runs unit tests against the same products. Walk jobs boot during artifact setup. The Release launch check boots its simulator before building optimized products separately.
@@ -82,6 +82,7 @@ Rules for coding agents in this repository.
 
 Never push main. The pre-push hook in worker checkouts refuses it.
 Push your branch: `git push origin HEAD:refs/heads/<branch>`
+Before pushing, check `[ui: ...]` lines in all PR commits against the areas in `scripts/screen_report.py` `UI_GROUPS`.
 Then open a PR with `gh pr create`. An approved review and green CI merge it.
 
 ## Writing

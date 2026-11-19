@@ -1,7 +1,7 @@
 {
-  "sha": "c9d3e5d61bd2a5349cf0c9e39ce6ccbce00fce6c",
+  "sha": "1cfdf1b2d003d30cfce7c3131d2e2f9e4d287ba8",
   "branch": "main",
   "path": "main",
-  "subject": "[sz-rs30.1.123 and sz-rs30.1.101] Keep set titles in place; mark favourites in lists (#103)",
-  "ts": 1795054676
+  "subject": "[sz-rs30.1.105.15] Build Chronology (#107)",
+  "ts": 1795061243
 }

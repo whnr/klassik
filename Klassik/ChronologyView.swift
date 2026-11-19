@@ -252,6 +252,10 @@ private struct ChronologyChart: View {
                         .position(x: left + (size.width - left) / 2, y: row.y)
                 }
             }
+        }
+        .frame(width: size.width, height: size.height, alignment: .topLeading)
+        .clipped()
+        .overlay(alignment: .topLeading) {
             if let scrub, let picked {
                 Text(picked)
                     .typeStyle(Layout.workRow)
@@ -266,14 +270,12 @@ private struct ChronologyChart: View {
                     .fixedSize()
                     .position(
                         x: min(max(scrub.location.x, Chart.pickInset), size.width - Chart.pickInset),
-                        y: max(Layout.pickLabelAbove, scrub.location.y - Layout.pickLabelAbove)
+                        y: scrub.location.y - Layout.pickLabelAbove
                     )
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
             }
         }
-        .frame(width: size.width, height: size.height, alignment: .topLeading)
-        .clipped()
         .contentShape(.rect)
         .onTapGesture(coordinateSpace: .local) { point in tap(at: point, lanes: lanes, scale: scale) }
         .simultaneousGesture(scrubGesture(lanes: lanes))

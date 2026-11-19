@@ -87,6 +87,15 @@ struct FavouriteTitle: View {
     }
 
     private var mark: UIImage {
+        FermataShape.image(em: em, isSet: isSet, scale: scale, scheme: scheme, contrast: contrast)
+    }
+}
+
+extension FermataShape {
+    /// The mark as a text attachment, so a wrapped title keeps it with the final word.
+    @MainActor static func image(
+        em: CGFloat, isSet: Bool, scale: CGFloat, scheme: ColorScheme, contrast: ColorSchemeContrast
+    ) -> UIImage {
         let size = CGSize(width: em * Layout.fermataWidth, height: em * Layout.fermataHeight)
         let format = UIGraphicsImageRendererFormat()
         format.scale = scale
@@ -98,6 +107,29 @@ struct FavouriteTitle: View {
         return UIGraphicsImageRenderer(size: size, format: format).image { _ in
             colour.setFill()
             UIBezierPath(cgPath: FermataShape().path(in: CGRect(origin: .zero, size: size)).cgPath).fill()
+        }
+    }
+}
+
+/// A title in a list row. A favourite gets the set fermata a quarter em after its last word (ADR 0033); any other
+/// row shows no mark, so a list stays quiet until something in it is a favourite.
+struct MarkedTitle: View {
+    let title: String
+    let isFavourite: Bool
+    @ScaledMetric(relativeTo: .body) private var em = TypeStyle.body.size
+    @Environment(\.displayScale) private var scale
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    var body: some View {
+        if isFavourite {
+            let mark = FermataShape.image(em: em, isSet: true, scale: scale, scheme: scheme, contrast: contrast)
+            // A no-break space is about a quarter em wide and keeps the mark with the last word.
+            Text("\(title)\u{00A0}\(Image(uiImage: mark))")
+                .accessibilityLabel(title)
+                .accessibilityValue("Favourite")
+        } else {
+            Text(title)
         }
     }
 }

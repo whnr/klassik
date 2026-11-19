@@ -340,8 +340,9 @@ def swift_colours(resolver, tokens):
         "",
         "    var color: Color { Color(assetName()) }",
         "",
+        "    /// The player wash solves colours again on its ground. They come through the environment (ADR 0034).",
         "    func resolve(in environment: EnvironmentValues) -> Color.Resolved {",
-        "        color.resolve(in: environment)",
+        "        environment.paletteOverrides[self] ?? color.resolve(in: environment)",
         "    }",
         "}",
     ]

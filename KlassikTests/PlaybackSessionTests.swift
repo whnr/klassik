@@ -1,6 +1,7 @@
 import Foundation
 import MediaPlayer
 import Testing
+import UIKit
 
 @testable import Klassik
 
@@ -101,6 +102,36 @@ struct PlaybackSessionTests {
         engine.end(1)
         #expect(session.coverSong?.id == "a-2")
         #expect(session.coverSong?.discNumber == 2)
+    }
+
+    @Test func washFollowsMovementBetweenDifferentlyColouredKeptCovers() async throws {
+        let (session, engine) = try makeSession()
+        let fixture = CoverArtTests()
+        var playing = item("a", movements: 2)
+        for index in playing.recording.songs.indices {
+            playing.recording.songs[index].albumId = "a"
+            playing.recording.songs[index].discNumber = index + 1
+            playing.recording.songs[index].coverArt = "disc-\(index)"
+        }
+        fixture.server.covers = ["disc-0": CoverWashTests.file(.red), "disc-1": CoverWashTests.file(.blue)]
+        let store = try fixture.makeStore()
+        let covers = fixture.makeCovers(store, songs: playing.recording.songs)
+        await covers.idle()
+        fixture.server.reset()
+        session.play(playing)
+        let first = try #require(session.coverSong)
+        let firstLoad = CoverWashModifier.Load(song: first, covers: covers)
+        let firstWash = await CoverWashModifier.loaded(firstLoad, song: first, store: store)
+        engine.end(0)
+        let second = try #require(session.coverSong)
+        let secondLoad = CoverWashModifier.Load(song: second, covers: covers)
+        let secondWash = await CoverWashModifier.loaded(secondLoad, song: second, store: store)
+        #expect(firstLoad != secondLoad)
+        let red = try #require(firstWash?.pick)
+        let blue = try #require(secondWash?.pick)
+        #expect(CoverWashTests.distance(red.hue, OKLCH(CoverWashTests.hex(0xff_00_00)).hue) < 5)
+        #expect(CoverWashTests.distance(blue.hue, OKLCH(CoverWashTests.hex(0x00_00_ff)).hue) < 5)
+        #expect(fixture.server.requests.isEmpty)
     }
 
     @Test func playingAnotherItemReplacesTheQueue() throws {

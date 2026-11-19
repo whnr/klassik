@@ -203,6 +203,18 @@ enum Layout {
     /// How far the touch area of the playback bar reaches above and below it, as a CSS inset: 44 points in all.
     /// css: player.html .mv-bar::after | top
     static let positionBarInset: CGFloat = -19
+    /// The height of the player wash. It keeps its colour to `washSolid`, then fades into the page ground.
+    /// css: player.html .wash | height
+    static let washHeight: CGFloat = 640
+    /// The share of the wash height that keeps the full wash colour.
+    /// css: player.html .wash | background | 30%
+    static let washSolid: CGFloat = 0.3
+    /// The rise when an item ends: the old content leaves this far upwards.
+    /// css: player.html .rise-out | transform | 40px
+    static let riseOut: CGFloat = 40
+    /// The rise when an item ends: the next content comes from this far below.
+    /// css: player.html "transform: translateY(120px);" | transform | 120px
+    static let riseIn: CGFloat = 120
     /// The handle at the top of the player overlay.
     /// css: overlay.css .player-overlay .grab::after | width
     static let grabberWidth: CGFloat = 36

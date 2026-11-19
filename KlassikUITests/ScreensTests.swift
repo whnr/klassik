@@ -937,18 +937,33 @@ final class PlaybackScreens: ScreensTestCase {
         // The player opens at its header, and the playing movement may lie below the fold.
         XCTAssertTrue(reveal(app.sliders["position"], in: app).exists, "No position slider in the player")
         snap(app, "07-now-playing")
-        let queued = app.buttons.matching(identifier: "up-next").firstMatch
-        for _ in 0..<3 where !(queued.exists && queued.isHittable) { app.swipeUp() }
-        XCTAssertTrue(queued.label.contains("Symphony No. 5"))
+        let queued = reveal(app.descendants(matching: .any).matching(identifier: "up-next").firstMatch, in: app)
+        XCTAssertTrue(queued.label.contains("Symphony No. 5"), queued.label)
         snap(app, "08-up-next")
         reveal(app.buttons["Next Work"].firstMatch, in: app).tap()
         let title = app.buttons.matching(identifier: "favourite-recording")
             .matching(NSPredicate(format: "label CONTAINS 'Symphony No. 5'")).firstMatch
         XCTAssertTrue(title.waitForExistence(timeout: 15))
+        // The player follows the playing row after its quiet spell, so the header shows only for that spell.
+        expectWashFromTheTop(app)
+        snap(app, "08d-next-player")
         pause(app)
         XCTAssertTrue(app.sliders["position"].waitForExistence(timeout: 10))
         XCTAssertTrue(miniPlayer.buttons["mini-player-cover"].exists)
-        snap(app, "08d-next-player")
+    }
+
+    /// With no item after the one that plays, the player ends with a Next section that says where the queue ends
+    /// (ADR 0014). After the last item the player closes, as `testStopClosesThePlayer` checks for Stop (ADR 0053).
+    @MainActor
+    func testQueueEndsHere() throws {
+        let app = try launchAndConnect()
+        openRecording(app)
+        playPaused(app)
+        openPlayer(app)
+        let endsHere = reveal(app.descendants(matching: .any)["up-next-end"].firstMatch, in: app)
+        XCTAssertTrue(endsHere.exists, "The player does not say where the queue ends")
+        XCTAssertFalse(app.descendants(matching: .any)["up-next"].firstMatch.exists, "A next row without a next item")
+        snap(app, "08e-queue-ends-here")
     }
 
     /// Offline, a favourite changes at the tap and shows no notice. One quiet Library line says why changes wait
@@ -1839,9 +1854,47 @@ class ScreensTestCase: XCTestCase {
             side == .right ? Int(scale) : width - 1 - Int(scale)
         }
 
+        /// True when two pixels differ in colour.
+        func differs(_ a: (x: Int, y: Int), _ b: (x: Int, y: Int)) -> Bool {
+            let (first, second) = ((a.y * width + a.x) * 4, (b.y * width + b.x) * 4)
+            return (0..<3).reduce(0) { $0 + abs(Int(bytes[first + $1]) - Int(bytes[second + $1])) } > 30
+        }
+
         func pixels(_ range: ClosedRange<CGFloat>) -> Range<Int> {
             Int((range.lowerBound * scale).rounded())..<Int((range.upperBound * scale).rounded())
         }
+    }
+
+    /// The player of a new item opens at its top, so its wash keeps the full colour below the details and fades into
+    /// the page ground at `Layout.washHeight` (specimen player.html resets scrollTop when the item changes).
+    /// The wash comes after its cover loads, so the check waits for it, but for less than the quiet spell.
+    @MainActor
+    func expectWashFromTheTop(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+        let player = app.descendants(matching: .any)["player-overlay"].firstMatch
+        XCTAssertTrue(player.exists, "No player", file: file, line: line)
+        // The overlay lies under the status bar, so the wash starts at the top of the screen at the latest.
+        let top = max(player.frame.minY - app.frame.minY, 0)
+        let points = (
+            top: top + 24, solid: top + Layout.washHeight * Layout.washSolid - 16, ground: top + Layout.washHeight + 16
+        )
+        guard points.ground < app.frame.height else {
+            return XCTFail("The screen is shorter than the wash", file: file, line: line)
+        }
+        let deadline = Date().addingTimeInterval(4)
+        var found = "no screenshot"
+        repeat {
+            if let screen = ScreenPixels(app) {
+                let x = screen.groundColumn(side: .right)
+                let pixel = { (y: CGFloat) in (x: x, y: min(Int((y * screen.scale).rounded()), screen.height - 1)) }
+                let even = !screen.differs(pixel(points.top), pixel(points.solid))
+                let washed = screen.differs(pixel(points.solid), pixel(points.ground))
+                if even, washed { return }
+                found = "full colour to the solid stop: \(even), wash above the ground: \(washed)"
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        } while Date() < deadline
+        snap(app, "08d-next-player")
+        XCTFail("The wash of the next item does not start at the top: \(found)", file: file, line: line)
     }
 
     /// The bounds of the pixels inside `frame` that differ from the page ground, in screen points. A list cell spans
@@ -2106,14 +2159,18 @@ class ScreensTestCase: XCTestCase {
     @discardableResult
     func reveal(_ element: XCUIElement, in app: XCUIApplication) -> XCUIElement {
         let row = app.descendants(matching: .any)["tab-row"].firstMatch
-        let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
-        let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35))
+        let bar = app.sliders["position"].firstMatch
         for _ in 0..<14 {
             if element.exists {
                 // A tap on a row under the tab row would open a place or the player.
                 let floor = row.exists ? row.frame.minY : app.frame.maxY
                 if element.frame.maxY <= floor, element.isHittable { return element }
             }
+            // A drag that starts on the playback bar scrubs and does not scroll, so it starts below the bar.
+            let start = CGPoint(x: app.frame.midX, y: app.frame.minY + app.frame.height * 0.6)
+            let onBar = bar.exists && bar.frame.insetBy(dx: 0, dy: -Measure.hitTarget).contains(start)
+            let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: onBar ? 0.78 : 0.6))
+            let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: onBar ? 0.53 : 0.35))
             from.press(forDuration: 0.05, thenDragTo: to)
         }
         return element

@@ -293,9 +293,6 @@ enum Layout {
     static let pickLabelShadowY: CGFloat = 2
     /// css: chronology.html .pick-label | box-shadow | 0.18
     static let pickLabelShadowOpacity: CGFloat = 0.18
-    /// The name of the composer in focus, or "All composers".
-    /// css: chronology.html "t-title2" | class
-    static let chronologyTitle = TypeStyle.title2
     /// The life, the count of works and the work period start.
     /// css: chronology.html "t-subheadline secondary" | class
     static let chronologyLine = TypeStyle.subheadline

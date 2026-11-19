@@ -87,7 +87,8 @@ struct ChronologyView: View {
     }
 }
 
-/// The name of the composer in focus, which opens the composer page, and the facts line (ADR 0022).
+/// The name of the composer in focus, which opens the composer page, and the facts line (ADR 0022). The name is
+/// a page title: `h1[class]` in specimen.css sets it over the `t-title2` class of chronology.html.
 private struct ChronologyHead: View {
     let chronology: Chronology
     let focus: Chronology.Composer?
@@ -97,7 +98,7 @@ private struct ChronologyHead: View {
             if let focus {
                 NavigationLink(value: Page.composer(focus.name)) {
                     Text(focus.name)
-                        .typeStyle(Layout.chronologyTitle)
+                        .typeStyle(Layout.pageTitle)
                         .foregroundStyle(Palette.textPrimary)
                         .lineLimit(1)
                 }
@@ -105,7 +106,7 @@ private struct ChronologyHead: View {
                 .accessibilityIdentifier("chronology-name")
             } else {
                 Text("All composers")
-                    .typeStyle(Layout.chronologyTitle)
+                    .typeStyle(Layout.pageTitle)
                     .foregroundStyle(Palette.textPrimary)
                     .lineLimit(1)
                     .accessibilityAddTraits(.isHeader)
@@ -234,7 +235,7 @@ private struct ChronologyChart: View {
             if let focus, let scale {
                 let left = Chart.rowsX(width: size.width)
                 ForEach(chronology.rows(of: focus, scale: scale)) { row in
-                    WorkRow(row: row, marked: row.works.contains { $0.id == playing?.id }) { open(row) }
+                    ChronologyRow(row: row, marked: row.works.contains { $0.id == playing?.id }) { open(row) }
                         .frame(width: max(0, size.width - left), height: rowHeight, alignment: .leading)
                         .position(x: left + (size.width - left) / 2, y: row.y)
                 }
@@ -480,7 +481,7 @@ private struct ChronologyChart: View {
 }
 
 /// A row in the column of works: the year or span, then the title or the count. The playing work takes the tint.
-private struct WorkRow: View {
+private struct ChronologyRow: View {
     let row: Chronology.Row
     let marked: Bool
     let action: () -> Void
@@ -502,7 +503,7 @@ private struct WorkRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(.rect(cornerRadius: Layout.workRowCorner))
         }
-        .buttonStyle(WorkRowPress())
+        .buttonStyle(ChronologyRowPress())
         .accessibilityLabel("\(row.years), \(row.title)")
         .accessibilityAddTraits(marked ? .isSelected : [])
         .accessibilityIdentifier(row.works.count == 1 ? "chronology-work" : "chronology-works")
@@ -510,7 +511,7 @@ private struct WorkRow: View {
 }
 
 /// The pressed row takes the quiet fill, as `.wrow:active` in the specimen.
-private struct WorkRowPress: ButtonStyle {
+private struct ChronologyRowPress: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .background(

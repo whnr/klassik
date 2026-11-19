@@ -1096,7 +1096,7 @@ private struct OfflineControls: View {
 }
 
 /// The row of the next queue item at the end of the player (ADR 0014). It shows the cover, title and album.
-/// It only shows what comes. The item starts when the playing one ends.
+/// A tap on the row skips to the item at once; the row itself only shows what comes.
 private struct NextItemRow: View {
     let item: QueueItem
 

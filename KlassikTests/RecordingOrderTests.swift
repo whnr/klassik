@@ -722,6 +722,20 @@ struct RecordingOrderTests {
         #expect(order.refreshError == nil)
     }
 
+    /// Only a read of the stars shows a change that another device made while this one was offline.
+    @Test func reconnectReadsTheStarsAgain() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let library = try await library([song("a")], root: root)
+        let server = SilentServer()
+        await server.open()
+        let order = RecordingOrder(library: library, store: store(root), server: server)
+        var listened = false
+        await AppModel.synchronizeAfterReconnect(order: order, listening: { listened = true })
+        #expect(await server.calls == 1)
+        #expect(listened)
+    }
+
     /// Each favourite control changes its state in the tap itself, while the server has not answered. A star does
     /// not rebuild the index, because the rebuild holds the main actor under the tap (ADR 0052).
     @Test func aTapChangesStateWithNoServerAnswerAndKeepsTheIndex() async throws {

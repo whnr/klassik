@@ -61,6 +61,7 @@ struct ComposerWorks: Sendable {
 
     /// The rows A to Z. With chips on, a work shows when it carries any of them ("or"), and a set keeps
     /// only the works that do. Sets stay in Works because their completeness is unknown.
+    /// `partial` nil keeps every row, true keeps only partial works, false keeps the rest and every set.
     func rows(filter chips: Set<String> = [], partial: Bool? = nil) -> [Row] {
         let shown = works.filter { work in
             chips.isEmpty || !Self.genres(of: work).isDisjoint(with: chips)

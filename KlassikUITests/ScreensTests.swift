@@ -16,11 +16,13 @@ final class PlacesScreens: ScreensTestCase {
         XCTAssertTrue(composer(app, "Felix Mendelssohn").waitForExistence(timeout: 30))
         snap(app, "02d-composers")
         // The title must clear the system top blur, with the specimen gap below the bar.
+        // The type style's line box reaches above the glyphs, so the check reads the drawn ink.
         let heading = app.staticTexts["page-heading"]
         XCTAssertTrue(heading.exists)
+        let title = drawn(heading, in: app)
         XCTAssertGreaterThanOrEqual(
-            heading.frame.minY, app.navigationBars.firstMatch.frame.maxY + Layout.headTop - 1)
-        expectPageEdges(drawn(heading, in: app), in: app, "Composers title")
+            title.minY, app.navigationBars.firstMatch.frame.maxY + Layout.headTop - 1, "Title ink \(title)")
+        expectPageEdges(title, in: app, "Composers title")
         let rows = app.buttons.matching(identifier: "composer")
         XCTAssertGreaterThan(rows.count, 1, "The list has no two composers")
         expectHairline(between: rows.element(boundBy: 0), and: rows.element(boundBy: 1), in: app, "Composer hairline")

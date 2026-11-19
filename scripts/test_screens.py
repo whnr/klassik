@@ -1,5 +1,7 @@
 """Tests for the screenshot scripts: python3 -m unittest discover -s scripts -p "test_screens.py"."""
 
+import contextlib
+import io
 import os
 import pathlib
 import re
@@ -331,13 +333,18 @@ class PlanTests(unittest.TestCase):
         ui, groups = self.groups("pull_request", messages="[ui: browse]\n[ui: all]")
         self.assertEqual((ui, len(groups)), ("all", 4))
 
-    def test_pull_request_rejects_unknown_areas(self):
-        with self.assertRaises(ValueError):
-            screen_report.plan("pull_request", "", "[ui: brwse]")
-
-    def test_every_request_is_validated_after_all(self):
-        with self.assertRaises(ValueError):
-            screen_report.plan("pull_request", "", "[ui: all]\n[ui: brwse]")
+    def test_pull_request_warns_and_keeps_valid_requests(self):
+        for messages, expected in (
+            ("[ui: brwse]", ("false", [])),
+            ("[ui: places,library]\n[ui: performers]", ("places", ["places-browse"])),
+            ("[ui: all]\n[ui: brwse]", ("all", list(screen_report.UI_GROUPS))),
+        ):
+            with self.subTest(messages=messages), contextlib.redirect_stderr(io.StringIO()) as warnings:
+                self.assertEqual(self.groups("pull_request", messages=messages), expected)
+                self.assertIn("::warning::Ignoring unknown UI areas:", warnings.getvalue())
+                for group in screen_report.UI_GROUPS:
+                    self.assertIn(group, warnings.getvalue())
+                self.assertIn("Valid UI areas: playback, places, browse, settings, timeline", warnings.getvalue())
 
     def test_main_push_runs_no_walk(self):
         self.assertEqual(self.groups("push"), ("false", []))

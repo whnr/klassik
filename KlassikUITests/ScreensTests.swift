@@ -34,17 +34,15 @@ final class PlacesScreens: ScreensTestCase {
         app.buttons["Edit"].tap()
         XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 5))
         snap(app, "02e-library-edit")
-        // The system reorder control sits beside the row, outside its frame. A drag of Composers past the bottom
-        // of the Favourites control puts Favourites first. A drop inside the control is too close to the point where
-        // the list decides the order. A long hold before the drag does not pick the row up.
+        // Move the last row above the first row, clear of the footer below the list.
         let reorder = { (name: String) in
             app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Reorder \(name)")).firstMatch
         }
-        XCTAssertTrue(reorder("Composers").exists, "No reorder control on Composers")
-        reorder("Composers").coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        XCTAssertTrue(reorder("Favourites").exists, "No reorder control on Favourites")
+        reorder("Favourites").coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
             .press(
                 forDuration: 0.1,
-                thenDragTo: reorder("Favourites").coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 1.3)),
+                thenDragTo: reorder("Composers").coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0)),
                 withVelocity: .slow, thenHoldForDuration: 0.5)
         app.buttons["Done"].tap()
         XCTAssertTrue(app.buttons["Edit"].waitForExistence(timeout: 5))

@@ -112,8 +112,21 @@ def requested_areas(messages):
         request = match.group(1).replace(" ", "").lower()
         if request in ("", "false"):
             continue
-        # Validate every request, also after an "all".
-        wanted |= set(selected_areas(request, ",".join(known)).split(","))
+        if request not in ("all", "true"):
+            areas = set(request.split(","))
+            if unknown := areas - set(known):
+                print(
+                    "::warning::Ignoring unknown UI areas: "
+                    + ", ".join(sorted(unknown))
+                    + ". Valid UI areas: "
+                    + ", ".join(known)
+                    + ". UI_GROUPS: "
+                    + ", ".join(UI_GROUPS),
+                    file=sys.stderr,
+                )
+            wanted |= areas & set(known)
+        else:
+            wanted |= set(known)
         if request in ("all", "true"):
             everything = True
     if everything:

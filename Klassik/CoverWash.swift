@@ -422,12 +422,13 @@ struct CoverWashModifier: ViewModifier {
             }
     }
 
-    /// Track and disc links can supply art without a server cover ID (ADR 0059).
+    /// Track and disc links can supply art without a server cover ID (ADR 0059). A song with no cover ID and no
+    /// readable kept file takes the accent, as the hero shows no art for it.
     @MainActor static func loaded(_ load: Load, song: Song?, store: ImageStore) async -> Loaded? {
         if let kept = await CoverHue.kept(load.candidates, read: { await store.data(named: $0) }) {
             return Loaded(slot: load.slot, pick: kept.pick)
         }
-        guard load.candidates.isEmpty, song?.coverArt == nil else { return nil }
+        guard song?.coverArt == nil else { return nil }
         return Loaded(slot: load.slot, pick: nil)
     }
 }

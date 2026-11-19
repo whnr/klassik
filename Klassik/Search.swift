@@ -122,21 +122,22 @@ struct Search: Sendable {
         guard !tokens.isEmpty else { return Results() }
         // A title that starts with the text comes first, then a title that holds every word, then a match on the
         // composer or the set only (search.html).
-        let found = works.filter { Self.matches(tokens, $0.words) }
-            .map { entry -> (entry: WorkEntry, rank: Int) in
-                let rank =
-                    entry.title.hasPrefix(tokens[0]) ? 0 : Self.matches(tokens, entry.titleWords) ? 1 : 2
-                return (entry, rank)
-            }
-            .sorted {
-                $0.rank != $1.rank
-                    ? $0.rank < $1.rank
-                    : $0.entry.work.title.localizedStandardCompare($1.entry.work.title) == .orderedAscending
-            }
+        let ranked: [(work: WorkIndex.Work, rank: Int)] = works.filter { Self.matches(tokens, $0.words) }
+            .map { entry in (entry.work, Self.rank(of: entry, for: tokens)) }
+        let found = ranked.sorted { lhs, rhs in
+            lhs.rank != rhs.rank
+                ? lhs.rank < rhs.rank
+                : lhs.work.title.localizedStandardCompare(rhs.work.title) == .orderedAscending
+        }
         return Results(
-            works: found.map(\.entry.work),
+            works: found.map { $0.work },
             people: people.filter { Self.matches(tokens, $0.words) }.map(\.item),
             albums: albums.filter { Self.matches(tokens, $0.words) }.map(\.item))
+    }
+
+    private static func rank(of entry: WorkEntry, for tokens: [String]) -> Int {
+        if entry.title.hasPrefix(tokens[0]) { return 0 }
+        return matches(tokens, entry.titleWords) ? 1 : 2
     }
 
     /// The name under the album title: the album artist, else the track artist.

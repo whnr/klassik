@@ -9,6 +9,8 @@ struct SearchView: View {
     @Environment(AppNavigator.self) private var navigator
     @State private var text = ""
     @FocusState private var focused: Bool
+    /// The start that the page last handled.
+    @State private var started: Int?
 
     var body: some View {
         let typed = !text.trimmingCharacters(in: .whitespaces).isEmpty
@@ -48,11 +50,17 @@ struct SearchView: View {
             SearchField(text: $text, focused: $focused)
         }
         .scrollDismissesKeyboard(.immediately)
-        // A tab or a link opens Search empty, with the keyboard up, as the system Search tab does.
-        .onChange(of: navigator.searchStarts, initial: true) {
-            text = ""
-            focused = navigator.selection == .search
-        }
+        .onAppear(perform: start)
+        .onChange(of: navigator.searchStarts, start)
+    }
+
+    /// A tab or a link opens Search empty, with the keyboard up, as the system Search tab does. The root appears
+    /// again after Back from a result; that arrival is no new start, so the search stays (ADR 0029).
+    private func start() {
+        guard navigator.searchStarts != started else { return }
+        started = navigator.searchStarts
+        text = ""
+        focused = navigator.selection == .search
     }
 }
 

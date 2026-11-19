@@ -116,6 +116,28 @@ final class PlacesScreens: ScreensTestCase {
         XCTAssertTrue(app.buttons["library-composers"].exists)
     }
 
+    @MainActor
+    func testRepeatedEdgeBackFromRows() throws {
+        let app = try launchAndConnect()
+        for _ in 0..<3 {
+            let row = composer(app, "Felix Mendelssohn")
+            XCTAssertTrue(row.waitForExistence(timeout: 10))
+            row.tap()
+            XCTAssertTrue(app.navigationBars["Felix Mendelssohn"].waitForExistence(timeout: 10))
+            let work = app.buttons.matching(identifier: "work").firstMatch
+            XCTAssertTrue(work.waitForExistence(timeout: 10))
+            let y = work.frame.midY / app.frame.height
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.001, dy: y))
+            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: y))
+            start.press(forDuration: 0.05, thenDragTo: end)
+            XCTAssertTrue(app.staticTexts["page-heading"].waitForExistence(timeout: 10))
+            XCTAssertFalse(app.buttons["play-work"].exists, "The edge drag opened the work row")
+            openPlace(app, "Search")
+            swipeFromLeftEdge(app)
+            XCTAssertTrue(composer(app, "Felix Mendelssohn").waitForExistence(timeout: 10))
+        }
+    }
+
     /// The previous place shows its page as the listener left it, after the arrow and after the swipe.
     @MainActor
     func testBackToThePageAsLeft() throws {
@@ -700,16 +722,9 @@ final class PlaybackScreens: ScreensTestCase {
         work.tap()
         let recording = app.buttons.matching(identifier: "recording").firstMatch
         XCTAssertTrue(recording.waitForExistence(timeout: 10))
-        let workCover = app.descendants(matching: .any)["work-cover"].firstMatch
-        XCTAssertTrue(workCover.exists, "The work page shows no reference cover")
-        XCTAssertTrue(
-            eventually(timeout: 10) {
-                ScreenPixels(app)?.hasFixtureCover(in: workCover.frame) == true
-            }, "The work cover did not load the fixture artwork")
-        let workAlbum = app.buttons["play-work-album"]
-        XCTAssertTrue(workAlbum.exists, "The work page offers no Play Album")
+        XCTAssertFalse(app.descendants(matching: .any)["work-cover"].exists)
+        XCTAssertFalse(app.buttons["play-work-album"].exists)
         let workPlay = app.buttons["play-work"]
-        XCTAssertEqual(workPlay.frame.midY, workAlbum.frame.midY, accuracy: 1)
         let label = workPlay.staticTexts.firstMatch
         XCTAssertEqual(label.label, "Play top recording")
         // SwiftUI reports the label's whole allocation. Pixels give the inset of the visible icon and text.
@@ -1666,19 +1681,6 @@ class ScreensTestCase: XCTestCase {
                 return true
             }
             guard drawn else { return nil }
-        }
-
-        /// The generated fixture cover has saturated blue pixels; the loading placeholder is neutral.
-        func hasFixtureCover(in frame: CGRect) -> Bool {
-            let mergedRow = frame.width > Layout.workCover + 1
-            let left = mergedRow ? Layout.edge : frame.minX
-            let top = frame.minY + (mergedRow ? Layout.headTop : 0)
-            let x = Int((left + Layout.workCover / 4) * scale)
-            let y = Int((top + Layout.workCover / 2) * scale)
-            guard (0..<width).contains(x), (0..<height).contains(y) else { return false }
-            let index = (y * width + x) * 4
-            let channels = bytes[index..<(index + 3)].map(Int.init)
-            return (channels.max() ?? 0) - (channels.min() ?? 0) > 80
         }
 
         /// True when the pixel differs from the pixel of the same row in the ground column.

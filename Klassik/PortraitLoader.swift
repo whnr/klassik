@@ -1,3 +1,4 @@
+import ImageIO
 import UIKit
 import Vision
 
@@ -56,6 +57,30 @@ struct LoadedPortrait: @unchecked Sendable {
 }
 
 enum PortraitLoader {
+    private struct Prepared {
+        weak var store: ImageStore?
+        let revision: Int
+        let portrait: LoadedPortrait
+    }
+
+    @MainActor private static var prepared: [ObjectIdentifier: [String: Prepared]] = [:]
+
+    /// A hero reads decoded pixels synchronously, before its navigation transition draws the first frame.
+    @MainActor static func ready(_ portrait: PersonPortrait?, store: ImageStore = .pictures) -> LoadedPortrait? {
+        guard let portrait, let found = prepared[ObjectIdentifier(store)]?[portrait.url.absoluteString],
+            found.store === store,
+            files(of: portrait).contains(where: { store.contains($0.absoluteString) }),
+            found.revision == store.revision(of: files(of: portrait).map(\.absoluteString))
+        else { return nil }
+        return found.portrait
+    }
+
+    @MainActor private static func prepare(_ loaded: LoadedPortrait, for portrait: PersonPortrait, store: ImageStore) {
+        guard files(of: portrait).contains(where: { store.contains($0.absoluteString) }) else { return }
+        prepared[ObjectIdentifier(store), default: [:]][portrait.url.absoluteString] = Prepared(
+            store: store, revision: store.revision(of: files(of: portrait).map(\.absoluteString)), portrait: loaded)
+    }
+
     /// The longest side of the copy that the app keeps when it does not know the screen, in pixels.
     static let longestSide = CGFloat(PortraitSize.steps[PortraitSize.steps.count - 1])
     /// The most bytes that a picture download may hold. A Commons JPEG at the largest step is far smaller.
@@ -128,8 +153,8 @@ enum PortraitLoader {
 
     /// Keeps the picture that a people lookup found, before any page needs it (ADR 0059). Each later lookup
     /// fetches it again, and only a valid picture replaces the kept file. When the picture of the person changed,
-    /// the files of the old one go. The lookup stops at the Pictures limit and waits in Low Data Mode, like the
-    /// cover pass. Returns false when nothing was kept.
+    /// the files of the old one go. The lookup stops at the Pictures limit.
+    /// People pictures also load in Low Data Mode (ADR 0061). Returns false when nothing was kept.
     @MainActor @discardableResult static func keep(
         _ portrait: PersonPortrait, replacing old: PersonPortrait?, screen: PortraitSize.Screen,
         store: ImageStore, fetch: MusicBrainz.Fetch = PortraitLoader.launchNetwork
@@ -141,9 +166,12 @@ enum PortraitLoader {
             guard let url = PersonFactsService.trusted(candidate) else { continue }
             var request = URLRequest(url: url, timeoutInterval: PersonFactsService.timeout)
             request.setValue(MusicBrainz.userAgent, forHTTPHeaderField: "User-Agent")
-            request.allowsConstrainedNetworkAccess = false
+            request.allowsConstrainedNetworkAccess = true
             guard let (data, status) = try? await fetch(request), (200..<300).contains(status), !data.isEmpty,
-                data.count <= maxBytes, UIImage(data: data) != nil
+                data.count <= maxBytes
+            else { continue }
+            guard
+                let loaded = await Task.detached(priority: .utility, operation: { upright(data, screen: screen) }).value
             else { continue }
             let key = url.absoluteString
             guard store.contains(key) || store.fits(Int64(data.count)), await store.store(data, for: key) else {
@@ -155,6 +183,7 @@ enum PortraitLoader {
                     store.remove(named: ImageStore.name(file.absoluteString))
                 }
             }
+            prepare(loaded, for: portrait, store: store)
             return true
         }
         return false
@@ -173,6 +202,8 @@ enum PortraitLoader {
         fetch: MusicBrainz.Fetch = PortraitLoader.launchDownload, store: ImageStore = .pictures,
         kept device: PortraitSize.Screen = PortraitLoader.deviceScreen
     ) async -> LoadedPortrait? {
+        if let ready = ready(portrait, store: store) { return ready }
+        await store.loaded()
         let wanted = PortraitSize.candidates(portrait, screen: screen)
         let stored = (wanted + PortraitSize.candidates(portrait, screen: device)).filter {
             store.contains($0.absoluteString)
@@ -180,7 +211,10 @@ enum PortraitLoader {
         var seen: Set<URL> = []
         for candidate in (stored + wanted).filter({ seen.insert($0).inserted }) {
             let loaded = await load(candidate, screen: screen, fetch: fetch)
-            if let loaded { return loaded }
+            if let loaded {
+                prepare(loaded, for: portrait, store: store)
+                return loaded
+            }
         }
         return nil
     }
@@ -194,8 +228,8 @@ enum PortraitLoader {
         guard let url = PersonFactsService.trusted(url) else { return nil }
         var request = URLRequest(url: url, timeoutInterval: PersonFactsService.timeout)
         request.setValue(MusicBrainz.userAgent, forHTTPHeaderField: "User-Agent")
-        // Low Data Mode keeps a missing picture for later (ADR 0059); a kept one loads from the store.
-        request.allowsConstrainedNetworkAccess = false
+        // People pictures stay available on constrained connections; album art has a separate policy.
+        request.allowsConstrainedNetworkAccess = true
         guard let (data, status) = try? await fetch(request), (200..<300).contains(status),
             data.count <= maxBytes
         else { return nil }
@@ -212,21 +246,27 @@ enum PortraitLoader {
     }
 
     private static func upright(_ data: Data, screen: PortraitSize.Screen?) -> LoadedPortrait? {
-        guard let source = UIImage(data: data), source.size.width > 0, source.size.height > 0 else { return nil }
-        // A copy wider than the need wastes memory; a narrower one shows fewer pixels than the screen has.
-        let scale =
-            screen.map {
-                let need = PortraitSize.width(aspect: source.size.width / source.size.height, screen: $0)
-                return min(1, need.rounded(.up) / source.size.width)
-            } ?? min(1, longestSide / max(source.size.width, source.size.height))
-        let size = CGSize(
-            width: (source.size.width * scale).rounded(), height: (source.size.height * scale).rounded())
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = 1
-        // Drawing applies the orientation, so every later step reads the pixels as they show.
-        let image = UIGraphicsImageRenderer(size: size, format: format).image { _ in
-            source.draw(in: CGRect(origin: .zero, size: size))
-        }
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+            let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+            let pixelWidth = properties[kCGImagePropertyPixelWidth] as? NSNumber,
+            let pixelHeight = properties[kCGImagePropertyPixelHeight] as? NSNumber,
+            pixelWidth.doubleValue > 0, pixelHeight.doubleValue > 0
+        else { return nil }
+        let width = CGFloat(pixelWidth.doubleValue)
+        let height = CGFloat(pixelHeight.doubleValue)
+        let orientation = (properties[kCGImagePropertyOrientation] as? NSNumber)?.intValue ?? 1
+        let rotated = (5...8).contains(orientation)
+        let aspect = rotated ? height / width : width / height
+        let need = screen.map { PortraitSize.width(aspect: aspect, screen: $0) } ?? longestSide
+        let longest = min(max(width, height), screen == nil ? longestSide : need * max(1, 1 / aspect))
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: Int(longest.rounded(.up)),
+            kCGImageSourceShouldCacheImmediately: true,
+        ]
+        guard let pixels = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
+        let image = UIImage(cgImage: pixels)
         return LoadedPortrait(image: image, faces: faces(in: image))
     }
 

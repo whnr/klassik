@@ -162,7 +162,8 @@ struct ImageStoreTests {
         let fetch: MusicBrainz.Fetch = { await server.fetch($0) }
         #expect(await PortraitLoader.keep(first, replacing: nil, screen: screen, store: store, fetch: fetch))
         #expect(await store.data(for: first.url.absoluteString) == red)
-        #expect(server.requests.allSatisfy { !$0.allowsConstrainedNetworkAccess })
+        #expect(PortraitLoader.ready(first, store: store) != nil)
+        #expect(server.requests.allSatisfy { $0.allowsConstrainedNetworkAccess })
 
         let identity = PersonHero.PortraitTask(portrait: first, screen: screen, store: store)
         let read = PortraitLoader.stored({ _ in throw URLError(.notConnectedToInternet) }, in: { store })
@@ -186,6 +187,7 @@ struct ImageStoreTests {
         server.answer = (red, 200)
         #expect(await PortraitLoader.keep(second, replacing: first, screen: screen, store: store, fetch: fetch))
         #expect(!store.contains(first.url.absoluteString))
+        #expect(PortraitLoader.ready(first, store: store) == nil)
         #expect(store.contains(second.url.absoluteString))
     }
 
@@ -219,6 +221,8 @@ struct ImageStoreTests {
                 portrait, replacing: nil, screen: device, store: store, fetch: { await server.fetch($0) }))
         let offline = PortraitLoader.stored({ _ in throw URLError(.notConnectedToInternet) }, in: { store })
         #expect(await PortraitLoader.load(portrait, screen: page, fetch: offline, store: store, kept: device) != nil)
+        store.clear()
+        #expect(PortraitLoader.ready(portrait, store: store) == nil)
     }
 
     @Test func aNewPasswordKeepsTheAlbumArt() {

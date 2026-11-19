@@ -238,6 +238,7 @@ private struct PageHeading: View {
             .multilineTextAlignment(.leading)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityAddTraits(.isHeader)
+            .padding(.top, plain ? 0 : Layout.headTop)
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
             .listRowInsets(

@@ -251,16 +251,6 @@ struct WorkView: View {
 
     var body: some View {
         PageList {
-            if let recording = model.recordingOrder.reference(of: work) {
-                CoverImage(song: recording.songs.first, points: Layout.workCover)
-                    .frame(width: Layout.workCover, height: Layout.workCover)
-                    .clipShape(.rect(cornerRadius: Layout.coverCorner))
-                    .accessibilityElement()
-                    .accessibilityLabel("Cover")
-                    .accessibilityIdentifier("work-cover")
-                    .listRowSeparator(.hidden)
-                    .pageEdges(top: Layout.headTop, bottom: Layout.bigCoverBottom)
-            }
             FavouriteTitle(
                 title: work.title, isSet: model.recordingOrder.isFavourite(work),
                 action: { model.recordingOrder.toggleAtOnce(work) }
@@ -292,20 +282,6 @@ struct WorkView: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("play-work")
-                    if let key = recording.albumKey ?? recording.songs.first?.albumKey,
-                        let album = model.library.album(key), album.tracks.count > recording.songs.count
-                    {
-                        let playsAlbum = player.recording?.id == album.recording.id
-                        Button {
-                            player.play(album.item)
-                        } label: {
-                            CapsuleLabel(
-                                title: playsAlbum ? (player.isPaused ? "Resume Album" : "Pause Album") : "Play Album",
-                                systemImage: playsAlbum && !player.isPaused ? "pause.fill" : "play.fill", filled: false)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier("play-work-album")
-                    }
                 }
                 .listRowSeparator(.hidden)
                 .pageEdges(top: Layout.buttonRowTop)

@@ -39,7 +39,7 @@ enum Layout {
 
     /// The gap above the page title, under the back arrow.
     /// css: specimen.css .page-head | padding-top
-    static let headTop = Space.xs.points
+    static let headTop = Space.l.points
     /// The gap under the page heading block, after its meta lines.
     /// css: specimen.css .page-head | padding-bottom
     static let headBottom = Space.s.points
@@ -174,10 +174,6 @@ enum Layout {
     /// The gap from an album cover to its title. The year follows the title with no gap.
     /// css: person.html "margin-top: var(--space-xs)" | margin-top
     static let albumTitleGap = Space.xs.points
-
-    /// The reference recording supplies the work cover.
-    /// css: work.html .work-cover .cover | width
-    static let workCover = Measure.coverRow
 
     // MARK: Player page
 

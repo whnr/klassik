@@ -10,15 +10,6 @@
     <script src="specimen.js?v=50"></script>
   </head>
   <body>
-    <style>
-      .work-cover {
-        padding: var(--space-xs) var(--pad-right) var(--space-m) var(--pad-left);
-      }
-      .work-cover .cover {
-        width: var(--size-coverRow);
-        height: var(--size-coverRow);
-      }
-    </style>
     <script>
       K.start(() => {
         const { el, href, ICON, M } = K;
@@ -30,7 +21,6 @@
           back: { label: work.composer, href: "index.html" },
         });
 
-        const reference = () => K.orderedRecordings(work)[0];
         const head = el("div", { class: "page-head" });
         const workFav = "work:" + work.id;
         const mark = el(
@@ -73,13 +63,7 @@
           const rec = K.orderedRecordings(work)[0];
           K.playItem(K.resolveItem(["recording", rec.album.id, rec.work]));
         });
-        const albumBtn = el("button", {
-          class: "capsule t-headline",
-          html: ICON.play.replace("<svg", '<svg width="14" height="14"') + "<span>Play Album</span>",
-          onclick: () => K.playItem(K.resolveItem(["album", reference().album.id])),
-        });
-        const cover = el("div", { class: "work-cover" });
-        const buttons = el("div", { class: "button-row" }, playBtn, albumBtn);
+        const buttons = el("div", { class: "button-row" }, playBtn);
 
         const listBox = el("div", { class: "list" });
         const section = el(
@@ -112,13 +96,6 @@
 
         function render() {
           pill();
-          const rec = reference();
-          cover.replaceChildren(K.coverImage(rec.album));
-          albumBtn.hidden = rec.album.song.length <= rec.songs.length;
-          const playsAlbum = K.current()?.id === K.resolveItem(["album", rec.album.id]).id;
-          const albumLabel = playsAlbum ? (K.P.paused ? "Resume Album" : "Pause Album") : "Play Album";
-          const albumIcon = playsAlbum && !K.P.paused ? ICON.pause : ICON.play;
-          albumBtn.innerHTML = albumIcon.replace("<svg", '<svg width="14" height="14"') + `<span>${albumLabel}</span>`;
           const playing = K.current()?.recording;
           listBox.replaceChildren(
             ...K.orderedRecordings(work).map((r) => {
@@ -171,7 +148,6 @@
         render();
 
         scroll.append(
-          cover,
           head,
           buttons,
           section,

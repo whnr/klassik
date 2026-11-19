@@ -160,7 +160,7 @@ struct PortraitLoaderSizeTests {
     static let portrait = PersonPortrait(
         url: PortraitSizeTests.thumb, original: PortraitSizeTests.original, width: 6000, height: 8000)
 
-    @Test func theLargeFileWaitsOnlyForLowDataModeAndKeepsOnlyTheNeededPixels() async throws {
+    @Test func theLargeFileLoadsInLowDataModeAndKeepsOnlyTheNeededPixels() async throws {
         let requests = Requests()
         let loaded = try #require(
             await PortraitLoader.load(Self.portrait, screen: PortraitSizeTests.proMax) { request in
@@ -169,7 +169,7 @@ struct PortraitLoaderSizeTests {
             })
         let first = try #require(requests.all.first)
         #expect(requests.all.count == 1)
-        #expect(first.allowsExpensiveNetworkAccess && !first.allowsConstrainedNetworkAccess)
+        #expect(first.allowsExpensiveNetworkAccess && first.allowsConstrainedNetworkAccess)
         #expect(loaded.image.size.width == 2640)
     }
 

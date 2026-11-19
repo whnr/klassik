@@ -46,14 +46,19 @@ final class AppModel {
         people = PersonFactsStore.forLaunch()
         let connection = ConnectionMonitor()
         sweep = PersonSweep(
-            store: people, isConnectionGood: { connection.isGood },
+            store: people, isConnectionGood: { connection.isAvailable },
             pictures: { portrait, old in
                 await PortraitLoader.keep(
                     portrait, replacing: old, screen: PortraitLoader.deviceScreen, store: .pictures)
             },
             hasPicture: { portrait in
                 await ImageStore.pictures.loaded()
-                return PortraitLoader.files(of: portrait).contains { ImageStore.pictures.contains($0.absoluteString) }
+                guard
+                    PortraitLoader.files(of: portrait).contains(where: {
+                        ImageStore.pictures.contains($0.absoluteString)
+                    })
+                else { return false }
+                return await PortraitLoader.load(portrait, screen: PortraitLoader.deviceScreen) != nil
             })
         // UI tests start from the connect screen.
         if ProcessInfo.processInfo.arguments.contains("-resetServer") {
@@ -117,6 +122,7 @@ final class AppModel {
     func start() async {
         guard let credentials, let client else { return }
         await library.load(for: credentials)
+        sweepPeople()
         // The UI walk requires a fresh player on each reset launch.
         if !ProcessInfo.processInfo.arguments.contains("-resetServer") { await playback.restoreQueue() }
         await check()
@@ -169,6 +175,10 @@ final class AppModel {
         guard let client else { return }
         await library.sync(with: client)
         keepAlbumArt(full: true)
+        Task {
+            await sweep.finish()
+            sweepPeople()
+        }
     }
 
     /// Album Art Clear. The next library sync and every page that opens fetch the covers again.

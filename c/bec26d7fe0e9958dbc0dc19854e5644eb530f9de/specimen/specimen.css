@@ -302,7 +302,7 @@ input {
   --indicator-inset: calc(var(--size-timeline) + 3px);
 }
 .page-head {
-  padding: var(--space-xs) var(--pad-right) var(--space-s) var(--pad-left);
+  padding: var(--space-l) var(--pad-right) var(--space-s) var(--pad-left);
 }
 .page-head h1 {
   overflow-wrap: anywhere;

@@ -1,7 +1,0 @@
-{
-  "sha": "2240b7d5250a92a68723509405c1952fe6abad8e",
-  "branch": "main",
-  "path": "main",
-  "subject": "[sz-qny4] Cut CI time: unit tests in build, retries, split walk, no walk on main (#97)",
-  "ts": 1795038532
-}

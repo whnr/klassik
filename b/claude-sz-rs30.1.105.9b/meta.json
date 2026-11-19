@@ -1,7 +1,7 @@
 {
-  "sha": "4d95a654eb203446667944ed81cf932f12d8073a",
+  "sha": "19c756f179962a3973ad356a89462fedac99db4f",
   "branch": "claude-sz-rs30.1.105.9b",
   "path": "claude-sz-rs30.1.105.9b",
-  "subject": "[sz-rs30.1.105.9] Probe the wash with the first song",
-  "ts": 1795064941
+  "subject": "[sz-rs30.1.105.9] Show the player when the wash check fails",
+  "ts": 1795067494
 }

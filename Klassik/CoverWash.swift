@@ -376,24 +376,28 @@ struct CoverWashModifier: ViewModifier {
     @State private var loaded: Loaded?
     @State private var scroll = WashScroll()
 
-    private struct Loaded: Equatable {
+    struct Loaded: Equatable {
         var slot: String?
         var pick: CoverHue.Pick?
     }
 
     /// The kept files of the cover and their arrival count. A new file starts the pick again.
-    private struct Load: Equatable {
+    struct Load: Equatable {
         var slot: String?
         var candidates: [String]
         var arrival: Int
+
+        @MainActor init(song: Song?, covers: AlbumCovers) {
+            slot = song?.id
+            candidates = song.map { covers.candidates(for: $0) } ?? []
+            arrival = song.map { covers.arrival(for: $0) } ?? 0
+        }
     }
 
     func body(content: Content) -> some View {
         let room = WashRoom(colorScheme: colorScheme, contrast: contrast)
         let covers = model.albumCovers
-        let load = Load(
-            slot: song?.id, candidates: song.map { covers.candidates(for: $0) } ?? [],
-            arrival: song.map { covers.arrival(for: $0) } ?? 0)
+        let load = Load(song: song, covers: covers)
         let wash: CoverWash.Wash? =
             if isPlaying, let loaded, loaded.slot == load.slot {
                 CoverWash.wash(loaded.pick, in: room) { SRGB($0.color.resolve(in: environment)) }
@@ -406,10 +410,10 @@ struct CoverWashModifier: ViewModifier {
             .environment(\.paletteOverrides, colours)
             .environment(\.playerWash, wash.map { PlayerWash(colour: $0.ground.resolved, scroll: scroll) })
             .animation(Motion.inPlace.animation(reduceMotion: reduceMotion), value: wash == nil)
-            // The list of the next item reports its scroll only when it moves, so the offset of the old list stays.
+            // Each item opens at the top, but its list reports scroll only after movement.
             .onChange(of: item) { scroll.offset = 0 }
             .task(id: load) {
-                if let found = await Self.loaded(load, song: song, model: model) {
+                if let found = await Self.loaded(load, song: song, store: model.albumArt) {
                     if !Task.isCancelled { loaded = found }
                 } else if let song {
                     // The kept file arrives later and starts this task again. The wash waits for it.
@@ -418,11 +422,13 @@ struct CoverWashModifier: ViewModifier {
             }
     }
 
-    /// A song without a cover takes the accent, as a grey cover does. Nil while no file is kept.
-    @MainActor private static func loaded(_ load: Load, song: Song?, model: AppModel) async -> Loaded? {
-        guard song?.coverArt != nil else { return Loaded(slot: load.slot, pick: nil) }
-        let kept = await CoverHue.kept(load.candidates) { await model.albumArt.data(named: $0) }
-        return kept.map { Loaded(slot: load.slot, pick: $0.pick) }
+    /// Track and disc links can supply art without a server cover ID (ADR 0059).
+    @MainActor static func loaded(_ load: Load, song: Song?, store: ImageStore) async -> Loaded? {
+        if let kept = await CoverHue.kept(load.candidates, read: { await store.data(named: $0) }) {
+            return Loaded(slot: load.slot, pick: kept.pick)
+        }
+        guard load.candidates.isEmpty, song?.coverArt == nil else { return nil }
+        return Loaded(slot: load.slot, pick: nil)
     }
 }
 

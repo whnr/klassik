@@ -238,6 +238,47 @@ struct CoverWashTests {
         #expect(found == CoverHue.Kept(pick: nil))
     }
 
+    @Test func loaderReadsEmbeddedArtWithoutAServerCoverID() async throws {
+        let fixture = CoverArtTests()
+        let song = CoverArtTests.song("embedded", album: "a", disc: 1, cover: nil)
+        let store = try fixture.makeStore()
+        let covers = fixture.makeCovers(store, songs: [song])
+        await covers.idle()
+        covers.inspect(song, file: try fixture.flac(with: Self.file(.red)))
+        await covers.idle()
+        let load = CoverWashModifier.Load(song: song, covers: covers)
+        let loaded = await CoverWashModifier.loaded(load, song: song, store: store)
+        let pick = try #require(loaded?.pick)
+        #expect(loaded?.slot == song.id)
+        #expect(Self.distance(pick.hue, OKLCH(Self.hex(0xff_00_00)).hue) < 5)
+        #expect(fixture.server.requests.isEmpty)
+    }
+
+    @Test func loaderReadsTheAlbumDiscFallbackWithoutAServerCoverID() async throws {
+        let fixture = CoverArtTests()
+        let source = CoverArtTests.song("source", album: "a", disc: 1, cover: "album")
+        let song = CoverArtTests.song("fallback", album: "a", disc: 2, cover: nil)
+        fixture.server.covers = ["album": Self.file(.blue)]
+        let store = try fixture.makeStore()
+        let covers = fixture.makeCovers(store, songs: [source, song])
+        await covers.idle()
+        fixture.server.reset()
+        let loaded = await CoverWashModifier.loaded(.init(song: song, covers: covers), song: song, store: store)
+        let pick = try #require(loaded?.pick)
+        #expect(Self.distance(pick.hue, OKLCH(Self.hex(0x00_00_ff)).hue) < 5)
+        #expect(fixture.server.requests.isEmpty)
+    }
+
+    @Test func loaderUsesTheAccentOnlyWithoutCoverSources() async throws {
+        let fixture = CoverArtTests()
+        let song = Song(id: "bare", title: "Bare")
+        let store = try fixture.makeStore()
+        let covers = fixture.makeCovers(store, songs: [song])
+        await covers.idle()
+        let loaded = await CoverWashModifier.loaded(.init(song: song, covers: covers), song: song, store: store)
+        #expect(loaded == CoverWashModifier.Loaded(slot: song.id, pick: nil))
+    }
+
     // MARK: The end of the player
 
     @Test func tailShowsTheNextItem() {

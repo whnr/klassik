@@ -1,7 +1,7 @@
 {
-  "sha": "40a7e51b46c6e06c1a78ee9912d5a39a348e9c4f",
+  "sha": "8f7052e66e91224235c2324810b018fe9b479318",
   "branch": "main",
   "path": "main",
-  "subject": "[sz-ogck] Keep room above the movement bar for note lanes (#121)",
-  "ts": 1795148619
+  "subject": "[sz-rs30.1.111] Fix small Klassik CI faults (#125)",
+  "ts": 1795162622
 }

@@ -403,6 +403,19 @@ class PlanTests(unittest.TestCase):
             screen_report.plan("workflow_dispatch", "brwse", "")
 
 
+class ConsoleReportTests(unittest.TestCase):
+    def test_counts_signs_and_skips_missing_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / "unit-console.txt"
+            path.write_text("ok\nFatal error: x\nThread 1 crashed\nSwift runtime: bad\nfine\n")
+            text = screen_report.console_report([path, pathlib.Path(tmp) / "none-console.txt"])
+        self.assertIn("`unit-console.txt`: 3 lines", text)
+        self.assertNotIn("none-console", text)
+
+    def test_no_file(self):
+        self.assertIn("No console file", screen_report.console_report([]))
+
+
 class DiffSummaryTests(unittest.TestCase):
     def test_counts(self):
         report = {
@@ -438,6 +451,10 @@ class BaselineTests(unittest.TestCase):
     def test_no_branch_run_falls_back(self):
         order = screen_baseline.candidates([], [run(8), run(5)], this_run=10)
         self.assertEqual([r["id"] for r in order], [8, 5])
+
+    def test_branch_name_is_url_encoded(self):
+        query = screen_baseline.runs_query("o/r", "fix&x=1#a b", "completed")
+        self.assertIn("branch=fix%26x%3D1%23a%20b&status=completed", query)
 
     def test_usable_needs_screenshots(self):
         screens = {"name": "screens", "expired": False, "size_in_bytes": 2_000_000}

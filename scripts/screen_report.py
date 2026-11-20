@@ -12,6 +12,8 @@ Usage:
         Prints the results of scripts/screens.sh as Markdown and writes <screens-dir>/missing.txt.
     python3 scripts/screen_report.py retries <raw-log>
         Prints failed test names, attempt counts, outcomes, and first failures before log formatting.
+    python3 scripts/screen_report.py console <console-file>...
+        Prints, for each console of a test process, the count of lines that point to a crash or a runtime warning.
     python3 scripts/screen_report.py diff <screens-dir> <diff-dir> [<baseline-dir>]
         Prints the counts of scripts/screen_diff.py as Markdown.
 """
@@ -239,6 +241,24 @@ def retry_report(log):
     return "\n".join(lines) + "\n"
 
 
+CONSOLE_SIGNS = re.compile(r"Fatal error|Thread|assert|runtime:")
+
+
+def console_report(files):
+    """One line for each console file: how many lines hold a sign of a crash or a runtime warning."""
+    lines = ["### Test console", ""]
+    files = [path for path in files if pathlib.Path(path).is_file()]
+    for path in files:
+        text = pathlib.Path(path).read_text(errors="replace")
+        count = sum(1 for line in text.splitlines() if CONSOLE_SIGNS.search(line))
+        lines.append(
+            f"- `{pathlib.Path(path).name}`: {count} lines with `Fatal error`, `Thread`, `assert` or `runtime:`"
+        )
+    if not files:
+        lines.append("No console file was exported.")
+    return "\n".join(lines) + "\n"
+
+
 def summary(results, captured, wanted, artifacts_url=""):
     missing = sorted(set(wanted) - set(captured))
     lines = [
@@ -290,6 +310,9 @@ def main(args):
     command = args[0]
     if command == "retries":
         print(retry_report(pathlib.Path(args[1]).read_text()))
+        return
+    if command == "console":
+        print(console_report(args[1:]))
         return
     if command == "plan":
         ui, matrix = plan(args[1], args[2], sys.stdin.read(), *args[3:5])

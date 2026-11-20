@@ -28,7 +28,7 @@
       :root[data-page="settings"] .row + .row::before {
         left: var(--space-l);
       }
-      /* The iOS switch and the destructive red are system chrome with fixed values. */
+      /* A switch is a control, so its on state takes the tint (ADR 0034). The destructive red is system chrome. */
       .switch {
         appearance: none;
         flex: none;
@@ -51,7 +51,7 @@
         transition: transform var(--motion-duration-quick);
       }
       .switch:checked {
-        background: #34c759;
+        background: var(--color-tint);
       }
       .switch:checked::after {
         transform: translateX(20px);
@@ -99,13 +99,15 @@
             el("span", { class: "main" }, label),
             el("input", { class: "switch", type: "checkbox", role: "switch", checked: on, onchange }),
           );
-        const link = (label, target) =>
+        const link = (label, target, value) =>
           el(
             "a",
             { class: "row", href: target ? href(target, { back: "Settings" }) : "#" },
             el("span", { class: "main" }, label),
-            el("span", { class: "trail", html: K.ICON.chevron }),
+            el("span", { class: "trail" }, value ? el("span", {}, value) : null, el("span", { html: K.ICON.chevron })),
           );
+        const count = (label, value) =>
+          el("div", { class: "row" }, el("span", { class: "main" }, label), el("span", { class: "trail" }, value));
         const group = (head, rows, foot) =>
           el(
             "section",
@@ -158,9 +160,12 @@
           ),
           technical
             ? group("Technical details", [
-                link("MusicBrainz and Wikidata lookup", "lookup.html"),
+                link("Classical Albums", null, "412"),
+                count("Classical Tracks", "9,873"),
+                link("Other Albums", null, "138"),
+                link("MusicBrainz", "lookup.html", "3 to confirm"),
                 link("Local Storage", "storage.html"),
-                link("Specimen token sheet", "tokens.html"),
+                link("Diagnostics", null, "2 waiting"),
               ])
             : null,
           group(null, [link("Licences")]),

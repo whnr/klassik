@@ -1,6 +1,7 @@
 """Tests for the TestFlight gate: python3 -m unittest discover -s scripts -p "test_green_test_gate.py"."""
 
 import pathlib
+import subprocess
 import sys
 import unittest
 
@@ -40,6 +41,23 @@ class CoveringTests(unittest.TestCase):
         sha, reason = self.find(["c"], {"c": ["README.md"]}, set())
         self.assertIsNone(sha)
         self.assertIn("last 1 commits", reason)
+
+    def test_real_diff_tree_output_has_no_empty_path(self):
+        out = subprocess.run(
+            ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", "-m", "--first-parent", "HEAD"],
+            stdout=subprocess.PIPE,
+            text=True,
+            check=True,
+            cwd=pathlib.Path(__file__).parent,
+        ).stdout
+        self.assertTrue(out.endswith("\n"))
+        self.assertNotIn("", green_test_gate.parse_paths(out))
+
+    def test_parse_paths_drops_the_trailing_newline(self):
+        self.assertEqual(green_test_gate.parse_paths("docs/x.md\nREADME.md\n"), ["docs/x.md", "README.md"])
+        self.assertEqual(green_test_gate.parse_paths(""), [])
+        changes = {"c": green_test_gate.parse_paths("docs/x.md\n"), "a": []}
+        self.assertEqual(green_test_gate.covering(["c", "a"], changes.get, lambda s: s == "a"), ("a", None))
 
 
 if __name__ == "__main__":

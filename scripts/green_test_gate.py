@@ -43,8 +43,18 @@ def covering(commits, changed, green):
     return None, f"no green Test run in the last {len(commits)} commits"
 
 
+def run(*argv):
+    # stderr stays on the job log: it names the real cause when git or gh fails.
+    return subprocess.run(argv, stdout=subprocess.PIPE, text=True, check=True).stdout
+
+
 def git(*args):
-    return subprocess.run(["git", *args], capture_output=True, text=True, check=True).stdout
+    return run("git", *args)
+
+
+def parse_paths(output):
+    """The changed paths in `git diff-tree --name-only` output. The output ends with a newline."""
+    return [path for path in output.splitlines() if path]
 
 
 def main(sha):
@@ -52,11 +62,11 @@ def main(sha):
 
     def green(commit):
         query = f"repos/{repo}/actions/workflows/test.yml/runs?head_sha={commit}&status=success"
-        out = subprocess.run(["gh", "api", query], capture_output=True, text=True, check=True).stdout
+        out = run("gh", "api", query)
         return json.loads(out)["total_count"] > 0
 
     def changed(commit):
-        return git("diff-tree", "--no-commit-id", "--name-only", "-r", "-m", "--first-parent", commit).split("\n")
+        return parse_paths(git("diff-tree", "--no-commit-id", "--name-only", "-r", "-m", "--first-parent", commit))
 
     commits = git("rev-list", "--first-parent", f"--max-count={DEPTH}", sha).split()
     found, reason = covering(commits, changed, green)

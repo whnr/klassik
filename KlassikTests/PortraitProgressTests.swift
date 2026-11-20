@@ -2,12 +2,11 @@ import CoreGraphics
 import Foundation
 import ImageIO
 import Testing
-import UIKit
-import Vision
 
 @testable import Klassik
 
 struct PortraitProgressTests {
+    /// A Commons step of 3840 pixels, at the aspect of a typical portrait. Generated pixels need no network.
     private static func jpeg() -> Data {
         guard
             let context = CGContext(
@@ -25,193 +24,45 @@ struct PortraitProgressTests {
         return data as Data
     }
 
-    private final class Progress: @unchecked Sendable {
-        private let lock = NSLock()
-        private var background: [Duration] = []
-        private var foreground: [Duration] = []
-        private var downloads = 0
-        private var clocks = 0
-        private var completed = 0
-
-        func probe() {
-            lock.withLock { downloads += 1 }
-            // Dispatch supplies the clock even when every cooperative worker is decoding a picture.
-            DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + .milliseconds(50)) {
-                self.lock.withLock { self.clocks += 1 }
-                let sent = ContinuousClock.now
-                Task.detached(priority: .userInitiated) {
-                    self.lock.withLock { self.background.append(sent.duration(to: .now)) }
-                }
-                Task { @MainActor in
-                    self.lock.withLock { self.foreground.append(sent.duration(to: .now)) }
-                }
-            }
-        }
-
-        func finish() { lock.withLock { completed += 1 } }
-
-        func report() {
-            let status = lock.withLock {
-                "downloads=\(downloads), clocks=\(clocks), decoded=\(completed), async=\(background.count), main=\(foreground.count)"
-            }
-            print("Portrait stages: \(status)")
-        }
-
-        var delays: (background: [Duration], foreground: [Duration]) {
-            lock.withLock { (background, foreground) }
-        }
+    /// A stopped cooperative pool cannot run the time limit of the test or report a failure. A thread outside
+    /// the pool ends the run instead, so the stall fails in a minute and not at the job timeout.
+    private static func watchdog(_ done: DispatchSemaphore) {
+        Thread {
+            guard done.wait(timeout: .now() + 60) == .timedOut else { return }
+            fatalError("Parallel portrait loads stopped the cooperative pool")
+        }.start()
     }
 
-    @Test(.disabled("staged diagnostic runs first"), .timeLimit(.minutes(1)))
-    func largePortraitLoadsLeaveAsyncAndMainActorWorkResponsive() async throws {
-        // Generated pixels keep the test independent of network access and copyrighted pictures.
-        let progress = Progress()
-        let clock = DispatchQueue(label: "PortraitProgressTests.clock", qos: .userInteractive)
-        for seconds in [1, 5, 15] {
-            clock.asyncAfter(deadline: .now() + .seconds(seconds)) { progress.report() }
-        }
-        print("Portrait fixture: generating")
-        // Fixture encoding must not occupy a cooperative worker while the test measures image decoding.
-        let data: Data = await withCheckedContinuation { continuation in
-            DispatchQueue(label: "PortraitProgressTests.fixture").async {
-                let data = autoreleasepool { Self.jpeg() }
-                print("Portrait fixture: \(data.count) bytes")
-                continuation.resume(returning: data)
-            }
-        }
-        try #require(!data.isEmpty)
-        let count = 64
-        let loaded = await withTaskGroup(of: Bool.self, returning: Int.self) { group in
-            for index in 0..<count {
-                group.addTask(priority: .userInitiated) {
-                    let url = URL(string: "https://upload.wikimedia.org/portrait-\(index).jpg")!
-                    let portrait = await PortraitLoader.load(url, screen: PortraitSizeTests.proMax) { _ in
-                        progress.probe()
-                        return (data, 200)
-                    }
-                    progress.finish()
-                    return portrait != nil
-                }
-            }
-            var loaded = 0
-            for await success in group where success { loaded += 1 }
-            return loaded
-        }
-        // Let probes from the final downloads run after the last decode completes.
-        try await Task.sleep(for: .milliseconds(600))
-        let delays = progress.delays
-        print(
-            "Portrait progress: async=\(String(describing: delays.background.max())), main=\(String(describing: delays.foreground.max()))"
-        )
-        #expect(loaded == count)
-        #expect(delays.background.count == count)
-        #expect(delays.foreground.count == count)
-        #expect(delays.background.allSatisfy { $0 < .milliseconds(500) })
-        #expect(delays.foreground.allSatisfy { $0 < .milliseconds(500) })
-    }
-
-    /// Runs each stage on its own threads, so a stage that never returns leaves the next stages and the report.
-    private static func stage(_ name: String, count: Int = 1, _ work: @escaping @Sendable () -> String) {
-        let group = DispatchGroup()
-        let start = Date()
-        for index in 0..<count {
-            group.enter()
-            Thread {
-                let result = autoreleasepool { work() }
-                print("Stage \(name)[\(index)] returned after \(Date().timeIntervalSince(start)) s: \(result)")
-                group.leave()
-            }.start()
-        }
-        let outcome = group.wait(timeout: .now() + 20)
-        print("STAGE \(name): \(outcome == .success ? "ok" : "TIMEOUT") after \(Date().timeIntervalSince(start)) s")
-    }
-
-    private static func image(width: Int, height: Int) -> CGImage? {
-        let context = CGContext(
-            data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
-            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)
-        context?.setFillColor(red: 0.4, green: 0.2, blue: 0.1, alpha: 1)
-        context?.fill(CGRect(x: 0, y: 0, width: width, height: height))
-        return context?.makeImage()
-    }
-
-    private static func faces(_ image: CGImage?) -> String {
-        guard let image else { return "no image" }
-        let request = VNDetectFaceRectanglesRequest()
-        do { try VNImageRequestHandler(cgImage: image).perform([request]) } catch { return "error \(error)" }
-        return "faces \(request.results?.count ?? -1)"
-    }
-
-    private static func thumbnail(_ data: Data, cache: Bool) -> String {
-        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return "no source" }
-        let options: [CFString: Any] = [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: 3520,
-            kCGImageSourceShouldCacheImmediately: cache,
-        ]
-        guard let pixels = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
-            return "no thumbnail"
-        }
-        return "\(pixels.width)x\(pixels.height)"
-    }
-
-    /// Runs `count` copies on cooperative workers, like `PortraitLoader`, and reports whether Dispatch still runs.
-    private static func pooled(_ name: String, count: Int, _ work: @escaping @Sendable () async -> String) {
-        let group = DispatchGroup()
-        let start = Date()
-        let finished = Box()
-        let tick = DispatchSemaphore(value: 0)
-        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + .milliseconds(50)) { tick.signal() }
-        for _ in 0..<count {
-            group.enter()
-            Task.detached(priority: .userInitiated) {
-                let result = await work()
-                finished.count(result)
-                group.leave()
-            }
-        }
-        let outcome = group.wait(timeout: .now() + 25)
-        let clock = tick.wait(timeout: .now()) == .success
-        print(
-            "STAGE \(name): \(outcome == .success ? "ok" : "TIMEOUT") after \(Date().timeIntervalSince(start)) s, "
-                + "finished \(finished.value), dispatch clock \(clock ? "ran" : "starved")")
-    }
-
-    @Test func stagedPortraitWork() async throws {
+    /// Visible rows decode their pictures together. More loads than processors must leave async work running.
+    @Test func parallelPortraitLoadsLeaveAsyncAndMainActorWorkRunning() async throws {
+        let done = DispatchSemaphore(value: 0)
+        Self.watchdog(done)
+        defer { done.signal() }
         let data = Self.jpeg()
         try #require(!data.isEmpty)
-        print("Staged fixture: \(data.count) bytes, cpus \(ProcessInfo.processInfo.activeProcessorCount)")
-        let picture = Self.image(width: 2640, height: 3520)
-        nonisolated(unsafe) let shared = picture
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            Thread {
-                Self.stage("threads-upright-x16", count: 16) {
-                    Self.thumbnail(data, cache: true) + " " + Self.faces(shared)
-                }
-                Self.pooled("pool-thumbnail-x16", count: 16) { Self.thumbnail(data, cache: true) }
-                Self.pooled("pool-vision-x16", count: 16) { Self.faces(shared) }
-                Self.pooled("pool-upright-x16", count: 16) {
-                    Self.thumbnail(data, cache: true) + " " + Self.faces(shared)
-                }
-                for count in [2, 4, 8, 16, 64] {
-                    Self.pooled("pool-load-x\(count)", count: count) {
-                        let url = URL(string: "https://upload.wikimedia.org/portrait-staged.jpg")!
+        let count = 2 * ProcessInfo.processInfo.activeProcessorCount
+        let loads = Task {
+            await withTaskGroup(of: Bool.self, returning: Int.self) { group in
+                for index in 0..<count {
+                    group.addTask(priority: .userInitiated) {
+                        let url = URL(string: "https://upload.wikimedia.org/portrait-\(index).jpg")!
                         let portrait = await PortraitLoader.load(url, screen: PortraitSizeTests.proMax) { _ in
                             (data, 200)
                         }
-                        return portrait == nil ? "nil" : "loaded"
+                        return portrait != nil
                     }
                 }
-                continuation.resume()
-            }.start()
+                var loaded = 0
+                for await success in group where success { loaded += 1 }
+                return loaded
+            }
         }
-    }
-
-    private final class Box: @unchecked Sendable {
-        private let lock = NSLock()
-        private var done: [String: Int] = [:]
-        func count(_ result: String) { lock.withLock { done[result, default: 0] += 1 } }
-        var value: String { lock.withLock { "\(done)" } }
+        try await Task.sleep(for: .milliseconds(200))
+        let sent = ContinuousClock.now
+        let background = await Task.detached(priority: .userInitiated) { sent.duration(to: .now) }.value
+        let foreground = await MainActor.run { sent.duration(to: .now) }
+        #expect(background < .milliseconds(500))
+        #expect(foreground < .milliseconds(500))
+        #expect(await loads.value == count)
     }
 }

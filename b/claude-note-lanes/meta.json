@@ -1,7 +1,7 @@
 {
-  "sha": "837fe570080d556e72a0af0c499511427569ba13",
+  "sha": "677341a75c5b17925e92ad35c858a2eaa9a2e069",
   "branch": "claude-note-lanes",
   "path": "claude-note-lanes",
-  "subject": "[sz-ogck] Keep room above the bar for note lanes Each lane of stacked listening notes lifts its marks 9 points, but the playing row left only 16 points above the movement bar. Marks in lane 2 and up drew over the row title and the names that differ.",
-  "ts": 1795141215
+  "subject": "[sz-ogck] Keep lane 0 in the gap, size room at layout",
+  "ts": 1795145218
 }

@@ -32,6 +32,35 @@ struct NavigatorTests {
         #expect(navigator.backTarget(for: .library) == nil)
     }
 
+    /// A tab or a link opens Search empty; back from a result keeps the search (ADR 0029).
+    @Test func aTabOrALinkStartsSearchAfresh() {
+        let navigator = Navigator<String>()
+        navigator.selectTab(.search)
+        #expect(navigator.searchStarts == 1)
+        navigator.open("work", in: .search)
+        navigator.back()
+        #expect(navigator.searchStarts == 1)
+        navigator.select(.library)
+        navigator.select(.search)
+        #expect(navigator.searchStarts == 2)
+        navigator.selectTab(.search)
+        #expect(navigator.searchStarts == 3)
+    }
+
+    /// The tab restores a result page, so back from it must still find the search behind it.
+    @Test func aTabThatRestoresAResultKeepsTheSearch() {
+        let navigator = Navigator<String>()
+        navigator.select(.search)
+        navigator.open("work", in: .search)
+        navigator.selectTab(.library)
+        navigator.selectTab(.search)
+        #expect(navigator.pages(in: .search) == ["work"])
+        #expect(navigator.searchStarts == 1)
+        navigator.goBack(from: .search)
+        navigator.select(.search)
+        #expect(navigator.searchStarts == 1)
+    }
+
     @Test func startsInLibraryWithoutPages() {
         let navigator = Navigator<String>()
         #expect(navigator.selection == .library)

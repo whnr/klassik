@@ -223,6 +223,60 @@ final class PlacesScreens: ScreensTestCase {
 
 /// The pages that the lookup fills.
 final class BrowseScreens: ScreensTestCase {
+    /// The field at the top finds works, people and albums in sections. Back from a result keeps the search; a tab
+    /// opens Search empty (ADR 0025, 0029).
+    @MainActor
+    func testSearch() throws {
+        let app = try launchAndConnect(openComposers: false)
+        openPlace(app, "Search")
+        let field = app.textFields["search-field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["search-hint"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.staticTexts["page-heading"].exists, "Search shows a large title")
+        let arrow = app.buttons["place-back"]
+        XCTAssertTrue(arrow.exists)
+        XCTAssertGreaterThanOrEqual(field.frame.minY, arrow.frame.maxY - 1, "The field is not under the back arrow")
+        XCTAssertLessThan(field.frame.maxY, app.frame.midY, "The field is not at the top")
+        XCTAssertLessThan(field.frame.maxY, app.staticTexts["search-hint"].frame.minY, "The hint is above the field")
+        snap(app, "19a-search-empty")
+
+        field.tap()
+        field.typeText("chopin")
+        let works = app.buttons.matching(identifier: "search-work")
+        XCTAssertTrue(works.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertEqual(works.count, 4, "The Chopin nocturnes are not all found")
+        XCTAssertTrue(app.buttons.matching(identifier: "search-person").firstMatch.exists)
+        XCTAssertTrue(app.buttons.matching(identifier: "search-album").firstMatch.exists)
+        field.typeText("\n")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5), "Search does not close the keyboard")
+        snap(app, "19b-search-results")
+        let fieldTop = field.frame.minY
+        app.swipeUp()
+        XCTAssertEqual(field.frame.minY, fieldTop, accuracy: 1, "The field scrolls with the results")
+        app.swipeDown()
+
+        reveal(works.firstMatch, in: app).tap()
+        XCTAssertTrue(app.buttons.matching(identifier: "recording").firstMatch.waitForExistence(timeout: 10))
+        back(app)
+        XCTAssertTrue(works.firstMatch.waitForExistence(timeout: 10), "Back from a result lost the search")
+        XCTAssertEqual(field.value as? String, "chopin")
+
+        reveal(app.buttons.matching(identifier: "search-person").firstMatch, in: app).tap()
+        XCTAssertTrue(app.navigationBars["Frédéric Chopin"].waitForExistence(timeout: 10))
+        back(app)
+        XCTAssertTrue(works.firstMatch.waitForExistence(timeout: 10))
+
+        field.tap()
+        field.typeText("zzz\n")
+        XCTAssertTrue(app.staticTexts["search-no-match"].waitForExistence(timeout: 10))
+        snap(app, "19c-search-no-match")
+
+        openPlace(app, "Library")
+        openPlace(app, "Search")
+        XCTAssertTrue(app.staticTexts["search-hint"].waitForExistence(timeout: 10), "A tab kept the old search")
+        XCTAssertFalse(app.buttons["search-clear"].exists)
+    }
+
     /// The overview of the composers with life dates, then one composer among the contemporaries, the scrub, the
     /// name link and the way back to the overview (ADR 0016, 0022, 0026). Bach has no Wikidata answer, so he stays
     /// off the chart.
@@ -1698,6 +1752,11 @@ class ScreensTestCase: XCTestCase {
     func openPlace(_ app: XCUIApplication, _ name: String) {
         let tab = tab(app, name)
         XCTAssertTrue(tab.waitForExistence(timeout: 10), "No tab \(name)")
+        // The Search tab focuses its field, and the keyboard covers the tab bar (ADR 0029).
+        if app.keyboards.firstMatch.exists, !tab.isHittable {
+            app.swipeDown()
+            _ = app.keyboards.firstMatch.waitForNonExistence(timeout: 5)
+        }
         tab.tap()
     }
 

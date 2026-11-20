@@ -389,3 +389,10 @@ extension View {
         modifier(PagePadding())
     }
 }
+
+extension View {
+    /// The tint ground of a row that holds what plays, as the recording rows of a work page show it.
+    func playingRow(_ isPlaying: Bool) -> some View {
+        listRowBackground(isPlaying ? Palette.tint.color.opacity(0.12) : Color.clear)
+    }
+}

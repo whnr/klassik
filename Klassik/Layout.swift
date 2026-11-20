@@ -88,6 +88,29 @@ enum Layout {
     static let rowCover = Measure.coverRow
     /// css: specimen.css .cover | border-top-left-radius
     static let coverCorner = Radius.s
+    /// The gap above the hint of the empty Search page.
+    /// css: search.html .hint | padding-top
+    static let searchHintTop = Space.xl.points
+    /// The gap above the line that says nothing matches.
+    /// css: search.html .nomatch | padding-top
+    static let searchNoMatchTop = Space.l.points
+    /// The search field under the back arrow. The row stays in place; only the results scroll.
+    /// css: search.html .fieldrow .field | height
+    static let searchFieldHeight: CGFloat = 40
+    /// css: search.html .fieldrow .field | border-top-left-radius
+    static let searchFieldCorner: CGFloat = 12
+    /// css: search.html .fieldrow .field | padding-left
+    static let searchFieldLeading = Space.m.points
+    /// css: search.html .field | padding-right
+    static let searchFieldTrailing = Space.m.points
+    /// The gap between the magnifier, the text and the clear button.
+    /// css: search.html .field | gap
+    static let searchFieldGap = Space.s.points
+    /// css: search.html .field svg | width
+    static let searchFieldIcon: CGFloat = 18
+    /// The gap under the field row, above the results.
+    /// css: search.html .fieldrow | padding-bottom
+    static let searchRowBottom = Space.s.points
     /// A round button in a row, such as play from here.
     /// css: specimen.css .round | width
     static let roundButton: CGFloat = 32

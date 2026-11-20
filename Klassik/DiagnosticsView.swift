@@ -120,7 +120,7 @@ struct DiagnosticsView: View {
 
             Section {
                 Button("Check Again") {
-                    Task { await model.check() }
+                    Task { await model.refreshDiagnostics() }
                 }
                 .disabled(model.isChecking)
                 Button("Sign Out", role: .destructive) {
@@ -129,7 +129,7 @@ struct DiagnosticsView: View {
             }
         }
         .pageTitle("Diagnostics")
-        .refreshable { await model.check() }
+        .refreshable { await model.refreshDiagnostics() }
     }
 
     static var appVersion: String {

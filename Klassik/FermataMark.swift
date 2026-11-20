@@ -58,9 +58,7 @@ struct FermataMark: View {
     }
 }
 
-/// Text lays out the mark with the final word, including when the title wraps. Only the mark toggles the favourite
-/// (person.html draws the mark as the button): a tap on the words does nothing. VoiceOver and the walk activate
-/// the title at the mark.
+/// The specimen makes only the mark a button. Wrapped titles must keep that target beside the final word.
 struct FavouriteTitle: View {
     let title: String
     let isSet: Bool
@@ -105,7 +103,7 @@ struct FavouriteTitle: View {
 }
 
 extension FermataShape {
-    /// The area around the mark that takes a tap: the mark grown to the minimum hit target on each axis, centred on it.
+    /// Small marks need the minimum hit target on both axes.
     static func hitArea(around mark: CGRect) -> CGRect {
         guard !mark.isNull else { return .null }
         let dx = max(0, Measure.hitTarget - mark.width) / 2
@@ -114,7 +112,7 @@ extension FermataShape {
     }
 }
 
-/// Tags the run of the mark in a title, so the renderer can find where the text put it.
+/// The renderer needs to distinguish the mark from the title words.
 private struct FermataRun: TextAttribute {}
 
 /// Where the text last drew the mark, in the coordinates of the text.
@@ -144,7 +142,7 @@ private struct MarkFrameRenderer: TextRenderer {
     }
 }
 
-/// A tap without a location, as from VoiceOver or the walk, lands on the mark once the text has drawn it.
+/// VoiceOver and the walk need an activation point on the visible mark.
 private struct MarkActivation: ViewModifier {
     let mark: CGRect
 

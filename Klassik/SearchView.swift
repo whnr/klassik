@@ -76,7 +76,7 @@ struct SearchView: View {
 }
 
 /// The field row of search.html: a magnifier, the text and a clear button that clears the text only.
-/// Pages in the Search tab draw it instead of `searchable`, which the tab moves to the bottom of the screen.
+/// Search pages need a field under the title. The Search tab moves `searchable` to the bottom.
 struct SearchField: View {
     @Binding var text: String
     var focused: FocusState<Bool>.Binding

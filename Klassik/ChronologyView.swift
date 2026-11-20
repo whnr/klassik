@@ -534,7 +534,7 @@ private struct ChronologyRow: View {
 }
 
 extension View {
-    /// The long press of a work row on every other page: play and queue the reference recording, favour the work.
+    /// Chart rows need the same work actions as other pages.
     fileprivate func workActions(_ work: WorkIndex.Work?, order: RecordingOrder) -> some View {
         itemActions(
             work.flatMap { work in order.reference(of: work).map { QueueItem(work: work, recording: $0) } },

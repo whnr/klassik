@@ -1,10 +1,38 @@
 import CoreGraphics
+import SwiftUI
 import Testing
+import UIKit
 
 @testable import Klassik
 
 @MainActor
 struct FavouriteTitleTests {
+    @Test func aLongAlbumTitleDrawsItsFavouriteMark() throws {
+        let title = "A very long album title with several complete works for orchestra and chamber ensemble"
+        for size in [DynamicTypeSize.large, .accessibility3] {
+            let renderer = ImageRenderer(
+                content: AlbumCoverTitle(title: title, isFavourite: true)
+                    .environment(\.dynamicTypeSize, size)
+                    .environment(\.colorScheme, .light)
+                    .frame(width: 140)
+                    .background(.white))
+            let image = try #require(renderer.cgImage)
+            #expect(CGFloat(image.height) > TypeStyle.subheadline.size * 3, "The title needs more than two lines")
+            var pixels = [UInt8](repeating: 0, count: image.width * image.height * 4)
+            let context = try #require(
+                CGContext(
+                    data: &pixels, width: image.width, height: image.height,
+                    bitsPerComponent: 8, bytesPerRow: image.width * 4,
+                    space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+            context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+            // Only the favourite mark uses red ink; accessibility values cannot prove that it is visible.
+            let redPixels = stride(from: 0, to: pixels.count, by: 4).filter {
+                Int(pixels[$0]) > Int(pixels[$0 + 1]) + 60 && Int(pixels[$0]) > Int(pixels[$0 + 2]) + 30
+            }
+            #expect(redPixels.count > 10, "The long title hides its favourite mark at \(size)")
+        }
+    }
+
     @Test func theMarkTakesTapsInAHitTargetAroundItself() {
         let mark = CGRect(x: 200, y: 20, width: 22, height: 14)
         let area = FermataShape.hitArea(around: mark)

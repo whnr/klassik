@@ -139,8 +139,7 @@ struct PersonPageLink<Label: View>: View {
     }
 }
 
-/// A list row that opens a page: the label takes the free width, so a count and the caret stay at the trailing edge
-/// when the title wraps. A `LabeledContent` label puts its value beside the caret.
+/// Counts and carets must stay at the trailing edge when a title wraps.
 struct DisclosureRow<Label: View>: View {
     @ViewBuilder let label: Label
 

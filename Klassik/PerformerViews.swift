@@ -11,8 +11,7 @@ struct PerformersView: View {
             query.isEmpty || $0.name.localizedStandardContains(query)
         }
         PageList {
-            // This page sits in the Search tab, and there the system moves a `searchable` field to the bottom. The
-            // field row sits under the title, so the title stays where every other page has it.
+            // The Search tab moves `searchable` to the bottom. This page needs its field under the title.
             SearchField(text: $query, focused: $focused, prompt: "Name", identifier: "performer-search")
                 .listRowInsets(EdgeInsets())
                 .listRowSeparator(.hidden)

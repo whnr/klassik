@@ -313,12 +313,6 @@ final class BrowseScreens: ScreensTestCase {
         let rows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'chronology-work'"))
         XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 30), "Chopin shows no rows of works")
         snap(app, "02c-chronology-composer")
-        // A work row has the long press of the other work rows (sz-rs30.1.131.8).
-        let single = app.buttons.matching(identifier: "chronology-work").firstMatch
-        if single.exists {
-            expectWorkActions(on: single, in: app, "02i-chronology-work-actions")
-        }
-
         // A row for several works lists them; a work in the list opens its work page.
         let several = app.buttons.matching(identifier: "chronology-works").firstMatch
         if several.exists {
@@ -367,6 +361,14 @@ final class BrowseScreens: ScreensTestCase {
         app.buttons["chronology-level"].tap()
         XCTAssertTrue(app.staticTexts["All composers"].waitForExistence(timeout: 10))
         snap(app, "02h-chronology-last-opened")
+
+        // Mendelssohn has one dated work, so this check cannot select a grouped row.
+        lines.matching(NSPredicate(format: "label == 'Felix Mendelssohn'")).firstMatch.tap()
+        XCTAssertTrue(eventually(timeout: 10) { name.label == "Felix Mendelssohn" })
+        let single = app.buttons.matching(identifier: "chronology-work").firstMatch
+        XCTAssertTrue(single.waitForExistence(timeout: 30), "Mendelssohn shows no single dated work")
+        XCTAssertTrue(single.label.contains("Violin Concerto"), single.label)
+        expectWorkActions(on: single, in: app, "02i-chronology-work-actions")
     }
 
     /// A long press on a work row shows the work actions; a tap beside the menu closes it.

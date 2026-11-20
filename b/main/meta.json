@@ -1,7 +1,7 @@
 {
-  "sha": "e6ed1bb2f143be868bb6f5c070338880e9d698b8",
+  "sha": "367a767d9320a8fd0dc54cb49434cc1e98cb79a9",
   "branch": "main",
   "path": "main",
-  "subject": "[sz-rs30.1.131.1] Decode portraits off the cooperative pool (#132)",
-  "ts": 1795196859
+  "subject": "[sz-rs30.1.114] Make the UI walk reliable (#128)",
+  "ts": 1795197367
 }

@@ -128,6 +128,17 @@ final class ListeningNotes {
         return lanes
     }
 
+    /// The seconds that a note mark covers on a bar `width` points wide. A bar without a width has no reach.
+    nonisolated static func reach(width: Double, duration: Double) -> Double {
+        width > 0 ? Double(Layout.noteDot) / width * duration : 0
+    }
+
+    /// The room above a bar `width` points wide for the lanes of `notes`.
+    nonisolated static func room(_ notes: [ListeningNote], duration: Double, width: Double) -> CGFloat {
+        let reach = reach(width: width, duration: duration)
+        return Layout.noteRoom(lanes: laneCount(lanes(notes, reach: reach)))
+    }
+
     /// The number of lanes that `lanes` uses: 0 for no notes.
     nonisolated static func laneCount(_ lanes: [UUID: Int]) -> Int {
         lanes.values.max().map { $0 + 1 } ?? 0

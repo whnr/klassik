@@ -1207,7 +1207,7 @@ private struct PositionBar: View {
 
     private func bar(_ shown: Double) -> some View {
         let lanes = ListeningNotes.lanes(notes, reach: reach)
-        let room = Layout.noteRoom(lanes: ListeningNotes.laneCount(lanes))
+        let room = ListeningNotes.room(notes, duration: duration, width: width)
         return ZStack(alignment: .leading) {
             Capsule().fill(Palette.fillStandard)
             Capsule().fill(Palette.tint)
@@ -1223,7 +1223,7 @@ private struct PositionBar: View {
         // The touch area is the height of a system slider, plus the marks above it so that they stay tappable.
         // The layout keeps the thin bar and the room of the marks, so they never cover the text above.
         .padding(.vertical, -Layout.positionBarInset)
-        .padding(.top, room)
+        .modifier(NoteRoom(notes: notes, duration: duration))
         .contentShape(.rect)
         .gesture(
             DragGesture(minimumDistance: 0)
@@ -1257,7 +1257,7 @@ private struct PositionBar: View {
 
 extension PositionBar {
     /// A note mark is this many seconds wide on the bar.
-    private var reach: Double { width > 0 ? Double(Layout.noteDot) / width * duration : 0 }
+    private var reach: Double { ListeningNotes.reach(width: width, duration: duration) }
 
     /// Dots for moments and lines for spans above the bar. Notes that overlap stack in lanes (ADR 0014).
     private func marks(_ lanes: [UUID: Int]) -> some View {
@@ -1291,6 +1291,37 @@ extension PositionBar {
         guard still, value.startLocation.y < top else { return nil }
         let seconds = PositionScrub.seconds(at: value.startLocation.x, width: width, duration: duration)
         return ListeningNotes.note(near: seconds, in: notes, reach: reach)
+    }
+}
+
+/// Room above the playback bar for its note lanes. The room comes from the width that the layout proposes, so the
+/// row has its final height in the first pass and does not grow when the bar learns its width.
+struct NoteRoom: ViewModifier {
+    let notes: [ListeningNote]
+    let duration: Double
+
+    func body(content: Content) -> some View {
+        Room(notes: notes, duration: duration) { content }
+    }
+
+    private struct Room: SwiftUI.Layout {
+        let notes: [ListeningNote]
+        let duration: Double
+
+        func sizeThatFits(proposal: ProposedViewSize, subviews: LayoutSubviews, cache: inout ()) -> CGSize {
+            guard let bar = subviews.first else { return .zero }
+            let size = bar.sizeThatFits(ProposedViewSize(width: proposal.width, height: nil))
+            let room = ListeningNotes.room(notes, duration: duration, width: size.width)
+            return CGSize(width: size.width, height: size.height + room)
+        }
+
+        func placeSubviews(
+            in bounds: CGRect, proposal: ProposedViewSize, subviews: LayoutSubviews, cache: inout ()
+        ) {
+            subviews.first?.place(
+                at: CGPoint(x: bounds.minX, y: bounds.maxY), anchor: .bottomLeading,
+                proposal: ProposedViewSize(width: bounds.width, height: nil))
+        }
     }
 }
 

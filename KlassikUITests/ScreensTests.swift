@@ -816,11 +816,16 @@ final class PlaybackScreens: ScreensTestCase {
         playPaused(app)
         let add = reveal(app.buttons["add-note"], in: app)
         XCTAssertTrue(add.exists, "The playing row offers no note")
+        let position = app.sliders["position"]
+        XCTAssertTrue(position.exists)
+        // The bottom of the bar, from the playing mark next to the row title: the room of the note lanes adds to it.
+        let playing = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS 'Now playing'"))
+            .firstMatch
+        func barDrop() -> CGFloat { position.frame.maxY - playing.frame.minY }
+        let bare = barDrop()
         add.tap()
         let field = app.textFields["note-field"]
         XCTAssertTrue(field.waitForExistence(timeout: 10), "Add a note here opened no field")
-        let position = app.sliders["position"]
-        XCTAssertTrue(position.exists)
         XCTAssertGreaterThan(field.frame.minY, position.frame.maxY, "The note field is not in the playing row")
         // The field takes focus by itself; the tap makes the walk independent of keyboard timing.
         field.tap()
@@ -836,12 +841,15 @@ final class PlaybackScreens: ScreensTestCase {
         reveal(app.buttons["end-note"], in: app).tap()
         let time = app.staticTexts["note-draft-time"]
         XCTAssertTrue(eventually(timeout: 5) { time.label.contains("–") }, "End here made no span: \(time.label)")
+        let spanStart = Self.seconds(String(time.label.split(separator: "–")[0]))
         snap(app, "41a-note-span")
         reveal(app.buttons["save-note"], in: app).tap()
         let saved = app.buttons["note-text"].firstMatch
         XCTAssertTrue(saved.waitForExistence(timeout: 10), "The saved note does not show")
         XCTAssertTrue(saved.label.contains("Theme in the violins"), saved.label)
         XCTAssertFalse(field.exists, "Save left the note open")
+        // The first lane sits in the gap above the bar, so the first note does not move the bar.
+        XCTAssertEqual(barDrop(), bare, accuracy: 0.5, "The first note moved the bar")
         snap(app, "41b-note-saved")
 
         // Two moments at the end of the span stack in lanes above it. The bar keeps room for them below the names.
@@ -855,7 +863,20 @@ final class PlaybackScreens: ScreensTestCase {
         }
         XCTAssertEqual(app.buttons.matching(identifier: "note-text").count, 3)
         reveal(position, in: app)
+        // Each lane above the first adds the pitch of one lane (Layout.noteDotTop).
+        let pitch: CGFloat = 9
+        XCTAssertEqual(barDrop(), bare + 2 * pitch, accuracy: 0.5, "The bar has no room for the third lane")
         snap(app, "41d-note-lanes")
+
+        // A tap at the height of the third lane picks the note under it, the span, and moves to its start. A scrub
+        // there would move to the middle of the movement. The bar is 6 pt high, and a third-lane dot centres 2 lanes
+        // and 6 pt above its top.
+        let lane = position.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 1))
+            .withOffset(CGVector(dx: 0, dy: -(6 + 2 * pitch + 6)))
+        lane.tap()
+        XCTAssertTrue(
+            eventually(timeout: 5) { abs(Self.seconds(position.value as? String ?? "") - spanStart) <= 1 },
+            "A tap on the third lane did not move to the span: \(position.value ?? "")")
 
         // Another movement plays; the row of the note now opens and shows it.
         reveal(app.buttons["Play from here"].firstMatch, in: app).tap()

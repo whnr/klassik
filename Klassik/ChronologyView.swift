@@ -526,7 +526,6 @@ private struct ChronologyRow: View {
             .contentShape(.rect(cornerRadius: Layout.workRowCorner))
         }
         .buttonStyle(ChronologyRowPress())
-        .workActions(row.opensList ? nil : row.works.first, order: model.recordingOrder)
         .accessibilityLabel("\(row.years), \(row.title)")
         .accessibilityAddTraits(marked ? .isSelected : [])
         .accessibilityIdentifier(row.opensList ? "chronology-works" : "chronology-work")

@@ -2,6 +2,7 @@
 
 import pathlib
 import subprocess
+import tempfile
 import sys
 import unittest
 
@@ -43,15 +44,25 @@ class CoveringTests(unittest.TestCase):
         self.assertIn("last 1 commits", reason)
 
     def test_real_diff_tree_output_has_no_empty_path(self):
-        out = subprocess.run(
-            ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", "-m", "--first-parent", "HEAD"],
-            stdout=subprocess.PIPE,
-            text=True,
-            check=True,
-            cwd=pathlib.Path(__file__).parent,
-        ).stdout
+        # A scratch repo, because a CI checkout can be shallow and then diff-tree prints nothing.
+        with tempfile.TemporaryDirectory() as tmp:
+
+            def git(*args):
+                return subprocess.run(
+                    ["git", "-c", "user.name=t", "-c", "user.email=t@t", *args],
+                    stdout=subprocess.PIPE,
+                    text=True,
+                    check=True,
+                    cwd=tmp,
+                ).stdout
+
+            git("init", "-q")
+            pathlib.Path(tmp, "README.md").write_text("x")
+            git("add", "README.md")
+            git("commit", "-q", "-m", "c")
+            out = git("diff-tree", "--no-commit-id", "--name-only", "-r", "-m", "--first-parent", "--root", "HEAD")
         self.assertTrue(out.endswith("\n"))
-        self.assertNotIn("", green_test_gate.parse_paths(out))
+        self.assertEqual(green_test_gate.parse_paths(out), ["README.md"])
 
     def test_parse_paths_drops_the_trailing_newline(self):
         self.assertEqual(green_test_gate.parse_paths("docs/x.md\nREADME.md\n"), ["docs/x.md", "README.md"])

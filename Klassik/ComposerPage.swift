@@ -300,6 +300,7 @@ private struct ResolutionNotice: View {
                     Button {
                         Task { await people.choose(match, forComposer: tag) }
                     } label: {
+                        // The whole row, title included, is the target: a tap anywhere on it picks the person.
                         VStack(alignment: .leading) {
                             Text(match.name).ink()
                             if let description = match.description {
@@ -308,12 +309,18 @@ private struct ResolutionNotice: View {
                                     .foregroundStyle(Palette.textSecondary)
                             }
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
                     }
+                    .buttonStyle(FlatPress())
                     .accessibilityIdentifier("composer-match")
                 }
                 Button("None of These") { Task { await people.choose(nil, forComposer: tag) } }
             } footer: {
-                Text("Your tag gives only \"\(tag)\" and your works do not say which composer it is.")
+                Text(
+                    PersonFactsStore.isSurnameOnly(tag)
+                        ? "Your tag gives only \"\(tag)\" and your works do not say which composer it is."
+                        : "Several composers have the name \"\(tag)\" and your works do not say which one it is.")
             }
         case .mixed(let names):
             Section {

@@ -597,6 +597,34 @@ final class BrowseScreens: ScreensTestCase {
         checkRecordingHairline(app)
     }
 
+    /// Wikidata also finds Beethoven's relatives and friends, his grandfather with his full name. The tag gives
+    /// the full name, so the page takes the composer without a pick list (sz-rs30.1.131.2). Choose Composer
+    /// Again lists them all, and a tap on a row's title picks that person.
+    @MainActor
+    func testComposerAmongNamesakes() throws {
+        let app = try launchAndConnect()
+        composer(app, "Ludwig van Beethoven").tap()
+        let tabs = app.descendants(matching: .any)["composer-tabs"].firstMatch
+        XCTAssertTrue(tabs.waitForExistence(timeout: 10))
+        tabs.buttons["About"].tap()
+        // The button shows once the lookup has settled the tag.
+        let again = app.buttons["composer-choose-again"]
+        XCTAssertTrue(reveal(again, in: app).waitForExistence(timeout: 30), "The lookup does not settle")
+        let matches = app.buttons.matching(identifier: "composer-match")
+        XCTAssertFalse(matches.firstMatch.exists, "The full name opens a pick list")
+        again.tap()
+        let first = matches.firstMatch
+        XCTAssertTrue(first.waitForExistence(timeout: 10), "Choose Composer Again shows no pick list")
+        // The list sits above the tabs, out of sight at the end of the page.
+        for _ in 0..<6 where !first.isHittable { app.swipeDown() }
+        XCTAssertEqual(matches.count, 7)
+        XCTAssertTrue(first.label.hasPrefix("Ludwig van Beethoven"), first.label)
+        snap(app, "03m-composer-pick-list")
+        // The title line, at the leading top of the row.
+        first.coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.25)).tap()
+        XCTAssertTrue(first.waitForNonExistence(timeout: 10), "A tap on the title does not pick the person")
+    }
+
     /// The fixture holds only the third movement of Brahms's Fourth, so it shows under "Partial works". With the
     /// setting off, it is one of the works again.
     @MainActor
@@ -1823,8 +1851,34 @@ class ScreensTestCase: XCTestCase {
                 ["ids=\(qid)&props=labels|descriptions", entity],
             ]
         }
+        // Wikidata gives the composer occupation to Beethoven's relatives and friends, so his name search finds
+        // them too, as the live search does. His grandfather has his full name.
+        let beethovenHits = [
+            ("Q255", "Ludwig van Beethoven", "German composer (1770-1827)"),
+            ("Q12368917", "Ludwig van Beethoven", "grandfather of composer Ludwig van Beethoven"),
+            ("Q2153541", "Johann van Beethoven", "father of Ludwig van Beethoven"),
+            ("Q64862", "Anton Schindler", "Associate, secretary, and early biographer of Ludwig van Beethoven"),
+            ("Q6374627", "Kaspar Anton Karl van Beethoven", "German composer, brother of Ludwig van Beethoven"),
+            ("Q472851", "Count Ferdinand Ernst Gabriel von Waldstein", "British Army general (1762-1823)"),
+            ("Q6216444", "Johanna van Beethoven", "Beethoven's sister-in-law"),
+        ]
+        let beethovenLabels = beethovenHits.map { qid, name, description in
+            #""\#(qid)":{"id":"\#(qid)","labels":{"en":{"value":"\#(name)"}},"descriptions":{"en":{"value":"\#(description)"}}}"#
+        }
+        let beethoven: [[String]] = [
+            [
+                "\"Ludwig van Beethoven\" haswbstatement:P106",
+                #"{"query":{"search":["# + beethovenHits.map { #"{"title":"\#($0.0)"}"# }.joined(separator: ",")
+                    + "]}}",
+            ],
+            [
+                "ids=" + beethovenHits.map(\.0).joined(separator: "|"),
+                #"{"entities":{"# + beethovenLabels.joined(separator: ",") + "}}",
+            ],
+        ]
         let pairs: [[String]] =
-            composer("Q254", "Wolfgang Amadeus Mozart", "1756", "1791", "1761")
+            beethoven
+            + composer("Q254", "Wolfgang Amadeus Mozart", "1756", "1791", "1761")
             + composer("Q255", "Ludwig van Beethoven", "1770", "1827", "1782")
             + composer("Q1268", "Frédéric Chopin", "1810", "1849", "1817")
             + composer("Q7294", "Johannes Brahms", "1833", "1897", "1851")

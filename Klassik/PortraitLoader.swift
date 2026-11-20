@@ -278,6 +278,7 @@ enum PortraitLoader {
             let screen: PortraitSize.Screen?
             var opening: Bool
             var callers: [Caller]
+            var needed: Bool { callers.contains { !$0.cancelled.isSet } }
 
             init(data: Data, url: URL, screen: PortraitSize.Screen?, opening: Bool, caller: Caller) {
                 self.data = data
@@ -294,6 +295,9 @@ enum PortraitLoader {
         private var pending: [Work] = []
         private var running: Work?
         private var scheduled = false
+        /// Consecutive opening decodes that passed older work. The limit keeps a stream of taps from starving a row.
+        private var overtaken = 0
+        static let burstLimit = 3
 
         init(render: @escaping @Sendable (Data, PortraitSize.Screen?) -> LoadedPortrait? = PortraitLoader.upright) {
             self.render = render
@@ -342,9 +346,17 @@ enum PortraitLoader {
                     scheduled = false
                     return nil
                 }
-                let index = pending.firstIndex { $0.opening && $0.callers.contains { !$0.cancelled.isSet } } ?? 0
+                var index = 0
+                if overtaken < Self.burstLimit,
+                    let opening = pending.firstIndex(where: { $0.opening && $0.needed }), opening > 0
+                {
+                    index = opening
+                    overtaken += 1
+                } else {
+                    overtaken = 0
+                }
                 let work = pending.remove(at: index)
-                let needed = work.callers.contains { !$0.cancelled.isSet }
+                let needed = work.needed
                 running = needed ? work : nil
                 return (work, needed)
             }) {

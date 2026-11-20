@@ -68,6 +68,56 @@ import UIKit
         #expect(rendered == [0, 3, 1, 2])
     }
 
+    /// Each opening decode queues the next one, so opening work is always pending while the row waits.
+    private final class Replenish: @unchecked Sendable {
+        let release = DispatchSemaphore(value: 0)
+        let started = AsyncStream<Void>.makeStream()
+        let rendered = AsyncStream<Int>.makeStream()
+        let answers = AsyncStream<Answer>.makeStream()
+        var decoder: PortraitLoader.Decoder?
+        static let last = 29
+
+        func render(_ data: Data, screen: PortraitSize.Screen?) -> LoadedPortrait? {
+            let id = Int(data.first ?? 0)
+            if id == 0 {
+                started.continuation.yield(())
+                guard release.wait(timeout: .now() + 10) == .success else { return nil }
+            }
+            if (10..<Self.last).contains(id), let decoder {
+                PortraitProgressTests.enqueue(
+                    id + 1, name: "tap \(id + 1)", on: decoder, answers: answers.continuation, opening: true)
+            }
+            rendered.continuation.yield(id)
+            return LoadedPortrait(image: UIImage(), faces: [])
+        }
+    }
+
+    @Test func sustainedTapsLetAnOlderRowFinish() async throws {
+        let replenish = Replenish()
+        defer { replenish.release.signal() }
+        let decoder = PortraitLoader.Decoder(render: replenish.render)
+        replenish.decoder = decoder
+        let answers = replenish.answers
+        Self.enqueue(0, name: "blocker", on: decoder, answers: answers.continuation)
+        for await _ in replenish.started.stream { break }
+        Self.enqueue(1, name: "row", on: decoder, answers: answers.continuation)
+        Self.enqueue(10, name: "tap 10", on: decoder, answers: answers.continuation, opening: true)
+        replenish.release.signal()
+        var results: [Answer] = []
+        for await answer in answers.stream {
+            results.append(answer)
+            if results.count == Replenish.last - 10 + 3 { break }
+        }
+        let limit = PortraitLoader.Decoder.burstLimit
+        let row = try #require(results.firstIndex { $0.name == "row" })
+        #expect(results[row].portrait != nil)
+        #expect(row == 1 + limit)
+        replenish.rendered.continuation.finish()
+        var rendered: [Int] = []
+        for await id in replenish.rendered.stream { rendered.append(id) }
+        #expect(rendered == [0] + Array(10..<10 + limit) + [1] + Array(10 + limit...Replenish.last))
+    }
+
     @Test func cancelledQueuedCallerSkipsDecode() async throws {
         let gate = Gate()
         defer { gate.release.signal() }
@@ -137,20 +187,15 @@ import UIKit
         #expect(rendered == [0])
     }
 
-    /// Commons originals measure the tap wait without committing pictures or including download time.
+    /// Generated pictures at Commons original sizes measure the tap wait. A slow network cannot use the time limit.
     @Test func largePictureFirstFrameBeforeAndAfter() async throws {
         let done = DispatchSemaphore(value: 0)
         Self.watchdog(done)
         defer { done.signal() }
         let screen = PortraitSizeTests.proMax
-        let originals = [
-            ("Elgar", "0/0a/Edward_Elgar_1857_-_1934.jpg"),
-            ("Chausson", "b/b9/A-Ernest_Chausson.jpg"),
-        ]
-        for (name, path) in originals {
-            let url = try #require(URL(string: "https://upload.wikimedia.org/wikipedia/commons/\(path)"))
-            let (data, status) = try await PortraitLoader.network(URLRequest(url: url))
-            try #require(status == 200 && !data.isEmpty)
+        let originals = [("3840 x 5120", Self.jpeg()), ("2400 x 3200", Self.jpeg(width: 2400, height: 3200))]
+        for (name, data) in originals {
+            try #require(!data.isEmpty)
             let before = ContinuousClock.now
             let legacy = DispatchQueue(label: "PortraitProgressTests.FIFO")
             let old = AsyncStream<Bool>.makeStream()
@@ -195,7 +240,7 @@ import UIKit
             }
             let newTime = after.duration(to: .now)
             print(
-                "First-frame preparation \(name): FIFO \(oldTime), promoted/shared \(newTime), source \(url)"
+                "First-frame preparation \(name): FIFO \(oldTime), promoted/shared \(newTime)"
             )
             // Drain before the next measurement, so the remaining rows cannot distort its timing.
             let drained = AsyncStream<Void>.makeStream()
@@ -207,14 +252,14 @@ import UIKit
     }
 
     /// A Commons step of 3840 pixels, at the aspect of a typical portrait. Generated pixels need no network.
-    private static func jpeg() -> Data {
+    private static func jpeg(width: Int = 3840, height: Int = 5120) -> Data {
         guard
             let context = CGContext(
-                data: nil, width: 3840, height: 5120, bitsPerComponent: 8, bytesPerRow: 0,
+                data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
                 space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)
         else { return Data() }
         context.setFillColor(red: 0.4, green: 0.2, blue: 0.1, alpha: 1)
-        context.fill(CGRect(x: 0, y: 0, width: 3840, height: 5120))
+        context.fill(CGRect(x: 0, y: 0, width: width, height: height))
         let data = NSMutableData()
         guard let image = context.makeImage(),
             let destination = CGImageDestinationCreateWithData(data as CFMutableData, "public.jpeg" as CFString, 1, nil)

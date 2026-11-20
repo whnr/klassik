@@ -1,7 +1,7 @@
 {
-  "sha": "894064e84f4bce8b2b31e2bcc1c37dc62049c5fc",
+  "sha": "7e553379163e7f4a457f141b4a59df078541ee86",
   "branch": "claude-slice-17",
   "path": "claude-slice-17",
-  "subject": "[sz-rs30.1.105.17] Check \"or\" on a term inside the detent",
-  "ts": 1795141099
+  "subject": "[sz-rs30.1.105.17] Build the filter terms ahead of the first tap",
+  "ts": 1795143778
 }

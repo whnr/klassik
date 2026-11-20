@@ -22,22 +22,8 @@ struct ComposerPage: View {
         let artistIDs = composer.works.compactMap { model.enrichment.facts(of: $0)?.composerID }
         let facts = people.facts(ofComposer: composer.name)
         let catalogue = ComposerWorks(composer)
-        GeometryReader { proxy in
-            List {
-                Group { content(proxy: proxy, facts: facts, catalogue: catalogue) }
-                    .listRowBackground(Color.clear)
-                    .listSectionSeparator(.hidden)
-                    .pageRow()
-            }
-            .listStyle(.plain)
-            .listSectionSeparator(.hidden)
-            .environment(\.defaultMinListRowHeight, 0)
-            .environment(\.defaultMinListHeaderHeight, 0)
-            .environment(\.isPageList, true)
-            .scrollContentBackground(.hidden)
-            .pageContentPosition()
-            .background(Palette.backgroundPage)
-            .ignoresSafeArea(.container, edges: .top)
+        PersonPageList { proxy in
+            content(proxy: proxy, facts: facts, catalogue: catalogue)
         }
         .navigationTitle(composer.name)
         .navigationBarTitleDisplayMode(.inline)
@@ -174,38 +160,11 @@ struct ComposerPage: View {
         }
     }
 
-    @ViewBuilder private func aboutTab(_ facts: PersonFacts?) -> some View {
-        if let facts {
-            if let bio = facts.bio {
-                Section {
-                    SectionHeading("Biography")
-                    Text(bio)
-                        .ink()
-                        .accessibilityIdentifier("composer-bio")
-                        .listRowSeparator(.hidden)
-                }
-            }
-            if !facts.credits.isEmpty {
-                Section {
-                    SectionHeading("Credits")
-                    ForEach(facts.credits, id: \.self) { credit in
-                        CreditRow(credit: credit)
-                            .itemSeparator(first: credit == facts.credits.first, last: credit == facts.credits.last)
-                    }
-                }
-            }
-        } else {
-            Section {
-                Text("Wikidata has no facts for this composer. Klassik shows your tags.")
-                    .foregroundStyle(Palette.textSecondary)
-                    .listRowSeparator(.hidden)
-            }
-        }
-        Section {
-            SectionHeading("Your tags")
-            let people = model.people
-            let choosesAgain =
-                people.resolution(ofComposer: composer.name) != nil && !people.loading.contains(composer.name)
+    private func aboutTab(_ facts: PersonFacts?) -> some View {
+        let people = model.people
+        let choosesAgain =
+            people.resolution(ofComposer: composer.name) != nil && !people.loading.contains(composer.name)
+        return PersonAbout(facts: facts, kind: "composer") {
             LabeledContent("Name in your tags", value: composer.name)
                 .ink()
                 .itemSeparator(first: true, last: false)

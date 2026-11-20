@@ -2374,6 +2374,11 @@ class ScreensTestCase: XCTestCase {
         expectGap(
             from: name, to: tabs, Layout.personHeadBottom + Layout.segmentedTop, "Name to tabs",
             upperText: Layout.pageTitle)
+        // person.html: the album grid is a .section on the plain page list, so the section gap follows the tabs.
+        // The placeholder fill is close to the page ground, so the element frame stands in for the ink.
+        let cover = app.buttons.matching(identifier: "performer-album").firstMatch.frame
+        expectPageEdges(cover, in: app, "First album")
+        expectGap(from: tabs, to: cover, Layout.sectionTop, "Tabs to albums")
         checkTabs(app, "performer-tabs", from: "Albums", to: "About")
         tabsElement.buttons["Albums"].tap()
     }
@@ -2387,6 +2392,8 @@ class ScreensTestCase: XCTestCase {
         tabs.buttons[second].tap()
         let tags = app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH 'Name in your tags'"))
         XCTAssertTrue(reveal(tags.firstMatch, in: app).waitForExistence(timeout: 5), "\(second) shows no tags")
+        // The About tab of both person pages is one shared plain list: its rows keep the page edges.
+        expectPageEdges(drawn(tags.firstMatch, in: app), in: app, "\(identifier) tags row")
         XCTAssertTrue(tabs.buttons[second].isSelected, "\(second) is not selected")
         XCTAssertFalse(tabs.buttons[first].isSelected, "\(first) stays selected")
     }

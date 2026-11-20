@@ -97,6 +97,9 @@
     const yMeta = lum(rgbOf(getComputedStyle(meta).color)),
       yTitle = lum(rgbOf(getComputedStyle(title).color));
     const yScrim = lum(scrim);
+    const marks = ["--color-favourite", "--color-favourite-off"].map((name) =>
+      lum(rgbOf(getComputedStyle(head).getPropertyValue(name))),
+    );
     // Increase Contrast asks AAA: 7:1 for the facts, 4.5:1 for the large name.
     const high = document.documentElement.dataset.contrast === "high";
     const tMeta = high ? 7 : 4.5,
@@ -105,7 +108,12 @@
     // Compositing is linear in light: the pixel under the scrim is mixed toward the scrim colour.
     for (; a <= 1; a += 0.02) {
       const y = worst * (1 - a) + yScrim * a;
-      if (ratio(yMeta, y) >= tMeta && ratio(yTitle, y) >= tTitle) break;
+      if (
+        ratio(yMeta, y) >= tMeta &&
+        ratio(yTitle, y) >= tTitle &&
+        marks.every((mark) => mark > y && ratio(mark, y) >= (high ? 4.5 : 3))
+      )
+        break;
     }
     a = Math.min(1, Math.max(a, 0.25));
     const hero = document.querySelector(".hero");

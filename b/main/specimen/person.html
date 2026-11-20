@@ -233,7 +233,7 @@
               el(
                 "a",
                 { class: "capsule t-headline", href: href("chronology.html", { composer: name, back: name }) },
-                "Chronology",
+                K.params.get("back") === "Chronology" ? "Back to Chronology" : "Chronology",
               ),
             ),
           );

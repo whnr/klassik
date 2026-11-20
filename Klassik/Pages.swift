@@ -157,7 +157,7 @@ struct DisclosureRow<Label: View>: View {
     }
 }
 
-/// The value sits at the trailing edge and never wraps; the label wraps in the width that is left.
+/// Counts must remain aligned when their labels wrap.
 struct TrailingValue: LabeledContentStyle {
     func makeBody(configuration: Configuration) -> some View {
         HStack(spacing: Layout.rowGap) {

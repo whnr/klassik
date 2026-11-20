@@ -371,16 +371,16 @@ final class BrowseScreens: ScreensTestCase {
         expectWorkActions(on: single, in: app, "02i-chronology-work-actions")
     }
 
-    /// A long press on a work row shows the work actions; a tap beside the menu closes it.
     @MainActor
     private func expectWorkActions(on row: XCUIElement, in app: XCUIApplication, _ name: String) {
+        let label = row.label
         row.press(forDuration: 1.2)
         let queue = app.buttons["Add to Queue"].firstMatch
-        XCTAssertTrue(queue.waitForExistence(timeout: 5), "A long press on \(row.label) shows no actions")
-        XCTAssertTrue(app.buttons["Play Next"].firstMatch.exists, "The actions of \(row.label) have no Play Next")
+        XCTAssertTrue(queue.waitForExistence(timeout: 5), "A long press on \(label) shows no actions")
+        XCTAssertTrue(app.buttons["Play Next"].firstMatch.exists, "The actions of \(label) have no Play Next")
         snap(app, name)
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
-        XCTAssertTrue(eventually(timeout: 5) { !queue.exists }, "The actions of \(row.label) stay open")
+        XCTAssertTrue(eventually(timeout: 5) { !queue.exists }, "The actions of \(label) stay open")
     }
 
     /// Mendelssohn has a picture in the fixture answers: it shows under the name, and a tap shows it whole with
@@ -1140,7 +1140,6 @@ final class PlaybackScreens: ScreensTestCase {
         let performer = app.buttons.matching(identifier: "performer").firstMatch
         XCTAssertTrue(performer.waitForExistence(timeout: 10))
         snap(app, "06a-performers")
-        // The field filters the list and opens the keyboard (sz-rs30.1.131.3).
         let rows = app.buttons.matching(identifier: "performer")
         let all = rows.count
         let field = app.textFields["performer-search"]
@@ -1166,9 +1165,9 @@ final class PlaybackScreens: ScreensTestCase {
         checkPerformerHead(app, titleBottom: title.maxY)
         let mark = app.buttons["favourite-performer"]
         XCTAssertTrue(mark.waitForExistence(timeout: 10))
-        // Only the mark toggles; a tap on the words of the name does nothing (sz-rs30.1.131.5).
+        // The title words must not toggle the favourite.
         let before = mark.value as? String
-        // The element reaches up under the back button, so the tap goes to the start of the last title line.
+        // The element extends under Back. Tap the last title line to avoid the navigation target.
         let line = Layout.pageTitle.size * Layout.pageTitle.lineHeight
         app.coordinate(withNormalizedOffset: .zero)
             .withOffset(CGVector(dx: mark.frame.minX + line / 2, dy: mark.frame.maxY - line / 2)).tap()
@@ -1189,7 +1188,6 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(
             app.descendants(matching: .any)["performer-tabs"].firstMatch.waitForExistence(timeout: 10),
             "Back from the album did not reach the performer")
-        // The favourite album shows the fermata after its title under the cover (sz-rs30.1.131.6).
         let marked = app.buttons.matching(identifier: "performer-album").firstMatch
         XCTAssertTrue(
             eventually(timeout: 5) { "\(marked.label) \(marked.value ?? "")".contains("Favourite") },

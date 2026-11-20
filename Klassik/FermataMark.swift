@@ -78,7 +78,7 @@ struct FavouriteTitle: View {
         Text("\(title)\u{00A0}\(markText)")
             .typeStyle(.pageTitle)
             .foregroundStyle(ink.map { AnyShapeStyle($0) } ?? AnyShapeStyle(Palette.textPrimary))
-            // A new mark replaces the old one in the same frame, also under an animation of the page.
+            // Favourite toggles must not animate, including under a page animation.
             .contentTransition(.identity)
             .transaction { $0.animation = nil }
             .textRenderer(MarkFrameRenderer(frame: markFrame))
@@ -115,7 +115,7 @@ extension FermataShape {
 /// The renderer needs to distinguish the mark from the title words.
 private struct FermataRun: TextAttribute {}
 
-/// Where the text last drew the mark, in the coordinates of the text.
+/// Hit testing needs the visible mark frame in text coordinates.
 @MainActor @Observable private final class MarkFrame {
     private(set) var rect = CGRect.null
 
@@ -124,7 +124,7 @@ private struct FermataRun: TextAttribute {}
     }
 }
 
-/// Draws the text unchanged and reports the frame of the mark run.
+/// Hit testing must follow the mark when the title wraps.
 private struct MarkFrameRenderer: TextRenderer {
     let frame: MarkFrame
 
@@ -180,7 +180,7 @@ extension FermataShape {
 struct MarkedTitle: View {
     let title: String
     let isFavourite: Bool
-    /// The mark scales with the text style of the title it follows.
+    /// The mark must match the title size (ADR 0033).
     @ScaledMetric private var em: CGFloat
     @Environment(\.displayScale) private var scale
     @Environment(\.colorScheme) private var scheme

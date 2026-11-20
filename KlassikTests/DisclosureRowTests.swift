@@ -6,7 +6,6 @@ import UIKit
 
 @MainActor
 struct DisclosureRowTests {
-    /// The frames that the row reports while a window lays it out.
     @MainActor private final class Frames {
         var title = CGRect.null
         var value = CGRect.null
@@ -50,7 +49,7 @@ struct DisclosureRowTests {
         #expect(!short.value.isNull && !long.value.isNull)
         #expect(long.title.height > short.title.height, "The long title does not wrap")
         #expect(abs(long.value.maxX - short.value.maxX) < 0.5)
-        // The title takes the width up to the count, so only the count and the caret sit after it.
+        // Wrapped and single-line titles need the same trailing alignment.
         #expect(short.title.maxX <= short.value.minX)
         #expect(long.value.minX - long.title.maxX < short.value.minX - short.title.maxX)
     }

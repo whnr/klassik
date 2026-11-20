@@ -40,7 +40,6 @@ struct FavouriteTitleTests {
         #expect(area.height == Measure.hitTarget)
         #expect(area.midX == mark.midX)
         #expect(area.midY == mark.midY)
-        // The words before the mark take no tap.
         #expect(!area.contains(CGPoint(x: 20, y: 27)))
         #expect(!area.contains(CGPoint(x: mark.minX - Measure.hitTarget, y: mark.midY)))
     }

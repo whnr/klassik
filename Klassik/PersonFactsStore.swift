@@ -58,6 +58,16 @@ final class PersonFactsStore {
             checked = try container.decodeIfPresent([String: Date].self, forKey: .checked) ?? [:]
             due = try container.decodeIfPresent([String: Date].self, forKey: .due) ?? [:]
             picturePending = try container.decodeIfPresent([String: PictureWork].self, forKey: .picturePending) ?? [:]
+            // A saved pick list that the name rule settles takes its composer, without a request. The facts
+            // load on the next lookup, and the background pass takes the tag first.
+            for (tag, resolution) in composers where !chosen.contains(tag) {
+                guard case .pick(let found) = resolution,
+                    case .person(let qid) = PersonFactsStore.settle(tag, found: found)
+                else { continue }
+                composers[tag] = .person(qid)
+                checked["composer:\(tag)"] = nil
+                due["composer:\(tag)"] = nil
+            }
             // Resolutions and listener choices must survive facts invalidation.
             if version < Cache.version {
                 people = [:]
@@ -313,12 +323,23 @@ final class PersonFactsStore {
             // The names keep one order, whatever order the artist IDs have.
             return .mixed(names.sorted { Self.fold($0) < Self.fold($1) })
         }
-        let found = try await service.composers(named: tag)
+        return Self.settle(tag, found: try await service.composers(named: tag))
+    }
+
+    /// The resolution of a tag from the composers that a name search found, when the works do not decide.
+    /// Wikidata gives the composer occupation to many relatives and friends of a composer, so the occupation
+    /// alone does not decide. A full-name tag takes the one hit with that name. Hits with another name never
+    /// count. A namesake whose description names the tag is described through the composer, as "grandfather of
+    /// composer Ludwig van Beethoven" is: the composer wins over that namesake.
+    nonisolated static func settle(_ tag: String, found: [PersonMatch]) -> ComposerResolution {
         if found.isEmpty { return .unknown }
-        let exact = found.filter { Self.fold($0.name) == Self.fold(tag) }
-        if !surnameOnly, exact.count == 1 { return .person(exact[0].qid) }
-        if !surnameOnly, found.count == 1 { return .person(found[0].qid) }
-        return .pick(found)
+        if isSurnameOnly(tag) { return .pick(found) }
+        let name = fold(tag)
+        let exact = found.filter { fold($0.name) == name }
+        if exact.isEmpty { return found.count == 1 ? .person(found[0].qid) : .pick(found) }
+        let own = exact.filter { !fold($0.description ?? "").contains(name) }
+        let left = own.isEmpty ? exact : own
+        return left.count == 1 ? .person(left[0].qid) : .pick(left)
     }
 
     private func person(ofArtist id: String) async throws -> String {

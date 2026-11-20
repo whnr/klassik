@@ -56,6 +56,52 @@ final class PersonStub: @unchecked Sendable {
     static let artistJohann = "9d2eb9a3-6f51-4d4a-8c1a-0d2a3c5e0c11"
     static let artistRichard = "73c2ce7e-8ee9-4a5c-a3a1-37d4d4a31a52"
 
+    /// The composers that Wikidata finds for "Ludwig van Beethoven", in its order: each holds the occupation
+    /// composer (P106 Q36834). Only Q255 is the composer of the works.
+    static let beethovenHits: [PersonMatch] = [
+        PersonMatch(qid: "Q255", name: "Ludwig van Beethoven", description: "German composer (1770-1827)"),
+        PersonMatch(
+            qid: "Q12368917", name: "Ludwig van Beethoven",
+            description: "grandfather of composer Ludwig van Beethoven"),
+        PersonMatch(qid: "Q2153541", name: "Johann van Beethoven", description: "father of Ludwig van Beethoven"),
+        PersonMatch(
+            qid: "Q64862", name: "Anton Schindler",
+            description: "Associate, secretary, and early biographer of Ludwig van Beethoven (1795-1864)"),
+        PersonMatch(
+            qid: "Q6374627", name: "Kaspar Anton Karl van Beethoven",
+            description: "German composer, brother of Ludwig van Beethoven (1774-1815)"),
+        PersonMatch(
+            qid: "Q472851", name: "Count Ferdinand Ernst Gabriel von Waldstein",
+            description: "British Army general (1762-1823)"),
+        PersonMatch(qid: "Q6216444", name: "Johanna van Beethoven", description: "Beethoven's sister-in-law"),
+    ]
+
+    static let beethovenRules: [(contains: String, body: String)] = {
+        let labels = beethovenHits.map { hit in
+            "\"\(hit.qid)\":{\"labels\":{\"en\":{\"value\":\"\(hit.name)\"}},"
+                + "\"descriptions\":{\"en\":{\"value\":\"\(hit.description ?? "")\"}}}"
+        }
+        return [
+            ("list=search", search(beethovenHits.map(\.qid))),
+            (
+                "ids=" + beethovenHits.map(\.qid).joined(separator: "|"),
+                "{\"entities\":{\(labels.joined(separator: ","))}}"
+            ),
+            (
+                "ids=Q255&props=labels|descriptions|claims",
+                entity(
+                    "Q255", label: "Ludwig van Beethoven", description: "German composer (1770-1827)",
+                    born: "+1770-12-17T00:00:00Z", died: "+1827-03-26T00:00:00Z")
+            ),
+            (
+                "ids=Q12368917&props=labels|descriptions|claims",
+                entity(
+                    "Q12368917", label: "Ludwig van Beethoven",
+                    description: "grandfather of composer Ludwig van Beethoven", born: "+1712-01-05T00:00:00Z")
+            ),
+        ]
+    }()
+
     static let commons = """
         {"query":{"pages":{"1":{"imageinfo":[{"thumburl":"https://thumb.wikimedia.org/bach-1200.jpg",\
         "descriptionurl":"https://commons.wikimedia.org/wiki/File:Bach.jpg","extmetadata":{\
@@ -499,6 +545,66 @@ struct PersonFactsStoreTests {
         #expect(store.cache.inputs["Bach"] == ["saved-artist-id"])
         #expect(store.lastError == nil)
         #expect(!flaky.stub.requests.contains { $0.contains("list=search") })
+    }
+
+    @Test func aFullNameTakesTheComposerOverHisRelatives() async throws {
+        let (store, _, _) = makeStore(PersonStub.beethovenRules)
+        await store.resolve(composer: "Ludwig van Beethoven", artistIDs: [])
+        #expect(store.resolution(ofComposer: "Ludwig van Beethoven") == .person("Q255"))
+        #expect(store.facts(ofComposer: "Ludwig van Beethoven")?.born == 1770)
+    }
+
+    @Test func theBackgroundPassTakesTheComposerOverHisRelatives() async throws {
+        let (store, _, _) = makeStore(PersonStub.beethovenRules)
+        #expect(await store.lookUp(composer: "Ludwig van Beethoven"))
+        #expect(store.resolution(ofComposer: "Ludwig van Beethoven") == .person("Q255"))
+    }
+
+    @Test func theWorksDecideBetweenNamesakes() async throws {
+        let artist = "1f9df192-a621-4f54-8850-2c5373b7eac9"
+        let grandfather = PersonStub.entity(
+            "Q12368917", label: "Ludwig van Beethoven", description: "grandfather of composer Ludwig van Beethoven")
+        let rules =
+            [
+                ("haswbstatement:P434=\(artist)", PersonStub.search(["Q12368917"])),
+                ("ids=Q12368917&props=labels|descriptions&", grandfather),
+            ] + PersonStub.beethovenRules
+        let (store, _, _) = makeStore(rules)
+        await store.resolve(composer: "Ludwig van Beethoven", artistIDs: [artist])
+        #expect(store.resolution(ofComposer: "Ludwig van Beethoven") == .person("Q12368917"))
+    }
+
+    @Test func otherNamesNeverCountForAFullName() {
+        let hits = PersonStub.beethovenHits
+        #expect(PersonFactsStore.settle("Ludwig van Beethoven", found: hits) == .person("Q255"))
+        // Without the composer, the namesake is the one hit with the name.
+        #expect(PersonFactsStore.settle("Ludwig van Beethoven", found: Array(hits.dropFirst())) == .person("Q12368917"))
+        #expect(PersonFactsStore.settle("Johann van Beethoven", found: hits) == .person("Q2153541"))
+        // Two namesakes that the descriptions do not tell apart leave the choice to the listener, between them only.
+        let twin = PersonMatch(qid: "Q1", name: "Ludwig van Beethoven", description: "German organist")
+        #expect(
+            PersonFactsStore.settle("Ludwig van Beethoven", found: [hits[0], twin] + hits.dropFirst(2))
+                == .pick([hits[0], twin]))
+        // A surname tag still asks (ADR 0017).
+        #expect(PersonFactsStore.settle("Beethoven", found: hits) == .pick(hits))
+    }
+
+    @Test func aSavedPickThatTheNameSettlesTakesTheComposer() throws {
+        var cache = PersonFactsStore.Cache()
+        cache.composers["Ludwig van Beethoven"] = .pick(PersonStub.beethovenHits)
+        cache.checked["composer:Ludwig van Beethoven"] = .now
+        cache.composers["Beethoven"] = .pick(PersonStub.beethovenHits)
+        // The listener asked to choose again: the list stays.
+        cache.composers["Johann van Beethoven"] = .pick(PersonStub.beethovenHits)
+        cache.chosen.insert("Johann van Beethoven")
+        let url = FileManager.default.temporaryDirectory.appending(path: "\(UUID().uuidString).json")
+        try JSONEncoder().encode(cache).write(to: url)
+        let store = PersonFactsStore(service: PersonStub([]).service, cacheURL: url)
+        #expect(store.resolution(ofComposer: "Ludwig van Beethoven") == .person("Q255"))
+        // The background pass takes the tag again, to load the facts and the picture.
+        #expect(store.cache.checked["composer:Ludwig van Beethoven"] == nil)
+        #expect(store.resolution(ofComposer: "Beethoven") == .pick(PersonStub.beethovenHits))
+        #expect(store.resolution(ofComposer: "Johann van Beethoven") == .pick(PersonStub.beethovenHits))
     }
 
     @Test func surnameOnlyMeansOneWord() {

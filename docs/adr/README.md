@@ -74,3 +74,4 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0063](0063-chronology-works-drawer.md) | Chronology uses a plain works drawer | 2026-11-19 |
 | [0064](0064-player-tint-comparison.md) | Compare stronger player tints (partly replaced by 0065) | 2026-11-19 |
 | [0065](0065-feedback-controls.md) | Keep feedback controls visible and useful | 2026-11-20 |
+| [0066](0066-a-full-name-takes-its-composer.md) | A full-name tag takes its composer | 2026-11-20 |

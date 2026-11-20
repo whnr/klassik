@@ -18,7 +18,7 @@ enum Page: Hashable {
     case musicBrainz
     case worksToConfirm
     case worksWithoutMatch
-    case classicalFilter
+    case classicalRules
     case localStorage
     case swipeActions
     case diagnostics
@@ -90,7 +90,7 @@ extension Page {
         case .musicBrainz: return "MusicBrainz"
         case .worksToConfirm: return "To Confirm"
         case .worksWithoutMatch: return "No Match"
-        case .classicalFilter: return "Classical Filter"
+        case .classicalRules: return "Classical Rules"
         case .localStorage: return "Local Storage"
         case .swipeActions: return "Swipe Actions"
         case .diagnostics: return "Diagnostics"
@@ -207,8 +207,8 @@ struct PageView: View {
             WorkListView(title: "To Confirm", works: model.enrichment.summary(of: index).toConfirm)
         case .worksWithoutMatch:
             WorkListView(title: "No Match", works: model.enrichment.summary(of: index).unmatched)
-        case .classicalFilter:
-            FilterView()
+        case .classicalRules:
+            ClassicalRulesView()
         case .localStorage:
             LocalStorageView()
         case .swipeActions:

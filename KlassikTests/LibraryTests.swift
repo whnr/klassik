@@ -185,4 +185,33 @@ struct LibraryTests {
         #expect(page == .recording(work: part.workID, recording: part.recordingID))
         #expect(library.recording(work: part.workID, recording: part.recordingID) != nil)
     }
+
+    /// `results(for:)` reuses one search for every text, so a new index must replace it.
+    @MainActor @Test func aSearchFollowsAChangeOfTheIndex() async throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let suite = UUID().uuidString
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let credentials = ServerCredentials(
+            url: URL(string: "https://music.example.org")!, username: "joe", password: "test")
+        let songs = [
+            Self.song("s1", album: "sonatas", genre: "Classical", work: "Sonata", composer: "Mozart"),
+            Self.song("o1", album: "operas", genre: "Opera", work: "Aida", composer: "Verdi"),
+        ]
+        let url = directory.appending(path: "library.json")
+        try LibraryCache(server: credentials.url, username: credentials.username, syncedAt: .now, songs: songs)
+            .write(to: url)
+        let library = Library(cacheURL: url, defaults: defaults)
+        library.filter = ClassicalFilter(rules: [Self.rule(.init(kind: .genreContains, text: "Classical"))])
+        await library.load(for: credentials)
+
+        #expect(await !library.results(for: "sonata").isEmpty)
+        #expect(await library.results(for: "aida").isEmpty)
+
+        library.filter = ClassicalFilter(rules: [Self.rule(.init(kind: .genreContains, text: "Opera"))])
+
+        #expect(await library.results(for: "sonata").isEmpty)
+        #expect(await !library.results(for: "aida").isEmpty)
+    }
 }

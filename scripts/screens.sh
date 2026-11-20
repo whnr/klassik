@@ -116,8 +116,13 @@ export_attachments() {
 export_console() {
   local bundle=$1
   [ -d "$out/$bundle.xcresult" ] || return 0
-  xcrun xcresulttool get log --path "$out/$bundle.xcresult" --type console > "$out/$bundle-console.txt" \
-    || echo "::warning::No console exported from $bundle.xcresult."
+  # A bundle can hold no console. The raw xcodebuild log ($bundle.log) then stays the record, and an empty file would
+  # read as a clean run.
+  xcrun xcresulttool get log --path "$out/$bundle.xcresult" --type console > "$out/$bundle-console.txt" || true
+  [ -s "$out/$bundle-console.txt" ] || {
+    rm -f "$out/$bundle-console.txt"
+    echo "::notice::$bundle.xcresult has no console; $bundle.log holds the raw xcodebuild output."
+  }
 }
 
 unit=0

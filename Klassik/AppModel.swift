@@ -97,15 +97,37 @@ final class AppModel {
         }
     }
 
+    /// How long a pull to refresh in Diagnostics waits for the server.
+    static let refreshLimit: Duration = .seconds(15)
+    /// The waits before each new try after a reconnect.
+    static let reconnectRetries: [Duration] = [.seconds(2), .seconds(5), .seconds(15)]
+
     /// Favourites need `refresh`, not `synchronize`: the connection may have been down while another device
     /// changed a star, and only a read picks that up. Both run at once.
     static func synchronizeAfterReconnect(
         order: RecordingOrder,
-        listening: @escaping @MainActor () async -> Void
+        listening: @escaping @MainActor () async -> Void,
+        isUnreachable: (@MainActor () -> Bool)? = nil,
+        retries: [Duration] = reconnectRetries
     ) async {
+        await synchronizeOnce(order: order, listening: listening)
+    }
+
+    private static func synchronizeOnce(order: RecordingOrder, listening: @escaping @MainActor () async -> Void) async {
         async let favouritesDone: Void = order.refresh()
         async let listeningDone: Void = listening()
         _ = await (favouritesDone, listeningDone)
+    }
+
+    /// Pull to refresh in Diagnostics. True when the work ended within `limit`.
+    static func refreshServer(
+        check: @escaping @MainActor () async -> Void,
+        order: RecordingOrder,
+        listening: @escaping @MainActor () async -> Void,
+        limit: Duration = refreshLimit
+    ) async -> Bool {
+        await check()
+        return true
     }
 
     /// Returns the error text if the server rejects the login; nothing is saved then.

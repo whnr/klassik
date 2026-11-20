@@ -749,7 +749,6 @@ final class PlaybackScreens: ScreensTestCase {
         expectPlayerClosed(app)
     }
 
-
     @MainActor
     func testRecording() throws {
         let app = try launchAndConnect()

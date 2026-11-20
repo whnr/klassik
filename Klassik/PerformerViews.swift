@@ -11,6 +11,19 @@ struct PerformersView: View {
             query.isEmpty || $0.name.localizedStandardContains(query)
         }
         PageList {
+            // This page sits in the Search tab, and there the system moves a `searchable` field to the bottom. The
+            // field row sits under the title, so the title stays where every other page has it.
+            SearchField(text: $query, focused: $focused, prompt: "Name", identifier: "performer-search")
+                .listRowInsets(EdgeInsets())
+                .listRowSeparator(.hidden)
+            if performers.isEmpty && !query.isEmpty {
+                Text("No performer matches.")
+                    .typeStyle(.subheadline)
+                    .foregroundStyle(Palette.textSecondary)
+                    .listRowSeparator(.hidden)
+                    .pageEdges(top: Layout.searchNoMatchTop)
+                    .accessibilityIdentifier("performer-no-match")
+            }
             ForEach(performers) { performer in
                 PersonPageLink(page: .performer(performer.name)) {
                     LabeledContent {
@@ -28,13 +41,9 @@ struct PerformersView: View {
             }
         }
         .overlay {
-            if performers.isEmpty {
-                ContentUnavailableView(query.isEmpty ? "No Performers" : "No Match", systemImage: "person.2")
+            if model.library.index.performers.isEmpty {
+                ContentUnavailableView("No Performers", systemImage: "person.2")
             }
-        }
-        // This page sits in the Search tab, and there the system moves a `searchable` field to the bottom.
-        .safeAreaInset(edge: .top, spacing: 0) {
-            SearchField(text: $query, focused: $focused, prompt: "Name", identifier: "performer-search")
         }
         .scrollDismissesKeyboard(.immediately)
         .pageTitle("Performers")

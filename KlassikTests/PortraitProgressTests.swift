@@ -156,40 +156,52 @@ struct PortraitProgressTests {
         return "\(pixels.width)x\(pixels.height)"
     }
 
+    /// Runs `count` copies on cooperative workers, like `PortraitLoader`, and reports whether Dispatch still runs.
+    private static func pooled(_ name: String, count: Int, _ work: @escaping @Sendable () async -> String) {
+        let group = DispatchGroup()
+        let start = Date()
+        let finished = Box()
+        let tick = DispatchSemaphore(value: 0)
+        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + .milliseconds(50)) { tick.signal() }
+        for _ in 0..<count {
+            group.enter()
+            Task.detached(priority: .userInitiated) {
+                let result = await work()
+                finished.count(result)
+                group.leave()
+            }
+        }
+        let outcome = group.wait(timeout: .now() + 25)
+        let clock = tick.wait(timeout: .now()) == .success
+        print(
+            "STAGE \(name): \(outcome == .success ? "ok" : "TIMEOUT") after \(Date().timeIntervalSince(start)) s, "
+                + "finished \(finished.value), dispatch clock \(clock ? "ran" : "starved")")
+    }
+
     @Test func stagedPortraitWork() async throws {
         let data = Self.jpeg()
         try #require(!data.isEmpty)
-        print("Staged fixture: \(data.count) bytes")
+        print("Staged fixture: \(data.count) bytes, cpus \(ProcessInfo.processInfo.activeProcessorCount)")
+        let picture = Self.image(width: 2640, height: 3520)
+        nonisolated(unsafe) let shared = picture
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             Thread {
-                Self.stage("vision-2640") { Self.faces(Self.image(width: 2640, height: 3520)) }
-                Self.stage("vision-880") { Self.faces(Self.image(width: 880, height: 1173)) }
-                Self.stage("uiimage-render") {
-                    guard let source = UIImage(data: data) else { return "no image" }
-                    let size = CGSize(width: 2640, height: 3520)
-                    let format = UIGraphicsImageRendererFormat()
-                    format.scale = 1
-                    let image = UIGraphicsImageRenderer(size: size, format: format).image { _ in
-                        source.draw(in: CGRect(origin: .zero, size: size))
-                    }
-                    return "\(image.size)"
+                Self.stage("threads-upright-x16", count: 16) {
+                    Self.thumbnail(data, cache: true) + " " + Self.faces(shared)
                 }
-                Self.stage("thumbnail-cached") { Self.thumbnail(data, cache: true) }
-                Self.stage("thumbnail-lazy") { Self.thumbnail(data, cache: false) }
-                Self.stage("thumbnail-cached-x3", count: 3) { Self.thumbnail(data, cache: true) }
-                Self.stage("load") {
-                    let done = DispatchSemaphore(value: 0)
-                    let box = Box()
-                    Task.detached {
+                Self.pooled("pool-thumbnail-x16", count: 16) { Self.thumbnail(data, cache: true) }
+                Self.pooled("pool-vision-x16", count: 16) { Self.faces(shared) }
+                Self.pooled("pool-upright-x16", count: 16) {
+                    Self.thumbnail(data, cache: true) + " " + Self.faces(shared)
+                }
+                for count in [2, 4, 8, 16, 64] {
+                    Self.pooled("pool-load-x\(count)", count: count) {
                         let url = URL(string: "https://upload.wikimedia.org/portrait-staged.jpg")!
                         let portrait = await PortraitLoader.load(url, screen: PortraitSizeTests.proMax) { _ in
                             (data, 200)
                         }
-                        box.set(portrait.map { "\($0.image.size) faces \($0.faces.count)" } ?? "nil")
-                        done.signal()
+                        return portrait == nil ? "nil" : "loaded"
                     }
-                    _ = done.wait(timeout: .now() + 19)
-                    return box.value
                 }
                 continuation.resume()
             }.start()
@@ -198,8 +210,8 @@ struct PortraitProgressTests {
 
     private final class Box: @unchecked Sendable {
         private let lock = NSLock()
-        private var text = "pending"
-        func set(_ value: String) { lock.withLock { text = value } }
-        var value: String { lock.withLock { text } }
+        private var done: [String: Int] = [:]
+        func count(_ result: String) { lock.withLock { done[result, default: 0] += 1 } }
+        var value: String { lock.withLock { "\(done)" } }
     }
 }

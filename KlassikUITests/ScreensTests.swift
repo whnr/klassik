@@ -572,6 +572,18 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertTrue(reveal(pending, in: app).exists)
         XCTAssertTrue(pending.label.contains("Frédéric Chopin"), pending.label)
         snap(app, "11a-pending-favourites")
+
+        // Two choices for one person wait as one: the newest. The offline send of a pull keeps it waiting.
+        let rows = app.descendants(matching: .any).matching(identifier: "pending-favourite")
+        XCTAssertEqual(rows.count, 1)
+        XCTAssertTrue(
+            [pending.label, pending.value as? String ?? ""].joined().contains("Not a favourite"), pending.label)
+        for _ in 0..<3 { app.swipeDown() }
+        let checked = app.descendants(matching: .any)["opensubsonic"].firstMatch
+        XCTAssertTrue(checked.waitForExistence(timeout: 20), "Diagnostics lost the server after the pull")
+        XCTAssertTrue(reveal(pending, in: app).exists)
+        XCTAssertEqual(rows.count, 1)
+        snap(app, "11b-pending-after-pull")
     }
 
     /// The Fifth has two recordings in the fixture, so a hairline lies between their rows.

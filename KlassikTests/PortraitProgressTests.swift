@@ -2,10 +2,210 @@ import CoreGraphics
 import Foundation
 import ImageIO
 import Testing
+import UIKit
 
 @testable import Klassik
 
-struct PortraitProgressTests {
+@Suite(.serialized) struct PortraitProgressTests {
+    private struct Answer: Sendable {
+        let name: String
+        let portrait: LoadedPortrait?
+    }
+
+    /// The gate holds the serial worker while the test fills its queue in a known order.
+    private final class Gate: Sendable {
+        let release = DispatchSemaphore(value: 0)
+        let started = AsyncStream<Void>.makeStream()
+        let rendered = AsyncStream<Int>.makeStream()
+
+        func render(_ data: Data, screen: PortraitSize.Screen?) -> LoadedPortrait? {
+            let id = Int(data.first ?? 0)
+            if id == 0 {
+                started.continuation.yield(())
+                guard release.wait(timeout: .now() + 10) == .success else { return nil }
+            }
+            rendered.continuation.yield(id)
+            return LoadedPortrait(image: UIImage(), faces: [])
+        }
+    }
+
+    private static func enqueue(
+        _ id: Int, name: String, on decoder: PortraitLoader.Decoder,
+        answers: AsyncStream<Answer>.Continuation, opening: Bool = false,
+        cancelled: PortraitLoader.Cancelled = PortraitLoader.Cancelled()
+    ) {
+        decoder.enqueue(
+            Data([UInt8(id)]), url: URL(string: "https://upload.wikimedia.org/\(id).jpg")!, screen: nil,
+            opening: opening, cancelled: cancelled
+        ) { answers.yield(Answer(name: name, portrait: $0)) }
+    }
+
+    @Test func tapSharesPendingDecodeAndPassesQueuedRows() async throws {
+        let gate = Gate()
+        defer { gate.release.signal() }
+        let decoder = PortraitLoader.Decoder(render: gate.render)
+        let answers = AsyncStream<Answer>.makeStream()
+        Self.enqueue(0, name: "blocker", on: decoder, answers: answers.continuation)
+        for await _ in gate.started.stream { break }
+        Self.enqueue(1, name: "row 1", on: decoder, answers: answers.continuation)
+        Self.enqueue(2, name: "row 2", on: decoder, answers: answers.continuation)
+        let cancelled = PortraitLoader.Cancelled()
+        Self.enqueue(3, name: "row 3", on: decoder, answers: answers.continuation, cancelled: cancelled)
+        Self.enqueue(3, name: "tap", on: decoder, answers: answers.continuation, opening: true)
+        cancelled.set()
+        gate.release.signal()
+        var results: [Answer] = []
+        for await answer in answers.stream {
+            results.append(answer)
+            if results.count == 5 { break }
+        }
+        #expect(results.map(\.name) == ["blocker", "row 3", "tap", "row 1", "row 2"])
+        #expect(results[1].portrait == nil)
+        #expect(results[2].portrait != nil)
+        gate.rendered.continuation.finish()
+        var rendered: [Int] = []
+        for await id in gate.rendered.stream { rendered.append(id) }
+        #expect(rendered == [0, 3, 1, 2])
+    }
+
+    @Test func cancelledQueuedCallerSkipsDecode() async throws {
+        let gate = Gate()
+        defer { gate.release.signal() }
+        let decoder = PortraitLoader.Decoder(render: gate.render)
+        let answers = AsyncStream<Answer>.makeStream()
+        Self.enqueue(0, name: "blocker", on: decoder, answers: answers.continuation)
+        for await _ in gate.started.stream { break }
+        let cancelled = PortraitLoader.Cancelled()
+        Self.enqueue(1, name: "cancelled", on: decoder, answers: answers.continuation, cancelled: cancelled)
+        Self.enqueue(2, name: "next", on: decoder, answers: answers.continuation)
+        cancelled.set()
+        gate.release.signal()
+        var results: [Answer] = []
+        for await answer in answers.stream {
+            results.append(answer)
+            if results.count == 3 { break }
+        }
+        #expect(results.map(\.name) == ["blocker", "cancelled", "next"])
+        #expect(results[1].portrait == nil)
+        #expect(results[2].portrait != nil)
+        gate.rendered.continuation.finish()
+        var rendered: [Int] = []
+        for await id in gate.rendered.stream { rendered.append(id) }
+        #expect(rendered == [0, 2])
+    }
+
+    @Test func runningDecodeAcceptsAnotherCaller() async throws {
+        let gate = Gate()
+        defer { gate.release.signal() }
+        let decoder = PortraitLoader.Decoder(render: gate.render)
+        let answers = AsyncStream<Answer>.makeStream()
+        Self.enqueue(0, name: "row", on: decoder, answers: answers.continuation)
+        for await _ in gate.started.stream { break }
+        Self.enqueue(0, name: "tap", on: decoder, answers: answers.continuation, opening: true)
+        gate.release.signal()
+        var results: [Answer] = []
+        for await answer in answers.stream {
+            results.append(answer)
+            if results.count == 2 { break }
+        }
+        let row = try #require(results[0].portrait)
+        let tap = try #require(results[1].portrait)
+        #expect(row.image === tap.image)
+        gate.rendered.continuation.finish()
+        var count = 0
+        for await _ in gate.rendered.stream { count += 1 }
+        #expect(count == 1)
+    }
+
+    @Test func cancelledTaskReturnsNilWithoutRendering() async {
+        let gate = Gate()
+        defer { gate.release.signal() }
+        let decoder = PortraitLoader.Decoder(render: gate.render)
+        let answers = AsyncStream<Answer>.makeStream()
+        Self.enqueue(0, name: "blocker", on: decoder, answers: answers.continuation)
+        for await _ in gate.started.stream { break }
+        let task = Task {
+            await decoder.decode(Data([1]), url: URL(string: "https://upload.wikimedia.org/1.jpg")!, screen: nil)
+        }
+        task.cancel()
+        gate.release.signal()
+        #expect(await task.value == nil)
+        for await _ in answers.stream { break }
+        gate.rendered.continuation.finish()
+        var rendered: [Int] = []
+        for await id in gate.rendered.stream { rendered.append(id) }
+        #expect(rendered == [0])
+    }
+
+    /// Commons originals measure the tap wait without committing pictures or including download time.
+    @Test func largePictureFirstFrameBeforeAndAfter() async throws {
+        let done = DispatchSemaphore(value: 0)
+        Self.watchdog(done)
+        defer { done.signal() }
+        let screen = PortraitSizeTests.proMax
+        let originals = [
+            ("Elgar", "0/0a/Edward_Elgar_1857_-_1934.jpg"),
+            ("Chausson", "b/b9/A-Ernest_Chausson.jpg"),
+        ]
+        for (name, path) in originals {
+            let url = try #require(URL(string: "https://upload.wikimedia.org/wikipedia/commons/\(path)"))
+            let (data, status) = try await PortraitLoader.network(URLRequest(url: url))
+            try #require(status == 200 && !data.isEmpty)
+            let before = ContinuousClock.now
+            let legacy = DispatchQueue(label: "PortraitProgressTests.FIFO")
+            let old = AsyncStream<Bool>.makeStream()
+            // Six visible rows precede the duplicate tap in the original FIFO path.
+            for _ in 0..<6 {
+                legacy.async { _ = PortraitLoader.upright(data, screen: screen) }
+            }
+            legacy.async {
+                old.continuation.yield(PortraitLoader.upright(data, screen: screen) != nil)
+            }
+            for await success in old.stream {
+                #expect(success)
+                break
+            }
+            let oldTime = before.duration(to: .now)
+            let after = ContinuousClock.now
+            let gate = DispatchSemaphore(value: 0)
+            let entered = AsyncStream<Void>.makeStream()
+            let measured = PortraitLoader.Decoder { bytes, size in
+                if bytes.isEmpty {
+                    entered.continuation.yield(())
+                    _ = gate.wait(timeout: .now() + 10)
+                    return nil
+                }
+                return PortraitLoader.upright(bytes, screen: size)
+            }
+            measured.enqueue(Data(), url: URL(string: "https://upload.wikimedia.org/gate")!, screen: nil) { _ in }
+            for await _ in entered.stream { break }
+            let tap = AsyncStream<Bool>.makeStream()
+            for index in 0..<6 {
+                measured.enqueue(
+                    data, url: URL(string: "https://upload.wikimedia.org/\(index).jpg")!, screen: screen
+                ) { _ in }
+            }
+            measured.enqueue(
+                data, url: URL(string: "https://upload.wikimedia.org/5.jpg")!, screen: screen, opening: true
+            ) { tap.continuation.yield($0 != nil) }
+            gate.signal()
+            for await success in tap.stream {
+                #expect(success)
+                break
+            }
+            let newTime = after.duration(to: .now)
+            print(
+                "First-frame preparation \(name): FIFO \(oldTime), promoted/shared \(newTime), source \(url)"
+            )
+            // Drain before the next measurement, so the remaining rows cannot distort its timing.
+            let drained = AsyncStream<Void>.makeStream()
+            measured.enqueue(Data([1]), url: URL(string: "https://upload.wikimedia.org/end")!, screen: nil) { _ in
+                drained.continuation.yield(())
+            }
+            for await _ in drained.stream { break }
+        }
+    }
+
     /// A Commons step of 3840 pixels, at the aspect of a typical portrait. Generated pixels need no network.
     private static func jpeg() -> Data {
         guard

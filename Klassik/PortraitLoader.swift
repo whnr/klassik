@@ -197,7 +197,7 @@ enum PortraitLoader {
             guard let (data, status) = try? await fetch(request), (200..<300).contains(status), !data.isEmpty,
                 data.count <= maxBytes
             else { continue }
-            guard let loaded = await decode(data, screen: screen) else { continue }
+            guard let loaded = await decoding.decode(data, url: url, screen: screen) else { continue }
             let key = url.absoluteString
             guard store.contains(key) || store.fits(Int64(data.count)), await store.store(data, for: key) else {
                 return false
@@ -225,7 +225,7 @@ enum PortraitLoader {
     @MainActor static func load(
         _ portrait: PersonPortrait, screen: PortraitSize.Screen,
         fetch: MusicBrainz.Fetch = PortraitLoader.launchDownload, store: ImageStore = .pictures,
-        kept device: PortraitSize.Screen = PortraitLoader.deviceScreen
+        kept device: PortraitSize.Screen = PortraitLoader.deviceScreen, opening: Bool = false
     ) async -> LoadedPortrait? {
         if let ready = ready(portrait, store: store) { return ready }
         await store.loaded()
@@ -235,7 +235,8 @@ enum PortraitLoader {
         }
         var seen: Set<URL> = []
         for candidate in (stored + wanted).filter({ seen.insert($0).inserted }) {
-            let loaded = await load(candidate, screen: screen, fetch: fetch)
+            guard !Task.isCancelled else { return nil }
+            let loaded = await load(candidate, screen: screen, fetch: fetch, opening: opening)
             if let loaded {
                 prepare(loaded, for: portrait, store: store)
                 return loaded
@@ -248,7 +249,7 @@ enum PortraitLoader {
     /// are no image. With a screen, the copy keeps only the pixels that the screen needs.
     static func load(
         _ url: URL, screen: PortraitSize.Screen? = nil,
-        fetch: MusicBrainz.Fetch = PortraitLoader.launchDownload
+        fetch: MusicBrainz.Fetch = PortraitLoader.launchDownload, opening: Bool = false
     ) async -> LoadedPortrait? {
         guard let url = PersonFactsService.trusted(url) else { return nil }
         var request = URLRequest(url: url, timeoutInterval: PersonFactsService.timeout)
@@ -258,30 +259,109 @@ enum PortraitLoader {
         guard let (data, status) = try? await fetch(request), (200..<300).contains(status),
             data.count <= maxBytes
         else { return nil }
-        return await decode(data, screen: screen)
+        return await decoding.decode(data, url: url, screen: screen, opening: opening)
     }
 
-    /// Synchronous Vision requests on cooperative workers can stop every worker for good, and with them the
-    /// network, the stores and playback (PortraitProgressTests). One serial queue decodes outside that pool, and
-    /// it also bounds the decoded pixels in memory.
-    private static let decoding = DispatchQueue(label: "PortraitLoader.decoding", qos: .userInitiated)
+    /// Vision must run outside the cooperative pool (PortraitProgressTests). Serial decoding also bounds memory use.
+    private static let decoding = Decoder()
 
-    /// A row that leaves the screen cancels its decode, so a tap does not wait behind rows that are gone.
-    private static func decode(_ data: Data, screen: PortraitSize.Screen?) async -> LoadedPortrait? {
-        guard !Task.isCancelled else { return nil }
-        let cancelled = Cancelled()
-        return await withTaskCancellationHandler {
-            await withCheckedContinuation { continuation in
-                decoding.async {
-                    continuation.resume(returning: cancelled.isSet ? nil : upright(data, screen: screen))
+    final class Decoder: @unchecked Sendable {
+        typealias Completion = @Sendable (LoadedPortrait?) -> Void
+        private struct Caller {
+            let cancelled: Cancelled
+            let completion: Completion
+        }
+
+        private final class Work {
+            let data: Data
+            let url: URL
+            let screen: PortraitSize.Screen?
+            var opening: Bool
+            var callers: [Caller]
+
+            init(data: Data, url: URL, screen: PortraitSize.Screen?, opening: Bool, caller: Caller) {
+                self.data = data
+                self.url = url
+                self.screen = screen
+                self.opening = opening
+                callers = [caller]
+            }
+        }
+
+        private let lock = NSLock()
+        private let queue = DispatchQueue(label: "PortraitLoader.decoding", qos: .userInitiated)
+        private let render: @Sendable (Data, PortraitSize.Screen?) -> LoadedPortrait?
+        private var pending: [Work] = []
+        private var running: Work?
+        private var scheduled = false
+
+        init(render: @escaping @Sendable (Data, PortraitSize.Screen?) -> LoadedPortrait? = PortraitLoader.upright) {
+            self.render = render
+        }
+
+        func decode(
+            _ data: Data, url: URL, screen: PortraitSize.Screen?, opening: Bool = false
+        ) async -> LoadedPortrait? {
+            guard !Task.isCancelled else { return nil }
+            let cancelled = Cancelled()
+            return await withTaskCancellationHandler {
+                await withCheckedContinuation { continuation in
+                    enqueue(data, url: url, screen: screen, opening: opening, cancelled: cancelled) {
+                        continuation.resume(returning: $0)
+                    }
+                }
+            } onCancel: {
+                cancelled.set()
+            }
+        }
+
+        func enqueue(
+            _ data: Data, url: URL, screen: PortraitSize.Screen?, opening: Bool = false,
+            cancelled: Cancelled = Cancelled(), completion: @escaping Completion
+        ) {
+            lock.withLock {
+                let caller = Caller(cancelled: cancelled, completion: completion)
+                // Screen and bytes prevent sharing stale pixels or a copy with insufficient resolution.
+                if let found = ([running].compactMap { $0 } + pending).first(where: {
+                    $0.url == url && $0.screen == screen && $0.data == data
+                }) {
+                    found.callers.append(caller)
+                    found.opening = found.opening || opening
+                } else {
+                    pending.append(Work(data: data, url: url, screen: screen, opening: opening, caller: caller))
+                }
+                guard !scheduled else { return }
+                scheduled = true
+                queue.async { self.drain() }
+            }
+        }
+
+        private func drain() {
+            while let (work, needed) = lock.withLock({ () -> (Work, Bool)? in
+                guard !pending.isEmpty else {
+                    scheduled = false
+                    return nil
+                }
+                let index = pending.firstIndex { $0.opening && $0.callers.contains { !$0.cancelled.isSet } } ?? 0
+                let work = pending.remove(at: index)
+                let needed = work.callers.contains { !$0.cancelled.isSet }
+                running = needed ? work : nil
+                return (work, needed)
+            }) {
+                // A cancelled row skips its decode unless another caller still needs the same picture.
+                let portrait = needed ? autoreleasepool { render(work.data, work.screen) } : nil
+                let callers = lock.withLock {
+                    running = nil
+                    return work.callers
+                }
+                for caller in callers {
+                    caller.completion(caller.cancelled.isSet ? nil : portrait)
                 }
             }
-        } onCancel: {
-            cancelled.set()
         }
     }
 
-    private final class Cancelled: @unchecked Sendable {
+    final class Cancelled: @unchecked Sendable {
         private let lock = NSLock()
         private var value = false
 
@@ -298,7 +378,7 @@ enum PortraitLoader {
         }
     }
 
-    private static func upright(_ data: Data, screen: PortraitSize.Screen?) -> LoadedPortrait? {
+    static func upright(_ data: Data, screen: PortraitSize.Screen?) -> LoadedPortrait? {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil),
             let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
             let pixelWidth = properties[kCGImagePropertyPixelWidth] as? NSNumber,

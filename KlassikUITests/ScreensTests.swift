@@ -42,11 +42,15 @@ final class PlacesScreens: ScreensTestCase {
             app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Reorder \(name)")).firstMatch
         }
         XCTAssertTrue(reorder("Favourites").exists, "No reorder control on Favourites")
-        reorder("Favourites").coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-            .press(
-                forDuration: 0.1,
-                thenDragTo: reorder("Composers").coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0)),
-                withVelocity: .slow, thenHoldForDuration: 0.5)
+        // A drag that the list takes as a scroll leaves the order alone, so the walk drags again, up to three times.
+        for _ in 0..<3 where !(favourites.frame.minY < composers.frame.minY) {
+            reorder("Favourites").coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+                .press(
+                    forDuration: 0.1,
+                    thenDragTo: reorder("Composers").coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0)),
+                    withVelocity: .slow, thenHoldForDuration: 0.5)
+            _ = eventually(timeout: 3) { favourites.frame.minY < composers.frame.minY }
+        }
         app.buttons["Done"].tap()
         XCTAssertTrue(app.buttons["Edit"].waitForExistence(timeout: 5))
         XCTAssertLessThan(favourites.frame.minY, composers.frame.minY, "The drag did not move Favourites up")
@@ -542,6 +546,17 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertTrue(reveal(pending, in: app).exists)
         XCTAssertTrue(pending.label.contains("Frédéric Chopin"), pending.label)
         snap(app, "11a-pending-favourites")
+    }
+
+    /// The Fifth has two recordings in the fixture, so a hairline lies between their rows.
+    @MainActor
+    func testRecordingHairline() throws {
+        let app = try launchAndConnect()
+        composer(app, "Ludwig van Beethoven").tap()
+        let work = app.buttons.matching(identifier: "work").firstMatch
+        XCTAssertTrue(work.waitForExistence(timeout: 10))
+        work.tap()
+        checkRecordingHairline(app)
     }
 
     /// The fixture holds only the third movement of Brahms's Fourth, so it shows under "Partial works". With the
@@ -1827,11 +1842,20 @@ class ScreensTestCase: XCTestCase {
         origin.press(forDuration: 0.05, thenDragTo: short, withVelocity: .slow, thenHoldForDuration: 1)
         XCTAssertTrue(eventually(timeout: 5) { tab(app, "Search").isSelected })
         expectBackArrow(app, to: "Mendelssohn")
-        swipeFromLeftEdge(app)
-        XCTAssertTrue(app.navigationBars["Felix Mendelssohn"].waitForExistence(timeout: 10))
-        swipeFromLeftEdge(app)
-        XCTAssertTrue(app.navigationBars["Composers"].waitForExistence(timeout: 10))
+        swipeBack(app, to: "Felix Mendelssohn")
+        swipeBack(app, to: "Composers")
         XCTAssertEqual(bar.value as? String, before, "Back changed the playback position")
+    }
+
+    /// Swipes from the left edge until the page with this title shows. A drag that starts while the last pop
+    /// still settles is lost, so a lost drag swipes again; three lost drags fail the check.
+    @MainActor
+    func swipeBack(_ app: XCUIApplication, to title: String, file: StaticString = #filePath, line: UInt = #line) {
+        for _ in 0..<3 {
+            swipeFromLeftEdge(app)
+            if app.navigationBars[title].waitForExistence(timeout: 4) { return }
+        }
+        XCTFail("Three edge swipes did not reach \(title)", file: file, line: line)
     }
 
     /// The key of the timeline edge in the user defaults. A launch argument sets it for one run.
@@ -2319,12 +2343,16 @@ class ScreensTestCase: XCTestCase {
         expectGap(
             from: meta, to: play, Layout.headBottom + Layout.buttonRowTop, "Meta to Play", upperText: Layout.metaLine)
         expectGap(from: play, to: heading, Layout.sectionTop, "Play to Recordings", lowerText: Layout.sectionHeading)
+    }
+
+    /// The hairline between two recording rows. It fails when the page has no pair, so the check cannot pass unrun.
+    @MainActor
+    func checkRecordingHairline(_ app: XCUIApplication) {
         let recordings = app.buttons.matching(identifier: "recording")
-        if recordings.count > 1 {
-            expectHairline(
-                between: recordings.element(boundBy: 0), and: recordings.element(boundBy: 1), in: app,
-                "Recording hairline")
-        }
+        XCTAssertTrue(recordings.element(boundBy: 1).waitForExistence(timeout: 10), "The work has no two recordings")
+        expectHairline(
+            between: recordings.element(boundBy: 0), and: recordings.element(boundBy: 1), in: app,
+            "Recording hairline")
     }
 
     /// The composer page without a picture against person.html: Chronology, the tabs, the chips, the Works heading.

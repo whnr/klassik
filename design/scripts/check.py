@@ -18,12 +18,7 @@ ROOMS = ("light", "lightHighContrast", "dark", "darkHighContrast")
 GROUNDS = ("background.page", "background.row", "background.grouped", "background.elevated")
 SWIPES = ("swipe.playNext", "swipe.addToQueue", "swipe.download", "swipe.favourite")
 
-# The standard colours are locked (Flo, 2026-11-09). These pairs sit below AA until sz-rs30.1.83.19.17 decides.
-KNOWN = {
-    ("light", "favourite-off", "background.grouped"),
-    ("dark", "favourite-off", "background.row"),
-    ("dark", "favourite-off", "background.elevated"),
-}
+KNOWN = set()
 
 
 def luminance(hex_colour):

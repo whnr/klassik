@@ -70,6 +70,7 @@ struct FavouriteTitle: View {
     @Environment(\.displayScale) private var scale
     @Environment(\.colorScheme) private var scheme
     @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.paletteOverrides) private var colours
 
     var body: some View {
         Button(action: action) {
@@ -89,14 +90,17 @@ struct FavouriteTitle: View {
     }
 
     private var mark: UIImage {
-        FermataShape.image(em: em, isSet: isSet, scale: scale, scheme: scheme, contrast: contrast)
+        FermataShape.image(
+            em: em, isSet: isSet, scale: scale, scheme: scheme, contrast: contrast,
+            colourOverride: colours[isSet ? .favourite : .favouriteOff])
     }
 }
 
 extension FermataShape {
     /// The mark as a text attachment, so a wrapped title keeps it with the final word.
     @MainActor static func image(
-        em: CGFloat, isSet: Bool, scale: CGFloat, scheme: ColorScheme, contrast: ColorSchemeContrast
+        em: CGFloat, isSet: Bool, scale: CGFloat, scheme: ColorScheme, contrast: ColorSchemeContrast,
+        colourOverride: Color.Resolved? = nil
     ) -> UIImage {
         let size = CGSize(width: em * Layout.fermataWidth, height: em * Layout.fermataHeight)
         let format = UIGraphicsImageRendererFormat()
@@ -105,7 +109,9 @@ extension FermataShape {
             $0.userInterfaceStyle = scheme == .dark ? .dark : .light
             $0.accessibilityContrast = contrast == .increased ? .high : .normal
         }
-        let colour = (isSet ? Palette.favourite : Palette.favouriteOff).uiColor.resolvedColor(with: traits)
+        let colour =
+            colourOverride.map { UIColor(Color($0)) }
+            ?? (isSet ? Palette.favourite : Palette.favouriteOff).uiColor.resolvedColor(with: traits)
         return UIGraphicsImageRenderer(size: size, format: format).image { _ in
             colour.setFill()
             UIBezierPath(cgPath: FermataShape().path(in: CGRect(origin: .zero, size: size)).cgPath).fill()

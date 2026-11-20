@@ -61,6 +61,32 @@ struct NavigatorTests {
         #expect(navigator.searchStarts == 1)
     }
 
+    @Test func composerLinkReturnsToTheChronologyRoot() {
+        let navigator = Navigator<String>()
+        navigator.open("library composer", in: .library)
+        navigator.select(.chronology)
+        navigator.open("work", in: .chronology)
+        navigator.open("composer", in: .chronology)
+        navigator.showChronology()
+        #expect(navigator.selection == .chronology)
+        #expect(navigator.pages(in: .chronology).isEmpty)
+        #expect(navigator.pages(in: .library) == ["library composer"])
+        navigator.back()
+        #expect(navigator.selection == .library)
+    }
+
+    @Test func composerLinkOpensTheChartFromAnotherPlace() {
+        let navigator = Navigator<String>()
+        navigator.open("old composer", in: .chronology)
+        navigator.open("composer", in: .library)
+        navigator.showChronology()
+        #expect(navigator.selection == .chronology)
+        #expect(navigator.pages(in: .chronology).isEmpty)
+        navigator.back()
+        #expect(navigator.selection == .library)
+        #expect(navigator.pages(in: .library) == ["composer"])
+    }
+
     @Test func startsInLibraryWithoutPages() {
         let navigator = Navigator<String>()
         #expect(navigator.selection == .library)

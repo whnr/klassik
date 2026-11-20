@@ -6,7 +6,7 @@ struct SettingsView: View {
     @AppStorage(TimelineSide.storageKey) private var timelineSide = TimelineSide.standard
     @AppStorage(ComposerWorks.separatesPartialKey) private var separatesPartial = true
 
-    @AppStorage(CoverWash.strengthKey) private var tintStrength = 2
+    @AppStorage(CoverWash.strengthKey) private var tintStrength = CoverWash.defaultStrength
 
     var body: some View {
         let library = model.library
@@ -80,12 +80,18 @@ struct SettingsView: View {
             }
 
             Section {
-                Picker("Player Tint", selection: $tintStrength) {
-                    Text("1×").tag(1)
-                    Text("2×").tag(2)
-                    Text("3×").tag(3)
+                VStack {
+                    LabeledContent("Player Tint") {
+                        Text("\(tintStrength.formatted())×")
+                            .accessibilityIdentifier("player-tint-value")
+                    }
+                    Slider(
+                        value: $tintStrength, in: CoverWash.strengthRange, step: CoverWash.strengthStep
+                    ) {
+                        Text("Player Tint")
+                    }
+                    .accessibilityIdentifier("player-tint-strength")
                 }
-                .accessibilityIdentifier("player-tint-strength")
             } footer: {
                 Text("Temporary comparison of the cover tint strength.")
             }

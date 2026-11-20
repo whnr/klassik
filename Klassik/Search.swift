@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 
 /// The search of the Search place over the work index (ADR 0025, 0029). It finds works, people and albums by word
 /// starts, with case and diacritics folded. It knows no catalogue prefixes and no aliases (ADR 0025): "op67" does
@@ -167,5 +168,46 @@ struct Search: Sendable {
     /// True when each token starts a word.
     static func matches(_ tokens: [String], _ words: [String]) -> Bool {
         tokens.allSatisfy { token in words.contains { $0.hasPrefix(token) } }
+    }
+}
+
+/// The results that the Search page shows while the text changes. Each text searches off the main actor, so a
+/// keystroke never waits for a search. The results of an older text never replace those of a newer one, and a text
+/// that was searched before over the same index shows its results at once.
+@MainActor @Observable
+final class LiveSearch {
+    /// The text that `results` belong to.
+    private(set) var text = ""
+    private(set) var results = Search.Results()
+    /// The newest text asked for.
+    @ObservationIgnored private var latest = ""
+    @ObservationIgnored private var version: Int?
+    @ObservationIgnored private var cache: [String: Search.Results] = [:]
+    private static let cacheLimit = 64
+
+    /// True when `results` belong to this text, so an empty result means no match and not a search that runs.
+    func isShowing(_ text: String) -> Bool { self.text == text }
+
+    /// Shows the results for a text over the index of a version. `find` runs the search.
+    func show(_ text: String, version: Int, find: @MainActor (String) async -> Search.Results) async {
+        latest = text
+        if version != self.version {
+            self.version = version
+            cache = [:]
+        }
+        if Search.words(of: text, unique: false).isEmpty { return apply(Search.Results(), for: text) }
+        if let cached = cache[text] { return apply(cached, for: text) }
+        guard !Task.isCancelled else { return }
+        let found = await find(text)
+        guard version == self.version else { return }
+        if cache.count >= Self.cacheLimit { cache = [:] }
+        cache[text] = found
+        guard text == latest else { return }
+        apply(found, for: text)
+    }
+
+    private func apply(_ results: Search.Results, for text: String) {
+        self.text = text
+        self.results = results
     }
 }

@@ -56,7 +56,7 @@ struct SearchView: View {
             }
             if filtered.hiddenWorks > 0 {
                 let hidden = WorkIndex.Recording.count(filtered.hiddenWorks, "more work")
-                Text("The filters hide \(hidden) that match the text.")
+                Text(typed ? "The filters hide \(hidden) that match the text." : "The filters hide \(hidden).")
                     .typeStyle(.footnote)
                     .foregroundStyle(Palette.textSecondary)
                     .listRowSeparator(.hidden)

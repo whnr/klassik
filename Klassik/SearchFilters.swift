@@ -15,16 +15,6 @@ extension Search {
             case .performers: "Performers"
             }
         }
-
-        /// The name of one term of the kind, as a recent search reads it: "Composer Antonín Dvořák".
-        var singular: String {
-            switch self {
-            case .genres: "Genre"
-            case .composers: "Composer"
-            case .conductors: "Conductor"
-            case .performers: "Performer"
-            }
-        }
     }
 
     struct Term: Hashable, Sendable {
@@ -92,8 +82,6 @@ struct SearchFilters: Sendable {
     /// The tagged works by title, for conditions without a text.
     private var works: [WorkIndex.Work] = []
     private var albums: [WorkIndex.Album] = []
-
-    init() {}
 
     init(index: WorkIndex) {
         var positions: [String: Int] = [:]

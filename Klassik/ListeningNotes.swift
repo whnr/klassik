@@ -128,6 +128,11 @@ final class ListeningNotes {
         return lanes
     }
 
+    /// The number of lanes that `lanes` uses: 0 for no notes.
+    nonisolated static func laneCount(_ lanes: [UUID: Int]) -> Int {
+        lanes.values.max().map { $0 + 1 } ?? 0
+    }
+
     /// The note whose mark lies under a tap at `seconds`, within `reach` seconds, nearest first. A span counts along
     /// its length.
     nonisolated static func note(near seconds: Double, in notes: [ListeningNote], reach: Double) -> ListeningNote? {

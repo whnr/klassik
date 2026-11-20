@@ -824,6 +824,7 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertGreaterThan(field.frame.minY, position.frame.maxY, "The note field is not in the playing row")
         // The field takes focus by itself; the tap makes the walk independent of keyboard timing.
         field.tap()
+        dismissKeyboardTip(app)
         field.typeText("Theme in the violins")
         snap(app, "41-note-writing")
 
@@ -842,6 +843,19 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(saved.label.contains("Theme in the violins"), saved.label)
         XCTAssertFalse(field.exists, "Save left the note open")
         snap(app, "41b-note-saved")
+
+        // Two moments at the end of the span stack in lanes above it. The bar keeps room for them below the names.
+        for text in ["Horns", "Oboe"] {
+            reveal(app.buttons["add-note"], in: app).tap()
+            XCTAssertTrue(field.waitForExistence(timeout: 10), "Add a note here opened no field")
+            field.tap()
+            field.typeText(text)
+            reveal(app.buttons["save-note"], in: app).tap()
+            XCTAssertTrue(field.waitForNonExistence(timeout: 10), "Save left the note open")
+        }
+        XCTAssertEqual(app.buttons.matching(identifier: "note-text").count, 3)
+        reveal(position, in: app)
+        snap(app, "41d-note-lanes")
 
         // Another movement plays; the row of the note now opens and shows it.
         reveal(app.buttons["Play from here"].firstMatch, in: app).tap()
@@ -2373,6 +2387,14 @@ class ScreensTestCase: XCTestCase {
             from.press(forDuration: 0.05, thenDragTo: to)
         }
         return element
+    }
+
+    /// The first keyboard of a new simulator shows the system tip on sliding to type over the lower half of the
+    /// screen. A screenshot taken while it shows hides the controls below the field.
+    @MainActor
+    func dismissKeyboardTip(_ app: XCUIApplication) {
+        let tip = app.buttons["Continue"]
+        if tip.waitForExistence(timeout: 3) { tip.tap() }
     }
 
     /// The seconds of a shown time such as 1:48 or 1:02:03.

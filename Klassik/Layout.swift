@@ -228,6 +228,11 @@ enum Layout {
     /// The top of a note dot, from the top of the bar. Each lane of stacked notes sits this far above the one below.
     /// css: player.html .mv-bar .note-dot | top
     static let noteDotTop: CGFloat = -9
+    /// The room above the playback bar that `lanes` lanes of note marks take. The gap above the marks is then the
+    /// gap above a bar without notes, as specimen player.html keeps the marks off the names above the bar.
+    static func noteRoom(lanes: Int) -> CGFloat {
+        -noteDotTop * CGFloat(max(lanes, 0))
+    }
     /// A listening note over a span: a line above the playback bar.
     /// css: player.html .mv-bar .note-span | height
     static let noteSpan: CGFloat = 4

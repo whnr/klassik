@@ -1206,20 +1206,24 @@ private struct PositionBar: View {
     }
 
     private func bar(_ shown: Double) -> some View {
-        ZStack(alignment: .leading) {
+        let lanes = ListeningNotes.lanes(notes, reach: reach)
+        let room = Layout.noteRoom(lanes: ListeningNotes.laneCount(lanes))
+        return ZStack(alignment: .leading) {
             Capsule().fill(Palette.fillStandard)
             Capsule().fill(Palette.tint)
                 .frame(width: width * PositionScrub.share(shown, of: duration))
         }
         .frame(height: Layout.positionBar)
-        .overlay(alignment: .topLeading) { marks }
+        .overlay(alignment: .topLeading) { marks(lanes) }
         .onGeometryChange(for: Double.self) {
             Double($0.size.width)
         } action: {
             width = $0
         }
-        // The touch area is the height of a system slider; the layout keeps the thin bar.
+        // The touch area is the height of a system slider, plus the marks above it so that they stay tappable.
+        // The layout keeps the thin bar and the room of the marks, so they never cover the text above.
         .padding(.vertical, -Layout.positionBarInset)
+        .padding(.top, room)
         .contentShape(.rect)
         .gesture(
             DragGesture(minimumDistance: 0)
@@ -1230,7 +1234,7 @@ private struct PositionBar: View {
                 }
                 .onEnded { value in
                     model.isScrubbing = false
-                    if let note = tapped(value) {
+                    if let note = tapped(value, above: room - Layout.positionBarInset) {
                         scrub.cancel()
                         jump(note)
                         return
@@ -1256,8 +1260,7 @@ extension PositionBar {
     private var reach: Double { width > 0 ? Double(Layout.noteDot) / width * duration : 0 }
 
     /// Dots for moments and lines for spans above the bar. Notes that overlap stack in lanes (ADR 0014).
-    private var marks: some View {
-        let lanes = ListeningNotes.lanes(notes, reach: reach)
+    private func marks(_ lanes: [UUID: Int]) -> some View {
         let pitch = -Layout.noteDotTop
         return ZStack(alignment: .topLeading) {
             ForEach(notes) { note in
@@ -1282,10 +1285,10 @@ extension PositionBar {
     }
 
     /// The note of a tap above the bar, where the marks are. A tap or a drag on the bar itself scrubs.
-    private func tapped(_ value: DragGesture.Value) -> ListeningNote? {
+    /// `top` is the distance from the top of the touch area to the top of the bar.
+    private func tapped(_ value: DragGesture.Value, above top: CGFloat) -> ListeningNote? {
         let still = max(abs(value.translation.width), abs(value.translation.height)) <= Layout.noteDot
-        // The touch area reaches `-positionBarInset` above the bar, and the marks sit in it.
-        guard still, value.startLocation.y < -Layout.positionBarInset else { return nil }
+        guard still, value.startLocation.y < top else { return nil }
         let seconds = PositionScrub.seconds(at: value.startLocation.x, width: width, duration: duration)
         return ListeningNotes.note(near: seconds, in: notes, reach: reach)
     }

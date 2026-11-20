@@ -146,6 +146,23 @@ struct ListeningNotesTests {
         #expect(ListeningNotes.lanes([note(10), note(20), note(30)], reach: 4).values.allSatisfy { $0 == 0 })
     }
 
+    @Test func theBarKeepsRoomForEveryLaneInUse() {
+        // A row without notes keeps its height.
+        #expect(ListeningNotes.laneCount([:]) == 0)
+        #expect(Layout.noteRoom(lanes: 0) == 0)
+        // A span with two moments inside it uses three lanes, and the room reaches the top of the highest mark.
+        let span = note(10, 60)
+        let lanes = ListeningNotes.lanes([span, note(30), note(30)], reach: 4)
+        let count = ListeningNotes.laneCount(lanes)
+        #expect(count == 3)
+        let highest = CGFloat(count - 1) * -Layout.noteDotTop
+        #expect(Layout.noteRoom(lanes: count) >= highest - Layout.noteDotTop)
+        #expect(Layout.noteRoom(lanes: count) >= highest - Layout.noteSpanTop)
+        // One lane takes the room of one mark, not of three.
+        #expect(Layout.noteRoom(lanes: 1) >= -Layout.noteDotTop)
+        #expect(Layout.noteRoom(lanes: 1) < Layout.noteRoom(lanes: count))
+    }
+
     @Test func aTapFindsTheNearestMark() {
         let dot = note(100)
         let span = note(200, 260)

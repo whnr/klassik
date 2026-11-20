@@ -48,7 +48,10 @@ struct DeviceStore {
 
     let url: URL
 
-    init(server: URL, username: String, folder: URL = .applicationSupportDirectory.appending(path: "listeners")) {
+    /// The folder of the device files of every server and user.
+    static let folder = URL.applicationSupportDirectory.appending(path: "listeners")
+
+    init(server: URL, username: String, folder: URL = DeviceStore.folder) {
         let identity = [server.absoluteString, username]
         let bytes = (try? JSONEncoder().encode(identity)) ?? Foundation.Data()
         let key = SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
@@ -106,8 +109,42 @@ final class ListenerFile {
         data = changed
     }
 
+    /// Delete Listening Data: removes the file and starts empty. It also clears a load failure, because the damaged
+    /// file is gone.
+    func delete() throws {
+        try store?.delete()
+        data = DeviceStore.Data()
+        loadError = nil
+    }
+
     struct Unreadable: LocalizedError {
         var message: String
         var errorDescription: String? { message }
+    }
+}
+
+/// The device file of the listener who is signed in. Sign-out keeps the file; only Delete Listening Data removes it
+/// (ADR 0013).
+@MainActor
+final class ListenerData {
+    private let folder: URL
+    private(set) var store: DeviceStore?
+    private(set) var file = ListenerFile(store: nil)
+
+    init(folder: URL = DeviceStore.folder) {
+        self.folder = folder
+    }
+
+    /// Opens the file of this server and user, or no file when nobody is signed in.
+    @discardableResult
+    func attach(_ credentials: ServerCredentials?) -> ListenerFile {
+        store = credentials.map { DeviceStore(server: $0.url, username: $0.username, folder: folder) }
+        file = ListenerFile(store: store)
+        return file
+    }
+
+    /// Removes the file of this server and user. The files of other servers and users stay.
+    func delete() throws {
+        try file.delete()
     }
 }

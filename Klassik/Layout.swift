@@ -274,6 +274,18 @@ enum Layout {
     /// How far the touch area of the playback bar reaches above and below it, as a CSS inset: 44 points in all.
     /// css: player.html .mv-bar::after | top
     static let positionBarInset: CGFloat = -19
+    /// A listening note at one moment: a dot above the playback bar.
+    /// css: player.html .mv-bar .note-dot | width
+    static let noteDot: CGFloat = 6
+    /// The top of a note dot, from the top of the bar. Each lane of stacked notes sits this far above the one below.
+    /// css: player.html .mv-bar .note-dot | top
+    static let noteDotTop: CGFloat = -9
+    /// A listening note over a span: a line above the playback bar.
+    /// css: player.html .mv-bar .note-span | height
+    static let noteSpan: CGFloat = 4
+    /// The top of a note line, from the top of the bar.
+    /// css: player.html .mv-bar .note-span | top
+    static let noteSpanTop: CGFloat = -8
     /// The height of the player wash. It keeps its colour to `washSolid`, then fades into the page ground.
     /// css: player.html .wash | height
     static let washHeight: CGFloat = 640

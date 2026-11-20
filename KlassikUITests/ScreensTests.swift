@@ -243,8 +243,11 @@ final class BrowseScreens: ScreensTestCase {
         field.tap()
         field.typeText("chopin")
         let works = app.buttons.matching(identifier: "search-work")
-        XCTAssertTrue(works.firstMatch.waitForExistence(timeout: 10))
-        XCTAssertEqual(works.count, 4, "The Chopin nocturnes are not all found")
+        // The results arrive from a search off the main actor, so the rows of a shorter text can show first.
+        let four = expectation(for: NSPredicate(format: "count == 4"), evaluatedWith: works)
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [four], timeout: 10), .completed,
+            "\(works.count) works, not the four Chopin nocturnes")
         XCTAssertTrue(app.buttons.matching(identifier: "search-person").firstMatch.exists)
         XCTAssertTrue(app.buttons.matching(identifier: "search-album").firstMatch.exists)
         field.typeText("\n")
@@ -880,6 +883,61 @@ final class PlaybackScreens: ScreensTestCase {
             .firstMatch
         XCTAssertTrue(reveal(playing, in: app).exists, "No movement shows the playing mark")
         expectMovementPlayEdge(app)
+    }
+
+    /// A listening note is written in the playing row, never in a modal. It stays open while the bar scrubs, "End here"
+    /// makes a span, and the saved note opens its row once another movement plays (ADR 0027).
+    @MainActor
+    func testListeningNote() throws {
+        let app = try launchAndConnect()
+        openRecording(app)
+        playPaused(app)
+        let add = reveal(app.buttons["add-note"], in: app)
+        XCTAssertTrue(add.exists, "The playing row offers no note")
+        add.tap()
+        let field = app.textFields["note-field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10), "Add a note here opened no field")
+        let position = app.sliders["position"]
+        XCTAssertTrue(position.exists)
+        XCTAssertGreaterThan(field.frame.minY, position.frame.maxY, "The note field is not in the playing row")
+        // The field takes focus by itself; the tap makes the walk independent of keyboard timing.
+        field.tap()
+        field.typeText("Theme in the violins")
+        snap(app, "41-note-writing")
+
+        // The note stays open while the listener scrubs to find the end.
+        let beginning = position.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.5))
+        let end = position.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5))
+        beginning.press(forDuration: 0.1, thenDragTo: end)
+        XCTAssertTrue(field.exists, "A scrub closed the note")
+        reveal(app.buttons["end-note"], in: app).tap()
+        let time = app.staticTexts["note-draft-time"]
+        XCTAssertTrue(eventually(timeout: 5) { time.label.contains("–") }, "End here made no span: \(time.label)")
+        snap(app, "41a-note-span")
+        reveal(app.buttons["save-note"], in: app).tap()
+        let saved = app.buttons["note-text"].firstMatch
+        XCTAssertTrue(saved.waitForExistence(timeout: 10), "The saved note does not show")
+        XCTAssertTrue(saved.label.contains("Theme in the violins"), saved.label)
+        XCTAssertFalse(field.exists, "Save left the note open")
+        snap(app, "41b-note-saved")
+
+        // Another movement plays; the row of the note now opens and shows it.
+        reveal(app.buttons["Play from here"].firstMatch, in: app).tap()
+        pause(app)
+        XCTAssertFalse(app.buttons["note-text"].exists, "A closed row shows its note")
+        let first = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Allegro molto appassionato'"))
+            .firstMatch
+        reveal(first, in: app).tap()
+        let note = app.buttons["note-time"].firstMatch
+        XCTAssertTrue(note.waitForExistence(timeout: 5), "The row with a note does not open")
+        XCTAssertTrue(app.buttons["Resume"].firstMatch.exists, "Opening the row started playback")
+        snap(app, "41c-note-row")
+
+        // A tap on its time jumps there and plays.
+        reveal(note, in: app).tap()
+        let pill = app.buttons["mini-player-pause"]
+        XCTAssertTrue(eventually(timeout: 10) { pill.label == "Pause" }, "The note time did not play: \(pill.label)")
+        pause(app)
     }
 
     /// Play on the work page plays the reference recording and the pill shows the playing state (item 25).

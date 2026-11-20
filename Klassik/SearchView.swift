@@ -16,14 +16,17 @@ struct SearchView: View {
     @FocusState private var focused: Bool
     /// The start that the page last handled.
     @State private var started: Int?
+    @State private var live = LiveSearch()
 
     var body: some View {
         let typed = !text.trimmingCharacters(in: .whitespaces).isEmpty
-        let found = typed ? model.library.search.results(for: text) : nil
+        let found = typed ? live.results : nil
         let filtered =
             conditions.isEmpty
             ? Search.Filtered(results: found ?? Search.Results())
             : model.library.searchFilters.narrow(found, by: conditions)
+        // While a search runs, the page keeps the last results; an empty result is no match only when it is current.
+        let settled = !typed || live.isShowing(text)
         PageList {
             if !typed && conditions.isEmpty {
                 Section {
@@ -41,14 +44,14 @@ struct SearchView: View {
                     .accessibilityIdentifier("performers")
                     .listRowSeparator(.hidden)
                 }
-            } else if filtered.results.isEmpty {
+            } else if filtered.results.isEmpty && settled {
                 Text("No work, name or album matches.")
                     .typeStyle(.subheadline)
                     .foregroundStyle(Palette.textSecondary)
                     .listRowSeparator(.hidden)
                     .pageEdges(top: Layout.searchNoMatchTop)
                     .accessibilityIdentifier("search-no-match")
-            } else {
+            } else if !filtered.results.isEmpty {
                 SearchResults(results: filtered.results, matching: filtered.matching)
             }
             if filtered.hiddenWorks > 0 {
@@ -91,6 +94,16 @@ struct SearchView: View {
         }
         .onAppear(perform: start)
         .onChange(of: navigator.searchStarts, start)
+        .task(id: Query(text: text, version: model.library.indexVersion)) {
+            let library = model.library
+            await live.show(text, version: library.indexVersion) { await library.results(for: $0) }
+        }
+    }
+
+    /// A search runs again when the text or the index changes.
+    private struct Query: Equatable {
+        var text: String
+        var version: Int
     }
 
     /// The recordings that the text found. The sheet counts only these (ADR 0029).

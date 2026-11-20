@@ -8,8 +8,9 @@ final class Library {
     private(set) var classical: [Song] = [] {
         didSet {
             index = WorkIndex(songs: classical)
+            indexVersion += 1
             otherAlbumCache = nil
-            searchCache = nil
+            searchBuild = Self.buildSearch(index)
             filtersCache = nil
             classicalChanged?()
         }
@@ -17,12 +18,15 @@ final class Library {
     /// The covers follow the classical part of the library (ADR 0059).
     @ObservationIgnored var classicalChanged: (@MainActor () -> Void)?
     private(set) var index = WorkIndex()
+    /// Counts the changes of the index, so a search can follow a rebuild.
+    private(set) var indexVersion = 0
     /// The songs with a star: the server's stars with the changes that wait over them. A star change sets only this
     /// and `songs`, because a rebuild of the index holds the main actor under the tap (ADR 0052). The songs inside
     /// the index keep the stars of the last rebuild, so favourite state reads this set.
     private(set) var starredSongs: Set<String> = []
     @ObservationIgnored private var otherAlbumCache: [WorkIndex.Album]?
-    @ObservationIgnored private var searchCache: Search?
+    /// The search over the index. It builds off the main actor when the index changes, before anyone types.
+    @ObservationIgnored private var searchBuild: Task<Search, Never>?
     @ObservationIgnored private var filtersCache: SearchFilters?
     private(set) var syncedAt: Date?
     private(set) var isSyncing = false
@@ -49,14 +53,16 @@ final class Library {
         return built
     }
 
-    /// The search over the index. Built when first read, and again after the index changes.
-    var search: Search {
-        // Reading the index lets a view that searches follow a rebuild.
-        let index = index
-        if let searchCache { return searchCache }
-        let built = Search(index: index)
-        searchCache = built
-        return built
+    /// The results for a text over the current index. The search runs off the main actor, so typing never waits.
+    func results(for text: String) async -> Search.Results {
+        let build = searchBuild ?? Self.buildSearch(index)
+        searchBuild = build
+        let search = await build.value
+        return await Task.detached(priority: .userInitiated) { search.results(for: text) }.value
+    }
+
+    private static func buildSearch(_ index: WorkIndex) -> Task<Search, Never> {
+        Task.detached(priority: .utility) { Search(index: index) }
     }
 
     /// The search terms of the index for the filter sheet. Built when first read, and again after the index changes.

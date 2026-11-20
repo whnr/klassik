@@ -22,7 +22,7 @@ struct SearchView: View {
 
     /// Keeps what the session searched as its recent search.
     private func commit() {
-        recent.commit(text: text)
+        recent.commit(text: text, conditions: RecentSearch.terms(of: conditions))
     }
 
     var body: some View {
@@ -35,11 +35,14 @@ struct SearchView: View {
         // While a search runs, the page keeps the last results; an empty result is no match only when it is current.
         let settled = !typed || live.isShowing(text)
         PageList {
+            // A search of conditions only shows results; the recent list belongs to an empty search (ADR 0029).
             if !typed && conditions.isEmpty {
                 // Klassik shows no suggestions: it knows no content that the listener does not (ADR 0029).
                 if !recent.entries.isEmpty {
                     RecentList(recent: recent) { entry in
                         text = entry.text
+                        conditions = entry.searchConditions
+                        joining = nil
                         focused = false
                         recent.restore(entry)
                     }
@@ -96,6 +99,9 @@ struct SearchView: View {
                     symbol: "xmark", icon: Layout.searchResetIcon, label: "Clear search and filters",
                     identifier: "search-reset", isEnabled: !text.isEmpty || !conditions.isEmpty
                 ) {
+                    // The x pill ends the session: the next search is a new entry (ADR 0029).
+                    commit()
+                    recent.endSession()
                     text = ""
                     conditions = []
                     joining = nil
@@ -107,7 +113,8 @@ struct SearchView: View {
         }
         .scrollDismissesKeyboard(.immediately)
         .sheet(isPresented: $showsFilters) {
-            FilterSheet(conditions: $conditions, joining: $joining, pool: pool(of: found), hasText: typed)
+            FilterSheet(
+                conditions: $conditions, joining: $joining, pool: pool(of: found), hasText: typed, done: commit)
         }
         .onAppear(perform: start)
         .onChange(of: navigator.searchStarts, start)

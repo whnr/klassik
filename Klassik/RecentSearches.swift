@@ -43,6 +43,39 @@ struct RecentSearch: Codable, Equatable, Identifiable, Sendable {
     }
 }
 
+extension RecentSearch.Term {
+    init(_ term: Search.Term) {
+        switch term.scope {
+        case .genres: self.init(kind: .genre, name: term.name)
+        case .composers: self.init(kind: .composer, name: term.name)
+        case .conductors: self.init(kind: .conductor, name: term.name)
+        case .performers: self.init(kind: .performer, name: term.name)
+        }
+    }
+
+    /// The term as the filter sheet holds it.
+    var searchTerm: Search.Term {
+        switch kind {
+        case .genre: Search.Term(scope: .genres, name: name)
+        case .composer: Search.Term(scope: .composers, name: name)
+        case .conductor: Search.Term(scope: .conductors, name: name)
+        case .performer: Search.Term(scope: .performers, name: name)
+        }
+    }
+}
+
+extension RecentSearch {
+    /// The conditions of the filter sheet as a recent search keeps them.
+    static func terms(of conditions: [Search.Condition]) -> [[Term]] {
+        conditions.map { $0.terms.map(Term.init) }
+    }
+
+    /// The conditions as the filter sheet holds them, for a restore.
+    var searchConditions: [Search.Condition] {
+        conditions.map { Search.Condition(terms: $0.map(\.searchTerm)) }
+    }
+}
+
 /// The recent searches of the listener, newest first, and the search session that the Search page has open
 /// (ADR 0029). One session is one entry: each commit replaces the entry of the session, so the list does not fill
 /// with fragments.

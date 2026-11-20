@@ -358,9 +358,10 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertTrue(eventually(timeout: 5) { works.count == 2 }, "The x in the field cleared the conditions")
         XCTAssertEqual(filters.value as? String, "2\u{00A0}conditions")
 
-        // The x pill clears the text and every condition.
+        // The x pill clears the text and every condition, and keeps the search of conditions as a recent search.
         app.buttons["search-reset"].tap()
-        XCTAssertTrue(app.staticTexts["search-hint"].waitForExistence(timeout: 5))
+        let recent = app.buttons.matching(identifier: "search-recent")
+        XCTAssertTrue(recent.firstMatch.waitForExistence(timeout: 5), "The empty page does not show")
         XCTAssertNotEqual(filters.value as? String, "2\u{00A0}conditions")
         XCTAssertFalse(app.buttons["search-reset"].isEnabled, "The x pill is on with nothing to clear")
     }
@@ -744,6 +745,56 @@ final class BrowseScreens: ScreensTestCase {
         app.buttons["search-recent-clear"].tap()
         XCTAssertTrue(app.staticTexts["search-hint"].waitForExistence(timeout: 10), "Clear left the list")
         XCTAssertFalse(recent.firstMatch.exists)
+
+        // Done on the filters commits. Closing the sheet with Filters does not, so the entry keeps the Romantic term.
+        let filters = app.buttons["search-filters"]
+        filters.tap()
+        XCTAssertTrue(app.buttons["filter-done"].waitForExistence(timeout: 10))
+        app.buttons["Genres"].tap()
+        let narrow = app.textFields["filter-narrow"]
+        narrow.tap()
+        narrow.typeText("roman")
+        let romantic = app.buttons.matching(identifier: "filter-term")
+            .matching(NSPredicate(format: "label CONTAINS %@", "Romantic")).firstMatch
+        XCTAssertTrue(romantic.waitForExistence(timeout: 5))
+        romantic.tap()
+        XCTAssertTrue(app.buttons["filter-chip"].waitForExistence(timeout: 5))
+        app.buttons["filter-done"].tap()
+        XCTAssertTrue(app.buttons["filter-done"].waitForNonExistence(timeout: 5))
+        // A search of conditions only shows results, not the recent list.
+        XCTAssertTrue(works.firstMatch.waitForExistence(timeout: 10), "A search of conditions only shows no works")
+        XCTAssertFalse(recent.firstMatch.exists, "A search of conditions only shows the recent list")
+        filters.tap()
+        XCTAssertTrue(app.buttons["filter-chip"].waitForExistence(timeout: 10))
+        app.buttons["filter-chip"].tap()
+        XCTAssertTrue(app.buttons["filter-chip"].waitForNonExistence(timeout: 5))
+        filters.tap()
+        XCTAssertTrue(app.buttons["filter-done"].waitForNonExistence(timeout: 5))
+        XCTAssertTrue(recent.firstMatch.waitForExistence(timeout: 10), "Done did not commit the search")
+        XCTAssertEqual(recent.count, 1)
+        XCTAssertTrue(
+            recent.firstMatch.label.hasPrefix("Genre Romantic"),
+            "The entry does not show its condition: \(recent.firstMatch.label)")
+        snap(app, "19h-search-recent-conditions")
+
+        // A tap restores the conditions.
+        recent.firstMatch.tap()
+        XCTAssertTrue(
+            eventually(timeout: 5) { (filters.value as? String) == "1\u{00A0}condition" },
+            "A tap did not restore the conditions")
+        XCTAssertTrue(works.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["search-clear"].exists, "A search of conditions only restored a text")
+
+        // The x pill commits and ends the session, so the next search is a new entry.
+        app.buttons["search-reset"].tap()
+        XCTAssertTrue(recent.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertEqual(recent.count, 1)
+        field.tap()
+        field.typeText("brahms\n")
+        app.buttons["search-reset"].tap()
+        XCTAssertTrue(recent.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertEqual(recent.count, 2, "The search after the x pill replaced the entry before it")
+        XCTAssertEqual(recent.firstMatch.label, "brahms")
     }
 }
 

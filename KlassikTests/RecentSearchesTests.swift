@@ -107,4 +107,20 @@ struct RecentSearchesTests {
         try Data(#"{"favouriteWorks":[],"recordingOrder":{}}"#.utf8).write(to: store.url)
         #expect(try store.load().recentSearches.isEmpty)
     }
+
+    @Test func theConditionsOfTheSheetSurviveTheRoundTrip() {
+        let conditions = [
+            Search.Condition(terms: [
+                Search.Term(scope: .composers, name: "Antonín Dvořák"),
+                Search.Term(scope: .composers, name: "Johannes Brahms"),
+            ]),
+            Search.Condition(terms: [Search.Term(scope: .genres, name: "Symphony")]),
+            Search.Condition(terms: [Search.Term(scope: .conductors, name: "Carlos Kleiber")]),
+            Search.Condition(terms: [Search.Term(scope: .performers, name: "Martha Argerich")]),
+        ]
+        let kept = RecentSearch.terms(of: conditions)
+        #expect(kept.first == [dvorak, brahms])
+        #expect(kept.map { $0.map(\.kind) } == [[.composer, .composer], [.genre], [.conductor], [.performer]])
+        #expect(RecentSearch(text: "", conditions: kept).searchConditions == conditions)
+    }
 }

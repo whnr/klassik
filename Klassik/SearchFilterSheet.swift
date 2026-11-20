@@ -12,15 +12,21 @@ struct FilterSheet: View {
     let pool: Search.Pool
     /// True when the search has a text, so the heading shows the recordings that remain.
     let hasText: Bool
+    /// Done keeps the search as a recent search (ADR 0029).
+    let done: () -> Void
     @State private var scope: Search.Scope = .composers
     @State private var narrowing = ""
     @FocusState private var narrowFocused: Bool
 
-    init(conditions: Binding<[Search.Condition]>, joining: Binding<Int?>, pool: Search.Pool, hasText: Bool) {
+    init(
+        conditions: Binding<[Search.Condition]>, joining: Binding<Int?>, pool: Search.Pool, hasText: Bool,
+        done: @escaping () -> Void
+    ) {
         _conditions = conditions
         _joining = joining
         self.pool = pool
         self.hasText = hasText
+        self.done = done
     }
 
     var body: some View {
@@ -97,7 +103,10 @@ struct FilterSheet: View {
                     .foregroundStyle(Palette.textSecondary)
                     .accessibilityIdentifier("filter-total")
             }
-            Button("Done") { dismiss() }
+            Button("Done") {
+                done()
+                dismiss()
+            }
                 .typeStyle(.body)
                 .accessibilityIdentifier("filter-done")
         }

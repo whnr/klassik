@@ -365,8 +365,9 @@ struct PersonHero: View {
                 .clipped()
                 .padding(.bottom, spacesChronology ? Layout.pictureBottom + Layout.buttonRowTop : 0)
             } else {
-                // No picture: the name sits close under the back arrow, as a page title does.
-                // The width frame keeps the grouped list from insetting the name, as in the picture branch.
+                // No picture: the name sits close under the back arrow, as a page title does. Its edge is the page
+                // edge of ADR 0045, as `.page-head` in person.html: 20 pt without a timeline, 16 pt on the side
+                // away from it. The width frame keeps the list from insetting the name, as in the picture branch.
                 heading
                     .frame(width: width, alignment: .leading)
                     .padding(.top, topInset + Layout.headTop)

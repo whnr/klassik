@@ -124,13 +124,11 @@ struct PersonPageLink<Label: View>: View {
                 navigator.open(page, in: place)
             }
         } label: {
-            HStack(spacing: Layout.rowGap) {
-                label
+            Group {
                 if disclosure {
-                    Image(systemName: "chevron.right")
-                        .typeStyle(.footnote)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(Palette.textTertiary)
+                    DisclosureRow { label }
+                } else {
+                    label
                 }
             }
             .contentShape(.rect)
@@ -138,6 +136,37 @@ struct PersonPageLink<Label: View>: View {
         .buttonStyle(.plain)
         // A row decodes its picture when the list is about to show it, so a tap finds it ready.
         .task { await model.preparePortrait(for: page) }
+    }
+}
+
+/// Counts and carets must stay at the trailing edge when a title wraps.
+struct DisclosureRow<Label: View>: View {
+    @ViewBuilder let label: Label
+
+    var body: some View {
+        HStack(spacing: Layout.rowGap) {
+            label
+                .labeledContentStyle(TrailingValue())
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Image(systemName: "chevron.right")
+                .typeStyle(.footnote)
+                .fontWeight(.semibold)
+                .foregroundStyle(Palette.textTertiary)
+                .accessibilityHidden(true)
+        }
+    }
+}
+
+/// Counts must remain aligned when their labels wrap.
+struct TrailingValue: LabeledContentStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: Layout.rowGap) {
+            configuration.label
+                .frame(maxWidth: .infinity, alignment: .leading)
+            configuration.content
+                .foregroundStyle(.secondary)
+                .fixedSize()
+        }
     }
 }
 

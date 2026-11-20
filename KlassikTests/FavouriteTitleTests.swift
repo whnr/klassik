@@ -24,6 +24,6 @@ struct FavouriteTitleTests {
 
     @Test func noMarkTakesNoTap() {
         #expect(FermataShape.hitArea(around: .null).isNull)
-        #expect(!FermataShape.hitArea(around: .null).contains(.zero))
+        #expect(!FermataShape.hitArea(around: .null).contains(CGPoint.zero))
     }
 }

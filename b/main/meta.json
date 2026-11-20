@@ -1,7 +1,7 @@
 {
-  "sha": "6aae8084b37aee6b330f08725e2937ebdcfb0651",
+  "sha": "d6c06876a9f873e08c437b6706e9a20e2868340f",
   "branch": "main",
   "path": "main",
-  "subject": "Merge pull request #138 from whnr/claude-release-0.17.0",
-  "ts": 1795214305
+  "subject": "[sz-rs30.1.131.7] Flush waiting favourites on Diagnostics refresh (#137)",
+  "ts": 1795215728
 }

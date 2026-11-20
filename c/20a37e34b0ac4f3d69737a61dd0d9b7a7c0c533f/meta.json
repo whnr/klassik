@@ -1,7 +1,0 @@
-{
-  "sha": "20a37e34b0ac4f3d69737a61dd0d9b7a7c0c533f",
-  "branch": "claude-ci-batch",
-  "path": "claude-ci-batch",
-  "subject": "[sz-rs30.1.111] Run the diff-tree test in a scratch repo",
-  "ts": 1795161223
-}

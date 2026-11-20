@@ -4,12 +4,25 @@ import SwiftUI
 struct PerformersView: View {
     @Environment(AppModel.self) private var model
     @State private var query = ""
+    @FocusState private var focused: Bool
 
     var body: some View {
         let performers = model.library.index.performers.filter {
             query.isEmpty || $0.name.localizedStandardContains(query)
         }
         PageList {
+            // The Search tab moves `searchable` to the bottom. This page needs its field under the title.
+            SearchField(text: $query, focused: $focused, prompt: "Name", identifier: "performer-search")
+                .listRowInsets(EdgeInsets())
+                .listRowSeparator(.hidden)
+            if performers.isEmpty && !query.isEmpty {
+                Text("No performer matches.")
+                    .typeStyle(.subheadline)
+                    .foregroundStyle(Palette.textSecondary)
+                    .listRowSeparator(.hidden)
+                    .pageEdges(top: Layout.searchNoMatchTop)
+                    .accessibilityIdentifier("performer-no-match")
+            }
             ForEach(performers) { performer in
                 PersonPageLink(page: .performer(performer.name)) {
                     LabeledContent {
@@ -27,11 +40,11 @@ struct PerformersView: View {
             }
         }
         .overlay {
-            if performers.isEmpty {
+            if model.library.index.performers.isEmpty {
                 ContentUnavailableView("No Performers", systemImage: "person.2")
             }
         }
-        .searchable(text: $query)
+        .scrollDismissesKeyboard(.immediately)
         .pageTitle("Performers")
     }
 }

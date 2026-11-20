@@ -317,7 +317,6 @@ final class BrowseScreens: ScreensTestCase {
         let rows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'chronology-work'"))
         XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 30), "Chopin shows no rows of works")
         snap(app, "02c-chronology-composer")
-
         // A row for several works lists them; a work in the list opens its work page.
         let several = app.buttons.matching(identifier: "chronology-works").firstMatch
         if several.exists {
@@ -354,6 +353,7 @@ final class BrowseScreens: ScreensTestCase {
         let undatedWork = app.buttons.matching(identifier: "chronology-listed-work").firstMatch
         XCTAssertTrue(undatedWork.waitForExistence(timeout: 10), "The single undated work did not open a list")
         snap(app, "02f-chronology-undated")
+        expectWorkActions(on: undatedWork, in: app, "02j-chronology-listed-actions")
         app.buttons["Done"].tap()
 
         // The name opens the composer page.
@@ -371,6 +371,26 @@ final class BrowseScreens: ScreensTestCase {
         app.buttons["chronology-level"].tap()
         XCTAssertTrue(app.staticTexts["All composers"].waitForExistence(timeout: 10))
         snap(app, "02h-chronology-last-opened")
+
+        // Mendelssohn has one dated work, so this check cannot select a grouped row.
+        lines.matching(NSPredicate(format: "label == 'Felix Mendelssohn'")).firstMatch.tap()
+        XCTAssertTrue(eventually(timeout: 10) { name.label == "Felix Mendelssohn" })
+        let single = app.buttons.matching(identifier: "chronology-work").firstMatch
+        XCTAssertTrue(single.waitForExistence(timeout: 30), "Mendelssohn shows no single dated work")
+        XCTAssertTrue(single.label.contains("Violin Concerto"), single.label)
+        expectWorkActions(on: single, in: app, "02i-chronology-work-actions")
+    }
+
+    @MainActor
+    private func expectWorkActions(on row: XCUIElement, in app: XCUIApplication, _ name: String) {
+        let label = row.label
+        row.press(forDuration: 1.2)
+        let queue = app.buttons["Add to Queue"].firstMatch
+        XCTAssertTrue(queue.waitForExistence(timeout: 5), "A long press on \(label) shows no actions")
+        XCTAssertTrue(app.buttons["Play Next"].firstMatch.exists, "The actions of \(label) have no Play Next")
+        snap(app, name)
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
+        XCTAssertTrue(eventually(timeout: 5) { !queue.exists }, "The actions of \(label) stay open")
     }
 
     /// Mendelssohn has a picture in the fixture answers: it shows under the name, and a tap shows it whole with
@@ -1141,6 +1161,19 @@ final class PlaybackScreens: ScreensTestCase {
         let performer = app.buttons.matching(identifier: "performer").firstMatch
         XCTAssertTrue(performer.waitForExistence(timeout: 10))
         snap(app, "06a-performers")
+        let rows = app.buttons.matching(identifier: "performer")
+        let all = rows.count
+        let field = app.textFields["performer-search"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10), "No performer search field")
+        field.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5), "The performer field opens no keyboard")
+        field.typeText("Carl")
+        XCTAssertTrue(eventually(timeout: 5) { rows.count == 1 }, "\(rows.count) performers match Carl")
+        snap(app, "06e-performer-search")
+        app.buttons["search-clear"].tap()
+        XCTAssertTrue(eventually(timeout: 5) { rows.count == all }, "The clear button left \(rows.count) performers")
+        field.typeText("\n")
+        XCTAssertTrue(eventually(timeout: 5) { !app.keyboards.firstMatch.exists }, "The keyboard stays up")
         let title = drawn(app.staticTexts["page-heading"].firstMatch, in: app)
         let cover = app.buttons.matching(identifier: "performer-album").firstMatch
         // A tap while the list still settles does not open the row, so the walk taps again.
@@ -1153,10 +1186,21 @@ final class PlaybackScreens: ScreensTestCase {
         checkPerformerHead(app, titleBottom: title.maxY)
         let mark = app.buttons["favourite-performer"]
         XCTAssertTrue(mark.waitForExistence(timeout: 10))
+        // The title words must not toggle the favourite.
+        let before = mark.value as? String
+        // The element extends under Back. Tap the last title line to avoid the navigation target.
+        let line = Layout.pageTitle.size * Layout.pageTitle.lineHeight
+        app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: mark.frame.minX + line / 2, dy: mark.frame.maxY - line / 2)).tap()
+        XCTAssertEqual(mark.value as? String, before, "A tap on the name changed the favourite")
         mark.tap()
         XCTAssertEqual(mark.value as? String, "Favourite")
         snap(app, "06d-performer-favourite")
         cover.tap()
+        let albumMark = app.buttons["favourite-album"]
+        XCTAssertTrue(albumMark.waitForExistence(timeout: 10))
+        if albumMark.value as? String != "Favourite" { albumMark.tap() }
+        XCTAssertEqual(albumMark.value as? String, "Favourite")
         reveal(app.buttons["raw-tags"], in: app).tap()
         XCTAssertTrue(app.navigationBars["Tags"].waitForExistence(timeout: 10))
         snap(app, "06c-tags")
@@ -1165,6 +1209,11 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(
             app.descendants(matching: .any)["performer-tabs"].firstMatch.waitForExistence(timeout: 10),
             "Back from the album did not reach the performer")
+        let marked = app.buttons.matching(identifier: "performer-album").firstMatch
+        XCTAssertTrue(
+            eventually(timeout: 5) { "\(marked.label) \(marked.value ?? "")".contains("Favourite") },
+            "The favourite album reads \(marked.label)")
+        snap(app, "06f-performer-album-favourite")
     }
 
     @MainActor

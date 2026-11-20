@@ -1,7 +1,7 @@
 {
-  "sha": "6f2e6b072e66466aa115925461b1d4ac4ca9a6e4",
+  "sha": "51542d704eed049c9b8989cb3ccd612fe65b7e96",
   "branch": "claude-ci-batch",
   "path": "claude-ci-batch",
-  "subject": "[sz-rs30.1.106 .108 .111 .112] Trim CI cost, keep test console",
-  "ts": 1795158783
+  "subject": "[sz-rs30.1.111] Count crash signs in the raw test log",
+  "ts": 1795159833
 }

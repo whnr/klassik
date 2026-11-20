@@ -96,6 +96,44 @@ import UIKit
             return UIImage(cgImage: image)
         }.value
     }
+
+    /// The largest centred square of the image, at most `pixels` on a side. Album art shows square everywhere,
+    /// whatever its shape (sz-rs30.1.105.82). The short side decodes at `pixels`, so the square keeps its detail.
+    nonisolated static func square(_ data: Data, to pixels: Int) async -> UIImage? {
+        await Task.detached(priority: .userInitiated) { () -> UIImage? in
+            guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+                let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+                let width = properties[kCGImagePropertyPixelWidth] as? Int,
+                let height = properties[kCGImagePropertyPixelHeight] as? Int, width > 0, height > 0
+            else { return UIImage(data: data) }
+            let options: [CFString: Any] = [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: squareLimit(width: width, height: height, pixels: pixels),
+            ]
+            guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+                return UIImage(data: data)
+            }
+            return UIImage(cgImage: centreSquare(of: image))
+        }.value
+    }
+
+    /// The long side to decode so that the short side reaches `pixels`, never above the full size. Zero keeps the
+    /// full size. The orientation swaps the sides but keeps their ratio.
+    nonisolated static func squareLimit(width: Int, height: Int, pixels: Int) -> Int {
+        let long = max(width, height)
+        let short = max(min(width, height), 1)
+        guard pixels > 0 else { return long }
+        return min(long, Int((Double(pixels) * Double(long) / Double(short)).rounded(.up)))
+    }
+
+    /// The centred square of an image, as wide as its short side.
+    nonisolated static func centreSquare(of image: CGImage) -> CGImage {
+        guard image.width != image.height else { return image }
+        let side = min(image.width, image.height)
+        let rect = CGRect(x: (image.width - side) / 2, y: (image.height - side) / 2, width: side, height: side)
+        return image.cropping(to: rect) ?? image
+    }
 }
 
 /// The cover links of one account: each album disc and each track with embedded art points at one content file of

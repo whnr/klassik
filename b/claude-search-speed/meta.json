@@ -1,7 +1,7 @@
 {
-  "sha": "eb12c60747cfc20e421b8a9fd75f432fcce19f5d",
+  "sha": "6977b5e91d0752139011cd1b08cdb0850160d574",
   "branch": "claude-search-speed",
   "path": "claude-search-speed",
-  "subject": "[sz-3bs2] Time the search on a large library",
-  "ts": 1795134549
+  "subject": "[sz-3bs2] Search off the main actor while typing",
+  "ts": 1795136131
 }

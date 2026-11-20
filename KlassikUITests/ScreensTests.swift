@@ -787,18 +787,19 @@ final class PlaybackScreens: ScreensTestCase {
         snap(app, "41b-note-saved")
 
         // Another movement plays; the row of the note now opens and shows it.
-        // The row identifier covers the play button, so the walk finds it by its label.
         reveal(app.buttons["Play from here"].firstMatch, in: app).tap()
         pause(app)
-        let row = reveal(app.descendants(matching: .any).matching(identifier: "movement").firstMatch, in: app)
         XCTAssertFalse(app.buttons["note-text"].exists, "A closed row shows its note")
-        row.tap()
-        let note = reveal(app.buttons["note-time"].firstMatch, in: app)
-        XCTAssertTrue(note.exists, "The row with a note does not open")
+        let first = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Allegro molto appassionato'"))
+            .firstMatch
+        reveal(first, in: app).tap()
+        let note = app.buttons["note-time"].firstMatch
+        XCTAssertTrue(note.waitForExistence(timeout: 5), "The row with a note does not open")
+        XCTAssertTrue(app.buttons["Resume"].firstMatch.exists, "Opening the row started playback")
         snap(app, "41c-note-row")
 
         // A tap on its time jumps there and plays.
-        note.tap()
+        reveal(note, in: app).tap()
         let pill = app.buttons["mini-player-pause"]
         XCTAssertTrue(eventually(timeout: 10) { pill.label == "Pause" }, "The note time did not play: \(pill.label)")
         pause(app)

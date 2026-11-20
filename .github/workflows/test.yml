@@ -1,7 +1,7 @@
 name: Test
 
 # One build runs unit tests and supplies the requested UI shards.
-# Main pushes run no walk. Nightly runs and release pull requests walk every group.
+# Main pushes run no walk. Nightly runs and feature release pull requests walk every group.
 # UI_TESTS_REQUIRED controls whether a failed walk blocks the run.
 # A push that changes only documentation starts no run. TestFlight accepts such a commit through
 # scripts/green_test_gate.py, which keeps the same ignore list.

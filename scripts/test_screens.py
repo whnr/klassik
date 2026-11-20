@@ -361,6 +361,21 @@ class PlanTests(unittest.TestCase):
             self.assertEqual(ui, "all")
             self.assertEqual(len(matrix["include"]), 4)
 
+    def test_unclear_release_versions_walk_everything(self):
+        for title in ("Release Klassik 1.0", "Release Klassik 0.16.x", "Release Klassik ", "Release Klassik 0.16.00"):
+            with self.subTest(title=title):
+                self.assertEqual(screen_report.plan("pull_request", "", "[ui: browse]", title)[0], "all")
+
+    def test_patch_release_walks_only_requested_areas(self):
+        for title in ("Release Klassik 0.16.1", "[sz-123] Release Klassik 0.16.10"):
+            with self.subTest(title=title):
+                ui, matrix = screen_report.plan("pull_request", "", "Fix\n\n[ui: browse]\n", title)
+                self.assertEqual((ui, [entry["group"] for entry in matrix["include"]]), ("browse", ["places-browse"]))
+        self.assertEqual(screen_report.plan("pull_request", "", "", "Release Klassik 0.16.1")[0], "false")
+
+    def test_other_titles_are_not_releases(self):
+        self.assertEqual(screen_report.plan("pull_request", "", "", "Fix the Release Klassik 0.16.0 notes")[0], "false")
+
     def test_playback_shards_cover_every_method_and_screenshot_once(self):
         source = screen_report.WALK.read_text()
         queue = screen_report.group_tests("playback-queue")

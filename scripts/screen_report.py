@@ -136,11 +136,22 @@ def requested_areas(messages):
     return ",".join(area for area in known if area in wanted) or "false"
 
 
+RELEASE_TITLE = re.compile(r"^(?:\[[^]]+\] )?Release Klassik (\S*)")
+PATCH_VERSION = re.compile(r"[0-9]+\.[0-9]+\.0*[1-9][0-9]*")
+
+
+def release_walk(title):
+    """True if a pull request with `title` walks every group: a feature release. A patch release (x.y.z, z > 0)
+    walks only the areas that its commits request. A release title without a clear version walks everything."""
+    match = RELEASE_TITLE.match(title)
+    return bool(match) and not PATCH_VERSION.fullmatch(match.group(1))
+
+
 def plan(event, dispatch_input, messages, title="", ref="refs/heads/main"):
-    """Release requests and nightly runs walk everything. Main pushes run no walk."""
+    """Feature release requests and nightly runs walk everything. Main pushes run no walk."""
     if event == "pull_request":
         ui = requested_areas(messages)
-        if title.startswith("Release Klassik ") or re.match(r"^\[[^]]+\] Release Klassik ", title):
+        if release_walk(title):
             ui = "all"
     elif event == "workflow_dispatch":
         ui = dispatch_input.replace(" ", "").lower() or "all"

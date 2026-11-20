@@ -143,6 +143,7 @@
         color: var(--color-tint);
       }
       .pick-label {
+        --pick-above: 64px;
         position: fixed;
         z-index: 45;
         padding: var(--space-xs) var(--space-s);
@@ -481,7 +482,7 @@
           const c = lanes[i].c;
           pick.textContent = c.name;
           pick.style.left = Math.min(innerWidth - 90, Math.max(90, e.clientX)) + "px";
-          pick.style.top = e.clientY - 28 + "px";
+          pick.style.top = e.clientY - parseFloat(getComputedStyle(pick).getPropertyValue("--pick-above")) + "px";
           pick.classList.add("on");
           if (g.pick !== c) {
             highlight(g.pick, false);

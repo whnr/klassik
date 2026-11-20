@@ -107,8 +107,8 @@ struct FilterSheet: View {
                 done()
                 dismiss()
             }
-                .typeStyle(.body)
-                .accessibilityIdentifier("filter-done")
+            .typeStyle(.body)
+            .accessibilityIdentifier("filter-done")
         }
         .padding(.top, Layout.filterHeadTop)
         .padding(.bottom, Layout.filterHeadBottom)

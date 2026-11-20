@@ -276,7 +276,9 @@ final class BrowseScreens: ScreensTestCase {
 
         openPlace(app, "Library")
         openPlace(app, "Search")
-        XCTAssertTrue(app.staticTexts["search-hint"].waitForExistence(timeout: 10), "A tab kept the old search")
+        XCTAssertTrue(
+            app.buttons.matching(identifier: "search-recent").firstMatch.waitForExistence(timeout: 10),
+            "A tab kept the old search")
         XCTAssertFalse(app.buttons["search-clear"].exists)
     }
 
@@ -690,6 +692,58 @@ final class BrowseScreens: ScreensTestCase {
         let year = app.staticTexts.matching(NSPredicate(format: "label CONTAINS '1785'")).firstMatch
         XCTAssertTrue(year.waitForExistence(timeout: 10))
         snap(app, "04c-sources")
+    }
+
+    /// The empty Search page lists the recent searches, newest first. One search session is one entry; a tap
+    /// restores the search, and Clear empties the list (ADR 0029).
+    @MainActor
+    func testRecentSearches() throws {
+        let app = try launchAndConnect(openComposers: false)
+        openPlace(app, "Search")
+        let field = app.textFields["search-field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        let recent = app.buttons.matching(identifier: "search-recent")
+        XCTAssertTrue(app.staticTexts["search-hint"].exists)
+        XCTAssertFalse(recent.firstMatch.exists)
+
+        // Two commits of one session: Enter, then opening a result.
+        field.tap()
+        field.typeText("chopin\n")
+        let works = app.buttons.matching(identifier: "search-work")
+        let four = expectation(for: NSPredicate(format: "count == 4"), evaluatedWith: works)
+        XCTAssertEqual(XCTWaiter.wait(for: [four], timeout: 10), .completed)
+        reveal(works.firstMatch, in: app).tap()
+        XCTAssertTrue(app.buttons.matching(identifier: "recording").firstMatch.waitForExistence(timeout: 10))
+        back(app)
+        XCTAssertTrue(works.firstMatch.waitForExistence(timeout: 10))
+
+        // Leaving the page commits too; a tab then opens a new session.
+        openPlace(app, "Library")
+        openPlace(app, "Search")
+        XCTAssertTrue(recent.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertEqual(recent.count, 1, "One search session left more than one entry")
+        XCTAssertEqual(recent.firstMatch.label, "chopin")
+        XCTAssertFalse(app.staticTexts["search-hint"].exists, "The hint shows beside the recent searches")
+        field.tap()
+        field.typeText("brahms")
+        openPlace(app, "Library")
+        openPlace(app, "Search")
+        XCTAssertTrue(recent.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertEqual(recent.allElementsBoundByIndex.map(\.label), ["brahms", "chopin"])
+        snap(app, "19g-search-recent")
+
+        // A tap restores the search and puts it on top.
+        recent.element(boundBy: 1).tap()
+        XCTAssertEqual(field.value as? String, "chopin")
+        let again = expectation(for: NSPredicate(format: "count == 4"), evaluatedWith: works)
+        XCTAssertEqual(XCTWaiter.wait(for: [again], timeout: 10), .completed, "A tap did not restore the search")
+        app.buttons["search-clear"].tap()
+        XCTAssertTrue(recent.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertEqual(recent.allElementsBoundByIndex.map(\.label), ["chopin", "brahms"])
+
+        app.buttons["search-recent-clear"].tap()
+        XCTAssertTrue(app.staticTexts["search-hint"].waitForExistence(timeout: 10), "Clear left the list")
+        XCTAssertFalse(recent.firstMatch.exists)
     }
 }
 

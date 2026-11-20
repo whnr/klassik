@@ -163,6 +163,9 @@ enum Layout {
     static let narrowInset = Space.m.points
     /// css: search.html .narrow svg | width
     static let narrowIcon: CGFloat = 15
+    /// The symbol in front of a recent search.
+    /// css: search.html .recent .row svg | width
+    static let searchRecentIcon: CGFloat = 16
     /// A round button in a row, such as play from here.
     /// css: specimen.css .round | width
     static let roundButton: CGFloat = 32

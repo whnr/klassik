@@ -233,6 +233,9 @@ enum Layout {
     static func noteRoom(lanes: Int) -> CGFloat {
         -noteDotTop * CGFloat(max(lanes - 1, 0))
     }
+    /// The touch target of a note mark: the minimum hit target of the iOS interface guidelines. The marks are much
+    /// smaller, so a tap picks the nearest mark within half this distance.
+    static let noteTarget: CGFloat = 44
     /// A listening note over a span: a line above the playback bar.
     /// css: player.html .mv-bar .note-span | height
     static let noteSpan: CGFloat = 4

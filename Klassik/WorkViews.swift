@@ -1289,8 +1289,8 @@ extension PositionBar {
     private func tapped(_ value: DragGesture.Value, above top: CGFloat) -> ListeningNote? {
         let still = max(abs(value.translation.width), abs(value.translation.height)) <= Layout.noteDot
         guard still, value.startLocation.y < top else { return nil }
-        let seconds = PositionScrub.seconds(at: value.startLocation.x, width: width, duration: duration)
-        return ListeningNotes.note(near: seconds, in: notes, reach: reach)
+        return ListeningNotes.note(
+            atX: value.startLocation.x, rise: top - value.startLocation.y, in: notes, width: width, duration: duration)
     }
 }
 

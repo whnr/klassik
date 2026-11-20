@@ -144,14 +144,27 @@ final class ListeningNotes {
         lanes.values.max().map { $0 + 1 } ?? 0
     }
 
-    /// The note whose mark lies under a tap at `seconds`, within `reach` seconds, nearest first. A span counts along
-    /// its length.
-    nonisolated static func note(near seconds: Double, in notes: [ListeningNote], reach: Double) -> ListeningNote? {
+    /// The note whose mark lies under a tap `x` points along a bar `width` points wide and `rise` points above its
+    /// top. Each mark answers within half a touch target of the finger, measured in points across lanes and along the
+    /// bar, and the nearest mark wins. So a tap on a dot in a high lane picks that dot, not a span below it that ends
+    /// at the same time, and a tap on a span's line picks the span along its full length.
+    nonisolated static func note(
+        atX x: Double, rise: Double, in notes: [ListeningNote], width: Double, duration: Double
+    ) -> ListeningNote? {
+        guard width > 0, duration > 0 else { return nil }
+        let lanes = lanes(notes, reach: reach(width: width, duration: duration))
+        let pitch = -Double(Layout.noteDotTop)
+        // The centre of a mark in lane 0, above the top of the bar, as the marks draw it.
+        let dot = -Double(Layout.noteDotTop + Layout.noteDot / 2)
+        let span = -Double(Layout.noteSpanTop + Layout.noteSpan / 2)
+        func point(_ seconds: Double) -> Double { PositionScrub.share(seconds, of: duration) * width }
         func distance(_ note: ListeningNote) -> Double {
-            if seconds < note.at { return note.at - seconds }
-            return max(0, seconds - (note.end ?? note.at))
+            let across = max(0, point(note.at) - x, x - point(note.end ?? note.at))
+            let up = rise - (note.end == nil ? dot : span) - pitch * Double(lanes[note.id] ?? 0)
+            return (across * across + up * up).squareRoot()
         }
-        return notes.filter { distance($0) <= reach }.min { distance($0) < distance($1) }
+        let target = Double(Layout.noteTarget) / 2
+        return notes.map { ($0, distance($0)) }.filter { $0.1 <= target }.min { $0.1 < $1.1 }?.0
     }
 
     /// "1:32" for a moment, "1:32–2:12" for a span (specimen player.html `.note .at`).

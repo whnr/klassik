@@ -78,26 +78,29 @@ final class RecordingOrder {
     }
 
     private let library: Library
-    private let store: DeviceStore?
+    private let file: ListenerFile
     private let server: (any FavouriteServer)?
-    private var data = DeviceStore.Data()
+    private var data: DeviceStore.Data { file.data }
     private var artists: [Song.Artist] = []
     private var albums: Set<String> = []
     /// A tap never waits for the server (ADR 0052), so no favourite control is ever disabled.
     let isSaving = false
     /// A failure of the device file. Server failures never show here: they set `serverTrouble`.
     var error: String?
-    private(set) var loadError: String?
+    var loadError: String? { file.loadError }
     private(set) var refreshError: String?
     /// Why changes wait, after the last call to the server. It is nil when the server took every change.
     private(set) var serverTrouble: ServerTrouble?
     @ObservationIgnored private var syncTask: Task<Void, Never>?
 
-    init(library: Library, store: DeviceStore? = nil, server: (any FavouriteServer)? = nil) {
+    convenience init(library: Library, store: DeviceStore? = nil, server: (any FavouriteServer)? = nil) {
+        self.init(library: library, file: ListenerFile(store: store), server: server)
+    }
+
+    init(library: Library, file: ListenerFile, server: (any FavouriteServer)? = nil) {
         self.library = library
-        self.store = store
+        self.file = file
         self.server = server
-        do { data = try store?.load() ?? DeviceStore.Data() } catch { loadError = error.localizedDescription }
         albums = data.favouriteAlbums
         artists = data.favouriteArtists
         library.project(data.pendingFavourites)
@@ -356,8 +359,7 @@ final class RecordingOrder {
         }
         guard changed != data else { return true }
         do {
-            try store?.save(changed)
-            data = changed
+            try file.save(changed)
             library.project(changed.pendingFavourites)
             return true
         } catch {

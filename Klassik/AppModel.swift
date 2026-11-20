@@ -17,6 +17,8 @@ final class AppModel {
 
     let library: Library
     private(set) var recordingOrder: RecordingOrder
+    /// Listening notes share the device file with the favourites (ADR 0013).
+    private(set) var notes: ListeningNotes
     let tracks: TrackStore
     let covers = CoverArt.Cache()
     let pictures = ImageStore.pictures
@@ -40,6 +42,7 @@ final class AppModel {
         self.store = store
         self.library = library
         recordingOrder = RecordingOrder(library: library)
+        notes = ListeningNotes(store: nil)
         tracks = TrackStore()
         albumCovers = AlbumCovers(store: ImageStore.albumArt)
         playback = PlaybackSession(engine: GaplessEngine(), store: tracks)
@@ -235,7 +238,9 @@ final class AppModel {
                 favourites = OfflineFavourites(client: client)
             }
         #endif
-        recordingOrder = RecordingOrder(library: library, store: deviceStore, server: favourites)
+        let file = ListenerFile(store: deviceStore)
+        recordingOrder = RecordingOrder(library: library, file: file, server: favourites)
+        notes = ListeningNotes(file: file)
     }
 
     private func record(_ error: Error) {

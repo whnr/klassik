@@ -219,10 +219,13 @@ private struct FiltersButton: View {
 }
 
 /// The field row of search.html: a magnifier, the text and a clear button that clears the text only.
-private struct SearchField: View {
+/// Search pages need a field under the title. The Search tab moves `searchable` to the bottom.
+struct SearchField: View {
     @Binding var text: String
     var focused: FocusState<Bool>.Binding
-    let submit: () -> Void
+    var submit: () -> Void = {}
+    var prompt = "Work or name"
+    var identifier = "search-field"
     @ScaledMetric(relativeTo: .body) private var height = Layout.searchFieldHeight
     @ScaledMetric(relativeTo: .body) private var icon = Layout.searchFieldIcon
 
@@ -234,7 +237,7 @@ private struct SearchField: View {
                 .frame(width: icon, height: icon)
                 .foregroundStyle(Palette.textSecondary)
                 .accessibilityHidden(true)
-            TextField("Work or name", text: $text)
+            TextField(prompt, text: $text)
                 .typeStyle(.body)
                 .foregroundStyle(Palette.textPrimary)
                 .focused(focused)
@@ -245,7 +248,7 @@ private struct SearchField: View {
                 }
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
-                .accessibilityIdentifier("search-field")
+                .accessibilityIdentifier(identifier)
             if !text.isEmpty {
                 Button {
                     text = ""

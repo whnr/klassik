@@ -15,6 +15,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import urllib.parse
 
 RUNS = 30  # Most pushes walk no screens; their artifact holds only the gapless report.
 FALLBACK = "ci"
@@ -39,8 +40,14 @@ def usable(artifacts):
     return any(a["name"] == "screens" and not a["expired"] and a["size_in_bytes"] > 100_000 for a in artifacts)
 
 
+def runs_query(repo, branch, status):
+    """A branch name can hold `&`, `#` or `+`, so it needs URL encoding."""
+    name = urllib.parse.quote(branch, safe="")
+    return f"repos/{repo}/actions/workflows/test.yml/runs?branch={name}&status={status}&per_page={RUNS}"
+
+
 def runs_of(repo, branch, status):
-    query = f"repos/{repo}/actions/workflows/test.yml/runs?branch={branch}&status={status}&per_page={RUNS}"
+    query = runs_query(repo, branch, status)
     return json.loads(gh("api", query))["workflow_runs"]
 
 

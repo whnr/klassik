@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import Testing
 import UIKit
 
@@ -48,6 +49,52 @@ struct CoverWashTests {
         _ = (named ?? .black).resolvedColor(with: traits).getRed(&red, green: &green, blue: &blue, alpha: &alpha)
         func unit(_ value: CGFloat) -> Double { min(max(Double(value), 0), 1) }
         return SRGB(red: unit(red), green: unit(green), blue: unit(blue))
+    }
+
+    @Test func tintSliderUsesTheRequestedRangeAndDefault() {
+        #expect(CoverWash.defaultStrength == 3)
+        #expect(CoverWash.strengthRange == 0...5)
+        #expect(CoverWash.strengthStep == 0.5)
+    }
+
+    @Test(arguments: [false, true])
+    func pictureScrimKeepsBothMarksVisible(increased: Bool) {
+        let contrast: UIAccessibilityContrast = increased ? .high : .normal
+        let marks = [Palette.favourite, .favouriteOff].map { Self.base($0, style: .dark, contrast: contrast) }
+        for grey in stride(from: 0.0, through: 1.0, by: 0.1) {
+            let picture = PictureScrim.RGB(red: grey, green: grey, blue: grey)
+            let opacity = PictureScrim.opacity(over: picture, increasedContrast: increased, marks: marks)
+            let ground = picture.covered(by: PictureScrim.hall, opacity: opacity)
+            let rgb = SRGB(red: ground.red, green: ground.green, blue: ground.blue)
+            for mark in marks {
+                #expect(SRGB.contrast(mark, rgb) >= (increased ? 4.5 : 3) - 0.005)
+            }
+        }
+    }
+
+    @Test func picturePlaceholderKeepsTheUnselectedMarkVisible() throws {
+        for (_, style, contrast) in Self.rooms {
+            let traits = UITraitCollection { traits in
+                traits.userInterfaceStyle = style
+                traits.accessibilityContrast = contrast
+            }
+            let asset = PersonHero.placeholder.assetName()
+            let named = try #require(UIColor(named: asset, in: Bundle(for: BundleToken.self), compatibleWith: traits))
+            var alpha: CGFloat = 0
+            _ = named.resolvedColor(with: traits).getRed(nil, green: nil, blue: nil, alpha: &alpha)
+            #expect(alpha == 1, "\(style.rawValue) \(contrast.rawValue)")
+            let ground = Self.base(PersonHero.placeholder, style: style, contrast: contrast)
+            let mark = Self.base(.favouriteOff, style: style, contrast: contrast)
+            #expect(SRGB.contrast(mark, ground) >= (contrast == .high ? 4.5 : 3) - 0.005)
+        }
+    }
+
+    @Test func titleAttachmentUsesTheWashColour() {
+        let original = FermataShape.image(em: 24, isSet: false, scale: 2, scheme: .light, contrast: .standard)
+        let adjusted = FermataShape.image(
+            em: 24, isSet: false, scale: 2, scheme: .light, contrast: .standard,
+            colourOverride: SRGB(red: 1, green: 0, blue: 0).resolved)
+        #expect(original.pngData() != adjusted.pngData())
     }
 
     // MARK: Cover hue
@@ -161,7 +208,7 @@ struct CoverWashTests {
 
     /// Text, the tint and the favourite keep their targets on every wash and on the page ground that it fades into,
     /// in every room. The wash replaces no ground.
-    @Test(arguments: [1.0, 2.0, 3.0])
+    @Test(arguments: Array(stride(from: 0.0, through: 5.0, by: 0.5)))
     func solvedColoursKeepTheirTargets(strength: Double) throws {
         for (room, style, contrast) in Self.rooms {
             let page = Self.base(.backgroundPage, style: style, contrast: contrast)

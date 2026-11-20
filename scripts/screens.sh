@@ -13,7 +13,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 out=$(mkdir -p "$1" && cd "$1" && pwd)
-rm -rf "$out"/*.xcresult "$out/timings.txt" "$out/results.txt" "$out/"*-retries.txt
+rm -rf "$out"/*.xcresult "$out/timings.txt" "$out/results.txt" "$out/"*-retries.txt "$out/"*-console.txt
 required=${UI_TESTS_REQUIRED:-false}
 mode=${KLASSIK_PHASE:-all}
 case "$mode" in all | build | unit | ui) ;; *) echo "Unknown phase: $mode" >&2; exit 2 ;; esac
@@ -111,6 +111,17 @@ export_attachments() {
   fi
 }
 
+# xcbeautify prints pass and fail lines only. The console of the test process holds stack traces and runtime warnings,
+# and only the result bundle keeps it.
+export_console() {
+  local bundle=$1
+  [ -d "$out/$bundle.xcresult" ] || return 0
+  # A bundle can hold no console. The raw xcodebuild log ($bundle.log) then stays the record, and an empty file would
+  # read as a clean run.
+  xcrun xcresulttool get log --path "$out/$bundle.xcresult" --type console > "$out/$bundle-console.txt" || true
+  [ -s "$out/$bundle-console.txt" ] || rm -f "$out/$bundle-console.txt"
+}
+
 unit=0
 if [ "$mode" = all ] || [ "$mode" = unit ]; then
   run_tests unit -only-testing:KlassikTests -parallel-testing-enabled NO || unit=$?
@@ -148,6 +159,8 @@ if [ "$mode" != unit ] && [ ${#suites[@]} -gt 0 ]; then
   phase ui
 fi
 
+export_console unit
+export_console screens
 export_attachments unit
 export_attachments screens
 phase export

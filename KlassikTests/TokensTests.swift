@@ -133,6 +133,23 @@ struct TokensTests {
         }
     }
 
+    @Test(arguments: AccentFamily.allCases)
+    func unselectedFermataReachesContrastOnEverySurface(family: AccentFamily) throws {
+        for theme in Self.themes {
+            let tokens = try Self.tokens(theme: theme.name, accent: String(describing: family))
+            func rgb(_ path: String) throws -> SRGB {
+                let channels = try Self.colour(path, in: tokens)
+                return SRGB(red: channels[0], green: channels[1], blue: channels[2])
+            }
+            let mark = try rgb("color.favourite-off")
+            let target = theme.contrast == .high ? 4.5 : 3.0
+            for surface in ["page", "row", "grouped", "elevated"] {
+                let ground = try rgb("color.background.\(surface)")
+                #expect(SRGB.contrast(mark, ground) >= target - 0.005, "\(family) \(theme.name) \(surface)")
+            }
+        }
+    }
+
     /// System controls take the global accent colour, so it must be the tint of the standard family.
     @Test func globalAccentIsTheStandardTint() throws {
         for theme in Self.themes {

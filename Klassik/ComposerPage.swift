@@ -59,9 +59,9 @@ struct ComposerPage: View {
         BackTipRow()
         Button {
             model.chronology.show(composer: composer.name, playing: model.playback.work)
-            navigator.select(.chronology)
+            navigator.showChronology()
         } label: {
-            Text("Chronology")
+            Text(navigator.selection == .chronology ? "Back to Chronology" : "Chronology")
                 .typeStyle(Layout.capsuleLabel)
                 .foregroundStyle(Palette.tint)
                 .frame(maxWidth: .infinity, minHeight: Layout.capsuleHeight)
@@ -341,7 +341,12 @@ private struct ResolutionNotice: View {
 /// The picture, the name and the description line. Without a picture the page shows the name on the plain ground.
 /// `kind` prefixes the accessibility identifiers. Every picture shows (ADR 0043).
 struct PersonHero: View {
+    /// The ground of a named picture before it loads. It is opaque, because the heading keeps the page room's
+    /// colours there and the unselected fermata needs its contrast floor on it (ADR 0065).
+    static let placeholder = Palette.backgroundElevated
+
     @Environment(AppModel.self) private var model
+    @Environment(\.self) private var environment
     @Environment(\.colorScheme) private var scheme
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.displayScale) private var displayScale
@@ -391,7 +396,7 @@ struct PersonHero: View {
                     if let portrait, let framing {
                         picture(portrait, framing: framing, frame: frame)
                     } else {
-                        Rectangle().fill(Palette.fillQuiet)
+                        Rectangle().fill(Self.placeholder)
                     }
                     heading
                         .padding(.bottom, Layout.personHeadBottom)
@@ -541,8 +546,11 @@ struct PersonHero: View {
         let region = CGRect(
             x: visible.minX, y: visible.minY + visible.height * (1 - under), width: visible.width * geometry.across,
             height: visible.height * under)
+        var darkEnvironment = environment
+        darkEnvironment.colorScheme = .dark
+        let marks = [Palette.favourite, .favouriteOff].map { SRGB($0.color.resolve(in: darkEnvironment)) }
         let opacity = PictureScrim.opacity(
-            over: portrait.brightestColour(in: region), increasedContrast: contrast == .increased)
+            over: portrait.brightestColour(in: region), increasedContrast: contrast == .increased, marks: marks)
         let hall = PictureScrim.hall
         let hallColour = Color(red: hall.red, green: hall.green, blue: hall.blue)
         let image = Image(uiImage: portrait.image).resizable()

@@ -320,11 +320,16 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertTrue(solo.waitForExistence(timeout: 5))
         XCTAssertTrue(solo.label.contains("and"), "Solo does not offer \"and\": \(solo.label)")
 
-        // With "or" on, the next term joins the condition and its own term shows a check.
+        // With "or" on, the next term joins the condition and its own term shows a check. The checked term sorts
+        // first, so only the row under it is sure to be inside the medium detent; the lazy list loads no more.
         app.buttons["filter-or"].tap()
         XCTAssertTrue(romantic.waitForExistence(timeout: 5))
         XCTAssertTrue(romantic.isSelected, "The term of the open condition shows no check")
-        XCTAssertTrue(solo.label.contains("or"), "Solo does not offer \"or\": \(solo.label)")
+        let offered = terms.matching(NSPredicate(format: "NOT (label CONTAINS %@)", "Romantic")).firstMatch
+        XCTAssertTrue(offered.waitForExistence(timeout: 5))
+        XCTAssertNotNil(
+            offered.label.range(of: #"\bor \d+$"#, options: .regularExpression),
+            "A term does not offer \"or\": \(offered.label)")
         app.buttons["filter-or"].tap()
 
         // A pick clears the narrowing field.

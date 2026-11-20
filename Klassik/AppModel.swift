@@ -83,15 +83,26 @@ final class AppModel {
                 guard let self else { return }
                 self.keepAlbumArt()
                 Self.start(self.sweep, over: self.library.index)
-                async let favourites: Void = self.recordingOrder.refresh()
-                async let listening: Void = self.playback.synchronizeListeningData()
-                _ = await (favourites, listening)
+                await Self.synchronizeAfterReconnect(
+                    order: self.recordingOrder,
+                    listening: { await self.playback.synchronizeListeningData() })
             }
         }
         // No build reads the URL cache folder of the pictures, so its space goes back to the device.
         Task.detached(priority: .utility) {
             try? FileManager.default.removeItem(at: .cachesDirectory.appending(path: "Portraits"))
         }
+    }
+
+    /// Favourites need `refresh`, not `synchronize`: the connection may have been down while another device
+    /// changed a star, and only a read picks that up. Both run at once.
+    static func synchronizeAfterReconnect(
+        order: RecordingOrder,
+        listening: @escaping @MainActor () async -> Void
+    ) async {
+        async let favouritesDone: Void = order.refresh()
+        async let listeningDone: Void = listening()
+        _ = await (favouritesDone, listeningDone)
     }
 
     /// Returns the error text if the server rejects the login; nothing is saved then.

@@ -482,7 +482,7 @@
           const c = lanes[i].c;
           pick.textContent = c.name;
           pick.style.left = Math.min(innerWidth - 90, Math.max(90, e.clientX)) + "px";
-          pick.style.top = e.clientY - parseFloat(getComputedStyle(pick).getPropertyValue("--pick-above")) + "px";
+          pick.style.top = e.clientY - 64 + "px";
           pick.classList.add("on");
           if (g.pick !== c) {
             highlight(g.pick, false);

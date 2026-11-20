@@ -1,22 +1,31 @@
 import SwiftUI
 
 /// The Search place (ADR 0025, 0029, 0057): one field at the top under the back arrow, no large title, and the
-/// results in sections under it. Only the results scroll.
+/// results in sections under it. Only the results scroll. Filters beside the field opens the conditions in a sheet;
+/// the results stay live above it.
 /// The field is drawn here, not by `searchable`: in a `UISearchTab` the system moves that field to the bottom of
 /// the screen, onto the keyboard.
 struct SearchView: View {
     @Environment(AppModel.self) private var model
     @Environment(AppNavigator.self) private var navigator
     @State private var text = ""
+    @State private var conditions: [Search.Condition] = []
+    /// The condition that the next term of the sheet joins with "or".
+    @State private var joining: Int?
+    @State private var showsFilters = false
     @FocusState private var focused: Bool
     /// The start that the page last handled.
     @State private var started: Int?
 
     var body: some View {
         let typed = !text.trimmingCharacters(in: .whitespaces).isEmpty
-        let results = typed ? model.library.search.results(for: text) : Search.Results()
+        let found = typed ? model.library.search.results(for: text) : nil
+        let filtered =
+            conditions.isEmpty
+            ? Search.Filtered(results: found ?? Search.Results())
+            : model.library.searchFilters.narrow(found, by: conditions)
         PageList {
-            if !typed {
+            if !typed && conditions.isEmpty {
                 Section {
                     Text("Type a work, a catalogue number such as Op. 67 or K. 626, or a name.")
                         .typeStyle(.subheadline)
@@ -32,7 +41,7 @@ struct SearchView: View {
                     .accessibilityIdentifier("performers")
                     .listRowSeparator(.hidden)
                 }
-            } else if results.isEmpty {
+            } else if filtered.results.isEmpty {
                 Text("No work, name or album matches.")
                     .typeStyle(.subheadline)
                     .foregroundStyle(Palette.textSecondary)
@@ -40,18 +49,53 @@ struct SearchView: View {
                     .pageEdges(top: Layout.searchNoMatchTop)
                     .accessibilityIdentifier("search-no-match")
             } else {
-                SearchResults(results: results)
+                SearchResults(results: filtered.results, matching: filtered.matching)
+            }
+            if filtered.hiddenWorks > 0 {
+                let hidden = WorkIndex.Recording.count(filtered.hiddenWorks, "more work")
+                Text("The filters hide \(hidden) that match the text.")
+                    .typeStyle(.footnote)
+                    .foregroundStyle(Palette.textSecondary)
+                    .listRowSeparator(.hidden)
+                    .pageEdges(top: Layout.searchNoMatchTop)
+                    .accessibilityIdentifier("search-hidden")
             }
         }
         .navigationTitle(Place.search.title)
         .navigationBarTitleDisplayMode(.inline)
         .environment(\.pageHeading, "")
         .safeAreaInset(edge: .top, spacing: 0) {
-            SearchField(text: $text, focused: $focused)
+            HStack(spacing: Layout.searchRowGap) {
+                SearchField(text: $text, focused: $focused)
+                FiltersButton(conditions: showsFilters ? 0 : conditions.count, isOpen: showsFilters) {
+                    // The keyboard goes down as the sheet rises; the sheet never rides on the search keyboard.
+                    focused = false
+                    showsFilters.toggle()
+                }
+                RoundButton(
+                    symbol: "xmark", icon: Layout.searchResetIcon, label: "Clear search and filters",
+                    identifier: "search-reset", isEnabled: !text.isEmpty || !conditions.isEmpty
+                ) {
+                    text = ""
+                    conditions = []
+                    joining = nil
+                }
+            }
+            .pagePadding()
+            .padding(.bottom, Layout.searchRowBottom)
+            .background(Palette.backgroundPage)
         }
         .scrollDismissesKeyboard(.immediately)
+        .sheet(isPresented: $showsFilters) {
+            FilterSheet(conditions: $conditions, joining: $joining, pool: pool(of: found), hasText: typed)
+        }
         .onAppear(perform: start)
         .onChange(of: navigator.searchStarts, start)
+    }
+
+    /// The recordings that the text found. The sheet counts only these (ADR 0029).
+    private func pool(of found: Search.Results?) -> Search.Pool {
+        model.library.searchFilters.pool(of: found)
     }
 
     /// A tab or a link opens Search empty, with the keyboard up, as the system Search tab does. The root appears
@@ -60,7 +104,71 @@ struct SearchView: View {
         guard navigator.searchStarts != started else { return }
         started = navigator.searchStarts
         text = ""
+        conditions = []
+        joining = nil
+        showsFilters = false
         focused = navigator.selection == .search
+    }
+}
+
+/// A round button beside the field, as search.html .fieldrow .roundglass draws it.
+private struct RoundButton: View {
+    let symbol: String
+    let icon: CGFloat
+    let label: String
+    let identifier: String
+    var isEnabled = true
+    var isOn = false
+    let action: () -> Void
+    @ScaledMetric(relativeTo: .body) private var size = Layout.searchButton
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .resizable()
+                .scaledToFit()
+                .fontWeight(.semibold)
+                .frame(width: icon * size / Layout.searchButton, height: icon * size / Layout.searchButton)
+                .foregroundStyle(isEnabled ? (isOn ? Palette.tint : Palette.textPrimary) : Palette.textTertiary)
+                .frame(width: size, height: size)
+                .background(Palette.fillQuiet, in: Circle())
+                .contentShape(Circle())
+        }
+        .buttonStyle(FlatPress())
+        // The x pill stays in place when there is nothing to clear, so the field never changes width.
+        .disabled(!isEnabled)
+        .accessibilityLabel(label)
+        .accessibilityIdentifier(identifier)
+    }
+}
+
+/// Filters, with a badge that counts the conditions while the sheet is closed (ADR 0025).
+private struct FiltersButton: View {
+    let conditions: Int
+    let isOpen: Bool
+    let action: () -> Void
+    @ScaledMetric(relativeTo: .caption) private var badge = Layout.badgeSize
+
+    var body: some View {
+        RoundButton(
+            symbol: "line.3.horizontal.decrease", icon: Layout.searchButtonIcon, label: "Filters",
+            identifier: "search-filters", isOn: isOpen, action: action
+        )
+        .overlay(alignment: .topTrailing) {
+            if conditions > 0 {
+                Text(conditions.formatted())
+                    .typeStyle(.caption1)
+                    .fontWeight(.semibold)
+                    .monospacedDigit()
+                    .foregroundStyle(Palette.onAccent)
+                    .padding(.horizontal, Layout.badgePadding)
+                    .frame(minWidth: badge, minHeight: badge)
+                    .background(Palette.accentFill, in: Capsule())
+                    .offset(x: -Layout.badgeOffset, y: Layout.badgeOffset)
+                    .accessibilityHidden(true)
+            }
+        }
+        .accessibilityValue(conditions > 0 ? WorkIndex.Recording.count(conditions, "condition") : "")
     }
 }
 
@@ -104,9 +212,6 @@ private struct SearchField: View {
         .padding(.trailing, Layout.searchFieldTrailing)
         .frame(minHeight: height)
         .background(Palette.fillQuiet, in: RoundedRectangle(cornerRadius: Layout.searchFieldCorner))
-        .pagePadding()
-        .padding(.bottom, Layout.searchRowBottom)
-        .background(Palette.backgroundPage)
     }
 }
 
@@ -114,6 +219,8 @@ private struct SearchField: View {
 private struct SearchResults: View {
     @Environment(AppModel.self) private var model
     let results: Search.Results
+    /// The recordings of each work that pass the conditions. Empty without conditions.
+    let matching: [String: Int]
     @ScaledMetric(space: .inGroup) private var gap: CGFloat
 
     var body: some View {
@@ -123,7 +230,8 @@ private struct SearchResults: View {
                 CountedHeading("Works", count: results.works.count)
                 ForEach(results.works) { work in
                     NavigationLink(value: Page.work(work.id)) {
-                        let recordings = WorkIndex.Recording.count(work.recordings.count, "recording")
+                        let total = WorkIndex.Recording.count(work.recordings.count, "recording")
+                        let recordings = matching[work.id].map { "\($0) of \(total) match" } ?? total
                         lines(
                             title: work.title, isFavourite: model.recordingOrder.isFavourite(work),
                             detail: "\(work.composer), \(recordings)")

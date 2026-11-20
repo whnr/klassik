@@ -277,6 +277,84 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertFalse(app.buttons["search-clear"].exists)
     }
 
+    /// Filters opens the conditions in a sheet at the medium detent and closes the keyboard. A pick clears the
+    /// narrowing field. The badge counts the conditions; the x in the field clears the text only, the x pill clears
+    /// the text and the conditions (ADR 0020, 0025, 0029).
+    @MainActor
+    func testSearchFilters() throws {
+        let app = try launchAndConnect(openComposers: false)
+        openPlace(app, "Search")
+        let field = app.textFields["search-field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        field.tap()
+        field.typeText("chopin")
+        let works = app.buttons.matching(identifier: "search-work")
+        XCTAssertTrue(works.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertEqual(works.count, 4)
+
+        let filters = app.buttons["search-filters"]
+        filters.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5), "Filters keeps the keyboard up")
+        let done = app.buttons["filter-done"]
+        XCTAssertTrue(done.waitForExistence(timeout: 10))
+        XCTAssertGreaterThan(done.frame.minY, app.frame.height / 3, "The sheet is not at the medium detent")
+        XCTAssertEqual(app.staticTexts["filter-total"].label, "4\u{00A0}recordings")
+        snap(app, "19d-search-filter-sheet")
+
+        // The text found only Chopin, so other composers leave nothing and do not show.
+        let terms = app.buttons.matching(identifier: "filter-term")
+        XCTAssertTrue(terms.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertEqual(terms.count, 1, "A composer that leaves nothing shows")
+        app.buttons["Genres"].tap()
+        let romantic = terms.matching(NSPredicate(format: "label CONTAINS %@", "Romantic")).firstMatch
+        XCTAssertTrue(romantic.waitForExistence(timeout: 5))
+        XCTAssertTrue(romantic.label.contains("2"), "Romantic does not count two recordings: \(romantic.label)")
+        romantic.tap()
+        let conditions = app.descendants(matching: .any).matching(identifier: "filter-condition")
+        XCTAssertTrue(conditions.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertEqual(app.staticTexts["filter-total"].label, "2\u{00A0}recordings")
+        let solo = terms.matching(NSPredicate(format: "label CONTAINS %@", "Solo")).firstMatch
+        XCTAssertTrue(solo.waitForExistence(timeout: 5))
+        XCTAssertTrue(solo.label.contains("and"), "Solo does not offer \"and\": \(solo.label)")
+
+        // With "or" on, the next term joins the condition and its own term shows a check.
+        app.buttons["filter-or"].tap()
+        XCTAssertTrue(romantic.waitForExistence(timeout: 5))
+        XCTAssertTrue(romantic.isSelected, "The term of the open condition shows no check")
+        XCTAssertTrue(solo.label.contains("or"), "Solo does not offer \"or\": \(solo.label)")
+        app.buttons["filter-or"].tap()
+
+        // A pick clears the narrowing field.
+        app.buttons["Performers"].tap()
+        let narrow = app.textFields["filter-narrow"]
+        narrow.tap()
+        narrow.typeText("pia")
+        let pia = terms.matching(NSPredicate(format: "label CONTAINS %@", "Pia Nissimo")).firstMatch
+        XCTAssertTrue(pia.waitForExistence(timeout: 5))
+        pia.tap()
+        XCTAssertTrue(eventually(timeout: 5) { (narrow.value as? String) != "pia" }, "A pick kept the narrowing text")
+        XCTAssertEqual(conditions.count, 2)
+        snap(app, "19e-search-filter-conditions")
+
+        done.tap()
+        XCTAssertTrue(done.waitForNonExistence(timeout: 5))
+        XCTAssertEqual(filters.value as? String, "2\u{00A0}conditions", "The badge does not count the conditions")
+        XCTAssertTrue(eventually(timeout: 5) { works.count == 2 }, "The conditions do not narrow the works")
+        XCTAssertTrue(app.staticTexts["search-hidden"].exists, "No note on the works that the filters hide")
+        snap(app, "19f-search-filtered")
+
+        // The x in the field clears the text only; the conditions stay and still find works.
+        app.buttons["search-clear"].tap()
+        XCTAssertTrue(eventually(timeout: 5) { works.count == 2 }, "The x in the field cleared the conditions")
+        XCTAssertEqual(filters.value as? String, "2\u{00A0}conditions")
+
+        // The x pill clears the text and every condition.
+        app.buttons["search-reset"].tap()
+        XCTAssertTrue(app.staticTexts["search-hint"].waitForExistence(timeout: 5))
+        XCTAssertNotEqual(filters.value as? String, "2\u{00A0}conditions")
+        XCTAssertFalse(app.buttons["search-reset"].isEnabled, "The x pill is on with nothing to clear")
+    }
+
     /// The overview of the composers with life dates, then one composer among the contemporaries, the scrub, the
     /// name link and the way back to the overview (ADR 0016, 0022, 0026). Bach has no Wikidata answer, so he stays
     /// off the chart.

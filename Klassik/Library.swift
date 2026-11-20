@@ -10,6 +10,7 @@ final class Library {
             index = WorkIndex(songs: classical)
             otherAlbumCache = nil
             searchCache = nil
+            filtersCache = nil
             classicalChanged?()
         }
     }
@@ -22,6 +23,7 @@ final class Library {
     private(set) var starredSongs: Set<String> = []
     @ObservationIgnored private var otherAlbumCache: [WorkIndex.Album]?
     @ObservationIgnored private var searchCache: Search?
+    @ObservationIgnored private var filtersCache: SearchFilters?
     private(set) var syncedAt: Date?
     private(set) var isSyncing = false
     /// Tracks received so far in the running sync.
@@ -54,6 +56,15 @@ final class Library {
         if let searchCache { return searchCache }
         let built = Search(index: index)
         searchCache = built
+        return built
+    }
+
+    /// The search terms of the index for the filter sheet. Built when first read, and again after the index changes.
+    var searchFilters: SearchFilters {
+        let index = index
+        if let filtersCache { return filtersCache }
+        let built = SearchFilters(index: index)
+        filtersCache = built
         return built
     }
 

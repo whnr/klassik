@@ -1,7 +1,7 @@
 {
-  "sha": "13c6ef03d6cc8fb3c387f1d7d9e1c2a2f3dca973",
+  "sha": "a336226750f67a902736a8d3ecedbbffc497020f",
   "branch": "claude-note-tap",
   "path": "claude-note-tap",
-  "subject": "[sz-hvn9] Take the note touch target from the bar",
-  "ts": 1795148993
+  "subject": "[sz-hvn9] Show the bar frame when a lane tap misses",
+  "ts": 1795158698
 }

@@ -1,0 +1,7 @@
+{
+  "sha": "a8fd484dc7d2dc0b57bcb1be6770aee3d322ee83",
+  "branch": "claude-fix-brick-0160",
+  "path": "claude-fix-brick-0160",
+  "subject": "[sz-rs30.1.131.1] Decode portraits outside the async pool",
+  "ts": 1795189607
+}

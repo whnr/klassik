@@ -210,6 +210,22 @@ enum Layout {
     static let bigCover = Measure.coverPage
     /// css: player.html .hero .big | border-top-left-radius
     static let bigCoverCorner = Radius.l
+    /// The gap above the facts line, under the names.
+    /// css: player.html .hero .facts | margin-top
+    static let heroFactsTop = Space.inGroup.points
+    /// The gap above Show the player.
+    /// css: player.html "flex: none; width: 60%; margin-top: var(--space-m)" | margin-top
+    static let showPlayerTop = Space.m.points
+    /// The share of the header width that Show the player takes.
+    /// css: player.html "flex: none; width: 60%; margin-top: var(--space-m)" | width | 60%
+    static let showPlayerShare: CGFloat = 0.6
+    /// The largest gap between two controls of the playing row. A narrow row closes the gaps.
+    /// css: player.html .mv-controls | column-gap
+    static let playerControlGap = Space.xxl.points
+    /// css: player.html .mv-controls svg | width
+    static let playerControlIcon: CGFloat = 22
+    /// css: player.html .mv-controls .main-btn svg | width
+    static let playerMainIcon: CGFloat = 30
     /// The gap between the parts of an open movement row.
     /// css: player.html .open-body | row-gap
     static let openGap = Space.s.points

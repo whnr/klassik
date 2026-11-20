@@ -617,8 +617,9 @@ final class PlaybackScreens: ScreensTestCase {
         let app = try launchAndConnect()
         openRecording(app)
         playPaused(app)
-        let tags = reveal(app.buttons["raw-tags"], in: app)
-        let before = tags.frame
+        let show = app.buttons["show-player"]
+        XCTAssertTrue(show.waitForExistence(timeout: 10), "The playing page does not offer the player")
+        let before = show.frame
         checkTabAndCoverFrames(app, side: .right)
         snap(app, "16-pill-right")
         let pill = app.descendants(matching: .any)["mini-player"].firstMatch
@@ -630,8 +631,8 @@ final class PlaybackScreens: ScreensTestCase {
         checkTabAndCoverFrames(app, side: .right)
         snap(app, "16a-overlay-right")
         slidePlayerDown(app)
-        XCTAssertTrue(tags.waitForExistence(timeout: 10))
-        XCTAssertEqual(tags.frame.minY, before.minY, accuracy: 2, "The underlying page scrolled")
+        XCTAssertTrue(show.waitForExistence(timeout: 10))
+        XCTAssertEqual(show.frame.minY, before.minY, accuracy: 2, "The underlying page scrolled")
         snap(app, "16b-overlay-dismissed")
     }
 
@@ -676,14 +677,16 @@ final class PlaybackScreens: ScreensTestCase {
         openRecording(app)
         playPaused(app)
         openPlayer(app)
-        // The page below the overlay builds the same row, so the query stays inside the overlay.
+        // The page below the overlay builds the same header, so the query stays inside the overlay. The player opens
+        // at its header, before the quiet spell brings the playing row up.
         let overlay = app.descendants(matching: .any)["player-overlay"].firstMatch
-        reveal(overlay.buttons["raw-tags"], in: app).tap()
+        let composer = overlay.links["Felix Mendelssohn"].firstMatch
+        XCTAssertTrue(composer.waitForExistence(timeout: 5), "The composer in the player header is no link")
+        composer.tap()
         expectPlayerClosed(app)
-        XCTAssertTrue(app.navigationBars["Tags"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.navigationBars["Felix Mendelssohn"].waitForExistence(timeout: 10))
         back(app)
-        // The page returns at its top; a list builds the row below the fold only once it scrolls near.
-        XCTAssertTrue(reveal(app.buttons["raw-tags"], in: app).exists)
+        XCTAssertTrue(app.buttons["show-player"].waitForExistence(timeout: 10))
         XCTAssertTrue(tab(app, "Library").isSelected)
     }
 
@@ -738,15 +741,6 @@ final class PlaybackScreens: ScreensTestCase {
     }
 
     @MainActor
-    private func openPlayer(_ app: XCUIApplication) {
-        app.buttons["mini-player-cover"].tap()
-        let handle = app.buttons["player-handle"]
-        XCTAssertTrue(handle.waitForExistence(timeout: 10))
-        // The overlay slides in below the tab row, so the handle becomes hittable only when the slide ends.
-        XCTAssertTrue(eventually(timeout: 5) { handle.isHittable }, "The player is behind the selected place")
-    }
-
-    @MainActor
     private func slidePlayerDown(_ app: XCUIApplication) {
         let handle = app.buttons["player-handle"]
         handle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(
@@ -755,10 +749,6 @@ final class PlaybackScreens: ScreensTestCase {
         expectPlayerClosed(app)
     }
 
-    @MainActor
-    private func expectPlayerClosed(_ app: XCUIApplication) {
-        XCTAssertTrue(app.buttons["player-handle"].waitForNonExistence(timeout: 10))
-    }
 
     @MainActor
     func testRecording() throws {
@@ -781,6 +771,7 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(app.buttons["play-recording"].waitForExistence(timeout: 10))
         playPaused(app)
         snap(app, "05-recording")
+        openPlayer(app)
 
         // A paused player moves to the dragged position and stays paused.
         let position = app.sliders["position"]
@@ -807,6 +798,52 @@ final class PlaybackScreens: ScreensTestCase {
         expectMovementPlayEdge(app)
     }
 
+    /// The recording page matches specimen player.html: the header with linked names and a facts line, then the
+    /// rows with no heading and no settings rows. While it plays, only the overlay is the player; the page offers it.
+    @MainActor
+    func testRecordingPageAndPlayer() throws {
+        let app = try launchAndConnect()
+        openRecording(app)
+        let facts = app.staticTexts["hero-facts"]
+        XCTAssertTrue(facts.waitForExistence(timeout: 10), "The header has no facts line")
+        XCTAssertTrue(facts.label.contains("minute"), facts.label)
+        let cover = app.descendants(matching: .any)["hero-cover"].firstMatch
+        let play = app.buttons["play-recording"]
+        XCTAssertGreaterThan(facts.frame.minY, cover.frame.maxY, "The facts are not under the cover")
+        XCTAssertGreaterThan(play.frame.minY, facts.frame.maxY, "Play is not under the facts")
+        XCTAssertTrue(app.links["Felix Mendelssohn"].firstMatch.exists, "The composer is no link")
+        XCTAssertFalse(app.buttons["raw-tags"].exists, "The page shows a settings row")
+        XCTAssertFalse(app.buttons["download"].exists, "The page shows a settings row")
+        XCTAssertFalse(
+            app.descendants(matching: .any).matching(identifier: "section-heading").firstMatch.exists,
+            "The rows have a heading")
+        XCTAssertTrue(app.buttons["recording-menu"].exists, "The page bar has no menu")
+        snap(app, "05h-recording-page")
+
+        startPlaying(app)
+        pause(app)
+        let show = app.buttons["show-player"]
+        XCTAssertTrue(show.waitForExistence(timeout: 10), "The playing page does not offer the player")
+        XCTAssertFalse(play.exists, "The playing page still offers Play")
+        XCTAssertFalse(app.sliders["position"].exists, "The page shows the playing row of the player")
+        XCTAssertFalse(app.buttons["add-note"].exists, "The page takes a note")
+        // Show the player takes its share of the content width, centred between the margins of the timeline.
+        let content = app.frame.width - Layout.edge - Layout.timelineEdge
+        XCTAssertEqual(show.frame.width, content * Layout.showPlayerShare, accuracy: 2, "Show the player width")
+        XCTAssertEqual(
+            show.frame.midX, app.frame.minX + Layout.edge + content / 2, accuracy: 2, "Show the player is off centre")
+        snap(app, "05i-recording-playing")
+
+        show.tap()
+        let handle = app.buttons["player-handle"]
+        XCTAssertTrue(handle.waitForExistence(timeout: 10), "Show the player opened nothing")
+        let overlay = app.descendants(matching: .any)["player-overlay"].firstMatch
+        XCTAssertTrue(reveal(overlay.sliders["position"], in: app).exists, "The player has no playing row")
+        XCTAssertFalse(overlay.buttons["show-player"].exists, "The player offers itself")
+        XCTAssertFalse(overlay.buttons["recording-menu"].exists, "The player has the page menu")
+        snap(app, "05j-player-playing")
+    }
+
     /// A listening note is written in the playing row, never in a modal. It stays open while the bar scrubs, "End here"
     /// makes a span, and the saved note opens its row once another movement plays (ADR 0027).
     @MainActor
@@ -814,6 +851,7 @@ final class PlaybackScreens: ScreensTestCase {
         let app = try launchAndConnect()
         openRecording(app)
         playPaused(app)
+        openPlayer(app)
         let add = reveal(app.buttons["add-note"], in: app)
         XCTAssertTrue(add.exists, "The playing row offers no note")
         let position = app.sliders["position"]
@@ -1084,6 +1122,7 @@ final class PlaybackScreens: ScreensTestCase {
         let app = try launchAndConnect()
         openRecording(app)
         startPlaying(app)
+        openPlayer(app)
         let next = app.buttons["Next"].firstMatch
         XCTAssertTrue(next.waitForExistence(timeout: 30), "No Next button")
         next.tap()
@@ -1099,9 +1138,17 @@ final class PlaybackScreens: ScreensTestCase {
         let app = try launchAndConnect()
         openRecording(app)
         playPaused(app)
-        reveal(app.buttons["download"], in: app).tap()
-        XCTAssertTrue(app.buttons["remove-download"].waitForExistence(timeout: 30), "The download did not finish")
+        // The download lives in the menu of the page bar, which closes after each choice.
+        pageMenuItem(app, "Download").tap()
+        let downloaded = eventually(timeout: 30) {
+            let remove = pageMenuItem(app, "Remove Download")
+            if remove.exists { return true }
+            closeMenu(app)
+            return false
+        }
+        XCTAssertTrue(downloaded, "The download did not finish")
         snap(app, "05a-downloaded")
+        closeMenu(app)
         back(app, times: 3)
 
         openSettings(app)
@@ -1136,7 +1183,7 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertEqual(mark.value as? String, "Favourite")
         snap(app, "06d-performer-favourite")
         cover.tap()
-        reveal(app.buttons["raw-tags"], in: app).tap()
+        pageMenuItem(app, "Tags and Grouping").tap()
         XCTAssertTrue(app.navigationBars["Tags"].waitForExistence(timeout: 10))
         snap(app, "06c-tags")
         // One tap on a cover pushes one album: two steps back reach the performer (sz-rs30.1.105.85).
@@ -1349,6 +1396,7 @@ final class TimelineScreens: ScreensTestCase {
         openRecording(app)
         playPaused(app)
         XCTAssertTrue(timeline(app).exists)
+        openPlayer(app)
         reveal(app.buttons["Stop"].firstMatch, in: app).tap()
         XCTAssertTrue(timeline(app).waitForNonExistence(timeout: 10), "The timeline stays after Stop")
         XCTAssertFalse(app.descendants(matching: .any)["mini-player"].exists)
@@ -1832,6 +1880,39 @@ class ScreensTestCase: XCTestCase {
         swipeFromLeftEdge(app)
         XCTAssertTrue(app.navigationBars["Composers"].waitForExistence(timeout: 10))
         XCTAssertEqual(bar.value as? String, before, "Back changed the playback position")
+    }
+
+    /// Opens the menu in the bar of a recording or album page and returns its item with the label.
+    @MainActor
+    func pageMenuItem(_ app: XCUIApplication, _ label: String) -> XCUIElement {
+        let menu = app.buttons["recording-menu"].firstMatch
+        XCTAssertTrue(menu.waitForExistence(timeout: 10), "The page has no menu")
+        menu.tap()
+        let item = app.buttons[label].firstMatch
+        _ = item.waitForExistence(timeout: 3)
+        return item
+    }
+
+    /// A tap beside an open menu closes it and reaches nothing below.
+    @MainActor
+    func closeMenu(_ app: XCUIApplication) {
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5)).tap()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+    }
+
+    /// Opens the player from the cover of the mini player.
+    @MainActor
+    func openPlayer(_ app: XCUIApplication) {
+        app.buttons["mini-player-cover"].tap()
+        let handle = app.buttons["player-handle"]
+        XCTAssertTrue(handle.waitForExistence(timeout: 10))
+        // The overlay slides in below the tab row, so the handle becomes hittable only when the slide ends.
+        XCTAssertTrue(eventually(timeout: 5) { handle.isHittable }, "The player is behind the selected place")
+    }
+
+    @MainActor
+    func expectPlayerClosed(_ app: XCUIApplication) {
+        XCTAssertTrue(app.buttons["player-handle"].waitForNonExistence(timeout: 10))
     }
 
     /// The key of the timeline edge in the user defaults. A launch argument sets it for one run.

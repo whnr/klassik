@@ -16,7 +16,14 @@ struct FavouriteTitleTests {
                     .environment(\.colorScheme, .light)
                     .frame(width: 140)
                     .background(.white))
-            let image = try #require(renderer.cgImage)
+            // A bitmap context avoids simulator GPU preparation during the first text attachment draw.
+            var rendered: UIImage?
+            renderer.render { size, draw in
+                let format = UIGraphicsImageRendererFormat()
+                format.scale = 1
+                rendered = UIGraphicsImageRenderer(size: size, format: format).image { draw($0.cgContext) }
+            }
+            let image = try #require(rendered?.cgImage)
             #expect(CGFloat(image.height) > TypeStyle.subheadline.size * 3, "The title needs more than two lines")
             var pixels = [UInt8](repeating: 0, count: image.width * image.height * 4)
             let context = try #require(

@@ -977,9 +977,7 @@
               el(
                 "div",
                 { class: "hint t-footnote", style: "padding-top: var(--space-l)" },
-                tokens.length
-                  ? `The filters hide ${plural(hidden, "more work")} that match the text.`
-                  : `The filters hide ${plural(hidden, "more work")}.`,
+                `The filters hide ${plural(hidden, "more work")} that match the text.`,
               ),
             );
           return out;

@@ -359,7 +359,13 @@ final class BrowseScreens: ScreensTestCase {
         // The name opens the composer page.
         name.tap()
         XCTAssertTrue(app.navigationBars["Johannes Brahms"].waitForExistence(timeout: 10))
-        back(app)
+        let returnToChart = app.buttons["composer-chronology"]
+        XCTAssertTrue(returnToChart.waitForExistence(timeout: 10))
+        XCTAssertEqual(returnToChart.label, "Back to Chronology")
+        snap(app, "02j-composer-back-to-chronology")
+        returnToChart.tap()
+        XCTAssertTrue(name.waitForExistence(timeout: 10))
+        XCTAssertEqual(name.label, "Johannes Brahms")
 
         // All goes back to the overview, which marks the composer last opened.
         app.buttons["chronology-level"].tap()
@@ -1577,8 +1583,17 @@ final class SettingsScreens: ScreensTestCase {
         _ = pausedPlayerInLibrary(app)
         openSettings(app)
         snap(app, "08c-settings-top")
-        let tint = reveal(app.descendants(matching: .any)["player-tint-strength"].firstMatch, in: app)
+        let tint = reveal(app.sliders["player-tint-strength"], in: app)
         XCTAssertTrue(tint.isHittable)
+        XCTAssertEqual(tint.value as? String, "3×")
+        tint.adjust(toNormalizedSliderPosition: 0)
+        XCTAssertEqual(tint.value as? String, "0×")
+        tint.adjust(toNormalizedSliderPosition: 0.5)
+        XCTAssertEqual(tint.value as? String, "2.5×")
+        tint.adjust(toNormalizedSliderPosition: 1)
+        XCTAssertEqual(tint.value as? String, "5×")
+        tint.adjust(toNormalizedSliderPosition: 0.6)
+        XCTAssertEqual(tint.value as? String, "3×")
         snap(app, "08f-player-tint-setting")
         XCTAssertTrue(reveal(app.buttons["diagnostics"], in: app).isHittable)
         snap(app, "08c-settings")

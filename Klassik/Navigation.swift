@@ -67,6 +67,12 @@ final class Navigator<Page: Hashable> {
         if place == .search, pages(in: place).isEmpty { searchStarts += 1 }
     }
 
+    /// A composer link opens the chart, including from a page within the Chronology stack.
+    func showChronology() {
+        stacks[.chronology] = []
+        select(.chronology)
+    }
+
     /// A second tap on the selected tab returns to its root without changing other stacks.
     func selectTab(_ place: Place) {
         if isPlayerOpen {

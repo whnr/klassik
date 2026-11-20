@@ -243,8 +243,11 @@ final class BrowseScreens: ScreensTestCase {
         field.tap()
         field.typeText("chopin")
         let works = app.buttons.matching(identifier: "search-work")
-        XCTAssertTrue(works.firstMatch.waitForExistence(timeout: 10))
-        XCTAssertEqual(works.count, 4, "The Chopin nocturnes are not all found")
+        // The results arrive from a search off the main actor, so the rows of a shorter text can show first.
+        let four = expectation(for: NSPredicate(format: "count == 4"), evaluatedWith: works)
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [four], timeout: 10), .completed,
+            "\(works.count) works, not the four Chopin nocturnes")
         XCTAssertTrue(app.buttons.matching(identifier: "search-person").firstMatch.exists)
         XCTAssertTrue(app.buttons.matching(identifier: "search-album").firstMatch.exists)
         field.typeText("\n")

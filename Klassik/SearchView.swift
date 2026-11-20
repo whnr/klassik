@@ -11,10 +11,11 @@ struct SearchView: View {
     @FocusState private var focused: Bool
     /// The start that the page last handled.
     @State private var started: Int?
+    @State private var live = LiveSearch()
 
     var body: some View {
         let typed = !text.trimmingCharacters(in: .whitespaces).isEmpty
-        let results = typed ? model.library.search.results(for: text) : Search.Results()
+        let results = typed ? live.results : Search.Results()
         PageList {
             if !typed {
                 Section {
@@ -32,14 +33,14 @@ struct SearchView: View {
                     .accessibilityIdentifier("performers")
                     .listRowSeparator(.hidden)
                 }
-            } else if results.isEmpty {
+            } else if results.isEmpty && live.isShowing(text) {
                 Text("No work, name or album matches.")
                     .typeStyle(.subheadline)
                     .foregroundStyle(Palette.textSecondary)
                     .listRowSeparator(.hidden)
                     .pageEdges(top: Layout.searchNoMatchTop)
                     .accessibilityIdentifier("search-no-match")
-            } else {
+            } else if !results.isEmpty {
                 SearchResults(results: results)
             }
         }
@@ -52,6 +53,16 @@ struct SearchView: View {
         .scrollDismissesKeyboard(.immediately)
         .onAppear(perform: start)
         .onChange(of: navigator.searchStarts, start)
+        .task(id: Query(text: text, version: model.library.indexVersion)) {
+            let library = model.library
+            await live.show(text, version: library.indexVersion) { await library.results(for: $0) }
+        }
+    }
+
+    /// A search runs again when the text or the index changes.
+    private struct Query: Equatable {
+        var text: String
+        var version: Int
     }
 
     /// A tab or a link opens Search empty, with the keyboard up, as the system Search tab does. The root appears

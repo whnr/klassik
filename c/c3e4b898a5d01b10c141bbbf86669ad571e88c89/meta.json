@@ -1,0 +1,7 @@
+{
+  "sha": "c3e4b898a5d01b10c141bbbf86669ad571e88c89",
+  "branch": "claude-testflight-gate",
+  "path": "claude-testflight-gate",
+  "subject": "[sz-rs30.1.132] Reuse the parent's Test run for releases",
+  "ts": 1795190797
+}

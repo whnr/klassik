@@ -197,9 +197,7 @@ enum PortraitLoader {
             guard let (data, status) = try? await fetch(request), (200..<300).contains(status), !data.isEmpty,
                 data.count <= maxBytes
             else { continue }
-            guard
-                let loaded = await Task.detached(priority: .utility, operation: { upright(data, screen: screen) }).value
-            else { continue }
+            guard let loaded = await decode(data, screen: screen) else { continue }
             let key = url.absoluteString
             guard store.contains(key) || store.fits(Int64(data.count)), await store.store(data, for: key) else {
                 return false
@@ -260,7 +258,35 @@ enum PortraitLoader {
         guard let (data, status) = try? await fetch(request), (200..<300).contains(status),
             data.count <= maxBytes
         else { return nil }
-        return await Task.detached(priority: .userInitiated) { upright(data, screen: screen) }.value
+        return await decode(data, screen: screen)
+    }
+
+    /// Synchronous Vision requests on cooperative workers can stop every worker for good, and with them the
+    /// network, the stores and playback (PortraitProgressTests). One serial queue decodes outside that pool, and
+    /// it also bounds the decoded pixels in memory.
+    private static let decoding = DispatchQueue(label: "PortraitLoader.decoding", qos: .userInitiated)
+
+    /// A row that leaves the screen cancels its decode, so a tap does not wait behind rows that are gone.
+    private static func decode(_ data: Data, screen: PortraitSize.Screen?) async -> LoadedPortrait? {
+        guard !Task.isCancelled else { return nil }
+        let cancelled = Cancelled()
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                decoding.async {
+                    continuation.resume(returning: cancelled.isSet ? nil : upright(data, screen: screen))
+                }
+            }
+        } onCancel: {
+            cancelled.set()
+        }
+    }
+
+    private final class Cancelled: @unchecked Sendable {
+        private let lock = NSLock()
+        private var value = false
+
+        var isSet: Bool { lock.withLock { value } }
+        func set() { lock.withLock { value = true } }
     }
 
     private final class RedirectGuard: NSObject, URLSessionTaskDelegate, Sendable {

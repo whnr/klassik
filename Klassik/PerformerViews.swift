@@ -4,6 +4,7 @@ import SwiftUI
 struct PerformersView: View {
     @Environment(AppModel.self) private var model
     @State private var query = ""
+    @FocusState private var focused: Bool
 
     var body: some View {
         let performers = model.library.index.performers.filter {
@@ -28,10 +29,14 @@ struct PerformersView: View {
         }
         .overlay {
             if performers.isEmpty {
-                ContentUnavailableView("No Performers", systemImage: "person.2")
+                ContentUnavailableView(query.isEmpty ? "No Performers" : "No Match", systemImage: "person.2")
             }
         }
-        .searchable(text: $query)
+        // This page sits in the Search tab, and there the system moves a `searchable` field to the bottom.
+        .safeAreaInset(edge: .top, spacing: 0) {
+            SearchField(text: $query, focused: $focused, prompt: "Name", identifier: "performer-search")
+        }
+        .scrollDismissesKeyboard(.immediately)
         .pageTitle("Performers")
     }
 }

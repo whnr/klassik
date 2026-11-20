@@ -124,13 +124,11 @@ struct PersonPageLink<Label: View>: View {
                 navigator.open(page, in: place)
             }
         } label: {
-            HStack(spacing: Layout.rowGap) {
-                label
+            Group {
                 if disclosure {
-                    Image(systemName: "chevron.right")
-                        .typeStyle(.footnote)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(Palette.textTertiary)
+                    DisclosureRow { label }
+                } else {
+                    label
                 }
             }
             .contentShape(.rect)
@@ -138,6 +136,38 @@ struct PersonPageLink<Label: View>: View {
         .buttonStyle(.plain)
         // A row decodes its picture when the list is about to show it, so a tap finds it ready.
         .task { await model.preparePortrait(for: page) }
+    }
+}
+
+/// A list row that opens a page: the label takes the free width, so a count and the caret stay at the trailing edge
+/// when the title wraps. A `LabeledContent` label puts its value beside the caret.
+struct DisclosureRow<Label: View>: View {
+    @ViewBuilder let label: Label
+
+    var body: some View {
+        HStack(spacing: Layout.rowGap) {
+            label
+                .labeledContentStyle(TrailingValue())
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Image(systemName: "chevron.right")
+                .typeStyle(.footnote)
+                .fontWeight(.semibold)
+                .foregroundStyle(Palette.textTertiary)
+                .accessibilityHidden(true)
+        }
+    }
+}
+
+/// The value sits at the trailing edge and never wraps; the label wraps in the width that is left.
+struct TrailingValue: LabeledContentStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: Layout.rowGap) {
+            configuration.label
+                .frame(maxWidth: .infinity, alignment: .leading)
+            configuration.content
+                .foregroundStyle(.secondary)
+                .fixedSize()
+        }
     }
 }
 

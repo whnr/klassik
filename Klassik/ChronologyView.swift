@@ -171,6 +171,7 @@ private struct ListedWorksSheet: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    .workActions(work, order: model.recordingOrder)
                     .itemSeparator(first: work.id == listed.works.first?.id, last: work.id == listed.works.last?.id)
                     .accessibilityIdentifier("chronology-listed-work")
                 }
@@ -525,9 +526,19 @@ private struct ChronologyRow: View {
             .contentShape(.rect(cornerRadius: Layout.workRowCorner))
         }
         .buttonStyle(ChronologyRowPress())
+        .workActions(row.opensList ? nil : row.works.first, order: model.recordingOrder)
         .accessibilityLabel("\(row.years), \(row.title)")
         .accessibilityAddTraits(marked ? .isSelected : [])
         .accessibilityIdentifier(row.opensList ? "chronology-works" : "chronology-work")
+    }
+}
+
+extension View {
+    /// The long press of a work row on every other page: play and queue the reference recording, favour the work.
+    fileprivate func workActions(_ work: WorkIndex.Work?, order: RecordingOrder) -> some View {
+        itemActions(
+            work.flatMap { work in order.reference(of: work).map { QueueItem(work: work, recording: $0) } },
+            favourite: true, favouriteWork: true)
     }
 }
 

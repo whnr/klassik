@@ -156,6 +156,7 @@ struct PerformerPage: View {
 /// The grid is one list row, and a row with several links follows all of them on one tap. So each cover is a
 /// button that pushes its own page.
 private struct AlbumCover: View {
+    @Environment(AppModel.self) private var model
     @Environment(AppNavigator.self) private var navigator
     let album: WorkIndex.Album
 
@@ -167,11 +168,14 @@ private struct AlbumCover: View {
                 CoverImage(song: album.tracks.first, points: 160)
                     .aspectRatio(1, contentMode: .fit)
                     .clipShape(RoundedRectangle(cornerRadius: Layout.albumCorner))
-                Text(album.title)
-                    .typeStyle(.subheadline)
-                    .foregroundStyle(Palette.textPrimary)
-                    .lineLimit(2)
-                    .padding(.top, Layout.albumTitleGap)
+                MarkedTitle(
+                    title: album.title, isFavourite: model.recordingOrder.isFavourite(album: album.id),
+                    style: .subheadline
+                )
+                .typeStyle(.subheadline)
+                .foregroundStyle(Palette.textPrimary)
+                .lineLimit(2)
+                .padding(.top, Layout.albumTitleGap)
                 if let year = album.year {
                     Text(year.formatted(.number.grouping(.never)))
                         .typeStyle(.footnote)

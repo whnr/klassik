@@ -58,7 +58,9 @@ struct FermataMark: View {
     }
 }
 
-/// Text lays out the mark with the final word, including when the title wraps.
+/// Text lays out the mark with the final word, including when the title wraps. Only the mark toggles the favourite
+/// (person.html draws the mark as the button): a tap on the words does nothing. VoiceOver and the walk activate
+/// the title at the mark.
 struct FavouriteTitle: View {
     let title: String
     let isSet: Bool
@@ -70,26 +72,88 @@ struct FavouriteTitle: View {
     @Environment(\.displayScale) private var scale
     @Environment(\.colorScheme) private var scheme
     @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.isEnabled) private var isEnabled
+    @State private var markFrame = MarkFrame()
 
     var body: some View {
-        Button(action: action) {
-            Text("\(title)\u{00A0}\(Image(uiImage: mark))")
-                .typeStyle(.pageTitle)
-                .foregroundStyle(ink.map { AnyShapeStyle($0) } ?? AnyShapeStyle(Palette.textPrimary))
-                .accessibilityIdentifier(textIdentifier)
-                // A new mark replaces the old one in the same frame, also under an animation of the page.
-                .contentTransition(.identity)
-                .transaction { $0.animation = nil }
-        }
-        // The mark changes state at once. A pressed button must not fade the title.
-        .buttonStyle(.still)
-        .frame(minHeight: minimumHeight)
-        .accessibilityLabel(title)
-        .accessibilityValue(isSet ? "Favourite" : "Not a favourite")
+        let markText = Text(Image(uiImage: mark)).customAttribute(FermataRun())
+        Text("\(title)\u{00A0}\(markText)")
+            .typeStyle(.pageTitle)
+            .foregroundStyle(ink.map { AnyShapeStyle($0) } ?? AnyShapeStyle(Palette.textPrimary))
+            // A new mark replaces the old one in the same frame, also under an animation of the page.
+            .contentTransition(.identity)
+            .transaction { $0.animation = nil }
+            .textRenderer(MarkFrameRenderer(frame: markFrame))
+            .onTapGesture(coordinateSpace: .local) { location in
+                guard isEnabled, FermataShape.hitArea(around: markFrame.rect).contains(location) else { return }
+                action()
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(title)
+            .accessibilityValue(isSet ? "Favourite" : "Not a favourite")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction {
+                if isEnabled { action() }
+            }
+            .modifier(MarkActivation(mark: markFrame.rect))
+            .frame(minHeight: minimumHeight)
     }
 
     private var mark: UIImage {
         FermataShape.image(em: em, isSet: isSet, scale: scale, scheme: scheme, contrast: contrast)
+    }
+}
+
+extension FermataShape {
+    /// The area around the mark that takes a tap: the mark grown to the minimum hit target on each axis, centred on it.
+    static func hitArea(around mark: CGRect) -> CGRect {
+        guard !mark.isNull else { return .null }
+        let dx = max(0, Measure.hitTarget - mark.width) / 2
+        let dy = max(0, Measure.hitTarget - mark.height) / 2
+        return mark.insetBy(dx: -dx, dy: -dy)
+    }
+}
+
+/// Tags the run of the mark in a title, so the renderer can find where the text put it.
+private struct FermataRun: TextAttribute {}
+
+/// Where the text last drew the mark, in the coordinates of the text.
+@MainActor @Observable private final class MarkFrame {
+    private(set) var rect = CGRect.null
+
+    func update(_ rect: CGRect) {
+        if rect != self.rect { self.rect = rect }
+    }
+}
+
+/// Draws the text unchanged and reports the frame of the mark run.
+private struct MarkFrameRenderer: TextRenderer {
+    let frame: MarkFrame
+
+    func draw(layout: Text.Layout, in context: inout GraphicsContext) {
+        var mark = CGRect.null
+        for line in layout {
+            for run in line where run[FermataRun.self] != nil {
+                mark = mark.union(run.typographicBounds.rect)
+            }
+            context.draw(line)
+        }
+        let frame = frame
+        let found = mark
+        Task { @MainActor in frame.update(found) }
+    }
+}
+
+/// A tap without a location, as from VoiceOver or the walk, lands on the mark once the text has drawn it.
+private struct MarkActivation: ViewModifier {
+    let mark: CGRect
+
+    func body(content: Content) -> some View {
+        if mark.isNull {
+            content
+        } else {
+            content.accessibilityActivationPoint(CGPoint(x: mark.midX, y: mark.midY))
+        }
     }
 }
 
@@ -118,10 +182,17 @@ extension FermataShape {
 struct MarkedTitle: View {
     let title: String
     let isFavourite: Bool
-    @ScaledMetric(relativeTo: .body) private var em = TypeStyle.body.size
+    /// The mark scales with the text style of the title it follows.
+    @ScaledMetric private var em: CGFloat
     @Environment(\.displayScale) private var scale
     @Environment(\.colorScheme) private var scheme
     @Environment(\.colorSchemeContrast) private var contrast
+
+    init(title: String, isFavourite: Bool, style: TypeStyle = .body) {
+        self.title = title
+        self.isFavourite = isFavourite
+        _em = ScaledMetric(wrappedValue: style.size, relativeTo: style.textStyle)
+    }
 
     var body: some View {
         if isFavourite {

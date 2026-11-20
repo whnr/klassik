@@ -8,6 +8,8 @@ struct SettingsView: View {
 
     @AppStorage(CoverWash.strengthKey) private var tintStrength = CoverWash.defaultStrength
 
+    private var tintLabel: String { "\(tintStrength.formatted())×" }
+
     var body: some View {
         let library = model.library
         @Bindable var player = model.playback
@@ -82,14 +84,16 @@ struct SettingsView: View {
             Section {
                 VStack {
                     LabeledContent("Player Tint") {
-                        Text("\(tintStrength.formatted())×")
-                            .accessibilityIdentifier("player-tint-value")
+                        Text(tintLabel)
                     }
+                    .accessibilityHidden(true)
                     Slider(
                         value: $tintStrength, in: CoverWash.strengthRange, step: CoverWash.strengthStep
                     ) {
                         Text("Player Tint")
                     }
+                    // VoiceOver reads the strength, not the slider percentage.
+                    .accessibilityValue(tintLabel)
                     .accessibilityIdentifier("player-tint-strength")
                 }
             } footer: {

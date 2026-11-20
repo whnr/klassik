@@ -118,7 +118,7 @@ struct PersonPageLink<Label: View>: View {
             let place = navigator.selection
             let stack = navigator.pages(in: place)
             Task {
-                await model.preparePortrait(for: page)
+                await model.preparePortrait(for: page, opening: true)
                 opening = false
                 guard navigator.selection == place, navigator.pages(in: place) == stack else { return }
                 navigator.open(page, in: place)
@@ -172,7 +172,7 @@ struct TrailingValue: LabeledContentStyle {
 
 extension AppModel {
     /// Only local decoding can delay a push. The first image pass must never block browsing on a network request.
-    func preparePortrait(for page: Page) async {
+    func preparePortrait(for page: Page, opening: Bool = false) async {
         let portrait: PersonPortrait?
         switch page {
         case .composer(let name): portrait = people.facts(ofComposer: name)?.portrait
@@ -181,7 +181,7 @@ extension AppModel {
         }
         guard let portrait, PortraitLoader.ready(portrait) == nil else { return }
         let local = PortraitLoader.stored({ _ in throw URLError(.notConnectedToInternet) }, in: { .pictures })
-        _ = await PortraitLoader.load(portrait, screen: PortraitLoader.deviceScreen, fetch: local)
+        _ = await PortraitLoader.load(portrait, screen: PortraitLoader.deviceScreen, fetch: local, opening: opening)
     }
 }
 

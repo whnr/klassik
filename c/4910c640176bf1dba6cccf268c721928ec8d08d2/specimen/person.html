@@ -386,7 +386,11 @@
                     "a",
                     { href: href("player.html", { album: a.id, back: name }) },
                     K.coverImage(a, "cover", 500),
-                    el("div", { class: "t-subheadline", style: "margin-top: var(--space-xs)" }, a.name),
+                    el(
+                      "div",
+                      { class: "t-subheadline", style: "margin-top: var(--space-xs)" },
+                      K.isFavourite("album:" + a.id) ? K.titled(a.name, K.fermata(true)) : a.name,
+                    ),
                     el("div", { class: "t-footnote secondary" }, a.year || ""),
                   ),
                 ),

@@ -842,6 +842,7 @@ final class PlaybackScreens: ScreensTestCase {
         let time = app.staticTexts["note-draft-time"]
         XCTAssertTrue(eventually(timeout: 5) { time.label.contains("–") }, "End here made no span: \(time.label)")
         let spanStart = Self.seconds(String(time.label.split(separator: "–")[0]))
+        let spanEnd = Self.seconds(String(time.label.split(separator: "–")[1]))
         snap(app, "41a-note-span")
         reveal(app.buttons["save-note"], in: app).tap()
         let saved = app.buttons["note-text"].firstMatch
@@ -869,14 +870,29 @@ final class PlaybackScreens: ScreensTestCase {
         snap(app, "41d-note-lanes")
 
         // A tap at the height of the third lane picks the note under it, the span, and moves to its start. A scrub
-        // there would move to the middle of the movement. The bar is 6 pt high, and a third-lane dot centres 2 lanes
-        // and 6 pt above its top.
+        // there would move to the middle of the movement. The frame of the slider reaches 19 pt below the bar, the
+        // touch area (Layout.positionBarInset). The bar is 6 pt high, and a third-lane dot centres 2 lanes and 6 pt
+        // above its top.
+        let touchBelow: CGFloat = 19
+        let thirdLane = -(touchBelow + 6 + 2 * pitch + 6)
         let lane = position.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 1))
-            .withOffset(CGVector(dx: 0, dy: -(6 + 2 * pitch + 6)))
+            .withOffset(CGVector(dx: 0, dy: thirdLane))
         lane.tap()
         XCTAssertTrue(
             eventually(timeout: 5) { abs(Self.seconds(position.value as? String ?? "") - spanStart) <= 1 },
             "A tap on the third lane did not move to the span: \(position.value ?? "")")
+
+        // Both moments sit at the end of the span, where the scrub let go. There a tap on the third lane picks the top
+        // moment, not the span that ends below it, and a tap on the span's own lane picks the span.
+        let spanEndOnBar = position.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 1))
+        spanEndOnBar.withOffset(CGVector(dx: 0, dy: thirdLane)).tap()
+        XCTAssertTrue(
+            eventually(timeout: 5) { abs(Self.seconds(position.value as? String ?? "") - spanEnd) <= 1 },
+            "A tap on the third lane at the span's end did not move to the moment there: \(position.value ?? "")")
+        spanEndOnBar.withOffset(CGVector(dx: 0, dy: -(touchBelow + 6 + 6))).tap()
+        XCTAssertTrue(
+            eventually(timeout: 5) { abs(Self.seconds(position.value as? String ?? "") - spanStart) <= 1 },
+            "A tap on the span's end did not move to the span: \(position.value ?? "")")
 
         // Another movement plays; the row of the note now opens and shows it.
         reveal(app.buttons["Play from here"].firstMatch, in: app).tap()

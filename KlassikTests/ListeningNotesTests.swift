@@ -178,14 +178,49 @@ struct ListeningNotesTests {
         #expect(height([note(10, 60), note(30), note(30)]) == Layout.positionBar + 2 * pitch)
     }
 
+    /// A bar 300 points wide for 300 seconds: one point per second. Lane 0 centres 6 points above the bar, and
+    /// each lane above it 9 points higher.
+    private func tapped(_ x: Double, rise: Double, in notes: [ListeningNote]) -> ListeningNote? {
+        ListeningNotes.note(atX: x, rise: rise, in: notes, width: 300, duration: 300)
+    }
+
     @Test func aTapFindsTheNearestMark() {
         let dot = note(100)
         let span = note(200, 260)
         let notes = [dot, span]
-        #expect(ListeningNotes.note(near: 102, in: notes, reach: 3)?.id == dot.id)
-        #expect(ListeningNotes.note(near: 230, in: notes, reach: 3)?.id == span.id)
-        #expect(ListeningNotes.note(near: 262, in: notes, reach: 3)?.id == span.id)
-        #expect(ListeningNotes.note(near: 150, in: notes, reach: 3) == nil)
+        #expect(tapped(102, rise: 6, in: notes)?.id == dot.id)
+        #expect(tapped(230, rise: 6, in: notes)?.id == span.id)
+        #expect(tapped(262, rise: 6, in: notes)?.id == span.id)
+        #expect(tapped(150, rise: 6, in: notes) == nil)
+    }
+
+    @Test func aTapPicksTheMarkUnderTheFingerByLane() {
+        // A span with two moments at its end: the moments stack in lanes 1 and 2 above the span in lane 0.
+        let span = note(100, 200)
+        let low = note(200)
+        let high = note(200)
+        let notes = [span, low, high]
+        let lanes = ListeningNotes.lanes(notes, reach: ListeningNotes.reach(width: 300, duration: 300))
+        let ordered = notes.sorted { (lanes[$0.id] ?? 0) < (lanes[$1.id] ?? 0) }
+        #expect(ordered.map { lanes[$0.id] } == [0, 1, 2])
+        // At the end of the span, each lane answers with its own mark.
+        #expect(tapped(200, rise: 6, in: notes)?.id == span.id)
+        #expect(tapped(200, rise: 15, in: notes)?.id == ordered[1].id)
+        #expect(tapped(200, rise: 24, in: notes)?.id == ordered[2].id)
+        // A finger a little off the dot still picks it, not the span that ends below it.
+        #expect(tapped(203, rise: 22, in: notes)?.id == ordered[2].id)
+        // Along the span, away from the dots, a tap in a higher lane still reaches the span.
+        #expect(tapped(150, rise: 24, in: notes)?.id == span.id)
+    }
+
+    @Test func aMarkAnswersWithinHalfATouchTarget() {
+        #expect(ListeningNotes.target == 44)
+        let dot = note(100)
+        let half = ListeningNotes.target / 2
+        #expect(tapped(100 + half - 1, rise: 6, in: [dot])?.id == dot.id)
+        #expect(tapped(100 + half + 1, rise: 6, in: [dot]) == nil)
+        #expect(tapped(100, rise: 6 + half + 1, in: [dot]) == nil)
+        #expect(ListeningNotes.note(atX: 100, rise: 6, in: [dot], width: 0, duration: 300) == nil)
     }
 
     @Test func aNoteReadsAsItsTimeOrItsSpan() {

@@ -15,16 +15,20 @@ struct SettingsView: View {
 
     var body: some View {
         @Bindable var player = model.playback
+        // A menu picker keeps the tint that it got when it was made. A new identity for each family remakes it.
+        let family = AccentChoice.shared.family
         GroupedPageList {
             Section {
                 Picker("Timeline", selection: $timelineSide) {
                     ForEach(TimelineSide.allCases) { Text($0.title).tag($0) }
                 }
                 .accessibilityIdentifier("timeline-side")
+                .id(family)
                 Picker("ReplayGain", selection: $player.leveling) {
                     ForEach(VolumeLeveling.allCases) { Text($0.title).tag($0) }
                 }
                 .accessibilityIdentifier("replaygain")
+                .id(family)
                 Toggle("Scrobbles", isOn: $player.scrobblesEnabled)
                     .accessibilityIdentifier("scrobbles")
             } header: {
@@ -40,12 +44,14 @@ struct SettingsView: View {
                     ForEach(AccentFamily.allCases) { Text($0.title).tag($0) }
                 }
                 .accessibilityIdentifier("accent")
+                .id(family)
                 Picker("Player Tint", selection: $tintStrength) {
                     Text("1×").tag(1)
                     Text("2×").tag(2)
                     Text("3×").tag(3)
                 }
                 .accessibilityIdentifier("player-tint-strength")
+                .id(family)
             } header: {
                 SectionHeading("Colour")
             } footer: {

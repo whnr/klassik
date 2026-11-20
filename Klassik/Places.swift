@@ -65,14 +65,12 @@ struct PlacesView: View {
 }
 
 /// A hosting controller starts its own environment, so the root of each host reads the accent pick itself
-/// (ADR 0034). The read observes the pick. The tint is the colour of the family, not the style: list cells keep
-/// the colour of a tint that stays equal, so pickers would keep the old family.
+/// (ADR 0034). The read observes the pick, so every control under it takes a new family at once.
 private struct AccentRoot: ViewModifier {
     func body(content: Content) -> some View {
-        let family = AccentChoice.shared.family
         content
-            .tint(Color(Palette.tint.assetName(in: family)))
-            .environment(\.accentFamily, family)
+            .tint(Palette.tint)
+            .environment(\.accentFamily, AccentChoice.shared.family)
     }
 }
 

@@ -821,7 +821,7 @@ final class PlaybackScreens: ScreensTestCase {
         // The bottom of the bar, from the playing mark next to the row title: the room of the note lanes adds to it.
         let playing = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS 'Now playing'"))
             .firstMatch
-        func barDrop() -> CGFloat { position.frame.maxY - playing.frame.minY }
+        let barDrop = { position.frame.maxY - playing.frame.minY }
         let bare = barDrop()
         add.tap()
         let field = app.textFields["note-field"]

@@ -3,10 +3,12 @@ name: Test
 # One build runs unit tests and supplies the requested UI shards.
 # Main pushes run no walk. Nightly runs and release pull requests walk every group.
 # UI_TESTS_REQUIRED controls whether a failed walk blocks the run.
-# TestFlight needs a green run for the exact merge commit on main.
+# A push that changes only documentation starts no run. TestFlight accepts such a commit through
+# scripts/green_test_gate.py, which keeps the same ignore list.
 on:
   push:
     branches: [ci, main]
+    paths-ignore: ["**.md", "LICENSE", "docs/**"]
   schedule:
     - cron: "23 3 * * *"
   pull_request:
@@ -170,6 +172,7 @@ jobs:
         run: |
           cat "$RUNNER_TEMP/build-report/timings.txt" >> "$GITHUB_STEP_SUMMARY" || true
           cat "$RUNNER_TEMP/build-report/"*-retries.txt >> "$GITHUB_STEP_SUMMARY" || true
+          python3 scripts/screen_report.py console "$RUNNER_TEMP/build-report/"*-console.txt >> "$GITHUB_STEP_SUMMARY" || true
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -237,6 +240,7 @@ jobs:
           mkdir -p "$out"
           python3 scripts/screen_report.py summary "$out" >> "$GITHUB_STEP_SUMMARY"
           cat "$out/timings.txt" >> "$GITHUB_STEP_SUMMARY" || true
+          python3 scripts/screen_report.py console "$out/"*-console.txt >> "$GITHUB_STEP_SUMMARY" || true
           echo "ui=$(grep '^ui=' "$out/results.txt" | tail -1 | cut -d= -f2)" >> "$GITHUB_OUTPUT" || true
       - uses: actions/upload-artifact@v7
         if: always()

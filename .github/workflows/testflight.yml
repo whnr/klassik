@@ -27,6 +27,8 @@ jobs:
       upload: ${{ steps.age.outputs.upload }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 50
       - id: age
         env:
           CHECK: ${{ github.event_name == 'schedule' || inputs.only_if_due }}
@@ -42,14 +44,15 @@ jobs:
       - name: Require What to Test notes for this version
         if: steps.age.outputs.upload == 'true'
         run: python3 scripts/testflight_notes.py --check
-      # The commit needs a green test run. The UI walk is not required.
+      # The commit, or the newest earlier commit before a run of documentation-only changes, needs a green test run.
+      # The UI walk is not required.
       - name: Require a green test run
         if: steps.age.outputs.upload == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          passed=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/test.yml/runs?head_sha=$GITHUB_SHA&status=success" --jq .total_count)
-          [ "$passed" -gt 0 ] || { echo "::error::no green Test run for $GITHUB_SHA; wait for Test on this commit, or run Test manually on this ref"; exit 1; }
+          covered=$(python3 scripts/green_test_gate.py "$GITHUB_SHA") || { echo "::error::$covered; wait for Test on this commit, or run Test manually on this ref"; exit 1; }
+          echo "Test is green on $covered, which covers $GITHUB_SHA"
 
   upload:
     needs: due

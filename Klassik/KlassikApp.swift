@@ -6,6 +6,7 @@ struct KlassikApp: App {
     @State private var model: AppModel
 
     init() {
+        Self.resetSettingsForTheWalk()
         let model = AppModel()
         _model = State(initialValue: model)
         PersonSweepBackground.register(model)
@@ -21,13 +22,20 @@ struct KlassikApp: App {
         Self.configureTips()
     }
 
+    /// A test run reuses the simulator, and these switches survive a relaunch. Each run starts with their defaults.
+    /// It runs before the first colour, because the first colour reads the accent.
+    private static func resetSettingsForTheWalk() {
+        guard ProcessInfo.processInfo.arguments.contains("-resetServer") else { return }
+        for key in [TapIndicator.storageKey, AccentFamily.storageKey, SettingsView.technicalDetailsKey] {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
+    }
+
     /// The UI walk starts every run from the same state. It hides the tip, except for the runs that look at it:
     /// `-showTips` shows it on every page, `-tipRules` keeps the rules of the tip, as a listener meets them.
     private static func configureTips() {
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("-resetServer") {
-            // A test run reuses the simulator, and the tap switch survives a relaunch. Each run starts with it off.
-            UserDefaults.standard.removeObject(forKey: TapIndicator.storageKey)
             try? Tips.resetDatastore()
             if arguments.contains("-showTips") {
                 Tips.showAllTipsForTesting()
@@ -51,7 +59,6 @@ struct KlassikApp: App {
         WindowGroup {
             RootView()
                 .environment(model)
-                .tint(Palette.tint)
                 .preferredColorScheme(Self.launchScheme)
         }
     }
@@ -93,5 +100,8 @@ struct RootView: View {
             Text(model.recordingOrder.error ?? "")
         }
         .onChange(of: showTaps, initial: true) { TapIndicator.shared.setEnabled(showTaps) }
+        .tint(Palette.tint)
+        // The tint reads the family from the environment, so the family is set outside it.
+        .environment(\.accentFamily, AccentChoice.shared.family)
     }
 }

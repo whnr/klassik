@@ -8,9 +8,65 @@
     <link rel="stylesheet" href="../tokens.css?v=50" />
     <link rel="stylesheet" href="specimen.css?v=50" />
     <script src="specimen.js?v=50"></script>
+    <style>
+      /* Settings keeps inset grouped lists (ADR 0030). */
+      :root[data-page="settings"] .nav {
+        --edge-colour: var(--color-background-grouped);
+      }
+      :root[data-page="settings"] .scroll {
+        background: var(--color-background-grouped);
+      }
+      :root[data-page="settings"] .section .list {
+        background: var(--color-background-row);
+        border-radius: var(--radius-m);
+        overflow: hidden;
+      }
+      :root[data-page="settings"] .section :is(.row, .section-head, .section-foot) {
+        padding-left: var(--space-l);
+        padding-right: var(--space-l);
+      }
+      :root[data-page="settings"] .row + .row::before {
+        left: var(--space-l);
+      }
+      /* The iOS switch and the destructive red are system chrome with fixed values. */
+      .switch {
+        appearance: none;
+        flex: none;
+        width: 51px;
+        height: 31px;
+        border-radius: var(--radius-full);
+        background: var(--color-fill-standard);
+        position: relative;
+        margin: 0;
+      }
+      .switch::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 27px;
+        height: 27px;
+        border-radius: var(--radius-full);
+        background: #fff;
+        transition: transform var(--motion-duration-quick);
+      }
+      .switch:checked {
+        background: #34c759;
+      }
+      .switch:checked::after {
+        transform: translateX(20px);
+      }
+      .destructive {
+        color: #ff3b30;
+      }
+      [data-theme="dark"] .destructive {
+        color: #ff453a;
+      }
+    </style>
   </head>
   <body>
     <script>
+      // Settings in groups (ADR 0030, 0040). ?technical=on shows the rows behind Technical Details.
       K.start(() => {
         const { el, href } = K;
         const { scroll } = K.page({
@@ -18,59 +74,96 @@
           title: "Settings",
           back: { label: "Library", href: "index.html" },
         });
-        scroll.append(
-          el("div", { class: "page-head" }, el("h1", { class: "t-largeTitle" }, "Settings")),
+        const reload = (name, value) => {
+          const url = new URL(location.href);
+          url.searchParams.set(name, value);
+          location.href = url.href;
+        };
+        const select = (label, name, options, current) =>
           el(
-            "section",
-            { class: "section" },
+            "label",
+            { class: "row" },
+            el("span", { class: "main" }, label),
             el(
-              "div",
-              { class: "list" },
-              el(
-                "label",
-                { class: "row" },
-                "Timeline",
-                el(
-                  "select",
-                  {
-                    "aria-label": "Timeline",
-                    onchange: (event) => {
-                      const url = new URL(location.href);
-                      url.searchParams.set("side", event.target.value);
-                      location.href = url.href;
-                    },
-                  },
-                  ...["Right", "Left"].map((side) =>
-                    el(
-                      "option",
-                      {
-                        value: side.toLowerCase(),
-                        selected: (K.params.get("side") || "right") === side.toLowerCase(),
-                      },
-                      side,
-                    ),
-                  ),
-                ),
+              "select",
+              { "aria-label": label, onchange: (event) => reload(name, event.target.value) },
+              ...Object.entries(options).map(([value, title]) =>
+                el("option", { value, selected: current === value }, title),
               ),
             ),
-            el("p", { class: "section-foot t-footnote" }, "The timeline follows the selected screen edge."),
-          ),
+          );
+        const toggle = (label, on, onchange) =>
+          el(
+            "label",
+            { class: "row" },
+            el("span", { class: "main" }, label),
+            el("input", { class: "switch", type: "checkbox", role: "switch", checked: on, onchange }),
+          );
+        const link = (label, target) =>
+          el(
+            "a",
+            { class: "row", href: target ? href(target, { back: "Settings" }) : "#" },
+            el("span", { class: "main" }, label),
+            el("span", { class: "trail", html: K.ICON.chevron }),
+          );
+        const group = (head, rows, foot) =>
           el(
             "section",
             { class: "section" },
-            el(
-              "a",
-              { class: "row", href: href("lookup.html", { back: "Settings" }) },
-              "MusicBrainz and Wikidata lookup",
-            ),
-            el("a", { class: "row", href: href("storage.html", { back: "Settings" }) }, "Local Storage"),
-            el("a", { class: "row", href: href("tokens.html", { back: "Settings" }) }, "Specimen token sheet"),
-            el(
-              "p",
-              { class: "section-foot t-footnote" },
-              "This preview covers navigation and timeline placement. Other settings require the installed app.",
-            ),
+            head ? el("div", { class: "section-head t-footnote" }, head) : null,
+            el("div", { class: "list" }, ...rows),
+            foot ? el("p", { class: "section-foot t-footnote" }, foot) : null,
+          );
+        const technical = K.params.get("technical") === "on";
+        scroll.append(
+          el("div", { class: "page-head" }, el("h1", { class: "t-largeTitle" }, "Settings")),
+          group(
+            "Playback",
+            [
+              select("Timeline", "side", { right: "Right", left: "Left" }, K.params.get("side") || "right"),
+              select("ReplayGain", "replaygain", { album: "Album", track: "Track", off: "Off" }, "album"),
+              toggle("Scrobbles", true),
+            ],
+            "While music plays, the timeline runs on this screen edge. Album keeps the loudness steps between the " +
+              "movements of a work. Scrobbles count played movements on your server. Your server can send them to " +
+              "linked listening services.",
           ),
+          group(
+            "Colour",
+            [
+              select(
+                "Accent",
+                "accent",
+                { claret: "Claret", green: "Bottle Green", plum: "Plum" },
+                K.params.get("accent") || "claret",
+              ),
+            ],
+            "The accent marks links, controls and what plays.",
+          ),
+          group(
+            "Library",
+            [link("Classical Rules"), toggle("Separate Partial Works", true), link("Swipe Actions")],
+            "A composer page lists a work with no complete recording under Partial works.",
+          ),
+          group(
+            "Listening data",
+            [el("button", { class: "row destructive", type: "button" }, "Delete Listening Data")],
+            "Favourite works, the order of favourite recordings, listening notes and the changes that wait stay on " +
+              "this iPhone, for this server and user. Sign-out keeps them.",
+          ),
+          group(
+            null,
+            [toggle("Technical Details", technical, () => reload("technical", technical ? "off" : "on"))],
+            "Shows the library counts, the lookups, local storage and diagnostics with the changes that wait.",
+          ),
+          technical
+            ? group("Technical details", [
+                link("MusicBrainz and Wikidata lookup", "lookup.html"),
+                link("Local Storage", "storage.html"),
+                link("Specimen token sheet", "tokens.html"),
+              ])
+            : null,
+          group(null, [link("Licences")]),
         );
       });
     </script>

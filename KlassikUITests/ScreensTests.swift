@@ -1166,7 +1166,10 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(mark.waitForExistence(timeout: 10))
         // Only the mark toggles; a tap on the words of the name does nothing (sz-rs30.1.131.5).
         let before = mark.value as? String
-        mark.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.5)).tap()
+        // The element reaches up under the back button, so the tap goes to the start of the last title line.
+        let line = Layout.pageTitle.size * Layout.pageTitle.lineHeight
+        app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: mark.frame.minX + line / 2, dy: mark.frame.maxY - line / 2)).tap()
         XCTAssertEqual(mark.value as? String, before, "A tap on the name changed the favourite")
         mark.tap()
         XCTAssertEqual(mark.value as? String, "Favourite")

@@ -13,18 +13,35 @@ struct SearchView: View {
     @State private var started: Int?
     @State private var live = LiveSearch()
 
+    private var recent: RecentSearches { model.recentSearches }
+
+    /// Keeps what the session searched as its recent search.
+    private func commit() {
+        recent.commit(text: text)
+    }
+
     var body: some View {
         let typed = !text.trimmingCharacters(in: .whitespaces).isEmpty
         let results = typed ? live.results : Search.Results()
         PageList {
             if !typed {
+                // Klassik shows no suggestions: it knows no content that the listener does not (ADR 0029).
+                if !recent.entries.isEmpty {
+                    RecentList(recent: recent) { entry in
+                        text = entry.text
+                        focused = false
+                        recent.restore(entry)
+                    }
+                }
                 Section {
-                    Text("Type a work, a catalogue number such as Op. 67 or K. 626, or a name.")
-                        .typeStyle(.subheadline)
-                        .foregroundStyle(Palette.textSecondary)
-                        .listRowSeparator(.hidden)
-                        .pageEdges(top: Layout.searchHintTop, bottom: Layout.rowPadding)
-                        .accessibilityIdentifier("search-hint")
+                    if recent.entries.isEmpty {
+                        Text("Type a work, a catalogue number such as Op. 67 or K. 626, or a name.")
+                            .typeStyle(.subheadline)
+                            .foregroundStyle(Palette.textSecondary)
+                            .listRowSeparator(.hidden)
+                            .pageEdges(top: Layout.searchHintTop, bottom: Layout.rowPadding)
+                            .accessibilityIdentifier("search-hint")
+                    }
                     // The performer list has no other way in. The results find a single performer by name.
                     NavigationLink(value: Page.performers) {
                         LabeledContent("Performers", value: model.library.index.performers.count.formatted())
@@ -48,11 +65,18 @@ struct SearchView: View {
         .navigationBarTitleDisplayMode(.inline)
         .environment(\.pageHeading, "")
         .safeAreaInset(edge: .top, spacing: 0) {
-            SearchField(text: $text, focused: $focused)
+            SearchField(text: $text, focused: $focused, submit: commit)
         }
         .scrollDismissesKeyboard(.immediately)
         .onAppear(perform: start)
         .onChange(of: navigator.searchStarts, start)
+        // Opening a result and leaving the page commit the search of the session (ADR 0029).
+        .onChange(of: navigator.pages(in: .search).count) { before, after in
+            if after > before { commit() }
+        }
+        .onChange(of: navigator.selection) { before, _ in
+            if before == .search { commit() }
+        }
         .task(id: Query(text: text, version: model.library.indexVersion)) {
             let library = model.library
             await live.show(text, version: library.indexVersion) { await library.results(for: $0) }
@@ -70,6 +94,8 @@ struct SearchView: View {
     private func start() {
         guard navigator.searchStarts != started else { return }
         started = navigator.searchStarts
+        commit()
+        recent.endSession()
         text = ""
         focused = navigator.selection == .search
     }
@@ -79,6 +105,7 @@ struct SearchView: View {
 private struct SearchField: View {
     @Binding var text: String
     var focused: FocusState<Bool>.Binding
+    let submit: () -> Void
     @ScaledMetric(relativeTo: .body) private var height = Layout.searchFieldHeight
     @ScaledMetric(relativeTo: .body) private var icon = Layout.searchFieldIcon
 
@@ -95,7 +122,10 @@ private struct SearchField: View {
                 .foregroundStyle(Palette.textPrimary)
                 .focused(focused)
                 .submitLabel(.search)
-                .onSubmit { focused.wrappedValue = false }
+                .onSubmit {
+                    focused.wrappedValue = false
+                    submit()
+                }
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
                 .accessibilityIdentifier("search-field")
@@ -118,6 +148,70 @@ private struct SearchField: View {
         .pagePadding()
         .padding(.bottom, Layout.searchRowBottom)
         .background(Palette.backgroundPage)
+    }
+}
+
+/// The recent searches of the empty page, newest first, each with its text and its conditions, and Clear
+/// (search.html). A tap restores the search.
+private struct RecentList: View {
+    let recent: RecentSearches
+    let restore: (RecentSearch) -> Void
+    @ScaledMetric(space: .inGroup) private var gap: CGFloat
+    @ScaledMetric(relativeTo: .body) private var icon = Layout.searchRecentIcon
+
+    var body: some View {
+        let entries = recent.entries
+        Section {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Recent")
+                    .typeStyle(Layout.sectionHeading)
+                    .foregroundStyle(Palette.textPrimary)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer(minLength: 0)
+                Button("Clear") { recent.clear() }
+                    .typeStyle(Layout.sectionHeading)
+                    .foregroundStyle(Palette.tint)
+                    // A row of a list sends a tap anywhere on it to a bordered button.
+                    .buttonStyle(.borderless)
+                    .accessibilityIdentifier("search-recent-clear")
+            }
+            .pageSectionHeader(true)
+            ForEach(entries) { entry in
+                Button {
+                    restore(entry)
+                } label: {
+                    HStack(spacing: Layout.rowGap) {
+                        // A search of conditions only shows the filter symbol, as its line names no text.
+                        Image(systemName: entry.text.isEmpty ? "line.3.horizontal.decrease" : "magnifyingglass")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: icon, height: icon)
+                            .foregroundStyle(Palette.textSecondary)
+                            .accessibilityHidden(true)
+                        lines(entry)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("search-recent")
+                .itemSeparator(first: entry.id == entries.first?.id, last: entry.id == entries.last?.id)
+            }
+        }
+    }
+
+    private func lines(_ entry: RecentSearch) -> some View {
+        VStack(alignment: .leading, spacing: gap) {
+            if !entry.text.isEmpty {
+                Text(entry.text).typeStyle(.body)
+            }
+            if !entry.conditions.isEmpty {
+                Text(entry.conditionLine)
+                    .typeStyle(entry.text.isEmpty ? .body : .subheadline)
+                    .foregroundStyle(entry.text.isEmpty ? Palette.textPrimary : Palette.textSecondary)
+            }
+        }
+        .ink()
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

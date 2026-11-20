@@ -111,6 +111,9 @@ enum Layout {
     /// The gap under the field row, above the results.
     /// css: search.html .fieldrow | padding-bottom
     static let searchRowBottom = Space.s.points
+    /// The symbol in front of a recent search.
+    /// css: search.html .recent .row svg | width
+    static let searchRecentIcon: CGFloat = 16
     /// A round button in a row, such as play from here.
     /// css: specimen.css .round | width
     static let roundButton: CGFloat = 32

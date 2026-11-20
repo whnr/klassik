@@ -1,7 +1,7 @@
 {
-  "sha": "b57e71c02572280e7f1bcda54e3f7bc6a93a446f",
+  "sha": "103438dc46ae6db86310a9abc89a7854ecad1544",
   "branch": "main",
   "path": "main",
-  "subject": "[sz-rs30.1.105.12] Listening notes (#115)",
-  "ts": 1795140932
+  "subject": "[sz-nt0h] Test that a search follows an index change (#120)",
+  "ts": 1795142835
 }

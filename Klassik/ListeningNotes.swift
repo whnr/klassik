@@ -145,7 +145,7 @@ final class ListeningNotes {
     }
 
     /// The note whose mark lies under a tap `x` points along a bar `width` points wide and `rise` points above its
-    /// top. Each mark answers within half a touch target of the finger, measured in points across lanes and along the
+    /// top. Each mark answers within half of `target` from the finger, measured in points across lanes and along the
     /// bar, and the nearest mark wins. So a tap on a dot in a high lane picks that dot, not a span below it that ends
     /// at the same time, and a tap on a span's line picks the span along its full length.
     nonisolated static func note(
@@ -163,9 +163,12 @@ final class ListeningNotes {
             let up = rise - (note.end == nil ? dot : span) - pitch * Double(lanes[note.id] ?? 0)
             return (across * across + up * up).squareRoot()
         }
-        let target = Double(Layout.noteTarget) / 2
-        return notes.map { ($0, distance($0)) }.filter { $0.1 <= target }.min { $0.1 < $1.1 }?.0
+        return notes.map { ($0, distance($0)) }.filter { $0.1 <= target / 2 }.min { $0.1 < $1.1 }?.0
     }
+
+    /// The touch target of a note mark: the height of the touch area of the playback bar, 44 points, as the minimum
+    /// hit target of the iOS interface guidelines. The marks are much smaller than a finger.
+    nonisolated static let target = Double(Layout.positionBar - 2 * Layout.positionBarInset)
 
     /// "1:32" for a moment, "1:32–2:12" for a span (specimen player.html `.note .at`).
     static func time(of note: ListeningNote) -> String {

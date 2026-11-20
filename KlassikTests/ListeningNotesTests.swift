@@ -214,8 +214,9 @@ struct ListeningNotesTests {
     }
 
     @Test func aMarkAnswersWithinHalfATouchTarget() {
+        #expect(ListeningNotes.target == 44)
         let dot = note(100)
-        let half = Double(Layout.noteTarget) / 2
+        let half = ListeningNotes.target / 2
         #expect(tapped(100 + half - 1, rise: 6, in: [dot])?.id == dot.id)
         #expect(tapped(100 + half + 1, rise: 6, in: [dot]) == nil)
         #expect(tapped(100, rise: 6 + half + 1, in: [dot]) == nil)

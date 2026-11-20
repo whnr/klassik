@@ -1,7 +1,7 @@
 {
-  "sha": "c3e4b898a5d01b10c141bbbf86669ad571e88c89",
+  "sha": "89972d4fb3cf8b0e578756390382f7f3c5d30fa9",
   "branch": "claude-testflight-gate",
   "path": "claude-testflight-gate",
-  "subject": "[sz-rs30.1.132] Reuse the parent's Test run for releases",
-  "ts": 1795190797
+  "subject": "[sz-rs30.1.132] Name the walk run instead of inline shots",
+  "ts": 1795207957
 }

@@ -607,6 +607,20 @@ struct PersonFactsStoreTests {
         #expect(store.resolution(ofComposer: "Johann van Beethoven") == .pick(PersonStub.beethovenHits))
     }
 
+    @Test func aReopenedPickerWithoutWorkIDsSurvivesRelaunch() async throws {
+        let (store, _, url) = makeStore(PersonStub.beethovenRules)
+        let tag = "Ludwig van Beethoven"
+        await store.resolve(composer: tag, artistIDs: [])
+        #expect(store.resolution(ofComposer: tag) == .person("Q255"))
+        await store.chooseAgain(composer: tag)
+        #expect(store.resolution(ofComposer: tag) == .pick(PersonStub.beethovenHits))
+        #expect(!store.cache.chosen.contains(tag))
+        await store.saved()
+
+        let relaunched = PersonFactsStore(service: PersonStub([]).service, cacheURL: url)
+        #expect(relaunched.resolution(ofComposer: tag) == .pick(PersonStub.beethovenHits))
+    }
+
     @Test func surnameOnlyMeansOneWord() {
         #expect(PersonFactsStore.isSurnameOnly("Strauss"))
         #expect(!PersonFactsStore.isSurnameOnly("Richard Strauss"))

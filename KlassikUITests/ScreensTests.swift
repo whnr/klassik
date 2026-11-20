@@ -1494,16 +1494,39 @@ final class SettingsScreens: ScreensTestCase {
         openSettings(app)
         let accent = reveal(app.buttons["accent"], in: app)
         XCTAssertTrue(accent.label.contains("Claret"), accent.label)
+        let timelinePicker = app.buttons["timeline-side"]
+        let claret = try XCTUnwrap(pickerInk(timelinePicker, in: app), "No accent ink in the Timeline picker")
+        XCTAssertGreaterThan(claret.red, claret.green, "The Timeline picker is not claret: \(claret)")
+        accent.tap()
+        let green = app.buttons["Bottle Green"].firstMatch
+        XCTAssertTrue(green.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Plum"].firstMatch.exists)
+        green.tap()
+        XCTAssertTrue(eventually(timeout: 5) { accent.label.contains("Bottle Green") }, accent.label)
+        // Another picker on the page takes the new family at once, not only the picker that changed.
+        var picked = pickerInk(timelinePicker, in: app)
+        XCTAssertTrue(
+            eventually(timeout: 5) {
+                picked = pickerInk(timelinePicker, in: app)
+                return picked.map { $0.green > $0.red } ?? false
+            }, "The Timeline picker keeps claret after Bottle Green: \(String(describing: picked))")
         accent.tap()
         let plum = app.buttons["Plum"].firstMatch
         XCTAssertTrue(plum.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["Bottle Green"].firstMatch.exists)
         plum.tap()
         XCTAssertTrue(eventually(timeout: 5) { accent.label.contains("Plum") }, accent.label)
         snap(app, "08i-accent-plum")
         back(app)
         XCTAssertTrue(app.buttons["library-settings"].waitForExistence(timeout: 10))
         snap(app, "08j-library-plum")
+    }
+
+    /// The mean accent ink of a picker value: the trailing half of its row holds the value and its chevron.
+    @MainActor
+    func pickerInk(_ picker: XCUIElement, in app: XCUIApplication) -> (red: Int, green: Int, blue: Int)? {
+        let frame = picker.frame.offsetBy(dx: -app.frame.minX, dy: -app.frame.minY)
+        let value = CGRect(x: frame.midX, y: frame.minY, width: frame.width / 2, height: frame.height)
+        return ScreenPixels(app)?.accentInk(in: value)
     }
 
     /// Delete Listening Data asks first, then removes the device data of this server and user.
@@ -2078,6 +2101,25 @@ class ScreensTestCase: XCTestCase {
             return CGRect(
                 x: CGFloat(first) / scale, y: frame.minY, width: CGFloat(last + 1 - first) / scale, height: frame.height
             )
+        }
+
+        /// The mean colour of the coloured pixels in a rect, in points. Text, hairlines and the page ground are
+        /// grey, so only the accent ink counts.
+        func accentInk(in rect: CGRect) -> (red: Int, green: Int, blue: Int)? {
+            let xs = pixels(rect.minX...rect.maxX).clamped(to: 0..<width)
+            let ys = pixels(rect.minY...rect.maxY).clamped(to: 0..<height)
+            var (sum, count) = ([0, 0, 0], 0)
+            for y in ys {
+                for x in xs {
+                    let index = (y * width + x) * 4
+                    let pixel = (0..<3).map { Int(bytes[index + $0]) }
+                    guard let high = pixel.max(), let low = pixel.min(), high - low > 40 else { continue }
+                    sum = zip(sum, pixel).map { $0 + $1 }
+                    count += 1
+                }
+            }
+            guard count > 0 else { return nil }
+            return (sum[0] / count, sum[1] / count, sum[2] / count)
         }
 
         /// The share of pixels in a rect, in points, that differ from the same pixels of another screenshot.

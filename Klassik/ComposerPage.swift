@@ -341,6 +341,10 @@ private struct ResolutionNotice: View {
 /// The picture, the name and the description line. Without a picture the page shows the name on the plain ground.
 /// `kind` prefixes the accessibility identifiers. Every picture shows (ADR 0043).
 struct PersonHero: View {
+    /// The ground of a named picture before it loads. It is opaque, because the heading keeps the page room's
+    /// colours there and the unselected fermata needs its contrast floor on it (ADR 0065).
+    static let placeholder = Palette.backgroundElevated
+
     @Environment(AppModel.self) private var model
     @Environment(\.self) private var environment
     @Environment(\.colorScheme) private var scheme
@@ -392,7 +396,7 @@ struct PersonHero: View {
                     if let portrait, let framing {
                         picture(portrait, framing: framing, frame: frame)
                     } else {
-                        Rectangle().fill(Palette.fillQuiet)
+                        Rectangle().fill(Self.placeholder)
                     }
                     heading
                         .padding(.bottom, Layout.personHeadBottom)

@@ -10,6 +10,7 @@ Flo wants more temporary tint choices.
 ## Decision
 
 - The unselected fermata reaches 3:1 on every ground, or 4.5:1 with Increase Contrast.
+- A named picture that has not loaded shows the opaque elevated ground, not a translucent fill.
 - The picture scrim protects both favourite states. The player mark uses the colours solved for its wash.
 - Player Tint uses a slider from 0 to 5 in 0.5 steps. The default is 3.
 - The comparison stays temporary. The fade keeps its height and stops.

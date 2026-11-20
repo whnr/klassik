@@ -72,6 +72,23 @@ struct CoverWashTests {
         }
     }
 
+    @Test func picturePlaceholderKeepsTheUnselectedMarkVisible() throws {
+        for (_, style, contrast) in Self.rooms {
+            let traits = UITraitCollection { traits in
+                traits.userInterfaceStyle = style
+                traits.accessibilityContrast = contrast
+            }
+            let asset = PersonHero.placeholder.assetName()
+            let named = try #require(UIColor(named: asset, in: Bundle(for: BundleToken.self), compatibleWith: traits))
+            var alpha: CGFloat = 0
+            _ = named.resolvedColor(with: traits).getRed(nil, green: nil, blue: nil, alpha: &alpha)
+            #expect(alpha == 1, "\(style.rawValue) \(contrast.rawValue)")
+            let ground = Self.base(PersonHero.placeholder, style: style, contrast: contrast)
+            let mark = Self.base(.favouriteOff, style: style, contrast: contrast)
+            #expect(SRGB.contrast(mark, ground) >= (contrast == .high ? 4.5 : 3) - 0.005)
+        }
+    }
+
     @Test func titleAttachmentUsesTheWashColour() {
         let original = FermataShape.image(em: 24, isSet: false, scale: 2, scheme: .light, contrast: .standard)
         let adjusted = FermataShape.image(

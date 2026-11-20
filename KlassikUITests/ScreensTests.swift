@@ -868,6 +868,7 @@ final class PlaybackScreens: ScreensTestCase {
         let pitch: CGFloat = 9
         XCTAssertEqual(barDrop(), bare + 2 * pitch, accuracy: 0.5, "The bar has no room for the third lane")
         snap(app, "41d-note-lanes")
+        print("note-lanes bar frame \(position.frame)")
 
         // A tap at the height of the third lane picks the note under it, the span, and moves to its start. A scrub
         // there would move to the middle of the movement. The bar is 6 pt high, and a third-lane dot centres 2 lanes
@@ -885,7 +886,8 @@ final class PlaybackScreens: ScreensTestCase {
         spanEndOnBar.withOffset(CGVector(dx: 0, dy: -(6 + 2 * pitch + 6))).tap()
         XCTAssertTrue(
             eventually(timeout: 5) { abs(Self.seconds(position.value as? String ?? "") - spanEnd) <= 1 },
-            "A tap on the third lane at the span's end did not move to the moment there: \(position.value ?? "")")
+            "A tap on the third lane at the span's end did not move to the moment there: \(position.value ?? "")"
+                + " bar \(position.frame)")
         spanEndOnBar.withOffset(CGVector(dx: 0, dy: -(6 + 6))).tap()
         XCTAssertTrue(
             eventually(timeout: 5) { abs(Self.seconds(position.value as? String ?? "") - spanStart) <= 1 },

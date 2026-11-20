@@ -1,7 +1,0 @@
-{
-  "sha": "51542d704eed049c9b8989cb3ccd612fe65b7e96",
-  "branch": "claude-ci-batch",
-  "path": "claude-ci-batch",
-  "subject": "[sz-rs30.1.111] Count crash signs in the raw test log",
-  "ts": 1795159833
-}

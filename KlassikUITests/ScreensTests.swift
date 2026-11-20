@@ -227,6 +227,30 @@ final class PlacesScreens: ScreensTestCase {
 
 /// The pages that the lookup fills.
 final class BrowseScreens: ScreensTestCase {
+    @MainActor
+    func testPerformerSearchSpacing() throws {
+        let app = try launchAndConnect(openComposers: false)
+        openPlace(app, "Search")
+        app.buttons["performers"].tap()
+        let field = app.textFields["performer-search"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        let performer = app.buttons.matching(identifier: "performer").firstMatch
+        XCTAssertTrue(performer.waitForExistence(timeout: 10))
+        // The text starts after the page margin, field inset, magnifier and gap.
+        XCTAssertEqual(
+            field.frame.minX,
+            app.frame.minX + Layout.centredEdge + Layout.searchFieldLeading
+                + Layout.searchFieldIcon + Layout.searchFieldGap,
+            accuracy: 1, "The performer field lost its leading margin")
+        XCTAssertEqual(
+            field.frame.maxX, app.frame.maxX - Layout.centredEdge - Layout.searchFieldTrailing,
+            accuracy: 1, "The performer field lost its trailing margin")
+        XCTAssertGreaterThanOrEqual(
+            performer.frame.minY - (field.frame.midY + Layout.searchFieldHeight / 2),
+            Layout.searchRowBottom - 1, "The performer field lost its lower gap")
+        snap(app, "06g-performer-search-spacing")
+    }
+
     /// The field at the top finds works, people and albums in sections. Back from a result keeps the search; a tab
     /// opens Search empty (ADR 0025, 0029).
     @MainActor

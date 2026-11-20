@@ -1,5 +1,7 @@
 import Foundation
+import SwiftUI
 import Testing
+import UIKit
 
 @testable import Klassik
 
@@ -144,6 +146,36 @@ struct ListeningNotesTests {
         // Two dots closer than one mark overlap.
         #expect(lanes[close.id] == 1)
         #expect(ListeningNotes.lanes([note(10), note(20), note(30)], reach: 4).values.allSatisfy { $0 == 0 })
+    }
+
+    @Test func theBarKeepsRoomForEveryLaneAboveTheFirst() {
+        // A 600 s movement on a 360 pt bar: a mark is 10 s wide.
+        func room(_ notes: [ListeningNote]) -> CGFloat {
+            ListeningNotes.room(notes, duration: 600, width: 360)
+        }
+        let pitch = -Layout.noteDotTop
+        // The first lane sits in the gap above the bar, so the first note does not move the bar.
+        #expect(room([]) == 0)
+        #expect(room([note(10, 60)]) == 0)
+        #expect(room([note(10), note(100)]) == 0)
+        // A span with two moments inside it uses three lanes.
+        #expect(room([note(10, 60), note(30), note(30)]) == 2 * pitch)
+        // Two moments 5 s apart overlap at the real width only.
+        #expect(room([note(10), note(15)]) == pitch)
+        #expect(ListeningNotes.room([note(10), note(15)], duration: 600, width: 0) == 0)
+    }
+
+    @Test func theRowHasTheRoomOfItsLanesInTheFirstLayout() {
+        // The bar has no width of its own yet; the layout takes the room from the width that it proposes.
+        func height(_ notes: [ListeningNote]) -> CGFloat {
+            let bar = Color.clear.frame(height: Layout.positionBar).modifier(NoteRoom(notes: notes, duration: 600))
+            return UIHostingController(rootView: bar).sizeThatFits(in: CGSize(width: 360, height: 1000)).height
+        }
+        let pitch = -Layout.noteDotTop
+        #expect(height([]) == Layout.positionBar)
+        #expect(height([note(10, 60)]) == Layout.positionBar)
+        #expect(height([note(10), note(15)]) == Layout.positionBar + pitch)
+        #expect(height([note(10, 60), note(30), note(30)]) == Layout.positionBar + 2 * pitch)
     }
 
     @Test func aTapFindsTheNearestMark() {

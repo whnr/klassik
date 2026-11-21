@@ -21,6 +21,7 @@ private final class Counter: @unchecked Sendable {
             return value
         }
     }
+    var count: Int { lock.withLock { value } }
     func record(_ seconds: Int) { lock.withLock { log.append(seconds) } }
     var seconds: [Int] { lock.withLock { log } }
 }
@@ -201,6 +202,7 @@ struct PersonSweepTests {
         #expect(facts.pictureUnread == nil)
         #expect(store.cache.checked[Self.bach.key] == clock.now)
         #expect(store.cache.pictureWait[Self.bach.key] == nil)
+        #expect(store.cache.pictureFailures[Self.bach.key] == nil)
         #expect(log.found.count == 1)
     }
 
@@ -214,12 +216,23 @@ struct PersonSweepTests {
             }
             return try await stub.fetch(request)
         })
-        let sweep = PersonSweep(store: store, now: { Self.start }, sleep: { _ in })
+        let clock = TestClock(Self.start)
+        let sweep = PersonSweep(store: store, now: { clock.now }, sleep: { _ in })
         await sweep.run([Self.bach])
         await sweep.run([Self.bach])
-        #expect(commons.next() == PersonSweep.triesPerPass)
+        #expect(commons.count == PersonSweep.triesPerPass)
         sweep.measure([Self.bach])
         #expect(sweep.state == .upToDate)
+        // The first wait is one hour: no request before it, one more pass after it, then a wait of two hours.
+        clock.advance(days: (PersonSweep.pictureWaitHours * 3600 - 1) / 86_400)
+        await sweep.run([Self.bach])
+        #expect(commons.count == PersonSweep.triesPerPass)
+        clock.advance(days: 1.0 / 86_400)
+        await sweep.run([Self.bach])
+        #expect(commons.count == 2 * PersonSweep.triesPerPass)
+        #expect(store.cache.pictureFailures[Self.bach.key] == 2)
+        let wait = try #require(store.cache.pictureWait[Self.bach.key])
+        #expect(wait == clock.now.addingTimeInterval(2 * PersonSweep.pictureWaitHours * 3600))
     }
 
     @Test func aRetryAsksCommonsOnly() async throws {

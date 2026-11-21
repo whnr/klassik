@@ -28,8 +28,10 @@ retry that person on the standard person cadence."
 Added on 2026-11-21 for sz-rs30.1.135.4.
 
 - When the Commons request for a picture fails, the facts are not complete. The person is not marked as checked.
-- After the last failed try of a pass, such a person waits 24 hours, not the standard cadence. The next pass
-  after that wait takes the person first. A pass in the wait sends no request for the person.
+- After the last failed try of a pass, such a person waits 1 hour, not the standard cadence. Each next pass
+  that fails again doubles the wait, at most 24 hours. A short loss of the connection can fail both tries of a
+  pass, so the first wait is short. The next pass after the wait takes the person first. A pass in the wait
+  sends no request for the person. The count of failed passes is saved with the wait. A settled person loses both.
 - A retry asks Commons only, for the file that the facts name. Facts from older builds do not name the file,
   so their retry loads the facts again.
 - When Wikidata no longer has the item, the picture counts as read. The person settles with the old facts.
@@ -40,5 +42,5 @@ Added on 2026-11-21 for sz-rs30.1.135.4.
 - A person that failed twice waits up to 100 days for its next try. Settings does not count the person as new
   while it waits.
 - When the service is down, the pass still backs off, so it does not send a burst of failed requests.
-- A lasting Commons failure costs each person with a picture one try a day, and Settings shows the pass as up to
-  date while the persons wait.
+- A lasting Commons failure costs each person with a picture one pass at 1, 2, 4, 8 and 16 hours, then one pass
+  a day. Settings shows the pass as up to date while the persons wait.

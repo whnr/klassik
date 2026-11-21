@@ -46,6 +46,8 @@ final class PersonFactsStore {
         var picturePending: [String: PictureWork] = [:]
         /// When the background pass asks Commons again for an unread picture, by person key (ADR 0044).
         var pictureWait: [String: Date] = [:]
+        /// How many passes in a row ended without the picture, by person key. It sets the length of the wait (ADR 0044).
+        var pictureFailures: [String: Int] = [:]
 
         init() {}
 
@@ -64,6 +66,7 @@ final class PersonFactsStore {
             due = try container.decodeIfPresent([String: Date].self, forKey: .due) ?? [:]
             picturePending = try container.decodeIfPresent([String: PictureWork].self, forKey: .picturePending) ?? [:]
             pictureWait = try container.decodeIfPresent([String: Date].self, forKey: .pictureWait) ?? [:]
+            pictureFailures = try container.decodeIfPresent([String: Int].self, forKey: .pictureFailures) ?? [:]
             // A saved pick list that the name rule settles takes its composer, without a request. The facts
             // load on the next lookup, and the background pass takes the tag first.
             for (tag, resolution) in composers where !chosen.contains(tag) && !reopenedPickers.contains(tag) {
@@ -274,6 +277,7 @@ final class PersonFactsStore {
         cache.checked[key] = date
         cache.due[key] = due
         cache.pictureWait[key] = nil
+        cache.pictureFailures[key] = nil
         save()
     }
 
@@ -297,8 +301,9 @@ final class PersonFactsStore {
     }
 
     /// Records when the background pass asks again for a picture that Commons did not answer.
-    func postponePicture(_ key: String, until date: Date) {
+    func postponePicture(_ key: String, until date: Date, failures: Int) {
         cache.pictureWait[key] = date
+        cache.pictureFailures[key] = failures
         save()
     }
 

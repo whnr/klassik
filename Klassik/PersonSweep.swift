@@ -36,8 +36,11 @@ final class PersonSweep {
     nonisolated static let jitterDays = 10.0
     /// A pass tries one person at most this many times (ADR 0044). Then the person waits for its next due time.
     static let triesPerPass = 2
-    /// A picture that Commons did not answer in any try of a pass waits this long, not the cadence (ADR 0044).
-    static let pictureWaitHours = 24.0
+    /// A picture that Commons did not answer in any try of a pass waits this long after the first such pass, then
+    /// twice as long after each next one, at most `pictureWaitMaxHours` (ADR 0044). The first wait is short,
+    /// because a short loss of the connection can fail both tries of a pass.
+    static let pictureWaitHours = 1.0
+    static let pictureWaitMaxHours = 24.0
     /// The most shown performers that the pass keeps in front. A long scroll through the performers adds more.
     static let shownLimit = 100
 
@@ -278,10 +281,12 @@ final class PersonSweep {
 
     /// A person that failed every try of the pass gets the due time of a check, without being marked checked.
     /// A person without their picture waits a short time instead, so that a lasting Commons failure costs one
-    /// pass a day and the picture still arrives soon after Commons works again.
+    /// pass a day at most and the picture still arrives soon after Commons works again.
     private func postpone(_ person: Person) {
         if missesPicture(person) {
-            store.postponePicture(person.key, until: now().addingTimeInterval(Self.pictureWaitHours * 3600))
+            let failures = (store.cache.pictureFailures[person.key] ?? 0) + 1
+            let hours = min(Self.pictureWaitMaxHours, Self.pictureWaitHours * pow(2, Double(min(failures - 1, 10))))
+            store.postponePicture(person.key, until: now().addingTimeInterval(hours * 3600), failures: failures)
         } else {
             store.postpone(person.key, due: dueDate(of: person))
         }

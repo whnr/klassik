@@ -47,15 +47,21 @@ jobs:
           INPUT: ${{ inputs.ui }}
           PR: ${{ github.event.pull_request.number }}
           TITLE: ${{ github.event.pull_request.title }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         # Explicit bash adds pipefail, so a parser error fails this job and not only the walk's matrix.
         shell: bash
         run: |
           if [ "$EVENT" = pull_request ]; then
             gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/commits" --jq '.[].commit.message' > "$RUNNER_TEMP/messages"
+            # The checkout is the merge with main; a patch release must name the version of its own head.
+            gh api -H "Accept: application/vnd.github.raw+json" \
+              "repos/$GITHUB_REPOSITORY/contents/project.yml?ref=$HEAD_SHA" > "$RUNNER_TEMP/project.yml"
           else
             : > "$RUNNER_TEMP/messages"
+            : > "$RUNNER_TEMP/project.yml"
           fi
-          python3 scripts/screen_report.py plan "$EVENT" "$INPUT" "$TITLE" "$GITHUB_REF" < "$RUNNER_TEMP/messages" | tee -a "$GITHUB_OUTPUT"
+          python3 scripts/screen_report.py plan "$EVENT" "$INPUT" "$TITLE" "$GITHUB_REF" "$RUNNER_TEMP/project.yml" \
+            < "$RUNNER_TEMP/messages" | tee -a "$GITHUB_OUTPUT"
 
   # Runs on Linux, because macOS runner time is expensive. The macOS job starts only on clean code.
   lint:

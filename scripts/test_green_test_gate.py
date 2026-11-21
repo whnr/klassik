@@ -84,6 +84,8 @@ settings:
 targets:
   Klassik:
     type: application
+    dependencies:
+      - target: TaskRegistry
     settings:
       base:
         SWIFT_VERSION: "6.0"
@@ -182,6 +184,32 @@ class ReleaseHistoryTests(unittest.TestCase):
         self.repo.git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "mode")
         self.assertIsNone(self.repo.find({self.green})[0])
 
+    def test_one_quote_lines_around_a_dependency_fail_closed(self):
+        # In YAML the open quote takes in every line up to the close quote, so the target loses its dependency.
+        attack = PROJECT.replace(
+            "    dependencies:\n      - target: TaskRegistry\n",
+            '    MARKETING_VERSION: "1\n    dependencies:\n      - target: TaskRegistry\n    MARKETING_VERSION: 1"\n',
+        )
+        sha = self.repo.commit({"project.yml": attack, "docs/what-to-test.md": "# 0.16.1"})
+        found, reason = self.repo.find({self.green})
+        self.assertIsNone(found)
+        self.assertIn(f"no green Test run for {sha}", reason)
+
+    def test_an_added_version_line_fails_closed(self):
+        self.repo.commit(
+            {"project.yml": PROJECT.replace("      base:\n", '      base:\n        MARKETING_VERSION: "9"\n')}
+        )
+        self.assertIsNone(self.repo.find({self.green})[0])
+
+    def test_a_removed_version_line_fails_closed(self):
+        self.repo.commit({"project.yml": PROJECT.replace('    CURRENT_PROJECT_VERSION: "1"\n', "")})
+        self.assertIsNone(self.repo.find({self.green})[0])
+
+    def test_a_version_line_that_moves_fails_closed(self):
+        line = '    CURRENT_PROJECT_VERSION: "1"\n'
+        self.repo.commit({"project.yml": PROJECT.replace(line, "").replace("  base:\n", "  base:\n" + line, 1)})
+        self.assertIsNone(self.repo.find({self.green})[0])
+
     def test_a_root_commit_fails_closed(self):
         self.assertIsNone(self.repo.find(set())[0])
 
@@ -190,8 +218,15 @@ class VersionOnlyTests(unittest.TestCase):
     HEAD = "diff --git a/project.yml b/project.yml\nindex 1..2 100644\n--- a/project.yml\n+++ b/project.yml\n"
 
     def test_version_lines(self):
-        body = '@@ -9 +9 @@\n-    MARKETING_VERSION: "0.16.0"\n+    MARKETING_VERSION: "0.16.1"\n'
-        self.assertTrue(green_test_gate.version_only(self.HEAD + body))
+        for body in (
+            '@@ -9 +9 @@\n-    MARKETING_VERSION: "0.16.0"\n+    MARKETING_VERSION: "0.16.1"\n',
+            '@@ -9,2 +9,2 @@\n-  MARKETING_VERSION: "0.16.0"\n-  CURRENT_PROJECT_VERSION: 1\n'
+            '+  MARKETING_VERSION: "0.17.0"\n+  CURRENT_PROJECT_VERSION: 2\n',
+            "@@ -4 +4 @@ x\n-  MARKETING_VERSION: 1\n+  MARKETING_VERSION: 2\n"
+            "@@ -9 +9 @@\n-  CURRENT_PROJECT_VERSION: 1\n+  CURRENT_PROJECT_VERSION: 2\n",
+        ):
+            with self.subTest(body=body):
+                self.assertTrue(green_test_gate.version_only(self.HEAD + body))
 
     def test_rejects(self):
         for diff in (
@@ -201,6 +236,16 @@ class VersionOnlyTests(unittest.TestCase):
             self.HEAD + '@@ -9 +9 @@\n-    MARKETING_VERSION: "0.16.0"\n+    MARKETING_VERSION: "0.16.1" # x\n',
             self.HEAD + '@@ -9 +9 @@\n+    MARKETING_VERSION: "0.16.1"\n\\ No newline at end of file\n',
             "diff --git a/project.yml b/project.yml\nold mode 100644\nnew mode 100755\n",
+            self.HEAD + '@@ -15,0 +16 @@\n+    MARKETING_VERSION: "1\n@@ -17,0 +19 @@\n+    MARKETING_VERSION: 1"\n',
+            self.HEAD + '@@ -9 +9 @@\n-    MARKETING_VERSION: "0.16.0"\n+    MARKETING_VERSION: "1\n',
+            self.HEAD + '@@ -9 +9 @@\n-    MARKETING_VERSION: "0.16.0"\n+    MARKETING_VERSION: 1"\n',
+            self.HEAD + '@@ -9 +9 @@\n-    MARKETING_VERSION: "0.16.0"\n+      MARKETING_VERSION: "0.16.1"\n',
+            self.HEAD + '@@ -9 +9 @@\n-    MARKETING_VERSION: "0.16.0"\n+    CURRENT_PROJECT_VERSION: "2"\n',
+            self.HEAD + '@@ -9 +10 @@\n-    MARKETING_VERSION: "0.16.0"\n+    MARKETING_VERSION: "0.16.1"\n',
+            self.HEAD + '@@ -9,2 +9 @@\n-    MARKETING_VERSION: "0.16.0"\n-    CURRENT_PROJECT_VERSION: "1"\n'
+            '+    MARKETING_VERSION: "0.16.1"\n',
+            self.HEAD + '@@ -9 +9 @@\n-    MARKETING_VERSION: "0.16.0"\n',
+            self.HEAD + '@@ -9 +9 @@\n+    MARKETING_VERSION: "0.16.1"\n-    MARKETING_VERSION: "0.16.0"\n',
             "diff --git a/project.yml b/project.yml\ndeleted file mode 100644\n" + self.HEAD[40:],
         ):
             with self.subTest(diff=diff):

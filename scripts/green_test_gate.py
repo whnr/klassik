@@ -21,7 +21,11 @@ IGNORED = ["**.md", "LICENSE", "docs/**"]
 DEPTH = 50  # Docs-only pushes in a row are few; a longer chain needs a real Test run.
 VERSION_FILE = "project.yml"
 # CURRENT_PROJECT_VERSION is replaced by the TestFlight run number at archive time.
-VERSION_LINE = re.compile(r'[+-] *(MARKETING_VERSION|CURRENT_PROJECT_VERSION): "?[0-9]+(\.[0-9]+)*"?')
+# The value is fully quoted or bare. One quote alone opens a YAML string that takes in the lines after it.
+VERSION_LINE = re.compile(
+    r'[+-](?P<key> *(?:MARKETING_VERSION|CURRENT_PROJECT_VERSION)): (?:"[0-9]+(?:\.[0-9]+)*"|[0-9]+(?:\.[0-9]+)*)'
+)
+HUNK = re.compile(r"@@ -(?P<old>[0-9]+)(?:,(?P<removed>[0-9]+))? \+(?P<new>[0-9]+)(?:,(?P<added>[0-9]+))? @@.*")
 # The headers of a plain content change. A rename, mode change, deletion or binary diff adds other lines.
 DIFF_HEADERS = ("diff --git ", "index ", "--- ", "+++ ")
 
@@ -39,13 +43,32 @@ def is_ignored(path):
 
 
 def version_only(diff):
-    """True if `diff` (zero-context patch of project.yml) changes at least one line and only version lines."""
+    """True if `diff` (zero-context patch of project.yml) changes at least one line and only replaces version
+    values in place.
+
+    A bump never adds or removes a line. So each hunk must remove n lines and add n lines at the same place,
+    and the i-th added line must keep the key and indentation of the i-th removed line.
+    """
     lines = diff.splitlines()
     hunks = next((i for i, line in enumerate(lines) if line.startswith("@@")), len(lines))
-    if not all(line.startswith(DIFF_HEADERS) for line in lines[:hunks]):
+    if hunks == len(lines) or not all(line.startswith(DIFF_HEADERS) for line in lines[:hunks]):
         return False
-    body = [line for line in lines[hunks:] if not line.startswith("@@")]
-    return bool(body) and all(VERSION_LINE.fullmatch(line.rstrip()) for line in body)
+    rest = lines[hunks:]
+    while rest:
+        header = HUNK.fullmatch(rest[0])
+        if not header:
+            return False
+        count = int(header["removed"] or 1)
+        if count == 0 or header["old"] != header["new"] or int(header["added"] or 1) != count:
+            return False
+        removed, added, rest = rest[1 : count + 1], rest[count + 1 : 2 * count + 1], rest[2 * count + 1 :]
+        if len(added) != count:
+            return False
+        for old, new in zip(removed, added):
+            before, after = VERSION_LINE.fullmatch(old.rstrip()), VERSION_LINE.fullmatch(new.rstrip())
+            if not (before and after and old[0] == "-" and new[0] == "+" and before["key"] == after["key"]):
+                return False
+    return True
 
 
 def covering(commits, changed, green, version_diff):

@@ -349,11 +349,14 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertTrue(done.waitForExistence(timeout: 10))
         XCTAssertGreaterThan(done.frame.minY, app.frame.height / 3, "The sheet is not at the medium detent")
         XCTAssertEqual(app.staticTexts["filter-total"].label, "4\u{00A0}recordings")
-        // The note and the kinds start at the inset of the title; the kinds reach to Done (search.html .fsheet).
+        // The head and the body share one inset: Back leads the head, the title follows it, and the note and the
+        // kinds start under Back; the kinds reach to Done (search.html .fsheet).
+        let back = app.buttons["filter-back"]
         let title = app.staticTexts["Filters"]
+        XCTAssertGreaterThan(title.frame.minX, back.frame.maxX, "The title does not follow Back")
         let kinds = app.descendants(matching: .any)["filter-scopes"]
         for element in [app.staticTexts["filter-note"], kinds] {
-            XCTAssertEqual(element.frame.minX, title.frame.minX, accuracy: 2, "\(element) does not start at the title")
+            XCTAssertEqual(element.frame.minX, back.frame.minX, accuracy: 2, "\(element) does not start under Back")
         }
         XCTAssertEqual(kinds.frame.maxX, done.frame.maxX, accuracy: 2, "The kinds end before the sheet inset")
         snap(app, "19d-search-filter-sheet")

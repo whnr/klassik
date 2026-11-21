@@ -645,6 +645,7 @@ struct RecordingView: View {
                 spell.touching(phase == .tracking || phase == .interacting || phase == .decelerating)
             }
             .onChange(of: model.isScrubbing) { _, scrubbing in spell.hold(scrubbing) }
+            .onChange(of: draft != nil) { _, writing in spell.writing(writing) }
             // specimen player.html: each second, after a quiet spell, the player brings the playing row back.
             .task(id: isOverlay && isPlayingThis) {
                 guard isOverlay, isPlayingThis else { return }
@@ -652,8 +653,7 @@ struct RecordingView: View {
                 spell.touch()
                 while !Task.isCancelled {
                     try? await Task.sleep(for: .seconds(1))
-                    // specimen player.html: a note being written holds the rows.
-                    guard draft == nil, let movement = player.movement, recording.songs.indices.contains(movement),
+                    guard let movement = player.movement, recording.songs.indices.contains(movement),
                         spell.follow()
                     else { continue }
                     withAnimation(Motion.glide.animation(reduceMotion: reduceMotion)) {

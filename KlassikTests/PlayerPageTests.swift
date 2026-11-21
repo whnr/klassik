@@ -135,6 +135,22 @@ struct QuietSpellTests {
         #expect(late)
     }
 
+    @Test func aNoteHoldsTheRowsUntilASpellAfterItCloses() {
+        var spell = QuietSpell()
+        spell.writing(true, at: start)
+        let writing = spell.follow(at: start.advanced(by: .seconds(60)))
+        #expect(!writing)
+        spell.hold(true, at: start.advanced(by: .seconds(61)))
+        spell.hold(false, at: start.advanced(by: .seconds(62)))
+        let afterScrub = spell.follow(at: start.advanced(by: .seconds(70)))
+        #expect(!afterScrub)
+        spell.writing(false, at: start.advanced(by: .seconds(80)))
+        let justSaved = spell.follow(at: start.advanced(by: .seconds(81)))
+        #expect(!justSaved)
+        let later = spell.follow(at: start.advanced(by: .seconds(80) + QuietSpell.length))
+        #expect(later)
+    }
+
     @Test func aScrollByTheAppStartsNoSpell() {
         var spell = QuietSpell()
         spell.touching(false, at: start)

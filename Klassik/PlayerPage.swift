@@ -42,7 +42,7 @@ struct PlayerPage: Sendable {
 }
 
 /// When the player may scroll by itself (ADR 0027): only after a quiet spell without touches, and never while
-/// a scrub on the timeline holds the rows still.
+/// a scrub on the timeline or a note being written holds the rows still.
 struct QuietSpell: Sendable {
     /// specimen player.html waits 8000 ms.
     static let length = Duration.seconds(8)
@@ -50,6 +50,7 @@ struct QuietSpell: Sendable {
     private var lastTouch: ContinuousClock.Instant?
     private(set) var isHeld = false
     private(set) var isTouched = false
+    private(set) var isWriting = false
 
     mutating func touch(at now: ContinuousClock.Instant = .now) {
         lastTouch = now
@@ -69,9 +70,17 @@ struct QuietSpell: Sendable {
         lastTouch = now
     }
 
+    /// An open note holds the rows. Its own flag, so a scrub that ends while the note is open keeps the hold.
+    /// The spell begins when the note closes: in the specimen, the Save tap is a touch.
+    mutating func writing(_ on: Bool, at now: ContinuousClock.Instant = .now) {
+        guard on != isWriting else { return }
+        isWriting = on
+        lastTouch = now
+    }
+
     /// How long the page must still wait, or nil when it may scroll now.
     func wait(at now: ContinuousClock.Instant = .now) -> Duration? {
-        if isHeld || isTouched { return Self.length }
+        if isHeld || isTouched || isWriting { return Self.length }
         guard let lastTouch else { return nil }
         let rest = Self.length - (now - lastTouch)
         return rest > .zero ? rest : nil

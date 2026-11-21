@@ -1116,7 +1116,10 @@ final class PlaybackScreens: ScreensTestCase {
         // The drag down starts below the top, so it only scrolls back and bounces; a drag that starts at the top
         // closes the player, as a system sheet closes.
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
-            .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)))
+            .press(
+                forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)),
+                withVelocity: .slow, thenHoldForDuration: 0.5)
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
         from.press(forDuration: 0.05, thenDragTo: to)
         XCTAssertFalse(
             app.buttons["player-handle"].waitForNonExistence(timeout: 2),

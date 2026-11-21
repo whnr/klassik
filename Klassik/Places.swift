@@ -324,7 +324,7 @@ extension Place {
             search.automaticallyActivatesSearch = true
             tab = search
         } else {
-            tab = UITab(title: title, image: UIImage(systemName: symbol), identifier: rawValue) { _ in host }
+            tab = UITab(title: title, image: image, identifier: rawValue) { _ in host }
         }
         // UITab declares no accessibility identifier. In a Release build a protocol cast of the tab is a forced
         // cast that stops the app at launch. A run-time check of the setter is safe in every build.
@@ -333,11 +333,13 @@ extension Place {
         return tab
     }
 
-    var symbol: String {
+    /// Chronology draws the specimen lifelines (specimen.js `ICON.chronology`). It is a template image, so the tab
+    /// bar tints it as it tints a system symbol.
+    var image: UIImage? {
         switch self {
-        case .library: "books.vertical"
-        case .chronology: "calendar"
-        case .search: "magnifyingglass"
+        case .library: UIImage(systemName: "books.vertical")
+        case .chronology: UIImage(named: "Chronology")
+        case .search: UIImage(systemName: "magnifyingglass")
         }
     }
 }

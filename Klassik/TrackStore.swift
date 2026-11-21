@@ -143,7 +143,7 @@ final class TrackStore {
                 guard let self else { return }
                 guard self.transfers[transfer.songID] === transfer else { return }
                 self.transferEnded(transfer)
-                if transfer.snapshot.complete { self.loaded?(song, transfer.target, false) }
+                if transfer.hasCompleteFile { self.loaded?(song, transfer.target, false) }
             }
         }
         transport?(song, client, transfer)

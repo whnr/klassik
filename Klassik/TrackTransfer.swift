@@ -40,6 +40,7 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
     private var headReceived = false
     private var validator: String?
     private var complete = false
+    private var published = false
     private var failure: Failure?
     private var meter = ThroughputMeter()
     private var chunks: [Int64: Data] = [:]
@@ -49,19 +50,29 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
     private var waiters: [UUID: CheckedContinuation<URL, any Error>] = [:]
     private var storage: PartialAudioFile?
     private var session: URLSession?
+    private var dataTask: URLSessionDataTask?
+    private let capacity: Int64?
 
-    init(songID: String, partial: URL, target: URL, url: URL?) {
+    init(
+        songID: String, partial: URL, target: URL, url: URL?, capacity: Int64? = nil,
+        budget: AudioStorageBudget? = nil
+    ) {
         self.songID = songID
         self.partial = partial
         self.target = target
         self.url = url
+        self.capacity = capacity
         super.init()
         do {
-            storage = try PartialAudioFile(url: partial)
+            storage = try PartialAudioFile(url: partial, capacity: capacity, budget: budget)
         } catch {
             failure = .storage
         }
         meter.start(at: Self.now)
+    }
+
+    deinit {
+        if complete && !published { try? FileManager.default.removeItem(at: partial) }
     }
 
     // MARK: Network
@@ -78,9 +89,16 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
         var request = URLRequest(url: url)
         request.setValue("identity", forHTTPHeaderField: "Accept-Encoding")
         condition.lock()
+        guard failure == nil, !complete else {
+            condition.unlock()
+            session.invalidateAndCancel()
+            return
+        }
         self.session = session
+        let task = session.dataTask(with: request)
+        dataTask = task
         condition.unlock()
-        session.dataTask(with: request).resume()
+        task.resume()
     }
 
     /// Stops the transfer and removes its partial bytes.
@@ -111,22 +129,48 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
         condition.unlock()
     }
 
+    /// Finite writes wait on the transport queue. Main-actor and render callbacks must never append there.
     func append(_ data: Data) {
         condition.lock()
-        guard !complete, failure == nil, let storage else { return condition.unlock() }
-        do {
-            try storage.append(data)
-        } catch {
+        if let expected, Int64(data.count) > expected - available {
             condition.unlock()
-            return finish(.storage)
+            return finish(.truncated)
         }
-        available += Int64(data.count)
-        meter.record(data.count, at: Self.now)
-        condition.broadcast()
-        condition.unlock()
+        var offset = 0
+        var suspended = false
+        defer {
+            if suspended { dataTask?.resume() }
+            condition.unlock()
+        }
+        while offset < data.count {
+            guard !complete, failure == nil, let storage else { return }
+            let count = min(data.count - offset, Int(min(storage.writableBytes, Int64(Int.max))))
+            if count > 0 {
+                do {
+                    let part = offset == 0 && count == data.count ? data : data.subdata(in: offset..<(offset + count))
+                    try storage.append(part)
+                    offset += count
+                    available += Int64(count)
+                    meter.record(count, at: Self.now)
+                    condition.broadcast()
+                    continue
+                } catch PartialAudioFile.Failure.full {
+                } catch {
+                    condition.unlock()
+                    finish(.storage)
+                    condition.lock()
+                    return
+                }
+            }
+            if !suspended {
+                dataTask?.suspend()
+                suspended = true
+            }
+            _ = condition.wait(until: Date.now.addingTimeInterval(0.1))
+        }
     }
 
-    /// Ends the transfer. Without a failure the file is complete and moves to its target in one step.
+    /// Receiving the resource end does not restore discarded bytes. Only a whole file can publish to its target.
     func finish(_ failed: Failure?) {
         condition.lock()
         guard !complete, failure == nil else { return condition.unlock() }
@@ -138,7 +182,10 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
         } else {
             do {
                 guard let storage else { throw Failure.storage }
-                try storage.publish(to: target)
+                if storage.isWhole {
+                    try storage.publish(to: target)
+                    published = true
+                }
                 complete = true
                 expected = available
             } catch {
@@ -151,7 +198,7 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
         finishHandlers = []
         let waiters = self.waiters.values
         self.waiters = [:]
-        let result: Result<URL, Failure> = failure.map { .failure($0) } ?? .success(target)
+        let result = completionResult()
         condition.broadcast()
         condition.unlock()
         for handler in handlers { handler(result) }
@@ -162,7 +209,7 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
     func whenFinished(_ handler: @escaping @Sendable (Result<URL, Failure>) -> Void) {
         condition.lock()
         if complete || failure != nil {
-            let result: Result<URL, Failure> = failure.map { .failure($0) } ?? .success(target)
+            let result = completionResult()
             condition.unlock()
             return handler(result)
         }
@@ -180,7 +227,7 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
                     condition.unlock()
                     continuation.resume(throwing: CancellationError())
                 } else if complete || failure != nil {
-                    let result: Result<URL, Failure> = failure.map { .failure($0) } ?? .success(target)
+                    let result = completionResult()
                     condition.unlock()
                     continuation.resume(with: result.mapError { $0 as any Error })
                 } else {
@@ -201,6 +248,14 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
         condition.lock()
         defer { condition.unlock() }
         return Snapshot(available: available, expected: expected, complete: complete)
+    }
+
+    var hasCompleteFile: Bool { condition.withLock { published } }
+
+    /// Call with the transfer lock held. A received rolling resource still lacks discarded file bytes.
+    private func completionResult() -> Result<URL, Failure> {
+        if let failure { return .failure(failure) }
+        return published ? .success(target) : .failure(.requiresCompleteFile)
     }
 
     /// The delivered rate in bits per second, or nil before the first window of this path.
@@ -227,8 +282,12 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
                 condition.unlock()
                 throw failure
             }
+            if complete && position >= available {
+                condition.unlock()
+                return 0
+            }
             let end = expected.map { min(position + Int64(count), $0) } ?? position + Int64(count)
-            if available >= end || complete {
+            if available >= end || complete, storage?.contains(position..<max(position, end)) == true {
                 let wanted = Int(max(0, min(end, available) - position))
                 if wanted == 0 {
                     condition.unlock()
@@ -237,6 +296,10 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
                 do {
                     guard let storage else { throw Failure.storage }
                     let copied = try storage.read(at: position, count: wanted, into: destination)
+                    if let capacity {
+                        storage.discard(before: position + Int64(copied) - min(Self.rangeChunk, capacity / 4))
+                        condition.broadcast()
+                    }
                     condition.unlock()
                     return copied
                 } catch {
@@ -253,7 +316,9 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
                 condition.unlock()
                 return length
             }
-            if let url, let expected, position >= available + Self.rangeLead {
+            let arrivedEnd = min(end, available)
+            let discarded = position < arrivedEnd && storage?.contains(position..<arrivedEnd) != true
+            if let url, let expected, discarded || position >= available + Self.rangeLead {
                 guard let validator, Self.isSafeValidator(validator), !rangesRefused else {
                     condition.unlock()
                     throw .requiresCompleteFile
@@ -262,13 +327,17 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
                 let length = min(Self.rangeChunk, expected - position)
                 let data = Self.fetchRange(url, from: position, length: length, total: expected, validator: validator)
                 condition.lock()
-                if failure != nil || complete { continue }
+                if failure != nil { continue }
                 if let data {
                     chunks[position] = data
                     while chunks.count > Self.keptChunks, let oldest = chunks.keys.min() { chunks[oldest] = nil }
                     continue
                 }
                 rangesRefused = true
+            }
+            if discarded {
+                condition.unlock()
+                throw .requiresCompleteFile
             }
             if isCancelled() {
                 condition.unlock()

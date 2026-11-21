@@ -48,6 +48,8 @@ final class AudioStorageBudget: @unchecked Sendable {
             self.id = id
         }
 
+        var availableGrowth: Int64 { budget.lock.withLock { max(0, budget.maximum - budget.total()) } }
+
         /// Reserve growth before writing. Reusing circular slots needs no additional reservation.
         func resize(to bytes: Int64) -> Bool {
             budget.lock.withLock {

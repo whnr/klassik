@@ -37,6 +37,97 @@ struct TrackTransferTests {
         }
     }
 
+    nonisolated static func appendOnWorker(_ data: Data, to transfer: TrackTransfer) async {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global().async {
+                transfer.append(data)
+                transfer.finish(nil)
+                continuation.resume()
+            }
+        }
+    }
+
+    @Test func aRollingTransferPreservesEverySequentialByte() async throws {
+        let budget = AudioStorageBudget(limit: 16)
+        let transfer = TrackTransfer(
+            songID: "rolling", partial: root.appending(path: "rolling.partial"),
+            target: root.appending(path: "rolling.flac"),
+            url: nil, capacity: 16, budget: budget)
+        transfer.begin(length: 200, validator: nil)
+        defer {
+            transfer.cancel()
+            try? FileManager.default.removeItem(at: root)
+        }
+        let expected = Data(0..<200)
+        let producer = Task { await Self.appendOnWorker(expected, to: transfer) }
+        var actual = Data()
+        for position in stride(from: 0, to: 200, by: 4) {
+            actual.append(contentsOf: try await Self.readOnWorker(transfer, at: Int64(position), count: 4))
+            #expect(budget.storedBytes <= 16)
+        }
+        await producer.value
+        #expect(actual == expected)
+        #expect(transfer.snapshot.complete)
+        #expect(!transfer.hasCompleteFile)
+        #expect(!FileManager.default.fileExists(atPath: transfer.target.path()))
+        #expect(try Self.read(transfer, at: 0, count: 4) == Array(0..<4))
+        #expect(throws: TrackTransfer.Failure.requiresCompleteFile) { try Self.read(transfer, at: 4, count: 4) }
+        await #expect(throws: TrackTransfer.Failure.requiresCompleteFile) { try await transfer.finished() }
+        #expect(try Data(contentsOf: transfer.partial).count == 16)
+    }
+
+    @Test func cancellingAFullWindowWakesItsWriter() async throws {
+        let transfer = TrackTransfer(
+            songID: "rolling", partial: root.appending(path: "rolling.partial"),
+            target: root.appending(path: "rolling.flac"),
+            url: nil, capacity: 16)
+        transfer.begin(length: 200, validator: nil)
+        let producer = Task { await Self.appendOnWorker(Data(0..<200), to: transfer) }
+        for _ in 0..<100 where transfer.snapshot.available < 16 { try await Task.sleep(for: .milliseconds(2)) }
+        #expect(transfer.snapshot.available == 16)
+        #expect(!transfer.snapshot.complete)
+        transfer.cancel()
+        await producer.value
+        await #expect(throws: TrackTransfer.Failure.cancelled) { try await transfer.finished() }
+        #expect(!FileManager.default.fileExists(atPath: transfer.partial.path()))
+        try? FileManager.default.removeItem(at: root)
+    }
+
+    @Test func anOversizedResponseFailsBeforeAFullWindowCanBlock() async throws {
+        let transfer = TrackTransfer(
+            songID: "rolling", partial: root.appending(path: "rolling.partial"),
+            target: root.appending(path: "rolling.flac"),
+            url: nil, capacity: 4)
+        transfer.begin(length: 4, validator: nil)
+        transfer.append(Data(0..<8))
+        await #expect(throws: TrackTransfer.Failure.truncated) { try await transfer.finished() }
+        #expect(!FileManager.default.fileExists(atPath: transfer.partial.path()))
+        try? FileManager.default.removeItem(at: root)
+    }
+
+    @Test func evictingOtherFilesReleasesABlockedTransfer() async throws {
+        let budget = AudioStorageBudget(limit: 16)
+        budget.synchronize([root.appending(path: "old.flac"): 8])
+        let transfer = TrackTransfer(
+            songID: "rolling", partial: root.appending(path: "rolling.partial"),
+            target: root.appending(path: "rolling.flac"),
+            url: nil, capacity: 32, budget: budget)
+        transfer.begin(length: 16, validator: nil)
+        defer {
+            transfer.cancel()
+            try? FileManager.default.removeItem(at: root)
+        }
+        let producer = Task { await Self.appendOnWorker(Data(0..<16), to: transfer) }
+        for _ in 0..<100 where transfer.snapshot.available < 8 { try await Task.sleep(for: .milliseconds(2)) }
+        #expect(transfer.snapshot.available == 8)
+        #expect(!transfer.snapshot.complete)
+        budget.synchronize([:])
+        await producer.value
+        #expect(transfer.hasCompleteFile)
+        #expect(budget.storedBytes == 16)
+        #expect(try Self.read(transfer, at: 0, count: 16) == Array(0..<16))
+    }
+
     @Test func aReaderWaitsForTheBytes() async throws {
         let transfer = self.transfer()
         transfer.begin(length: 8, validator: nil)

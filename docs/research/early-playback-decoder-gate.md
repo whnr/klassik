@@ -60,7 +60,10 @@ Its tests cover repeated wraps, missing ranges, download reconstruction, disk tr
 The shared budget counts complete files, partial files, and open files after deletion.
 Concurrent writers cannot spend the same free bytes. Publication preserves one physical charge.
 Transfers use that backing without a finite capacity. Production rolling storage remains disabled.
-TrackStore accounting, transfer backpressure, download ownership changes, and bounded fallback must precede finite-capacity use.
+Finite transfers wait on their transport queue when the window or shared budget fills.
+Decoder reads release storage slots. Cancellation wakes blocked writes. Reclaimed resources never publish as complete files.
+The forty-second MP3 and FLAC reference probes use 1 MiB windows. Their iOS validation remains pending.
+TrackStore accounting, download ownership changes, and bounded fallback must precede production finite-capacity use.
 
 The cache lacks bounded storage for oversized tracks. Read-ahead still waits for the current transfer to finish.
 Pause cancels following automatic transfers and invalidates their decoder. Resume rebuilds from the audible checkpoint.

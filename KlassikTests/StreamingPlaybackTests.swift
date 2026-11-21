@@ -36,10 +36,13 @@ struct StreamingPlaybackTests {
     }
 
     /// `url` turns on range requests, which the MP3 decoder needs for its look at the end of the file.
-    func transfer(_ name: String, length: Int, url: URL? = nil, validator: String? = nil) -> TrackTransfer {
+    func transfer(
+        _ name: String, length: Int, url: URL? = nil, validator: String? = nil, capacity: Int64? = nil,
+        budget: AudioStorageBudget? = nil
+    ) -> TrackTransfer {
         let transfer = TrackTransfer(
             songID: name, partial: root.appending(path: "\(name).partial"), target: root.appending(path: name),
-            url: url)
+            url: url, capacity: capacity, budget: budget)
         transfer.begin(length: Int64(length), validator: validator)
         return transfer
     }
@@ -73,6 +76,62 @@ struct StreamingPlaybackTests {
     struct Buffers: @unchecked Sendable {
         var buffers: [AVAudioPCMBuffer]
         init(_ buffers: [AVAudioPCMBuffer]) { self.buffers = buffers }
+    }
+
+    /// The decoder crosses repeated storage wraps without changing source samples or requesting a complete file.
+    @Test(arguments: ["mp3", "flac"])
+    func aBoundedWindowMatchesTheCompleteFilePrefix(suffix: String) async throws {
+        let (client, songs) = try await Self.album("Early Playback", named: "Early Playback \(suffix.uppercased())")
+        let song = try #require(songs.first)
+        let (data, validator) = try await Self.resource(of: song, from: client)
+        // The window exceeds measured opening reads and still forces repeated wraps.
+        let capacity: Int64 = 1 << 20
+        let budget = AudioStorageBudget(limit: capacity)
+        let transfer = transfer(
+            "bounded.\(suffix)", length: data.count, url: client.streamURL(songID: song.id), validator: validator,
+            capacity: capacity, budget: budget)
+        let feeder = Self.feed(data, into: transfer)
+        defer {
+            feeder.cancel()
+            transfer.cancel()
+            try? FileManager.default.removeItem(at: root)
+        }
+        let decoded: Buffers = try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.global().async {
+                do {
+                    let decoder = try StreamDecoder(transfer: transfer, suffix: suffix, cancelled: CancelFlag())
+                    var buffers: [AVAudioPCMBuffer] = []
+                    var remaining = Int(decoder.sampleRate * 40)
+                    while remaining > 0 {
+                        guard let buffer = try decoder.read(frames: AVAudioFrameCount(min(remaining, 11_025))) else {
+                            throw StreamDecoder.Failure.prematureEnd(expected: Int64(remaining), actual: 0)
+                        }
+                        remaining -= Int(buffer.frameLength)
+                        buffers.append(buffer)
+                    }
+                    continuation.resume(returning: Buffers(buffers))
+                } catch { continuation.resume(throwing: error) }
+            }
+        }
+        let actual = Self.samples(decoded.buffers)
+        let local = root.appending(path: "reference.\(suffix)")
+        try data.write(to: local)
+        let file = try AVAudioFile(forReading: local)
+        if suffix == "mp3", let info = MP3GaplessInfo.parse(data) {
+            file.framePosition = info.playableRange(decodedLength: file.length).lowerBound
+        }
+        let expected = try #require(
+            AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(actual.count)))
+        try file.read(into: expected, frameCount: expected.frameCapacity)
+        #expect(actual == Self.samples([expected]))
+        #expect(transfer.snapshot.available > capacity)
+        #expect(transfer.snapshot.available < data.count)
+        #expect(budget.storedBytes <= capacity)
+        #expect(try Data(contentsOf: transfer.partial).count <= capacity)
+        #expect(!transfer.hasCompleteFile)
+        print(
+            "bounded \(suffix): received=\(transfer.snapshot.available), stored=\(budget.storedBytes), frames=\(actual.count)"
+        )
     }
 
     static func samples(_ buffers: [AVAudioPCMBuffer]) -> [Float] {

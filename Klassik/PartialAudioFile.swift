@@ -40,6 +40,12 @@ final class PartialAudioFile {
     var storedBytes: Int64 { min(received, capacity ?? .max) }
     var isWhole: Bool { reclaimed <= prefix }
 
+    func contains(_ range: Range<Int64>) -> Bool {
+        guard range.lowerBound >= 0, range.upperBound <= received else { return false }
+        if range.isEmpty || isWhole { return true }
+        return ranges.contains { $0.lowerBound <= range.lowerBound && range.upperBound <= $0.upperBound }
+    }
+
     /// These ranges contain bytes, rather than holes or samples that a decoder may treat as silence.
     var ranges: [Range<Int64>] {
         let head = 0..<min(prefix, received)
@@ -54,10 +60,12 @@ final class PartialAudioFile {
     }
 
     var writableBytes: Int64 {
-        guard let capacity else { return .max - received }
+        let growth = reservation?.availableGrowth ?? .max
+        guard let capacity else { return min(.max - received, growth) }
         let head = max(prefix - received, 0)
         let used = received - max(prefix, reclaimed)
-        return min(capacity - received + max(reclaimed - prefix, 0), head + window - max(used, 0))
+        let free = min(capacity - received + max(reclaimed - prefix, 0), head + window - max(used, 0))
+        return received >= capacity ? free : min(free, growth)
     }
 
     func append(_ data: Data) throws {

@@ -1,7 +1,7 @@
 {
-  "sha": "5ad34ccd3283ead3775c87bbdf405836ec877b84",
+  "sha": "b1aff79bec570657f452c7abcac906816d9220c9",
   "branch": "claude-player-specimen",
   "path": "claude-player-specimen",
-  "subject": "[sz-rs30.1.105.50] Drop a blank line in the walk",
-  "ts": 1795166446
+  "subject": "[sz-rs30.1.105.50] Merge main into the player",
+  "ts": 1795257500
 }

@@ -15,7 +15,8 @@ He could not find favourite recordings in Search.
 - Filters provides Back inside the sheet. Back closes Filters, then returns to the page before Search.
 - Leaving Search closes Filters. Returning never restores an open sheet.
 - Search shows Composers, Performers, Works, then Albums. A person who composes appears only under Composers.
-- Matching recordings appear under Albums and open their recording page. Each favourite recording shows its fermata.
+- Matching favourite recordings appear under Albums with their fermata and open their recording page.
+- Other recordings get no row. They open through their works and albums, and a row for each would bury the albums.
 - Search shows no hidden-work count.
 
 ## Consequences

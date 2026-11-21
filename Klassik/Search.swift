@@ -44,7 +44,7 @@ struct Search: Sendable {
         var id: String { recording.id }
     }
 
-    /// The results of the text. People show before works; recordings share the Albums section.
+    /// The results of the text. People show before works; favourite recordings share the Albums section.
     struct Results: Sendable {
         var works: [WorkIndex.Work] = []
         var people: [Person] = []
@@ -55,6 +55,14 @@ struct Search: Sendable {
         var performers: [Person] { people.filter { !$0.composes } }
 
         var isEmpty: Bool { works.isEmpty && people.isEmpty && albums.isEmpty && recordings.isEmpty }
+
+        /// Search lists only favourite recordings (ADR 0067). The others stay one tap away through their works
+        /// and albums, and a row for each would bury the albums.
+        func favouriteRecordings(_ isFavourite: (Recording) -> Bool) -> Results {
+            var kept = self
+            kept.recordings = recordings.filter(isFavourite)
+            return kept
+        }
     }
 
     private struct Entry<Item: Sendable>: Sendable {

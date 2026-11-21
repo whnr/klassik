@@ -80,6 +80,16 @@ struct SearchTests {
         #expect(Self.search.results(for: "humoresque").recordings.flatMap { $0.recording.songs.map(\.id) } == ["e1"])
     }
 
+    @Test func searchListsOnlyFavouriteRecordings() throws {
+        let found = Self.search.results(for: "symphony e minor")
+        #expect(found.recordings.count == 2)
+        let favourite = try #require(found.recordings.first)
+        let kept = found.favouriteRecordings { $0.id == favourite.id }
+        #expect(kept.recordings.map(\.id) == [favourite.id])
+        #expect(kept.works.map(\.id) == found.works.map(\.id))
+        #expect(found.favouriteRecordings { _ in false }.recordings.isEmpty)
+    }
+
     @Test func foldsCaseAndDiacritics() {
         let results = Self.search.results(for: "DVORAK")
         #expect(results.people.map(\.name) == [Self.dvorak])

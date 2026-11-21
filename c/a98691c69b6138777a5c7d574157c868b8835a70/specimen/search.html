@@ -191,7 +191,7 @@
         color: var(--color-text-secondary);
       }
 
-      /* A: a sheet at the medium detent; the results stay live above it. */
+      /* The native sheet dims its page and keeps focus inside (ADR 0067). */
       .fsheet {
         position: fixed;
         z-index: 61;
@@ -415,6 +415,18 @@
         // The filters count only what the text already found: the recordings of matching works, people and albums.
         let foundKey = null,
           foundSet = null;
+        const recordingHay = (r) =>
+          words(
+            [
+              r.workRef?.name,
+              r.composer,
+              r.album.name,
+              ...r.performers.map((p) => p.name),
+              ...r.songs.map((song) => song.title),
+            ]
+              .filter(Boolean)
+              .join(" "),
+          );
         function found() {
           const tokens = queryTokens(query);
           if (!tokens.length) return null;
@@ -440,6 +452,11 @@
                 set.add(r);
               });
             });
+          recs
+            .filter(({ r }) => matches(tokens, recordingHay(r)))
+            .forEach(({ r }) => {
+              set.add(r);
+            });
           foundKey = query;
           foundSet = set;
           return set;
@@ -451,7 +468,11 @@
 
         // ---------- Page, field and tab bar ----------
         // Search is a tab, yet it keeps a back arrow to the page it was opened from (Flo, round 8).
-        const { scroll } = K.page({ tab: "search", title: "Search", back: { label: "Library", href: "index.html" } });
+        const { app, scroll } = K.page({
+          tab: "search",
+          title: "Search",
+          back: { label: "Library", href: "index.html" },
+        });
         document.body.classList.add("search-page");
         const input = el("input", {
           type: "search",
@@ -702,6 +723,12 @@
           const q = queryTokens(narrowQ);
           const list = [...allTerms.keys()]
             .filter((t) => kindOf(t) === kind && !used.has(t) && (!q.length || matches(q, words(label(t)))))
+            .filter((t) => {
+              if (into == null || conds[into]?.includes(t)) return true;
+              const f = found();
+              const others = conds.filter((_, i) => i !== into);
+              return recs.some((x) => (!f || f.has(x.r)) && passes(x, others) && x.terms.has(t));
+            })
             .map((t) => ({ t, a: termAction(t, into) }))
             .filter((x) => x.a.n > 0 || x.a.on)
             .sort(
@@ -888,7 +915,6 @@
           const shown = wl
             .filter((x) => x.n > 0)
             .sort((a, b) => a.score - b.score || a.w.name.localeCompare(b.w.name, undefined, { numeric: true }));
-          const hidden = wl.length - shown.length;
           if (shown.length)
             out.push(
               section(
@@ -919,12 +945,16 @@
               .map((p) => ({ p, n: [...p.recs].filter((r) => ok.has(r)).length }))
               .filter((x) => x.n > 0)
               .sort((a, b) => b.n - a.n || a.p.name.localeCompare(b.p.name));
-            if (pl.length)
-              out.push(
+            const sections = [
+              ["Composers", pl.filter(({ p }) => p.roles.has("composer"))],
+              ["Performers", pl.filter(({ p }) => !p.roles.has("composer"))],
+            ]
+              .filter(([, rows]) => rows.length)
+              .map(([title, rows]) =>
                 section(
-                  "Composers and performers",
-                  pl.length,
-                  pl.map(({ p, n }) =>
+                  title,
+                  rows.length,
+                  rows.map(({ p }) =>
                     el(
                       "a",
                       { class: "row", href: K.personHref(p.name, { back: "Search" }) },
@@ -939,51 +969,77 @@
                   ),
                 ),
               );
+            out.unshift(...sections);
           }
           const al = albums
             .filter((x) => !tokens.length || matches(tokens, x.hay))
             .map((x) => ({ ...x, n: x.a.recordings.filter((r) => ok.has(r)).length }))
             .filter((x) => x.n > 0)
             .sort((a, b) => a.a.name.localeCompare(b.a.name));
-          if (al.length)
+          // Only favourite recordings get a row (ADR 0067); the others open through their works and albums.
+          const recordings = recs.filter(
+            ({ r }) =>
+              K.isFavourite("rec:" + r.id) && ok.has(r) && (!tokens.length || matches(tokens, recordingHay(r))),
+          );
+          if (al.length || recordings.length)
             out.push(
               section(
                 "Albums",
-                al.length,
-                al.map(({ a }) =>
-                  el(
-                    "a",
-                    { class: "row", href: href("player.html", { album: a.id, back: "Search" }) },
-                    K.coverImage(a),
+                al.length + recordings.length,
+                [
+                  ...al.map(({ a }) =>
                     el(
-                      "div",
-                      { class: "main" },
-                      el("div", { class: "t-body" }, a.name),
+                      "a",
+                      { class: "row", href: href("player.html", { album: a.id, back: "Search" }) },
+                      K.coverImage(a),
                       el(
                         "div",
-                        { class: "t-subheadline secondary" },
-                        [a.displayArtist || a.artist, a.year].filter(Boolean).join(", "),
+                        { class: "main" },
+                        el("div", { class: "t-body" }, a.name),
+                        el(
+                          "div",
+                          { class: "t-subheadline secondary" },
+                          [a.displayArtist || a.artist, a.year].filter(Boolean).join(", "),
+                        ),
                       ),
+                      el("span", { html: ICON.chevron }),
                     ),
-                    el("span", { html: ICON.chevron }),
                   ),
-                ),
+                  ...recordings.map(({ r }) =>
+                    el(
+                      "a",
+                      { class: "row", href: href("player.html", { recording: r.id, back: "Search" }) },
+                      el(
+                        "div",
+                        { class: "main" },
+                        el(
+                          "div",
+                          { class: "t-body" },
+                          K.titled(
+                            r.workRef?.name || r.album.name,
+                            K.isFavourite("rec:" + r.id) ? K.fermata(true, true) : null,
+                          ),
+                        ),
+                        el(
+                          "div",
+                          { class: "t-subheadline secondary" },
+                          [r.performers.map((p) => p.name).join(", "), r.album.name, r.year].filter(Boolean).join(", "),
+                        ),
+                      ),
+                      el("span", { html: ICON.chevron }),
+                    ),
+                  ),
+                ],
                 "calc(var(--space-l) + var(--size-coverRow) + var(--space-m))",
               ),
             );
           if (!out.length) out.push(el("div", { class: "nomatch t-subheadline" }, "No work, name or album matches."));
-          if (hidden > 0 && conds.length)
-            out.push(
-              el(
-                "div",
-                { class: "hint t-footnote", style: "padding-top: var(--space-l)" },
-                `The filters hide ${plural(hidden, "more work")} that match the text.`,
-              ),
-            );
           return out;
         }
 
         // ---------- A: the sheet ----------
+        const scrim = el("div", { class: "scrim", "aria-hidden": "true", onclick: () => setOpen(false) });
+        document.body.append(scrim);
         let sheetParts = null;
         function buildSheet() {
           const total = el("span", { class: "t-subheadline secondary nums" });
@@ -999,11 +1055,12 @@
           });
           const box = el(
             "div",
-            { class: "fsheet", role: "dialog", "aria-label": "Filters" },
+            { class: "fsheet", role: "dialog", "aria-modal": "true", "aria-label": "Filters", inert: true },
             el("div", { class: "grabber" }),
             el(
               "div",
               { class: "head" },
+              el("a", { class: "t-body tint", href: "index.html", onclick: () => setOpen(false) }, "Back"),
               el("h2", { class: "t-headline" }, "Filters"),
               total,
               el("button", { class: "t-body tint", onclick: () => setOpen(false) }, "Done"),
@@ -1011,6 +1068,24 @@
             el("div", { class: "body" }, condsBox, note, seg, narrow, list),
           );
           document.body.append(box);
+          box.addEventListener("keydown", (event) => {
+            if (event.key === "Escape") {
+              setOpen(false);
+              return;
+            }
+            if (event.key !== "Tab") return;
+            const items = [...box.querySelectorAll("button, a, input")];
+            const first = items[0],
+              last = items.at(-1);
+            if (event.shiftKey && document.activeElement === first) {
+              event.preventDefault();
+              last.focus();
+            }
+            if (!event.shiftKey && document.activeElement === last) {
+              event.preventDefault();
+              first.focus();
+            }
+          });
           riders.push((kb, up) => {
             up = up && box.contains(document.activeElement);
             box.style.bottom = up ? kb + 8 + "px" : "";
@@ -1033,7 +1108,11 @@
           if (!open) commit();
           if (!sheetParts) buildSheet();
           sheetParts.box.classList.toggle("on", open);
-          if (!open && document.activeElement) document.activeElement.blur();
+          sheetParts.box.inert = !open;
+          scrim.classList.toggle("on", open);
+          app.inert = open;
+          if (open) sheetParts.box.querySelector("a").focus();
+          else filtersBtn.focus();
           update();
         }
 
@@ -1067,7 +1146,7 @@
 
         if (open) {
           buildSheet();
-          requestAnimationFrame(() => sheetParts.box.classList.add("on"));
+          requestAnimationFrame(() => setOpen(true));
         }
         update();
         K.layoutChrome();

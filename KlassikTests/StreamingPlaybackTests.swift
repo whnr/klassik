@@ -55,7 +55,14 @@ struct StreamingPlaybackTests {
             var position = offset
             while position < data.count, !Task.isCancelled {
                 let end = min(position + chunk, data.count)
-                transfer.append(data.subdata(in: position..<end))
+                let bytes = data.subdata(in: position..<end)
+                // Storage backpressure must leave the cooperative executor available for cancellation and timers.
+                await withCheckedContinuation { continuation in
+                    DispatchQueue.global().async {
+                        transfer.append(bytes)
+                        continuation.resume()
+                    }
+                }
                 position = end
                 try? await Task.sleep(for: .milliseconds(1))
             }

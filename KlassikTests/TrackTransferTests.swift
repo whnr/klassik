@@ -31,7 +31,7 @@ struct TrackTransferTests {
         -> [UInt8]
     {
         try await withCheckedThrowingContinuation { continuation in
-            DispatchQueue.global(qos: .userInitiated).async {
+            DispatchQueue.global().async {
                 continuation.resume(with: Result { try Self.read(transfer, at: position, count: count) })
             }
         }

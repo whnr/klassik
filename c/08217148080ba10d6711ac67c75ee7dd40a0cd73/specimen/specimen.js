@@ -82,6 +82,10 @@ const K = (() => {
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v3M12 18.2v3M2.8 12h3M18.2 12h3M5.5 5.5l2.1 2.1M16.4 16.4l2.1 2.1M5.5 18.5l2.1-2.1M16.4 7.6l2.1-2.1"/></svg>',
     search:
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>',
+    updown:
+      '<svg class="updown" viewBox="0 0 10 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m1.5 5.5 3.5-4 3.5 4M1.5 10.5l3.5 4 3.5-4"/></svg>',
+    check:
+      '<svg class="check" viewBox="0 0 14 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m1.5 6.5 3.5 3.5 7.5-8.5"/></svg>',
     note: '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M9 17.5a3 3 0 1 1-2-2.8V5l11-2v11.5a3 3 0 1 1-2-2.8V6.3L9 7.6z"/></svg>',
   };
 
@@ -909,7 +913,10 @@ const K = (() => {
     player = false,
     actions = [],
     tabs = true,
+    grouped = false,
   }) {
+    // Settings and its pages keep inset grouped lists (ADR 0030); content pages use plain lists.
+    document.documentElement.classList.toggle("grouped", grouped);
     const filename = location.pathname.split("/").pop();
     if (!["index.html", "chronology.html", "search.html", ""].includes(filename)) tab = params.get("place") || tab;
     params.set("place", tab);
@@ -1286,9 +1293,130 @@ const K = (() => {
     chrome.overlay?.init();
   }
 
+  // The controls of an inset grouped page, drawn as SwiftUI draws them in a Form (ADR 0030): a menu picker with
+  // the value in the accent, a switch, a slider with step dots, a stepper, a link row and a destructive button.
+  const form = {
+    group: (head, rows, foot) =>
+      el(
+        "section",
+        { class: "section" },
+        head ? el("div", { class: "section-head t-footnote" }, head) : null,
+        el("div", { class: "list" }, ...rows),
+        foot ? el("p", { class: "section-foot t-footnote" }, foot) : null,
+      ),
+    value: (label, value) =>
+      el("div", { class: "row" }, el("span", { class: "main" }, label), el("span", { class: "trail" }, value)),
+    link: (label, target, value, back = "Settings") =>
+      el(
+        "a",
+        { class: "row", href: target ? href(target, { back }) : "#" },
+        el("span", { class: "main" }, label),
+        el("span", { class: "trail" }, value ? el("span", {}, value) : null, el("span", { html: ICON.chevron })),
+      ),
+    toggle: (label, on, onchange) =>
+      el(
+        "label",
+        { class: "row" },
+        el("span", { class: "main" }, label),
+        el("input", { class: "switch", type: "checkbox", role: "switch", checked: on, onchange }),
+      ),
+    // A tap opens the menu under the value; the current choice carries a check.
+    menu: (label, options, current, pick) => {
+      const shown = el("span", {}, options[current] ?? "");
+      const row = el(
+        "button",
+        { class: "row menu-row", type: "button", "aria-haspopup": "menu", "aria-label": label },
+        el("span", { class: "main" }, label),
+        el("span", { class: "trail menu-value" }, shown, el("span", { html: ICON.updown })),
+      );
+      row.addEventListener("click", () => {
+        if (row.closest(".section").querySelector(".menu-pop")) return;
+        const close = () => {
+          pop.remove();
+          document.removeEventListener("pointerdown", outside, true);
+        };
+        const outside = (event) => {
+          if (!pop.contains(event.target)) close();
+        };
+        const pop = el(
+          "div",
+          { class: "menu-pop", role: "menu" },
+          ...Object.entries(options).map(([value, title]) =>
+            el(
+              "button",
+              {
+                class: "menu-item",
+                type: "button",
+                role: "menuitemradio",
+                "aria-checked": String(value === current),
+                onclick: () => {
+                  current = value;
+                  shown.textContent = title;
+                  close();
+                  pick?.(value);
+                },
+              },
+              el("span", { class: "menu-mark", html: value === current ? ICON.check : "" }),
+              title,
+            ),
+          ),
+        );
+        // The list clips its rows, so the menu hangs from the section.
+        const section = row.closest(".section");
+        section.append(pop);
+        pop.style.top = `${row.getBoundingClientRect().bottom - section.getBoundingClientRect().top}px`;
+        document.addEventListener("pointerdown", outside, true);
+      });
+      return row;
+    },
+    // The value stands on the label line; the track runs under it with a dot for each step.
+    slider: (label, { min, max, step, value, format }) => {
+      const shown = el("span", { class: "trail" }, format(value));
+      const input = el("input", {
+        class: "slider",
+        type: "range",
+        min: String(min),
+        max: String(max),
+        step: String(step),
+        value: String(value),
+        "aria-label": label,
+      });
+      const fill = () => {
+        input.style.setProperty("--fill", `${((input.value - min) / (max - min)) * 100}%`);
+        shown.textContent = format(Number(input.value));
+      };
+      input.addEventListener("input", fill);
+      fill();
+      const dots = Math.round((max - min) / step) + 1;
+      return el(
+        "div",
+        { class: "row-block slider-block" },
+        el("div", { class: "row" }, el("span", { class: "main" }, label), shown),
+        input,
+        el("div", { class: "slider-dots", "aria-hidden": "true" }, ...Array.from({ length: dots }, () => el("span"))),
+      );
+    },
+    stepper: (label, value) =>
+      el(
+        "div",
+        { class: "row" },
+        el("span", { class: "main" }, label),
+        el("span", { class: "trail" }, value),
+        el(
+          "span",
+          { class: "stepper" },
+          el("button", { type: "button", "aria-label": "Decrement" }, "−"),
+          el("button", { type: "button", "aria-label": "Increment" }, "+"),
+        ),
+      ),
+    button: (label, { destructive = false, disabled = false } = {}) =>
+      el("button", { class: "row form-button" + (destructive ? " destructive" : ""), type: "button", disabled }, label),
+  };
+
   return {
     start,
     page,
+    form,
     el,
     ICON,
     setRoom,

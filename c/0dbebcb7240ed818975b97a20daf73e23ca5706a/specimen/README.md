@@ -12,6 +12,8 @@ The design reference of Klassik: every decision of the design map sz-rs30.1.83 a
 - `person.html`: a composer or performer page with the screen-wide picture (ADR 0017, 0019). The name sits on the picture over a blur and a measured scrim (ADR 0034). `?name=<artist name>`.
 - `lookup.html`: the MusicBrainz page of Settings with the Wikidata pass (ADR 0042). `?state=running`, `upToDate`, `waiting`, `connection` or `slowDown`. Settings links to it.
 - `settings.html`: Settings in inset grouped lists (ADR 0030): playback, colour, library, listening data, and the Technical Details switch. `?technical=on` shows the rows behind the switch.
+- `swipe.html`: the Swipe Actions page of Settings. Each edge lists its buttons as the row shows them, from left to right: Download and Favourite on a swipe right, Play Next and Add to Queue on a swipe left.
+- Settings, `lookup.html`, `storage.html` and `swipe.html` draw inset grouped lists with the SwiftUI Form controls from `K.form` (ADR 0030): a menu picker with its value in the accent, a switch, a slider with a dot for each step, a stepper and button rows. `K.page({ grouped: true })` marks such a page.
 - `tokens.html`: the token sheet. Every colour in the four themes side by side, contrast on rows, the type scale at each Dynamic Type size, spacing, radius, size and each animation alone. The Library cog opens Settings. Settings links to the token sheet.
 
 The flows follow ADR 0013 to 0029. Nothing comes from the UX prototypes.
@@ -60,7 +62,7 @@ In the folder above the specimen, run `python3 -m http.server 8765 --bind 0.0.0.
 
 ## Parity and previews
 
-The frame has three places, a Library Settings cog and a chevron Back button (ADRs 0038 and 0040).
+The frame has three places, a Library Settings cog and a named Back button (ADRs 0070 and 0040).
 A first tab tap restores its page. A second tap returns to its root.
 Above the player, every tab tap closes the overlay and restores that tab’s last page.
 A slide down restores the page underneath. The full pill stays visible.

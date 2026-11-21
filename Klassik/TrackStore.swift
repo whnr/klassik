@@ -92,9 +92,9 @@ final class TrackStore {
         self.downloadFolder = downloadFolder
         self.manifestURL = downloadFolder.deletingLastPathComponent().appending(path: "downloads.json")
         self.defaults = defaults
-        let stored = defaults.object(forKey: Self.limitKey) as? Int64
-        cacheLimit = stored ?? Self.defaultLimit
-        budget = AudioStorageBudget(limit: cacheLimit)
+        let limit = defaults.object(forKey: Self.limitKey) as? Int64 ?? Self.defaultLimit
+        cacheLimit = limit
+        budget = AudioStorageBudget(limit: limit)
         downloads = (try? JSONDecoder().decode([Download].self, from: Data(contentsOf: manifestURL))) ?? []
         // No transfer runs yet, so a partial file is left over from an earlier run.
         for file in Self.files(in: cacheFolder) where file.isPartial {

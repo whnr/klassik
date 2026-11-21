@@ -80,6 +80,8 @@ final class PCMConversion: @unchecked Sendable {
         }
         var conversionError: NSError?
         var inputError: (any Error)?
+        // Converter properties take its lock. The input callback runs while conversion already holds that lock.
+        let trailingFrames = converter.primeInfo.trailingFrames
         let status = converter.convert(to: output, error: &conversionError) { requested, status in
             guard !self.inputEnded else {
                 status.pointee = .endOfStream
@@ -96,7 +98,7 @@ final class PCMConversion: @unchecked Sendable {
                 do {
                     // Zero extension supplies the resampler's final interpolation. The output length excludes that extension.
                     let count = max(
-                        converter.primeInfo.trailingFrames,
+                        trailingFrames,
                         AVAudioFrameCount(ceil(self.inputFormat.sampleRate / self.format.sampleRate)) + 1)
                     guard let padding = AVAudioPCMBuffer(pcmFormat: self.inputFormat, frameCapacity: count) else {
                         throw Failure.allocation

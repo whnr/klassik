@@ -227,13 +227,16 @@ struct TrackStoreTests {
     }
 
     @Test func failedDownloadKeepsATrackThatAnotherDownloadHolds() async throws {
-        try write("a", in: "support/downloads", bytes: 10)
         let requests = Requests()
         requests.failing = ["b"]
         let store = try makeStore(requests)
+        store.download(recording("owner", ["a"]), title: "Other work", client: client)
+        await settle(store)
         store.download(recording("r1", ["a", "b"]), title: "Work", client: client)
         await settle(store)
         #expect(exists("a", in: "support/downloads"))
+        #expect(store.downloads.map(\.id) == ["owner"])
+        #expect(store.failures["r1"] != nil)
     }
 
     @Test func recordingDownloadsOnlyOnce() async throws {

@@ -48,7 +48,9 @@ struct PlaybackSessionHistoryTests {
         #expect(relaunch.state.isPaused)
         #expect(freshEngine.loads.isEmpty)
         relaunch.resume()
-        #expect(freshEngine.loads.last == FakeEngine.Load(songs: ["first-0", "first-1"], movement: 1, offset: 3.25))
+        #expect(
+            freshEngine.loads.last
+                == FakeEngine.Load(songs: ["first-0", "first-1", "album-0", "album-1"], movement: 1, offset: 3.25))
         session.stop()
         relaunch.stop()
     }

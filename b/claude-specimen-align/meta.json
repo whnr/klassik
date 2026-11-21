@@ -1,7 +1,7 @@
 {
-  "sha": "6b9851e49871c25507c357406c9546aafb6a6265",
+  "sha": "64910dc73ca60e1efa132dff4ccd4507d7c0e20f",
   "branch": "claude-specimen-align",
   "path": "claude-specimen-align",
-  "subject": "[sz-rs30.1.105.33] Merge main into alignment",
-  "ts": 1795256985
+  "subject": "Align the filter note and kinds under Back",
+  "ts": 1795262540
 }

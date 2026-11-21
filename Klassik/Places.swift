@@ -385,12 +385,14 @@ struct PlaceStack<Root: View>: View {
 
     var body: some View {
         let target = navigator.backTarget(for: place)
+        let titles = [place.title] + navigator.pages(in: place).map { $0.backTitle(in: model.library) }
         NavigationStack(
             path: Binding(
                 get: { navigator.pages(in: place) },
                 set: { navigator.setPages($0, in: place) })
         ) {
             root
+                .background { NavigationBackTitle(titles: titles) }
                 .modifier(PlaceInsets())
                 .toolbar {
                     if let target {
@@ -407,9 +409,8 @@ struct PlaceStack<Root: View>: View {
                                     navigator.goBack(from: place)
                                 }
                             } label: {
-                                // The system back button of iOS 27 draws the chevron only. The label keeps the name.
-                                Image(systemName: "chevron.backward")
-                                    .fontWeight(.semibold)
+                                Label(name, systemImage: "chevron.backward")
+                                    .labelStyle(.titleAndIcon)
                             }
                             // The system back button draws in the primary colour, not in the tint of the app.
                             .tint(.primary)
@@ -422,11 +423,62 @@ struct PlaceStack<Root: View>: View {
                     // From the second page on, the back button has a pages menu behind it.
                     // A repeated copy of the first page gets index 0 and shows no back tip.
                     PageView(page: page)
+                        .background { NavigationBackTitle(titles: titles) }
                         .modifier(PlaceInsets())
                         .environment(\.showsBackTip, (navigator.pages(in: place).firstIndex(of: page) ?? 0) >= 1)
                 }
         }
         .accessibilityHidden(navigator.isPlayerOpen)
+    }
+}
+
+/// An explicit native bar item supplies the visible name without replacing the system pop or its pages menu.
+private struct NavigationBackTitle: UIViewControllerRepresentable {
+    let titles: [String]
+
+    func makeUIViewController(context: Context) -> Controller { Controller() }
+
+    func updateUIViewController(_ controller: Controller, context: Context) {
+        controller.titles = titles
+        controller.configure()
+    }
+
+    final class Controller: UIViewController {
+        var titles: [String] = []
+
+        override func didMove(toParent parent: UIViewController?) {
+            super.didMove(toParent: parent)
+            configure()
+        }
+
+        override func viewWillAppear(_ animated: Bool) {
+            super.viewWillAppear(animated)
+            configure()
+        }
+
+        override func viewDidLayoutSubviews() {
+            super.viewDidLayoutSubviews()
+            configure()
+        }
+
+        func configure() {
+            var host: UIViewController = self
+            while let parent = host.parent, !(parent is UINavigationController) { host = parent }
+            guard let navigation = host.parent as? UINavigationController,
+                navigation.viewControllers.count == titles.count
+            else { return }
+            // SwiftUI derives back items during each push. The arriving page must also name the pages behind it.
+            for (page, title) in zip(navigation.viewControllers, titles) {
+                let item = page.navigationItem
+                guard
+                    item.backBarButtonItem?.title != title || item.backButtonTitle != title
+                        || item.backButtonDisplayMode != .default
+                else { continue }
+                item.backButtonDisplayMode = .default
+                item.backButtonTitle = title
+                item.backBarButtonItem = UIBarButtonItem(title: title, style: .plain, target: nil, action: nil)
+            }
+        }
     }
 }
 

@@ -59,6 +59,21 @@
             "section",
             { class: "section" },
             el(
+              "label",
+              { class: "row" },
+              "Player Tint",
+              el("input", { type: "range", min: "0", max: "5", step: "0.5", value: "3", "aria-label": "Player Tint" }),
+            ),
+            el(
+              "p",
+              { class: "section-foot t-footnote" },
+              "Temporary comparison. Default: 3×. Range: 0–5× in 0.5 steps.",
+            ),
+          ),
+          el(
+            "section",
+            { class: "section" },
+            el(
               "a",
               { class: "row", href: href("lookup.html", { back: "Settings" }) },
               "MusicBrainz and Wikidata lookup",

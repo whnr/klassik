@@ -1,7 +1,7 @@
 {
-  "sha": "2c44aca7f78873b18fc36a8b95dd314b79e92a46",
+  "sha": "ee62e11f1f5d20e0e718f7e0e908b34e09628e92",
   "branch": "codex-sz-rs30.1.125.3",
   "path": "codex-sz-rs30.1.125.3",
-  "subject": "[sz-rs30.1.125.1] Fix the instant play review findings",
-  "ts": 1795289755
+  "subject": "[sz-rs30.1.125.1] Load whole works on Wi-Fi only",
+  "ts": 1795290042
 }

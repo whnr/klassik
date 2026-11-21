@@ -18,7 +18,7 @@ enum Page: Hashable {
     case musicBrainz
     case worksToConfirm
     case worksWithoutMatch
-    case classicalFilter
+    case classicalRules
     case localStorage
     case swipeActions
     case diagnostics
@@ -90,7 +90,7 @@ extension Page {
         case .musicBrainz: return "MusicBrainz"
         case .worksToConfirm: return "To Confirm"
         case .worksWithoutMatch: return "No Match"
-        case .classicalFilter: return "Classical Filter"
+        case .classicalRules: return "Classical Rules"
         case .localStorage: return "Local Storage"
         case .swipeActions: return "Swipe Actions"
         case .diagnostics: return "Diagnostics"
@@ -99,6 +99,89 @@ extension Page {
         // The page loads the album name, so the arrow cannot name it.
         case .gaplessAlbum: return "Album"
         }
+    }
+}
+
+/// A person page needs decoded local pixels before the system starts its push transition.
+struct PersonPageLink<Label: View>: View {
+    @Environment(AppModel.self) private var model
+    @Environment(AppNavigator.self) private var navigator
+    let page: Page
+    var disclosure = true
+    @ViewBuilder let label: Label
+    @State private var opening = false
+
+    var body: some View {
+        Button {
+            guard !opening else { return }
+            opening = true
+            let place = navigator.selection
+            let stack = navigator.pages(in: place)
+            Task {
+                await model.preparePortrait(for: page, opening: true)
+                opening = false
+                guard navigator.selection == place, navigator.pages(in: place) == stack else { return }
+                navigator.open(page, in: place)
+            }
+        } label: {
+            Group {
+                if disclosure {
+                    DisclosureRow { label }
+                } else {
+                    label
+                }
+            }
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        // A row decodes its picture when the list is about to show it, so a tap finds it ready.
+        .task { await model.preparePortrait(for: page) }
+    }
+}
+
+/// Counts and carets must stay at the trailing edge when a title wraps.
+struct DisclosureRow<Label: View>: View {
+    @ViewBuilder let label: Label
+
+    var body: some View {
+        HStack(spacing: Layout.rowGap) {
+            label
+                .labeledContentStyle(TrailingValue())
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Image(systemName: "chevron.right")
+                .typeStyle(.footnote)
+                .fontWeight(.semibold)
+                .foregroundStyle(Palette.textTertiary)
+                .accessibilityHidden(true)
+        }
+    }
+}
+
+/// Counts must remain aligned when their labels wrap.
+struct TrailingValue: LabeledContentStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: Layout.rowGap) {
+            configuration.label
+                .frame(maxWidth: .infinity, alignment: .leading)
+            configuration.content
+                .foregroundStyle(.secondary)
+                .fixedSize()
+        }
+    }
+}
+
+extension AppModel {
+    /// Only local decoding can delay a push. The first image pass must never block browsing on a network request.
+    func preparePortrait(for page: Page, opening: Bool = false) async {
+        let portrait: PersonPortrait?
+        switch page {
+        case .composer(let name): portrait = people.facts(ofComposer: name)?.portrait
+        case .performer(let name): portrait = people.facts(ofPerformer: name)?.portrait
+        default: return
+        }
+        guard let portrait, PortraitLoader.ready(portrait) == nil else { return }
+        let local = PortraitLoader.stored({ _ in throw URLError(.notConnectedToInternet) }, in: { .pictures })
+        _ = await PortraitLoader.load(portrait, screen: PortraitLoader.deviceScreen, fetch: local, opening: opening)
     }
 }
 
@@ -153,8 +236,8 @@ struct PageView: View {
             WorkListView(title: "To Confirm", works: model.enrichment.summary(of: index).toConfirm)
         case .worksWithoutMatch:
             WorkListView(title: "No Match", works: model.enrichment.summary(of: index).unmatched)
-        case .classicalFilter:
-            FilterView()
+        case .classicalRules:
+            ClassicalRulesView()
         case .localStorage:
             LocalStorageView()
         case .swipeActions:

@@ -283,6 +283,14 @@ struct SubsonicClient: Sendable {
         _ = try await get("unstar", [URLQueryItem(name: "albumId", value: id)])
     }
 
+    func starArtist(_ id: String) async throws {
+        _ = try await get("star", [URLQueryItem(name: "artistId", value: id)])
+    }
+
+    func unstarArtist(_ id: String) async throws {
+        _ = try await get("unstar", [URLQueryItem(name: "artistId", value: id)])
+    }
+
     /// `format=raw` asks for the original file: a transcoded stream loses the MP3 gapless header.
     /// The address of a cover, scaled by the server to `size` pixels on its longer side.
     func coverArtURL(id: String, size: Int) -> URL {

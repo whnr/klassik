@@ -192,7 +192,9 @@ def marks(values, fam, day, high):
     favourite = (7 if high else 4.5) if day else (9 if high else 6.5)
     values["favourite"] = solve_on(0.19, nh, values, favourite, mark, day)
     # Not set: a quiet neutral at the 3:1 floor for a control (4.5 in Increase Contrast).
-    values["favourite-off"] = solve_on(0.012, PAPER_H if day else nh, values, 4.5 if high else 3.0, mark, day)
+    values["favourite-off"] = solve_on(
+        0.012, PAPER_H if day else nh, values, 4.5 if high else 3.0, 4.5 if high else 3.0, day
+    )
     # Fills are overlays: the Chronology draws its era bands over the composer lines.
     ink = "#3c3028" if day else "#f0e6d8"
     values["fill-standard"] = (ink, 0.16 if day else 0.2)

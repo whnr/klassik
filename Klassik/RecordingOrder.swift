@@ -6,6 +6,8 @@ protocol FavouriteServer: Sendable {
     func unstar(_ ids: [String]) async throws
     func starAlbum(_ id: String) async throws
     func unstarAlbum(_ id: String) async throws
+    func starArtist(_ id: String) async throws
+    func unstarArtist(_ id: String) async throws
     func getStarred() async throws -> Starred
 }
 
@@ -48,30 +50,59 @@ final class RecordingOrder {
         }
     }
 
-    var favouriteCount: Int { favouriteWorks.count + favouriteRecordings.count }
+    var favouriteAlbums: [WorkIndex.Album] {
+        library.index.albums.filter { $0.tracks.first?.albumId.map(albums.contains) == true }
+    }
+
+    var favouriteComposers: [WorkIndex.Composer] {
+        library.index.composers.filter { isFavourite(person: $0.name) }
+    }
+
+    var favouritePerformers: [WorkIndex.Performer] {
+        library.index.performers.filter { isFavourite(person: $0.name) }
+    }
+
+    var favouriteCount: Int {
+        favouriteWorks.count + favouriteRecordings.count + favouriteAlbums.count
+            + favouriteComposers.count + favouritePerformers.count
+    }
+
+    var pendingChanges: [DeviceStore.FavouriteChange] { data.pendingFavourites }
+
+    func title(of change: DeviceStore.FavouriteChange) -> String {
+        if let artist = change.artist { return artist.name }
+        if let album = change.album {
+            return library.index.albums.first { $0.tracks.first?.albumId == album }?.title ?? album
+        }
+        return change.songs.map { id in library.songs.first { $0.id == id }?.title ?? id }.joined(separator: ", ")
+    }
 
     private let library: Library
-    private let store: DeviceStore?
+    private let file: ListenerFile
     private let server: (any FavouriteServer)?
-    private var data = DeviceStore.Data()
+    private var data: DeviceStore.Data { file.data }
     private var artists: [Song.Artist] = []
     private var albums: Set<String> = []
     /// A tap never waits for the server (ADR 0052), so no favourite control is ever disabled.
     let isSaving = false
     /// A failure of the device file. Server failures never show here: they set `serverTrouble`.
     var error: String?
-    private(set) var loadError: String?
+    var loadError: String? { file.loadError }
     private(set) var refreshError: String?
     /// Why changes wait, after the last call to the server. It is nil when the server took every change.
     private(set) var serverTrouble: ServerTrouble?
     @ObservationIgnored private var syncTask: Task<Void, Never>?
 
-    init(library: Library, store: DeviceStore? = nil, server: (any FavouriteServer)? = nil) {
+    convenience init(library: Library, store: DeviceStore? = nil, server: (any FavouriteServer)? = nil) {
+        self.init(library: library, file: ListenerFile(store: store), server: server)
+    }
+
+    init(library: Library, file: ListenerFile, server: (any FavouriteServer)? = nil) {
         self.library = library
-        self.store = store
+        self.file = file
         self.server = server
-        do { data = try store?.load() ?? DeviceStore.Data() } catch { loadError = error.localizedDescription }
         albums = data.favouriteAlbums
+        artists = data.favouriteArtists
         library.project(data.pendingFavourites)
     }
 
@@ -161,6 +192,31 @@ final class RecordingOrder {
 
     func isFavourite(album id: String) -> Bool { albums.contains(id) }
 
+    /// A composer or performer is a favourite when the server stars the artist of that name (ADR 0013).
+    func isFavourite(person name: String) -> Bool { artists.contains { $0.name == name } }
+
+    /// A person can be starred only through an ID supplied by the server, never a Wikidata ID.
+    func artist(named name: String) -> Song.Artist? {
+        library.index.artists[name]
+            ?? artists.first { $0.name == name && !$0.id.isEmpty }
+    }
+
+    func begin(person name: String) -> (@MainActor () async -> Void)? {
+        guard server != nil, let artist = artist(named: name) else { return nil }
+        guard loadError == nil else {
+            error = loadError
+            return nil
+        }
+        let isSet = !isFavourite(person: name)
+        var changed = data
+        changed.favouriteArtists.removeAll { $0.id == artist.id }
+        if isSet { changed.favouriteArtists.append(artist) }
+        changed.queue(DeviceStore.FavouriteChange(artist: artist, isSet: isSet))
+        guard save(changed) else { return nil }
+        artists = changed.favouriteArtists
+        return { [self] in await synchronize() }
+    }
+
     func toggle(album id: String) async {
         await begin(album: id)?()
     }
@@ -231,11 +287,19 @@ final class RecordingOrder {
             // A later tap on the same target replaces a change while an earlier one is on its way.
             guard data.pendingFavourites.contains(where: { $0.id == change.id }) else { continue }
             do {
-                switch (change.album, change.isSet) {
-                case (let album?, true): try await server.starAlbum(album)
-                case (let album?, false): try await server.unstarAlbum(album)
-                case (nil, true): try await server.star(change.songs)
-                case (nil, false): try await server.unstar(change.songs)
+                if let artist = change.artist {
+                    if change.isSet {
+                        try await server.starArtist(artist.id)
+                    } else {
+                        try await server.unstarArtist(artist.id)
+                    }
+                } else {
+                    switch (change.album, change.isSet) {
+                    case (let album?, true): try await server.starAlbum(album)
+                    case (let album?, false): try await server.unstarAlbum(album)
+                    case (nil, true): try await server.star(change.songs)
+                    case (nil, false): try await server.unstar(change.songs)
+                    }
                 }
                 var changed = data
                 changed.pendingFavourites.removeAll { $0.id == change.id }
@@ -262,6 +326,11 @@ final class RecordingOrder {
             var songs = Set((stars.song ?? []).map(\.id))
             var albums = Set((stars.album ?? []).map(\.id))
             for change in data.pendingFavourites {
+                if let artist = change.artist {
+                    artists.removeAll { $0.id == artist.id }
+                    if change.isSet { artists.append(artist) }
+                    continue
+                }
                 switch (change.album, change.isSet) {
                 case (let album?, true): albums.insert(album)
                 case (let album?, false): albums.remove(album)
@@ -273,6 +342,7 @@ final class RecordingOrder {
             library.replaceStars(songs)
             var changed = data
             changed.favouriteAlbums = albums
+            changed.favouriteArtists = artists
             for work in library.index.composers.flatMap(\.works) {
                 changed.recordingOrder[work.id] = rows(of: work).filter(\.isFavourite).map(\.id)
             }
@@ -289,8 +359,7 @@ final class RecordingOrder {
         }
         guard changed != data else { return true }
         do {
-            try store?.save(changed)
-            data = changed
+            try file.save(changed)
             library.project(changed.pendingFavourites)
             return true
         } catch {
@@ -308,6 +377,8 @@ final class RecordingOrder {
         func unstar(_ ids: [String]) async throws { throw URLError(.notConnectedToInternet) }
         func starAlbum(_ id: String) async throws { throw URLError(.notConnectedToInternet) }
         func unstarAlbum(_ id: String) async throws { throw URLError(.notConnectedToInternet) }
+        func starArtist(_ id: String) async throws { throw URLError(.notConnectedToInternet) }
+        func unstarArtist(_ id: String) async throws { throw URLError(.notConnectedToInternet) }
         func getStarred() async throws -> Starred { try await client.getStarred() }
     }
 #endif

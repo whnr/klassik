@@ -61,6 +61,13 @@ final class PlaybackSession {
             updateNextCommand()
         }
     }
+
+    /// Both playing cover slots follow the audible movement, including a start within a recording.
+    var coverSong: Song? {
+        guard let songs = item?.recording.songs else { return nil }
+        guard let movement, songs.indices.contains(movement) else { return songs.first }
+        return songs[movement]
+    }
     private(set) var position = 0.0
     private(set) var segments: [Double] = []
     var isPaused: Bool { !playback.shouldPlay }

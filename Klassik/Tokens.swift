@@ -36,14 +36,18 @@ enum Palette: String, CaseIterable, ShapeStyle, Sendable {
     case swipeFavourite = "SwipeFavourite"
 
     /// The name of the colour set in the asset catalog.
-    func assetName(in family: AccentFamily = .standard) -> String {
+    func assetName(in family: AccentFamily = .current) -> String {
         "\(family.rawValue)/\(rawValue)"
     }
 
+    /// The colour in the family that the listener picked in Settings.
     var color: Color { Color(assetName()) }
 
+    /// The player wash solves colours again on its ground. They come through the environment (ADR 0034).
+    /// The family comes through the environment too, so that a new pick redraws every style at once.
     func resolve(in environment: EnvironmentValues) -> Color.Resolved {
-        color.resolve(in: environment)
+        environment.paletteOverrides[self]
+            ?? Color(assetName(in: environment.accentFamily)).resolve(in: environment)
     }
 }
 

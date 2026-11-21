@@ -2,7 +2,11 @@
 
 Date: 2026-11-08. Decided by Flo after specimen rounds 10 to 14 on the phone. Beads: sz-rs30.1.83.5, sz-rs30.1.83.15.
 
+The title spacing is refined by [0061](0061-work-pages-and-ready-person-pictures.md).
+
 The hairline rules are refined by [0055](0055-hairlines-between-list-items.md).
+
+The Chronology drawer list rule is replaced by [0063](0063-chronology-works-drawer.md).
 
 ## Context
 

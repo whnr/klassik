@@ -49,7 +49,13 @@ final class PersonSweep {
     private let now: @Sendable () -> Date
     private let sleep: @Sendable (Duration) async -> Void
     private let jitter: @Sendable () -> Double
+    /// Keeps a found picture on the device, given the picture that the person had before the lookup.
+    private let keepPicture: @MainActor @Sendable (PersonPortrait, PersonPortrait?) async -> Bool
+    private let hasPicture: @MainActor @Sendable (PersonPortrait) async -> Bool
     private var task: Task<Void, Never>?
+    /// Picture downloads run one after the other beside the lookup, so that they never slow it down.
+    @ObservationIgnored private var pictureWork: Task<Void, Never>?
+    @ObservationIgnored private var pictureID = UUID()
     /// Performers that a page shows and that have no saved check, the latest page first (ADR 0046).
     @ObservationIgnored private(set) var shown: [Person] = []
 
@@ -59,13 +65,17 @@ final class PersonSweep {
         sleep: @escaping @Sendable (Duration) async -> Void = { try? await Task.sleep(for: $0) },
         jitter: @escaping @Sendable () -> Double = {
             Double.random(in: -PersonSweep.jitterDays...PersonSweep.jitterDays)
-        }
+        },
+        pictures: @escaping @MainActor @Sendable (PersonPortrait, PersonPortrait?) async -> Bool = { _, _ in true },
+        hasPicture: @escaping @MainActor @Sendable (PersonPortrait) async -> Bool = { _ in true }
     ) {
         self.store = store
         self.isConnectionGood = isConnectionGood
         self.now = now
         self.sleep = sleep
         self.jitter = jitter
+        keepPicture = pictures
+        self.hasPicture = hasPicture
     }
 
     // MARK: Plan
@@ -144,14 +154,17 @@ final class PersonSweep {
         }
     }
 
-    /// Returns when the pass has ended.
+    /// Returns when the pass and its picture downloads have ended.
     func finish() async {
         await task?.value
+        await pictureWork?.value
     }
 
     /// Stops the pass. The persons that it settled stay settled.
     func stop() {
         task?.cancel()
+        pictureWork?.cancel()
+        pictureID = UUID()
         task = nil
         if case .running = state { state = .idle }
     }
@@ -159,6 +172,16 @@ final class PersonSweep {
     /// Runs a pass to its end, and returns when it ends or is stopped.
     /// A failed person goes to the end of the queue, so that it does not hold up the others (ADR 0044).
     func run(_ people: [Person]) async {
+        for person in people {
+            guard !Task.isCancelled else { return }
+            if let found = portrait(of: person) {
+                let kept = await hasPicture(found)
+                if store.cache.picturePending[person.key] == nil, !kept {
+                    store.queuePicture(person.key, portrait: found, old: nil)
+                }
+            }
+            if let work = store.cache.picturePending[person.key] { queuePicture(person.key, work: work) }
+        }
         let found = plan(people)
         let jobs = order(people)
         let newOnes = Set(found.new)
@@ -254,6 +277,7 @@ final class PersonSweep {
 
     /// Looks one person up, or asks again for their facts. Returns false when a request failed.
     private func settle(_ person: Person) async -> Bool {
+        let before = portrait(of: person)
         let isNew = store.cache.checked[person.key] == nil
         let ok: Bool
         switch person.kind {
@@ -263,7 +287,31 @@ final class PersonSweep {
             ok = await settle(performer: person, isNew: isNew)
         }
         if ok { store.markChecked(person.key, at: now(), due: dueDate(of: person)) }
+        // Each lookup fetches the picture, so a page never waits for it and a changed one replaces the old (ADR 0059).
+        if ok, let found = portrait(of: person) {
+            store.queuePicture(person.key, portrait: found, old: before)
+            if let work = store.cache.picturePending[person.key] { queuePicture(person.key, work: work) }
+        }
         return ok
+    }
+
+    private func portrait(of person: Person) -> PersonPortrait? {
+        let qid = person.kind == .composer ? store.qid(ofComposer: person.tag) : store.qid(ofPerformer: person.tag)
+        return qid.flatMap { store.cache.people[$0]?.portrait }
+    }
+
+    private func queuePicture(_ key: String, work: PersonFactsStore.PictureWork) {
+        let previous = pictureWork
+        let keep = keepPicture
+        let id = pictureID
+        pictureWork = Task {
+            await previous?.value
+            await store.saved()
+            guard !Task.isCancelled, pictureID == id, isConnectionGood() else { return }
+            if await keep(work.portrait, work.old), !Task.isCancelled, pictureID == id {
+                store.finishPicture(key, work: work)
+            }
+        }
     }
 
     private func settle(composer person: Person, isNew: Bool) async -> Bool {
@@ -278,8 +326,8 @@ final class PersonSweep {
     }
 }
 
-/// Tells whether the connection suits a long run of small requests: it works, and it is neither metered nor
-/// in Low Data Mode (ADR 0042).
+/// Tells whether the connection suits a long run of small requests: it works and it is not metered. Low Data
+/// Mode alone does not stop people pictures (ADR 0061); mobile data keeps the limit of ADR 0042.
 final class ConnectionMonitor: @unchecked Sendable {
     private let monitor = NWPathMonitor()
     private let lock = NSLock()
@@ -288,7 +336,7 @@ final class ConnectionMonitor: @unchecked Sendable {
     /// `onConnect` also accepts mobile data and Low Data Mode for small queued writes.
     init(onConnect: @escaping @Sendable () -> Void = {}) {
         monitor.pathUpdateHandler = { [weak self] path in
-            let usable = path.status == .satisfied && !path.isConstrained && !path.isExpensive
+            let usable = path.status == .satisfied && !path.isExpensive
             self?.lock.withLock { self?.good = usable }
             if path.status == .satisfied { onConnect() }
         }

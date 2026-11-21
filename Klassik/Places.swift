@@ -19,6 +19,7 @@ struct PlacesView: View {
             side: side,
             reservedWidth: playing ? MiniPlayer.width(height: rowHeight, edgeInset: pillInset) + Space.s.points : 0,
             playerOpen: navigator.isPlayerOpen,
+            accent: AccentChoice.shared.family,
             onLayout: { tabBarFrame = $0 }
         )
         .ignoresSafeArea(.container)
@@ -63,6 +64,16 @@ struct PlacesView: View {
     }
 }
 
+/// A hosting controller starts its own environment, so the root of each host reads the accent pick itself
+/// (ADR 0034). The read observes the pick, so every control under it takes a new family at once.
+private struct AccentRoot: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .tint(Palette.tint)
+            .environment(\.accentFamily, AccentChoice.shared.family)
+    }
+}
+
 /// UIKit supplies glass selection, drag tracking and accessibility. Only the bar's available width changes.
 private struct SystemPlaces: UIViewControllerRepresentable {
     let model: AppModel
@@ -72,6 +83,8 @@ private struct SystemPlaces: UIViewControllerRepresentable {
     let side: TimelineSide
     let reservedWidth: CGFloat
     let playerOpen: Bool
+    /// A new pick updates the controller, so the tab bar takes the new tint.
+    let accent: AccentFamily
     let onLayout: @MainActor (CGRect) -> Void
 
     func makeUIViewController(context: Context) -> PlacesController {
@@ -82,7 +95,7 @@ private struct SystemPlaces: UIViewControllerRepresentable {
             let root: AnyView
             switch place {
             case .library: root = AnyView(PlaceStack(place: place) { LibraryView() })
-            case .chronology: root = AnyView(PlaceStack(place: place) { WorkTimelineView() })
+            case .chronology: root = AnyView(PlaceStack(place: place) { ChronologyView() })
             case .search: root = AnyView(PlaceStack(place: place) { SearchView() })
             }
             let host = UIHostingController(
@@ -92,13 +105,13 @@ private struct SystemPlaces: UIViewControllerRepresentable {
                     .environment(navigator)
                     .environment(\.placeBackTransition, backTransition)
                     .environment(\.tabRowClearance, Space.s.points)
-                    .tint(Palette.tint))
+                    .modifier(AccentRoot()))
             return place.tab(host)
         }
         controller.installPlayer(
             AnyView(
                 PlayerOverlayLayer().environment(model).environment(navigator)
-                    .environment(controller.playerLayout).tint(Palette.tint)))
+                    .environment(controller.playerLayout).modifier(AccentRoot())))
         return controller
     }
 
@@ -112,7 +125,7 @@ private struct SystemPlaces: UIViewControllerRepresentable {
         controller.onLayout = onLayout
         controller.reservedWidth = reservedWidth
         controller.side = side
-        controller.tabBar.tintColor = Palette.tint.uiColor
+        controller.tabBar.tintColor = UIColor(named: Palette.tint.assetName(in: accent))
         controller.view.setNeedsLayout()
     }
 
@@ -184,11 +197,6 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
     private func configureBackGesture() {
         guard backTransition?.isTracking != true, let navigator, let window = view.window else { return }
         if nativePan?.state == .began || nativePan?.state == .changed { return }
-        if let nativePan, let nativePanView, nativePan.view !== nativePanView {
-            nativePanView.addGestureRecognizer(nativePan)
-        }
-        nativePan = nil
-        nativePanView = nil
         if edgePan == nil {
             let pan = UIScreenEdgePanGestureRecognizer(target: self, action: #selector(dragBack(_:)))
             pan.edges = .left
@@ -198,18 +206,26 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
         }
         let root = navigator.pages(in: navigator.selection).isEmpty
         edgePan?.isEnabled = root && !navigator.isPlayerOpen && navigator.backTarget(for: navigator.selection) != nil
-        if !root, side == .left, !navigator.isPlayerOpen,
-            let navigation = navigationController(in: selectedViewController),
-            let pan = navigation.interactivePopGestureRecognizer
-        {
-            nativePan = pan
-            nativePanView = pan.view
-            window.addGestureRecognizer(pan)
+        let navigation = navigationController(in: selectedViewController)
+        let next =
+            !root && side == .left && !navigator.isPlayerOpen
+            ? navigation?.interactivePopGestureRecognizer : nil
+        if nativePan !== next {
+            if let nativePan, let nativePanView, nativePan.view !== nativePanView {
+                nativePanView.addGestureRecognizer(nativePan)
+            }
+            nativePan = next
+            nativePanView = next?.view
+            if let next { window.addGestureRecognizer(next) }
         }
     }
 
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-        guard let pan = gestureRecognizer as? UIScreenEdgePanGestureRecognizer else { return false }
+        guard let pan = gestureRecognizer as? UIScreenEdgePanGestureRecognizer,
+            backTransition?.isRunning != true, let navigator,
+            navigator.pages(in: navigator.selection).isEmpty,
+            !navigator.isPlayerOpen, navigator.backTarget(for: navigator.selection) != nil
+        else { return false }
         let velocity = pan.velocity(in: view)
         return velocity.x > abs(velocity.y)
     }
@@ -218,7 +234,14 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
     func gestureRecognizer(
         _ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
     ) -> Bool {
-        gestureRecognizer === edgePan || other === edgePan
+        // Row taps must fail when Back begins; only the timeline's continuous drag can run beside it.
+        (gestureRecognizer === edgePan || other === edgePan) && other is UIPanGestureRecognizer
+    }
+
+    func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer, shouldBeRequiredToFailBy other: UIGestureRecognizer
+    ) -> Bool {
+        gestureRecognizer === edgePan
     }
 
     private func navigationController(in controller: UIViewController?) -> UINavigationController? {

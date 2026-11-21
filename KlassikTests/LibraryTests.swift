@@ -14,8 +14,8 @@ struct LibraryTests {
             works: work.map { [Song.Work(name: $0)] }, movements: movement.map { [Song.Movement(name: $0)] })
     }
 
-    static func rule(_ conditions: ClassicalFilter.Condition...) -> ClassicalFilter.Rule {
-        ClassicalFilter.Rule(conditions: conditions)
+    static func rule(_ checks: ClassicalFilter.Check...) -> ClassicalFilter.Rule {
+        ClassicalFilter.Rule(checks: checks)
     }
 
     @Test(arguments: ["Classical > Orchestral", "classical", "Neoclassical"])
@@ -31,7 +31,7 @@ struct LibraryTests {
         #expect(!filter.matches(Self.song("t", genre: "Jazz", composer: "Mozart")))
     }
 
-    @Test func allConditionsOfARuleMustMatch() {
+    @Test func allChecksOfARuleMustMatch() {
         let filter = ClassicalFilter(rules: [
             Self.rule(.init(kind: .hasComposer), .init(kind: .genreDoesNotContain, text: "Pop"))
         ])
@@ -40,13 +40,24 @@ struct LibraryTests {
         #expect(!filter.matches(Self.song("t", genre: "Jazz")))
     }
 
-    /// A condition the listener is still typing must not let the whole library in.
+    /// A check the listener is still typing must not let the whole library in.
     @Test func emptyRulesAndEmptyTextMatchNothing() {
         let song = Self.song("t", genre: "Classical", work: "W", movement: "M", composer: "C")
         #expect(!ClassicalFilter(rules: []).matches(song))
         #expect(!ClassicalFilter(rules: [Self.rule()]).matches(song))
         #expect(!ClassicalFilter(rules: [Self.rule(.init(kind: .genreContains, text: " "))]).matches(song))
         #expect(!ClassicalFilter(rules: [Self.rule(.init(kind: .genreDoesNotContain))]).matches(song))
+    }
+
+    /// The device keeps the classical rules as JSON under fixed keys, so saved rules load.
+    @Test func savedRulesLoadAndKeepTheirKey() throws {
+        let check = #"{"id":"7F9619FF-8B86-D011-B42D-00C04FC964FF","kind":"genreContains","text":"Oper"}"#
+        let saved = Data(#"{"rules":[{"id":"6F9619FF-8B86-D011-B42D-00C04FC964FF","conditions":[\#(check)]}]}"#.utf8)
+        let filter = try JSONDecoder().decode(ClassicalFilter.self, from: saved)
+        #expect(filter.rules.map(\.checks) == [[ClassicalFilter.Check(kind: .genreContains, text: "Oper")]])
+        let written = try JSONSerialization.jsonObject(with: JSONEncoder().encode(filter)) as? [String: Any]
+        let rule = (written?["rules"] as? [[String: Any]])?.first
+        #expect(rule?["conditions"] != nil)
     }
 
     @Test func albumCountsWhenMostTracksMatch() {
@@ -151,40 +162,6 @@ struct LibraryTests {
         #expect(Library(cacheURL: url, defaults: defaults).filter == filter)
     }
 
-    @MainActor @Test func artworkSourcesComeFromTheIndexAndFollowTheLibrary() async throws {
-        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let url = directory.appending(path: "library.json")
-        let suite = UUID().uuidString
-        let defaults = try #require(UserDefaults(suiteName: suite))
-        defer { defaults.removePersistentDomain(forName: suite) }
-        let credentials = ServerCredentials(
-            url: URL(string: "https://music.example.org")!, username: "joe", password: "test")
-        func song(_ id: String, album: String, cover: String?) -> Song {
-            var song = Self.song(id, album: album)
-            song.coverArt = cover
-            return song
-        }
-        let songs = [
-            song("x1", album: "other", cover: "shared"),
-            song("m1", album: "a1", cover: "al-1"),
-            song("p1", album: "pop", cover: nil),
-            song("m2", album: "a1", cover: "al-1"),
-        ]
-        let unknown = song("u1", album: "a1", cover: "none")
-        #expect(Library(cacheURL: url, defaults: defaults).artworkSources(for: unknown).map(\.id) == ["u1"])
-        try LibraryCache(server: credentials.url, username: credentials.username, syncedAt: .now, songs: songs)
-            .write(to: url)
-        let library = Library(cacheURL: url, defaults: defaults)
-        #expect(library.artworkSources(for: songs[1]).map(\.id) == ["m1"])
-        await library.load(for: credentials)
-
-        #expect(library.artworkSources(for: songs[3]).map(\.id) == ["m2", "m1"])
-        #expect(library.artworkSources(for: song("s1", album: "single", cover: "shared")).map(\.id) == ["s1", "x1"])
-        #expect(library.artworkSources(for: songs[2]).map(\.id) == ["p1"])
-        #expect(library.artworkSources(for: unknown).map(\.id) == ["u1", "m1", "m2"])
-    }
-
     @MainActor @Test func otherAlbumWorkHeadingsHaveNoRecordingPage() async throws {
         let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -218,5 +195,75 @@ struct LibraryTests {
         let page = Page(albumPart: part, in: library)
         #expect(page == .recording(work: part.workID, recording: part.recordingID))
         #expect(library.recording(work: part.workID, recording: part.recordingID) != nil)
+    }
+
+    /// `results(for:)` reuses one search for every text, so a new index must replace it.
+    @MainActor @Test func aSearchFollowsAChangeOfTheIndex() async throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let suite = UUID().uuidString
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let credentials = ServerCredentials(
+            url: URL(string: "https://music.example.org")!, username: "joe", password: "test")
+        let songs = [
+            Self.song("s1", album: "sonatas", genre: "Classical", work: "Sonata", composer: "Mozart"),
+            Self.song("o1", album: "operas", genre: "Opera", work: "Aida", composer: "Verdi"),
+        ]
+        let url = directory.appending(path: "library.json")
+        try LibraryCache(server: credentials.url, username: credentials.username, syncedAt: .now, songs: songs)
+            .write(to: url)
+        let library = Library(cacheURL: url, defaults: defaults)
+        library.filter = ClassicalFilter(rules: [Self.rule(.init(kind: .genreContains, text: "Classical"))])
+        await library.load(for: credentials)
+
+        #expect(await !library.results(for: "sonata").isEmpty)
+        #expect(await library.results(for: "aida").isEmpty)
+
+        library.filter = ClassicalFilter(rules: [Self.rule(.init(kind: .genreContains, text: "Opera"))])
+
+        #expect(await library.results(for: "sonata").isEmpty)
+        #expect(await !library.results(for: "aida").isEmpty)
+    }
+
+    /// The filter terms build off the main actor after each change of the index, so the sheet follows the index.
+    @MainActor @Test func theFiltersFollowAChangeOfTheIndex() async throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let suite = UUID().uuidString
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let credentials = ServerCredentials(
+            url: URL(string: "https://music.example.org")!, username: "joe", password: "test")
+        let songs = [
+            Self.song("s1", album: "sonatas", genre: "Classical", work: "Sonata", composer: "Mozart"),
+            Self.song("o1", album: "operas", genre: "Opera", work: "Aida", composer: "Verdi"),
+        ]
+        let url = directory.appending(path: "library.json")
+        try LibraryCache(server: credentials.url, username: credentials.username, syncedAt: .now, songs: songs)
+            .write(to: url)
+        let library = Library(cacheURL: url, defaults: defaults)
+        library.filter = ClassicalFilter(rules: [Self.rule(.init(kind: .genreContains, text: "Classical"))])
+        await library.load(for: credentials)
+
+        func composers() -> [String] {
+            let filters = library.searchFilters
+            return filters.choices(in: .composers, conditions: [], pool: filters.pool(of: nil)).map(\.term.name)
+        }
+        func settle(on expected: [String]) async throws {
+            var waits = 0
+            while composers() != expected, waits < 500 {
+                try await Task.sleep(for: .milliseconds(10))
+                waits += 1
+            }
+        }
+
+        try await settle(on: ["Mozart"])
+        #expect(composers() == ["Mozart"])
+
+        library.filter = ClassicalFilter(rules: [Self.rule(.init(kind: .genreContains, text: "Opera"))])
+
+        try await settle(on: ["Verdi"])
+        #expect(composers() == ["Verdi"])
     }
 }

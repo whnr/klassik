@@ -56,6 +56,8 @@ actor SilentServer: FavouriteServer {
     func unstar(_ ids: [String]) async { await hold() }
     func starAlbum(_ id: String) async { await hold() }
     func unstarAlbum(_ id: String) async { await hold() }
+    func starArtist(_ id: String) async { await hold() }
+    func unstarArtist(_ id: String) async { await hold() }
     func getStarred() async -> Starred {
         await hold()
         return Starred()
@@ -68,6 +70,8 @@ actor FavouriteFixture: FavouriteServer {
     var failure: (any Error)?
     var readsFail = true
     var failures: [String: any Error] = [:]
+    /// Song stars that fail as if offline before the fixture answers, as a reconnect before the server answers.
+    var silentStars = 0
 
     static let offline = URLError(.notConnectedToInternet)
     static let refusal = SubsonicError.server(code: 50, message: "The user is not authorised")
@@ -78,7 +82,13 @@ actor FavouriteFixture: FavouriteServer {
         self.readsFail = readsFail
     }
 
+    func dropStars(_ count: Int) { silentStars = count }
+
     func star(_ ids: [String]) throws {
+        if silentStars > 0 {
+            silentStars -= 1
+            throw Self.offline
+        }
         if let id = ids.first, let failure = failures[id] { throw failure }
         if let failure { throw failure }
         writes.append(ids)
@@ -104,6 +114,16 @@ actor FavouriteFixture: FavouriteServer {
     func getStarred() throws -> Starred {
         if let failure, readsFail { throw failure }
         return stars
+    }
+
+    func starArtist(_ id: String) throws {
+        if let failure { throw failure }
+        writes.append(["artist:" + id])
+    }
+
+    func unstarArtist(_ id: String) throws {
+        if let failure { throw failure }
+        writes.append(["-artist:" + id])
     }
 }
 
@@ -582,6 +602,84 @@ struct RecordingOrderTests {
         #expect(order.rows(of: work).allSatisfy { $0.reason == nil })
     }
 
+    @Test func aStarredArtistMarksAPersonAsAFavourite() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let library = try await library([song("a")], root: root)
+        let server = FavouriteFixture()
+        await server.configure(Starred(artist: [.init(id: "person-a", name: "Person a")]))
+        let order = RecordingOrder(library: library, server: server)
+        #expect(!order.isFavourite(person: "Person a"))
+        await order.refresh()
+        #expect(order.isFavourite(person: "Person a"))
+        #expect(!order.isFavourite(person: "Person b"))
+    }
+
+    @Test func artistChoicesStayOfflineThenRefreshFromTheServer() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        var track = song("a")
+        let composer = Song.Artist(id: "composer", name: "Composer")
+        track.contributors?.append(.init(role: "composer", artist: composer))
+        let library = try await library([track, song("b", year: 2020)], root: root)
+        let server = FavouriteFixture()
+        await server.configure(Starred(), failure: FavouriteFixture.offline)
+        let order = RecordingOrder(library: library, store: store(root), server: server)
+        let sendComposer = try #require(order.begin(person: "Composer"))
+        #expect(order.isFavourite(person: "Composer"))
+        #expect(order.favouriteComposers.map(\.name) == ["Composer"])
+        await sendComposer()
+        let sendPerformer = try #require(order.begin(person: "Person a"))
+        #expect(order.isFavourite(person: "Person a"))
+        await sendPerformer()
+        #expect(order.error == nil)
+        #expect(order.pendingChanges.count == 2)
+        #expect(order.title(of: order.pendingChanges[0]) == "Composer")
+        let restored = RecordingOrder(library: library, store: store(root), server: server)
+        #expect(restored.isFavourite(person: "Composer"))
+        #expect(restored.isFavourite(person: "Person a"))
+        #expect(restored.favouritePerformers.map(\.name) == ["Person a"])
+        await server.configure(Starred(artist: [composer, .init(id: "person-a", name: "Person a")]))
+        await restored.refresh()
+        #expect(await server.writes == [["artist:composer"], ["artist:person-a"]])
+        #expect(restored.pendingChanges.isEmpty)
+        #expect(library.songs.allSatisfy { $0.starred == nil })
+        await server.configure(Starred())
+        await restored.refresh()
+        #expect(!restored.isFavourite(person: "Composer"))
+        #expect(!restored.isFavourite(person: "Person a"))
+        #expect(order.begin(person: "No server ID") == nil)
+    }
+
+    @Test func mixedOfflineTargetsKeepOnlyTheNewestChoiceAndTheirOrder() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let library = try await library([song("a")], root: root)
+        let server = FavouriteFixture()
+        await server.configure(Starred(), failure: FavouriteFixture.offline, readsFail: false)
+        let order = RecordingOrder(library: library, store: store(root), server: server)
+        await order.begin(person: "Person a")?()
+        await order.toggle(album: "a")
+        let work = try #require(library.index.composers.first?.works.first)
+        let recording = try #require(work.recordings.first)
+        await order.toggle(recording, of: work)
+        await order.begin(person: "Person a")?()
+        await order.refresh()
+        #expect(order.pendingChanges.count == 3)
+        #expect(order.pendingChanges[0].album == "a")
+        #expect(order.pendingChanges[1].songs == ["a-1"])
+        #expect(order.pendingChanges[2].artist?.id == "person-a")
+        #expect(order.pendingChanges[2].isSet == false)
+        #expect(order.isFavourite(album: "a"))
+        #expect(!order.isFavourite(person: "Person a"))
+        #expect(order.favouriteAlbums.map(\.title) == ["a"])
+        #expect(order.favouriteCount == 2)
+        await server.configure(Starred())
+        await order.synchronize()
+        #expect(await server.writes == [["album:a"], ["a-1"], ["-artist:person-a"]])
+        #expect(order.pendingChanges.isEmpty)
+    }
+
     @Test func newestIsReferenceWithoutFavouritesAndInvalidMovesCannotChangeIt() async throws {
         let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
@@ -630,6 +728,97 @@ struct RecordingOrderTests {
         await server.configure(Starred())
         await order.refresh()
         #expect(order.refreshError == nil)
+    }
+
+    /// Only a read of the stars shows a change that another device made while this one was offline.
+    @Test func reconnectReadsTheStarsAgain() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let library = try await library([song("a")], root: root)
+        let server = SilentServer()
+        await server.open()
+        let order = RecordingOrder(library: library, store: store(root), server: server)
+        var listened = false
+        await AppModel.synchronizeAfterReconnect(order: order, listening: { listened = true })
+        #expect(await server.calls == 1)
+        #expect(listened)
+    }
+
+    /// The path can report a connection before the server answers, so the first send after a reconnect can fail.
+    /// The app tries again, and the waiting choice clears with no step of the listener.
+    @Test func reconnectTriesAgainUntilTheServerAnswers() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let library = try await library([song("a")], root: root)
+        let work = try #require(library.index.composers.first?.works.first)
+        let a = try #require(work.recordings.first)
+        let server = FavouriteFixture()
+        await server.configure(Starred(), failure: FavouriteFixture.offline)
+        let order = RecordingOrder(library: library, store: store(root), server: server)
+        await order.toggle(a, of: work)
+        #expect(order.pendingChanges.count == 1)
+
+        await server.configure(Starred(song: [song("a")]))
+        await server.dropStars(2)
+        await AppModel.synchronizeAfterReconnect(
+            order: order, listening: {}, retries: [.milliseconds(10), .milliseconds(10), .milliseconds(10)])
+        #expect(order.pendingChanges.isEmpty)
+        #expect(order.serverTrouble == nil)
+        #expect(await server.writes == [["a-1"]])
+        #expect(order.isFavourite(a, of: work))
+    }
+
+    /// Flo's check: offline, one favourite changes twice, and Diagnostics lists only the newest choice. A pull to
+    /// refresh in Diagnostics checks the server and also sends that choice.
+    @Test func diagnosticsRefreshChecksTheServerAndSendsTheNewestChoice() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let library = try await library([song("a")], root: root)
+        let work = try #require(library.index.composers.first?.works.first)
+        let a = try #require(work.recordings.first)
+        let server = FavouriteFixture()
+        await server.configure(Starred(), failure: FavouriteFixture.offline)
+        let order = RecordingOrder(library: library, store: store(root), server: server)
+        await order.toggle(a, of: work)
+        await order.toggle(a, of: work)
+        #expect(order.pendingChanges.count == 1)
+        #expect(order.pendingChanges.first?.isSet == false)
+
+        await server.configure(Starred())
+        var checked = false
+        var listened = false
+        let ended = await AppModel.refreshServer(
+            check: { checked = true }, order: order, listening: { listened = true })
+        #expect(ended)
+        #expect(checked)
+        #expect(listened)
+        #expect(order.pendingChanges.isEmpty)
+        #expect(order.serverTrouble == nil)
+        #expect(await server.writes == [["-a-1"]])
+        #expect(!order.isFavourite(a, of: work))
+    }
+
+    /// A server that does not answer never keeps the pull spinning. The calls go on and finish later.
+    @Test(.timeLimit(.minutes(1)))
+    func diagnosticsRefreshEndsWhenTheServerIsSilent() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let library = try await library([song("a")], root: root)
+        let server = SilentServer()
+        let order = RecordingOrder(library: library, store: store(root), server: server)
+        _ = order.begin(album: "a")
+        #expect(order.pendingChanges.count == 1)
+
+        let started = ContinuousClock.now
+        let ended = await AppModel.refreshServer(
+            check: { _ = await server.getStarred() }, order: order, listening: {}, limit: .milliseconds(200))
+        #expect(!ended)
+        #expect(ContinuousClock.now - started < .seconds(10))
+        #expect(order.pendingChanges.count == 1)
+
+        await server.open()
+        await order.synchronize()
+        #expect(order.pendingChanges.isEmpty)
     }
 
     /// Each favourite control changes its state in the tap itself, while the server has not answered. A star does

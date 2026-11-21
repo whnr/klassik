@@ -167,6 +167,11 @@ extension RecordingOrder {
         guard let confirm = withoutAnimation({ begin(album: id) }) else { return }
         Task { await confirm() }
     }
+
+    func toggleAtOnce(person name: String) {
+        guard let confirm = withoutAnimation({ begin(person: name) }) else { return }
+        Task { await confirm() }
+    }
 }
 
 /// Runs a change with no animation, also inside a swipe action or a button that animates.
@@ -200,7 +205,7 @@ struct WorkRow: View {
             NavigationLink(value: Page.album(album.id)) {
                 VStack(alignment: .leading, spacing: gap) {
                     HStack {
-                        Text(album.title)
+                        MarkedTitle(title: album.title, isFavourite: model.recordingOrder.isFavourite(album: album.id))
                             .ink()
                         OfflineHint(isOffline: model.tracks.isOffline(album.recording))
                     }
@@ -215,7 +220,7 @@ struct WorkRow: View {
             NavigationLink(value: Page.work(work.id)) {
                 VStack(alignment: .leading, spacing: gap) {
                     HStack {
-                        Text(work.title)
+                        MarkedTitle(title: work.title, isFavourite: model.recordingOrder.isFavourite(work))
                             .ink()
                         OfflineHint(isOffline: work.recordings.contains { model.tracks.isOffline($0) })
                     }
@@ -251,16 +256,6 @@ struct WorkView: View {
 
     var body: some View {
         PageList {
-            if let recording = model.recordingOrder.reference(of: work) {
-                CoverImage(song: recording.songs.first, points: Layout.workCover)
-                    .frame(width: Layout.workCover, height: Layout.workCover)
-                    .clipShape(.rect(cornerRadius: Layout.coverCorner))
-                    .accessibilityElement()
-                    .accessibilityLabel("Cover")
-                    .accessibilityIdentifier("work-cover")
-                    .listRowSeparator(.hidden)
-                    .pageEdges(top: Layout.headTop, bottom: Layout.bigCoverBottom)
-            }
             FavouriteTitle(
                 title: work.title, isSet: model.recordingOrder.isFavourite(work),
                 action: { model.recordingOrder.toggleAtOnce(work) }
@@ -292,20 +287,6 @@ struct WorkView: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("play-work")
-                    if let key = recording.albumKey ?? recording.songs.first?.albumKey,
-                        let album = model.library.album(key), album.tracks.count > recording.songs.count
-                    {
-                        let playsAlbum = player.recording?.id == album.recording.id
-                        Button {
-                            player.play(album.item)
-                        } label: {
-                            CapsuleLabel(
-                                title: playsAlbum ? (player.isPaused ? "Resume Album" : "Pause Album") : "Play Album",
-                                systemImage: playsAlbum && !player.isPaused ? "pause.fill" : "play.fill", filled: false)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier("play-work-album")
-                    }
                 }
                 .listRowSeparator(.hidden)
                 .pageEdges(top: Layout.buttonRowTop)
@@ -384,8 +365,8 @@ private struct WorkHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: gap) {
             HStack(alignment: .firstTextBaseline, spacing: 0) {
-                Button(work.composer) {
-                    navigator.open(.composer(work.composer), in: navigator.selection)
+                PersonPageLink(page: .composer(work.composer), disclosure: false) {
+                    Text(work.composer)
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(Palette.tint)
@@ -533,6 +514,10 @@ struct RecordingView: View {
     /// The rows that the listener opened, by track position.
     @State private var opened: Set<Int> = []
     @State private var spell = QuietSpell()
+    /// The note that the listener writes in the playing row. It stays while the listener scrubs (ADR 0027).
+    @State private var draft: NoteDraft?
+    /// Where the notes of each row live, by track position.
+    @State private var places: [NotePlace?] = []
 
     private var isPlayingThis: Bool { model.playback.recording?.id == recording.id }
 
@@ -552,12 +537,15 @@ struct RecordingView: View {
                 Section {
                     // The page and the player share one hero: the cover, then the title (specimen player.html hero).
                     VStack(spacing: Layout.bigCoverBottom) {
-                        CoverImage(song: recording.songs.first, points: Layout.bigCover)
-                            .frame(width: Layout.bigCover, height: Layout.bigCover)
-                            .clipShape(.rect(cornerRadius: Layout.bigCoverCorner))
-                            .accessibilityElement()
-                            .accessibilityLabel("Cover")
-                            .accessibilityIdentifier("hero-cover")
+                        CoverImage(
+                            song: isPlayingThis ? player.coverSong : recording.songs.first,
+                            points: Layout.bigCover, playback: isPlayingThis
+                        )
+                        .frame(width: Layout.bigCover, height: Layout.bigCover)
+                        .clipShape(.rect(cornerRadius: Layout.bigCoverCorner))
+                        .accessibilityElement()
+                        .accessibilityLabel("Cover")
+                        .accessibilityIdentifier("hero-cover")
                         heroTitle
                             .accessibilityAddTraits(.isHeader)
                     }
@@ -648,31 +636,7 @@ struct RecordingView: View {
                         .listRowSeparator(.hidden)
                 }
 
-                if isPlayingThis, !player.upNext.isEmpty {
-                    Section {
-                        SectionHeading("Up next")
-                        ForEach(player.upNext) { item in
-                            Button {
-                                player.playQueued(item.id)
-                            } label: {
-                                VStack(alignment: .leading) {
-                                    Text(item.work.title)
-                                        .ink()
-                                    Text(item.work.composer)
-                                        .typeStyle(.subheadline)
-                                        .foregroundStyle(Palette.textSecondary)
-                                    RoleLines(lines: item.recording.principalNames, style: .subheadline)
-                                        .foregroundStyle(Palette.textSecondary)
-                                }
-                            }
-                            .accessibilityIdentifier("up-next")
-                            .itemSeparator(
-                                first: item.id == player.upNext.first?.id, last: item.id == player.upNext.last?.id)
-                        }
-                        .onDelete { player.removeFromQueue(at: $0) }
-                        .onMove { player.moveInQueue(from: $0, to: $1) }
-                    }
-                }
+                if isOverlay { tail }
             }
             // A finger on the page, or a scroll that it started, holds the rows. The spell begins when the page is still.
             // A scroll by the app itself is not a touch. The list has no tap gesture of its own, so row controls keep their
@@ -705,6 +669,12 @@ struct RecordingView: View {
         .navigationTitle(isOverlay ? "" : work.title)
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { model.sweep.prefer(performers: recording.performerNames) }
+        .task(id: placesKey) { places = NotePlace.places(in: recording, index: model.library.index) }
+    }
+
+    /// Changes when a sync or a new classical filter can move a track to another recording.
+    private var placesKey: String {
+        "\(recording.id)|\(model.library.classical.count)|\(model.library.syncedAt?.timeIntervalSince1970 ?? 0)"
     }
 
     /// The favourite of the page: the album on an album page, else the recording (ADR 0013, 0017).
@@ -731,6 +701,40 @@ struct RecordingView: View {
         } else {
             Text(work.title).typeStyle(Layout.pageTitle).ink()
                 .accessibilityIdentifier("player-title")
+        }
+    }
+
+    /// The end of the player: the next queue item, or where the queue ends (ADR 0014, specimen player.html).
+    @ViewBuilder private var tail: some View {
+        let player = model.playback
+        switch PlayerTail(isPlaying: isPlayingThis, upNext: player.upNext.map(\.id)) {
+        case .next:
+            if let next = player.upNext.first {
+                Section {
+                    SectionHeading("Next")
+                    Button {
+                        player.nextItem()
+                    } label: {
+                        NextItemRow(item: next)
+                            .contentShape(.rect)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("up-next")
+                    .pageRow()
+                }
+            }
+        case .endsHere:
+            Section {
+                SectionHeading("Next")
+                Text("The queue ends here.")
+                    .typeStyle(.body)
+                    .foregroundStyle(Palette.textSecondary)
+                    .frame(maxWidth: .infinity, minHeight: Measure.hitTarget, alignment: .leading)
+                    .pageRow()
+                    .accessibilityIdentifier("up-next-end")
+            }
+        case .nothing:
+            EmptyView()
         }
     }
 
@@ -788,15 +792,23 @@ struct RecordingView: View {
     }
 
     private func movementRow(_ song: Song, at index: Int, page: PlayerPage, title: String) -> some View {
-        MovementRow(
-            song: song, title: title, names: page.differing.indices.contains(index) ? page.differing[index] : [],
+        let place = places.indices.contains(index) ? places[index] : nil
+        return MovementRow(
+            song: song, row: index, title: title,
+            names: page.differing.indices.contains(index) ? page.differing[index] : [],
+            notes: place.map { model.notes.notes(at: $0) } ?? [],
+            place: place,
             isPlaying: isPlayingThis && model.playback.movement == index,
             isOpen: opened.contains(index),
+            draft: Binding(
+                get: { draft?.row == index ? draft : nil },
+                set: { draft = $0 }),
             toggle: {
                 spell.touch()
                 if opened.contains(index) { opened.remove(index) } else { opened.insert(index) }
             },
-            play: { play(from: index) }
+            play: { play(from: index) },
+            jump: { note, plays in jump(to: note, row: index, plays: plays) }
         )
         .id(song.id)
     }
@@ -806,24 +818,45 @@ struct RecordingView: View {
         opened.removeAll()
         model.playback.play(QueueItem(work: work, recording: recording), from: index)
     }
+
+    /// A tap on a note moves to its time; a tap on its time also plays (ADR 0014). A note of a page that does not
+    /// play starts that page there.
+    private func jump(to note: ListeningNote, row: Int, plays: Bool) {
+        spell.touch()
+        let player = model.playback
+        if isPlayingThis && !plays {
+            player.seek(movement: row, to: note.at)
+        } else {
+            player.play(QueueItem(work: work, recording: recording), from: row, at: note.at)
+        }
+    }
 }
 
 /// One movement or track. A row that does not play has a faint play button at its trailing edge. It opens only when
-/// it holds names that differ from the header, and then shows the disclosure chevron. The playing row stays open and
-/// holds the only playback bar (ADR 0027).
+/// it holds names that differ from the header or listening notes, and then shows the disclosure chevron. The playing
+/// row stays open, holds the only playback bar and takes a new note (ADR 0027).
 private struct MovementRow: View {
     @Environment(AppModel.self) private var model
     let song: Song
+    /// The position of the row on its page.
+    let row: Int
     let title: String
     /// The names that differ from the header.
     let names: [Roles.Line]
+    let notes: [ListeningNote]
+    /// Where a new note of this row goes. A row without a place takes no note.
+    let place: NotePlace?
     let isPlaying: Bool
     let isOpen: Bool
+    @Binding var draft: NoteDraft?
     let toggle: () -> Void
     let play: () -> Void
+    /// Moves to a note; true also plays.
+    let jump: (ListeningNote, Bool) -> Void
     @ScaledMetric(space: .m) private var gap: CGFloat
 
-    private var opens: Bool { names.contains { !$0.names.isEmpty } }
+    private var hasNames: Bool { names.contains { !$0.names.isEmpty } }
+    private var opens: Bool { hasNames || !notes.isEmpty }
 
     var body: some View {
         if isPlaying {
@@ -835,8 +868,11 @@ private struct MovementRow: View {
                     playButton
                 }
                 if opens && isOpen {
-                    RoleLines(lines: names, style: .subheadline)
-                        .ink()
+                    if hasNames {
+                        RoleLines(lines: names, style: .subheadline)
+                            .ink()
+                    }
+                    NoteList(notes: notes, jump: jump)
                 }
             }
             .accessibilityIdentifier("movement")
@@ -848,10 +884,15 @@ private struct MovementRow: View {
         if opens {
             Button(action: toggle) { label }
                 .buttonStyle(.still)
-                .accessibilityHint(isOpen ? "Hides the names" : "Shows the names")
+                .accessibilityHint(hint)
         } else {
             label
         }
+    }
+
+    private var hint: String {
+        let what = hasNames ? (notes.isEmpty ? "the names" : "the names and notes") : "the notes"
+        return (isOpen ? "Hides " : "Shows ") + what
     }
 
     private var label: some View {
@@ -891,7 +932,8 @@ private struct MovementRow: View {
         .accessibilityIdentifier("play-movement")
     }
 
-    /// The playing row: its title, the names that differ, the playback bar and the controls.
+    /// The playing row: its title, the names that differ, the playback bar with the note marks, the controls, the
+    /// notes and the note that the listener writes (specimen player.html `openBody`).
     private var playing: some View {
         let player = model.playback
         return VStack(alignment: .leading, spacing: gap) {
@@ -907,7 +949,7 @@ private struct MovementRow: View {
             }
             RoleLines(lines: names, style: .subheadline)
                 .ink()
-            PlaybackProgress(player: player)
+            PlaybackProgress(player: player, notes: notes, jump: { jump($0, false) })
             HStack {
                 Button("Previous", systemImage: "backward.fill") { player.previous() }
                 Spacer()
@@ -930,8 +972,136 @@ private struct MovementRow: View {
             .buttonStyle(.borderless)
             .typeStyle(.title2)
             .padding(.horizontal)
+            NoteList(notes: notes, jump: jump)
+            if let place {
+                NoteEditor(
+                    draft: $draft, row: row, place: place, elapsed: { player.progress?.elapsed ?? player.position })
+            }
         }
         .accessibilityIdentifier("movement")
+    }
+}
+
+/// The notes of a movement, earliest first. The time is a prefix in the tint (specimen player.html `.note`). A tap
+/// on the text moves to the note; a tap on its time moves there and plays (ADR 0014).
+private struct NoteList: View {
+    let notes: [ListeningNote]
+    let jump: (ListeningNote, Bool) -> Void
+    @ScaledMetric(space: .xs) private var lineGap: CGFloat
+    @ScaledMetric(space: .s) private var gap: CGFloat
+
+    var body: some View {
+        if !notes.isEmpty {
+            VStack(alignment: .leading, spacing: lineGap) {
+                ForEach(notes) { note in
+                    HStack(alignment: .firstTextBaseline, spacing: gap) {
+                        Button(ListeningNotes.time(of: note)) { jump(note, true) }
+                            .monospacedDigit()
+                            .foregroundStyle(Palette.tint)
+                            .accessibilityLabel("Play from \(ListeningNotes.time(of: note))")
+                            .accessibilityIdentifier("note-time")
+                        Button {
+                            jump(note, false)
+                        } label: {
+                            Text(note.text)
+                                .ink()
+                                .multilineTextAlignment(.leading)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(.rect)
+                        }
+                        .accessibilityHint("Moves to \(ListeningNotes.time(of: note))")
+                        .accessibilityIdentifier("note-text")
+                    }
+                    .buttonStyle(.borderless)
+                    .typeStyle(.subheadline)
+                }
+            }
+            // A container keeps the identifiers of its buttons inside the row's identifier.
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("notes")
+        }
+    }
+}
+
+/// "Add a note here", then the note in the row: never a modal (ADR 0027). The note stays open until Save or Return,
+/// so the listener can scrub the bar or the timeline to find the end.
+private struct NoteEditor: View {
+    @Environment(AppModel.self) private var model
+    @Binding var draft: NoteDraft?
+    let row: Int
+    let place: NotePlace
+    /// The playing time of the row.
+    let elapsed: () -> Double
+    @FocusState private var isWriting: Bool
+    @ScaledMetric(space: .xs) private var lineGap: CGFloat
+    @ScaledMetric(space: .s) private var gap: CGFloat
+    @ScaledMetric(space: .l) private var actionGap: CGFloat
+    @ScaledMetric(space: .xxs) private var fieldPadding: CGFloat
+
+    var body: some View {
+        // A container keeps the identifiers of its controls inside the row's identifier.
+        editor
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("note-editor")
+    }
+
+    @ViewBuilder private var editor: some View {
+        if let current = draft {
+            VStack(alignment: .leading, spacing: lineGap) {
+                HStack(alignment: .firstTextBaseline, spacing: gap) {
+                    Text(ListeningNotes.time(at: current.at, end: current.end))
+                        .typeStyle(.subheadline)
+                        .monospacedDigit()
+                        .foregroundStyle(Palette.tint)
+                        .accessibilityIdentifier("note-draft-time")
+                    TextField("Write the note", text: text)
+                        .typeStyle(.body)
+                        .foregroundStyle(Palette.textPrimary)
+                        .focused($isWriting)
+                        .submitLabel(.done)
+                        .onSubmit(save)
+                        .padding(.vertical, fieldPadding)
+                        .overlay(alignment: .bottom) { Divider().overlay(Palette.separator) }
+                        .accessibilityIdentifier("note-field")
+                }
+                HStack(spacing: actionGap) {
+                    Spacer()
+                    Button("End here") { draft?.end(at: elapsed()) }
+                        .typeStyle(.subheadline)
+                        .accessibilityIdentifier("end-note")
+                    Button("Cancel") { draft = nil }
+                        .typeStyle(.subheadline)
+                        .accessibilityIdentifier("cancel-note")
+                    Button("Save", action: save)
+                        .typeStyle(.headline)
+                        .accessibilityIdentifier("save-note")
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(Palette.tint)
+                if let error = model.notes.error {
+                    Text(error)
+                        .typeStyle(.footnote)
+                        .foregroundStyle(Palette.textSecondary)
+                }
+            }
+            .onAppear { isWriting = true }
+        } else {
+            Button("Add a note here") { draft = NoteDraft(row: row, at: elapsed()) }
+                .typeStyle(.subheadline)
+                .foregroundStyle(Palette.tint)
+                .buttonStyle(.borderless)
+                .accessibilityIdentifier("add-note")
+        }
+    }
+
+    private var text: Binding<String> {
+        Binding(get: { draft?.text ?? "" }, set: { draft?.text = $0 })
+    }
+
+    /// A failed write keeps the draft, so the text is not lost.
+    private func save() {
+        guard let current = draft, model.notes.save(current, at: place) else { return }
+        draft = nil
     }
 }
 
@@ -966,14 +1136,19 @@ extension ButtonStyle where Self == StillButtonStyle {
 /// How far the playing movement has played.
 struct PlaybackProgress: View {
     let player: PlaybackSession
+    /// The listening notes of the movement, as marks on the bar.
+    var notes: [ListeningNote] = []
+    var jump: (ListeningNote) -> Void = { _ in }
     @ScaledMetric(space: .xs) private var lineGap: CGFloat
 
     var body: some View {
         Group {
             if let progress = player.progress {
-                PositionBar(player: player, elapsed: progress.elapsed, duration: progress.duration)
-                    .id(progress.movement)
-                    .padding(.vertical, lineGap)
+                PositionBar(
+                    player: player, elapsed: progress.elapsed, duration: progress.duration, notes: notes, jump: jump
+                )
+                .id(progress.movement)
+                .padding(.vertical, lineGap)
             }
         }
         // A container keeps the identifiers of its children, such as the position bar.
@@ -1026,6 +1201,8 @@ private struct PositionBar: View {
     let player: PlaybackSession
     let elapsed: Double
     let duration: Double
+    let notes: [ListeningNote]
+    let jump: (ListeningNote) -> Void
     @State private var scrub = PositionScrub()
     @State private var width = 0.0
     @GestureState private var isTouching = false
@@ -1051,19 +1228,24 @@ private struct PositionBar: View {
     }
 
     private func bar(_ shown: Double) -> some View {
-        ZStack(alignment: .leading) {
+        let lanes = ListeningNotes.lanes(notes, reach: reach)
+        let room = ListeningNotes.room(notes, duration: duration, width: width)
+        return ZStack(alignment: .leading) {
             Capsule().fill(Palette.fillStandard)
             Capsule().fill(Palette.tint)
                 .frame(width: width * PositionScrub.share(shown, of: duration))
         }
         .frame(height: Layout.positionBar)
+        .overlay(alignment: .topLeading) { marks(lanes) }
         .onGeometryChange(for: Double.self) {
             Double($0.size.width)
         } action: {
             width = $0
         }
-        // The touch area is the height of a system slider; the layout keeps the thin bar.
+        // The touch area is the height of a system slider, plus the marks above it so that they stay tappable.
+        // The layout keeps the thin bar and the room of the marks, so they never cover the text above.
         .padding(.vertical, -Layout.positionBarInset)
+        .modifier(NoteRoom(notes: notes, duration: duration))
         .contentShape(.rect)
         .gesture(
             DragGesture(minimumDistance: 0)
@@ -1074,6 +1256,11 @@ private struct PositionBar: View {
                 }
                 .onEnded { value in
                     model.isScrubbing = false
+                    if let note = tapped(value, above: room - Layout.positionBarInset) {
+                        scrub.cancel()
+                        jump(note)
+                        return
+                    }
                     scrub.drag(to: PositionScrub.seconds(at: value.location.x, width: width, duration: duration))
                     if let target = scrub.release() { player.seek(to: target) }
                 }
@@ -1087,6 +1274,76 @@ private struct PositionBar: View {
         .accessibilityLabel("Position")
         .accessibilityValue(PlaybackProgress.time(shown))
         .accessibilityIdentifier("position")
+    }
+}
+
+extension PositionBar {
+    /// A note mark is this many seconds wide on the bar.
+    private var reach: Double { ListeningNotes.reach(width: width, duration: duration) }
+
+    /// Dots for moments and lines for spans above the bar. Notes that overlap stack in lanes (ADR 0014).
+    private func marks(_ lanes: [UUID: Int]) -> some View {
+        let pitch = -Layout.noteDotTop
+        return ZStack(alignment: .topLeading) {
+            ForEach(notes) { note in
+                let lift = pitch * CGFloat(lanes[note.id] ?? 0)
+                let from = CGFloat(width * PositionScrub.share(note.at, of: duration))
+                if let end = note.end {
+                    let to = CGFloat(width * PositionScrub.share(end, of: duration))
+                    Capsule()
+                        .fill(Palette.textSecondary)
+                        .frame(width: max(to - from, Layout.noteSpan), height: Layout.noteSpan)
+                        .position(x: (from + to) / 2, y: Layout.noteSpanTop + Layout.noteSpan / 2 - lift)
+                } else {
+                    Circle()
+                        .fill(Palette.textSecondary)
+                        .frame(width: Layout.noteDot, height: Layout.noteDot)
+                        .position(x: from, y: Layout.noteDotTop + Layout.noteDot / 2 - lift)
+                }
+            }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    /// The note of a tap above the bar, where the marks are. A tap or a drag on the bar itself scrubs.
+    /// `top` is the distance from the top of the touch area to the top of the bar.
+    private func tapped(_ value: DragGesture.Value, above top: CGFloat) -> ListeningNote? {
+        let still = max(abs(value.translation.width), abs(value.translation.height)) <= Layout.noteDot
+        guard still, value.startLocation.y < top else { return nil }
+        return ListeningNotes.note(
+            atX: value.startLocation.x, rise: top - value.startLocation.y, in: notes, width: width, duration: duration)
+    }
+}
+
+/// Room above the playback bar for its note lanes. The room comes from the width that the layout proposes, so the
+/// row has its final height in the first pass and does not grow when the bar learns its width.
+struct NoteRoom: ViewModifier {
+    let notes: [ListeningNote]
+    let duration: Double
+
+    func body(content: Content) -> some View {
+        Room(notes: notes, duration: duration) { content }
+    }
+
+    private struct Room: SwiftUI.Layout {
+        let notes: [ListeningNote]
+        let duration: Double
+
+        func sizeThatFits(proposal: ProposedViewSize, subviews: LayoutSubviews, cache: inout ()) -> CGSize {
+            guard let bar = subviews.first else { return .zero }
+            let size = bar.sizeThatFits(ProposedViewSize(width: proposal.width, height: nil))
+            let room = ListeningNotes.room(notes, duration: duration, width: size.width)
+            return CGSize(width: size.width, height: size.height + room)
+        }
+
+        func placeSubviews(
+            in bounds: CGRect, proposal: ProposedViewSize, subviews: LayoutSubviews, cache: inout ()
+        ) {
+            subviews.first?.place(
+                at: CGPoint(x: bounds.minX, y: bounds.maxY), anchor: .bottomLeading,
+                proposal: ProposedViewSize(width: bounds.width, height: nil))
+        }
     }
 }
 
@@ -1120,6 +1377,33 @@ private struct OfflineControls: View {
 
     static func size(_ bytes: Int64) -> String {
         bytes.formatted(.byteCount(style: .file))
+    }
+}
+
+/// The row of the next queue item at the end of the player (ADR 0014). It shows the cover, title and album.
+/// A tap on the row skips to the item at once; the row itself only shows what comes.
+private struct NextItemRow: View {
+    let item: QueueItem
+
+    var body: some View {
+        HStack(spacing: Space.m.points) {
+            CoverImage(song: item.recording.songs.first, points: Measure.coverRow)
+                .frame(width: Measure.coverRow, height: Measure.coverRow)
+                .clipShape(.rect(cornerRadius: Radius.s))
+            VStack(alignment: .leading, spacing: Space.inGroup.points) {
+                Text(item.work.title)
+                    .typeStyle(.body)
+                    .foregroundStyle(Palette.textPrimary)
+                if !item.recording.album.isEmpty {
+                    Text(item.recording.album)
+                        .typeStyle(.subheadline)
+                        .foregroundStyle(Palette.textSecondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(minHeight: Measure.hitTarget)
+        .accessibilityElement(children: .combine)
     }
 }
 

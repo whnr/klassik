@@ -19,6 +19,9 @@ enum Layout {
     /// The content inset on the side away from a shown timeline.
     /// css: specimen.css :root.has-timeline | --pad-left
     static let edge = Space.l.points
+    /// A set member starts at twice the ordinary leading space.
+    /// css: person.html "padding-left: calc(var(--space-l) * 2)" | padding-left
+    static let setMemberLeading = Space.l.points * 2
     /// The content inset on the side of a shown timeline: the margin of the other side plus the timeline.
     /// css: specimen.css :root.has-timeline | --pad-right
     static let timelineEdge = Space.l.points + Measure.timeline
@@ -36,7 +39,7 @@ enum Layout {
 
     /// The gap above the page title, under the back arrow.
     /// css: specimen.css .page-head | padding-top
-    static let headTop = Space.xs.points
+    static let headTop = Space.l.points
     /// The gap under the page heading block, after its meta lines.
     /// css: specimen.css .page-head | padding-bottom
     static let headBottom = Space.s.points
@@ -85,6 +88,84 @@ enum Layout {
     static let rowCover = Measure.coverRow
     /// css: specimen.css .cover | border-top-left-radius
     static let coverCorner = Radius.s
+    /// The gap above the hint of the empty Search page.
+    /// css: search.html .hint | padding-top
+    static let searchHintTop = Space.xl.points
+    /// The gap above the line that says nothing matches.
+    /// css: search.html .nomatch | padding-top
+    static let searchNoMatchTop = Space.l.points
+    /// The search field under the back arrow. The row stays in place; only the results scroll.
+    /// css: search.html .fieldrow .field | height
+    static let searchFieldHeight: CGFloat = 40
+    /// css: search.html .fieldrow .field | border-top-left-radius
+    static let searchFieldCorner: CGFloat = 12
+    /// css: search.html .fieldrow .field | padding-left
+    static let searchFieldLeading = Space.m.points
+    /// css: search.html .field | padding-right
+    static let searchFieldTrailing = Space.m.points
+    /// The gap between the magnifier, the text and the clear button.
+    /// css: search.html .field | gap
+    static let searchFieldGap = Space.s.points
+    /// css: search.html .field svg | width
+    static let searchFieldIcon: CGFloat = 18
+    /// The gap under the field row, above the results.
+    /// css: search.html .fieldrow | padding-bottom
+    static let searchRowBottom = Space.s.points
+    /// The gap between the field, the Filters button and the x pill.
+    /// css: search.html .fieldrow | gap
+    static let searchRowGap = Space.s.points
+    /// The Filters button and the x pill beside the field.
+    /// css: search.html .fieldrow .roundglass | width
+    static let searchButton: CGFloat = 40
+    /// css: search.html .roundglass svg | width
+    static let searchButtonIcon: CGFloat = 22
+    /// css: search.html .fieldrow .reset svg | width
+    static let searchResetIcon: CGFloat = 18
+    /// The badge on Filters that counts the conditions.
+    /// css: search.html .badge | min-width
+    static let badgeSize: CGFloat = 19
+    /// css: search.html .badge | padding-left
+    static let badgePadding: CGFloat = 5
+    /// The badge reaches past the corner of the button.
+    /// css: search.html .badge | top
+    static let badgeOffset: CGFloat = -3
+
+    // MARK: Filter sheet
+
+    /// The heading row of the sheet: its title, the recordings that remain and Done.
+    /// css: search.html .fsheet .head | gap
+    static let filterHeadGap = Space.s.points
+    /// css: search.html .fsheet .head | padding-top
+    static let filterHeadTop = Space.s.points
+    /// css: search.html .fsheet .head | padding-bottom
+    static let filterHeadBottom = Space.xs.points
+    /// css: search.html .fsheet .head | padding-left
+    static let filterHeadInset = Space.l.points
+    /// The gap between the terms of a condition and the "or" between them.
+    /// css: search.html .cond .terms | gap
+    static let conditionTermGap = Space.xs.points
+    /// The bar on the leading edge of the condition that the next term joins.
+    /// css: search.html .cond.marked | box-shadow | 3px
+    static let conditionMark: CGFloat = 3
+    /// The "or" control of a condition.
+    /// css: search.html .orbtn | min-height
+    static let orButtonHeight: CGFloat = 30
+    /// css: search.html .orbtn | padding-left
+    static let orButtonPadding = Space.m.points
+    /// The field that narrows the terms of one kind.
+    /// css: search.html .narrow | min-height
+    static let narrowHeight: CGFloat = 36
+    /// css: search.html .narrow | border-top-left-radius
+    static let narrowCorner: CGFloat = 10
+    /// css: search.html .narrow | gap
+    static let narrowGap = Space.s.points
+    /// css: search.html .narrow | padding-left
+    static let narrowInset = Space.m.points
+    /// css: search.html .narrow svg | width
+    static let narrowIcon: CGFloat = 15
+    /// The symbol in front of a recent search.
+    /// css: search.html .recent .row svg | width
+    static let searchRecentIcon: CGFloat = 16
     /// A round button in a row, such as play from here.
     /// css: specimen.css .round | width
     static let roundButton: CGFloat = 32
@@ -172,10 +253,6 @@ enum Layout {
     /// css: person.html "margin-top: var(--space-xs)" | margin-top
     static let albumTitleGap = Space.xs.points
 
-    /// The reference recording supplies the work cover.
-    /// css: work.html .work-cover .cover | width
-    static let workCover = Measure.coverRow
-
     // MARK: Player page
 
     /// The gap between the header lines of the player.
@@ -200,6 +277,35 @@ enum Layout {
     /// How far the touch area of the playback bar reaches above and below it, as a CSS inset: 44 points in all.
     /// css: player.html .mv-bar::after | top
     static let positionBarInset: CGFloat = -19
+    /// A listening note at one moment: a dot above the playback bar.
+    /// css: player.html .mv-bar .note-dot | width
+    static let noteDot: CGFloat = 6
+    /// The top of a note dot, from the top of the bar. Each lane of stacked notes sits this far above the one below.
+    /// css: player.html .mv-bar .note-dot | top
+    static let noteDotTop: CGFloat = -9
+    /// The room above the playback bar that `lanes` lanes of note marks take. The first lane sits in the gap above
+    /// the bar, as in specimen player.html, so only the lanes above it add room and keep the marks off the names.
+    static func noteRoom(lanes: Int) -> CGFloat {
+        -noteDotTop * CGFloat(max(lanes - 1, 0))
+    }
+    /// A listening note over a span: a line above the playback bar.
+    /// css: player.html .mv-bar .note-span | height
+    static let noteSpan: CGFloat = 4
+    /// The top of a note line, from the top of the bar.
+    /// css: player.html .mv-bar .note-span | top
+    static let noteSpanTop: CGFloat = -8
+    /// The height of the player wash. It keeps its colour to `washSolid`, then fades into the page ground.
+    /// css: player.html .wash | height
+    static let washHeight: CGFloat = 640
+    /// The share of the wash height that keeps the full wash colour.
+    /// css: player.html .wash | background | 30%
+    static let washSolid: CGFloat = 0.3
+    /// The rise when an item ends: the old content leaves this far upwards.
+    /// css: player.html .rise-out | transform | 40px
+    static let riseOut: CGFloat = 40
+    /// The rise when an item ends: the next content comes from this far below.
+    /// css: player.html "transform: translateY(120px);" | transform | 120px
+    static let riseIn: CGFloat = 120
     /// The handle at the top of the player overlay.
     /// css: overlay.css .player-overlay .grab::after | width
     static let grabberWidth: CGFloat = 36
@@ -229,6 +335,82 @@ enum Layout {
     static let scrubLabelHorizontal = Space.s.points
     /// css: specimen.css .scrub-label | border-top-left-radius
     static let scrubLabelCorner = Radius.s
+
+    // MARK: Chronology
+
+    /// The gap above the name of the composer in focus.
+    /// css: chronology.html .chrono-head | padding-top
+    static let chronologyHeadTop = Space.xs.points
+    /// The heading keeps its height when the name and the line change, so the chart does not jump.
+    /// css: chronology.html .chrono-head | min-height
+    static let chronologyHeadHeight: CGFloat = 64
+    /// The chart stays clear of the timeline on its side.
+    /// css: chronology.html .chart | right
+    static let chartTimelineGap = Measure.timeline + Space.s.points
+    /// css: chronology.html .band-label | left
+    static let bandLabelLeading = Space.l.points
+    /// The column of decade years at the leading edge of the chart.
+    /// css: chronology.html .tick | width
+    static let tickWidth: CGFloat = 36
+    /// A plain line: a contemporary, or a composer in the overview.
+    /// css: chronology.html .line | width
+    static let line: CGFloat = 2
+    /// The focus composer and the composer last opened.
+    /// css: chronology.html .line.focus | width
+    static let lineMarked: CGFloat = 4
+    /// The composer of what plays.
+    /// css: chronology.html .line.playing | width
+    static let linePlaying: CGFloat = 4
+    /// The line under the finger of a scrub.
+    /// css: chronology.html .line.picked | width
+    static let linePicked: CGFloat = 6
+    /// A line before the work period start.
+    /// css: chronology.html .line.dim | opacity
+    static let lineDim: CGFloat = 0.35
+    /// A work of a contemporary.
+    /// css: chronology.html .dot | width
+    static let dot: CGFloat = 5
+    /// A work of the focus composer.
+    /// css: chronology.html .dot.focus | width
+    static let dotFocus: CGFloat = 9
+    /// The ring of page colour that sets a focus dot off its line.
+    /// css: chronology.html .dot.focus | box-shadow | 2px
+    static let dotFocusRing: CGFloat = 2
+    /// The work that plays.
+    /// css: chronology.html .dot.marked | width
+    static let dotMarked: CGFloat = 15
+    /// css: chronology.html .dot.marked | box-shadow | 4px
+    static let dotMarkedRing: CGFloat = 4
+    /// css: chronology.html .wrow | gap
+    static let workRowGap = Space.s.points
+    /// css: chronology.html .wrow | padding-left
+    static let workRowPadding = Space.xs.points
+    /// css: chronology.html .wrow | border-top-left-radius
+    static let workRowCorner = Radius.s
+    /// css: chronology.html .pick-label | padding-top
+    static let pickLabelVertical = Space.xs.points
+    /// The label clears the finger during a scrub.
+    /// css: chronology.html .pick-label | --pick-above
+    static let pickLabelAbove: CGFloat = 64
+    /// css: chronology.html .pick-label | padding-left
+    static let pickLabelHorizontal = Space.s.points
+    /// css: chronology.html .pick-label | border-top-left-radius
+    static let pickLabelCorner = Radius.s
+    /// css: chronology.html .pick-label | box-shadow | 10px
+    static let pickLabelShadow: CGFloat = 10
+    /// css: chronology.html .pick-label | box-shadow | 2px
+    static let pickLabelShadowY: CGFloat = 2
+    /// css: chronology.html .pick-label | box-shadow | 0.18
+    static let pickLabelShadowOpacity: CGFloat = 0.18
+    /// The life, the count of works and the work period start.
+    /// css: chronology.html "t-subheadline secondary" | class
+    static let chronologyLine = TypeStyle.subheadline
+    /// The decade years and the period names.
+    /// css: chronology.html "tick t-caption2 nums" | class
+    static let chronologyYear = TypeStyle.caption2
+    /// A row of works, and the scrub label.
+    /// css: chronology.html "wrow t-footnote" | class
+    static let workRow = TypeStyle.footnote
 
     // MARK: Local Storage
 

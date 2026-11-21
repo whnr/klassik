@@ -12,6 +12,9 @@ struct ComposerPage: View {
     let composer: WorkIndex.Composer
     @State private var tab = Tab.works
     @State private var chips: Set<String> = []
+    /// The open sets. Their works are rows of the list, so opening one adds rows below its title and the list
+    /// keeps its offset. A system disclosure group scrolls the list to its new rows.
+    @State private var openSets: Set<ComposerWorks.SetID> = []
     @AppStorage(ComposerWorks.separatesPartialKey) private var separatesPartial = true
 
     var body: some View {
@@ -39,6 +42,8 @@ struct ComposerPage: View {
         .navigationTitle(composer.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { ShuffleButton(works: composer.works) }
+        // A person page puts all its covers in front of the cover queue (ADR 0059).
+        .onAppear { model.albumCovers.prefer(composer.works.flatMap { $0.recordings.compactMap(\.songs.first) }) }
         .task(id: artistIDs) { await people.resolve(composer: composer.name, artistIDs: artistIDs) }
     }
 
@@ -53,9 +58,10 @@ struct ComposerPage: View {
         .listRowSeparator(.hidden)
         BackTipRow()
         Button {
-            navigator.select(.chronology)
+            model.chronology.show(composer: composer.name, playing: model.playback.work)
+            navigator.showChronology()
         } label: {
-            Text("Chronology")
+            Text(navigator.selection == .chronology ? "Back to Chronology" : "Chronology")
                 .typeStyle(Layout.capsuleLabel)
                 .foregroundStyle(Palette.tint)
                 .frame(maxWidth: .infinity, minHeight: Layout.capsuleHeight)
@@ -88,7 +94,7 @@ struct ComposerPage: View {
                 .listRowSeparator(.hidden)
         }
         ForEach(parts) { part in
-            worksSection(part.title, rows: part.rows)
+            worksSection(part)
         }
         let rows = parts.flatMap(\.rows)
         if rows.isEmpty {
@@ -104,37 +110,66 @@ struct ComposerPage: View {
         }
     }
 
-    @ViewBuilder private func worksSection(_ title: String, rows: [ComposerWorks.Row]) -> some View {
+    @ViewBuilder private func worksSection(_ part: ComposerWorks.Part) -> some View {
+        let rows = part.rows
         Section {
-            CountedHeading(title, count: rows.reduce(0) { $0 + $1.works.count })
+            CountedHeading(part.title, count: rows.reduce(0) { $0 + $1.works.count })
             ForEach(rows) { row in
                 Group {
                     switch row {
                     case .work(let work):
                         WorkRow(work: work)
                     case .set(let name, let works):
-                        DisclosureGroup {
-                            ForEach(works) {
-                                WorkRow(work: $0)
-                                    .pageRow()
-                                    .itemSeparator(
-                                        first: false, last: $0.id == works.last?.id && row.id == rows.last?.id)
-                            }
-                        } label: {
-                            VStack(alignment: .leading, spacing: Layout.rowLineGap) {
-                                Text(name)
-                                    .typeStyle(.body)
-                                    .ink()
-                                Text("\(works.count) works")
-                                    .typeStyle(.footnote)
-                                    .foregroundStyle(Palette.textSecondary)
-                            }
-                            .accessibilityElement(children: .combine)
-                        }
-                        .accessibilityIdentifier("set")
+                        setRow(id: part.setID(named: name), works: works, row: row, rows: rows)
                     }
                 }
                 .itemSeparator(first: row.id == rows.first?.id, last: row.id == rows.last?.id)
+            }
+        }
+    }
+
+    /// The title of a set stays where it is. Its works follow as rows below it, at once and without scrolling.
+    @ViewBuilder private func setRow(
+        id: ComposerWorks.SetID, works: [WorkIndex.Work], row: ComposerWorks.Row, rows: [ComposerWorks.Row]
+    ) -> some View {
+        let isOpen = openSets.contains(id)
+        Button {
+            var change = Transaction()
+            change.disablesAnimations = true
+            withTransaction(change) {
+                if isOpen { openSets.remove(id) } else { openSets.insert(id) }
+            }
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: Layout.rowLineGap) {
+                    Text(id.name)
+                        .typeStyle(.body)
+                        .ink()
+                    Text("\(works.count) works")
+                        .typeStyle(.footnote)
+                        .foregroundStyle(Palette.textSecondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .typeStyle(.footnote)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Palette.textTertiary)
+                    .rotationEffect(.degrees(isOpen ? 90 : 0))
+                    .accessibilityHidden(true)
+            }
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(isOpen ? "Expanded" : "Collapsed")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityIdentifier("set")
+        if isOpen {
+            ForEach(works) {
+                WorkRow(work: $0)
+                    .padding(.leading, Layout.setMemberLeading - Layout.centredEdge)
+                    .pageRow()
+                    .itemSeparator(first: false, last: $0.id == works.last?.id && row.id == rows.last?.id)
             }
         }
     }
@@ -265,6 +300,7 @@ private struct ResolutionNotice: View {
                     Button {
                         Task { await people.choose(match, forComposer: tag) }
                     } label: {
+                        // The whole row, title included, is the target: a tap anywhere on it picks the person.
                         VStack(alignment: .leading) {
                             Text(match.name).ink()
                             if let description = match.description {
@@ -273,12 +309,18 @@ private struct ResolutionNotice: View {
                                     .foregroundStyle(Palette.textSecondary)
                             }
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
                     }
+                    .buttonStyle(FlatPress())
                     .accessibilityIdentifier("composer-match")
                 }
                 Button("None of These") { Task { await people.choose(nil, forComposer: tag) } }
             } footer: {
-                Text("Your tag gives only \"\(tag)\" and your works do not say which composer it is.")
+                Text(
+                    PersonFactsStore.isSurnameOnly(tag)
+                        ? "Your tag gives only \"\(tag)\" and your works do not say which composer it is."
+                        : "Several composers have the name \"\(tag)\" and your works do not say which one it is.")
             }
         case .mixed(let names):
             Section {
@@ -306,7 +348,13 @@ private struct ResolutionNotice: View {
 /// The picture, the name and the description line. Without a picture the page shows the name on the plain ground.
 /// `kind` prefixes the accessibility identifiers. Every picture shows (ADR 0043).
 struct PersonHero: View {
+    /// The ground of a named picture before it loads. It is opaque, because the heading keeps the page room's
+    /// colours there and the unselected fermata needs its contrast floor on it (ADR 0065).
+    static let placeholder = Palette.backgroundElevated
+
     @Environment(AppModel.self) private var model
+    @Environment(\.self) private var environment
+    @Environment(\.colorScheme) private var scheme
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.displayScale) private var displayScale
     @AppStorage(TimelineSide.storageKey) private var side = TimelineSide.standard
@@ -318,8 +366,8 @@ struct PersonHero: View {
     let width: CGFloat
     /// True when the Chronology button follows. The hero then keeps the specimen gap below it.
     var spacesChronology = false
-    @State private var portrait: LoadedPortrait?
-    @State private var loaded = false
+    @State private var loadedPortrait: LoadedPortrait?
+    private var portrait: LoadedPortrait? { PortraitLoader.ready(facts?.portrait) ?? loadedPortrait }
     @State private var showsPicture = false
     /// The height of the name and the facts line, which sets the blur and the scrim under them.
     @State private var textHeight: CGFloat = 96
@@ -337,9 +385,10 @@ struct PersonHero: View {
                 textHeight + Layout.pictureFade + Layout.pictureAboveFade))
     }
 
-    /// The space stays reserved while a picture loads, so the name does not jump when it arrives.
+    /// The space stays reserved for a picture that Wikidata names, loaded or not, so the name never jumps when it
+    /// arrives or fails (ADR 0059).
     private var hasPicture: Bool {
-        portrait != nil || (facts?.portrait != nil && !loaded)
+        portrait != nil || facts?.portrait != nil
     }
 
     var body: some View {
@@ -353,6 +402,8 @@ struct PersonHero: View {
                 ZStack(alignment: .bottomLeading) {
                     if let portrait, let framing {
                         picture(portrait, framing: framing, frame: frame)
+                    } else {
+                        Rectangle().fill(Self.placeholder)
                     }
                     heading
                         .padding(.bottom, Layout.personHeadBottom)
@@ -383,8 +434,9 @@ struct PersonHero: View {
 
     private var load: PortraitLoad {
         PortraitLoad(
-            task: PortraitTask(portrait: facts?.portrait, screen: screen), facts: facts,
-            portrait: $portrait, loaded: $loaded, showsPicture: $showsPicture)
+            task: PortraitTask(portrait: facts?.portrait, screen: screen, store: .pictures),
+            facts: facts,
+            portrait: $loadedPortrait, showsPicture: $showsPicture)
     }
 
     private var heading: some View {
@@ -396,7 +448,7 @@ struct PersonHero: View {
             }
             .pagePadding()
             .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityElement(children: .combine)
+            .accessibilityElement(children: .contain)
             .accessibilityAddTraits(.isHeader)
             .accessibilityIdentifier("\(kind)-name")
     }
@@ -404,9 +456,20 @@ struct PersonHero: View {
     /// The name and the line, as wide as the longer of the two.
     private var textLines: some View {
         VStack(alignment: .leading, spacing: gap) {
-            Text(name)
-                .typeStyle(Layout.pageTitle)
-                .foregroundStyle(portrait == nil ? Palette.textPrimary.color : paper)
+            if showsFavourite {
+                FavouriteTitle(
+                    title: name, isSet: model.recordingOrder.isFavourite(person: name),
+                    action: { model.recordingOrder.toggleAtOnce(person: name) }, textIdentifier: "\(kind)-title",
+                    ink: portrait == nil ? Palette.textPrimary.color : paper, minimumHeight: nil
+                )
+                // The portrait scrim uses the dark room's ink and favourite colours (picture.css).
+                .environment(\.colorScheme, portrait == nil ? scheme : .dark)
+                .accessibilityIdentifier("favourite-\(kind)")
+            } else {
+                Text(name)
+                    .typeStyle(Layout.pageTitle)
+                    .foregroundStyle(portrait == nil ? Palette.textPrimary.color : paper)
+            }
             if let line {
                 Text(line)
                     .typeStyle(Layout.metaLine)
@@ -420,9 +483,17 @@ struct PersonHero: View {
         PortraitSize.Screen(hero: frame, scale: displayScale)
     }
 
-    fileprivate struct PortraitTask: Equatable {
+    struct PortraitTask: Equatable {
         var portrait: PersonPortrait?
         var screen: PortraitSize.Screen
+        var revision: Int
+
+        @MainActor init(portrait: PersonPortrait?, screen: PortraitSize.Screen, store: ImageStore) {
+            self.portrait = portrait
+            self.screen = screen
+            let files = portrait.map(PortraitLoader.files(of:)) ?? []
+            revision = store.revision(of: files.map(\.absoluteString))
+        }
     }
 
     /// Loads the picture and presents it whole. Both branches of the hero carry it, so a load survives the switch.
@@ -430,18 +501,19 @@ struct PersonHero: View {
         let task: PortraitTask
         let facts: PersonFacts?
         @Binding var portrait: LoadedPortrait?
-        @Binding var loaded: Bool
         @Binding var showsPicture: Bool
 
         func body(content: Content) -> some View {
             content
                 .task(id: task) {
-                    portrait = nil
-                    loaded = false
-                    defer { loaded = true }
-                    guard let file = facts?.portrait else { return }
-                    let result = await PortraitLoader.load(file, screen: task.screen)
-                    portrait = result
+                    guard let file = facts?.portrait else {
+                        portrait = nil
+                        return
+                    }
+                    // A shown picture stays until its replacement loads.
+                    if let result = await PortraitLoader.load(file, screen: task.screen), !Task.isCancelled {
+                        portrait = result
+                    }
                 }
                 .fullScreenCover(isPresented: $showsPicture) {
                     if let portrait {
@@ -468,6 +540,17 @@ struct PersonHero: View {
         Color(red: PictureScrim.text.red, green: PictureScrim.text.green, blue: PictureScrim.text.blue)
     }
 
+    private var showsFavourite: Bool {
+        model.recordingOrder.artist(named: name) != nil
+    }
+
+    static func pictureMarks(showsFavourite: Bool, environment: EnvironmentValues) -> [SRGB] {
+        guard showsFavourite else { return [] }
+        var darkEnvironment = environment
+        darkEnvironment.colorScheme = .dark
+        return [Palette.favourite, .favouriteOff].map { SRGB($0.color.resolve(in: darkEnvironment)) }
+    }
+
     private func picture(_ portrait: LoadedPortrait, framing: CGRect, frame: CGSize) -> some View {
         // The scrim comes from the picture under the text, as the frame shows it.
         let visible = PortraitFraming.visible(of: framing, in: frame)
@@ -481,8 +564,9 @@ struct PersonHero: View {
         let region = CGRect(
             x: visible.minX, y: visible.minY + visible.height * (1 - under), width: visible.width * geometry.across,
             height: visible.height * under)
+        let marks = Self.pictureMarks(showsFavourite: showsFavourite, environment: environment)
         let opacity = PictureScrim.opacity(
-            over: portrait.brightestColour(in: region), increasedContrast: contrast == .increased)
+            over: portrait.brightestColour(in: region), increasedContrast: contrast == .increased, marks: marks)
         let hall = PictureScrim.hall
         let hallColour = Color(red: hall.red, green: hall.green, blue: hall.blue)
         let image = Image(uiImage: portrait.image).resizable()

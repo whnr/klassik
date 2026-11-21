@@ -8,3 +8,14 @@ Klassik/PortraitFraming.swift | static let faceHeight: CGFloat = 0.3 | A share o
 Klassik/PortraitFraming.swift | static let faceLine: CGFloat = 0.4 | A share of the frame for the face centre in the crop (ADR 0017), not a distance.
 Klassik/RoleLines.swift | private var tie: Text { Text("\u{00A0}").kerning(size * 0.2) } | With the no-break space it ties a role label to the first name, about 0.45 em. The specimen has no CSS value for it.
 Klassik/TimelineBarView.swift | floor: proxy.size.height - Space.s.points) - labelHeight / 2 | Centres the scrub label on the finger, as translateY(-50%) in specimen.css .scrub-label.
+Klassik/Chronology.swift | static let gutter: CGFloat = 44 | A placement of the chronology.html script, which has no CSS rule for it.
+Klassik/Chronology.swift | static let overviewInset: CGFloat = 40 | A placement of the chronology.html script, which has no CSS rule for it.
+Klassik/Chronology.swift | static let laneInset: CGFloat = 8 | A placement of the chronology.html script, which has no CSS rule for it.
+Klassik/Chronology.swift | static let laneShare: CGFloat = 0.42 | A placement of the chronology.html script, which has no CSS rule for it.
+Klassik/Chronology.swift | static let rowGap: CGFloat = 8 | A placement of the chronology.html script, which has no CSS rule for it.
+Klassik/Chronology.swift | static let rowPadding: CGFloat = 8 | A placement of the chronology.html script, which has no CSS rule for it.
+Klassik/Chronology.swift | static let bandLabelTop: CGFloat = 4 | A placement of the chronology.html script, which has no CSS rule for it.
+Klassik/Chronology.swift | static let pickInset: CGFloat = 90 | A placement of the chronology.html script, which has no CSS rule for it.
+Klassik/Chronology.swift | static let focusReach: CGFloat = 22 | A placement of the chronology.html script, which has no CSS rule for it.
+Klassik/Chronology.swift | static let dotReach: CGFloat = 24 | A placement of the chronology.html script, which has no CSS rule for it.
+Klassik/Chronology.swift | static let scrubStart: CGFloat = 10 | A placement of the chronology.html script, which has no CSS rule for it.

@@ -1,5 +1,7 @@
 """Tests for the screenshot scripts: python3 -m unittest discover -s scripts -p "test_screens.py"."""
 
+import contextlib
+import io
 import os
 import pathlib
 import re
@@ -331,13 +333,18 @@ class PlanTests(unittest.TestCase):
         ui, groups = self.groups("pull_request", messages="[ui: browse]\n[ui: all]")
         self.assertEqual((ui, len(groups)), ("all", 4))
 
-    def test_pull_request_rejects_unknown_areas(self):
-        with self.assertRaises(ValueError):
-            screen_report.plan("pull_request", "", "[ui: brwse]")
-
-    def test_every_request_is_validated_after_all(self):
-        with self.assertRaises(ValueError):
-            screen_report.plan("pull_request", "", "[ui: all]\n[ui: brwse]")
+    def test_pull_request_warns_and_keeps_valid_requests(self):
+        for messages, expected in (
+            ("[ui: brwse]", ("false", [])),
+            ("[ui: places,library]\n[ui: performers]", ("places", ["places-browse"])),
+            ("[ui: all]\n[ui: brwse]", ("all", list(screen_report.UI_GROUPS))),
+        ):
+            with self.subTest(messages=messages), contextlib.redirect_stderr(io.StringIO()) as warnings:
+                self.assertEqual(self.groups("pull_request", messages=messages), expected)
+                self.assertIn("::warning::Ignoring unknown UI areas:", warnings.getvalue())
+                for group in screen_report.UI_GROUPS:
+                    self.assertIn(group, warnings.getvalue())
+                self.assertIn("Valid UI areas: playback, places, browse, settings, timeline", warnings.getvalue())
 
     def test_main_push_runs_no_walk(self):
         self.assertEqual(self.groups("push"), ("false", []))
@@ -396,6 +403,19 @@ class PlanTests(unittest.TestCase):
             screen_report.plan("workflow_dispatch", "brwse", "")
 
 
+class ConsoleReportTests(unittest.TestCase):
+    def test_counts_signs_and_skips_missing_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / "unit-console.txt"
+            path.write_text("ok\nFatal error: x\nThread 1 crashed\nSwift runtime: bad\nfine\n")
+            text = screen_report.console_report([path, pathlib.Path(tmp) / "none-console.txt"])
+        self.assertIn("`unit-console.txt`: 3 lines", text)
+        self.assertNotIn("none-console", text)
+
+    def test_no_file(self):
+        self.assertIn("No console file", screen_report.console_report([]))
+
+
 class DiffSummaryTests(unittest.TestCase):
     def test_counts(self):
         report = {
@@ -431,6 +451,10 @@ class BaselineTests(unittest.TestCase):
     def test_no_branch_run_falls_back(self):
         order = screen_baseline.candidates([], [run(8), run(5)], this_run=10)
         self.assertEqual([r["id"] for r in order], [8, 5])
+
+    def test_branch_name_is_url_encoded(self):
+        query = screen_baseline.runs_query("o/r", "fix&x=1#a b", "completed")
+        self.assertIn("branch=fix%26x%3D1%23a%20b&status=completed", query)
 
     def test_usable_needs_screenshots(self):
         screens = {"name": "screens", "expired": False, "size_in_bytes": 2_000_000}

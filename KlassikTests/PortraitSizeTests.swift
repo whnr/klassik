@@ -160,7 +160,7 @@ struct PortraitLoaderSizeTests {
     static let portrait = PersonPortrait(
         url: PortraitSizeTests.thumb, original: PortraitSizeTests.original, width: 6000, height: 8000)
 
-    @Test func theLargeFileAllowsEveryNetworkAndKeepsOnlyTheNeededPixels() async throws {
+    @Test func theLargeFileLoadsInLowDataModeAndKeepsOnlyTheNeededPixels() async throws {
         let requests = Requests()
         let loaded = try #require(
             await PortraitLoader.load(Self.portrait, screen: PortraitSizeTests.proMax) { request in

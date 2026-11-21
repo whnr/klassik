@@ -84,14 +84,35 @@ struct ComposerWorksTests {
         ])
         let parts = works.parts(separatingPartial: true)
         #expect(parts.map(\.title) == ["Works", "Partial works"])
-        #expect(parts[0].rows.map(\.title) == ["Ballade", "Concerto", "Etude No. 2"])
-        #expect(parts[1].rows.map(\.title) == ["Etude No. 1", "Sonata"])
-        // A set splits by its works, and a part of one work is a work row.
-        guard case .work = try #require(parts[1].rows.first) else {
-            Issue.record("expected a work row")
-            return
-        }
+        #expect(parts[0].rows.map(\.title) == ["Ballade", "Concerto", "Etudes"])
+        #expect(parts[1].rows.map(\.title) == ["Sonata"])
+        #expect(parts[0].rows.last?.works.count == 2)
         #expect(works.parts(filter: ["Orchestral"], separatingPartial: true).map(\.title) == ["Works"])
+    }
+
+    @Test func aSetStaysTogetherInWorks() throws {
+        let works = try Self.chopin([
+            Self.song("a", work: "Etude No. 1", genres: ["Piano"], grouping: "Etudes"),
+            Self.song("b", work: "Etude No. 2", genres: ["Piano"], grouping: "Etudes"),
+            Self.song("c", work: "Etude No. 3", genres: ["Piano"], grouping: "Etudes", movement: (1, 2)),
+            Self.song("d", work: "Etude No. 4", genres: ["Piano"], grouping: "Etudes", movement: (1, 2)),
+        ])
+        for filter: Set<String> in [[], ["Piano"]] {
+            let parts = works.parts(filter: filter, separatingPartial: true)
+            #expect(parts.map(\.title) == ["Works"])
+            #expect(parts[0].rows.count == 1)
+            #expect(parts[0].rows.first?.works.count == 4)
+        }
+    }
+
+    @Test func aSetOfPartialWorksStaysInWorks() throws {
+        let works = try Self.chopin([
+            Self.song("a", work: "Etude No. 1", genres: [], grouping: "Etudes", movement: (1, 2)),
+            Self.song("b", work: "Etude No. 2", genres: [], grouping: "Etudes", movement: (1, 2)),
+        ])
+        let parts = works.parts(separatingPartial: true)
+        #expect(parts.map(\.title) == ["Works"])
+        #expect(parts[0].rows.first?.works.count == 2)
     }
 
     @Test func withTheSettingOffOneListHoldsEveryWork() throws {

@@ -57,13 +57,6 @@ struct SearchView: View {
                             .pageEdges(top: Layout.searchHintTop, bottom: Layout.rowPadding)
                             .accessibilityIdentifier("search-hint")
                     }
-                    // The performer list has no other way in. The results find a single performer by name.
-                    NavigationLink(value: Page.performers) {
-                        LabeledContent("Performers", value: model.library.index.performers.count.formatted())
-                            .ink()
-                    }
-                    .accessibilityIdentifier("performers")
-                    .listRowSeparator(.hidden)
                 }
             } else if filtered.results.isEmpty && settled {
                 Text("No work, name or album matches.")

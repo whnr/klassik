@@ -3,6 +3,7 @@
 Decided by Flo, 2026-11-18. Bead: sz-rs30.1.115.
 Replaces the standard Search tab constraint in [0029](0029-search-at-the-top.md).
 Refines the separate Search button of [0040](0040-settings-from-the-library.md).
+The Performers page is replaced by [0069](0069-no-shuffle-and-no-performer-list.md).
 
 ## Context
 

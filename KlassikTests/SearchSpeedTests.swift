@@ -70,4 +70,37 @@ struct SearchSpeedTests {
         }
         #expect(works > 1000)
     }
+
+    /// The filter sheet builds its terms once per index; then each tap counts every term of a scope.
+    @Test func timesTheFiltersOnALargeLibrary() {
+        let clock = ContinuousClock()
+        let index = WorkIndex(songs: Self.songs())
+        var filters: SearchFilters?
+        let build = Self.milliseconds(clock.measure { filters = SearchFilters(index: index) })
+        guard let filters else { return }
+        let found = Search(index: index).results(for: "symphony")
+        let all = filters.pool(of: nil)
+        let pool = Self.time { _ = filters.pool(of: found) }
+        let text = filters.pool(of: found)
+        let composer = filters.choices(in: .composers, conditions: [], pool: all)
+        #expect(!composer.isEmpty)
+        let one = [Search.Condition(terms: [composer[0].term])]
+        var timings: [(String, Double)] = [("filters-build", build), ("pool symphony", pool)]
+        for scope in Search.Scope.allCases {
+            let time = Self.time { _ = filters.choices(in: scope, conditions: [], pool: all) }
+            timings.append(("choices \(scope.title)", time))
+        }
+        let joined = Self.time { _ = filters.choices(in: .performers, conditions: one, pool: all) }
+        let either = Self.time { _ = filters.choices(in: .composers, conditions: one, joining: 0, pool: all) }
+        let texted = Self.time { _ = filters.choices(in: .performers, conditions: [], pool: text) }
+        let narrowAll = Self.time { _ = filters.narrow(nil, by: one) }
+        let narrowText = Self.time { _ = filters.narrow(found, by: one) }
+        timings += [
+            ("choices Performers and", joined), ("choices Composers or", either), ("choices Performers text", texted),
+            ("narrow no text", narrowAll), ("narrow symphony", narrowText),
+        ]
+        for (name, time) in timings {
+            print("FILTER-SPEED \(name) ms=\(String(format: "%.1f", time))")
+        }
+    }
 }

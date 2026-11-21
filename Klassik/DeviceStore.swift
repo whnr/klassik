@@ -19,6 +19,8 @@ struct DeviceStore {
         var pendingFavourites: [FavouriteChange] = []
         /// Listening notes by recording ID (ADR 0013). The server never sees them.
         var notes: [String: [ListeningNote]] = [:]
+        /// Recent searches, newest first (ADR 0029). The server never sees them.
+        var recentSearches: [RecentSearch] = []
 
         /// Keeps one change for each target: the server must get the newest choice.
         mutating func queue(_ change: FavouriteChange) {
@@ -71,7 +73,7 @@ struct DeviceStore {
 }
 
 extension DeviceStore.Data {
-    /// A file from an older build has no album stars, no queue and no notes.
+    /// A file from an older build has no album stars, no queue, no notes and no recent searches.
     init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         favouriteWorks = try values.decode(Set<String>.self, forKey: .favouriteWorks)
@@ -81,6 +83,7 @@ extension DeviceStore.Data {
         pendingFavourites =
             try values.decodeIfPresent([DeviceStore.FavouriteChange].self, forKey: .pendingFavourites) ?? []
         notes = try values.decodeIfPresent([String: [ListeningNote]].self, forKey: .notes) ?? [:]
+        recentSearches = try values.decodeIfPresent([RecentSearch].self, forKey: .recentSearches) ?? []
     }
 }
 

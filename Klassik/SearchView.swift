@@ -1,30 +1,61 @@
 import SwiftUI
 
 /// The Search place (ADR 0025, 0029, 0057): one field at the top under the back arrow, no large title, and the
-/// results in sections under it. Only the results scroll.
+/// results in sections under it. Only the results scroll. Filters beside the field opens the conditions in a sheet;
+/// the results stay live above it.
 /// The field is drawn here, not by `searchable`: in a `UISearchTab` the system moves that field to the bottom of
 /// the screen, onto the keyboard.
 struct SearchView: View {
     @Environment(AppModel.self) private var model
     @Environment(AppNavigator.self) private var navigator
     @State private var text = ""
+    @State private var conditions: [Search.Condition] = []
+    /// The condition that the next term of the sheet joins with "or".
+    @State private var joining: Int?
+    @State private var showsFilters = false
     @FocusState private var focused: Bool
     /// The start that the page last handled.
     @State private var started: Int?
     @State private var live = LiveSearch()
 
+    private var recent: RecentSearches { model.recentSearches }
+
+    /// Keeps what the session searched as its recent search.
+    private func commit() {
+        recent.commit(text: text, conditions: RecentSearch.terms(of: conditions))
+    }
+
     var body: some View {
         let typed = !text.trimmingCharacters(in: .whitespaces).isEmpty
-        let results = typed ? live.results : Search.Results()
+        let found = typed ? live.results : nil
+        let filtered =
+            conditions.isEmpty
+            ? Search.Filtered(results: found ?? Search.Results())
+            : model.library.searchFilters.narrow(found, by: conditions)
+        // While a search runs, the page keeps the last results; an empty result is no match only when it is current.
+        let settled = !typed || live.isShowing(text)
         PageList {
-            if !typed {
+            // A search of conditions only shows results; the recent list belongs to an empty search (ADR 0029).
+            if !typed && conditions.isEmpty {
+                // Klassik shows no suggestions: it knows no content that the listener does not (ADR 0029).
+                if !recent.entries.isEmpty {
+                    RecentList(recent: recent) { entry in
+                        text = entry.text
+                        conditions = entry.searchConditions
+                        joining = nil
+                        focused = false
+                        recent.restore(entry)
+                    }
+                }
                 Section {
-                    Text("Type a work, a catalogue number such as Op. 67 or K. 626, or a name.")
-                        .typeStyle(.subheadline)
-                        .foregroundStyle(Palette.textSecondary)
-                        .listRowSeparator(.hidden)
-                        .pageEdges(top: Layout.searchHintTop, bottom: Layout.rowPadding)
-                        .accessibilityIdentifier("search-hint")
+                    if recent.entries.isEmpty {
+                        Text("Type a work, a catalogue number such as Op. 67 or K. 626, or a name.")
+                            .typeStyle(.subheadline)
+                            .foregroundStyle(Palette.textSecondary)
+                            .listRowSeparator(.hidden)
+                            .pageEdges(top: Layout.searchHintTop, bottom: Layout.rowPadding)
+                            .accessibilityIdentifier("search-hint")
+                    }
                     // The performer list has no other way in. The results find a single performer by name.
                     NavigationLink(value: Page.performers) {
                         LabeledContent("Performers", value: model.library.index.performers.count.formatted())
@@ -33,26 +64,67 @@ struct SearchView: View {
                     .accessibilityIdentifier("performers")
                     .listRowSeparator(.hidden)
                 }
-            } else if results.isEmpty && live.isShowing(text) {
+            } else if filtered.results.isEmpty && settled {
                 Text("No work, name or album matches.")
                     .typeStyle(.subheadline)
                     .foregroundStyle(Palette.textSecondary)
                     .listRowSeparator(.hidden)
                     .pageEdges(top: Layout.searchNoMatchTop)
                     .accessibilityIdentifier("search-no-match")
-            } else if !results.isEmpty {
-                SearchResults(results: results)
+            } else if !filtered.results.isEmpty {
+                SearchResults(results: filtered.results, matching: filtered.matching)
+            }
+            if filtered.hiddenWorks > 0 {
+                let hidden = WorkIndex.Recording.count(filtered.hiddenWorks, "more work")
+                Text(typed ? "The filters hide \(hidden) that match the text." : "The filters hide \(hidden).")
+                    .typeStyle(.footnote)
+                    .foregroundStyle(Palette.textSecondary)
+                    .listRowSeparator(.hidden)
+                    .pageEdges(top: Layout.searchNoMatchTop)
+                    .accessibilityIdentifier("search-hidden")
             }
         }
         .navigationTitle(Place.search.title)
         .navigationBarTitleDisplayMode(.inline)
         .environment(\.pageHeading, "")
         .safeAreaInset(edge: .top, spacing: 0) {
-            SearchField(text: $text, focused: $focused)
+            HStack(spacing: Layout.searchRowGap) {
+                SearchField(text: $text, focused: $focused, submit: commit)
+                FiltersButton(conditions: showsFilters ? 0 : conditions.count, isOpen: showsFilters) {
+                    // The keyboard goes down as the sheet rises; the sheet never rides on the search keyboard.
+                    focused = false
+                    showsFilters.toggle()
+                }
+                RoundButton(
+                    symbol: "xmark", icon: Layout.searchResetIcon, label: "Clear search and filters",
+                    identifier: "search-reset", isEnabled: !text.isEmpty || !conditions.isEmpty
+                ) {
+                    // The x pill ends the session: the next search is a new entry (ADR 0029).
+                    commit()
+                    recent.endSession()
+                    text = ""
+                    conditions = []
+                    joining = nil
+                }
+            }
+            .pagePadding()
+            .padding(.bottom, Layout.searchRowBottom)
+            .background(Palette.backgroundPage)
         }
         .scrollDismissesKeyboard(.immediately)
+        .sheet(isPresented: $showsFilters) {
+            FilterSheet(
+                conditions: $conditions, joining: $joining, pool: pool(of: found), hasText: typed, done: commit)
+        }
         .onAppear(perform: start)
         .onChange(of: navigator.searchStarts, start)
+        // Opening a result and leaving the page commit the search of the session (ADR 0029).
+        .onChange(of: navigator.pages(in: .search).count) { before, after in
+            if after > before { commit() }
+        }
+        .onChange(of: navigator.selection) { before, _ in
+            if before == .search { commit() }
+        }
         .task(id: Query(text: text, version: model.library.indexVersion)) {
             let library = model.library
             await live.show(text, version: library.indexVersion) { await library.results(for: $0) }
@@ -65,13 +137,84 @@ struct SearchView: View {
         var version: Int
     }
 
+    /// The recordings that the text found. The sheet counts only these (ADR 0029).
+    private func pool(of found: Search.Results?) -> Search.Pool {
+        model.library.searchFilters.pool(of: found)
+    }
+
     /// A tab or a link opens Search empty, with the keyboard up, as the system Search tab does. The root appears
     /// again after Back from a result; that arrival is no new start, so the search stays (ADR 0029).
     private func start() {
         guard navigator.searchStarts != started else { return }
         started = navigator.searchStarts
+        commit()
+        recent.endSession()
         text = ""
+        conditions = []
+        joining = nil
+        showsFilters = false
         focused = navigator.selection == .search
+    }
+}
+
+/// A round button beside the field, as search.html .fieldrow .roundglass draws it.
+private struct RoundButton: View {
+    let symbol: String
+    let icon: CGFloat
+    let label: String
+    let identifier: String
+    var isEnabled = true
+    var isOn = false
+    let action: () -> Void
+    @ScaledMetric(relativeTo: .body) private var size = Layout.searchButton
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .resizable()
+                .scaledToFit()
+                .fontWeight(.semibold)
+                .frame(width: icon * size / Layout.searchButton, height: icon * size / Layout.searchButton)
+                .foregroundStyle(isEnabled ? (isOn ? Palette.tint : Palette.textPrimary) : Palette.textTertiary)
+                .frame(width: size, height: size)
+                .background(Palette.fillQuiet, in: Circle())
+                .contentShape(Circle())
+        }
+        .buttonStyle(FlatPress())
+        // The x pill stays in place when there is nothing to clear, so the field never changes width.
+        .disabled(!isEnabled)
+        .accessibilityLabel(label)
+        .accessibilityIdentifier(identifier)
+    }
+}
+
+/// Filters, with a badge that counts the conditions while the sheet is closed (ADR 0025).
+private struct FiltersButton: View {
+    let conditions: Int
+    let isOpen: Bool
+    let action: () -> Void
+    @ScaledMetric(relativeTo: .caption) private var badge = Layout.badgeSize
+
+    var body: some View {
+        RoundButton(
+            symbol: "line.3.horizontal.decrease", icon: Layout.searchButtonIcon, label: "Filters",
+            identifier: "search-filters", isOn: isOpen, action: action
+        )
+        .overlay(alignment: .topTrailing) {
+            if conditions > 0 {
+                Text(conditions.formatted())
+                    .typeStyle(.caption1)
+                    .fontWeight(.semibold)
+                    .monospacedDigit()
+                    .foregroundStyle(Palette.onAccent)
+                    .padding(.horizontal, Layout.badgePadding)
+                    .frame(minWidth: badge, minHeight: badge)
+                    .background(Palette.accentFill, in: Capsule())
+                    .offset(x: -Layout.badgeOffset, y: Layout.badgeOffset)
+                    .accessibilityHidden(true)
+            }
+        }
+        .accessibilityValue(conditions > 0 ? WorkIndex.Recording.count(conditions, "condition") : "")
     }
 }
 
@@ -80,6 +223,7 @@ struct SearchView: View {
 struct SearchField: View {
     @Binding var text: String
     var focused: FocusState<Bool>.Binding
+    var submit: () -> Void = {}
     var prompt = "Work or name"
     var identifier = "search-field"
     @ScaledMetric(relativeTo: .body) private var height = Layout.searchFieldHeight
@@ -98,7 +242,10 @@ struct SearchField: View {
                 .foregroundStyle(Palette.textPrimary)
                 .focused(focused)
                 .submitLabel(.search)
-                .onSubmit { focused.wrappedValue = false }
+                .onSubmit {
+                    focused.wrappedValue = false
+                    submit()
+                }
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
                 .accessibilityIdentifier(identifier)
@@ -118,9 +265,70 @@ struct SearchField: View {
         .padding(.trailing, Layout.searchFieldTrailing)
         .frame(minHeight: height)
         .background(Palette.fillQuiet, in: RoundedRectangle(cornerRadius: Layout.searchFieldCorner))
-        .pagePadding()
-        .padding(.bottom, Layout.searchRowBottom)
-        .background(Palette.backgroundPage)
+    }
+}
+
+/// The recent searches of the empty page, newest first, each with its text and its conditions, and Clear
+/// (search.html). A tap restores the search.
+private struct RecentList: View {
+    let recent: RecentSearches
+    let restore: (RecentSearch) -> Void
+    @ScaledMetric(space: .inGroup) private var gap: CGFloat
+    @ScaledMetric(relativeTo: .body) private var icon = Layout.searchRecentIcon
+
+    var body: some View {
+        let entries = recent.entries
+        Section {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Recent")
+                    .typeStyle(Layout.sectionHeading)
+                    .foregroundStyle(Palette.textPrimary)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer(minLength: 0)
+                Button("Clear") { recent.clear() }
+                    .typeStyle(Layout.sectionHeading)
+                    .foregroundStyle(Palette.tint)
+                    // A row of a list sends a tap anywhere on it to a bordered button.
+                    .buttonStyle(.borderless)
+                    .accessibilityIdentifier("search-recent-clear")
+            }
+            .pageSectionHeader(true)
+            ForEach(entries) { entry in
+                Button {
+                    restore(entry)
+                } label: {
+                    HStack(spacing: Layout.rowGap) {
+                        // A search of conditions only shows the filter symbol, as its line names no text.
+                        Image(systemName: entry.text.isEmpty ? "line.3.horizontal.decrease" : "magnifyingglass")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: icon, height: icon)
+                            .foregroundStyle(Palette.textSecondary)
+                            .accessibilityHidden(true)
+                        lines(entry)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("search-recent")
+                .itemSeparator(first: entry.id == entries.first?.id, last: entry.id == entries.last?.id)
+            }
+        }
+    }
+
+    private func lines(_ entry: RecentSearch) -> some View {
+        VStack(alignment: .leading, spacing: gap) {
+            if !entry.text.isEmpty {
+                Text(entry.text).typeStyle(.body)
+            }
+            if !entry.conditions.isEmpty {
+                Text(entry.conditionLine)
+                    .typeStyle(entry.text.isEmpty ? .body : .subheadline)
+                    .foregroundStyle(entry.text.isEmpty ? Palette.textPrimary : Palette.textSecondary)
+            }
+        }
+        .ink()
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -128,6 +336,8 @@ struct SearchField: View {
 private struct SearchResults: View {
     @Environment(AppModel.self) private var model
     let results: Search.Results
+    /// The recordings of each work that pass the conditions. Empty without conditions.
+    let matching: [String: Int]
     @ScaledMetric(space: .inGroup) private var gap: CGFloat
 
     var body: some View {
@@ -137,7 +347,8 @@ private struct SearchResults: View {
                 CountedHeading("Works", count: results.works.count)
                 ForEach(results.works) { work in
                     NavigationLink(value: Page.work(work.id)) {
-                        let recordings = WorkIndex.Recording.count(work.recordings.count, "recording")
+                        let total = WorkIndex.Recording.count(work.recordings.count, "recording")
+                        let recordings = matching[work.id].map { "\($0) of \(total) match" } ?? total
                         lines(
                             title: work.title, isFavourite: model.recordingOrder.isFavourite(work),
                             detail: "\(work.composer), \(recordings)")

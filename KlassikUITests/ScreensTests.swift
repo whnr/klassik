@@ -227,6 +227,30 @@ final class PlacesScreens: ScreensTestCase {
 
 /// The pages that the lookup fills.
 final class BrowseScreens: ScreensTestCase {
+    @MainActor
+    func testPerformerSearchSpacing() throws {
+        let app = try launchAndConnect(openComposers: false)
+        openPlace(app, "Search")
+        app.buttons["performers"].tap()
+        let field = app.textFields["performer-search"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        let performer = app.buttons.matching(identifier: "performer").firstMatch
+        XCTAssertTrue(performer.waitForExistence(timeout: 10))
+        // The text starts after the page margin, field inset, magnifier and gap.
+        XCTAssertEqual(
+            field.frame.minX,
+            app.frame.minX + Layout.centredEdge + Layout.searchFieldLeading
+                + Layout.searchFieldIcon + Layout.searchFieldGap,
+            accuracy: 1, "The performer field lost its leading margin")
+        XCTAssertEqual(
+            field.frame.maxX, app.frame.maxX - Layout.centredEdge - Layout.searchFieldTrailing,
+            accuracy: 1, "The performer field lost its trailing margin")
+        XCTAssertGreaterThanOrEqual(
+            performer.frame.minY - (field.frame.midY + Layout.searchFieldHeight / 2),
+            Layout.searchRowBottom - 1, "The performer field lost its lower gap")
+        snap(app, "06g-performer-search-spacing")
+    }
+
     /// The field at the top finds works, people and albums in sections. Back from a result keeps the search; a tab
     /// opens Search empty (ADR 0025, 0029).
     @MainActor
@@ -280,8 +304,94 @@ final class BrowseScreens: ScreensTestCase {
 
         openPlace(app, "Library")
         openPlace(app, "Search")
-        XCTAssertTrue(app.staticTexts["search-hint"].waitForExistence(timeout: 10), "A tab kept the old search")
+        XCTAssertTrue(
+            app.buttons.matching(identifier: "search-recent").firstMatch.waitForExistence(timeout: 10),
+            "A tab kept the old search")
         XCTAssertFalse(app.buttons["search-clear"].exists)
+    }
+
+    /// Filters opens the conditions in a sheet at the medium detent and closes the keyboard. A pick clears the
+    /// narrowing field. The badge counts the conditions; the x in the field clears the text only, the x pill clears
+    /// the text and the conditions (ADR 0020, 0025, 0029).
+    @MainActor
+    func testSearchFilters() throws {
+        let app = try launchAndConnect(openComposers: false)
+        openPlace(app, "Search")
+        let field = app.textFields["search-field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        field.tap()
+        field.typeText("chopin")
+        let works = app.buttons.matching(identifier: "search-work")
+        XCTAssertTrue(works.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertEqual(works.count, 4)
+
+        let filters = app.buttons["search-filters"]
+        filters.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5), "Filters keeps the keyboard up")
+        let done = app.buttons["filter-done"]
+        XCTAssertTrue(done.waitForExistence(timeout: 10))
+        XCTAssertGreaterThan(done.frame.minY, app.frame.height / 3, "The sheet is not at the medium detent")
+        XCTAssertEqual(app.staticTexts["filter-total"].label, "4\u{00A0}recordings")
+        snap(app, "19d-search-filter-sheet")
+
+        // The text found only Chopin, so other composers leave nothing and do not show.
+        let terms = app.buttons.matching(identifier: "filter-term")
+        XCTAssertTrue(terms.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertEqual(terms.count, 1, "A composer that leaves nothing shows")
+        app.buttons["Genres"].tap()
+        let romantic = terms.matching(NSPredicate(format: "label CONTAINS %@", "Romantic")).firstMatch
+        XCTAssertTrue(romantic.waitForExistence(timeout: 5))
+        XCTAssertTrue(romantic.label.contains("2"), "Romantic does not count two recordings: \(romantic.label)")
+        romantic.tap()
+        let conditions = app.descendants(matching: .any).matching(identifier: "filter-condition")
+        XCTAssertTrue(conditions.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertEqual(app.staticTexts["filter-total"].label, "2\u{00A0}recordings")
+        let solo = terms.matching(NSPredicate(format: "label CONTAINS %@", "Solo")).firstMatch
+        XCTAssertTrue(solo.waitForExistence(timeout: 5))
+        XCTAssertTrue(solo.label.contains("and"), "Solo does not offer \"and\": \(solo.label)")
+
+        // With "or" on, the next term joins the condition and its own term shows a check. The checked term sorts
+        // first, so only the row under it is sure to be inside the medium detent; the lazy list loads no more.
+        app.buttons["filter-or"].tap()
+        XCTAssertTrue(romantic.waitForExistence(timeout: 5))
+        XCTAssertTrue(romantic.isSelected, "The term of the open condition shows no check")
+        let offered = terms.matching(NSPredicate(format: "NOT (label CONTAINS %@)", "Romantic")).firstMatch
+        XCTAssertTrue(offered.waitForExistence(timeout: 5))
+        XCTAssertNotNil(
+            offered.label.range(of: #"\bor \d+$"#, options: .regularExpression),
+            "A term does not offer \"or\": \(offered.label)")
+        app.buttons["filter-or"].tap()
+
+        // A pick clears the narrowing field.
+        app.buttons["Performers"].tap()
+        let narrow = app.textFields["filter-narrow"]
+        narrow.tap()
+        narrow.typeText("pia")
+        let pia = terms.matching(NSPredicate(format: "label CONTAINS %@", "Pia Nissimo")).firstMatch
+        XCTAssertTrue(pia.waitForExistence(timeout: 5))
+        pia.tap()
+        XCTAssertTrue(eventually(timeout: 5) { (narrow.value as? String) != "pia" }, "A pick kept the narrowing text")
+        XCTAssertEqual(conditions.count, 2)
+        snap(app, "19e-search-filter-conditions")
+
+        done.tap()
+        XCTAssertTrue(done.waitForNonExistence(timeout: 5))
+        XCTAssertEqual(filters.value as? String, "2\u{00A0}conditions", "The badge does not count the conditions")
+        XCTAssertTrue(eventually(timeout: 5) { works.count == 2 }, "The conditions do not narrow the works")
+        XCTAssertTrue(app.staticTexts["search-hidden"].exists, "No note on the works that the filters hide")
+        snap(app, "19f-search-filtered")
+
+        // The x in the field clears the text only; the conditions stay and still find works.
+        app.buttons["search-clear"].tap()
+        XCTAssertTrue(eventually(timeout: 5) { works.count == 2 }, "The x in the field cleared the conditions")
+        XCTAssertEqual(filters.value as? String, "2\u{00A0}conditions")
+
+        // The x pill clears the text and every condition, and keeps the search of conditions as a recent search.
+        app.buttons["search-reset"].tap()
+        let recent = app.buttons.matching(identifier: "search-recent")
+        XCTAssertTrue(recent.firstMatch.waitForExistence(timeout: 5), "The empty page does not show")
+        XCTAssertNotEqual(filters.value as? String, "2\u{00A0}conditions")
+        XCTAssertFalse(app.buttons["search-reset"].isEnabled, "The x pill is on with nothing to clear")
     }
 
     /// The overview of the composers with life dates, then one composer among the contemporaries, the scrub, the
@@ -688,6 +798,108 @@ final class BrowseScreens: ScreensTestCase {
         let year = app.staticTexts.matching(NSPredicate(format: "label CONTAINS '1785'")).firstMatch
         XCTAssertTrue(year.waitForExistence(timeout: 10))
         snap(app, "04c-sources")
+    }
+
+    /// The empty Search page lists the recent searches, newest first. One search session is one entry; a tap
+    /// restores the search, and Clear empties the list (ADR 0029).
+    @MainActor
+    func testRecentSearches() throws {
+        let app = try launchAndConnect(openComposers: false)
+        openPlace(app, "Search")
+        let field = app.textFields["search-field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        let recent = app.buttons.matching(identifier: "search-recent")
+        XCTAssertTrue(app.staticTexts["search-hint"].exists)
+        XCTAssertFalse(recent.firstMatch.exists)
+
+        // Two commits of one session: Enter, then opening a result.
+        field.tap()
+        field.typeText("chopin\n")
+        let works = app.buttons.matching(identifier: "search-work")
+        let four = expectation(for: NSPredicate(format: "count == 4"), evaluatedWith: works)
+        XCTAssertEqual(XCTWaiter.wait(for: [four], timeout: 10), .completed)
+        reveal(works.firstMatch, in: app).tap()
+        XCTAssertTrue(app.buttons.matching(identifier: "recording").firstMatch.waitForExistence(timeout: 10))
+        back(app)
+        XCTAssertTrue(works.firstMatch.waitForExistence(timeout: 10))
+
+        // Leaving the page commits too; a tab then opens a new session.
+        openPlace(app, "Library")
+        openPlace(app, "Search")
+        XCTAssertTrue(recent.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertEqual(recent.count, 1, "One search session left more than one entry")
+        XCTAssertEqual(recent.firstMatch.label, "chopin")
+        XCTAssertFalse(app.staticTexts["search-hint"].exists, "The hint shows beside the recent searches")
+        field.tap()
+        field.typeText("brahms")
+        openPlace(app, "Library")
+        openPlace(app, "Search")
+        XCTAssertTrue(recent.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertEqual(recent.allElementsBoundByIndex.map(\.label), ["brahms", "chopin"])
+        snap(app, "19g-search-recent")
+
+        // A tap restores the search and puts it on top.
+        recent.element(boundBy: 1).tap()
+        XCTAssertEqual(field.value as? String, "chopin")
+        let again = expectation(for: NSPredicate(format: "count == 4"), evaluatedWith: works)
+        XCTAssertEqual(XCTWaiter.wait(for: [again], timeout: 10), .completed, "A tap did not restore the search")
+        app.buttons["search-clear"].tap()
+        XCTAssertTrue(recent.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertEqual(recent.allElementsBoundByIndex.map(\.label), ["chopin", "brahms"])
+
+        app.buttons["search-recent-clear"].tap()
+        XCTAssertTrue(app.staticTexts["search-hint"].waitForExistence(timeout: 10), "Clear left the list")
+        XCTAssertFalse(recent.firstMatch.exists)
+
+        // Done on the filters commits. Closing the sheet with Filters does not, so the entry keeps the Romantic term.
+        let filters = app.buttons["search-filters"]
+        filters.tap()
+        XCTAssertTrue(app.buttons["filter-done"].waitForExistence(timeout: 10))
+        app.buttons["Genres"].tap()
+        let narrow = app.textFields["filter-narrow"]
+        narrow.tap()
+        narrow.typeText("roman")
+        let romantic = app.buttons.matching(identifier: "filter-term")
+            .matching(NSPredicate(format: "label CONTAINS %@", "Romantic")).firstMatch
+        XCTAssertTrue(romantic.waitForExistence(timeout: 5))
+        romantic.tap()
+        XCTAssertTrue(app.buttons["filter-chip"].waitForExistence(timeout: 5))
+        app.buttons["filter-done"].tap()
+        XCTAssertTrue(app.buttons["filter-done"].waitForNonExistence(timeout: 5))
+        // A search of conditions only shows results, not the recent list.
+        XCTAssertTrue(works.firstMatch.waitForExistence(timeout: 10), "A search of conditions only shows no works")
+        XCTAssertFalse(recent.firstMatch.exists, "A search of conditions only shows the recent list")
+        filters.tap()
+        XCTAssertTrue(app.buttons["filter-chip"].waitForExistence(timeout: 10))
+        app.buttons["filter-chip"].tap()
+        XCTAssertTrue(app.buttons["filter-chip"].waitForNonExistence(timeout: 5))
+        filters.tap()
+        XCTAssertTrue(app.buttons["filter-done"].waitForNonExistence(timeout: 5))
+        XCTAssertTrue(recent.firstMatch.waitForExistence(timeout: 10), "Done did not commit the search")
+        XCTAssertEqual(recent.count, 1)
+        XCTAssertTrue(
+            recent.firstMatch.label.hasPrefix("Genre Romantic"),
+            "The entry does not show its condition: \(recent.firstMatch.label)")
+        snap(app, "19h-search-recent-conditions")
+
+        // A tap restores the conditions.
+        recent.firstMatch.tap()
+        XCTAssertTrue(
+            eventually(timeout: 5) { (filters.value as? String) == "1\u{00A0}condition" },
+            "A tap did not restore the conditions")
+        XCTAssertTrue(works.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["search-clear"].exists, "A search of conditions only restored a text")
+
+        // The x pill commits and ends the session, so the next search is a new entry.
+        app.buttons["search-reset"].tap()
+        XCTAssertTrue(recent.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertEqual(recent.count, 1)
+        field.tap()
+        field.typeText("brahms\n")
+        app.buttons["search-reset"].tap()
+        XCTAssertTrue(recent.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertEqual(recent.count, 2, "The search after the x pill replaced the entry before it")
+        XCTAssertEqual(recent.firstMatch.label, "brahms")
     }
 }
 

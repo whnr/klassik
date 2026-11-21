@@ -11,6 +11,7 @@ final class Library {
             indexVersion += 1
             otherAlbumCache = nil
             searchBuild = Self.buildSearch(index)
+            buildFilters()
             classicalChanged?()
         }
     }
@@ -26,6 +27,10 @@ final class Library {
     @ObservationIgnored private var otherAlbumCache: [WorkIndex.Album]?
     /// The search over the index. It builds off the main actor when the index changes, before anyone types.
     @ObservationIgnored private var searchBuild: Task<Search, Never>?
+    /// The search terms of the index for the filter sheet. They build off the main actor when the index changes, so
+    /// the first tap on Filters never waits. Until a build is done, the sheet keeps the terms of the last index.
+    private(set) var searchFilters = SearchFilters(index: WorkIndex())
+    @ObservationIgnored private var filtersBuild: Task<Void, Never>?
     private(set) var syncedAt: Date?
     private(set) var isSyncing = false
     /// Tracks received so far in the running sync.
@@ -61,6 +66,18 @@ final class Library {
 
     private static func buildSearch(_ index: WorkIndex) -> Task<Search, Never> {
         Task.detached(priority: .utility) { Search(index: index) }
+    }
+
+    /// A build that a newer index overtakes keeps its result out of `searchFilters`.
+    private func buildFilters() {
+        let index = index
+        let version = indexVersion
+        filtersBuild?.cancel()
+        filtersBuild = Task { [weak self] in
+            let built = await Task.detached(priority: .utility) { SearchFilters(index: index) }.value
+            guard let self, !Task.isCancelled, self.indexVersion == version else { return }
+            self.searchFilters = built
+        }
     }
 
     /// An album of the index, else one that the filter keeps out of it.

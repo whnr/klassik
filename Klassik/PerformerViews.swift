@@ -13,6 +13,8 @@ struct PerformersView: View {
         PageList {
             // The Search tab moves `searchable` to the bottom. This page needs its field under the title.
             SearchField(text: $query, focused: $focused, prompt: "Name", identifier: "performer-search")
+                .pagePadding()
+                .padding(.bottom, Layout.searchRowBottom)
                 .listRowInsets(EdgeInsets())
                 .listRowSeparator(.hidden)
             if performers.isEmpty && !query.isEmpty {

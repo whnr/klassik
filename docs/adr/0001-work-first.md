@@ -1,6 +1,7 @@
 # 0001. The work is the primary object
 
 Date: 2026-10-17. Decided by Flo. Bead: sz-rs30.1.
+The Shuffle consequence is replaced by [0069](0069-no-shuffle-and-no-performer-list.md).
 
 ## Context
 

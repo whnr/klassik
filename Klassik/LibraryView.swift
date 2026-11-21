@@ -36,9 +36,6 @@ struct LibraryView: View {
         .toolbar {
             ToolbarItem(placement: .topBarLeading) { EditButton() }
             ToolbarItem(placement: .topBarTrailing) {
-                ShuffleButton(works: library.index.composers.flatMap(\.works))
-            }
-            ToolbarItem(placement: .topBarTrailing) {
                 NavigationLink(value: Page.settings) {
                     Label("Settings", systemImage: "gearshape")
                 }

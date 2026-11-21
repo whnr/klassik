@@ -27,7 +27,6 @@ struct ComposerPage: View {
         }
         .navigationTitle(composer.name)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar { ShuffleButton(works: composer.works) }
         // A person page puts all its covers in front of the cover queue (ADR 0059).
         .onAppear { model.albumCovers.prefer(composer.works.flatMap { $0.recordings.compactMap(\.songs.first) }) }
         .task(id: artistIDs) { await people.resolve(composer: composer.name, artistIDs: artistIDs) }

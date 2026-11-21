@@ -1,7 +1,7 @@
 {
-  "sha": "9a0a43e88eec9a19aaae2e64ebcc2b19d019e4a6",
+  "sha": "1a91b23e95356d2f7f156879cc6f360ed2e3a628",
   "branch": "claude-147-search-sheets",
   "path": "claude-147-search-sheets",
-  "subject": "[sz-rs30.1.147.5] Walk the tab bar with the mini player",
-  "ts": 1795295730
+  "subject": "[sz-rs30.1.147.10] Close the player only from the top",
+  "ts": 1795299530
 }

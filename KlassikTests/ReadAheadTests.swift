@@ -17,9 +17,17 @@ struct ReadAheadTests {
         return ReadAhead.plan(item("a", movements: 4), movement: movement, upNext: upNext, mode: mode).map(\.id)
     }
 
-    @Test func normalModePreparesTheWholeRecordingAndTheNextItem() {
-        #expect(plan(0, .normal) == ["a-1", "a-2", "a-3", "b-0"])
-        #expect(plan(2, .normal) == ["a-3", "b-0"])
+    /// Wi-Fi prepares the rest of the work and all of the next queue item, never the item after it.
+    @Test func normalModePreparesTheWholeWorkAndTheWholeNextItem() {
+        #expect(plan(0, .normal) == ["a-1", "a-2", "a-3", "b-0", "b-1"])
+        #expect(plan(2, .normal) == ["a-3", "b-0", "b-1"])
+    }
+
+    /// A next item that repeats tracks of the current work prepares each track once.
+    @Test func aRepeatedItemPreparesItsTracksOnce() {
+        let current = item("a", movements: 3)
+        let planned = ReadAhead.plan(current, movement: 1, upNext: [current], mode: .normal).map(\.id)
+        #expect(planned == ["a-2"])
     }
 
     @Test func constrainedModePreparesOneTrack() {
@@ -27,10 +35,10 @@ struct ReadAheadTests {
         #expect(plan(2, .constrained) == ["a-3"])
     }
 
-    /// The next audible track is the first track of the next queue item at a work boundary, in every mode.
-    @Test(arguments: [DataMode.normal, .constrained])
-    func theLastMovementPreparesTheNextWork(mode: DataMode) {
-        #expect(plan(3, mode) == ["b-0"])
+    /// At a work boundary, Wi-Fi prepares the whole next work and cellular its first track.
+    @Test func theLastMovementPreparesTheNextWork() {
+        #expect(plan(3, .normal) == ["b-0", "b-1"])
+        #expect(plan(3, .constrained) == ["b-0"])
     }
 
     @Test func theEndOfTheQueuePreparesNothingMore() {
@@ -43,11 +51,13 @@ struct ReadAheadTests {
         #expect(plan(3, .offline).isEmpty)
     }
 
-    @Test func lowDataModeAndLowPowerModeBothConstrain() {
-        #expect(DataMode.of(satisfied: true, constrained: false, lowPower: false) == .normal)
-        #expect(DataMode.of(satisfied: true, constrained: true, lowPower: false) == .constrained)
-        #expect(DataMode.of(satisfied: true, constrained: false, lowPower: true) == .constrained)
-        #expect(DataMode.of(satisfied: false, constrained: false, lowPower: false) == .offline)
+    /// Cellular, Low Data Mode and Low Power Mode each prepare one track; only Wi-Fi prepares whole works.
+    @Test func cellularLowDataModeAndLowPowerModeConstrain() {
+        #expect(DataMode.of(satisfied: true, constrained: false, cellular: false, lowPower: false) == .normal)
+        #expect(DataMode.of(satisfied: true, constrained: false, cellular: true, lowPower: false) == .constrained)
+        #expect(DataMode.of(satisfied: true, constrained: true, cellular: false, lowPower: false) == .constrained)
+        #expect(DataMode.of(satisfied: true, constrained: false, cellular: false, lowPower: true) == .constrained)
+        #expect(DataMode.of(satisfied: false, constrained: false, cellular: true, lowPower: false) == .offline)
     }
 }
 

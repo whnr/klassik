@@ -51,8 +51,27 @@ struct PlaybackReadAheadTests {
         let (session, _) = try makeSession(requests)
         session.play(queue: [item("a", movements: 3), item("b", movements: 2), item("c", movements: 1)])
         try await settle(requests)
-        #expect(requests.ids == ["a-1", "a-2", "b-0"])
+        #expect(requests.ids == ["a-1", "a-2", "b-0", "b-1"])
         try? FileManager.default.removeItem(at: root)
+    }
+
+    /// From Wi-Fi to cellular, the speculative transfers beyond the next track stop at once.
+    @Test func cellularStopsTransfersBeyondTheNextTrack() async throws {
+        let (session, _, store) = try makeStreamingSession(MusicStorageTests.Started())
+        defer {
+            session.stop()
+            store.clearAll()
+            try? FileManager.default.removeItem(at: root)
+        }
+        session.play(queue: [item("a", movements: 3), item("b", movements: 2)])
+        let client = InMemoryServer()
+        let later = ["a-2", "b-0", "b-1"].map { id in
+            store.transfer(for: Song(id: id, title: id, duration: 10, suffix: "mp3"), client: client)
+        }
+        session.dataMode = .constrained
+        for transfer in later { #expect(store.transfers[transfer.songID] == nil, "\(transfer.songID)") }
+        #expect(store.wanted.isSuperset(of: ["a-0", "a-1"]))
+        #expect(store.wanted.isDisjoint(with: ["a-2", "b-0", "b-1"]))
     }
 
     @Test func lowDataModePreparesOnlyTheNextTrack() async throws {

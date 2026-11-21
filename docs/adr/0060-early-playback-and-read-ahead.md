@@ -121,26 +121,31 @@ After starvation, preserve the exact next sample and refill using this rule. Nev
 ### Read-ahead follows the actual queue
 
 The current track always has priority. The next track means the next audible track after skips, shuffle and queue edits.
-It can belong to another work. Normal mode's whole work means the selected recording's remaining movements, not alternate recordings.
+It can belong to another work. A whole work means the selected recording's movements, not alternate recordings.
+Flo set this rule on 2026-11-21 (sz-rs30.1.125.2). It replaces the first-track rule for the next queued item.
 
 | Effective mode | Automatic music preparation |
 | --- | --- |
-| Normal | Finish the current track, all remaining movements of its recording, and the first track of the next queued item. |
-| Low Data Mode | Finish the current track and prepare exactly one following track, across recording boundaries. |
-| Low Power Mode | Use the same one-following-track policy until Low Power Mode ends. Current playback is unchanged. |
+| Wi-Fi | Finish the current track and the rest of its work or album. Prepare all of the next queued item, a new work or album. |
+| Cellular | Finish the current track and prepare exactly one following track, also across work boundaries. |
+| Low Data Mode | Use the cellular policy. |
+| Low Power Mode | Use the cellular policy until Low Power Mode ends. Current playback is unchanged. |
 | Offline or network access forbidden | Use existing downloads and cache only; start no network transfer. |
+
+Wi-Fi means any path that is not cellular, not expensive and not constrained. Download speed does not change the set.
 
 Prepare the next track to completion when bandwidth and storage permit. Decode its opening before the current track ends.
 Prioritize its opening when the remaining playback time approaches its measured preparation time plus two seconds.
 Do not let speculative tracks compete when the current buffer has fewer than two playable seconds.
-Then fetch the next track, then the rest of the normal-mode set. Do not prepare beyond that set.
+Then fetch the next track, then the rest of the Wi-Fi set. Do not prepare beyond that set.
 Cancel obsolete speculative requests after a queue change. Preserve valid stored bytes within the cache limit.
 When paused, finish the current track only; stop speculative preparation. Stop cancels all automatic preparation.
 
-Observe the actual constrained network path, including constrained Wi-Fi. Recompute the set immediately when data mode changes.
-Low Data Mode permits the current and next track as playback work; it does not permit library-wide audio downloads.
+Observe the actual network path: a cellular interface, an expensive path and a constrained path, including constrained Wi-Fi.
+Recompute the set immediately when data mode changes. From Wi-Fi to cellular, stop speculative transfers beyond the next track.
+Cellular and Low Data Mode permit the current and next track as playback work; they do not permit library-wide audio downloads.
 Use URLSession's [network access controls](https://developer.apple.com/documentation/foundation/urlsessionconfiguration) to enforce applicable cellular and constrained-network restrictions.
-Cellular alone does not imply Low Data Mode. An explicit cellular prohibition takes precedence over playback and read-ahead.
+An explicit cellular prohibition takes precedence over playback and read-ahead.
 Any download policy that requires Wi-Fi also takes precedence for downloads. This record adds no data-settings screen.
 Do not infer permission for bulk downloads from a Play tap. The download-everything option belongs to sz-rs30.1.124.
 Keep [0059](0059-covers-and-pictures-before-pages.md)'s separate image policy, including the playing cover's Low Data Mode exception.

@@ -1,36 +1,41 @@
 import Foundation
 import Network
 
-/// How much music the app may prepare without a request (ADR 0060).
+/// How much music the app may prepare without a request (ADR 0060). Download speed never changes it.
 enum DataMode: Equatable, Sendable {
+    /// Wi-Fi or another path that is not cellular, expensive or constrained: whole works.
     case normal
-    /// Low Data Mode or Low Power Mode: one following track only.
+    /// Cellular, an expensive path, Low Data Mode or Low Power Mode: one following track only.
     case constrained
     /// No network: existing files only.
     case offline
 
-    static func of(satisfied: Bool, constrained: Bool, lowPower: Bool) -> DataMode {
+    static func of(satisfied: Bool, constrained: Bool, cellular: Bool, lowPower: Bool) -> DataMode {
         if !satisfied { return .offline }
-        return constrained || lowPower ? .constrained : .normal
+        return constrained || cellular || lowPower ? .constrained : .normal
     }
 }
 
 /// The tracks to prepare after the one that plays, in the order of the queue (ADR 0060).
 enum ReadAhead {
-    /// Normal mode prepares the rest of the recording and the first track of the next queue item.
-    /// A constrained mode prepares exactly the next audible track, also across a recording boundary.
+    /// Normal mode prepares the rest of the current work or album and all of the next queue item.
+    /// A constrained mode prepares exactly the next audible track, also across a work boundary.
     static func plan(_ item: QueueItem, movement: Int, upNext: [QueueItem], mode: DataMode) -> [Song] {
         let rest = Array(item.recording.songs.dropFirst(movement + 1))
-        let following = rest + (upNext.first?.recording.songs.first.map { [$0] } ?? [])
+        let next = upNext.first?.recording.songs ?? []
         switch mode {
-        case .normal: return following
-        case .constrained: return Array(following.prefix(1))
+        case .normal:
+            // A queue item that repeats tracks of the current one prepares them once.
+            var seen = Set(item.recording.songs.prefix(movement + 1).map(\.id))
+            return (rest + next).filter { seen.insert($0.id).inserted }
+        case .constrained: return Array((rest + next).prefix(1))
         case .offline: return []
         }
     }
 }
 
-/// Follows the network path and Low Power Mode for the read-ahead set (ADR 0060). It sees constrained Wi-Fi too.
+/// Follows the network path and Low Power Mode for the read-ahead set (ADR 0060). It sees constrained Wi-Fi and an
+/// expensive path, such as a personal hotspot, too.
 final class DataModeMonitor: @unchecked Sendable {
     typealias Change = @MainActor @Sendable (_ mode: DataMode, _ pathChanged: Bool) -> Void
 
@@ -38,6 +43,7 @@ final class DataModeMonitor: @unchecked Sendable {
     private let lock = NSLock()
     private var satisfied = true
     private var constrained = false
+    private var cellular = false
     private var observer: (any NSObjectProtocol)?
 
     init(onChange: @escaping Change) {
@@ -46,6 +52,7 @@ final class DataModeMonitor: @unchecked Sendable {
             let mode = lock.withLock {
                 satisfied = path.status == .satisfied
                 constrained = path.isConstrained
+                cellular = path.usesInterfaceType(.cellular) || path.isExpensive
                 return current()
             }
             Task { @MainActor in onChange(mode, true) }
@@ -63,7 +70,8 @@ final class DataModeMonitor: @unchecked Sendable {
     /// Call it with `lock` held.
     private func current() -> DataMode {
         DataMode.of(
-            satisfied: satisfied, constrained: constrained, lowPower: ProcessInfo.processInfo.isLowPowerModeEnabled)
+            satisfied: satisfied, constrained: constrained, cellular: cellular,
+            lowPower: ProcessInfo.processInfo.isLowPowerModeEnabled)
     }
 
     deinit {

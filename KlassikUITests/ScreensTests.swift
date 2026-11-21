@@ -218,7 +218,24 @@ final class PlacesScreens: ScreensTestCase {
     /// through a recent search and through Enter.
     @MainActor
     func testTabsStayAfterTheSearchKeyboard() throws {
+        try expectTabsAfterTheSearchKeyboard(playing: false)
+    }
+
+    /// The mini player narrows the bar, so the Search circle has less room.
+    @MainActor
+    func testTabsStayAfterTheSearchKeyboardWhilePlaying() throws {
+        try expectTabsAfterTheSearchKeyboard(playing: true)
+    }
+
+    @MainActor
+    private func expectTabsAfterTheSearchKeyboard(playing: Bool) throws {
         let app = try launchAndConnect(openComposers: false)
+        if playing {
+            openPlace(app, "Library")
+            app.buttons["library-composers"].tap()
+            _ = pausedPlayerInLibrary(app)
+            for _ in 0..<5 where !app.buttons["library-composers"].exists { back(app) }
+        }
         let bar = app.tabBars["tab-row"]
         XCTAssertTrue(bar.waitForExistence(timeout: 10))
         let baseline = try XCTUnwrap(ScreenPixels(app))
@@ -251,7 +268,7 @@ final class PlacesScreens: ScreensTestCase {
         openPlace(app, "Library")
         XCTAssertTrue(app.buttons["library-composers"].waitForExistence(timeout: 10))
         expectTabs("Enter, then Library")
-        snap(app, "02o-tabs-after-enter")
+        if !playing { snap(app, "02o-tabs-after-enter") }
 
         // The tab opens Search with the keyboard up; a recent search closes it.
         openPlace(app, "Search")
@@ -262,7 +279,7 @@ final class PlacesScreens: ScreensTestCase {
         openPlace(app, "Library")
         XCTAssertTrue(app.buttons["library-composers"].waitForExistence(timeout: 10))
         expectTabs("Recent search, then Library")
-        snap(app, "02p-tabs-after-recent")
+        if playing { snap(app, "02q-tabs-after-recent-playing") } else { snap(app, "02p-tabs-after-recent") }
     }
 
     /// The bar draws no title (ADR 0023), and the page still names the back button of the next page.

@@ -37,13 +37,24 @@ struct Search: Sendable {
         }
     }
 
-    /// The results in their sections, in the order of the page: works, people, albums.
+    /// A recording opens its own page from the Albums section.
+    struct Recording: Identifiable, Sendable {
+        var work: WorkIndex.Work
+        var recording: WorkIndex.Recording
+        var id: String { recording.id }
+    }
+
+    /// The results of the text. People show before works; recordings share the Albums section.
     struct Results: Sendable {
         var works: [WorkIndex.Work] = []
         var people: [Person] = []
         var albums: [WorkIndex.Album] = []
+        var recordings: [Recording] = []
 
-        var isEmpty: Bool { works.isEmpty && people.isEmpty && albums.isEmpty }
+        var composers: [Person] { people.filter(\.composes) }
+        var performers: [Person] { people.filter { !$0.composes } }
+
+        var isEmpty: Bool { works.isEmpty && people.isEmpty && albums.isEmpty && recordings.isEmpty }
     }
 
     private struct Entry<Item: Sendable>: Sendable {
@@ -61,6 +72,7 @@ struct Search: Sendable {
 
     private let works: [WorkEntry]
     private let people: [Entry<Person>]
+    private let recordings: [Entry<Recording>]
     private let albums: [Entry<WorkIndex.Album>]
 
     init(index: WorkIndex) {
@@ -110,6 +122,19 @@ struct Search: Sendable {
                 : $0.item.name.localizedStandardCompare($1.item.name) == .orderedAscending
         }
 
+        self.recordings = index.composers.flatMap(\.works).flatMap { work in
+            work.recordings.map { recording in
+                let composer = work.composer == Song.unknownComposer ? "" : work.composer
+                let text =
+                    [work.title, composer, work.grouping ?? "", recording.album, recording.summary]
+                    + recording.songs.map(\.title)
+                return Entry(
+                    item: Recording(work: work, recording: recording),
+                    words: Self.words(of: text.joined(separator: " ")))
+            }
+        }
+        .sorted { $0.item.id.localizedStandardCompare($1.item.id) == .orderedAscending }
+
         albums = index.albums.map { album in
             let artist = Self.artist(of: album) ?? ""
             let titles = album.tracks.map(\.title)
@@ -133,7 +158,8 @@ struct Search: Sendable {
         return Results(
             works: found.map { $0.work },
             people: people.filter { Self.matches(tokens, $0.words) }.map(\.item),
-            albums: albums.filter { Self.matches(tokens, $0.words) }.map(\.item))
+            albums: albums.filter { Self.matches(tokens, $0.words) }.map(\.item),
+            recordings: recordings.filter { Self.matches(tokens, $0.words) }.map(\.item))
     }
 
     private static func rank(of entry: WorkEntry, for tokens: [String]) -> Int {

@@ -56,6 +56,30 @@ struct SearchTests {
 
     static let search = Search(index: WorkIndex(songs: songs))
 
+    @Test func peopleHaveSeparateComposerAndPerformerSections() {
+        let results = Search.Results(people: [
+            Search.Person(
+                name: "Performer", roles: [.init(label: "piano", count: 2, countsWorks: false)], recordings: 2),
+            Search.Person(
+                name: "Composer", roles: [.init(label: "composer", count: 1, countsWorks: true)], recordings: 1),
+        ])
+        #expect(results.composers.map(\.name) == ["Composer"])
+        #expect(results.performers.map(\.name) == ["Performer"])
+        let both = Self.search.results(for: "kubelik")
+        #expect(both.composers.map(\.name) == [Self.kubelik])
+        #expect(both.performers.isEmpty)
+    }
+
+    @Test func recordingsMatchWorkPerformerAlbumAndTrackTitle() {
+        let byWork = Self.search.results(for: "symphony e minor").recordings
+        #expect(Set(byWork.flatMap { $0.recording.songs.map(\.id) }) == ["d9", "d9b"])
+        #expect(Self.search.results(for: "talich").recordings.map { $0.recording.album } == ["New World"])
+        let byAlbum = Self.search.results(for: "new world").recordings
+        #expect(byAlbum.count == 1)
+        #expect(byAlbum.first?.work.title == "Symphony No. 9 in E minor, Op. 95")
+        #expect(Self.search.results(for: "humoresque").recordings.flatMap { $0.recording.songs.map(\.id) } == ["e1"])
+    }
+
     @Test func foldsCaseAndDiacritics() {
         let results = Self.search.results(for: "DVORAK")
         #expect(results.people.map(\.name) == [Self.dvorak])

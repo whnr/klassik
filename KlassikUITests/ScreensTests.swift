@@ -280,6 +280,13 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertTrue(app.buttons.matching(identifier: "search-album").firstMatch.exists)
         field.typeText("\n")
         XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5), "Search does not close the keyboard")
+        let composerRow = app.buttons.matching(identifier: "search-person").firstMatch
+        XCTAssertLessThan(composerRow.frame.minY, works.firstMatch.frame.minY, "Works precede composers")
+        XCTAssertTrue(
+            app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Composers (")).firstMatch.exists)
+        XCTAssertFalse(
+            app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Composers and performers")).firstMatch
+                .exists)
         snap(app, "19b-search-results")
         let fieldTop = field.frame.minY
         app.swipeUp()
@@ -301,6 +308,16 @@ final class BrowseScreens: ScreensTestCase {
         field.typeText("zzz\n")
         XCTAssertTrue(app.staticTexts["search-no-match"].waitForExistence(timeout: 10))
         snap(app, "19c-search-no-match")
+
+        app.buttons["search-clear"].tap()
+        field.tap()
+        field.typeText("s\n")
+        let people = app.buttons.matching(identifier: "search-person")
+        XCTAssertTrue(eventually(timeout: 10) { people.count == 2 })
+        XCTAssertTrue(people.element(boundBy: 0).label.contains("Johann Sebastian Bach"))
+        XCTAssertTrue(people.element(boundBy: 1).label.contains("Sine Wave Chamber Orchestra"))
+        XCTAssertLessThan(people.element(boundBy: 0).frame.minY, people.element(boundBy: 1).frame.minY)
+        XCTAssertLessThan(people.element(boundBy: 1).frame.minY, works.firstMatch.frame.minY)
 
         openPlace(app, "Library")
         openPlace(app, "Search")
@@ -353,6 +370,7 @@ final class BrowseScreens: ScreensTestCase {
         // With "or" on, the next term joins the condition and its own term shows a check. The checked term sorts
         // first, so only the row under it is sure to be inside the medium detent; the lazy list loads no more.
         app.buttons["filter-or"].tap()
+        XCTAssertFalse(terms.matching(NSPredicate(format: "label CONTAINS %@", "Baroque")).firstMatch.exists)
         XCTAssertTrue(romantic.waitForExistence(timeout: 5))
         XCTAssertTrue(romantic.isSelected, "The term of the open condition shows no check")
         let offered = terms.matching(NSPredicate(format: "NOT (label CONTAINS %@)", "Romantic")).firstMatch
@@ -378,7 +396,7 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertTrue(done.waitForNonExistence(timeout: 5))
         XCTAssertEqual(filters.value as? String, "2\u{00A0}conditions", "The badge does not count the conditions")
         XCTAssertTrue(eventually(timeout: 5) { works.count == 2 }, "The conditions do not narrow the works")
-        XCTAssertTrue(app.staticTexts["search-hidden"].exists, "No note on the works that the filters hide")
+        XCTAssertFalse(app.staticTexts["search-hidden"].exists, "Search shows a hidden-work count")
         snap(app, "19f-search-filtered")
 
         // The x in the field clears the text only; the conditions stay and still find works.
@@ -392,6 +410,72 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertTrue(recent.firstMatch.waitForExistence(timeout: 5), "The empty page does not show")
         XCTAssertNotEqual(filters.value as? String, "2\u{00A0}conditions")
         XCTAssertFalse(app.buttons["search-reset"].isEnabled, "The x pill is on with nothing to clear")
+    }
+
+    /// A modal sheet dims its page and provides Back without exposing controls behind the sheet.
+    @MainActor
+    func testSearchSheetBackAndDimming() throws {
+        let app = try launchAndConnect(openComposers: false)
+        openPlace(app, "Search")
+        let field = app.textFields["search-field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        field.tap()
+        field.typeText("chopin\n")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.buttons.matching(identifier: "search-work").firstMatch.waitForExistence(timeout: 10))
+        let before = try XCTUnwrap(ScreenPixels(app))
+        app.buttons["search-filters"].tap()
+        XCTAssertTrue(app.buttons["filter-back"].waitForExistence(timeout: 10))
+        let sample = CGRect(x: 8, y: field.frame.maxY + 10, width: 12, height: 60)
+        XCTAssertTrue(
+            eventually(timeout: 5) {
+                guard let after = ScreenPixels(app) else { return false }
+                return after.differingShare(in: sample, from: before) > 0.9
+            }, "Filters does not dim the page")
+        snap(app, "19i-search-modal")
+        app.buttons["filter-back"].tap()
+        XCTAssertTrue(app.buttons["filter-done"].waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["library-composers"].waitForExistence(timeout: 10), "Back did not leave Search")
+        openPlace(app, "Search")
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["filter-done"].exists, "The sheet survived Back")
+        app.buttons["search-filters"].tap()
+        app.buttons["filter-done"].tap()
+        app.buttons["place-back"].tap()
+        XCTAssertTrue(app.buttons["library-composers"].waitForExistence(timeout: 10))
+    }
+
+    /// Search lists every matching recording under Albums; a favourite one shows its fermata (ADR 0067).
+    @MainActor
+    func testSearchFavouriteRecording() throws {
+        let app = try launchAndConnect(openComposers: false)
+        openPlace(app, "Search")
+        let field = app.textFields["search-field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        field.tap()
+        field.typeText("chopin\n")
+        let row = app.buttons.matching(identifier: "search-recording").firstMatch
+        let mark = app.buttons["favourite-recording"]
+        let marked = { "\(row.label) \(row.value ?? "")".contains("Favourite") }
+        // Server stars survive UI test launches, so the walk sets the mark it needs and restores it at the end.
+        func setMark(_ favourite: Bool) {
+            reveal(row, in: app).tap()
+            XCTAssertTrue(mark.waitForExistence(timeout: 10), "The row does not open the recording")
+            let wanted = favourite ? "Favourite" : "Not a favourite"
+            if mark.value as? String != wanted { mark.tap() }
+            XCTAssertTrue(eventually(timeout: 10) { mark.value as? String == wanted })
+            back(app)
+        }
+        XCTAssertTrue(row.waitForExistence(timeout: 10), "Search lists no recording")
+        let wasFavourite = marked()
+        setMark(false)
+        XCTAssertTrue(row.waitForExistence(timeout: 5), "Search hides a recording that is no favourite")
+        XCTAssertTrue(eventually(timeout: 5) { !marked() }, "A recording that is no favourite shows the fermata")
+        setMark(true)
+        reveal(row, in: app)
+        XCTAssertTrue(eventually(timeout: 5) { marked() }, "The favourite recording shows no fermata")
+        snap(app, "19j-search-favourite-recording")
+        if !wasFavourite { setMark(false) }
     }
 
     /// The overview of the composers with life dates, then one composer among the contemporaries, the scrub, the

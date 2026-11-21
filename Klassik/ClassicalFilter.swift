@@ -1,9 +1,11 @@
 import Foundation
 
-/// Decides which part of the library is classical. The listener can edit the rules; they stay on the device.
-/// A track matches if any rule matches; a rule matches if all of its conditions match.
+/// Decides which part of the library is classical. The listener edits its classical rules; they stay on the device.
+/// A track matches if any classical rule matches; a classical rule matches if all of its checks match. "Condition"
+/// belongs to search only (ADR 0020).
 struct ClassicalFilter: Codable, Equatable, Sendable {
-    struct Condition: Codable, Equatable, Identifiable, Sendable {
+    /// One test in a classical rule, such as "Genre contains Classical".
+    struct Check: Codable, Equatable, Identifiable, Sendable {
         enum Kind: String, Codable, CaseIterable, Sendable {
             case genreContains, genreDoesNotContain, hasWork, hasMovement, hasComposer
 
@@ -27,7 +29,7 @@ struct ClassicalFilter: Codable, Equatable, Sendable {
         static func == (a: Self, b: Self) -> Bool { a.kind == b.kind && a.text == b.text }
 
         /// Genre text matches anywhere and ignores case: tags such as "Classical > Orchestral" are one value.
-        /// An empty text matches no track, so that a half-typed condition does not let the whole library in.
+        /// An empty text matches no track, so that a half-typed check does not let the whole library in.
         func matches(_ song: Song) -> Bool {
             let needle = text.trimmingCharacters(in: .whitespaces)
             switch kind {
@@ -49,22 +51,29 @@ struct ClassicalFilter: Codable, Equatable, Sendable {
         private static let options: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
     }
 
+    /// A classical rule.
     struct Rule: Codable, Equatable, Identifiable, Sendable {
         var id = UUID()
-        var conditions: [Condition]
+        var checks: [Check]
 
-        static func == (a: Self, b: Self) -> Bool { a.conditions == b.conditions }
+        /// The saved rules keep their checks under "conditions", so the key stays and saved rules still load.
+        private enum CodingKeys: String, CodingKey {
+            case id
+            case checks = "conditions"
+        }
+
+        static func == (a: Self, b: Self) -> Bool { a.checks == b.checks }
 
         func matches(_ song: Song) -> Bool {
-            !conditions.isEmpty && conditions.allSatisfy { $0.matches(song) }
+            !checks.isEmpty && checks.allSatisfy { $0.matches(song) }
         }
     }
 
-    /// Work and composer tags alone also occur outside classical music, so they need a second condition.
+    /// Work and composer tags alone also occur outside classical music, so they need a second check.
     var rules = [
-        Rule(conditions: [Condition(kind: .genreContains, text: "Classical")]),
-        Rule(conditions: [Condition(kind: .genreContains, text: "Klassik")]),
-        Rule(conditions: [Condition(kind: .hasWork), Condition(kind: .hasMovement)]),
+        Rule(checks: [Check(kind: .genreContains, text: "Classical")]),
+        Rule(checks: [Check(kind: .genreContains, text: "Klassik")]),
+        Rule(checks: [Check(kind: .hasWork), Check(kind: .hasMovement)]),
     ]
 
     func matches(_ song: Song) -> Bool {

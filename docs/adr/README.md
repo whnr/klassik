@@ -36,7 +36,7 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0022](0022-chronology-taps.md)                              | Chronology taps open pages                                                                                   | 2026-11-07 |
 | [0023](0023-no-title-in-the-bar.md)                          | No title in the navigation bar                                                                               | 2026-11-07 |
 | [0024](0024-album-work-headings.md)                          | Work headings on an album page only for whole works                                                          | 2026-11-07 |
-| [0025](0025-search-field-and-filter-sheet.md)                | The search field finds; filters open in a sheet (partly replaced by 0029)                                    | 2026-11-07 |
+| [0025](0025-search-field-and-filter-sheet.md)                | The search field finds; filters open in a sheet (partly replaced by 0029 and 0067)                                    | 2026-11-07 |
 | [0026](0026-contemporaries-by-active-years.md)               | Contemporaries by overlapping active years                                                                   | 2026-11-07 |
 | [0027](0027-player-rows.md)                                  | Player rows: play at the end, open only what differs                                                         | 2026-11-08 |
 | [0028](0028-mini-player-pill.md)                             | The mini player is a pill at the end of the timeline (partly replaced by 0041)                               | 2026-11-08 |
@@ -45,7 +45,7 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0031](0031-no-separator-glyph.md)                           | No separator glyph: prose, words and role lines                                                              | 2026-11-09 |
 | [0032](0032-fermata-mark.md)                                 | The fermata: one solid drawing, grey when not set (partly replaced by 0033)                                  | 2026-11-08 |
 | [0033](0033-engraved-fermata.md)                             | The engraved fermata, strong when set and quiet when not                                                     | 2026-11-09 |
-| [0034](0034-colour.md)                                       | Colour: a programme by day, the hall at night (partly replaced by 0035 and 0037; extended by 0064)                             | 2026-11-09 |
+| [0034](0034-colour.md)                                       | Colour: a programme by day, the hall at night (partly replaced by 0035, 0037 and 0065; extended by 0064)                             | 2026-11-09 |
 | [0035](0035-timeline-shape.md)                               | The timeline: flush, round on the content side, a gap for each movement                                      | 2026-11-10 |
 | [0036](0036-design-folder-and-checks.md)                     | The design folder and its checks                                                                             | 2026-11-10 |
 | [0037](0037-palette-from-targets.md)                         | The palette is solved from its targets on main                                                               | 2026-11-10 |
@@ -72,4 +72,7 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0061](0061-work-pages-and-ready-person-pictures.md) | Work pages and ready person pictures | 2026-11-19 |
 | [0062](0062-sets-stay-in-works.md) | Sets stay in Works | 2026-11-19 |
 | [0063](0063-chronology-works-drawer.md) | Chronology uses a plain works drawer | 2026-11-19 |
-| [0064](0064-player-tint-comparison.md) | Compare stronger player tints | 2026-11-19 |
+| [0064](0064-player-tint-comparison.md) | Compare stronger player tints (partly replaced by 0065) | 2026-11-19 |
+| [0065](0065-feedback-controls.md) | Keep feedback controls visible and useful | 2026-11-20 |
+| [0066](0066-a-full-name-takes-its-composer.md) | A full-name tag takes its composer | 2026-11-20 |
+| [0067](0067-search-results-and-modal-sheets.md) | People lead Search; sheets block the page | 2026-11-21 |

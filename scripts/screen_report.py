@@ -1,8 +1,9 @@
 """Reports the result of a test run and of the screenshot comparison, for the job summary.
 
 Usage:
-    python3 scripts/screen_report.py plan <event> <dispatch-input> [<pr-title> <ref>] < <commit-messages>
-        Prints the UI areas of the run and the matrix of the walk job, for GITHUB_OUTPUT.
+    python3 scripts/screen_report.py plan <event> <dispatch-input> [<pr-title> <ref> [<project.yml>]] < <messages>
+        Prints the UI areas of the run and the matrix of the walk job, for GITHUB_OUTPUT. <project.yml> is the
+        file at the PR head.
     python3 scripts/screen_report.py select <requested-areas> <group-areas>
         Prints the selected areas and rejects unknown names.
     python3 scripts/screen_report.py aggregate-ui <reports-dir> <requested-areas>
@@ -136,12 +137,53 @@ def requested_areas(messages):
     return ",".join(area for area in known if area in wanted) or "false"
 
 
-def plan(event, dispatch_input, messages, title="", ref="refs/heads/main"):
-    """Release requests and nightly runs walk everything. Main pushes run no walk."""
+RELEASE_TITLE = re.compile(r"^(?:\[[^]]+\] )?Release Klassik (\S*)")
+PATCH_VERSION = re.compile(r"[0-9]+\.[0-9]+\.0*[1-9][0-9]*")
+PROJECT_VERSION = re.compile(r"^ *MARKETING_VERSION:(.*)$", re.MULTILINE)
+
+
+def project_version(project):
+    """The one MARKETING_VERSION in the text of project.yml, or None if it is not exactly one quoted value."""
+    values = {value.strip() for value in PROJECT_VERSION.findall(project)}
+    if len(values) != 1 or not re.fullmatch(r'"[^"]+"', value := values.pop()):
+        return None
+    return value[1:-1]
+
+
+def release_walk(title, project=""):
+    """ "all" if a pull request with `title` walks every group: a feature release. "patch" if it walks only the
+    areas that its commits request. None if it is no release.
+
+    A patch release has the version x.y.z (z > 0) in its title and as MARKETING_VERSION in `project`, the
+    project.yml of the PR head. Every other release title walks everything, because the title alone does
+    not prove what the release builds.
+    """
+    match = RELEASE_TITLE.match(title)
+    if not match:
+        return None
+    version = match.group(1)
+    if not PATCH_VERSION.fullmatch(version):
+        return "all"
+    if (built := project_version(project)) != version:
+        print(
+            f"::warning::Release title version {version} is not MARKETING_VERSION {built} of project.yml. "
+            "Walking everything.",
+            file=sys.stderr,
+        )
+        return "all"
+    return "patch"
+
+
+def plan(event, dispatch_input, messages, title="", ref="refs/heads/main", project=""):
+    """Feature release requests and nightly runs walk everything. Main pushes run no walk.
+    `project` is the text of project.yml at the PR head."""
     if event == "pull_request":
         ui = requested_areas(messages)
-        if title.startswith("Release Klassik ") or re.match(r"^\[[^]]+\] Release Klassik ", title):
+        release = release_walk(title, project)
+        if release == "all":
             ui = "all"
+        elif release == "patch" and ui == "false":
+            print("::warning::Patch release requests no walk areas. Add a [ui: <areas>] line.", file=sys.stderr)
     elif event == "workflow_dispatch":
         ui = dispatch_input.replace(" ", "").lower() or "all"
         selected_areas(ui, "")
@@ -315,7 +357,8 @@ def main(args):
         print(console_report(args[1:]))
         return
     if command == "plan":
-        ui, matrix = plan(args[1], args[2], sys.stdin.read(), *args[3:5])
+        project = pathlib.Path(args[5]).read_text() if len(args) > 5 else ""
+        ui, matrix = plan(args[1], args[2], sys.stdin.read(), *args[3:5], project=project)
         print(f"ui={ui}")
         print("matrix=" + json.dumps(matrix, separators=(",", ":")))
         return

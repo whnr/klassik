@@ -110,6 +110,7 @@ struct PerformerPage: View {
 /// The grid is one list row, and a row with several links follows all of them on one tap. So each cover is a
 /// button that pushes its own page.
 private struct AlbumCover: View {
+    @Environment(AppModel.self) private var model
     @Environment(AppNavigator.self) private var navigator
     let album: WorkIndex.Album
 
@@ -120,10 +121,7 @@ private struct AlbumCover: View {
             VStack(alignment: .leading, spacing: 0) {
                 CoverImage(song: album.tracks.first, points: 160)
                     .clipShape(RoundedRectangle(cornerRadius: Layout.albumCorner))
-                Text(album.title)
-                    .typeStyle(.subheadline)
-                    .foregroundStyle(Palette.textPrimary)
-                    .lineLimit(2)
+                AlbumCoverTitle(title: album.title, isFavourite: model.recordingOrder.isFavourite(album: album.id))
                     .padding(.top, Layout.albumTitleGap)
                 if let year = album.year {
                     Text(year.formatted(.number.grouping(.never)))
@@ -137,5 +135,18 @@ private struct AlbumCover: View {
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("performer-album")
+    }
+}
+
+struct AlbumCoverTitle: View {
+    let title: String
+    let isFavourite: Bool
+
+    var body: some View {
+        MarkedTitle(title: title, isFavourite: isFavourite, style: .subheadline)
+            .typeStyle(.subheadline)
+            .foregroundStyle(Palette.textPrimary)
+            // The final word and favourite mark must remain visible at every text size.
+            .fixedSize(horizontal: false, vertical: true)
     }
 }

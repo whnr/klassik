@@ -19,6 +19,8 @@ final class AppModel {
     private(set) var recordingOrder: RecordingOrder
     /// Listening notes share the device file with the favourites (ADR 0013).
     private(set) var notes: ListeningNotes
+    /// Recent searches share the device file too; they never reach the server (ADR 0029).
+    private(set) var recentSearches: RecentSearches
     let tracks: TrackStore
     let covers = CoverArt.Cache()
     let pictures = ImageStore.pictures
@@ -34,15 +36,22 @@ final class AppModel {
     let libraryRows = LibraryRows()
     let chronology = ChronologyPlace()
     @ObservationIgnored private var reconnect: ConnectionMonitor?
+    @ObservationIgnored private var reconnectSync: Task<Void, Never>?
     private let store: CredentialStore
+    private let listener: ListenerData
 
     var client: SubsonicClient? { credentials.map { SubsonicClient(credentials: $0) } }
 
-    init(store: CredentialStore = CredentialStore(), library: Library = Library()) {
+    init(
+        store: CredentialStore = CredentialStore(), library: Library = Library(),
+        listener: ListenerData = ListenerData()
+    ) {
         self.store = store
+        self.listener = listener
         self.library = library
         recordingOrder = RecordingOrder(library: library)
         notes = ListeningNotes(store: nil)
+        recentSearches = RecentSearches(store: nil)
         tracks = TrackStore()
         albumCovers = AlbumCovers(store: ImageStore.albumArt)
         playback = PlaybackSession(engine: GaplessEngine(), store: tracks)
@@ -86,9 +95,7 @@ final class AppModel {
                 guard let self else { return }
                 self.keepAlbumArt()
                 Self.start(self.sweep, over: self.library.index)
-                await Self.synchronizeAfterReconnect(
-                    order: self.recordingOrder,
-                    listening: { await self.playback.synchronizeListeningData() })
+                self.synchronizeAfterReconnect()
             }
         }
         // No build reads the URL cache folder of the pictures, so its space goes back to the device.
@@ -97,15 +104,91 @@ final class AppModel {
         }
     }
 
+    /// How long a pull to refresh in Diagnostics waits for the server. The calls go on after it.
+    static let refreshLimit: Duration = .seconds(15)
+    /// The waits before each new try after a reconnect. The path can report a connection before the server
+    /// answers, so the first send can fail although the device is back online.
+    static let reconnectRetries: [Duration] = [.seconds(2), .seconds(5), .seconds(15)]
+
+    /// A new path cancels the tries of the last one, so only one chain of tries runs.
+    private func synchronizeAfterReconnect() {
+        reconnectSync?.cancel()
+        let order = recordingOrder
+        let playback = playback
+        reconnectSync = Task {
+            await Self.synchronizeAfterReconnect(
+                order: order,
+                listening: { await playback.synchronizeListeningData() },
+                isUnreachable: {
+                    ServerTrouble.worst([order.serverTrouble, playback.listeningTrouble]) == .unreachable
+                })
+        }
+    }
+
     /// Favourites need `refresh`, not `synchronize`: the connection may have been down while another device
-    /// changed a star, and only a read picks that up. Both run at once.
+    /// changed a star, and only a read picks that up. Both run at once. A send without an answer tries again after
+    /// each wait of `retries`; without `isUnreachable`, only the favourites decide.
     static func synchronizeAfterReconnect(
         order: RecordingOrder,
-        listening: @escaping @MainActor () async -> Void
+        listening: @escaping @MainActor () async -> Void,
+        isUnreachable: (@MainActor () -> Bool)? = nil,
+        retries: [Duration] = reconnectRetries
     ) async {
+        let unreachable = isUnreachable ?? { order.serverTrouble == .unreachable }
+        await synchronizeOnce(order: order, listening: listening)
+        for wait in retries {
+            guard unreachable() else { return }
+            do { try await Task.sleep(for: wait) } catch { return }
+            await synchronizeOnce(order: order, listening: listening)
+        }
+    }
+
+    private static func synchronizeOnce(order: RecordingOrder, listening: @escaping @MainActor () async -> Void) async {
         async let favouritesDone: Void = order.refresh()
         async let listeningDone: Void = listening()
         _ = await (favouritesDone, listeningDone)
+    }
+
+    /// Pull to refresh in Diagnostics: the server check and the send of the changes that wait run side by side.
+    /// A pull without a result is not a fix, so the waiting changes go too. True when the work ended within `limit`.
+    static func refreshServer(
+        check: @escaping @MainActor () async -> Void,
+        order: RecordingOrder,
+        listening: @escaping @MainActor () async -> Void,
+        limit: Duration = refreshLimit
+    ) async -> Bool {
+        await wait(atMost: limit) {
+            async let checked: Void = check()
+            async let synchronized: Void = synchronizeOnce(order: order, listening: listening)
+            _ = await (checked, synchronized)
+        }
+    }
+
+    /// Waits for `work`, but not longer than `limit`, so a spinner always ends. The work goes on after the limit.
+    /// True when the work ended in time.
+    static func wait(atMost limit: Duration, for work: @escaping @MainActor () async -> Void) async -> Bool {
+        let race = Race()
+        return await withCheckedContinuation { continuation in
+            let timer = Task { @MainActor in
+                try? await Task.sleep(for: limit)
+                race.end(continuation, false)
+            }
+            Task { @MainActor in
+                await work()
+                timer.cancel()
+                race.end(continuation, true)
+            }
+        }
+    }
+
+    /// Diagnostics: the pull and Check Again. A server that does not answer in time gives one quiet error.
+    func refreshDiagnostics() async {
+        let order = recordingOrder
+        let playback = playback
+        let ended = await Self.refreshServer(
+            check: { await self.check() }, order: order,
+            listening: { await playback.synchronizeListeningData() })
+        if !ended { record(URLError(.timedOut)) }
     }
 
     /// Returns the error text if the server rejects the login; nothing is saved then.
@@ -223,14 +306,29 @@ final class AppModel {
         lastCheck = nil
     }
 
-    /// The playback session reaches the server through the saved login.
+    /// Delete Listening Data in Settings (ADR 0013). The favourite works, the order of favourite recordings, the
+    /// listening notes, the recent searches and the changes that wait of this server and user go. Server stars
+    /// stay, and a read shows them.
+    func deleteListeningData() throws {
+        try listener.delete()
+        openListenerFile()
+        Task { await recordingOrder.refresh() }
+    }
+
+    /// The playback session reaches the server through the saved login. Sign-out opens no file and keeps the
+    /// file of the listener on the device.
     private func updateServer() {
         covers.clear()
         albumCovers.attach(credentials)
         playback.server = client
-        let deviceStore = credentials.map { DeviceStore(server: $0.url, username: $0.username) }
+        let file = listener.attach(credentials)
         // Each UI walk must start with the same local favourites and order.
-        if ProcessInfo.processInfo.arguments.contains("-resetServer") { try? deviceStore?.delete() }
+        if ProcessInfo.processInfo.arguments.contains("-resetServer") { try? file.delete() }
+        openListenerFile()
+    }
+
+    /// The modules that keep listener data share the one copy of the device file.
+    private func openListenerFile() {
         var favourites: (any FavouriteServer)? = client
         #if DEBUG
             // The UI walk reads the fixture library but cannot reach the server for a star.
@@ -238,13 +336,24 @@ final class AppModel {
                 favourites = OfflineFavourites(client: client)
             }
         #endif
-        let file = ListenerFile(store: deviceStore)
-        recordingOrder = RecordingOrder(library: library, file: file, server: favourites)
-        notes = ListeningNotes(file: file)
+        recordingOrder = RecordingOrder(library: library, file: listener.file, server: favourites)
+        notes = ListeningNotes(file: listener.file)
+        recentSearches = RecentSearches(file: listener.file)
     }
 
     private func record(_ error: Error) {
         lastError = error.localizedDescription
         lastErrorDate = .now
+    }
+}
+
+/// The first of two results wins; the second finds the continuation spent.
+@MainActor private final class Race {
+    private var ended = false
+
+    func end(_ continuation: CheckedContinuation<Bool, Never>, _ result: Bool) {
+        guard !ended else { return }
+        ended = true
+        continuation.resume(returning: result)
     }
 }

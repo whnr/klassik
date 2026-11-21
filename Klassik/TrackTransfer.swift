@@ -199,8 +199,10 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
         let waiters = self.waiters.values
         self.waiters = [:]
         let result = completionResult()
+        let stoppedSession = failure == nil ? nil : session
         condition.broadcast()
         condition.unlock()
+        stoppedSession?.invalidateAndCancel()
         for handler in handlers { handler(result) }
         for waiter in waiters { waiter.resume(with: result.mapError { $0 as any Error }) }
     }

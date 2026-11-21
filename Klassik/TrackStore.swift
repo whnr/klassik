@@ -154,10 +154,13 @@ final class TrackStore {
     /// Stops every transfer that no one needs any more. Their partial bytes go.
     func cancelTransfers(except kept: Set<String> = []) {
         let downloads = Set(downloadTracks.values.flatMap { $0 })
+        var removed = false
         for (id, transfer) in transfers where !kept.contains(id) && !downloads.contains(id) {
             transfers[id] = nil
             transfer.cancel()
+            removed = true
         }
+        if removed { rescan() }
     }
 
     /// A new network path starts new throughput measurements.

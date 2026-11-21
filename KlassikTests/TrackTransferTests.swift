@@ -264,6 +264,20 @@ struct TrackTransferTests {
         try? FileManager.default.removeItem(at: root)
     }
 
+    @Test func cancelledPartialBytesLeaveTheStorageTotal() throws {
+        let started = Started()
+        let store = try makeStore(started)
+        let transfer = store.transfer(for: Song(id: "cancel", title: "Cancel", suffix: "flac"), client: client)
+        transfer.begin(length: 100, validator: nil)
+        transfer.append(Data(count: 40))
+        store.rescan()
+        #expect(store.cacheBytes == 40)
+        store.cancelTransfers()
+        #expect(store.cacheBytes == 0)
+        #expect(store.offline.isEmpty)
+        try? FileManager.default.removeItem(at: root)
+    }
+
     @Test func cancelKeepsTheNamedTransfers() async throws {
         let started = Started()
         let store = try makeStore(started)

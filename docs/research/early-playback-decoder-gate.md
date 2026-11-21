@@ -20,6 +20,11 @@ Without a safe validator or range response, production playback uses the complet
 FLAC initialization read its sequential prefix.
 These decoder results do not prove rendered startup time, storage bounds, or joins across recording boundaries.
 
+[Run 44865958099](https://github.com/whnr/klassik/actions/runs/44865958099) repeated both decoder gates with current main.
+MP3 returned its first PCM in 12.1 ms; FLAC took 220.2 ms. Callback byte counts matched the table.
+Both complete-file controls passed. The run failed when the separate render probe crashed.
+The render probe requires the iOS 27 Sendable tap API; this run does not establish rendered startup time.
+
 ## Remaining production work
 
 The engine rebuilds at recording boundaries and rejects different sample rates or channel counts.

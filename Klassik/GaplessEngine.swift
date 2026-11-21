@@ -49,13 +49,13 @@ final class GaplessEngine: PlaybackEngine {
     private var cancelled = CancelFlag()
     private var worker: DispatchQueue?
     private let deliverCompletion: CompletionDelivery
-    private let rendered: (@Sendable (AVAudioPCMBuffer) -> Void)?
+    private let rendered: (@Sendable (AVReadOnlyAudioPCMBuffer) -> Void)?
 
     init(
         deliverCompletion: @escaping CompletionDelivery = { completion in
             Task { @MainActor in completion() }
         },
-        rendered: (@Sendable (AVAudioPCMBuffer) -> Void)? = nil
+        rendered: (@Sendable (AVReadOnlyAudioPCMBuffer) -> Void)? = nil
     ) {
         self.deliverCompletion = deliverCompletion
         self.rendered = rendered
@@ -232,7 +232,9 @@ final class GaplessEngine: PlaybackEngine {
         try engine.connectNode(node, to: gain, format: incoming)
         try engine.connectNode(gain, to: engine.mainMixerNode, format: incoming)
         if let rendered {
-            gain.installTap(onBus: 0, bufferSize: 1024, format: incoming) { buffer, _ in rendered(buffer) }
+            try gain.installAudioTap(
+                onBus: 0, bufferSize: AVAudioFrameCount(incoming.sampleRate * Self.chunkSeconds), format: incoming
+            ) { buffer, _ in rendered(buffer) }
         }
         try Self.activateSession()
         try engine.start()

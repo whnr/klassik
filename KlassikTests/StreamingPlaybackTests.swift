@@ -139,10 +139,15 @@ struct StreamingPlaybackTests {
         private let lock = NSLock()
         private var heard: ContinuousClock.Instant?
         var instant: ContinuousClock.Instant? { lock.withLock { heard } }
-        func record(_ buffer: AVAudioPCMBuffer) {
-            guard let samples = buffer.floatChannelData, buffer.frameLength > 0,
-                (0..<Int(buffer.frameLength)).contains(where: { abs(samples[0][$0]) > 0.001 })
-            else { return }
+        func record(_ buffer: AVReadOnlyAudioPCMBuffer) {
+            guard buffer.frameLength > 0, buffer.format.commonFormat == .pcmFormatFloat32 else { return }
+            let audible = buffer.withUnsafeAudioBufferList { list in
+                guard let samples = list.pointee.mBuffers.mData?.assumingMemoryBound(to: Float.self) else {
+                    return false
+                }
+                return (0..<buffer.frameLength).contains { abs(samples[$0]) > 0.001 }
+            }
+            guard audible else { return }
             lock.withLock { if heard == nil { heard = .now } }
         }
     }

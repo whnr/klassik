@@ -155,6 +155,21 @@ struct TrackTransferTests {
         try? FileManager.default.removeItem(at: root)
     }
 
+    @Test func dateValidatorsRequireSeparatedClocks() throws {
+        let url = try #require(URL(string: "https://fixture.invalid/stream"))
+        let modified = "Fri, 20 Nov 2026 12:00:00 GMT"
+        func validator(_ date: String?) throws -> String? {
+            var headers = ["Last-Modified": modified]
+            headers["Date"] = date
+            let response = try #require(
+                HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: headers))
+            return TrackTransfer.validator(of: response)
+        }
+        #expect(try validator(nil) == nil)
+        #expect(try validator(modified) == nil)
+        #expect(try validator("Fri, 20 Nov 2026 12:01:00 GMT") == modified)
+    }
+
     // MARK: Store
 
     func makeStore(_ started: Started) throws -> TrackStore {
@@ -303,6 +318,23 @@ struct TrackTransferTests {
         for _ in 0..<50 where inspected.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
         #expect(inspected == [song.id])
         store.clearAll()
+        try? FileManager.default.removeItem(at: root)
+    }
+
+    @Test func signOutDiscardsQueuedCompletionCallbacks() async throws {
+        let started = Started()
+        let store = try makeStore(started)
+        let song = Song(id: "account", title: "Account", suffix: "flac")
+        var inspected: [String] = []
+        store.loaded = { song, _, _ in inspected.append(song.id) }
+        let transfer = store.transfer(for: song, client: client)
+        transfer.begin(length: 1, validator: nil)
+        transfer.append(Data([1]))
+        transfer.finish(nil)
+        store.clearAll()
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(inspected.isEmpty)
+        #expect(store.offline.isEmpty)
         try? FileManager.default.removeItem(at: root)
     }
 

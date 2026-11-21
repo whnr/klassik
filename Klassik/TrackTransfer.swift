@@ -305,22 +305,17 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
         request.setValue("bytes=\(start)-\(start + length - 1)", forHTTPHeaderField: "Range")
         request.setValue("identity", forHTTPHeaderField: "Accept-Encoding")
         request.setValue(validator, forHTTPHeaderField: "If-Range")
-        let box = RangeBox()
-        let done = DispatchSemaphore(value: 0)
-        let task = rangeSession.dataTask(with: request) { data, response, _ in
-            defer { done.signal() }
-            guard let http = response as? HTTPURLResponse, let data,
-                Self.acceptsRange(
-                    http, bytes: data.count, start: start, length: length, total: total, validator: validator)
-            else { return }
-            box.set(data)
-        }
-        task.resume()
-        guard done.wait(timeout: .now() + 10) == .success else {
-            task.cancel()
-            return nil
-        }
-        return box.get()
+        let receiver = RangeReceiver(start: start, length: length, total: total, validator: validator)
+        let configuration = URLSessionConfiguration.default
+        configuration.allowsConstrainedNetworkAccess = true
+        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        let queue = OperationQueue()
+        queue.maxConcurrentOperationCount = 1
+        let session = URLSession(configuration: configuration, delegate: receiver, delegateQueue: queue)
+        session.dataTask(with: request).resume()
+        defer { session.invalidateAndCancel() }
+        guard receiver.done.wait(timeout: .now() + 10) == .success else { return nil }
+        return receiver.result
     }
 
     /// Separate responses may share bytes only when their validators identify the same representation.
@@ -336,7 +331,7 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
     }
 
     static func isSafeValidator(_ value: String) -> Bool {
-        if value.hasPrefix("\""), value.hasSuffix("\"") { return true }
+        if value.count >= 2, value.hasPrefix("\""), value.hasSuffix("\"") { return true }
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
@@ -344,23 +339,64 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
         return formatter.date(from: value) != nil
     }
 
-    private final class RangeBox: @unchecked Sendable {
+    /// Reject ignored ranges at the response head, before URLSession can collect a complete resource in memory.
+    private final class RangeReceiver: NSObject, URLSessionDataDelegate, @unchecked Sendable {
+        let done = DispatchSemaphore(value: 0)
+        private let start: Int64
+        private let length: Int64
+        private let total: Int64
+        private let validator: String
         private let lock = NSLock()
-        private var data: Data?
-        func set(_ data: Data) { lock.withLock { self.data = data } }
-        func get() -> Data? { lock.withLock { data } }
-    }
+        private var bytes = Data()
+        private var success = false
+        var result: Data? { lock.withLock { success ? bytes : nil } }
 
-    private static let rangeSession: URLSession = {
-        let configuration = URLSessionConfiguration.default
-        configuration.allowsConstrainedNetworkAccess = true
-        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
-        return URLSession(configuration: configuration)
-    }()
+        init(start: Int64, length: Int64, total: Int64, validator: String) {
+            self.start = start
+            self.length = length
+            self.total = total
+            self.validator = validator
+        }
+
+        func urlSession(
+            _ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse
+        ) async -> URLSession.ResponseDisposition {
+            guard let http = response as? HTTPURLResponse,
+                TrackTransfer.acceptsRange(
+                    http, bytes: Int(length), start: start, length: length, total: total, validator: validator)
+            else { return .cancel }
+            return .allow
+        }
+
+        func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+            let accepted = lock.withLock {
+                guard Int64(bytes.count) + Int64(data.count) <= length else { return false }
+                bytes.append(data)
+                return true
+            }
+            if !accepted { dataTask.cancel() }
+        }
+
+        func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: (any Error)?) {
+            lock.withLock { success = error == nil && Int64(bytes.count) == length }
+            done.signal()
+        }
+    }
 
     static func validator(of response: HTTPURLResponse) -> String? {
         if let tag = response.value(forHTTPHeaderField: "ETag"), isSafeValidator(tag) { return tag }
-        return response.value(forHTTPHeaderField: "Last-Modified")
+        guard let modified = response.value(forHTTPHeaderField: "Last-Modified"),
+            let date = response.value(forHTTPHeaderField: "Date")
+        else { return nil }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "EEE, dd MMM yyyy HH:mm:ss 'GMT'"
+        guard let changed = formatter.date(from: modified), let sent = formatter.date(from: date),
+            sent.timeIntervalSince(changed) >= 60
+        else { return nil }
+        // A conservative age separates the HTTP clocks before a date validator joins separate responses.
+        return modified
     }
 
     private static var now: Double { ProcessInfo.processInfo.systemUptime }

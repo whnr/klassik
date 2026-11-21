@@ -35,6 +35,7 @@ final class TrackStore {
     var networkAllowed = true
     enum Failure: Error { case offline }
     @ObservationIgnored private var downloadTracks: [String: Set<String>] = [:]
+    private var generation = 0
 
     var cacheLimit: Int64 {
         didSet {
@@ -141,6 +142,7 @@ final class TrackStore {
         transfer.whenFinished { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }
+                guard self.transfers[transfer.songID] === transfer else { return }
                 self.transferEnded(transfer)
                 if transfer.snapshot.complete { self.loaded?(song, transfer.target, false) }
             }
@@ -190,6 +192,7 @@ final class TrackStore {
         failures[recording.id] = nil
         progress[recording.id] = 0
         downloadTracks[recording.id] = Set(recording.songs.map(\.id))
+        let generation = generation
         tasks[recording.id] = Task {
             var added: [String] = []
             do {
@@ -213,6 +216,8 @@ final class TrackStore {
                         }
                         added.append(song.id)
                     }
+                    guard generation == self.generation else { return }
+                    try Task.checkCancellation()
                     loaded?(song, target, false)
                     bytes += Self.size(of: target)
                     progress[recording.id] = Double(index + 1) / Double(recording.songs.count)
@@ -223,10 +228,12 @@ final class TrackStore {
                         songIDs: recording.songs.map(\.id), bytes: bytes, date: .now))
                 saveManifest()
             } catch {
+                guard generation == self.generation else { return }
                 // A part of a recording is of no use offline, so a failed run keeps nothing.
                 for id in added { removeFiles(of: id, in: downloadFolder) }
                 if !(error is CancellationError) { failures[recording.id] = error.localizedDescription }
             }
+            guard generation == self.generation else { return }
             progress[recording.id] = nil
             tasks[recording.id] = nil
             downloadTracks[recording.id] = nil
@@ -255,9 +262,12 @@ final class TrackStore {
 
     /// Signing out removes everything the account stored.
     func clearAll() {
+        generation += 1
         downloadTracks = [:]
         cancelTransfers()
         for task in tasks.values { task.cancel() }
+        tasks = [:]
+        progress = [:]
         for task in fetches.values { task.cancel() }
         fetches = [:]
         downloads = []

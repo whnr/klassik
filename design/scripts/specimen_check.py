@@ -38,6 +38,7 @@ PAGES = (
     "lookup.html?state=running",
     "lookup.html?state=slowDown",
     "storage.html",
+    "swipe.html",
     "index.html?overlay=opening",
     "work.html?overlay=open",
     "chronology.html?overlay=closing",

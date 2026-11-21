@@ -52,7 +52,7 @@ struct FilterSheet: View {
                     }
                 }
             }
-            // The note, the kinds and the field start at the inset of the title (search.html `.fsheet .body`).
+            // The note, the kinds and the field start under Back, at the shared inset (search.html `.fsheet .body`).
             Section {
                 Text(note)
                     .typeStyle(.footnote)

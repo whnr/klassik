@@ -1,56 +1,5 @@
 import SwiftUI
 
-/// Everyone who plays on a recording, from the performer and conductor tags. A row opens the performer page.
-struct PerformersView: View {
-    @Environment(AppModel.self) private var model
-    @State private var query = ""
-    @FocusState private var focused: Bool
-
-    var body: some View {
-        let performers = model.library.index.performers.filter {
-            query.isEmpty || $0.name.localizedStandardContains(query)
-        }
-        PageList {
-            // The Search tab moves `searchable` to the bottom. This page needs its field under the title.
-            SearchField(text: $query, focused: $focused, prompt: "Name", identifier: "performer-search")
-                .pagePadding()
-                .padding(.bottom, Layout.searchRowBottom)
-                .listRowInsets(EdgeInsets())
-                .listRowSeparator(.hidden)
-            if performers.isEmpty && !query.isEmpty {
-                Text("No performer matches.")
-                    .typeStyle(.subheadline)
-                    .foregroundStyle(Palette.textSecondary)
-                    .listRowSeparator(.hidden)
-                    .pageEdges(top: Layout.searchNoMatchTop)
-                    .accessibilityIdentifier("performer-no-match")
-            }
-            ForEach(performers) { performer in
-                PersonPageLink(page: .performer(performer.name)) {
-                    LabeledContent {
-                        Text(performer.entries.count.formatted())
-                    } label: {
-                        MarkedTitle(
-                            title: performer.name,
-                            isFavourite: model.recordingOrder.isFavourite(person: performer.name))
-                    }
-                    .ink()
-                }
-                .accessibilityIdentifier("performer")
-                .onAppear { model.sweep.prefer(performers: [performer.name]) }
-                .itemSeparator(first: performer.id == performers.first?.id, last: performer.id == performers.last?.id)
-            }
-        }
-        .overlay {
-            if model.library.index.performers.isEmpty {
-                ContentUnavailableView("No Performers", systemImage: "person.2")
-            }
-        }
-        .scrollDismissesKeyboard(.immediately)
-        .pageTitle("Performers")
-    }
-}
-
 /// The look of the control: the person page tabs, or the kinds of the filter sheet.
 struct PageTabsStyle {
     var label: TypeStyle

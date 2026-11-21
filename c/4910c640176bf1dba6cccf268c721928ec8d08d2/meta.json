@@ -1,7 +1,0 @@
-{
-  "sha": "4910c640176bf1dba6cccf268c721928ec8d08d2",
-  "branch": "claude-diagnostics-flush",
-  "path": "claude-diagnostics-flush",
-  "subject": "[sz-rs30.1.131.7] Flush waiting favourites on a Diagnostics pull",
-  "ts": 1795210213
-}

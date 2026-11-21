@@ -113,6 +113,22 @@ struct TrackTransferTests {
         try? FileManager.default.removeItem(at: root)
     }
 
+    @Test(arguments: [false, true])
+    func cancellingAWaitKeepsOtherConsumers(waitUntilRegistered: Bool) async throws {
+        let transfer = self.transfer()
+        transfer.begin(length: 4, validator: nil)
+        let cancelled = Task { try await transfer.finished() }
+        let kept = Task { try await transfer.finished() }
+        if waitUntilRegistered { try await Task.sleep(for: .milliseconds(20)) }
+        cancelled.cancel()
+        await #expect(throws: CancellationError.self) { try await cancelled.value }
+        transfer.append(Data([1, 2, 3, 4]))
+        transfer.finish(nil)
+        #expect(try await kept.value == transfer.target)
+        #expect(try Self.read(transfer, at: 0, count: 4) == [1, 2, 3, 4])
+        try? FileManager.default.removeItem(at: root)
+    }
+
     @Test(arguments: [200, 206, 416])
     func rangeResponsesRequireTheSameRepresentation(status: Int) throws {
         let url = try #require(URL(string: "https://fixture.invalid/stream"))
@@ -369,6 +385,37 @@ struct TrackTransferTests {
         #expect(store.isDownloaded(recording))
         #expect(started.transfers.filter { $0.id == song.id }.count == 1)
         #expect(try Data(contentsOf: root.appending(path: "downloads/shared.flac")) == Data([1, 2, 3, 4]))
+        store.clearAll()
+        try? FileManager.default.removeItem(at: root)
+    }
+
+    @Test(arguments: [false, true])
+    func cancellingADownloadReleasesOnlyUnneededTransfers(playbackNeedsTrack: Bool) async throws {
+        let started = Started()
+        let store = try makeStore(started)
+        let song = Song(id: "cancel-download", title: "Cancel download", suffix: "flac")
+        let recording = WorkIndex.Recording(id: "cancel-recording", album: "Fixture", songs: [song])
+        if playbackNeedsTrack { store.pinned = [song.id] }
+        store.download(recording, title: "Fixture", client: client)
+        for _ in 0..<100 where started.transfers.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
+        let transfer = try #require(started.transfers.first?.transfer)
+        transfer.begin(length: 4, validator: nil)
+        transfer.append(Data([1, 2]))
+        store.cancelDownload(recording.id)
+        for _ in 0..<100 where !store.progress.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(store.progress.isEmpty)
+        #expect(store.failures.isEmpty)
+        #expect(store.downloads.isEmpty)
+        if playbackNeedsTrack {
+            #expect(store.transfers[song.id] === transfer)
+            transfer.append(Data([3, 4]))
+            transfer.finish(nil)
+            #expect(try await transfer.finished() == transfer.target)
+        } else {
+            #expect(store.transfers.isEmpty)
+            await #expect(throws: TrackTransfer.Failure.cancelled) { try await transfer.finished() }
+            #expect(!FileManager.default.fileExists(atPath: transfer.partial.path()))
+        }
         store.clearAll()
         try? FileManager.default.removeItem(at: root)
     }

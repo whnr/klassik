@@ -240,6 +240,7 @@ final class TrackStore {
             progress[recording.id] = nil
             tasks[recording.id] = nil
             downloadTracks[recording.id] = nil
+            cancelTransfers(except: pinned)
             rescan()
         }
     }

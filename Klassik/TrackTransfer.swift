@@ -46,6 +46,7 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
     /// The server refused a range once, so later reads wait for the sequential bytes.
     private var rangesRefused = false
     private var finishHandlers: [@Sendable (Result<URL, Failure>) -> Void] = []
+    private var waiters: [UUID: CheckedContinuation<URL, any Error>] = [:]
     private var descriptor: Int32 = -1
     private var writer: FileHandle?
     private var session: URLSession?
@@ -58,7 +59,7 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
         super.init()
         try? FileManager.default.createDirectory(
             at: partial.deletingLastPathComponent(), withIntermediateDirectories: true)
-        FileManager.default.createFile(atPath: partial.path(percentEncoded: false), contents: nil)
+        _ = FileManager.default.createFile(atPath: partial.path(percentEncoded: false), contents: nil)
         writer = try? FileHandle(forWritingTo: partial)
         descriptor = open(partial.path(percentEncoded: false), O_RDONLY)
         meter.start(at: Self.now)
@@ -155,10 +156,13 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
         chunks = [:]
         let handlers = finishHandlers
         finishHandlers = []
+        let waiters = self.waiters.values
+        self.waiters = [:]
         let result: Result<URL, Failure> = failure.map { .failure($0) } ?? .success(target)
         condition.broadcast()
         condition.unlock()
         for handler in handlers { handler(result) }
+        for waiter in waiters { waiter.resume(with: result.mapError { $0 as any Error }) }
     }
 
     /// Calls `handler` once, when the transfer ends. A transfer that already ended calls it at once.
@@ -175,8 +179,28 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
 
     /// Waits for the end of the transfer.
     func finished() async throws -> URL {
-        try await withCheckedThrowingContinuation { continuation in
-            whenFinished { result in continuation.resume(with: result.mapError { $0 as any Error }) }
+        let id = UUID()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                condition.lock()
+                if Task.isCancelled {
+                    condition.unlock()
+                    continuation.resume(throwing: CancellationError())
+                } else if complete || failure != nil {
+                    let result: Result<URL, Failure> = failure.map { .failure($0) } ?? .success(target)
+                    condition.unlock()
+                    continuation.resume(with: result.mapError { $0 as any Error })
+                } else {
+                    waiters[id] = continuation
+                    condition.unlock()
+                }
+            }
+        } onCancel: {
+            // Cancelling one consumer must not cancel the bytes that another consumer still needs.
+            self.condition.lock()
+            let waiter = self.waiters.removeValue(forKey: id)
+            self.condition.unlock()
+            waiter?.resume(throwing: CancellationError())
         }
     }
 
@@ -402,7 +426,7 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
     private static var now: Double { ProcessInfo.processInfo.systemUptime }
 }
 
-extension TrackTransfer: URLSessionDataDelegate {
+extension TrackTransfer {
     func urlSession(
         _ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse
     ) async -> URLSession.ResponseDisposition {
@@ -417,7 +441,9 @@ extension TrackTransfer: URLSessionDataDelegate {
         begin(length: identity ? http.expectedContentLength : nil, validator: Self.validator(of: http))
         return .allow
     }
+}
 
+extension TrackTransfer: URLSessionDataDelegate {
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
         append(data)
     }

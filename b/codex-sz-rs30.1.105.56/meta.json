@@ -1,7 +1,7 @@
 {
-  "sha": "6a1a2ee49eae87ec71fa6e302817a94fa6f5c3e1",
+  "sha": "3e87469c57442616a455cc4c2549d8c4e65bff7c",
   "branch": "codex-sz-rs30.1.105.56",
   "path": "codex-sz-rs30.1.105.56",
-  "subject": "[sz-rs30.1.105.56] Measure the follow walk; hold on notes",
-  "ts": 1795238713
+  "subject": "[sz-rs30.1.105.58] Show the scrub label on both edges",
+  "ts": 1795242076
 }

@@ -909,6 +909,29 @@ final class BrowseScreens: ScreensTestCase {
 
 /// A recording, the player, the queue and the downloads.
 final class PlaybackScreens: ScreensTestCase {
+    /// The quiet spell returns to the playing row after the listener scrolls away (ADR 0014, 0027).
+    @MainActor
+    func testPlayerFollowsAfterQuietSpell() throws {
+        let app = try launchAndConnect()
+        openRecording(app)
+        playPaused(app)
+        openPlayer(app)
+        let overlay = app.descendants(matching: .any)["player-overlay"].firstMatch
+        let position = overlay.sliders["position"].firstMatch
+        XCTAssertTrue(eventually(timeout: 12) { position.exists && position.isHittable })
+        let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
+        let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25))
+        for _ in 0..<3 { from.press(forDuration: 0.05, thenDragTo: to) }
+        XCTAssertFalse(position.exists && position.isHittable, "The drag did not leave the playing row")
+        XCTAssertFalse(
+            eventually(timeout: 6) { position.exists && position.isHittable },
+            "The player followed before eight quiet seconds")
+        XCTAssertTrue(
+            eventually(timeout: 7) { position.exists && position.isHittable },
+            "The player did not return after eight quiet seconds")
+        snap(app, "05d-player-follow")
+    }
+
     @MainActor
     func testOverlayOpensAndSlidesDown() throws {
         let app = try launchAndConnect()
@@ -1102,28 +1125,6 @@ final class PlaybackScreens: ScreensTestCase {
             .firstMatch
         XCTAssertTrue(reveal(playing, in: app).exists, "No movement shows the playing mark")
         expectMovementPlayEdge(app)
-    }
-
-    /// The quiet spell returns to the playing row after the listener scrolls away (ADR 0014, 0027).
-    @MainActor
-    func testPlayerFollowsAfterQuietSpell() throws {
-        let app = try launchAndConnect()
-        openRecording(app)
-        playPaused(app)
-        openPlayer(app)
-        let position = app.sliders["position"].firstMatch
-        XCTAssertTrue(eventually(timeout: 12) { position.exists && position.isHittable })
-        let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
-        let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25))
-        for _ in 0..<3 { from.press(forDuration: 0.05, thenDragTo: to) }
-        XCTAssertFalse(position.exists && position.isHittable, "The drag did not leave the playing row")
-        XCTAssertFalse(
-            eventually(timeout: 6) { position.exists && position.isHittable },
-            "The player followed before eight quiet seconds")
-        XCTAssertTrue(
-            eventually(timeout: 7) { position.exists && position.isHittable },
-            "The player did not return after eight quiet seconds")
-        snap(app, "05d-player-follow")
     }
 
     /// A listening note is written in the playing row, never in a modal. It stays open while the bar scrubs, "End here"

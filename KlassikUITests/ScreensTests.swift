@@ -1766,6 +1766,22 @@ final class TimelineScreens: ScreensTestCase {
         if pause.label == "Pause" { pause.tap() }
     }
 
+    /// The scrub label on each edge, beside a scrub pinned in the middle of the bar (ADR 0035, specimen .scrub-label).
+    @MainActor
+    func testScrubLabelOnEitherEdge() throws {
+        for side in ["right", "left"] {
+            let app = try launchAndConnect(arguments: ["-\(timelineSideKey)", side, "-pinScrub", "0.5"])
+            _ = pausedPlayerInLibrary(app)
+            let bar = timeline(app)
+            XCTAssertTrue(bar.exists)
+            XCTAssertEqual(
+                side == "right" ? bar.frame.maxX : bar.frame.minX, side == "right" ? app.frame.maxX : 0,
+                accuracy: 1, "The timeline is not on the \(side) edge")
+            snap(app, side == "right" ? "15j-scrub-label-right" : "15k-scrub-label-left")
+            app.terminate()
+        }
+    }
+
     /// On the left edge, a swipe from the edge goes back a page or a place. It never scrubs.
     @MainActor
     func testTimelineOnTheLeft() throws {

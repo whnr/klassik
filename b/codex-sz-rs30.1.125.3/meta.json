@@ -1,7 +1,7 @@
 {
-  "sha": "cf6442a6cd42c6754913fbdd6102dcd6f6241f10",
+  "sha": "29ee7784731a484fb79cd7f38e360afc6a13477d",
   "branch": "codex-sz-rs30.1.125.3",
   "path": "codex-sz-rs30.1.125.3",
-  "subject": "[sz-rs30.1.125.1] Map reclaimable audio bytes",
-  "ts": 1795273792
+  "subject": "[sz-rs30.1.125.1] Stop failed audio transfers",
+  "ts": 1795274842
 }

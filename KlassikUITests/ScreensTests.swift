@@ -1957,6 +1957,11 @@ final class SettingsScreens: ScreensTestCase {
 
         reveal(app.buttons["swipe-actions"], in: app).tap()
         XCTAssertTrue(app.navigationBars["Swipe Actions"].waitForExistence(timeout: 10))
+        // The list shows the buttons as the row does: Play Next left of Add to Queue (tokens.html SWIPE).
+        let playNext = app.staticTexts["Play Next"].firstMatch
+        let addToQueue = app.staticTexts["Add to Queue"].firstMatch
+        XCTAssertTrue(playNext.waitForExistence(timeout: 10) && addToQueue.exists, "No swipe left actions")
+        XCTAssertLessThan(playNext.frame.minY, addToQueue.frame.minY, "Add to Queue is above Play Next")
         snap(app, "08b-swipe-actions")
         back(app)
 

@@ -39,7 +39,7 @@ The sample map excludes starvation silence from movement position and duration. 
 The feeder delivered twice the initial bitrate estimate. These times include initialization and buffering.
 The probe does not separate threshold readiness from first sound. It does not establish the 500 ms readiness requirement.
 
-## Remaining production work
+## Conversion and storage work
 
 [Run 44892454080](https://github.com/whnr/klassik/actions/runs/44892454080) found fractional-output shortages during conversion.
 The 44.1-to-48 kHz impulse produced 8,725 frames instead of 8,726.
@@ -62,13 +62,66 @@ Concurrent writers cannot spend the same free bytes. Publication preserves one p
 Transfers use that backing without a finite capacity. Production rolling storage remains disabled.
 Finite transfers wait on their transport queue when the window or shared budget fills.
 Decoder reads release storage slots. Cancellation wakes blocked writes. Reclaimed resources never publish as complete files.
-The forty-second MP3 and FLAC reference probes use 1 MiB windows. Their iOS validation remains pending.
-TrackStore accounting, download ownership changes, and bounded fallback must precede production finite-capacity use.
-
-The cache lacks bounded storage for oversized tracks. Read-ahead still waits for the current transfer to finish.
 Pause cancels following automatic transfers and invalidates their decoder. Resume rebuilds from the audible checkpoint.
 Shared downloads retain tracks until their last owner releases them. Their total counts physical files once.
-These lifecycle checks pass in run 44916100058. Clear Music needs further coverage for active decoders and refill suppression.
-The throughput matrix, path changes, seeks, remaining format controls, storage pressure, and recovery still need measurements.
-ReplayGain changes also need rendered coverage across recording boundaries. The current gain stage follows session metadata updates.
-Passing decoder and timeline checks do not close these production requirements.
+These lifecycle checks pass in run 44916100058.
+
+## Bounded windows and the MP3 header
+
+[Run 44929033697](https://github.com/whnr/klassik/actions/runs/44929033697) decoded forty seconds through 1 MiB windows.
+The bounded FLAC stream matched the complete file. The bounded MP3 stream matched a whole stream of the same bytes.
+Both MP3 streams started 576 frames after the complete file. 576 frames is the encoder delay in the LAME header.
+
+| Value | Early Playback MP3 |
+| --- | ---: |
+| Header frames × 1,152 | 114,662,016 |
+| Encoder delay, padding | 576, 1,440 |
+| Recording samples | 114,660,000 |
+| AVAudioFile length | 114,660,000 |
+
+iOS applied the header to this file itself and decoded only the recording.
+The stream decoder assumed that iOS ignores the header, so it removed the encoder delay a second time.
+That cut 13 ms of music and declared an end 576 frames after the decoder end, a premature-end failure.
+The Mendelssohn fixture keeps the header untrimmed, so its stream tests did not show this.
+The stream decoder now takes the decoder's own frame count, as the complete-file path does.
+Both paths cut the same frames for files that iOS trims and for files that it does not trim.
+
+## Production storage and lifecycle
+
+TrackStore gives every automatic transfer the shared Music budget. Complete files and partial files count against the limit.
+A blocked write first removes the oldest complete files. Current playback and the next opening stay.
+If that makes no room, the store cancels a speculative transfer, then the next opening for current playback.
+Current playback fails only when it alone fills the limit. The message tells the listener to free space.
+A track larger than the limit plays from a rolling window when its format can start early.
+Other oversized formats fail at their head, with a message that names the Local Storage limit.
+An explicit download promotes a transfer that has not wrapped: its bytes leave the limit and the download keeps them.
+A wrapped window cannot become a file, so the download then fetches the track whole.
+
+The next opening starts when the current track has no more remaining time than the opening needs plus 2 s.
+The opening time is the measured delay from engine load to first sound. Its default is 2 s.
+The opening transfer holds while less than 2 s of decoded audio is buffered and the current transfer is incomplete.
+Clear Music pauses playback, releases the decoders, and starts no transfer until Play or Resume.
+Pausing is stricter than the ADR permits. A starved engine would otherwise show the slow-connection line for a cleared cache.
+
+## Throughput, seek and gain measurements
+
+[Run 44925511145](https://github.com/whnr/klassik/actions/runs/44925511145) measured the Early Playback MP3 (320 kbit/s, 104 MB).
+The feeder adds 150 ms latency, seeded jitter, and about 16 chunks per second. Each ratio ran twice; the table gives the range.
+
+| Ratio | Target | Request to sound | Ready to render | Bytes at sound | Starvation (predicted) | Recovery |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 4 | 0.25 s | 0.72–0.82 s | 54–149 ms | 100,000–110,000 | none | — |
+| 2 | 0.5 s | 1.27–1.38 s | 53–171 ms | 95,000–100,000 | none | — |
+| 1 | 1.0 s | 4.13–5.36 s | 43–256 ms | 160,000–210,000 | none | — |
+| 0.75 | 9.5 s | 16.2–16.7 s | 53–160 ms | 481,875–498,750 | 39.1–41.8 s (38 s) | 11.1–13.8 s |
+| 0.5 | 17.0 s | 39.4–39.8 s | 102–107 ms | 785,000–795,000 | 35.4–35.8 s (34 s) | — |
+
+Ratio 2 also restarts the throughput measurement after first sound, as a path change does. It did not starve.
+Below ratio 1, starvation came after the predicted exhaustion. Decoded audio peaked at 1.70–1.75 s for every ratio.
+All other buffered audio stayed encoded in the transfer. Sound came before 1 % of the resource had arrived.
+
+A seek 1 s into a streamed MP3 or FLAC joins its next movement with zero frame shift.
+The next movement keeps its exact duration. The seek start aligns within one frame of the reference.
+That alignment counts from the first audible sample, so it does not resolve a single frame.
+A recording join from album gain −6 dB to 0 dB changed the rendered level within 0.02 s, with zero frame shift.
+The levels matched their gains within 0.5 dB.

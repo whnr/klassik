@@ -236,6 +236,7 @@ struct PersonFactsServiceTests {
         #expect(facts.born == 1685)
         #expect(facts.portrait == nil)
         #expect(facts.pictureUnread == true)
+        #expect(facts.pictureFile == "Bach.jpg")
         let answered = try #require(try await PersonStub(PersonStub.bachRules).service.facts(qid: "Q1339"))
         #expect(answered.pictureUnread == nil)
     }

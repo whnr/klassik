@@ -178,8 +178,9 @@ struct PersonSweepTests {
     @Test func aFailedCommonsRequestLeavesThePersonOpenUntilThePictureArrives() async throws {
         let (store, _) = try makeStore(fetch: commonsFailing(times: PersonSweep.triesPerPass))
         let log = PictureLog()
+        let clock = TestClock(Self.start)
         let sweep = PersonSweep(
-            store: store, now: { Self.start }, sleep: { _ in },
+            store: store, now: { clock.now }, sleep: { _ in },
             pictures: { portrait, old in
                 log.add(portrait, old)
                 return true
@@ -189,15 +190,83 @@ struct PersonSweepTests {
         #expect(store.facts(ofComposer: Self.bach.tag)?.born == 1685)
         #expect(store.facts(ofComposer: Self.bach.tag)?.portrait == nil)
         #expect(store.cache.checked[Self.bach.key] == nil)
-        // The failed tries set a due time; a missing picture does not wait for it.
+        // The picture waits its short wait, not the cadence of the person.
+        #expect(sweep.plan([Self.bach]).new.isEmpty)
+        clock.advance(days: PersonSweep.pictureWaitHours / 24)
         #expect(sweep.plan([Self.bach]).new == [Self.bach])
         await sweep.run([Self.bach])
         await sweep.finish()
         let facts = try #require(store.facts(ofComposer: Self.bach.tag))
         #expect(facts.portrait?.url.absoluteString == "https://thumb.wikimedia.org/bach-1200.jpg")
         #expect(facts.pictureUnread == nil)
-        #expect(store.cache.checked[Self.bach.key] == Self.start)
+        #expect(store.cache.checked[Self.bach.key] == clock.now)
+        #expect(store.cache.pictureWait[Self.bach.key] == nil)
         #expect(log.found.count == 1)
+    }
+
+    @Test func aLastingCommonsFailureSendsNoThirdRequestInTheWait() async throws {
+        let commons = Counter()
+        let stub = PersonStub(PersonStub.bachRules)
+        let (store, _) = try makeStore(fetch: { request in
+            if request.url?.absoluteString.contains("commons.wikimedia.org") == true {
+                _ = commons.next()
+                throw URLError(.networkConnectionLost)
+            }
+            return try await stub.fetch(request)
+        })
+        let sweep = PersonSweep(store: store, now: { Self.start }, sleep: { _ in })
+        await sweep.run([Self.bach])
+        await sweep.run([Self.bach])
+        #expect(commons.next() == PersonSweep.triesPerPass)
+        sweep.measure([Self.bach])
+        #expect(sweep.state == .upToDate)
+    }
+
+    @Test func aRetryAsksCommonsOnly() async throws {
+        let stub = PersonStub(PersonStub.bachRules)
+        let sent = NameLog()
+        let failures = Counter()
+        let (store, _) = try makeStore(fetch: { request in
+            let url = request.url?.absoluteString.removingPercentEncoding ?? ""
+            sent.append(url)
+            if url.contains("commons.wikimedia.org"), failures.next() < PersonSweep.triesPerPass {
+                throw URLError(.networkConnectionLost)
+            }
+            return try await stub.fetch(request)
+        })
+        let clock = TestClock(Self.start)
+        let sweep = PersonSweep(store: store, now: { clock.now }, sleep: { _ in })
+        await sweep.run([Self.bach])
+        // The second try of the pass asks Commons only.
+        #expect(sent.names.filter { $0.contains("en.wikipedia.org") }.count == 1)
+        #expect(sent.names.filter { $0.contains("commons.wikimedia.org") }.count == PersonSweep.triesPerPass)
+        let before = sent.names.count
+        clock.advance(days: PersonSweep.pictureWaitHours / 24)
+        await sweep.run([Self.bach])
+        let retry = Array(sent.names.dropFirst(before))
+        #expect(retry.count == 1)
+        #expect(retry.allSatisfy { $0.contains("commons.wikimedia.org") })
+        let facts = try #require(store.facts(ofComposer: Self.bach.tag))
+        #expect(facts.portrait?.url.absoluteString == "https://thumb.wikimedia.org/bach-1200.jpg")
+        #expect(facts.credits.filter { $0.kind == .picture }.count == 1)
+        #expect(facts.bio == "Johann Sebastian Bach was a German composer.")
+        #expect(store.cache.checked[Self.bach.key] == clock.now)
+    }
+
+    @Test func aGoneItemClearsAnUnreadPicture() async throws {
+        let old = Self.start.addingTimeInterval(-400 * 86_400)
+        let saved = cache(tag: Self.bach.tag, born: 1685, died: 1750, checked: old)
+            .replacingOccurrences(of: "\"version\":\(PersonFactsStore.Cache.version)", with: "\"version\":1")
+        let gone = PersonStub([("ids=Q1&", "{\"entities\":{\"Q1\":{\"id\":\"Q1\",\"missing\":\"\"}}}")])
+        let (store, _) = try makeStore(cache: saved, fetch: gone.fetch)
+        #expect(store.facts(ofComposer: Self.bach.tag)?.pictureUnread == true)
+        let sweep = PersonSweep(store: store, now: { Self.start }, sleep: { _ in })
+        await sweep.run([Self.bach])
+        #expect(store.facts(ofComposer: Self.bach.tag)?.pictureUnread == nil)
+        #expect(store.facts(ofComposer: Self.bach.tag)?.born == 1685)
+        #expect(store.cache.checked[Self.bach.key] == Self.start)
+        sweep.measure([Self.bach])
+        #expect(sweep.state == .upToDate)
     }
 
     @Test func aRefreshWithAFailedCommonsRequestKeepsTheStoredPicture() async throws {

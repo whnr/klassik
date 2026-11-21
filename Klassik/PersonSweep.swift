@@ -36,6 +36,8 @@ final class PersonSweep {
     nonisolated static let jitterDays = 10.0
     /// A pass tries one person at most this many times (ADR 0044). Then the person waits for its next due time.
     static let triesPerPass = 2
+    /// A picture that Commons did not answer in any try of a pass waits this long, not the cadence (ADR 0044).
+    static let pictureWaitHours = 24.0
     /// The most shown performers that the pass keeps in front. A long scroll through the performers adds more.
     static let shownLimit = 100
 
@@ -100,8 +102,9 @@ final class PersonSweep {
         var new: [Person] = []
         var due: [(person: Person, overdue: TimeInterval)] = []
         for person in people {
-            // A picture that Commons did not answer is due at once, whatever check or wait the person has.
+            // A picture that Commons did not answer goes first after its short wait, whatever the check says.
             if missesPicture(person) {
+                if let wait = store.cache.pictureWait[person.key], wait > current { continue }
                 if store.cache.checked[person.key] == nil {
                     new.append(person)
                 } else {
@@ -274,8 +277,14 @@ final class PersonSweep {
     }
 
     /// A person that failed every try of the pass gets the due time of a check, without being marked checked.
+    /// A person without their picture waits a short time instead, so that a lasting Commons failure costs one
+    /// pass a day and the picture still arrives soon after Commons works again.
     private func postpone(_ person: Person) {
-        store.postpone(person.key, due: dueDate(of: person))
+        if missesPicture(person) {
+            store.postponePicture(person.key, until: now().addingTimeInterval(Self.pictureWaitHours * 3600))
+        } else {
+            store.postpone(person.key, due: dueDate(of: person))
+        }
     }
 
     private func dueDate(of person: Person) -> Date {
@@ -289,7 +298,7 @@ final class PersonSweep {
         let isNew = store.cache.checked[person.key] == nil
         var ok: Bool
         if missesPicture(person), let qid = qid(of: person) {
-            ok = await store.refresh(qid)
+            ok = await store.retryPicture(qid)
         } else {
             switch person.kind {
             case .composer:

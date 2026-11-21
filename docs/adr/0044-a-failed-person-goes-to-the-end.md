@@ -23,9 +23,22 @@ retry that person on the standard person cadence."
   resets the count.
 - The throttle rules of 0042 stay: `Retry-After`, `maxlag` and the pace of 200 requests a minute.
 
+### A picture that Commons did not answer
+
+Added on 2026-11-21 for sz-rs30.1.135.4.
+
+- When the Commons request for a picture fails, the facts are not complete. The person is not marked as checked.
+- After the last failed try of a pass, such a person waits 24 hours, not the standard cadence. The next pass
+  after that wait takes the person first. A pass in the wait sends no request for the person.
+- A retry asks Commons only, for the file that the facts name. Facts from older builds do not name the file,
+  so their retry loads the facts again.
+- When Wikidata no longer has the item, the picture counts as read. The person settles with the old facts.
+
 ## Consequences
 
 - One person that always fails costs the pass two requests, not hours of waits.
 - A person that failed twice waits up to 100 days for its next try. Settings does not count the person as new
   while it waits.
 - When the service is down, the pass still backs off, so it does not send a burst of failed requests.
+- A lasting Commons failure costs each person with a picture one try a day, and Settings shows the pass as up to
+  date while the persons wait.

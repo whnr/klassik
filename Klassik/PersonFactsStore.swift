@@ -44,6 +44,8 @@ final class PersonFactsStore {
         /// When each check of the background pass falls due, with its random spread (ADR 0042).
         var due: [String: Date] = [:]
         var picturePending: [String: PictureWork] = [:]
+        /// When the background pass asks Commons again for an unread picture, by person key (ADR 0044).
+        var pictureWait: [String: Date] = [:]
 
         init() {}
 
@@ -61,6 +63,7 @@ final class PersonFactsStore {
             checked = try container.decodeIfPresent([String: Date].self, forKey: .checked) ?? [:]
             due = try container.decodeIfPresent([String: Date].self, forKey: .due) ?? [:]
             picturePending = try container.decodeIfPresent([String: PictureWork].self, forKey: .picturePending) ?? [:]
+            pictureWait = try container.decodeIfPresent([String: Date].self, forKey: .pictureWait) ?? [:]
             // A saved pick list that the name rule settles takes its composer, without a request. The facts
             // load on the next lookup, and the background pass takes the tag first.
             for (tag, resolution) in composers where !chosen.contains(tag) && !reopenedPickers.contains(tag) {
@@ -213,7 +216,32 @@ final class PersonFactsStore {
                     facts.credits += old.credits.filter { $0.kind == .picture }
                 }
                 cache.people[qid] = facts
+            } else {
+                // The item answered without facts: there is no picture to read.
+                cache.people[qid]?.pictureUnread = nil
+                cache.people[qid]?.pictureFile = nil
             }
+            lastError = nil
+            save()
+            return true
+        } catch {
+            lastError = error.localizedDescription
+            return false
+        }
+    }
+
+    /// Asks Commons again for the unread picture of an item. Facts without the file name load again in full.
+    /// Returns false on a failed request.
+    func retryPicture(_ qid: String) async -> Bool {
+        guard var facts = cache.people[qid], let file = facts.pictureFile else { return await refresh(qid) }
+        do {
+            let found = try await service.portrait(file: file)
+            facts.portrait = found?.portrait
+            facts.credits.removeAll { $0.kind == .picture }
+            if let found { facts.credits.append(found.credit) }
+            facts.pictureUnread = nil
+            facts.pictureFile = nil
+            cache.people[qid] = facts
             lastError = nil
             save()
             return true
@@ -245,6 +273,7 @@ final class PersonFactsStore {
     func markChecked(_ key: String, at date: Date, due: Date) {
         cache.checked[key] = date
         cache.due[key] = due
+        cache.pictureWait[key] = nil
         save()
     }
 
@@ -264,6 +293,12 @@ final class PersonFactsStore {
     /// Records when the background pass tries a failed person again. The person stays unchecked.
     func postpone(_ key: String, due: Date) {
         cache.due[key] = due
+        save()
+    }
+
+    /// Records when the background pass asks again for a picture that Commons did not answer.
+    func postponePicture(_ key: String, until date: Date) {
+        cache.pictureWait[key] = date
         save()
     }
 

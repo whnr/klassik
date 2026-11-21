@@ -128,6 +128,45 @@ struct TrackTransferTests {
         #expect(try Self.read(transfer, at: 0, count: 16) == Array(0..<16))
     }
 
+    func completedWindow(partial: URL, target: URL) async throws -> TrackTransfer {
+        let transfer = TrackTransfer(songID: "a", partial: partial, target: target, url: nil, capacity: 8)
+        transfer.begin(length: 20, validator: nil)
+        let producer = Task { await Self.appendOnWorker(Data(0..<20), to: transfer) }
+        do {
+            for position in stride(from: 0, to: 20, by: 4) {
+                _ = try await Self.readOnWorker(transfer, at: Int64(position), count: 4)
+            }
+            await producer.value
+            return transfer
+        } catch {
+            transfer.cancel()
+            await producer.value
+            throw error
+        }
+    }
+
+    @Test func anOldWindowCannotRemoveAReplacementTransfer() async throws {
+        let started = Started()
+        let store = try makeStore(started)
+        defer {
+            store.cancelTransfers()
+            try? FileManager.default.removeItem(at: root)
+        }
+        let song = Song(id: "a", title: "Fixture", suffix: "flac")
+        let first = store.transfer(for: song, client: InMemoryServer())
+        store.cancelTransfers()
+        var obsolete: TrackTransfer? = try await completedWindow(partial: first.partial, target: first.target)
+        #expect(obsolete?.hasCompleteFile == false)
+        let replacement = store.transfer(for: song, client: InMemoryServer())
+        replacement.begin(length: 2, validator: nil)
+        replacement.append(Data([7, 8]))
+        obsolete = nil
+        #expect(try Data(contentsOf: replacement.partial) == Data([7, 8]))
+        replacement.finish(nil)
+        #expect(try await replacement.finished() == replacement.target)
+        #expect(try Data(contentsOf: replacement.target) == Data([7, 8]))
+    }
+
     @Test func aReaderWaitsForTheBytes() async throws {
         let transfer = self.transfer()
         transfer.begin(length: 8, validator: nil)

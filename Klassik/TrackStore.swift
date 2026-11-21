@@ -135,7 +135,7 @@ final class TrackStore {
         if let running = transfers[song.id] { return running }
         let name = Self.fileName(song)
         let transfer = TrackTransfer(
-            songID: song.id, partial: cacheFolder.appending(path: name + ".partial"),
+            songID: song.id, partial: cacheFolder.appending(path: name + ".\(UUID().uuidString).partial"),
             target: cacheFolder.appending(path: name), url: client.streamURL(songID: song.id))
         transfers[song.id] = transfer
         transfer.whenFinished { [weak self] _ in
@@ -357,7 +357,11 @@ final class TrackStore {
         let urls = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: keys)) ?? []
         return urls.map { url in
             let values = try? url.resourceValues(forKeys: Set(keys))
-            let track = url.pathExtension == "partial" ? url.deletingPathExtension() : url
+            var track = url.pathExtension == "partial" ? url.deletingPathExtension() : url
+            // A transfer owns its path until its last decoder closes, including after a replacement starts.
+            if url.pathExtension == "partial", UUID(uuidString: track.pathExtension) != nil {
+                track = track.deletingPathExtension()
+            }
             return StoredFile(
                 url: url, id: track.deletingPathExtension().lastPathComponent, size: Int64(values?.fileSize ?? 0),
                 date: values?.contentModificationDate ?? .distantPast)

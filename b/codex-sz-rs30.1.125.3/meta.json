@@ -1,7 +1,7 @@
 {
-  "sha": "5e87c7c0c71208044101f861d8d6e083bb30f15e",
+  "sha": "4794664f130903316f6d3e968886e480f39f4634",
   "branch": "codex-sz-rs30.1.125.3",
   "path": "codex-sz-rs30.1.125.3",
-  "subject": "[sz-rs30.1.125.1] Complete resampler edge frames",
-  "ts": 1795256587
+  "subject": "[sz-rs30.1.125.1] Record conversion limits",
+  "ts": 1795256712
 }

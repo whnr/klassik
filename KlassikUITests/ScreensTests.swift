@@ -909,6 +909,32 @@ final class BrowseScreens: ScreensTestCase {
 
 /// A recording, the player, the queue and the downloads.
 final class PlaybackScreens: ScreensTestCase {
+    /// The quiet spell returns to the playing row after the listener scrolls away (ADR 0014, 0027).
+    @MainActor
+    func testPlayerFollowsAfterQuietSpell() throws {
+        let app = try launchAndConnect()
+        openRecording(app)
+        playPaused(app)
+        openPlayer(app)
+        let overlay = app.descendants(matching: .any)["player-overlay"].firstMatch
+        let position = overlay.sliders["position"].firstMatch
+        XCTAssertTrue(eventually(timeout: 12) { position.exists && position.isHittable })
+        // The fixture page is short, so its end is the follow target. The top puts the hero above the playing row.
+        let rowY = { position.exists ? position.frame.midY : CGFloat.infinity }
+        let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2))
+        let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85))
+        for _ in 0..<2 { from.press(forDuration: 0.05, thenDragTo: to) }
+        let still = Date()
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
+        let low = rowY()
+        XCTAssertTrue(
+            eventually(timeout: 15) { rowY() < low - 40 },
+            "The player did not return after eight quiet seconds: row at \(rowY()), was \(low)")
+        XCTAssertGreaterThan(
+            Date().timeIntervalSince(still), 7, "The player followed before eight quiet seconds")
+        snap(app, "05d-player-follow")
+    }
+
     @MainActor
     func testOverlayOpensAndSlidesDown() throws {
         let app = try launchAndConnect()
@@ -1738,6 +1764,22 @@ final class TimelineScreens: ScreensTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [first], timeout: 5), .completed, bar.value as? String ?? "")
         let pause = pill.buttons["mini-player-pause"]
         if pause.label == "Pause" { pause.tap() }
+    }
+
+    /// The scrub label on each edge, beside a scrub pinned in the middle of the bar (ADR 0035, specimen .scrub-label).
+    @MainActor
+    func testScrubLabelOnEitherEdge() throws {
+        for side in ["right", "left"] {
+            let app = try launchAndConnect(arguments: ["-\(timelineSideKey)", side, "-pinScrub", "0.5"])
+            _ = pausedPlayerInLibrary(app)
+            let bar = timeline(app)
+            XCTAssertTrue(bar.exists)
+            XCTAssertEqual(
+                side == "right" ? bar.frame.maxX : bar.frame.minX, side == "right" ? app.frame.maxX : 0,
+                accuracy: 1, "The timeline is not on the \(side) edge")
+            snap(app, side == "right" ? "15j-scrub-label-right" : "15k-scrub-label-left")
+            app.terminate()
+        }
     }
 
     /// On the left edge, a swipe from the edge goes back a page or a place. It never scrubs.

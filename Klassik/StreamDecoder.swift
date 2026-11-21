@@ -9,6 +9,7 @@ final class StreamDecoder: @unchecked Sendable {
         case unsupported
         /// The server sent no length; the callbacks cannot report the file size.
         case unknownLength
+        case allocation
         case status(OSStatus)
         case prematureEnd(expected: Int64, actual: Int64)
     }
@@ -112,7 +113,9 @@ final class StreamDecoder: @unchecked Sendable {
             let end = playable?.upperBound ?? .max
             guard cursor < end else { return nil }
             let wanted = AVAudioFrameCount(min(Int64(frames), end - cursor))
-            guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: wanted) else { return nil }
+            guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: wanted) else {
+                throw Failure.allocation
+            }
             // ExtAudioFileRead takes the byte sizes in the buffer list as the space it may fill.
             buffer.frameLength = buffer.frameCapacity
             var count = UInt32(wanted)

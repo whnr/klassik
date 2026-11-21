@@ -26,4 +26,19 @@ struct GaplessEngineLoadTests {
         #expect(recorder.fileRequests == 0)
         #expect(!engine.isRunning)
     }
+    @Test func resumeBeforeGraphCreationRetainsPlaybackIntent() async throws {
+        let recorder = Recorder()
+        let engine = GaplessEngine()
+        let song = Song(id: "a-0", title: "Movement 1", duration: 10, suffix: "wav")
+        engine.load([song], from: 0, offset: 0) { _ in
+            recorder.fileRequests += 1
+            throw CancellationError()
+        }
+        engine.pause()
+        try engine.resume()
+        defer { engine.discard() }
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(recorder.fileRequests == 1)
+    }
+
 }

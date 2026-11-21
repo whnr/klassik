@@ -298,6 +298,55 @@ struct StreamingPlaybackTests {
         #expect(shifts == [0, 0])
     }
 
+    /// The output timeline stays at the first rate and channel count while subsequent files differ.
+    @MainActor @Test func mixedRatesAndChannelsUseOneTimeline() async throws {
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let rates = [44_100.0, 48_000.0, 32_000.0]
+        let channels: [UInt32] = [1, 2, 1]
+        let counts = [22_051, 24_017, 16_013]
+        var urls: [String: URL] = [:]
+        for index in rates.indices {
+            let format = try #require(
+                AVAudioFormat(standardFormatWithSampleRate: rates[index], channels: channels[index]))
+            let buffer = try #require(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: UInt32(counts[index])))
+            buffer.frameLength = buffer.frameCapacity
+            for channel in 0..<Int(channels[index]) {
+                for sample in 0..<counts[index] {
+                    buffer.floatChannelData![channel][sample] = Float(
+                        sin(Double(sample) * 2 * .pi * 440 / rates[index]) * 0.25)
+                }
+            }
+            let url = root.appending(path: "mixed-\(index).wav")
+            let file = try AVAudioFile(forWriting: url, settings: format.settings)
+            try file.write(from: buffer)
+            urls[String(index)] = url
+        }
+        let songs = rates.indices.map { Song(id: String($0), title: "Tone", duration: 1, suffix: "wav") }
+        let files = urls
+        let events = Events()
+        let engine = GaplessEngine()
+        engine.onEvent = { event in
+            if case .movementEnded(let index) = event { events.log.append("end \(index)") }
+            if case .failed(let text) = event { events.log.append("failed \(text)") }
+            if case .problem(let text) = event { events.log.append("failed \(text)") }
+        }
+        defer {
+            engine.discard()
+            try? FileManager.default.removeItem(at: root)
+        }
+        engine.load(songs, from: 0, offset: 0) { .file(files[$0.id]!) }
+        for _ in 0..<500 where !events.log.contains("end 2") && !events.log.contains(where: { $0.hasPrefix("failed") })
+        {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(events.log == ["end 0", "end 1", "end 2"])
+        var count = ConvertedFrameCount()
+        for index in rates.indices {
+            let frames = count.frames(Int64(counts[index]), from: rates[index], to: rates[0])
+            #expect(engine.duration(of: index) == Double(frames) / rates[0])
+        }
+    }
+
     // MARK: Sample-exact output
 
     /// Streamed decoding gives the samples that the complete-file path plays, encoder delay and padding cut.

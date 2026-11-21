@@ -390,7 +390,7 @@ final class PlaybackSession {
         let action = playback.handle(event)
         guard item != nil else { return }
         if recordingCompleted && playback.shouldPlay {
-            completeRecording()
+            completeRecording(resuming: true)
             return
         }
         switch action {
@@ -459,7 +459,7 @@ final class PlaybackSession {
         }
     }
 
-    private func completeRecording() {
+    private func completeRecording(resuming: Bool = false) {
         if upNext.isEmpty {
             stop()
             queueEnded = true
@@ -474,7 +474,7 @@ final class PlaybackSession {
             movement = 0
             if let item { history?.begin(item: item, movement: 0, position: 0) }
             // A final completion can arrive after Pause. Keep the same node and its scheduled successor.
-            if playback.shouldPlay {
+            if resuming {
                 do { try engine.resume() } catch { playbackFailed(error.localizedDescription) }
             }
             updateNowPlaying()

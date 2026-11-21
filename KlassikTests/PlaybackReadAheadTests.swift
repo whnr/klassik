@@ -119,6 +119,40 @@ struct PlaybackReadAheadTests {
         try? FileManager.default.removeItem(at: root)
     }
 
+    @Test(arguments: [false, true])
+    func pauseKeepsOnlyCurrentPlaybackAndExplicitDownloads(explicitNext: Bool) async throws {
+        let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
+        let store = TrackStore(
+            cacheFolder: root.appending(path: "cache"), downloadFolder: root.appending(path: "downloads"),
+            defaults: defaults, transport: { _, _, _ in })
+        let engine = FakeEngine()
+        let session = PlaybackSession(engine: engine, store: store, defaults: defaults)
+        let client = InMemoryServer()
+        session.server = client
+        session.dataMode = .constrained
+        let playing = item("a", movements: 3)
+        session.play(playing)
+        let current = store.transfer(for: playing.recording.songs[0], client: client)
+        let next = store.transfer(for: playing.recording.songs[1], client: client)
+        if explicitNext {
+            let recording = WorkIndex.Recording(id: "download", album: "Fixture", songs: [playing.recording.songs[1]])
+            store.download(recording, title: "Fixture", client: client)
+        }
+        session.pause()
+        #expect(store.pinned == [playing.recording.songs[0].id])
+        #expect(store.transfers[playing.recording.songs[0].id] === current)
+        #expect((store.transfers[playing.recording.songs[1].id] === next) == explicitNext)
+        #expect(session.isPaused)
+        #expect(!engine.isRunning)
+        session.resume()
+        #expect(engine.loads.count == 2)
+        #expect(engine.loads.last?.movement == 0)
+        #expect(session.error == nil)
+        session.stop()
+        store.clearAll()
+        try? FileManager.default.removeItem(at: root)
+    }
+
     // MARK: Slow-connection line
 
     @Test func theLineAppearsAfterOneSecondOnASlowConnection() async throws {

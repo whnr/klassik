@@ -29,6 +29,7 @@ final class TrackStore {
     /// The tracks that play without the server, downloaded or cached.
     private(set) var offline: Set<String> = []
     private(set) var cacheBytes: Int64 = 0
+    private(set) var downloadBytes: Int64 = 0
     /// Share of a running download, by recording ID.
     private(set) var progress: [String: Double] = [:]
     private(set) var failures: [String: String] = [:]
@@ -43,8 +44,6 @@ final class TrackStore {
             evict()
         }
     }
-
-    var downloadBytes: Int64 { downloads.reduce(0) { $0 + $1.bytes } }
 
     private let cacheFolder: URL
     private let downloadFolder: URL
@@ -197,7 +196,6 @@ final class TrackStore {
         downloadTracks[recording.id] = Set(recording.songs.map(\.id))
         let generation = generation
         tasks[recording.id] = Task {
-            var added: [String] = []
             do {
                 var bytes: Int64 = 0
                 for (index, song) in recording.songs.enumerated() {
@@ -210,20 +208,23 @@ final class TrackStore {
                             _ = try await transfer(for: song, client: client).finished()
                             try Task.checkCancellation()
                         }
-                        if FileManager.default.fileExists(atPath: cached.path()) {
-                            try FileManager.default.createDirectory(
-                                at: downloadFolder, withIntermediateDirectories: true)
-                            try FileManager.default.moveItem(at: cached, to: target)
-                        } else {
-                            try await fetch(song, to: target, client: client)
+                        // Another recording can publish this shared track while the transfer wait suspends.
+                        if !FileManager.default.fileExists(atPath: target.path()) {
+                            if FileManager.default.fileExists(atPath: cached.path()) {
+                                try FileManager.default.createDirectory(
+                                    at: downloadFolder, withIntermediateDirectories: true)
+                                try FileManager.default.moveItem(at: cached, to: target)
+                            } else {
+                                try await fetch(song, to: target, client: client)
+                            }
                         }
-                        added.append(song.id)
                     }
                     guard generation == self.generation else { return }
                     try Task.checkCancellation()
                     loaded?(song, target, false)
                     bytes += Self.size(of: target)
                     progress[recording.id] = Double(index + 1) / Double(recording.songs.count)
+                    rescan()
                 }
                 downloads.append(
                     Download(
@@ -232,8 +233,12 @@ final class TrackStore {
                 saveManifest()
             } catch {
                 guard generation == self.generation else { return }
-                // A part of a recording is of no use offline, so a failed run keeps nothing.
-                for id in added { removeFiles(of: id, in: downloadFolder) }
+                // Failed recordings release their tracks only when no other explicit download owns them.
+                let kept = Set(downloads.flatMap(\.songIDs)).union(
+                    downloadTracks.filter { $0.key != recording.id }.values.flatMap { $0 })
+                for song in recording.songs where !kept.contains(song.id) {
+                    removeFiles(of: song.id, in: downloadFolder)
+                }
                 if !(error is CancellationError) { failures[recording.id] = error.localizedDescription }
             }
             guard generation == self.generation else { return }
@@ -290,6 +295,7 @@ final class TrackStore {
         let kept = Self.files(in: downloadFolder)
         // Partial bytes count under Music, but only a complete file plays offline (ADR 0060).
         cacheBytes = cached.reduce(0) { $0 + $1.size }
+        downloadBytes = kept.reduce(0) { $0 + $1.size }
         offline = Set((cached + kept).filter { !$0.isPartial }.map(\.id))
     }
 

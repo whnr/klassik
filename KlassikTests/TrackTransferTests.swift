@@ -437,6 +437,81 @@ struct TrackTransferTests {
         try? FileManager.default.removeItem(at: root)
     }
 
+    @Test(arguments: [false, true])
+    func failedRecordingsReleaseSharedTracksAfterTheLastOwner(secondSucceeds: Bool) async throws {
+        let started = Started()
+        let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
+        let store = TrackStore(
+            cacheFolder: root.appending(path: "cache"), downloadFolder: root.appending(path: "downloads"),
+            defaults: defaults,
+            fetch: { _, _ in
+                Issue.record("Shared tracks must not start another whole-file request")
+                throw TrackTransfer.Failure.storage
+            }, transport: { song, _, transfer in started.transfers.append((song.id, transfer)) })
+        let shared = Song(id: "shared", title: "Shared", suffix: "flac")
+        let first = WorkIndex.Recording(
+            id: "first", album: "Fixture", songs: [shared, Song(id: "first-only", title: "First", suffix: "flac")])
+        let second = WorkIndex.Recording(
+            id: "second", album: "Fixture", songs: [shared, Song(id: "second-only", title: "Second", suffix: "flac")])
+        store.download(first, title: "First", client: client)
+        store.download(second, title: "Second", client: client)
+        for _ in 0..<100 where started.transfers.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
+        let sharedTransfer = try #require(started.transfers.first { $0.id == shared.id }?.transfer)
+        sharedTransfer.begin(length: 4, validator: nil)
+        sharedTransfer.append(Data([1, 2, 3, 4]))
+        sharedTransfer.finish(nil)
+        for _ in 0..<100 where started.transfers.count < 3 { try await Task.sleep(for: .milliseconds(10)) }
+        let firstOnly = try #require(started.transfers.first { $0.id == "first-only" }?.transfer)
+        let secondOnly = try #require(started.transfers.first { $0.id == "second-only" }?.transfer)
+        firstOnly.finish(.http(500))
+        for _ in 0..<100 where store.progress[first.id] != nil { try await Task.sleep(for: .milliseconds(10)) }
+        let file = root.appending(path: "downloads/shared.flac")
+        #expect(FileManager.default.fileExists(atPath: file.path()))
+        if secondSucceeds {
+            secondOnly.begin(length: 1, validator: nil)
+            secondOnly.append(Data([5]))
+            secondOnly.finish(nil)
+        } else {
+            secondOnly.finish(.http(500))
+        }
+        for _ in 0..<100 where !store.progress.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(store.progress.isEmpty)
+        #expect(!store.isDownloaded(first))
+        #expect(store.isDownloaded(second) == secondSucceeds)
+        #expect(FileManager.default.fileExists(atPath: file.path()) == secondSucceeds)
+        #expect(started.transfers.filter { $0.id == shared.id }.count == 1)
+        store.clearAll()
+        try? FileManager.default.removeItem(at: root)
+    }
+
+    @Test func sharedDownloadsCountEachPhysicalTrackOnce() async throws {
+        let started = Started()
+        let store = try makeStore(started)
+        let shared = Song(id: "shared", title: "Shared", suffix: "flac")
+        let first = WorkIndex.Recording(id: "first", album: "Fixture", songs: [shared])
+        let second = WorkIndex.Recording(id: "second", album: "Fixture", songs: [shared])
+        store.download(first, title: "First", client: client)
+        for _ in 0..<100 where started.transfers.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
+        let transfer = try #require(started.transfers.first?.transfer)
+        transfer.begin(length: 4, validator: nil)
+        transfer.append(Data([1, 2, 3, 4]))
+        transfer.finish(nil)
+        for _ in 0..<100 where !store.isDownloaded(first) { try await Task.sleep(for: .milliseconds(10)) }
+        store.download(second, title: "Second", client: client)
+        for _ in 0..<100 where !store.isDownloaded(second) { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(store.downloads.count == 2)
+        #expect(store.downloadBytes == 4)
+        #expect(started.transfers.count == 1)
+        store.remove(try #require(store.downloads.first { $0.id == first.id }))
+        #expect(store.downloadBytes == 4)
+        #expect(store.isOffline(shared))
+        store.remove(try #require(store.downloads.first { $0.id == second.id }))
+        #expect(store.downloadBytes == 0)
+        #expect(!store.isOffline(shared))
+        store.clearAll()
+        try? FileManager.default.removeItem(at: root)
+    }
+
     @Test func theStreamInfoGivesTheSampleCount() throws {
         // fLaC, a last STREAMINFO block of 34 bytes: 44.1 kHz, 2 channels, 16 bits, 132 301 samples.
         var bytes: [UInt8] = [0x66, 0x4C, 0x61, 0x43, 0x80, 0, 0, 34] + Array(repeating: 0, count: 10)

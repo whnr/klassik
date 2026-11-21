@@ -398,6 +398,8 @@ final class PlaybackSession {
         case .pause:
             savePosition()
             engine.pause()
+            // Cancelling a following transfer invalidates its decoder. Resume rebuilds from the audible checkpoint.
+            if let song = coverSong, store.transfers.keys.contains(where: { $0 != song.id }) { discardEngine() }
             clearWait()
         case .suspend:
             savePosition()
@@ -648,7 +650,7 @@ final class PlaybackSession {
         let next = ReadAhead.plan(item, movement: movement, upNext: upNext, mode: .constrained)
         let plan =
             playback.wantsPlayback ? ReadAhead.plan(item, movement: movement, upNext: upNext, mode: dataMode) : []
-        let kept = Set(([current] + (dataMode != .offline ? next + plan : [])).map(\.id))
+        let kept = Set(([current] + (playback.wantsPlayback && dataMode != .offline ? next + plan : [])).map(\.id))
         store.pinned = kept
         store.cancelTransfers(except: kept)
         let ids = plan.map(\.id)

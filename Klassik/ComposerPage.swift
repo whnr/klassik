@@ -456,7 +456,7 @@ struct PersonHero: View {
     /// The name and the line, as wide as the longer of the two.
     private var textLines: some View {
         VStack(alignment: .leading, spacing: gap) {
-            if model.recordingOrder.artist(named: name) != nil {
+            if showsFavourite {
                 FavouriteTitle(
                     title: name, isSet: model.recordingOrder.isFavourite(person: name),
                     action: { model.recordingOrder.toggleAtOnce(person: name) }, textIdentifier: "\(kind)-title",
@@ -540,6 +540,17 @@ struct PersonHero: View {
         Color(red: PictureScrim.text.red, green: PictureScrim.text.green, blue: PictureScrim.text.blue)
     }
 
+    private var showsFavourite: Bool {
+        model.recordingOrder.artist(named: name) != nil
+    }
+
+    static func pictureMarks(showsFavourite: Bool, environment: EnvironmentValues) -> [SRGB] {
+        guard showsFavourite else { return [] }
+        var darkEnvironment = environment
+        darkEnvironment.colorScheme = .dark
+        return [Palette.favourite, .favouriteOff].map { SRGB($0.color.resolve(in: darkEnvironment)) }
+    }
+
     private func picture(_ portrait: LoadedPortrait, framing: CGRect, frame: CGSize) -> some View {
         // The scrim comes from the picture under the text, as the frame shows it.
         let visible = PortraitFraming.visible(of: framing, in: frame)
@@ -553,9 +564,7 @@ struct PersonHero: View {
         let region = CGRect(
             x: visible.minX, y: visible.minY + visible.height * (1 - under), width: visible.width * geometry.across,
             height: visible.height * under)
-        var darkEnvironment = environment
-        darkEnvironment.colorScheme = .dark
-        let marks = [Palette.favourite, .favouriteOff].map { SRGB($0.color.resolve(in: darkEnvironment)) }
+        let marks = Self.pictureMarks(showsFavourite: showsFavourite, environment: environment)
         let opacity = PictureScrim.opacity(
             over: portrait.brightestColour(in: region), increasedContrast: contrast == .increased, marks: marks)
         let hall = PictureScrim.hall

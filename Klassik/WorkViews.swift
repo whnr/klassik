@@ -503,6 +503,8 @@ struct RecordingView: View {
     @State private var draft: NoteDraft?
     /// Where the notes of each row live, by track position.
     @State private var places: [NotePlace?] = []
+    /// True while a drag that began with the rows at the top runs. Only such a drag closes the player.
+    @State private var dragFromTop = false
 
     private var isPlayingThis: Bool { model.playback.recording?.id == recording.id }
 
@@ -561,11 +563,14 @@ struct RecordingView: View {
             // taps. Each control touches the spell itself.
             .onScrollPhaseChange { old, phase, context in
                 spell.touching(phase == .tracking || phase == .interacting || phase == .decelerating)
-                // A pull down past the top that the finger lets go closes the player, as a system sheet closes.
-                // The rubber band halves the drag, so 60 points of pull ask for about 120 points of finger travel,
-                // the travel that closes the player at its handle.
+                // A drag that starts at the top and pulls past it closes the player, as a system sheet closes. A
+                // drag that scrolls up to the top only bounces. The rubber band halves the drag, so 60 points of
+                // pull ask for about 120 points of finger travel, the travel that closes the player at its handle.
                 let pull = -(context.geometry.contentOffset.y + context.geometry.contentInsets.top)
-                if isOverlay, old == .interacting, phase != .interacting, pull > 60 { navigator.closePlayer() }
+                if phase == .interacting, old != .interacting { dragFromTop = pull >= -1 }
+                if isOverlay, dragFromTop, old == .interacting, phase != .interacting, pull > 60 {
+                    navigator.closePlayer()
+                }
             }
             .onChange(of: model.isScrubbing) { _, scrubbing in spell.hold(scrubbing) }
             .onChange(of: draft != nil) { _, writing in spell.writing(writing) }

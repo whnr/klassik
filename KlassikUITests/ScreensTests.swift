@@ -234,27 +234,34 @@ final class PlacesScreens: ScreensTestCase {
             openPlace(app, "Library")
             app.buttons["library-composers"].tap()
             _ = pausedPlayerInLibrary(app)
-            for _ in 0..<5 where !app.buttons["library-composers"].exists { back(app) }
         }
-        let bar = app.tabBars["tab-row"]
-        XCTAssertTrue(bar.waitForExistence(timeout: 10))
+        // A second tap on Library returns to its root, so the page behind the bar is the same at each check.
+        func libraryRoot() {
+            openPlace(app, "Library")
+            if !app.buttons["library-composers"].waitForExistence(timeout: 3) { tab(app, "Library").tap() }
+            XCTAssertTrue(app.buttons["library-composers"].waitForExistence(timeout: 10))
+        }
+        libraryRoot()
+        let search = tab(app, "Search")
+        XCTAssertTrue(search.waitForExistence(timeout: 10))
+        let searchFrame = search.frame
         let baseline = try XCTUnwrap(ScreenPixels(app))
-        let barFrame = bar.frame
         func expectTabs(_ step: String) {
             for name in ["Library", "Chronology", "Search"] {
                 let item = tab(app, name)
                 XCTAssertTrue(item.waitForExistence(timeout: 5), "\(step): no tab \(name)")
                 XCTAssertTrue(item.isHittable, "\(step): tab \(name) is not hittable")
             }
-            // A tab can keep its element while UIKit draws nothing, so the bar must look as it did at launch.
+            XCTAssertEqual(search.frame, searchFrame, "\(step): the Search tab moved")
+            // A tab can keep its element while UIKit draws nothing, so the Search circle must look as it did before.
             var share = 1.0
             for _ in 0..<6 {
-                if let now = ScreenPixels(app) { share = now.differingShare(in: barFrame, from: baseline) }
+                if let now = ScreenPixels(app) { share = now.differingShare(in: searchFrame, from: baseline) }
                 if share < 0.05 { break }
                 Thread.sleep(forTimeInterval: 0.5)
             }
-            if share >= 0.05 { add(XCTAttachment(string: bar.debugDescription)) }
-            XCTAssertLessThan(share, 0.05, "\(step): the tab bar changed")
+            if share >= 0.05 { add(XCTAttachment(string: app.tabBars["tab-row"].debugDescription)) }
+            XCTAssertLessThan(share, 0.05, "\(step): the Search circle changed")
         }
         let field = app.textFields["search-field"]
         let recent = app.buttons.matching(identifier: "search-recent")
@@ -265,8 +272,7 @@ final class PlacesScreens: ScreensTestCase {
         field.tap()
         field.typeText("chopin\n")
         XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
-        openPlace(app, "Library")
-        XCTAssertTrue(app.buttons["library-composers"].waitForExistence(timeout: 10))
+        libraryRoot()
         expectTabs("Enter, then Library")
         if !playing { snap(app, "02o-tabs-after-enter") }
 
@@ -276,8 +282,7 @@ final class PlacesScreens: ScreensTestCase {
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5), "The Search tab opens no keyboard")
         recent.firstMatch.tap()
         XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
-        openPlace(app, "Library")
-        XCTAssertTrue(app.buttons["library-composers"].waitForExistence(timeout: 10))
+        libraryRoot()
         expectTabs("Recent search, then Library")
         if playing { snap(app, "02q-tabs-after-recent-playing") } else { snap(app, "02p-tabs-after-recent") }
     }
@@ -1108,7 +1113,14 @@ final class PlaybackScreens: ScreensTestCase {
         let rowY = { position.exists ? position.frame.midY : CGFloat.infinity }
         let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2))
         let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85))
-        for _ in 0..<2 { from.press(forDuration: 0.05, thenDragTo: to) }
+        // The drag down starts below the top, so it only scrolls back and bounces; a drag that starts at the top
+        // closes the player, as a system sheet closes.
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
+            .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)))
+        from.press(forDuration: 0.05, thenDragTo: to)
+        XCTAssertFalse(
+            app.buttons["player-handle"].waitForNonExistence(timeout: 2),
+            "A drag that scrolled up to the top closed the player")
         let still = Date()
         RunLoop.current.run(until: Date().addingTimeInterval(1))
         let low = rowY()

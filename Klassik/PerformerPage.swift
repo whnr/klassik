@@ -43,41 +43,22 @@ struct PerformerPage: View {
         let index = model.library.index
         let albums = index.albums(ofPerformer: performer.name)
         let roles = index.roles(ofPerformer: performer)
-        GeometryReader { proxy in
-            // The same plain list as the composer page: a grouped list adds its own top margin and section gaps.
-            List {
-                Group {
-                    PersonHero(
-                        name: performer.name, facts: facts, line: Self.line(facts: facts, roles: roles),
-                        kind: "performer", topInset: proxy.safeAreaInsets.top, width: proxy.size.width
-                    )
-                    .listRowInsets(EdgeInsets())
-                    .listRowSeparator(.hidden)
-                    BackTipRow()
-                    PageTabs(
-                        tabs: [Tab.albums, .about], title: { $0 == .albums ? "Albums" : "About" }, selection: $tab
-                    )
-                    .pageEdges(top: Layout.segmentedTop)
-                    .listRowSeparator(.hidden)
-                    .accessibilityIdentifier("performer-tabs")
-                    switch tab {
-                    case .albums: albumsTab(albums)
-                    case .about: aboutTab(facts)
-                    }
-                }
-                .listRowBackground(Color.clear)
-                .listSectionSeparator(.hidden)
-                .pageRow()
+        PersonPageList { proxy in
+            PersonHero(
+                name: performer.name, facts: facts, line: Self.line(facts: facts, roles: roles),
+                kind: "performer", topInset: proxy.safeAreaInsets.top, width: proxy.size.width
+            )
+            .listRowInsets(EdgeInsets())
+            .listRowSeparator(.hidden)
+            BackTipRow()
+            PageTabs(tabs: [Tab.albums, .about], title: { $0 == .albums ? "Albums" : "About" }, selection: $tab)
+                .pageEdges(top: Layout.segmentedTop)
+                .listRowSeparator(.hidden)
+                .accessibilityIdentifier("performer-tabs")
+            switch tab {
+            case .albums: albumsTab(albums)
+            case .about: aboutTab(facts)
             }
-            .listStyle(.plain)
-            .listSectionSeparator(.hidden)
-            .environment(\.defaultMinListRowHeight, 0)
-            .environment(\.defaultMinListHeaderHeight, 0)
-            .environment(\.isPageList, true)
-            .scrollContentBackground(.hidden)
-            .pageContentPosition()
-            .background(Palette.backgroundPage)
-            .ignoresSafeArea(.container, edges: .top)
         }
         .navigationTitle(performer.name)
         .navigationBarTitleDisplayMode(.inline)
@@ -113,35 +94,8 @@ struct PerformerPage: View {
         }
     }
 
-    @ViewBuilder private func aboutTab(_ facts: PersonFacts?) -> some View {
-        if let facts {
-            if let bio = facts.bio {
-                Section {
-                    SectionHeading("Biography")
-                    Text(bio)
-                        .ink()
-                        .accessibilityIdentifier("performer-bio")
-                        .listRowSeparator(.hidden)
-                }
-            }
-            if !facts.credits.isEmpty {
-                Section {
-                    SectionHeading("Credits")
-                    ForEach(facts.credits, id: \.self) { credit in
-                        CreditRow(credit: credit)
-                            .itemSeparator(first: credit == facts.credits.first, last: credit == facts.credits.last)
-                    }
-                }
-            }
-        } else {
-            Section {
-                Text("Wikidata has no facts for this performer. Klassik shows your tags.")
-                    .foregroundStyle(Palette.textSecondary)
-                    .listRowSeparator(.hidden)
-            }
-        }
-        Section {
-            SectionHeading("Your tags")
+    private func aboutTab(_ facts: PersonFacts?) -> some View {
+        PersonAbout(facts: facts, kind: "performer") {
             LabeledContent("Name in your tags", value: performer.name)
                 .ink()
                 .itemSeparator(first: true, last: false)
@@ -166,7 +120,6 @@ private struct AlbumCover: View {
         } label: {
             VStack(alignment: .leading, spacing: 0) {
                 CoverImage(song: album.tracks.first, points: 160)
-                    .aspectRatio(1, contentMode: .fit)
                     .clipShape(RoundedRectangle(cornerRadius: Layout.albumCorner))
                 AlbumCoverTitle(title: album.title, isFavourite: model.recordingOrder.isFavourite(album: album.id))
                     .padding(.top, Layout.albumTitleGap)

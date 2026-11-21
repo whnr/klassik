@@ -1,7 +1,7 @@
 {
-  "sha": "9ac99a1113b13f6bb1fd09d29838995b3cfd001e",
+  "sha": "1fe5cbffb5414dd1b40b5da1f52ee6526c06d35b",
   "branch": "codex-sz-rs30.1.125.3",
   "path": "codex-sz-rs30.1.125.3",
-  "subject": "[sz-rs30.1.125.1] Test far range reads at the transfer",
-  "ts": 1795295421
+  "subject": "[sz-rs30.1.125.1] Wait for the Technical Details switch",
+  "ts": 1795303013
 }

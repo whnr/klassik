@@ -56,6 +56,12 @@
       .switch:checked::after {
         transform: translateX(20px);
       }
+      .slider input {
+        display: block;
+        width: calc(100% - 2 * var(--space-l));
+        margin: 0 var(--space-l) var(--space-s);
+        accent-color: var(--color-tint);
+      }
       .destructive {
         color: #ff3b30;
       }
@@ -106,6 +112,24 @@
             el("span", { class: "main" }, label),
             el("span", { class: "trail" }, value ? el("span", {}, value) : null, el("span", { html: K.ICON.chevron })),
           );
+        // The app shows the strength above a 0–5× slider in 0.5 steps.
+        const slider = (label, value) => {
+          const shown = el("span", { class: "trail" }, `${value}×`);
+          return el(
+            "label",
+            { class: "row-block slider" },
+            el("span", { class: "row" }, el("span", { class: "main" }, label), shown),
+            el("input", {
+              type: "range",
+              min: "0",
+              max: "5",
+              step: "0.5",
+              value: String(value),
+              "aria-label": label,
+              oninput: (event) => (shown.textContent = `${event.target.value}×`),
+            }),
+          );
+        };
         const count = (label, value) =>
           el("div", { class: "row" }, el("span", { class: "main" }, label), el("span", { class: "trail" }, value));
         const group = (head, rows, foot) =>
@@ -139,8 +163,10 @@
                 { claret: "Claret", green: "Bottle Green", plum: "Plum" },
                 K.params.get("accent") || "claret",
               ),
+              slider("Player Tint", 3),
             ],
-            "The accent marks links, controls and what plays.",
+            "The accent marks links, controls and what plays. Player Tint is a temporary comparison of the cover " +
+              "tint strength.",
           ),
           group(
             "Library",
@@ -150,8 +176,8 @@
           group(
             "Listening data",
             [el("button", { class: "row destructive", type: "button" }, "Delete Listening Data")],
-            "Favourite works, the order of favourite recordings, listening notes and the changes that wait stay on " +
-              "this iPhone, for this server and user. Sign-out keeps them.",
+            "Favourite works, the order of favourite recordings, listening notes, recent searches and the changes " +
+              "that wait stay on this iPhone, for this server and user. Sign-out keeps them.",
           ),
           group(
             null,

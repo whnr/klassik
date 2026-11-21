@@ -1,7 +1,7 @@
 {
-  "sha": "e359c66a456a883ba4fc97460b2ac624263ac408",
+  "sha": "536da8ef442ad6ff633399400bdc284a627a0b55",
   "branch": "claude-slice-19",
   "path": "claude-slice-19",
-  "subject": "[sz-rs30.1.105.19] Remake Settings pickers on a pick",
-  "ts": 1795169101
+  "subject": "[sz-rs30.1.105.19] Merge main into slice 19 Settings",
+  "ts": 1795227020
 }

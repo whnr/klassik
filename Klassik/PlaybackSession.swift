@@ -174,6 +174,8 @@ final class PlaybackSession {
     private var checkpoint: (movement: Int, elapsed: Double)?
     /// Pause can reach the main actor before the final completion does.
     private var recordingCompleted = false
+    /// The current recording starts here in the engine's queue-wide track indices.
+    private var engineBase = 0
     private let engine: any PlaybackEngine
     private let store: TrackStore
     private let defaults: UserDefaults
@@ -272,16 +274,14 @@ final class PlaybackSession {
     func playNext(_ item: QueueItem) {
         guard self.item != nil else { return play(queue: [item]) }
         upNext.insert(item, at: 0)
-        persistQueue()
-        prepareAhead()
+        queueChanged()
     }
 
     /// Puts an item at the end of the queue. With nothing playing, it plays at once.
     func addToQueue(_ item: QueueItem) {
         guard self.item != nil else { return play(queue: [item]) }
         upNext.append(item)
-        persistQueue()
-        prepareAhead()
+        queueChanged()
     }
 
     /// Skips to the next item in the queue.
@@ -300,12 +300,18 @@ final class PlaybackSession {
 
     func removeFromQueue(at offsets: IndexSet) {
         upNext.remove(atOffsets: offsets)
-        persistQueue()
-        prepareAhead()
+        queueChanged()
     }
 
     func moveInQueue(from source: IndexSet, to destination: Int) {
         upNext.move(fromOffsets: source, toOffset: destination)
+        queueChanged()
+    }
+
+    /// A queue edit invalidates already scheduled successors, including their completion callbacks.
+    private func queueChanged() {
+        savePosition()
+        if playback.shouldPlay { rebuild() } else { discardEngine() }
         persistQueue()
         prepareAhead()
     }
@@ -429,14 +435,15 @@ final class PlaybackSession {
         case .waiting(let wait): waited(wait)
         case .scheduled(let scheduled):
             refreshSegments()
-            if scheduled == movement { updateNowPlaying() }
+            if scheduled == movement.map({ $0 + engineBase }) { updateNowPlaying() }
         case .configurationChanged: handle(.configurationChanged)
         case .problem(let text): error = text
         case .failed(let text): playbackFailed(text)
         }
     }
 
-    private func finished(_ ended: Int) {
+    private func finished(_ absolute: Int) {
+        let ended = absolute - engineBase
         guard let item, let movement, ended >= movement, segments.indices.contains(ended) else { return }
         hear(through: (ended, segments[ended]))
         if ended + 1 < item.recording.songs.count {
@@ -456,8 +463,23 @@ final class PlaybackSession {
         if upNext.isEmpty {
             stop()
             queueEnded = true
-        } else {
-            nextItem()
+        } else if let previous = item {
+            history?.endListening()
+            engineBase += previous.recording.songs.count
+            item = upNext.removeFirst()
+            recordingCompleted = false
+            checkpoint = (0, 0)
+            position = 0
+            refreshSegments()
+            movement = 0
+            if let item { history?.begin(item: item, movement: 0, position: 0) }
+            // A final completion can arrive after Pause. Keep the same node and its scheduled successor.
+            if playback.shouldPlay {
+                do { try engine.resume() } catch { playbackFailed(error.localizedDescription) }
+            }
+            updateNowPlaying()
+            persistQueue()
+            prepareAhead()
         }
     }
 
@@ -493,7 +515,9 @@ final class PlaybackSession {
         movement = checkpoint.movement
         error = nil
         let store = store
-        engine.load(item.recording.songs, from: checkpoint.movement, offset: checkpoint.elapsed) { song in
+        engineBase = 0
+        let songs = ([item] + upNext).flatMap { $0.recording.songs }
+        engine.load(songs, from: checkpoint.movement, offset: checkpoint.elapsed) { song in
             try await store.source(for: song, client: server)
         }
         positionTask = Task { [weak self] in
@@ -528,6 +552,7 @@ final class PlaybackSession {
         queueEnded = false
         position = 0
         segments = []
+        engineBase = 0
     }
 
     private func discardEngine() {
@@ -541,7 +566,18 @@ final class PlaybackSession {
     /// Where playback is: the engine's answer, else the last saved place.
     private func located() -> (movement: Int, elapsed: Double)? {
         guard let movement, let checkpoint else { return nil }
-        return engine.position(from: movement) ?? checkpoint
+        guard let found = engine.position(from: movement + engineBase) else { return checkpoint }
+        // Render position can cross several boundaries before the audio-thread completions reach this actor.
+        while let item, found.movement >= engineBase + item.recording.songs.count, !upNext.isEmpty,
+            playback.shouldPlay
+        {
+            let last = item.recording.songs.count - 1
+            hear(through: (last, segments[last]))
+            completeRecording()
+        }
+        let local = found.movement - engineBase
+        guard let item, item.recording.songs.indices.contains(local) else { return checkpoint }
+        return (local, found.elapsed)
     }
 
     private func savePosition() {
@@ -559,7 +595,7 @@ final class PlaybackSession {
 
     private func refreshSegments() {
         guard let songs = item?.recording.songs else { return }
-        let lengths = songs.indices.map { engine.duration(of: $0) ?? Double(songs[$0].duration ?? 0) }
+        let lengths = songs.indices.map { engine.duration(of: $0 + engineBase) ?? Double(songs[$0].duration ?? 0) }
         if lengths != segments { segments = lengths }
     }
 

@@ -10,6 +10,7 @@ final class StreamDecoder: @unchecked Sendable {
         /// The server sent no length; the callbacks cannot report the file size.
         case unknownLength
         case status(OSStatus)
+        case prematureEnd(expected: Int64, actual: Int64)
     }
 
     /// Formats whose decoders produced sound from the first bytes on iOS 27 (EarlyPlaybackTests).
@@ -117,7 +118,12 @@ final class StreamDecoder: @unchecked Sendable {
             var count = UInt32(wanted)
             let status = ExtAudioFileRead(decoder, &count, buffer.mutableAudioBufferList)
             guard status == noErr else { throw Self.error(context, status) }
-            guard count > 0 else { return nil }
+            guard count > 0 else {
+                if let playable, cursor < playable.upperBound {
+                    throw Failure.prematureEnd(expected: playable.upperBound, actual: cursor)
+                }
+                return nil
+            }
             buffer.frameLength = count
             let start = cursor
             cursor += Int64(count)

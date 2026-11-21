@@ -1,6 +1,6 @@
 import AVFoundation
 
-/// Plays the movements of one recording back to back, without gaps, on one node timeline.
+/// Plays the queued recordings back to back, without gaps, on one node timeline.
 /// A complete file plays as a segment. A track that is still arriving plays from decoded buffers, as soon as the
 /// start threshold allows (ADR 0060). Both cut MP3 encoder delay and padding in decoded sample coordinates.
 @MainActor
@@ -29,7 +29,7 @@ final class GaplessEngine: PlaybackEngine {
     /// Whether the session wants sound. A load that finishes after a pause must stay silent.
     private var playing = false
     /// Where each scheduled movement sits on the player's timeline, in samples.
-    private var segments: [Int: Range<Int64>] = [:]
+    private var timeline = AudioTimeline()
     private var sampleRate = 44_100.0
     private var format: AVAudioFormat?
     /// A paused node reports no player time, so the position is kept here.
@@ -105,7 +105,7 @@ final class GaplessEngine: PlaybackEngine {
         gain = nil
         format = nil
         pausedAt = nil
-        segments = [:]
+        timeline = AudioTimeline()
         scheduledEnd = 0
         started = false
         starved = false
@@ -121,17 +121,14 @@ final class GaplessEngine: PlaybackEngine {
     }
 
     func position(from movement: Int) -> (movement: Int, elapsed: Double)? {
-        guard let sample = playedSamples(), let range = segments[movement] else { return nil }
-        // Completion can arrive before the render clock reflects the next movement.
-        if let playing = segments.first(where: { $0.key >= movement && $0.value.contains(sample) }) {
-            return (playing.key, Double(sample - playing.value.lowerBound) / sampleRate)
+        guard let sample = playedSamples(), let found = timeline.position(at: sample, from: movement) else {
+            return nil
         }
-        if sample >= range.upperBound { return (movement, Double(range.count) / sampleRate) }
-        return nil
+        return (found.movement, Double(found.frame) / sampleRate)
     }
 
     func duration(of movement: Int) -> Double? {
-        segments[movement].map { Double($0.count) / sampleRate }
+        timeline.length(movement).map { Double($0) / sampleRate }
     }
 
     private static func activateSession() throws {
@@ -209,7 +206,7 @@ final class GaplessEngine: PlaybackEngine {
 
     private func audibleMovement() -> Int {
         let sample = playedSamples() ?? 0
-        return segments.filter { $0.value.lowerBound <= sample }.keys.max() ?? -1
+        return timeline.position(at: sample, from: 0)?.movement ?? -1
     }
 
     private func check(_ generation: Int) throws {
@@ -249,12 +246,14 @@ final class GaplessEngine: PlaybackEngine {
         let range =
             offset > 0 ? Self.seekRange(playable, to: offset, sampleRate: file.processingFormat.sampleRate) : playable
         // A slow download leaves the player idle; the movement then starts at the current position.
-        let start = max(scheduledEnd, playedSamples() ?? 0)
-        scheduledEnd = start + Int64(range.count)
-        // The segment covers the whole movement, so that elapsed time counts from the movement's start.
-        segments[position] = (start - (range.lowerBound - playable.lowerBound))..<scheduledEnd
+        timeline.declare(position, frames: Int64(playable.count))
+        let skipped = range.lowerBound - playable.lowerBound
+        let placed = timeline.append(
+            position, audio: skipped..<(skipped + Int64(range.count)), rendered: playedSamples() ?? 0)
+        scheduledEnd = placed.upperBound
         node.scheduleSegment(
-            file, startingFrame: range.lowerBound, frameCount: AVAudioFrameCount(range.count), at: nil,
+            file, startingFrame: range.lowerBound, frameCount: AVAudioFrameCount(range.count),
+            at: AVAudioTime(sampleTime: placed.lowerBound, atRate: sampleRate),
             completionCallbackType: .dataPlayedBack, completionHandler: ended(position, generation: generation))
         try sound()
         return true
@@ -291,11 +290,11 @@ final class GaplessEngine: PlaybackEngine {
             emitted = range.lowerBound - playable.lowerBound
             if emitted > 0 { _ = try await work { try Box(decoder.seek(to: range.lowerBound)) } }
         }
-        let start = max(scheduledEnd, playedSamples() ?? 0) - emitted
-        segments[position] = start..<(start + Int64(playable.count))
+        timeline.declare(position, frames: Int64(playable.count))
         let ahead = Int64(Self.aheadSeconds * rate)
         // One buffer waits off the node, so that the last buffer of the track carries the end callback.
         var held: AVAudioPCMBuffer?
+        var heldStart = emitted
         var consumed: Int64 = 0
         while true {
             if scheduledEnd - (playedSamples() ?? 0) >= ahead {
@@ -310,33 +309,35 @@ final class GaplessEngine: PlaybackEngine {
             stream = (transfer, AudioBitrate.current(song, observed: decoded.bitrate))
             consumed = decoded.consumed
             if let held {
-                enqueue(held, position: position, last: decoded.buffer == nil, generation: generation)
+                enqueue(
+                    held, position: position, audioStart: heldStart, last: decoded.buffer == nil, generation: generation
+                )
             }
             guard let buffer = decoded.buffer else { break }
             held = buffer
+            heldStart = emitted
             emitted += Int64(buffer.frameLength)
             try startIfReady(transfer, consumed: consumed, remaining: Double(Int64(playable.count) - emitted) / rate)
         }
-        guard held != nil, let range = segments[position] else {
+        guard held != nil else {
             throw StreamDecoder.Failure.status(kAudioFileEndOfFileError)
         }
         // The decoder knows the exact length now, also where the file declared none.
-        segments[position] = range.lowerBound..<(range.lowerBound + emitted)
+        timeline.declare(position, frames: emitted)
         try sound()
         return true
     }
 
-    private func enqueue(_ buffer: AVAudioPCMBuffer, position: Int, last: Bool, generation: Int) {
+    private func enqueue(
+        _ buffer: AVAudioPCMBuffer, position: Int, audioStart: Int64, last: Bool, generation: Int
+    ) {
         guard let node else { return }
-        let start = max(scheduledEnd, playedSamples() ?? 0)
-        // The node ran dry: the rest of the movement moves along the timeline, so that no sample is lost.
-        if start > scheduledEnd, let range = segments[position] {
-            let shift = start - scheduledEnd
-            segments[position] = (range.lowerBound + shift)..<(range.upperBound + shift)
-        }
-        scheduledEnd = start + Int64(buffer.frameLength)
+        let placed = timeline.append(
+            position, audio: audioStart..<(audioStart + Int64(buffer.frameLength)), rendered: playedSamples() ?? 0)
+        scheduledEnd = placed.upperBound
         node.scheduleBuffer(
-            buffer, at: nil, options: [], completionCallbackType: .dataPlayedBack,
+            buffer, at: AVAudioTime(sampleTime: placed.lowerBound, atRate: sampleRate), options: [],
+            completionCallbackType: .dataPlayedBack,
             completionHandler: last ? ended(position, generation: generation) : nil)
     }
 
@@ -400,6 +401,7 @@ final class GaplessEngine: PlaybackEngine {
             pausedAt = played
             node.pause()
         }
+        if let played = playedSamples() { timeline.prune(before: played) }
         report()
     }
 

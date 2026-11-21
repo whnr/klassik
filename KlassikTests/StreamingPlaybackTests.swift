@@ -1,4 +1,5 @@
 import AVFoundation
+import Synchronization
 import Testing
 
 @testable import Klassik
@@ -90,6 +91,25 @@ struct StreamingPlaybackTests {
             ? (MP3GaplessInfo.parse(data)?.playableRange(decodedLength: file.length) ?? 0..<file.length)
             : 0..<file.length
         return Array(all[Int(range.lowerBound)..<Int(range.upperBound)])
+    }
+
+    /// A complete transfer can still contain fewer decoded samples than its timing header declares.
+    @Test func aDecoderEndBeforeTheDeclaredSampleCountFails() async throws {
+        let (client, songs) = try await Self.album("Glide", named: "Glide in FLAC")
+        let song = try #require(songs.first)
+        var data = try await Self.bytes(of: song, from: client)
+        let info = try #require(FLACStreamInfo.parse(Array(data.prefix(42))))
+        let declared = info.totalSamples + 1000
+        var packed = data[18..<26].reduce(UInt64(0)) { $0 << 8 | UInt64($1) }
+        packed = (packed & ~UInt64(0xF_FFFF_FFFF)) | UInt64(declared)
+        for index in 0..<8 { data[18 + index] = UInt8(truncatingIfNeeded: packed >> (56 - index * 8)) }
+        let transfer = self.transfer("truncated-samples.flac", length: data.count)
+        transfer.append(data)
+        transfer.finish(nil)
+        defer { try? FileManager.default.removeItem(at: root) }
+        await #expect(throws: (any Error).self) {
+            _ = try await Self.decode(transfer, suffix: "flac")
+        }
     }
 
     // MARK: Early start
@@ -209,6 +229,73 @@ struct StreamingPlaybackTests {
         #expect(transfer.snapshot.available == 0)
         transfer.cancel()
         try? FileManager.default.removeItem(at: root)
+    }
+
+    private final class RenderedAudio: Sendable {
+        private let storage = Mutex<[Float]>([])
+        var samples: [Float] { storage.withLock { $0 } }
+
+        func record(_ buffer: AVReadOnlyAudioPCMBuffer) {
+            guard buffer.format.commonFormat == .pcmFormatFloat32 else { return }
+            buffer.withUnsafeAudioBufferList { list in
+                guard let source = list.pointee.mBuffers.mData?.assumingMemoryBound(to: Float.self) else { return }
+                storage.withLock { samples in
+                    guard samples.count < 1_000_000 else { return }
+                    samples.append(contentsOf: UnsafeBufferPointer(start: source, count: Int(buffer.frameLength)))
+                }
+            }
+        }
+    }
+
+    /// Both recordings share the production node. The tap measures each join against the continuous fixture glide.
+    @MainActor
+    @Test(arguments: [("Mendelssohn", "Mendelssohn: Violin Concerto", "mp3"), ("Glide", "Glide in FLAC", "flac")])
+    func renderedJoinsSpanRecordings(search: String, name: String, suffix: String) async throws {
+        let (client, songs) = try await Self.album(search, named: name)
+        var resources: [String: Data] = [:]
+        for song in songs { resources[song.id] = try await Self.bytes(of: song, from: client) }
+        let data = resources
+        let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
+        let store = TrackStore(
+            cacheFolder: root.appending(path: "cache"), downloadFolder: root.appending(path: "downloads"),
+            defaults: defaults,
+            transport: { song, _, transfer in
+                let bytes = data[song.id]!
+                transfer.begin(length: Int64(bytes.count), validator: nil)
+                _ = Self.feed(bytes, into: transfer)
+            })
+        let output = RenderedAudio()
+        let engine = GaplessEngine(rendered: { output.record($0) })
+        let player = PlaybackSession(engine: engine, store: store, defaults: defaults)
+        player.server = InMemoryServer()
+        player.leveling = .off
+        let recordings = [Array(songs.prefix(2)), Array(songs.suffix(1))].enumerated().map { index, tracks in
+            let recording = WorkIndex.Recording(id: "recording-\(index)", album: "Fixture", songs: tracks)
+            let work = WorkIndex.Work(
+                id: "work-\(index)", title: "Fixture", composer: "Fixture", isTagged: false, recordings: [recording])
+            return QueueItem(work: work, recording: recording)
+        }
+        defer {
+            player.stop()
+            store.clearAll()
+            try? FileManager.default.removeItem(at: root)
+        }
+        player.play(queue: recordings)
+        for _ in 0..<1500 where !player.queueEnded && player.error == nil {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(player.error == nil)
+        #expect(player.queueEnded)
+        let rendered = output.samples
+        let firstAudible = try #require(rendered.firstIndex { abs($0) > 0.01 })
+        let start = firstAudible + GaplessTests.alignment(rendered, at: firstAudible + 2048, referenceAt: 2048)
+        var join = 0
+        let shifts = GaplessTests.movementSamples.dropLast().map { length in
+            join += length
+            return GaplessTests.alignment(rendered, at: start + join + 256, referenceAt: join + 256)
+        }
+        print("rendered \(suffix) recording joins: start=\(start), frames=\(rendered.count), shifts=\(shifts)")
+        #expect(shifts == [0, 0])
     }
 
     // MARK: Sample-exact output

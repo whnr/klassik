@@ -2,7 +2,7 @@ import Foundation
 
 /// What an engine tells the session. The engine sends nothing for a load that a later `load` or `discard` replaced.
 enum PlaybackEngineEvent: Sendable {
-    /// A movement played to its end.
+    /// A track played to its end, indexed across the loaded queue.
     case movementEnded(Int)
     case loading(Bool)
     /// Nothing sounds although the listener wants sound, or nil when sound starts (ADR 0060).
@@ -28,7 +28,7 @@ enum PlaybackSource: Sendable {
 /// Gets one track: a complete file, or a transfer for a format that can start early.
 typealias PlaybackFileSource = @MainActor (Song) async throws -> PlaybackSource
 
-/// The seam under the playback session: it plays the movements of one recording, one after the other.
+/// The seam under the playback session: it plays the queue on one timeline.
 /// `GaplessEngine` is the production engine. A test uses a fake engine that reports ends and positions.
 @MainActor
 protocol PlaybackEngine: AnyObject {

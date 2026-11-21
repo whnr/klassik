@@ -24,6 +24,7 @@ final class GaplessEngine: PlaybackEngine {
     private var engineNotifications: PlaybackNotifications?
     private var task: Task<Void, Never>?
     private var watcher: Task<Void, Never>?
+    private var activation: Task<Void, Never>?
     /// Completion handlers of an earlier load must not reach the session.
     private var generation = 0
     /// Whether the session wants sound. A load that finishes after a pause must stay silent.
@@ -66,7 +67,7 @@ final class GaplessEngine: PlaybackEngine {
         playing = true
         let generation = generation
         cancelled = CancelFlag()
-        worker = DispatchQueue(label: "de.whnr.klassik.decoder", qos: .userInitiated)
+        worker = DispatchQueue(label: "de.whnr.klassik.decoder", qos: .default)
         task = Task {
             await schedule(songs, from: movement, offset: offset, file: file, generation: generation)
         }
@@ -80,13 +81,23 @@ final class GaplessEngine: PlaybackEngine {
     }
 
     func resume() throws {
-        guard let node else { return }
-        try Self.activateSession()
         playing = true
         // Before the first sound and during a refill, the scheduler starts the node when enough audio waits.
-        guard started && !starved else { return report() }
-        try node.playAudio()
-        pausedAt = nil
+        guard started && !starved, let node else { return report() }
+        let generation = generation
+        activation?.cancel()
+        activation = Task {
+            do {
+                try await Self.activateSession()
+                try check(generation)
+                guard playing else { return }
+                try node.playAudio()
+                pausedAt = nil
+            } catch {
+                guard generation == self.generation, !Task.isCancelled else { return }
+                onEvent?(.failed(error.localizedDescription))
+            }
+        }
     }
 
     func discard() {
@@ -99,6 +110,8 @@ final class GaplessEngine: PlaybackEngine {
         watcher?.cancel()
         watcher = nil
         engineNotifications = nil
+        activation?.cancel()
+        activation = nil
         engine?.stop()
         engine = nil
         node = nil
@@ -131,10 +144,10 @@ final class GaplessEngine: PlaybackEngine {
         timeline.length(movement).map { Double($0) / sampleRate }
     }
 
-    private static func activateSession() throws {
+    nonisolated private static func activateSession() async throws {
         let session = AVAudioSession.sharedInstance()
         try session.setCategory(.playback, mode: .default)
-        try session.setActive(true)
+        guard try await session.activate() else { throw CancellationError() }
     }
 
     private func playedSamples() -> Int64? {
@@ -185,7 +198,8 @@ final class GaplessEngine: PlaybackEngine {
                 try check(generation)
                 switch track {
                 case .file(let url):
-                    guard try scheduleFile(url, position: position, offset: seconds, generation: generation) else {
+                    guard try await scheduleFile(url, position: position, offset: seconds, generation: generation)
+                    else {
                         return
                     }
                 case .stream(let transfer):
@@ -215,7 +229,7 @@ final class GaplessEngine: PlaybackEngine {
 
     /// Connects the graph to the first track's format. Later tracks must have the same rate and channels.
     /// Returns false when the load must end quietly.
-    private func connect(_ incoming: AVAudioFormat, position: Int) throws -> Bool {
+    private func connect(_ incoming: AVAudioFormat, position: Int, generation: Int) async throws -> Bool {
         guard let engine, let node, let gain else { return false }
         if let format {
             guard incoming.sampleRate == format.sampleRate, incoming.channelCount == format.channelCount else {
@@ -233,14 +247,17 @@ final class GaplessEngine: PlaybackEngine {
                 onBus: 0, bufferSize: AVAudioFrameCount(incoming.sampleRate * Self.chunkSeconds), format: incoming
             ) { buffer, _ in rendered(buffer) }
         }
-        try Self.activateSession()
+        try await Self.activateSession()
+        try check(generation)
         try engine.start()
         return true
     }
 
-    private func scheduleFile(_ url: URL, position: Int, offset: Double, generation: Int) throws -> Bool {
+    private func scheduleFile(_ url: URL, position: Int, offset: Double, generation: Int) async throws -> Bool {
         let file = try AVAudioFile(forReading: url)
-        guard try connect(file.processingFormat, position: position), let node else { return false }
+        guard try await connect(file.processingFormat, position: position, generation: generation), let node else {
+            return false
+        }
         stream = nil
         let playable = Self.playableRange(of: file)
         let range =
@@ -278,10 +295,10 @@ final class GaplessEngine: PlaybackEngine {
             // A decoder or metadata range that prevents early playback requires a complete file (ADR 0060).
             let url = try await transfer.finished()
             try check(generation)
-            return try scheduleFile(url, position: position, offset: offset, generation: generation)
+            return try await scheduleFile(url, position: position, offset: offset, generation: generation)
         }
         try check(generation)
-        guard try connect(decoder.format, position: position) else { return false }
+        guard try await connect(decoder.format, position: position, generation: generation) else { return false }
         let rate = decoder.sampleRate
         let playable = decoder.playable ?? 0..<Int64(Double(song.duration ?? 0) * rate)
         var emitted: Int64 = 0

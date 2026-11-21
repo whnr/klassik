@@ -447,6 +447,63 @@ struct CoverArtTests {
         #expect(await CoverArt.normalized(Data("no image".utf8)) == nil)
     }
 
+    /// A portrait or landscape cover shows its largest centred square, with the short side decoded at the slot size
+    /// (sz-rs30.1.105.82).
+    @Test func artShowsItsCentredSquare() async throws {
+        for (width, height) in [(40, 80), (80, 40)] {
+            let banded = try #require(Self.banded(width: width, height: height).pngData())
+            let square = try #require(await CoverArt.square(banded, to: 20)?.cgImage)
+            #expect(square.width == 20 && square.height == 20)
+            // The outer quarters are blue and the centre half is red, so a centred square holds only red. The points
+            // keep clear of the edges, where scaling blends the bands.
+            for (x, y) in [(2, 2), (17, 2), (2, 17), (17, 17), (10, 10)] {
+                #expect(Self.isRed(square, x: x, y: y), "\(width)×\(height) at \(x),\(y)")
+            }
+        }
+        let full = try #require(await CoverArt.square(Self.png(), to: 0)?.cgImage)
+        #expect(full.width == 8 && full.height == 8)
+    }
+
+    @Test func theSquareDecodesTheShortSideAtTheSlotSize() {
+        #expect(CoverArt.squareLimit(width: 600, height: 1200, pixels: 300) == 600)
+        #expect(CoverArt.squareLimit(width: 1200, height: 600, pixels: 300) == 600)
+        #expect(CoverArt.squareLimit(width: 600, height: 1200, pixels: 900) == 1200)
+        #expect(CoverArt.squareLimit(width: 600, height: 1200, pixels: 0) == 1200)
+        #expect(CoverArt.squareLimit(width: 500, height: 500, pixels: 100) == 100)
+    }
+
+    /// Blue outer quarters along the long side, red centre half.
+    static func banded(width: Int, height: Int) -> UIImage {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let size = CGSize(width: width, height: height)
+        return UIGraphicsImageRenderer(size: size, format: format).image { context in
+            UIColor.blue.setFill()
+            context.fill(CGRect(origin: .zero, size: size))
+            UIColor.red.setFill()
+            let centre =
+                width > height
+                ? CGRect(x: width / 4, y: 0, width: width / 2, height: height)
+                : CGRect(x: 0, y: height / 4, width: width, height: height / 2)
+            context.fill(centre)
+        }
+    }
+
+    static func isRed(_ image: CGImage, x: Int, y: Int) -> Bool {
+        var pixel = [UInt8](repeating: 0, count: 4)
+        let drawn = pixel.withUnsafeMutableBytes { bytes -> Bool in
+            guard
+                let context = CGContext(
+                    data: bytes.baseAddress, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+                    space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+            else { return false }
+            // Core Graphics counts rows from the bottom.
+            context.draw(image, in: CGRect(x: -x, y: y - image.height + 1, width: image.width, height: image.height))
+            return true
+        }
+        return drawn && pixel[0] > 200 && pixel[2] < 60
+    }
+
     @Test func decodedCoversAreKeptByFileAndSize() {
         let cache = CoverArt.Cache()
         let cover = Self.picture()

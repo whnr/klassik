@@ -484,9 +484,9 @@ private struct RecordingRow: View {
     }
 }
 
-/// The page of a recording or album. While it plays, it is the player (ADR 0015): the header holds what every track
-/// shares, a row holds what differs, and only the playing movement has a playback bar (ADR 0027). The same content
-/// fills the player overlay (ADR 0014).
+/// The page of a recording or album, and the content of the player overlay (ADR 0014): the header holds what every
+/// track shares, and a row holds what differs (ADR 0027). Only the overlay is the player. It alone shows the playing
+/// row with its playback bar, and the next queue item at its end.
 struct RecordingView: View {
     @Environment(AppModel.self) private var model
     @Environment(AppNavigator.self) private var navigator
@@ -520,60 +520,13 @@ struct RecordingView: View {
         ScrollViewReader { proxy in
             PageList {
                 Section {
-                    // The page and the player share one hero: the cover, then the title (specimen player.html hero).
-                    VStack(spacing: Layout.bigCoverBottom) {
-                        CoverImage(
-                            song: isPlayingThis ? player.coverSong : recording.songs.first,
-                            points: Layout.bigCover, playback: isPlayingThis
-                        )
-                        .frame(width: Layout.bigCover, height: Layout.bigCover)
-                        .clipShape(.rect(cornerRadius: Layout.bigCoverCorner))
-                        .accessibilityElement()
-                        .accessibilityLabel("Cover")
-                        .accessibilityIdentifier("hero-cover")
-                        heroTitle
-                            .accessibilityAddTraits(.isHeader)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .multilineTextAlignment(.center)
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                    header(page)
+                    hero(page)
+                        .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                     if isPlayingThis, let error = player.error {
                         Label(error, systemImage: "exclamationmark.triangle")
                             .foregroundStyle(Palette.textPrimary)
                             .listRowSeparator(.hidden)
-                    }
-                    if !isPlayingThis {
-                        // Play is the accent capsule; Play Album is muted beside it (sz-3hcq.2).
-                        HStack(spacing: Layout.buttonRowGap) {
-                            Button {
-                                play(from: 0)
-                            } label: {
-                                CapsuleLabel(title: "Play", systemImage: "play.fill", filled: true)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityIdentifier("play-recording")
-                            if let wholeAlbum {
-                                // The playing album pauses and resumes, so the button says that.
-                                let playsAlbum = player.recording?.id == wholeAlbum.recording.id
-                                let verb = playsAlbum ? (player.isPaused ? "Resume" : "Pause") : "Play"
-                                Button {
-                                    spell.touch()
-                                    player.play(wholeAlbum)
-                                } label: {
-                                    CapsuleLabel(
-                                        title: "\(verb) Album",
-                                        systemImage: playsAlbum && !player.isPaused ? "pause.fill" : "play.fill",
-                                        filled: false)
-                                }
-                                .buttonStyle(.plain)
-                                .accessibilityIdentifier("play-album")
-                            }
-                        }
-                        .padding(.top, Layout.buttonRowTop)
-                        .listRowSeparator(.hidden)
                     }
                 }
 
@@ -592,33 +545,13 @@ struct RecordingView: View {
                         }
                     }
                 } else {
+                    // The rows follow the header with no heading (specimen player.html).
                     Section {
-                        SectionHeading(recording.isAlbum ? "Tracks" : "Movements")
                         ForEach(Array(recording.songs.enumerated()), id: \.element.id) { index, song in
                             movementRow(song, at: index, page: page, title: recording.title(of: song))
                                 .itemSeparator(first: index == 0, last: index == recording.songs.count - 1)
                         }
                     }
-                }
-
-                Section {
-                    pageLink(to: .rawTags(work: work.id, recording: recording.id)) {
-                        HStack {
-                            Text("Tags and Grouping").ink()
-                            if isOverlay {
-                                Spacer()
-                                Image(systemName: "chevron.right").foregroundStyle(Palette.textSecondary)
-                            }
-                        }
-                    }
-                    .accessibilityIdentifier("raw-tags")
-                    .listRowSeparator(.hidden)
-                }
-
-                Section {
-                    SectionHeading("Offline")
-                    OfflineControls(recording: recording, title: work.title)
-                        .listRowSeparator(.hidden)
                 }
 
                 if isOverlay { tail }
@@ -654,6 +587,14 @@ struct RecordingView: View {
         .environment(\.pageHeading, "")
         .navigationTitle(isOverlay ? "" : work.title)
         .navigationBarTitleDisplayMode(.inline)
+        // The specimen page has no settings rows. The tags and the download stay one menu away in the bar.
+        .toolbar {
+            if !isOverlay {
+                ToolbarItem(placement: .topBarTrailing) {
+                    RecordingMenu(work: work, recording: recording)
+                }
+            }
+        }
         .onAppear { model.sweep.prefer(performers: recording.performerNames) }
         .task(id: placesKey) { places = NotePlace.places(in: recording, index: model.library.index) }
     }
@@ -724,19 +665,121 @@ struct RecordingView: View {
         }
     }
 
-    /// What every track shares, in centred lines.
-    private func header(_ page: PlayerPage) -> some View {
+    /// The player is the overlay only. The page of the playing item shows no playing row (ADR 0014).
+    private var showsPlayer: Bool { isOverlay && isPlayingThis }
+
+    /// The cover, the title, then what every track shares in centred lines, the facts and the Play buttons (specimen
+    /// player.html `.hero`). Names with a page are links.
+    private func hero(_ page: PlayerPage) -> some View {
         VStack(spacing: Layout.heroGap) {
+            CoverImage(
+                song: isPlayingThis ? model.playback.coverSong : recording.songs.first,
+                points: Layout.bigCover, playback: isPlayingThis
+            )
+            .frame(width: Layout.bigCover, height: Layout.bigCover)
+            .clipShape(.rect(cornerRadius: Layout.bigCoverCorner))
+            .accessibilityElement()
+            .accessibilityLabel("Cover")
+            .accessibilityIdentifier("hero-cover")
+            .padding(.bottom, Layout.bigCoverBottom)
+            heroTitle
+                .accessibilityAddTraits(.isHeader)
             if let composer = page.composer {
-                Text(composer)
-                    .typeStyle(.headline)
-                    .ink()
-            }
-            RoleLines(lines: page.header, alignment: .center, style: .subheadline)
+                RoleLines(
+                    lines: [Roles.Line(kind: .unlabelled, label: "", names: [composer])], alignment: .center,
+                    style: .subheadline,
+                    link: { _, name in model.library.index.composer(named: name) == nil ? nil : .composer(name) }
+                )
                 .ink()
+                .accessibilityIdentifier("hero-composer")
+            }
+            RoleLines(lines: page.header, alignment: .center, style: .subheadline, link: headerLink)
+                .ink()
+                .accessibilityIdentifier("hero-roles")
+            if !page.facts.isEmpty {
+                Text(page.facts)
+                    .typeStyle(.subheadline)
+                    .foregroundStyle(Palette.textSecondary)
+                    .padding(.top, Layout.heroFactsTop)
+                    .accessibilityIdentifier("hero-facts")
+            }
+            actions
         }
         .multilineTextAlignment(.center)
         .frame(maxWidth: .infinity)
+        // A name in the header opens its page in the place below, also from the overlay.
+        .environment(
+            \.openURL,
+            OpenURLAction { url in
+                guard let target = PageLink.page(url) else { return .systemAction }
+                follow(target)
+                return .handled
+            })
+    }
+
+    /// The album line opens the album; a performer with a page opens it.
+    private func headerLink(_ line: Roles.Line, _ name: String) -> Page? {
+        if line.kind == .other, line.label == "album" {
+            guard let key = recording.songs.first?.albumKey, model.library.album(key) != nil else { return nil }
+            return .album(key)
+        }
+        return model.library.index.performer(named: name) == nil ? nil : .performer(name)
+    }
+
+    /// A link of the overlay opens in the place below and closes the player. The player never owns a page stack.
+    private func follow(_ target: Page) {
+        let place = navigator.selection
+        if isOverlay { navigator.closePlayer() }
+        Task {
+            // A person page waits for its local picture, as every person link does.
+            await model.preparePortrait(for: target)
+            navigator.open(target, in: place)
+        }
+    }
+
+    /// Play and Play Album while the item does not play. While it plays, the page offers the player (specimen
+    /// player.html). The overlay shows neither.
+    @ViewBuilder private var actions: some View {
+        let player = model.playback
+        if !isPlayingThis {
+            // Play is the accent capsule; Play Album is muted beside it (sz-3hcq.2).
+            HStack(spacing: Layout.buttonRowGap) {
+                Button {
+                    play(from: 0)
+                } label: {
+                    CapsuleLabel(title: "Play", systemImage: "play.fill", filled: true)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("play-recording")
+                if let wholeAlbum {
+                    // The playing album pauses and resumes, so the button says that.
+                    let playsAlbum = player.recording?.id == wholeAlbum.recording.id
+                    let verb = playsAlbum ? (player.isPaused ? "Resume" : "Pause") : "Play"
+                    Button {
+                        spell.touch()
+                        player.play(wholeAlbum)
+                    } label: {
+                        CapsuleLabel(
+                            title: "\(verb) Album",
+                            systemImage: playsAlbum && !player.isPaused ? "pause.fill" : "play.fill",
+                            filled: false)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("play-album")
+                }
+            }
+            .padding(.top, Layout.buttonRowTop)
+        } else if !isOverlay {
+            Button {
+                navigator.openPlayer()
+            } label: {
+                CapsuleLabel(title: "Show the player", systemImage: nil, filled: true)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("show-player")
+            .modifier(ShareOfWidth(share: Layout.showPlayerShare))
+            .padding(.top, Layout.showPlayerTop)
+        }
     }
 
     /// A player link belongs to the place below the overlay. The player never owns a page stack.
@@ -784,7 +827,7 @@ struct RecordingView: View {
             names: page.differing.indices.contains(index) ? page.differing[index] : [],
             notes: place.map { model.notes.notes(at: $0) } ?? [],
             place: place,
-            isPlaying: isPlayingThis && model.playback.movement == index,
+            isPlaying: showsPlayer && model.playback.movement == index,
             isOpen: opened.contains(index),
             draft: Binding(
                 get: { draft?.row == index ? draft : nil },
@@ -922,41 +965,18 @@ private struct MovementRow: View {
     private var playing: some View {
         let player = model.playback
         return VStack(alignment: .leading, spacing: gap) {
+            // The bold title marks the playing row (specimen player.html). VoiceOver hears it too.
             HStack {
                 MovementTitle(title: title, style: .headline)
+                    .accessibilityLabel("Now playing, \(title)")
                 if player.isLoading {
                     ProgressView()
-                } else {
-                    Image(systemName: "speaker.wave.2.fill")
-                        .foregroundStyle(Palette.tint)
-                        .accessibilityLabel("Now playing")
                 }
             }
             RoleLines(lines: names, style: .subheadline)
                 .ink()
             PlaybackProgress(player: player, notes: notes, jump: { jump($0, false) })
-            HStack {
-                Button("Previous", systemImage: "backward.fill") { player.previous() }
-                Spacer()
-                Button(
-                    player.isPaused ? "Resume" : "Pause",
-                    systemImage: player.isPaused ? "play.fill" : "pause.fill"
-                ) {
-                    player.togglePause()
-                }
-                Spacer()
-                Button("Next", systemImage: "forward.fill") { player.next() }
-                    .disabled(!player.hasNext)
-                Spacer()
-                Button("Next Work", systemImage: "forward.end.fill") { player.nextItem() }
-                    .disabled(player.upNext.isEmpty)
-                Spacer()
-                Button("Stop", systemImage: "stop.fill") { player.stop() }
-            }
-            .labelStyle(.iconOnly)
-            .buttonStyle(.borderless)
-            .typeStyle(.title2)
-            .padding(.horizontal)
+            PlayerControls(player: player)
             NoteList(notes: notes, jump: jump)
             if let place {
                 NoteEditor(
@@ -964,6 +984,65 @@ private struct MovementRow: View {
             }
         }
         .accessibilityIdentifier("movement")
+    }
+}
+
+/// The controls of the playing row, centred in ink (specimen player.html `.mv-controls`). Next Work and Stop follow
+/// Next: the specimen has neither, but the queue (sz-rs30.1.105.8) and ADR 0053 need them.
+private struct PlayerControls: View {
+    let player: PlaybackSession
+    @ScaledMetric(relativeTo: .title2) private var icon = Layout.playerControlIcon
+    @ScaledMetric(relativeTo: .title2) private var mainIcon = Layout.playerMainIcon
+
+    var body: some View {
+        HStack(spacing: 0) {
+            control("Previous", "backward.fill") { player.previous() }
+            gap
+            control(player.isPaused ? "Resume" : "Pause", player.isPaused ? "play.fill" : "pause.fill", main: true) {
+                player.togglePause()
+            }
+            gap
+            control("Next", "forward.fill") { player.next() }
+                .disabled(!player.hasNext)
+            gap
+            control("Next Work", "forward.end.fill") { player.nextItem() }
+                .disabled(player.upNext.isEmpty)
+            gap
+            control("Stop", "stop.fill") { player.stop() }
+        }
+        .frame(maxWidth: .infinity)
+        .buttonStyle(.borderless)
+    }
+
+    /// The specimen gap, closed on a narrow row so that all controls fit.
+    private var gap: some View {
+        Spacer(minLength: 0).frame(maxWidth: Layout.playerControlGap)
+    }
+
+    private func control(
+        _ title: String, _ systemImage: String, main: Bool = false, action: @escaping () -> Void
+    ) -> some View {
+        Control(title: title, systemImage: systemImage, size: main ? mainIcon : icon, action: action)
+    }
+
+    /// An explicit ink replaces the dimming of a disabled button, so an off control takes the disabled colour.
+    private struct Control: View {
+        @Environment(\.isEnabled) private var isEnabled
+        let title: String
+        let systemImage: String
+        let size: CGFloat
+        let action: () -> Void
+
+        var body: some View {
+            Button(action: action) {
+                Image(systemName: systemImage)
+                    .font(.system(size: size))
+                    .foregroundStyle(isEnabled ? Palette.textPrimary : Palette.textTertiary)
+                    .frame(width: Measure.hitTarget, height: Measure.hitTarget)
+                    .contentShape(.rect)
+            }
+            .accessibilityLabel(title)
+        }
     }
 }
 
@@ -1332,36 +1411,82 @@ struct NoteRoom: ViewModifier {
     }
 }
 
-/// Download a recording, follow the download, or remove it.
-private struct OfflineControls: View {
+/// The menu of a recording or album page: its tags, and the download with its state.
+private struct RecordingMenu: View {
     @Environment(AppModel.self) private var model
+    @Environment(AppNavigator.self) private var navigator
+    let work: WorkIndex.Work
     let recording: WorkIndex.Recording
-    let title: String
 
     var body: some View {
-        let tracks = model.tracks
-        if let download = tracks.downloads.first(where: { $0.id == recording.id }) {
-            LabeledContent("Downloaded", value: Self.size(download.bytes))
-                .ink()
-            Button("Remove Download", systemImage: "trash", role: .destructive) { tracks.remove(download) }
-                .accessibilityIdentifier("remove-download")
-        } else if let share = tracks.progress[recording.id] {
-            ProgressView(value: share) { Text("Downloading") }
-            Button("Cancel Download", systemImage: "xmark.circle") { tracks.cancelDownload(recording.id) }
-        } else {
-            Button("Download", systemImage: "arrow.down.circle") {
-                if let client = model.client { tracks.download(recording, title: title, client: client) }
+        Menu {
+            Button("Tags and Grouping", systemImage: "tag") {
+                navigator.open(.rawTags(work: work.id, recording: recording.id), in: navigator.selection)
             }
-            .accessibilityIdentifier("download")
-            if let failure = tracks.failures[recording.id] {
-                Label(failure, systemImage: "exclamationmark.triangle")
-                    .foregroundStyle(Palette.textPrimary)
-            }
+            .accessibilityIdentifier("raw-tags")
+            download
+        } label: {
+            Label("More", systemImage: "ellipsis")
         }
+        .accessibilityIdentifier("recording-menu")
+    }
+
+    /// Download, follow the download, or remove it. The state heads its section, so the menu says it.
+    @ViewBuilder private var download: some View {
+        let tracks = model.tracks
+        if let stored = tracks.downloads.first(where: { $0.id == recording.id }) {
+            Section("Downloaded, \(Self.size(stored.bytes))") {
+                Button("Remove Download", systemImage: "trash", role: .destructive) { tracks.remove(stored) }
+                    .accessibilityIdentifier("remove-download")
+            }
+        } else if let share = tracks.progress[recording.id] {
+            Section("Downloading, \(share.formatted(.percent.precision(.fractionLength(0))))") {
+                Button("Cancel Download", systemImage: "xmark.circle") { tracks.cancelDownload(recording.id) }
+            }
+        } else if let failure = tracks.failures[recording.id] {
+            Section(failure) { start }
+        } else {
+            start
+        }
+    }
+
+    private var start: some View {
+        Button("Download", systemImage: "arrow.down.circle") {
+            if let client = model.client { model.tracks.download(recording, title: work.title, client: client) }
+        }
+        .accessibilityIdentifier("download")
     }
 
     static func size(_ bytes: Int64) -> String {
         bytes.formatted(.byteCount(style: .file))
+    }
+}
+
+/// Proposes a share of the offered width to its one subview and centres it (specimen `width: 60%`).
+private struct ShareOfWidth: ViewModifier {
+    let share: CGFloat
+
+    func body(content: Content) -> some View {
+        Share(share: share) { content }
+    }
+
+    private struct Share: SwiftUI.Layout {
+        let share: CGFloat
+
+        func sizeThatFits(proposal: ProposedViewSize, subviews: LayoutSubviews, cache: inout ()) -> CGSize {
+            guard let view = subviews.first else { return .zero }
+            let width = proposal.width.map { $0 * share }
+            let size = view.sizeThatFits(ProposedViewSize(width: width, height: nil))
+            return CGSize(width: proposal.width ?? size.width, height: size.height)
+        }
+
+        func placeSubviews(
+            in bounds: CGRect, proposal: ProposedViewSize, subviews: LayoutSubviews, cache: inout ()
+        ) {
+            subviews.first?.place(
+                at: CGPoint(x: bounds.midX, y: bounds.minY), anchor: .top,
+                proposal: ProposedViewSize(width: bounds.width * share, height: nil))
+        }
     }
 }
 
@@ -1395,13 +1520,15 @@ private struct NextItemRow: View {
 /// A capsule button face (specimen.css .capsule): filled in the accent, or muted on the quiet fill.
 struct CapsuleLabel: View {
     let title: String
-    let systemImage: String
+    let systemImage: String?
     let filled: Bool
 
     var body: some View {
         HStack(spacing: Layout.capsuleGap) {
-            Image(systemName: systemImage)
-                .accessibilityHidden(true)
+            if let systemImage {
+                Image(systemName: systemImage)
+                    .accessibilityHidden(true)
+            }
             Text(title)
                 .fixedSize(horizontal: false, vertical: true)
         }

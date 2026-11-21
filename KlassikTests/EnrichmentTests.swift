@@ -345,3 +345,16 @@ struct ComposerListTests {
         #expect(stub.requests.contains("work?\"op. 10 no. 1\" AND artist:\"Chopin\""))
     }
 }
+
+struct LookupStatusTextTests {
+    @Test func namesTheComposerInProse() {
+        let text = LookupStatus.text(.init(done: 3, total: 9, composer: "Beethoven"))
+        #expect(text == "Looking up 3 of 9 works, now Beethoven.")
+    }
+
+    @Test func namesWikidataInProse() {
+        let text = LookupStatus.text(.init(done: 3, total: 9, composer: nil))
+        #expect(text == "Looking up 3 of 9 works in Wikidata.")
+        #expect(!text.contains("·"))
+    }
+}

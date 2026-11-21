@@ -16,8 +16,9 @@ struct LookupStatus: View {
     }
 
     static func text(_ progress: Enrichment.Progress) -> String {
-        let place = progress.composer.map { " · \($0)" } ?? " · Wikidata"
-        return "Looking up \(progress.done) of \(progress.total) works\(place)"
+        let count = "Looking up \(progress.done) of \(progress.total) works"
+        guard let composer = progress.composer else { return "\(count) in Wikidata." }
+        return "\(count), now \(composer)."
     }
 }
 

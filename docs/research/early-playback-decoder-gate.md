@@ -41,9 +41,16 @@ The probe does not separate threshold readiness from first sound. It does not es
 
 ## Remaining production work
 
-Mixed-format conversion has production code and tests. Its resampler latency and rendered comparisons still require iOS validation.
+[Run 44892454080](https://github.com/whnr/klassik/actions/runs/44892454080) found fractional-output shortages during conversion.
+The 44.1-to-48 kHz impulse produced 8,725 frames instead of 8,726.
+The mixed-rate recording required 22,068 frames; conversion returned 22,067.
+The conversion supplies zero input context for final interpolation, without extending the declared output length.
+Its impulse, extended-reference, source-EOF, and rendered comparisons still require iOS validation.
+
 The cache lacks bounded storage for oversized tracks. Read-ahead still waits for the current transfer to finish.
-Pause cancellation and Clear Music require full lifecycle coverage, including explicit downloads and active decoders.
+Pause cancels following automatic transfers and invalidates their decoder. Resume rebuilds from the audible checkpoint.
+Shared downloads retain tracks until their last owner releases them. Their total counts physical files once.
+These lifecycle changes still require iOS validation. Clear Music needs further coverage for active decoders and refill suppression.
 The throughput matrix, path changes, seeks, remaining format controls, storage pressure, and recovery still need measurements.
 ReplayGain changes also need rendered coverage across recording boundaries. The current gain stage follows session metadata updates.
 Passing decoder and timeline checks do not close these production requirements.

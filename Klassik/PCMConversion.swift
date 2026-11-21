@@ -34,6 +34,7 @@ final class PCMConversion: @unchecked Sendable {
     }
 
     let format: AVAudioFormat
+    private let inputFormat: AVAudioFormat
     private let converter: AVAudioConverter?
     private let source: Read
     private let expected: Int64?
@@ -42,6 +43,7 @@ final class PCMConversion: @unchecked Sendable {
 
     init(from input: AVAudioFormat, to output: AVAudioFormat, frames: Int64?, read: @escaping Read) throws {
         format = output
+        inputFormat = input
         source = read
         expected = frames
         if input == output {
@@ -80,6 +82,23 @@ final class PCMConversion: @unchecked Sendable {
                 }
             } catch { inputError = error }
             self.inputEnded = true
+            if inputError == nil, let expected = self.expected, self.emitted < expected {
+                do {
+                    // Zero extension supplies the resampler's final interpolation. The output length excludes that extension.
+                    let count = max(
+                        converter.primeInfo.trailingFrames,
+                        AVAudioFrameCount(ceil(self.inputFormat.sampleRate / self.format.sampleRate)) + 1)
+                    guard let padding = AVAudioPCMBuffer(pcmFormat: self.inputFormat, frameCapacity: count) else {
+                        throw Failure.allocation
+                    }
+                    padding.frameLength = count
+                    for buffer in UnsafeMutableAudioBufferListPointer(padding.mutableAudioBufferList) {
+                        buffer.mData?.initializeMemory(as: UInt8.self, repeating: 0, count: Int(buffer.mDataByteSize))
+                    }
+                    status.pointee = .haveData
+                    return padding
+                } catch { inputError = error }
+            }
             status.pointee = .endOfStream
             return nil
         }

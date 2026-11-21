@@ -85,4 +85,39 @@ struct PCMConversionTests {
         }
         #expect(throws: TrackTransfer.Failure.storage) { try converter.read(frames: 128) }
     }
+
+    @Test(arguments: [(44_100.0, 48_000.0, 8_017), (32_000.0, 44_100.0, 16_013)])
+    func theFinalFrameMatchesAZeroExtendedReference(sourceRate: Double, targetRate: Double, length: Int) throws {
+        let input = try #require(AVAudioFormat(standardFormatWithSampleRate: sourceRate, channels: 1))
+        let output = try #require(AVAudioFormat(standardFormatWithSampleRate: targetRate, channels: 1))
+        let expected = Int64((Double(length) * targetRate / sourceRate).rounded())
+        func converted(extensionFrames: Int, declared: Int64?) throws -> [Float] {
+            var cursor = 0
+            let converter = try PCMConversion(from: input, to: output, frames: declared) { requested in
+                guard cursor < length + extensionFrames else { return nil }
+                let count = min(Int(requested), length + extensionFrames - cursor)
+                let buffer = try #require(AVAudioPCMBuffer(pcmFormat: input, frameCapacity: UInt32(count)))
+                buffer.frameLength = UInt32(count)
+                for sample in 0..<count {
+                    let index = cursor + sample
+                    buffer.floatChannelData![0][sample] =
+                        index < length ? Float(sin(Double(index) * 2 * .pi * 440 / sourceRate) * 0.25) : 0
+                }
+                cursor += count
+                return buffer
+            }
+            var samples: [Float] = []
+            while let buffer = try converter.read(frames: 127) {
+                samples += Array(
+                    UnsafeBufferPointer(start: buffer.floatChannelData![0], count: Int(buffer.frameLength)))
+            }
+            return samples
+        }
+        let finite = try converted(extensionFrames: 0, declared: expected)
+        let reference = try converted(extensionFrames: 1024, declared: nil)
+        #expect(finite.count == expected)
+        #expect(reference.count >= finite.count)
+        let error = zip(finite, reference).map { abs($0 - $1) }.max() ?? .infinity
+        #expect(error < 0.000001)
+    }
 }

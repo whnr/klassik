@@ -29,12 +29,14 @@ struct SearchView: View {
     var body: some View {
         let typed = !text.trimmingCharacters(in: .whitespaces).isEmpty
         let found = typed ? live.results : nil
-        var filtered =
+        let narrowed =
             conditions.isEmpty
             ? Search.Filtered(results: found ?? Search.Results())
             : model.library.searchFilters.narrow(found, by: conditions)
         let order = model.recordingOrder
-        filtered.results = filtered.results.favouriteRecordings { order.isFavourite($0.recording, of: $0.work) }
+        let filtered = Search.Filtered(
+            results: narrowed.results.favouriteRecordings { order.isFavourite($0.recording, of: $0.work) },
+            matching: narrowed.matching)
         // While a search runs, the page keeps the last results; an empty result is no match only when it is current.
         let settled = !typed || live.isShowing(text)
         PageList {

@@ -281,7 +281,7 @@ final class BrowseScreens: ScreensTestCase {
         field.typeText("\n")
         XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5), "Search does not close the keyboard")
         let composerRow = app.buttons.matching(identifier: "search-person").firstMatch
-        XCTAssertLessThan(composerRow.frame.minY, works.firstMatch.frame.minY, "Composers follow works")
+        XCTAssertLessThan(composerRow.frame.minY, works.firstMatch.frame.minY, "Works precede composers")
         XCTAssertTrue(
             app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Composers (")).firstMatch.exists)
         XCTAssertFalse(

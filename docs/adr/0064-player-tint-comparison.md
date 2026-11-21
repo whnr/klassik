@@ -1,6 +1,6 @@
 # 0064. Compare stronger player tints
 
-Date: 2026-11-19. Decided by Flo in the 0.15.0 feedback. Bead: sz-kaqj.4.
+Date: 2026-11-19. Decided by Flo in the 0.15.0 feedback. Bead: sz-kaqj.4. Partly replaced by [0065](0065-feedback-controls.md).
 Temporarily extends the player ground rule of [0034](0034-colour.md).
 
 ## Context

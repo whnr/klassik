@@ -59,9 +59,9 @@ struct ComposerPage: View {
         BackTipRow()
         Button {
             model.chronology.show(composer: composer.name, playing: model.playback.work)
-            navigator.select(.chronology)
+            navigator.showChronology()
         } label: {
-            Text("Chronology")
+            Text(navigator.selection == .chronology ? "Back to Chronology" : "Chronology")
                 .typeStyle(Layout.capsuleLabel)
                 .foregroundStyle(Palette.tint)
                 .frame(maxWidth: .infinity, minHeight: Layout.capsuleHeight)
@@ -300,6 +300,7 @@ private struct ResolutionNotice: View {
                     Button {
                         Task { await people.choose(match, forComposer: tag) }
                     } label: {
+                        // The whole row, title included, is the target: a tap anywhere on it picks the person.
                         VStack(alignment: .leading) {
                             Text(match.name).ink()
                             if let description = match.description {
@@ -308,12 +309,18 @@ private struct ResolutionNotice: View {
                                     .foregroundStyle(Palette.textSecondary)
                             }
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
                     }
+                    .buttonStyle(FlatPress())
                     .accessibilityIdentifier("composer-match")
                 }
                 Button("None of These") { Task { await people.choose(nil, forComposer: tag) } }
             } footer: {
-                Text("Your tag gives only \"\(tag)\" and your works do not say which composer it is.")
+                Text(
+                    PersonFactsStore.isSurnameOnly(tag)
+                        ? "Your tag gives only \"\(tag)\" and your works do not say which composer it is."
+                        : "Several composers have the name \"\(tag)\" and your works do not say which one it is.")
             }
         case .mixed(let names):
             Section {
@@ -341,7 +348,12 @@ private struct ResolutionNotice: View {
 /// The picture, the name and the description line. Without a picture the page shows the name on the plain ground.
 /// `kind` prefixes the accessibility identifiers. Every picture shows (ADR 0043).
 struct PersonHero: View {
+    /// The ground of a named picture before it loads. It is opaque, because the heading keeps the page room's
+    /// colours there and the unselected fermata needs its contrast floor on it (ADR 0065).
+    static let placeholder = Palette.backgroundElevated
+
     @Environment(AppModel.self) private var model
+    @Environment(\.self) private var environment
     @Environment(\.colorScheme) private var scheme
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.displayScale) private var displayScale
@@ -391,7 +403,7 @@ struct PersonHero: View {
                     if let portrait, let framing {
                         picture(portrait, framing: framing, frame: frame)
                     } else {
-                        Rectangle().fill(Palette.fillQuiet)
+                        Rectangle().fill(Self.placeholder)
                     }
                     heading
                         .padding(.bottom, Layout.personHeadBottom)
@@ -444,7 +456,7 @@ struct PersonHero: View {
     /// The name and the line, as wide as the longer of the two.
     private var textLines: some View {
         VStack(alignment: .leading, spacing: gap) {
-            if model.recordingOrder.artist(named: name) != nil {
+            if showsFavourite {
                 FavouriteTitle(
                     title: name, isSet: model.recordingOrder.isFavourite(person: name),
                     action: { model.recordingOrder.toggleAtOnce(person: name) }, textIdentifier: "\(kind)-title",
@@ -528,6 +540,17 @@ struct PersonHero: View {
         Color(red: PictureScrim.text.red, green: PictureScrim.text.green, blue: PictureScrim.text.blue)
     }
 
+    private var showsFavourite: Bool {
+        model.recordingOrder.artist(named: name) != nil
+    }
+
+    static func pictureMarks(showsFavourite: Bool, environment: EnvironmentValues) -> [SRGB] {
+        guard showsFavourite else { return [] }
+        var darkEnvironment = environment
+        darkEnvironment.colorScheme = .dark
+        return [Palette.favourite, .favouriteOff].map { SRGB($0.color.resolve(in: darkEnvironment)) }
+    }
+
     private func picture(_ portrait: LoadedPortrait, framing: CGRect, frame: CGSize) -> some View {
         // The scrim comes from the picture under the text, as the frame shows it.
         let visible = PortraitFraming.visible(of: framing, in: frame)
@@ -541,8 +564,9 @@ struct PersonHero: View {
         let region = CGRect(
             x: visible.minX, y: visible.minY + visible.height * (1 - under), width: visible.width * geometry.across,
             height: visible.height * under)
+        let marks = Self.pictureMarks(showsFavourite: showsFavourite, environment: environment)
         let opacity = PictureScrim.opacity(
-            over: portrait.brightestColour(in: region), increasedContrast: contrast == .increased)
+            over: portrait.brightestColour(in: region), increasedContrast: contrast == .increased, marks: marks)
         let hall = PictureScrim.hall
         let hallColour = Color(red: hall.red, green: hall.green, blue: hall.blue)
         let image = Image(uiImage: portrait.image).resizable()

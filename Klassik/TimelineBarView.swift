@@ -50,6 +50,11 @@ struct TimelineBarView: View {
                 }
                 segments(of: bar, played: played)
                     .frame(width: Self.touchWidth, height: proxy.size.height, alignment: alignment)
+                    .task(id: "\(proxy.size.height)|\(player.segments.count)") {
+                        guard let share = Self.pinnedScrub else { return }
+                        finger = share * proxy.size.height
+                        scrubbed = bar.place(at: finger)
+                    }
                     .contentShape(.rect)
                     .gesture(drag(on: bar))
                     .onChange(of: isTouching) { _, touching in
@@ -70,6 +75,18 @@ struct TimelineBarView: View {
                 width: proxy.size.width, height: proxy.size.height,
                 alignment: side == .right ? .topTrailing : .topLeading)
         }
+    }
+
+    /// The UI walk pins a scrub with `-pinScrub <share of the bar height>`. A screenshot cannot wait for a finger
+    /// that is down, and the label goes away when the finger lifts.
+    private static var pinnedScrub: Double? {
+        #if DEBUG
+            let arguments = ProcessInfo.processInfo.arguments
+            if let index = arguments.firstIndex(of: "-pinScrub"), arguments.indices.contains(index + 1) {
+                return Double(arguments[index + 1])
+            }
+        #endif
+        return nil
     }
 
     private var alignment: Alignment { side == .right ? .trailing : .leading }
@@ -115,8 +132,13 @@ struct TimelineBarView: View {
         .typeStyle(.body)
         .padding(.vertical, Layout.scrubLabelVertical)
         .padding(.horizontal, Layout.scrubLabelHorizontal)
-        .background(Palette.backgroundElevated, in: .rect(cornerRadius: Layout.scrubLabelCorner))
-        .shadow(radius: 5, y: 2)
+        .background {
+            RoundedRectangle(cornerRadius: Layout.scrubLabelCorner)
+                .fill(Palette.backgroundElevated)
+                .shadow(
+                    color: .black.opacity(Layout.scrubLabelShadowOpacity), radius: Layout.scrubLabelShadow / 2,
+                    y: Layout.scrubLabelShadowY)
+        }
         .accessibilityHidden(true)
     }
 

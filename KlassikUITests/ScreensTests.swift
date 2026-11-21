@@ -585,9 +585,11 @@ final class BrowseScreens: ScreensTestCase {
     @MainActor
     func testMusicBrainz() throws {
         let app = try launchAndConnect()
-        openSettings(app)
-        XCTAssertTrue(app.buttons["musicbrainz"].waitForExistence(timeout: 30))
-        app.buttons["musicbrainz"].tap()
+        openSettings(app, technical: true)
+        // The row shows once the library has composers.
+        let musicBrainz = app.buttons["musicbrainz"]
+        XCTAssertTrue(eventually(timeout: 30) { reveal(musicBrainz, in: app).exists })
+        musicBrainz.tap()
         let toConfirm = app.buttons["to-confirm"]
         XCTAssertTrue(toConfirm.waitForExistence(timeout: 10))
         // The lookup may still run right after the connect.
@@ -600,9 +602,11 @@ final class BrowseScreens: ScreensTestCase {
     @MainActor
     func testPeopleFromWikidata() throws {
         let app = try launchAndConnect()
-        openSettings(app)
-        XCTAssertTrue(app.buttons["musicbrainz"].waitForExistence(timeout: 30))
-        app.buttons["musicbrainz"].tap()
+        openSettings(app, technical: true)
+        // The row shows once the library has composers.
+        let musicBrainz = app.buttons["musicbrainz"]
+        XCTAssertTrue(eventually(timeout: 30) { reveal(musicBrainz, in: app).exists })
+        musicBrainz.tap()
         let status = app.descendants(matching: .any)["people-status"]
         XCTAssertTrue(reveal(status, in: app).waitForExistence(timeout: 10))
         let done = expectation(for: NSPredicate(format: "label CONTAINS 'Up to date'"), evaluatedWith: status)
@@ -676,7 +680,7 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertEqual(mark.value as? String, "Favourite")
         mark.tap()
         XCTAssertEqual(mark.value as? String, "Not a favourite")
-        openSettings(app)
+        openSettings(app, technical: true)
         reveal(app.buttons["diagnostics"], in: app).tap()
         let pending = app.descendants(matching: .any)["pending-favourite"].firstMatch
         XCTAssertTrue(reveal(pending, in: app).exists)
@@ -1323,7 +1327,7 @@ final class PlaybackScreens: ScreensTestCase {
     @MainActor
     func testPlayOnTheAlbumPage() throws {
         let app = try launchAndConnect()
-        openSettings(app)
+        openSettings(app, technical: true)
         reveal(app.buttons["classical-albums"], in: app).tap()
         let encores = app.buttons.matching(identifier: "album")
             .matching(NSPredicate(format: "label CONTAINS 'Romantic Encores'")).firstMatch
@@ -1348,7 +1352,7 @@ final class PlaybackScreens: ScreensTestCase {
     @MainActor
     func testAlbumWorkHasOneDisclosureOnThePageAndOverlay() throws {
         let app = try launchAndConnect()
-        openSettings(app)
+        openSettings(app, technical: true)
         reveal(app.buttons["classical-albums"], in: app).tap()
         let album = app.buttons.matching(identifier: "album")
             .matching(NSPredicate(format: "label CONTAINS 'Mendelssohn: Violin Concerto'")).firstMatch
@@ -1397,7 +1401,7 @@ final class PlaybackScreens: ScreensTestCase {
         snap(app, "05a-downloaded")
         back(app, times: 3)
 
-        openSettings(app)
+        openSettings(app, technical: true)
         reveal(app.buttons["local-storage"], in: app).tap()
         XCTAssertTrue(app.navigationBars["Local Storage"].waitForExistence(timeout: 10))
         // The list builds rows lazily, and the Downloads section starts below the storage sections.
@@ -1547,7 +1551,7 @@ final class PlaybackScreens: ScreensTestCase {
     @MainActor
     func testOfflineAlbumAppearsInFavourites() throws {
         let app = try launchAndConnect(arguments: ["-offlineFavourites"])
-        openSettings(app)
+        openSettings(app, technical: true)
         reveal(app.buttons["classical-albums"], in: app).tap()
         let album = app.buttons.matching(identifier: "album")
             .matching(NSPredicate(format: "label CONTAINS 'Romantic Encores'")).firstMatch
@@ -1804,7 +1808,7 @@ final class SettingsScreens: ScreensTestCase {
     @MainActor
     func testLocalStorage() throws {
         let app = try launchAndConnect()
-        openSettings(app)
+        openSettings(app, technical: true)
         reveal(app.buttons["local-storage"], in: app).tap()
         XCTAssertTrue(app.navigationBars["Local Storage"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.descendants(matching: .any)["storage-bar"].firstMatch.waitForExistence(timeout: 10))
@@ -1835,6 +1839,7 @@ final class SettingsScreens: ScreensTestCase {
         _ = pausedPlayerInLibrary(app)
         openSettings(app)
         snap(app, "08c-settings-top")
+        XCTAssertTrue(reveal(app.switches["scrobbles"], in: app).exists, "Scrobbles is not in Playback")
         let tint = reveal(app.sliders["player-tint-strength"], in: app)
         XCTAssertTrue(tint.isHittable)
         XCTAssertEqual(tint.value as? String, "3×")
@@ -1847,12 +1852,80 @@ final class SettingsScreens: ScreensTestCase {
         tint.adjust(toNormalizedSliderPosition: 0.6)
         XCTAssertEqual(tint.value as? String, "3×")
         snap(app, "08f-player-tint-setting")
-        XCTAssertTrue(reveal(app.buttons["diagnostics"], in: app).isHittable)
-        snap(app, "08c-settings")
 
         reveal(app.buttons["swipe-actions"], in: app).tap()
         XCTAssertTrue(app.navigationBars["Swipe Actions"].waitForExistence(timeout: 10))
         snap(app, "08b-swipe-actions")
+        back(app)
+
+        // Technical Details starts off, so its rows stay out of the way.
+        let technical = reveal(app.switches["technical-details"], in: app)
+        XCTAssertEqual(technical.value as? String, "0", "Technical Details is not off by default")
+        XCTAssertFalse(app.buttons["diagnostics"].exists)
+        snap(app, "08c-settings")
+        technical.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        XCTAssertTrue(reveal(app.buttons["diagnostics"], in: app).isHittable)
+        XCTAssertTrue(app.buttons["local-storage"].exists)
+        snap(app, "08h-settings-technical")
+    }
+
+    /// The accent switch recolours the app at once (ADR 0034).
+    @MainActor
+    func testAccent() throws {
+        let app = try launchAndConnect()
+        openSettings(app)
+        let accent = reveal(app.buttons["accent"], in: app)
+        XCTAssertTrue(accent.label.contains("Claret"), accent.label)
+        let timelinePicker = app.buttons["timeline-side"]
+        let claret = try XCTUnwrap(pickerInk(timelinePicker, in: app), "No accent ink in the Timeline picker")
+        XCTAssertGreaterThan(claret.red, claret.green, "The Timeline picker is not claret: \(claret)")
+        accent.tap()
+        let green = app.buttons["Bottle Green"].firstMatch
+        XCTAssertTrue(green.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Plum"].firstMatch.exists)
+        green.tap()
+        XCTAssertTrue(eventually(timeout: 5) { accent.label.contains("Bottle Green") }, accent.label)
+        // Another picker on the page takes the new family at once, not only the picker that changed.
+        var picked = pickerInk(timelinePicker, in: app)
+        XCTAssertTrue(
+            eventually(timeout: 5) {
+                picked = pickerInk(timelinePicker, in: app)
+                return picked.map { $0.green > $0.red } ?? false
+            }, "The Timeline picker keeps claret after Bottle Green: \(String(describing: picked))")
+        accent.tap()
+        let plum = app.buttons["Plum"].firstMatch
+        XCTAssertTrue(plum.waitForExistence(timeout: 5))
+        plum.tap()
+        XCTAssertTrue(eventually(timeout: 5) { accent.label.contains("Plum") }, accent.label)
+        snap(app, "08i-accent-plum")
+        back(app)
+        XCTAssertTrue(app.buttons["library-settings"].waitForExistence(timeout: 10))
+        snap(app, "08j-library-plum")
+    }
+
+    /// The mean accent ink of a picker value: the trailing half of its row holds the value and its chevron.
+    @MainActor
+    func pickerInk(_ picker: XCUIElement, in app: XCUIApplication) -> (red: Int, green: Int, blue: Int)? {
+        let frame = picker.frame.offsetBy(dx: -app.frame.minX, dy: -app.frame.minY)
+        let value = CGRect(x: frame.midX, y: frame.minY, width: frame.width / 2, height: frame.height)
+        return ScreenPixels(app)?.accentInk(in: value)
+    }
+
+    /// Delete Listening Data asks first, then removes the device data of this server and user.
+    @MainActor
+    func testDeleteListeningData() throws {
+        let app = try launchAndConnect()
+        openSettings(app)
+        reveal(app.buttons["delete-listening-data"], in: app).tap()
+        let confirm = app.buttons.matching(
+            NSPredicate(format: "label == %@ AND identifier != %@", "Delete Listening Data", "delete-listening-data")
+        ).firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5), "No confirmation")
+        snap(app, "08k-delete-listening-data")
+        confirm.tap()
+        XCTAssertTrue(confirm.waitForNonExistence(timeout: 5))
+        XCTAssertFalse(app.alerts.firstMatch.exists, "The device file refused the delete")
+        XCTAssertTrue(app.navigationBars["Settings"].exists)
     }
 
     @MainActor
@@ -1860,8 +1933,8 @@ final class SettingsScreens: ScreensTestCase {
         let app = try launchAndConnect()
         _ = pausedPlayerInLibrary(app)
         openSettings(app)
-        reveal(app.buttons["classical-filter"], in: app).tap()
-        let field = app.textFields.matching(identifier: "condition-text").firstMatch
+        reveal(app.buttons["classical-rules"], in: app).tap()
+        let field = app.textFields.matching(identifier: "check-text").firstMatch
         XCTAssertTrue(field.waitForExistence(timeout: 10))
         let bar = app.tabBars["tab-row"]
         let barFrame = bar.frame
@@ -1904,7 +1977,7 @@ final class SettingsScreens: ScreensTestCase {
     @MainActor
     func testClassicalAlbums() throws {
         let app = try launchAndConnect()
-        openSettings(app)
+        openSettings(app, technical: true)
         reveal(app.buttons["classical-albums"], in: app).tap()
         let concerto = app.buttons.matching(identifier: "album")
             .matching(NSPredicate(format: "label CONTAINS 'Mendelssohn: Violin Concerto'")).firstMatch
@@ -1928,7 +2001,7 @@ final class SettingsScreens: ScreensTestCase {
         let app = try launchAndConnect()
         // Diagnostics checks that the mini player leaves the last row free, so something must be playing.
         let bar = pausedPlayerInLibrary(app)
-        openSettings(app)
+        openSettings(app, technical: true)
         reveal(app.buttons["diagnostics"], in: app).tap()
         XCTAssertTrue(app.staticTexts["Diagnostics"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.descendants(matching: .any)["opensubsonic"].waitForExistence(timeout: 10))
@@ -1948,7 +2021,7 @@ final class SettingsScreens: ScreensTestCase {
     @MainActor
     func testGapless() throws {
         let app = try launchAndConnect()
-        openSettings(app)
+        openSettings(app, technical: true)
         reveal(app.buttons["diagnostics"], in: app).tap()
         XCTAssertTrue(app.descendants(matching: .any)["opensubsonic"].waitForExistence(timeout: 10))
         reveal(app.buttons["gapless-test"], in: app).tap()
@@ -2211,15 +2284,22 @@ class ScreensTestCase: XCTestCase {
         return identified.exists ? identified : app.tabBars["tab-row"].buttons[name]
     }
 
-    /// Settings belongs to the Library stack, behind its toolbar cog.
+    /// Settings belongs to the Library stack, behind its toolbar cog. `technical` turns on Technical Details, so
+    /// that its rows show below the switch. A reset launch turns the switch off again.
     @MainActor
-    func openSettings(_ app: XCUIApplication) {
+    func openSettings(_ app: XCUIApplication, technical: Bool = false) {
         openPlace(app, "Library")
         for _ in 0..<10 where !app.buttons["library-settings"].exists { back(app) }
         let cog = app.buttons["library-settings"]
         XCTAssertTrue(cog.waitForExistence(timeout: 10))
         cog.tap()
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 10))
+        guard technical else { return }
+        let toggle = reveal(app.switches["technical-details"], in: app)
+        if toggle.value as? String != "1" {
+            toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        }
+        XCTAssertEqual(toggle.value as? String, "1", "Technical Details does not turn on")
     }
 
     /// Taps a place in the tab bar.
@@ -2438,6 +2518,25 @@ class ScreensTestCase: XCTestCase {
             return CGRect(
                 x: CGFloat(first) / scale, y: frame.minY, width: CGFloat(last + 1 - first) / scale, height: frame.height
             )
+        }
+
+        /// The mean colour of the coloured pixels in a rect, in points. Text, hairlines and the page ground are
+        /// grey, so only the accent ink counts.
+        func accentInk(in rect: CGRect) -> (red: Int, green: Int, blue: Int)? {
+            let xs = pixels(rect.minX...rect.maxX).clamped(to: 0..<width)
+            let ys = pixels(rect.minY...rect.maxY).clamped(to: 0..<height)
+            var (sum, count) = ([0, 0, 0], 0)
+            for y in ys {
+                for x in xs {
+                    let index = (y * width + x) * 4
+                    let pixel = (0..<3).map { Int(bytes[index + $0]) }
+                    guard let high = pixel.max(), let low = pixel.min(), high - low > 40 else { continue }
+                    sum = zip(sum, pixel).map { $0 + $1 }
+                    count += 1
+                }
+            }
+            guard count > 0 else { return nil }
+            return (sum[0] / count, sum[1] / count, sum[2] / count)
         }
 
         /// The share of pixels in a rect, in points, that differ from the same pixels of another screenshot.

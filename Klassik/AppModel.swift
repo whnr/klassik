@@ -38,11 +38,16 @@ final class AppModel {
     @ObservationIgnored private var reconnect: ConnectionMonitor?
     @ObservationIgnored private var reconnectSync: Task<Void, Never>?
     private let store: CredentialStore
+    private let listener: ListenerData
 
     var client: SubsonicClient? { credentials.map { SubsonicClient(credentials: $0) } }
 
-    init(store: CredentialStore = CredentialStore(), library: Library = Library()) {
+    init(
+        store: CredentialStore = CredentialStore(), library: Library = Library(),
+        listener: ListenerData = ListenerData()
+    ) {
         self.store = store
+        self.listener = listener
         self.library = library
         recordingOrder = RecordingOrder(library: library)
         notes = ListeningNotes(store: nil)
@@ -301,14 +306,29 @@ final class AppModel {
         lastCheck = nil
     }
 
-    /// The playback session reaches the server through the saved login.
+    /// Delete Listening Data in Settings (ADR 0013). The favourite works, the order of favourite recordings, the
+    /// listening notes, the recent searches and the changes that wait of this server and user go. Server stars
+    /// stay, and a read shows them.
+    func deleteListeningData() throws {
+        try listener.delete()
+        openListenerFile()
+        Task { await recordingOrder.refresh() }
+    }
+
+    /// The playback session reaches the server through the saved login. Sign-out opens no file and keeps the
+    /// file of the listener on the device.
     private func updateServer() {
         covers.clear()
         albumCovers.attach(credentials)
         playback.server = client
-        let deviceStore = credentials.map { DeviceStore(server: $0.url, username: $0.username) }
+        let file = listener.attach(credentials)
         // Each UI walk must start with the same local favourites and order.
-        if ProcessInfo.processInfo.arguments.contains("-resetServer") { try? deviceStore?.delete() }
+        if ProcessInfo.processInfo.arguments.contains("-resetServer") { try? file.delete() }
+        openListenerFile()
+    }
+
+    /// The modules that keep listener data share the one copy of the device file.
+    private func openListenerFile() {
         var favourites: (any FavouriteServer)? = client
         #if DEBUG
             // The UI walk reads the fixture library but cannot reach the server for a star.
@@ -316,10 +336,9 @@ final class AppModel {
                 favourites = OfflineFavourites(client: client)
             }
         #endif
-        let file = ListenerFile(store: deviceStore)
-        recordingOrder = RecordingOrder(library: library, file: file, server: favourites)
-        notes = ListeningNotes(file: file)
-        recentSearches = RecentSearches(file: file)
+        recordingOrder = RecordingOrder(library: library, file: listener.file, server: favourites)
+        notes = ListeningNotes(file: listener.file)
+        recentSearches = RecentSearches(file: listener.file)
     }
 
     private func record(_ error: Error) {

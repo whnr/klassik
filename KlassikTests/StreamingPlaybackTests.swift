@@ -124,13 +124,15 @@ struct StreamingPlaybackTests {
         let local = root.appending(path: "reference.\(suffix)")
         try data.write(to: local)
         let file = try AVAudioFile(forReading: local)
-        if suffix == "mp3", let info = MP3GaplessInfo.parse(data) {
-            file.framePosition = info.playableRange(decodedLength: file.length).lowerBound
-        }
+        // A frame position on a large MP3 can land near, not on, the frame; decoding from the start is exact.
+        let delay =
+            suffix == "mp3"
+            ? Int(MP3GaplessInfo.parse(data)?.playableRange(decodedLength: file.length).lowerBound ?? 0)
+            : 0
         let expected = try #require(
-            AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(actual.count)))
+            AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(delay + actual.count)))
         try file.read(into: expected, frameCount: expected.frameCapacity)
-        #expect(actual == Self.samples([expected]))
+        #expect(actual == Array(Self.samples([expected]).dropFirst(delay)))
         #expect(transfer.snapshot.available > capacity)
         #expect(transfer.snapshot.available < data.count)
         #expect(budget.storedBytes <= capacity)

@@ -121,6 +121,11 @@ struct StreamingPlaybackTests {
             }
         }
         let actual = Self.samples(decoded.buffers)
+        let whole = self.transfer("whole.\(suffix)", length: data.count)
+        whole.append(data)
+        whole.finish(nil)
+        let unbounded = try await Self.prefix(of: whole, suffix: suffix, frames: actual.count)
+        #expect(actual == unbounded, "The window changes no sample")
         let local = root.appending(path: "reference.\(suffix)")
         try data.write(to: local)
         let file = try AVAudioFile(forReading: local)
@@ -132,7 +137,13 @@ struct StreamingPlaybackTests {
         let expected = try #require(
             AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(delay + actual.count)))
         try file.read(into: expected, frameCount: expected.frameCapacity)
-        #expect(actual == Array(Self.samples([expected]).dropFirst(delay)))
+        let complete = Array(Self.samples([expected]).dropFirst(delay))
+        #expect(actual == complete)
+        let info = MP3GaplessInfo.parse(data)
+        let shift = Self.shift(of: unbounded, in: complete).map(String.init) ?? "none"
+        print(
+            "bounded \(suffix) reference: shift=\(shift), length=\(file.length), delay=\(delay), "
+                + "header=\(info.map { "\($0)" } ?? "none")")
         #expect(transfer.snapshot.available > capacity)
         #expect(transfer.snapshot.available < data.count)
         #expect(budget.storedBytes <= capacity)
@@ -141,6 +152,32 @@ struct StreamingPlaybackTests {
         print(
             "bounded \(suffix): received=\(transfer.snapshot.available), stored=\(budget.storedBytes), frames=\(actual.count)"
         )
+    }
+
+    /// The first `frames` decoded frames of a stream.
+    static func prefix(of transfer: TrackTransfer, suffix: String, frames: Int) async throws -> [Float] {
+        let buffers = try await Task.detached {
+            let decoder = try StreamDecoder(transfer: transfer, suffix: suffix, cancelled: CancelFlag())
+            var buffers: [AVAudioPCMBuffer] = []
+            var remaining = frames
+            while remaining > 0, let buffer = try decoder.read(frames: AVAudioFrameCount(min(remaining, 11_025))) {
+                remaining -= Int(buffer.frameLength)
+                buffers.append(buffer)
+            }
+            return Buffers(buffers)
+        }.value.buffers
+        return Array(samples(buffers).prefix(frames))
+    }
+
+    /// The offset at which `samples` starts inside `reference`, within two MP3 frames either way.
+    static func shift(of samples: [Float], in reference: [Float]) -> Int? {
+        let probe = Array(samples.prefix(64))
+        return (-2304...2304).first { offset in
+            probe.indices.allSatisfy { index in
+                let other = index + offset
+                return reference.indices.contains(other) && reference[other] == probe[index]
+            }
+        }
     }
 
     static func samples(_ buffers: [AVAudioPCMBuffer]) -> [Float] {

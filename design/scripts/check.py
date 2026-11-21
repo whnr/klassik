@@ -4,7 +4,7 @@
 A record that replaces part of another must be answered: the old record links back, and its index row names it.
 
 Usage: design/scripts/check.py
-Exits 1 on a failed pair or a broken link. Known pairs below target are listed but do not fail.
+Exits 1 on a failed pair or a broken link.
 """
 
 import json
@@ -17,8 +17,6 @@ ACCENTS = ("claret", "green", "plum")
 ROOMS = ("light", "lightHighContrast", "dark", "darkHighContrast")
 GROUNDS = ("background.page", "background.row", "background.grouped", "background.elevated")
 SWIPES = ("swipe.playNext", "swipe.addToQueue", "swipe.download", "swipe.favourite")
-
-KNOWN = set()
 
 
 def luminance(hex_colour):
@@ -65,7 +63,7 @@ def pairs(room):
 
 
 def check_contrast():
-    failures, known = [], []
+    failures = []
     for accent in ACCENTS:
         palette = json.loads((ROOT / f"design/accent-{accent}.tokens.json").read_text())["palette"]
         for room in ROOMS:
@@ -76,8 +74,8 @@ def check_contrast():
                 if r + 0.005 >= target:
                     continue
                 line = f"{accent} {room}: {fg} on {bg} {r:.2f}:1, target {target}:1"
-                (known if (room, fg, bg) in KNOWN else failures).append(line)
-    return failures, known
+                failures.append(line)
+    return failures
 
 
 def check_links():
@@ -111,15 +109,13 @@ def check_chain():
 
 
 def main():
-    failures, known = check_contrast()
+    failures = check_contrast()
     broken = check_links() + check_chain()
-    for line in known:
-        print(f"known, sz-rs30.1.83.19.17: {line}")
     for line in failures:
         print(f"FAIL contrast: {line}")
     for line in broken:
         print(f"FAIL link: {line}")
-    print(f"contrast: {len(failures)} failed, {len(known)} known; links: {len(broken)} broken")
+    print(f"contrast: {len(failures)} failed; links: {len(broken)} broken")
     return 1 if failures or broken else 0
 
 

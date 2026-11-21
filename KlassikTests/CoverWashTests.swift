@@ -89,6 +89,19 @@ struct CoverWashTests {
         }
     }
 
+    @Test(arguments: [false, true])
+    func aPortraitWithoutAFavouriteKeepsTheTextOnlyScrim(increased: Bool) {
+        let picture = PictureScrim.RGB(red: 1, green: 1, blue: 1)
+        let environment = EnvironmentValues()
+        let marks = PersonHero.pictureMarks(showsFavourite: false, environment: environment)
+        let visibleMarks = PersonHero.pictureMarks(showsFavourite: true, environment: environment)
+        let textOnly = PictureScrim.opacity(over: picture, increasedContrast: increased)
+        #expect(marks.isEmpty)
+        #expect(visibleMarks.count == 2)
+        #expect(PictureScrim.opacity(over: picture, increasedContrast: increased, marks: marks) == textOnly)
+        #expect(PictureScrim.opacity(over: picture, increasedContrast: increased, marks: visibleMarks) > textOnly)
+    }
+
     @Test func titleAttachmentUsesTheWashColour() {
         let original = FermataShape.image(em: 24, isSet: false, scale: 2, scheme: .light, contrast: .standard)
         let adjusted = FermataShape.image(

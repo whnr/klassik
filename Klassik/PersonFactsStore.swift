@@ -260,9 +260,9 @@ final class PersonFactsStore {
     /// The listener's choice from a pick list. Nil is "None of these".
     func choose(_ match: PersonMatch?, forComposer tag: String) async {
         pin(tag)
-        cache.reopenedPickers.remove(tag)
         guard let match else {
             cache.composers[tag] = .unknown
+            cache.reopenedPickers.remove(tag)
             save()
             return
         }
@@ -270,6 +270,7 @@ final class PersonFactsStore {
         defer { loading.remove(tag) }
         do {
             cache.composers[tag] = try await load(match.qid) ? .person(match.qid) : .unknown
+            cache.reopenedPickers.remove(tag)
             lastError = nil
         } catch {
             lastError = error.localizedDescription

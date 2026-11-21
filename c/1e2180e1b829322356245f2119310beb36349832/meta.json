@@ -1,7 +1,0 @@
-{
-  "sha": "1e2180e1b829322356245f2119310beb36349832",
-  "branch": "codex-sz-rs30.1.135",
-  "path": "codex-sz-rs30.1.135",
-  "subject": "[sz-rs30.1.135] Fix the walk message for Search order The assert fails when works come before composers, so the message names that case.",
-  "ts": 1795245242
-}

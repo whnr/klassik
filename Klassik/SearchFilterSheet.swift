@@ -93,14 +93,9 @@ struct FilterSheet: View {
     /// The title, the recordings that remain, and Done (search.html .fsheet .head).
     private func head(total: Int) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: Layout.filterHeadGap) {
-            Button(action: back) {
-                Image(systemName: "chevron.backward")
-                    .frame(minWidth: Layout.capsuleHeight, minHeight: Layout.capsuleHeight)
-                    .contentShape(Rectangle())
-            }
-            .typeStyle(.body)
-            .accessibilityLabel("Back")
-            .accessibilityIdentifier("filter-back")
+            Button("Back", action: back)
+                .typeStyle(.body)
+                .accessibilityIdentifier("filter-back")
             Text("Filters")
                 .typeStyle(.headline)
                 .foregroundStyle(Palette.textPrimary)

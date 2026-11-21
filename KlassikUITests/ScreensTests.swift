@@ -227,30 +227,6 @@ final class PlacesScreens: ScreensTestCase {
 
 /// The pages that the lookup fills.
 final class BrowseScreens: ScreensTestCase {
-    @MainActor
-    func testPerformerSearchSpacing() throws {
-        let app = try launchAndConnect(openComposers: false)
-        openPlace(app, "Search")
-        app.buttons["performers"].tap()
-        let field = app.textFields["performer-search"]
-        XCTAssertTrue(field.waitForExistence(timeout: 10))
-        let performer = app.buttons.matching(identifier: "performer").firstMatch
-        XCTAssertTrue(performer.waitForExistence(timeout: 10))
-        // The text starts after the page margin, field inset, magnifier and gap.
-        XCTAssertEqual(
-            field.frame.minX,
-            app.frame.minX + Layout.centredEdge + Layout.searchFieldLeading
-                + Layout.searchFieldIcon + Layout.searchFieldGap,
-            accuracy: 1, "The performer field lost its leading margin")
-        XCTAssertEqual(
-            field.frame.maxX, app.frame.maxX - Layout.centredEdge - Layout.searchFieldTrailing,
-            accuracy: 1, "The performer field lost its trailing margin")
-        XCTAssertGreaterThanOrEqual(
-            performer.frame.minY - (field.frame.midY + Layout.searchFieldHeight / 2),
-            Layout.searchRowBottom - 1, "The performer field lost its lower gap")
-        snap(app, "06g-performer-search-spacing")
-    }
-
     /// The field at the top finds works, people and albums in sections. Back from a result keeps the search; a tab
     /// opens Search empty (ADR 0025, 0029).
     @MainActor
@@ -349,6 +325,16 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertTrue(done.waitForExistence(timeout: 10))
         XCTAssertGreaterThan(done.frame.minY, app.frame.height / 3, "The sheet is not at the medium detent")
         XCTAssertEqual(app.staticTexts["filter-total"].label, "4\u{00A0}recordings")
+        // The head and the body share one inset: Back leads the head, the title follows it, and the note and the
+        // kinds start under Back; the kinds reach to Done (search.html .fsheet).
+        let back = app.buttons["filter-back"]
+        let title = app.staticTexts["Filters"]
+        XCTAssertGreaterThan(title.frame.minX, back.frame.maxX, "The title does not follow Back")
+        let kinds = app.descendants(matching: .any)["filter-scopes"]
+        for element in [app.staticTexts["filter-note"], kinds] {
+            XCTAssertEqual(element.frame.minX, back.frame.minX, accuracy: 2, "\(element) does not start under Back")
+        }
+        XCTAssertEqual(kinds.frame.maxX, done.frame.maxX, accuracy: 2, "The kinds end before the sheet inset")
         snap(app, "19d-search-filter-sheet")
 
         // The text found only Chopin, so other composers leave nothing and do not show.
@@ -517,11 +503,17 @@ final class BrowseScreens: ScreensTestCase {
             several.tap()
             let listed = app.buttons.matching(identifier: "chronology-listed-work").firstMatch
             XCTAssertTrue(listed.waitForExistence(timeout: 10), "A row of several works lists none")
+            // The sheet head has a leading title and a plain Done on its trailing edge (specimen.js K.sheet).
+            let title = app.staticTexts["sheet-title"]
+            let done = app.buttons["sheet-done"]
+            XCTAssertTrue(title.exists, "The sheet has no head")
+            XCTAssertLessThan(title.frame.minX, app.frame.width / 4, "The sheet title is not leading")
+            XCTAssertGreaterThan(done.frame.minX, app.frame.width / 2, "Done is not on the trailing edge")
             snap(app, "02d-chronology-listed")
-            app.navigationBars.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            title.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
                 .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.05)))
             XCTAssertTrue(listed.isHittable)
-            XCTAssertLessThan(app.navigationBars.firstMatch.frame.minY, app.frame.minY + 100)
+            XCTAssertLessThan(title.frame.minY, app.frame.minY + 100)
             snap(app, "02g-chronology-listed-full")
             listed.tap()
             XCTAssertTrue(app.buttons.matching(identifier: "recording").firstMatch.waitForExistence(timeout: 10))
@@ -1125,9 +1117,8 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(work.isSelected, "The row of the playing work is not marked")
         work.tap()
         XCTAssertTrue(app.buttons.matching(identifier: "recording").firstMatch.waitForExistence(timeout: 10))
-        openPlace(app, "Search")
-        app.buttons["performers"].tap()
-        XCTAssertTrue(app.navigationBars["Performers"].waitForExistence(timeout: 10))
+        openPerformer(app, "Carl Fixture")
+        XCTAssertTrue(app.navigationBars["Carl Fixture"].waitForExistence(timeout: 10))
         if name != "Search" { openPlace(app, name) }
         let heading = app.navigationBars.firstMatch.identifier
         openPlayer(app)
@@ -1142,6 +1133,26 @@ final class PlaybackScreens: ScreensTestCase {
         expectPlayerClosed(app)
         XCTAssertTrue(tab(app, name).isSelected)
         XCTAssertEqual(app.navigationBars.firstMatch.identifier, heading)
+    }
+
+    /// Search is the way to a performer page: the results list every performer whose name matches.
+    @MainActor
+    private func openPerformer(_ app: XCUIApplication, _ name: String) {
+        openPlace(app, "Search")
+        let field = app.textFields["search-field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        field.tap()
+        field.typeText(name + "\n")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5), "Search does not close the keyboard")
+        let person = app.buttons.matching(identifier: "search-person").firstMatch
+        XCTAssertTrue(person.waitForExistence(timeout: 10), "Search finds no \(name)")
+        let page = app.navigationBars[name]
+        // A tap while the results still settle does not open the row, so the walk taps again.
+        for _ in 0..<3 where !page.exists {
+            if person.isHittable { person.tap() }
+            _ = page.waitForExistence(timeout: 5)
+        }
+        XCTAssertTrue(page.exists, "The result did not open \(name)")
     }
 
     @MainActor
@@ -1346,6 +1357,11 @@ final class PlaybackScreens: ScreensTestCase {
             XCTAssertEqual(element.frame.width, original.width, accuracy: 1)
             XCTAssertEqual(element.frame.height, original.height, accuracy: 1)
         }
+        // The playing row holds one round button on its top edge, in place of the chevron (specimen `.row.top`).
+        let slot = first.buttons["recording-slot"]
+        XCTAssertTrue(slot.exists, "The playing row has no round button")
+        XCTAssertLessThan(slot.frame.midY, first.frame.midY, "The round button sits at the centre of the row")
+        XCTAssertLessThanOrEqual(slot.frame.maxX, first.frame.maxX + 1, "The round button leaves the row")
         snap(app, "04c-work-playing")
         play.tap()
         XCTAssertTrue(eventually(timeout: 10) { play.label == "Resume" }, "The pill reads \(play.label) after a pause")
@@ -1521,33 +1537,16 @@ final class PlaybackScreens: ScreensTestCase {
 
     @MainActor
     func testPerformers() throws {
-        let app = try launchAndConnect(arguments: ["-offlineFavourites"])
-        openPlace(app, "Search")
-        app.buttons["performers"].tap()
-        let performer = app.buttons.matching(identifier: "performer").firstMatch
-        XCTAssertTrue(performer.waitForExistence(timeout: 10))
-        snap(app, "06a-performers")
-        let rows = app.buttons.matching(identifier: "performer")
-        let all = rows.count
-        let field = app.textFields["performer-search"]
-        XCTAssertTrue(field.waitForExistence(timeout: 10), "No performer search field")
-        field.tap()
-        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5), "The performer field opens no keyboard")
-        field.typeText("Carl")
-        XCTAssertTrue(eventually(timeout: 5) { rows.count == 1 }, "\(rows.count) performers match Carl")
-        snap(app, "06e-performer-search")
-        app.buttons["search-clear"].tap()
-        XCTAssertTrue(eventually(timeout: 5) { rows.count == all }, "The clear button left \(rows.count) performers")
-        field.typeText("\n")
-        XCTAssertTrue(eventually(timeout: 5) { !app.keyboards.firstMatch.exists }, "The keyboard stays up")
-        let title = drawn(app.staticTexts["page-heading"].firstMatch, in: app)
+        let app = try launchAndConnect(openComposers: false, arguments: ["-offlineFavourites"])
+        // The performer name must sit where a pushed page has its title. The ink of "Favourites" ends on the
+        // baseline, as the name does: a descender would move the ink bottom.
+        app.buttons["library-favourites"].tap()
+        let heading = app.staticTexts["page-heading"].firstMatch
+        XCTAssertTrue(heading.waitForExistence(timeout: 10))
+        let title = drawn(heading, in: app)
+        openPerformer(app, "Carl Fixture")
         let cover = app.buttons.matching(identifier: "performer-album").firstMatch
-        // A tap while the list still settles does not open the row, so the walk taps again.
-        for _ in 0..<3 where !cover.exists {
-            if performer.isHittable { performer.tap() }
-            _ = cover.waitForExistence(timeout: 5)
-        }
-        XCTAssertTrue(cover.exists)
+        XCTAssertTrue(cover.waitForExistence(timeout: 10))
         snap(app, "06b-performer")
         checkPerformerHead(app, titleBottom: title.maxY)
         let mark = app.buttons["favourite-performer"]
@@ -1981,6 +1980,11 @@ final class SettingsScreens: ScreensTestCase {
 
         reveal(app.buttons["swipe-actions"], in: app).tap()
         XCTAssertTrue(app.navigationBars["Swipe Actions"].waitForExistence(timeout: 10))
+        // The list shows the buttons as the row does: Play Next left of Add to Queue (tokens.html SWIPE).
+        let playNext = app.staticTexts["Play Next"].firstMatch
+        let addToQueue = app.staticTexts["Add to Queue"].firstMatch
+        XCTAssertTrue(playNext.waitForExistence(timeout: 10) && addToQueue.exists, "No swipe left actions")
+        XCTAssertLessThan(playNext.frame.minY, addToQueue.frame.minY, "Add to Queue is above Play Next")
         snap(app, "08b-swipe-actions")
         back(app)
 

@@ -1,22 +1,5 @@
 import SwiftUI
 
-/// Plays works in random order. The movements of each work stay in order.
-struct ShuffleButton: View {
-    @Environment(AppModel.self) private var model
-    let works: [WorkIndex.Work]
-
-    var body: some View {
-        Button("Shuffle Works", systemImage: "shuffle") {
-            let items = works.shuffled().compactMap { work in
-                model.recordingOrder.reference(of: work).map { QueueItem(work: work, recording: $0) }
-            }
-            model.playback.play(queue: items)
-        }
-        .disabled(works.isEmpty)
-        .accessibilityIdentifier("shuffle")
-    }
-}
-
 /// The name of the favourite action. On a favourite it takes the favourite away.
 enum FavouriteAction {
     static func title(isSet: Bool) -> String { isSet ? "Unfavourite" : "Favourite" }
@@ -204,11 +187,8 @@ struct WorkRow: View {
         if let album = work.albumKey.flatMap({ model.library.index.album($0) }) {
             NavigationLink(value: Page.album(album.id)) {
                 VStack(alignment: .leading, spacing: gap) {
-                    HStack {
-                        MarkedTitle(title: album.title, isFavourite: model.recordingOrder.isFavourite(album: album.id))
-                            .ink()
-                        OfflineHint(isOffline: model.tracks.isOffline(album.recording))
-                    }
+                    MarkedTitle(title: album.title, isFavourite: model.recordingOrder.isFavourite(album: album.id))
+                        .ink()
                     Text(WorkIndex.Recording.count(album.tracks.count, "track"))
                         .typeStyle(.footnote)
                         .foregroundStyle(Palette.textSecondary)
@@ -219,11 +199,8 @@ struct WorkRow: View {
         } else {
             NavigationLink(value: Page.work(work.id)) {
                 VStack(alignment: .leading, spacing: gap) {
-                    HStack {
-                        MarkedTitle(title: work.title, isFavourite: model.recordingOrder.isFavourite(work))
-                            .ink()
-                        OfflineHint(isOffline: work.recordings.contains { model.tracks.isOffline($0) })
-                    }
+                    MarkedTitle(title: work.title, isFavourite: model.recordingOrder.isFavourite(work))
+                        .ink()
                     Text(Self.detail(of: work, composed: model.enrichment.composed(work)?.span.text))
                         .typeStyle(.footnote)
                         .foregroundStyle(Palette.textSecondary)
@@ -300,11 +277,12 @@ struct WorkView: View {
                     NavigationLink(value: Page.recording(work: work.id, recording: recording.id)) {
                         RecordingRow(
                             recording: recording, isFavourite: row.isFavourite, reason: row.reason,
-                            isOffline: model.tracks.isOffline(recording),
                             isPlaying: isPlaying)
                     }
+                    // The row draws its own trailing control on the top edge (specimen `.row.top`).
+                    .navigationLinkIndicatorVisibility(.hidden)
                     // Tint identifies the playing recording while the listener browses.
-                    .listRowBackground(isPlaying ? Palette.tint.color.opacity(0.12) : Color.clear)
+                    .playingRow(isPlaying)
                     .itemActions(QueueItem(work: work, recording: recording), downloads: true, favourite: true)
                     .accessibilityIdentifier("recording")
                     .moveDisabled(!row.isFavourite)
@@ -418,7 +396,6 @@ private struct RecordingRow: View {
     let recording: WorkIndex.Recording
     let isFavourite: Bool
     let reason: String?
-    let isOffline: Bool
     let isPlaying: Bool
     @Environment(AppModel.self) private var model
     @ScaledMetric(relativeTo: .body) private var cover = Layout.rowCover
@@ -458,15 +435,20 @@ private struct RecordingRow: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            // Every row keeps the room of the slot, so the playing row tints in place and its text does not rewrap.
-            // The offline mark sits in that room too: playback stores the recording, and the mark then appears.
-            VStack(spacing: gap) {
-                slot
-                    .opacity(isPlaying ? 1 : 0)
-                    .disabled(!isPlaying)
-                    .accessibilityHidden(!isPlaying)
-                OfflineHint(isOffline: isOffline)
+            // Every row keeps the room of the round button, so the playing row tints in place and its text does not
+            // rewrap.
+            Group {
+                if isPlaying {
+                    slot
+                } else {
+                    Image(systemName: "chevron.right")
+                        .typeStyle(.footnote)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(Palette.textTertiary)
+                        .accessibilityHidden(true)
+                }
             }
+            .frame(width: Layout.roundButton, alignment: .trailing)
         }
     }
 
@@ -481,17 +463,20 @@ private struct RecordingRow: View {
         }
     }
 
-    /// The slot at the trailing edge of the playing row pauses and resumes it, so the listener need not leave the page.
+    /// The round button of the playing row pauses and resumes it, so the listener need not leave the page.
     private var slot: some View {
         let player = model.playback
         return Button {
             player.togglePause()
         } label: {
             Image(systemName: player.isPaused ? "play.fill" : "pause.fill")
-                .typeStyle(.title3)
+                .typeStyle(.caption1)
                 .foregroundStyle(Palette.tint)
-                .frame(width: Measure.hitTarget, height: Measure.hitTarget)
-                .contentShape(.rect)
+                .frame(width: Layout.roundButton, height: Layout.roundButton)
+                .background(Palette.fillQuiet, in: .circle)
+                .contentShape(.rect.inset(by: (Layout.roundButton - Measure.hitTarget) / 2))
+                // The button must not make the row taller than its text (specimen `.row .round`).
+                .padding(.vertical, Layout.roundInRow)
         }
         .buttonStyle(.borderless)
         .accessibilityLabel(player.isPaused ? "Resume" : "Pause")
@@ -899,7 +884,6 @@ private struct MovementRow: View {
     private var label: some View {
         HStack {
             MovementTitle(title: title, style: .body)
-            OfflineHint(isOffline: model.tracks.isOffline(song))
             if let duration = song.duration {
                 Text(Duration.seconds(duration).formatted(.time(pattern: .minuteSecond)))
                     .foregroundStyle(Palette.textSecondary)

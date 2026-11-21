@@ -4,7 +4,7 @@ Klassik is a classical music player for iPhone. It plays your own library from a
 
 ## Opinions
 
-- The work is the unit. Play starts a whole work, gapless, and shuffle mixes works, not movements.
+- The work is the unit. Play starts a whole work, gapless.
 - Your tags win. MusicBrainz and Wikidata only fill gaps, such as composition dates. Klassik keeps no catalogue of its own; it links you to MusicBrainz to fix missing data there.
 - Standard fields only. Klassik uses the OpenSubsonic API as specified, with no server-specific features.
 - Plain iOS. Klassik uses system components and adds no design of its own.

@@ -1,7 +1,7 @@
 {
-  "sha": "89972d4fb3cf8b0e578756390382f7f3c5d30fa9",
+  "sha": "d48aa7dc85d265ca796b5db778c688c14ea3a0cb",
   "branch": "claude-testflight-gate",
   "path": "claude-testflight-gate",
-  "subject": "[sz-rs30.1.132] Name the walk run instead of inline shots",
-  "ts": 1795207957
+  "subject": "[sz-rs30.1.132] Fail closed on a one-quote version line",
+  "ts": 1795245291
 }

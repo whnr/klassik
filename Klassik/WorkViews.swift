@@ -279,8 +279,10 @@ struct WorkView: View {
                             recording: recording, isFavourite: row.isFavourite, reason: row.reason,
                             isPlaying: isPlaying)
                     }
+                    // The row draws its own trailing control on the top edge (specimen `.row.top`).
+                    .navigationLinkIndicatorVisibility(.hidden)
                     // Tint identifies the playing recording while the listener browses.
-                    .listRowBackground(isPlaying ? Palette.tint.color.opacity(0.12) : Color.clear)
+                    .playingRow(isPlaying)
                     .itemActions(QueueItem(work: work, recording: recording), downloads: true, favourite: true)
                     .accessibilityIdentifier("recording")
                     .moveDisabled(!row.isFavourite)
@@ -433,11 +435,20 @@ private struct RecordingRow: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            // Every row keeps the room of the slot, so the playing row tints in place and its text does not rewrap.
-            slot
-                .opacity(isPlaying ? 1 : 0)
-                .disabled(!isPlaying)
-                .accessibilityHidden(!isPlaying)
+            // Every row keeps the room of the round button, so the playing row tints in place and its text does not
+            // rewrap.
+            Group {
+                if isPlaying {
+                    slot
+                } else {
+                    Image(systemName: "chevron.right")
+                        .typeStyle(.footnote)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(Palette.textTertiary)
+                        .accessibilityHidden(true)
+                }
+            }
+            .frame(width: Layout.roundButton, alignment: .trailing)
         }
     }
 
@@ -452,17 +463,20 @@ private struct RecordingRow: View {
         }
     }
 
-    /// The slot at the trailing edge of the playing row pauses and resumes it, so the listener need not leave the page.
+    /// The round button of the playing row pauses and resumes it, so the listener need not leave the page.
     private var slot: some View {
         let player = model.playback
         return Button {
             player.togglePause()
         } label: {
             Image(systemName: player.isPaused ? "play.fill" : "pause.fill")
-                .typeStyle(.title3)
+                .typeStyle(.caption1)
                 .foregroundStyle(Palette.tint)
-                .frame(width: Measure.hitTarget, height: Measure.hitTarget)
-                .contentShape(.rect)
+                .frame(width: Layout.roundButton, height: Layout.roundButton)
+                .background(Palette.fillQuiet, in: .circle)
+                .contentShape(.rect.inset(by: (Layout.roundButton - Measure.hitTarget) / 2))
+                // The button must not make the row taller than its text (specimen `.row .round`).
+                .padding(.vertical, Layout.roundInRow)
         }
         .buttonStyle(.borderless)
         .accessibilityLabel(player.isPaused ? "Resume" : "Pause")

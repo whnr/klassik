@@ -325,6 +325,16 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertTrue(done.waitForExistence(timeout: 10))
         XCTAssertGreaterThan(done.frame.minY, app.frame.height / 3, "The sheet is not at the medium detent")
         XCTAssertEqual(app.staticTexts["filter-total"].label, "4\u{00A0}recordings")
+        // The head and the body share one inset: Back leads the head, the title follows it, and the note and the
+        // kinds start under Back; the kinds reach to Done (search.html .fsheet).
+        let back = app.buttons["filter-back"]
+        let title = app.staticTexts["Filters"]
+        XCTAssertGreaterThan(title.frame.minX, back.frame.maxX, "The title does not follow Back")
+        let kinds = app.descendants(matching: .any)["filter-scopes"]
+        for element in [app.staticTexts["filter-note"], kinds] {
+            XCTAssertEqual(element.frame.minX, back.frame.minX, accuracy: 2, "\(element) does not start under Back")
+        }
+        XCTAssertEqual(kinds.frame.maxX, done.frame.maxX, accuracy: 2, "The kinds end before the sheet inset")
         snap(app, "19d-search-filter-sheet")
 
         // The text found only Chopin, so other composers leave nothing and do not show.
@@ -493,11 +503,17 @@ final class BrowseScreens: ScreensTestCase {
             several.tap()
             let listed = app.buttons.matching(identifier: "chronology-listed-work").firstMatch
             XCTAssertTrue(listed.waitForExistence(timeout: 10), "A row of several works lists none")
+            // The sheet head has a leading title and a plain Done on its trailing edge (specimen.js K.sheet).
+            let title = app.staticTexts["sheet-title"]
+            let done = app.buttons["sheet-done"]
+            XCTAssertTrue(title.exists, "The sheet has no head")
+            XCTAssertLessThan(title.frame.minX, app.frame.width / 4, "The sheet title is not leading")
+            XCTAssertGreaterThan(done.frame.minX, app.frame.width / 2, "Done is not on the trailing edge")
             snap(app, "02d-chronology-listed")
-            app.navigationBars.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            title.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
                 .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.05)))
             XCTAssertTrue(listed.isHittable)
-            XCTAssertLessThan(app.navigationBars.firstMatch.frame.minY, app.frame.minY + 100)
+            XCTAssertLessThan(title.frame.minY, app.frame.minY + 100)
             snap(app, "02g-chronology-listed-full")
             listed.tap()
             XCTAssertTrue(app.buttons.matching(identifier: "recording").firstMatch.waitForExistence(timeout: 10))
@@ -1378,6 +1394,11 @@ final class PlaybackScreens: ScreensTestCase {
             XCTAssertEqual(element.frame.width, original.width, accuracy: 1)
             XCTAssertEqual(element.frame.height, original.height, accuracy: 1)
         }
+        // The playing row holds one round button on its top edge, in place of the chevron (specimen `.row.top`).
+        let slot = first.buttons["recording-slot"]
+        XCTAssertTrue(slot.exists, "The playing row has no round button")
+        XCTAssertLessThan(slot.frame.midY, first.frame.midY, "The round button sits at the centre of the row")
+        XCTAssertLessThanOrEqual(slot.frame.maxX, first.frame.maxX + 1, "The round button leaves the row")
         snap(app, "04c-work-playing")
         play.tap()
         XCTAssertTrue(eventually(timeout: 10) { play.label == "Resume" }, "The pill reads \(play.label) after a pause")

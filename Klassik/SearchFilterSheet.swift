@@ -86,6 +86,8 @@ struct FilterSheet: View {
         }
         .grounds()
         .contentMargins(.horizontal, Layout.filterHeadInset, for: .scrollContent)
+        // The note follows the head directly (search.html `.fsheet .body` has no top padding).
+        .contentMargins(.top, 0, for: .scrollContent)
         .environment(\.defaultMinListRowHeight, 0)
         .environment(\.defaultMinListHeaderHeight, 0)
         .safeAreaInset(edge: .top, spacing: 0) {

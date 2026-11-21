@@ -1,0 +1,7 @@
+{
+  "sha": "1b5e5e2e76f2ab1997db9344d3bcd8c7732312a2",
+  "branch": "claude-slice-19",
+  "path": "claude-slice-19",
+  "subject": "[sz-rs30.1.105.19] Fix hidden null node, test recent search delete",
+  "ts": 1795229740
+}

@@ -12,8 +12,8 @@ struct MP3GaplessInfo: Equatable, Sendable {
     var validSamples: Int { frameCount * samplesPerFrame - encoderDelay - padding }
 
     /// The frames of a decoded file that belong to the recording.
-    /// iOS ignores this header. Its decoders return every frame and remove only their own decoder delay,
-    /// so the recording starts after the encoder delay.
+    /// iOS applies this header to some files and then decodes only the recording. For other files its decoders
+    /// return every frame and remove only their own decoder delay, so the recording starts after the encoder delay.
     func playableRange(decodedLength: Int64) -> Range<Int64> {
         let valid = Int64(validSamples)
         guard decodedLength > valid else { return 0..<decodedLength }

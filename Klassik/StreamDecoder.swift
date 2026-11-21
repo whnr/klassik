@@ -47,7 +47,7 @@ final class StreamDecoder: @unchecked Sendable {
         let length = try transfer.length(timeout: Self.readTimeout, isCancelled: { cancelled.isSet })
         guard let length else { throw Failure.unknownLength }
         let context = Context(transfer: transfer, length: length, cancelled: cancelled)
-        let playable = try Self.declaredRange(suffix: suffix, context: context)
+        let header = try Self.header(suffix: suffix, context: context)
         var opened: AudioFileID?
         let type = suffix == "flac" ? kAudioFileFLACType : kAudioFileMP3Type
         let status = AudioFileOpenWithCallbacks(
@@ -90,7 +90,7 @@ final class StreamDecoder: @unchecked Sendable {
         self.file = opened
         self.decoder = wrapped
         self.format = format
-        self.playable = playable
+        self.playable = header?.playable(decodedLength: Self.length(of: wrapped))
     }
 
     deinit {
@@ -170,23 +170,49 @@ final class StreamDecoder: @unchecked Sendable {
         return part
     }
 
-    /// The frames of the recording, from the header bytes alone. The decoder must never learn the end of a track
+    /// The header that declares the frames of the recording. The decoder must never learn the end of a track
     /// from missing bytes.
-    private static func declaredRange(suffix: String, context: Context) throws -> Range<Int64>? {
+    private enum Header {
+        case mp3(MP3GaplessInfo)
+        case flac(totalSamples: Int64)
+
+        /// The decoded frames that belong to the recording. `decodedLength` is the decoder's own frame count, which
+        /// AVAudioFile also reports for a complete file, so both paths cut the same frames.
+        func playable(decodedLength: Int64?) -> Range<Int64> {
+            switch self {
+            case .mp3(let info):
+                // Without a count, assume a decoder that removes only its own delay: that length exceeds the recording.
+                return info.playableRange(
+                    decodedLength: decodedLength ?? Int64(info.frameCount * info.samplesPerFrame))
+            case .flac(let totalSamples):
+                return 0..<totalSamples
+            }
+        }
+    }
+
+    /// Reads the header before the decoder opens, while a bounded window still holds the first bytes.
+    private static func header(suffix: String, context: Context) throws -> Header? {
         switch suffix {
         case "mp3":
             let head = try context.bytes(at: 0, count: 10)
             let tag = MP3GaplessInfo.id3Size(head)
             let frames = try context.bytes(at: Int64(tag), count: MP3GaplessInfo.headerSearch)
-            guard let info = MP3GaplessInfo.parse(afterTag: frames) else { return nil }
-            // iOS decoders remove only their own delay, so the decoded length exceeds the recording.
-            return info.playableRange(decodedLength: Int64(info.frameCount * info.samplesPerFrame))
+            return MP3GaplessInfo.parse(afterTag: frames).map(Header.mp3)
         case "flac":
             let head = try context.bytes(at: 0, count: 42)
-            return FLACStreamInfo.parse(head).map { 0..<$0.totalSamples }
+            return FLACStreamInfo.parse(head).map { Header.flac(totalSamples: $0.totalSamples) }
         default:
             return nil
         }
+    }
+
+    /// The decoder's frame count. iOS applies the MP3 gapless header to some files and then reports only the
+    /// recording; for others it reports every decoded frame.
+    private static func length(of decoder: ExtAudioFileRef) -> Int64? {
+        var frames: Int64 = 0
+        var size = UInt32(MemoryLayout<Int64>.size)
+        let status = ExtAudioFileGetProperty(decoder, kExtAudioFileProperty_FileLengthFrames, &size, &frames)
+        return status == noErr && frames > 0 ? frames : nil
     }
 
     /// What the callbacks share with the decoder. Only the worker queue touches it.

@@ -129,21 +129,16 @@ struct StreamingPlaybackTests {
         let local = root.appending(path: "reference.\(suffix)")
         try data.write(to: local)
         let file = try AVAudioFile(forReading: local)
-        // A frame position on a large MP3 can land near, not on, the frame; decoding from the start is exact.
-        let delay =
-            suffix == "mp3"
-            ? Int(MP3GaplessInfo.parse(data)?.playableRange(decodedLength: file.length).lowerBound ?? 0)
-            : 0
+        let complete: Range<Int64>? =
+            suffix == "mp3" ? MP3GaplessInfo.parse(data)?.playableRange(decodedLength: file.length) : 0..<file.length
+        file.framePosition = complete?.lowerBound ?? 0
         let expected = try #require(
-            AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(delay + actual.count)))
+            AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(actual.count)))
         try file.read(into: expected, frameCount: expected.frameCapacity)
-        let complete = Array(Self.samples([expected]).dropFirst(delay))
-        #expect(actual == complete)
-        let info = MP3GaplessInfo.parse(data)
-        let shift = Self.shift(of: unbounded, in: complete).map(String.init) ?? "none"
-        print(
-            "bounded \(suffix) reference: shift=\(shift), length=\(file.length), delay=\(delay), "
-                + "header=\(info.map { "\($0)" } ?? "none")")
+        #expect(actual == Self.samples([expected]))
+        // The stream cuts the same frames as the complete-file path, which keeps both on one timeline.
+        let declared = try StreamDecoder(transfer: whole, suffix: suffix, cancelled: CancelFlag()).playable
+        #expect(declared == complete)
         #expect(transfer.snapshot.available > capacity)
         #expect(transfer.snapshot.available < data.count)
         #expect(budget.storedBytes <= capacity)
@@ -167,17 +162,6 @@ struct StreamingPlaybackTests {
             return Buffers(buffers)
         }.value.buffers
         return Array(samples(buffers).prefix(frames))
-    }
-
-    /// The offset at which `samples` starts inside `reference`, within two MP3 frames either way.
-    static func shift(of samples: [Float], in reference: [Float]) -> Int? {
-        let probe = Array(samples.prefix(64))
-        return (-2304...2304).first { offset in
-            probe.indices.allSatisfy { index in
-                let other = index + offset
-                return reference.indices.contains(other) && reference[other] == probe[index]
-            }
-        }
     }
 
     static func samples(_ buffers: [AVAudioPCMBuffer]) -> [Float] {

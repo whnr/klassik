@@ -2,7 +2,7 @@
 
 Date: 2026-11-07. Decided by Flo after the third specimen round. Beads: sz-rs30.1.83.7, sz-rs30.1.95. The bottom row is replaced by [0029](0029-search-at-the-top.md).
 
-The Search result and sheet rules are refined by [0067](0067-search-results-and-modal-sheets.md).
+The result order and the taps on the results above the sheet are replaced by [0067](0067-search-results-and-modal-sheets.md).
 
 ## Context
 

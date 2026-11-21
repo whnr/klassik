@@ -1,23 +1,38 @@
 # 0067. People lead Search; sheets block the page
 
-Decided by Flo, 2026-11-21. Beads: sz-rs30.1.135.1, sz-rs30.1.135.3, sz-rs30.1.135.5, sz-rs30.1.135.6, sz-rs30.1.135.7.
-Replaces the result order and live-background interaction rules of [0025](0025-search-field-and-filter-sheet.md).
-Refines the recording results of [0029](0029-search-at-the-top.md).
+Date: 2026-11-21. Beads: sz-rs30.1.135.1, sz-rs30.1.135.3, sz-rs30.1.135.5, sz-rs30.1.135.6, sz-rs30.1.135.7.
+Replaces the result order of [0025](0025-search-field-and-filter-sheet.md) and the taps on the results above its sheet.
 
 ## Context
 
-Flo tested 0.18.0 and could not distinguish Filters from the page behind it.
-He could not find favourite recordings in Search.
+Flo tested 0.18.0 and wrote notes on agents/claude/klassik-0.18.0-tests.md.
+He could not distinguish Filters from the page behind it.
+Back did not close Filters, and he could not find a recording in Search.
 
 ## Decision
 
-- Every sheet over content uses native modal dimming and blocks interaction with the page behind it.
-- Filters provides Back inside the sheet. Back closes Filters, then returns to the page before Search.
-- Leaving Search closes Filters. Returning never restores an open sheet.
-- Search shows Composers, Performers, Works, then Albums. A person who composes appears only under Composers.
-- Matching favourite recordings appear under Albums with their fermata and open their recording page.
-- Other recordings get no row. They open through their works and albums, and a row for each would bury the albums.
-- Search shows no hidden-work count.
+### Flo decided
+
+- Dimmed modal sheets: "Do what good accessibility tells us to do and make it the same for all sheets that overlay other content.
+  It's ok to not be able to interact with the rest of that aligned with good UX".
+  Every sheet over content uses native modal dimming and blocks interaction with the page behind it.
+- Back with Filters open: "the search sheet overlay stays when going back in pages.
+  You can swipe back but you can[not] use the back button".
+  Leaving Search closes Filters. Returning never restores an open sheet.
+- Result order: "people sort above works. First composers then performers the[n] works then albums".
+  Search shows Composers, Performers, Works, then Albums.
+- Hidden works: "remove the hidden work count. Not needed in a search". Search shows no hidden-work count.
+- Recordings: "I looked for a recording and could not find the fermata [because] there are none.
+  They can go under albums for now". Matching recordings appear under Albums.
+
+### Agent choices (not yet confirmed by Flo)
+
+- Filters has a Back button inside the sheet, as the word "Back" before its title.
+  Back closes Filters, then returns to the page before Search.
+  The modal sheet blocks the back arrow of the page, so the sheet needs its own way back.
+- A person who composes appears only under Composers, also when they perform. One person gets one row.
+- Search lists every recording that matches the search under Albums, not only favourites.
+  This follows Flo's note. Each favourite recording shows its fermata, and each row opens its recording page.
 
 ## Consequences
 

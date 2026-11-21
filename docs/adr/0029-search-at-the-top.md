@@ -4,8 +4,6 @@ Date: 2026-11-08. Decided by Flo after specimen rounds 8 and 9 on the phone. Bea
 
 The standard Search tab constraint is replaced by [0057](0057-search-apart-from-place-tabs.md).
 
-The Search result and sheet rules are refined by [0067](0067-search-results-and-modal-sheets.md).
-
 ## Context
 
 ADR 0025 put the field and the Filters button in one bottom row that rides on the keyboard. With the pill of ADR 0028 in the tab row, that row was lower than the tab bar, the field was narrow, and Search had no way back. With the keyboard open, the Filters button dropped the keyboard and left a gap. A search with filters only never reached a list of past searches.

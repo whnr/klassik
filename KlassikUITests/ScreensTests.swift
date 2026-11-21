@@ -445,7 +445,7 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertTrue(app.buttons["library-composers"].waitForExistence(timeout: 10))
     }
 
-    /// Search lists a recording under Albums only while it is a favourite; its row opens the recording (ADR 0067).
+    /// Search lists every matching recording under Albums; a favourite one shows its fermata (ADR 0067).
     @MainActor
     func testSearchFavouriteRecording() throws {
         let app = try launchAndConnect(openComposers: false)
@@ -453,39 +453,29 @@ final class BrowseScreens: ScreensTestCase {
         let field = app.textFields["search-field"]
         XCTAssertTrue(field.waitForExistence(timeout: 10))
         field.tap()
-        field.typeText("nocturne no. 2\n")
-        let work = app.buttons.matching(identifier: "search-work").firstMatch
-        XCTAssertTrue(work.waitForExistence(timeout: 10))
-        XCTAssertTrue(app.buttons.matching(identifier: "search-album").firstMatch.exists)
-        let found = app.buttons.matching(identifier: "search-recording")
+        field.typeText("chopin\n")
+        let row = app.buttons.matching(identifier: "search-recording").firstMatch
         let mark = app.buttons["favourite-recording"]
+        let marked = { "\(row.label) \(row.value ?? "")".contains("Favourite") }
         // Server stars survive UI test launches, so the walk sets the mark it needs and restores it at the end.
         func setMark(_ favourite: Bool) {
-            work.tap()
-            let recording = app.buttons.matching(identifier: "recording").firstMatch
-            XCTAssertTrue(recording.waitForExistence(timeout: 10))
-            recording.tap()
-            XCTAssertTrue(mark.waitForExistence(timeout: 10))
+            reveal(row, in: app).tap()
+            XCTAssertTrue(mark.waitForExistence(timeout: 10), "The row does not open the recording")
             let wanted = favourite ? "Favourite" : "Not a favourite"
             if mark.value as? String != wanted { mark.tap() }
             XCTAssertTrue(eventually(timeout: 10) { mark.value as? String == wanted })
-            back(app, times: 2)
-            XCTAssertTrue(work.waitForExistence(timeout: 10))
+            back(app)
         }
-        let wasFavourite = found.firstMatch.waitForExistence(timeout: 2)
+        XCTAssertTrue(row.waitForExistence(timeout: 10), "Search lists no recording")
+        let wasFavourite = marked()
         setMark(false)
-        XCTAssertTrue(eventually(timeout: 5) { found.count == 0 }, "Search lists a recording that is no favourite")
+        XCTAssertTrue(row.waitForExistence(timeout: 5), "Search hides a recording that is no favourite")
+        XCTAssertTrue(eventually(timeout: 5) { !marked() }, "A recording that is no favourite shows the fermata")
         setMark(true)
-        let row = found.firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 5), "Search does not list the favourite recording")
-        XCTAssertTrue(eventually(timeout: 5) { "\(row.label) \(row.value ?? "")".contains("Favourite") })
+        reveal(row, in: app)
+        XCTAssertTrue(eventually(timeout: 5) { marked() }, "The favourite recording shows no fermata")
         snap(app, "19j-search-favourite-recording")
-        row.tap()
-        XCTAssertTrue(mark.waitForExistence(timeout: 10), "The row does not open the recording")
-        if !wasFavourite {
-            mark.tap()
-            XCTAssertTrue(eventually(timeout: 10) { mark.value as? String == "Not a favourite" })
-        }
+        if !wasFavourite { setMark(false) }
     }
 
     /// The overview of the composers with life dates, then one composer among the contemporaries, the scrub, the

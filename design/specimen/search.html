@@ -976,11 +976,7 @@
             .map((x) => ({ ...x, n: x.a.recordings.filter((r) => ok.has(r)).length }))
             .filter((x) => x.n > 0)
             .sort((a, b) => a.a.name.localeCompare(b.a.name));
-          // Only favourite recordings get a row (ADR 0067); the others open through their works and albums.
-          const recordings = recs.filter(
-            ({ r }) =>
-              K.isFavourite("rec:" + r.id) && ok.has(r) && (!tokens.length || matches(tokens, recordingHay(r))),
-          );
+          const recordings = recs.filter(({ r }) => ok.has(r) && (!tokens.length || matches(tokens, recordingHay(r))));
           if (al.length || recordings.length)
             out.push(
               section(

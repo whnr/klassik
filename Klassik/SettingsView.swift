@@ -8,10 +8,12 @@ struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @AppStorage(TimelineSide.storageKey) private var timelineSide = TimelineSide.standard
     @AppStorage(ComposerWorks.separatesPartialKey) private var separatesPartial = true
-    @AppStorage(CoverWash.strengthKey) private var tintStrength = 2
+    @AppStorage(CoverWash.strengthKey) private var tintStrength = CoverWash.defaultStrength
     @AppStorage(Self.technicalDetailsKey) private var showsTechnicalDetails = false
     @State private var confirmsDelete = false
     @State private var deleteError: String?
+
+    private var tintLabel: String { "\(tintStrength.formatted())×" }
 
     var body: some View {
         @Bindable var player = model.playback
@@ -45,13 +47,20 @@ struct SettingsView: View {
                 }
                 .accessibilityIdentifier("accent")
                 .id(family)
-                Picker("Player Tint", selection: $tintStrength) {
-                    Text("1×").tag(1)
-                    Text("2×").tag(2)
-                    Text("3×").tag(3)
+                VStack {
+                    LabeledContent("Player Tint") {
+                        Text(tintLabel)
+                    }
+                    .accessibilityHidden(true)
+                    Slider(
+                        value: $tintStrength, in: CoverWash.strengthRange, step: CoverWash.strengthStep
+                    ) {
+                        Text("Player Tint")
+                    }
+                    // VoiceOver reads the strength, not the slider percentage.
+                    .accessibilityValue(tintLabel)
+                    .accessibilityIdentifier("player-tint-strength")
                 }
-                .accessibilityIdentifier("player-tint-strength")
-                .id(family)
             } header: {
                 SectionHeading("Colour")
             } footer: {
@@ -84,7 +93,7 @@ struct SettingsView: View {
                 SectionHeading("Listening data")
             } footer: {
                 Text(
-                    "Favourite works, the order of favourite recordings, listening notes and the changes that wait stay on this iPhone, for this server and user. Sign-out keeps them."
+                    "Favourite works, the order of favourite recordings, listening notes, recent searches and the changes that wait stay on this iPhone, for this server and user. Sign-out keeps them."
                 )
             }
 
@@ -111,7 +120,7 @@ struct SettingsView: View {
             }
         } message: {
             Text(
-                "This removes the favourite works, the order of favourite recordings, the listening notes and the changes that wait of this server and user from this iPhone. You cannot undo this."
+                "This removes the favourite works, the order of favourite recordings, the listening notes, the recent searches and the changes that wait of this server and user from this iPhone. You cannot undo this."
             )
         }
         // A failure of the device file is the one listening data notice (ADR 0058).

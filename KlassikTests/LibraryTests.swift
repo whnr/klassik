@@ -225,4 +225,45 @@ struct LibraryTests {
         #expect(await library.results(for: "sonata").isEmpty)
         #expect(await !library.results(for: "aida").isEmpty)
     }
+
+    /// The filter terms build off the main actor after each change of the index, so the sheet follows the index.
+    @MainActor @Test func theFiltersFollowAChangeOfTheIndex() async throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let suite = UUID().uuidString
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let credentials = ServerCredentials(
+            url: URL(string: "https://music.example.org")!, username: "joe", password: "test")
+        let songs = [
+            Self.song("s1", album: "sonatas", genre: "Classical", work: "Sonata", composer: "Mozart"),
+            Self.song("o1", album: "operas", genre: "Opera", work: "Aida", composer: "Verdi"),
+        ]
+        let url = directory.appending(path: "library.json")
+        try LibraryCache(server: credentials.url, username: credentials.username, syncedAt: .now, songs: songs)
+            .write(to: url)
+        let library = Library(cacheURL: url, defaults: defaults)
+        library.filter = ClassicalFilter(rules: [Self.rule(.init(kind: .genreContains, text: "Classical"))])
+        await library.load(for: credentials)
+
+        func composers() -> [String] {
+            let filters = library.searchFilters
+            return filters.choices(in: .composers, conditions: [], pool: filters.pool(of: nil)).map(\.term.name)
+        }
+        func settle(on expected: [String]) async throws {
+            var waits = 0
+            while composers() != expected, waits < 500 {
+                try await Task.sleep(for: .milliseconds(10))
+                waits += 1
+            }
+        }
+
+        try await settle(on: ["Mozart"])
+        #expect(composers() == ["Mozart"])
+
+        library.filter = ClassicalFilter(rules: [Self.rule(.init(kind: .genreContains, text: "Opera"))])
+
+        try await settle(on: ["Verdi"])
+        #expect(composers() == ["Verdi"])
+    }
 }

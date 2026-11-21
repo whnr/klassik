@@ -1,5 +1,7 @@
 import Foundation
+import SwiftUI
 import Testing
+import UIKit
 
 @testable import Klassik
 
@@ -146,14 +148,79 @@ struct ListeningNotesTests {
         #expect(ListeningNotes.lanes([note(10), note(20), note(30)], reach: 4).values.allSatisfy { $0 == 0 })
     }
 
+    @Test func theBarKeepsRoomForEveryLaneAboveTheFirst() {
+        // A 600 s movement on a 360 pt bar: a mark is 10 s wide.
+        func room(_ notes: [ListeningNote]) -> CGFloat {
+            ListeningNotes.room(notes, duration: 600, width: 360)
+        }
+        let pitch = -Layout.noteDotTop
+        // The first lane sits in the gap above the bar, so the first note does not move the bar.
+        #expect(room([]) == 0)
+        #expect(room([note(10, 60)]) == 0)
+        #expect(room([note(10), note(100)]) == 0)
+        // A span with two moments inside it uses three lanes.
+        #expect(room([note(10, 60), note(30), note(30)]) == 2 * pitch)
+        // Two moments 5 s apart overlap at the real width only.
+        #expect(room([note(10), note(15)]) == pitch)
+        #expect(ListeningNotes.room([note(10), note(15)], duration: 600, width: 0) == 0)
+    }
+
+    @Test func theRowHasTheRoomOfItsLanesInTheFirstLayout() {
+        // The bar has no width of its own yet; the layout takes the room from the width that it proposes.
+        func height(_ notes: [ListeningNote]) -> CGFloat {
+            let bar = Color.clear.frame(height: Layout.positionBar).modifier(NoteRoom(notes: notes, duration: 600))
+            return UIHostingController(rootView: bar).sizeThatFits(in: CGSize(width: 360, height: 1000)).height
+        }
+        let pitch = -Layout.noteDotTop
+        #expect(height([]) == Layout.positionBar)
+        #expect(height([note(10, 60)]) == Layout.positionBar)
+        #expect(height([note(10), note(15)]) == Layout.positionBar + pitch)
+        #expect(height([note(10, 60), note(30), note(30)]) == Layout.positionBar + 2 * pitch)
+    }
+
+    /// A bar 300 points wide for 300 seconds: one point per second. Lane 0 centres 6 points above the bar, and
+    /// each lane above it 9 points higher.
+    private func tapped(_ x: Double, rise: Double, in notes: [ListeningNote]) -> ListeningNote? {
+        ListeningNotes.note(atX: x, rise: rise, in: notes, width: 300, duration: 300)
+    }
+
     @Test func aTapFindsTheNearestMark() {
         let dot = note(100)
         let span = note(200, 260)
         let notes = [dot, span]
-        #expect(ListeningNotes.note(near: 102, in: notes, reach: 3)?.id == dot.id)
-        #expect(ListeningNotes.note(near: 230, in: notes, reach: 3)?.id == span.id)
-        #expect(ListeningNotes.note(near: 262, in: notes, reach: 3)?.id == span.id)
-        #expect(ListeningNotes.note(near: 150, in: notes, reach: 3) == nil)
+        #expect(tapped(102, rise: 6, in: notes)?.id == dot.id)
+        #expect(tapped(230, rise: 6, in: notes)?.id == span.id)
+        #expect(tapped(262, rise: 6, in: notes)?.id == span.id)
+        #expect(tapped(150, rise: 6, in: notes) == nil)
+    }
+
+    @Test func aTapPicksTheMarkUnderTheFingerByLane() {
+        // A span with two moments at its end: the moments stack in lanes 1 and 2 above the span in lane 0.
+        let span = note(100, 200)
+        let low = note(200)
+        let high = note(200)
+        let notes = [span, low, high]
+        let lanes = ListeningNotes.lanes(notes, reach: ListeningNotes.reach(width: 300, duration: 300))
+        let ordered = notes.sorted { (lanes[$0.id] ?? 0) < (lanes[$1.id] ?? 0) }
+        #expect(ordered.map { lanes[$0.id] } == [0, 1, 2])
+        // At the end of the span, each lane answers with its own mark.
+        #expect(tapped(200, rise: 6, in: notes)?.id == span.id)
+        #expect(tapped(200, rise: 15, in: notes)?.id == ordered[1].id)
+        #expect(tapped(200, rise: 24, in: notes)?.id == ordered[2].id)
+        // A finger a little off the dot still picks it, not the span that ends below it.
+        #expect(tapped(203, rise: 22, in: notes)?.id == ordered[2].id)
+        // Along the span, away from the dots, a tap in a higher lane still reaches the span.
+        #expect(tapped(150, rise: 24, in: notes)?.id == span.id)
+    }
+
+    @Test func aMarkAnswersWithinHalfATouchTarget() {
+        #expect(ListeningNotes.target == 44)
+        let dot = note(100)
+        let half = ListeningNotes.target / 2
+        #expect(tapped(100 + half - 1, rise: 6, in: [dot])?.id == dot.id)
+        #expect(tapped(100 + half + 1, rise: 6, in: [dot]) == nil)
+        #expect(tapped(100, rise: 6 + half + 1, in: [dot]) == nil)
+        #expect(ListeningNotes.note(atX: 100, rise: 6, in: [dot], width: 0, duration: 300) == nil)
     }
 
     @Test func aNoteReadsAsItsTimeOrItsSpan() {

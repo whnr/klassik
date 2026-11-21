@@ -1,7 +1,0 @@
-{
-  "sha": "bf81d7d6f61ed2ff7ad3e9ac7cbdf6825c9befdc",
-  "branch": "claude-diagnostics-flush",
-  "path": "claude-diagnostics-flush",
-  "subject": "[sz-rs30.1.131.7] Test the Diagnostics refresh and reconnect",
-  "ts": 1795210063
-}

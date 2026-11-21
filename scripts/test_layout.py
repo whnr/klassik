@@ -112,5 +112,19 @@ class TokenTests(unittest.TestCase):
         self.assertEqual(layout_tokens.main(["--check"]), 0)
 
 
+class ScrubLabelTests(unittest.TestCase):
+    def test_only_the_filled_background_casts_the_specimen_shadow(self):
+        source = (layout_lint.ROOT / "Klassik/TimelineBarView.swift").read_text()
+        label = source.split("private func label(", 1)[1].split("private func drag(", 1)[0]
+        self.assertIn(".background {", label, "The text must not cast the background shadow")
+        background = label.split(".background {", 1)[1].split("}", 1)[0]
+        self.assertIn(".fill(Palette.backgroundElevated)", background)
+        self.assertIn(".black.opacity(Layout.scrubLabelShadowOpacity)", background)
+        self.assertIn("radius: Layout.scrubLabelShadow / 2", background)
+        self.assertIn("y: Layout.scrubLabelShadowY", background)
+        self.assertEqual(label.count(".shadow("), 1)
+        self.assertIn(".typeStyle(.body)", label)
+
+
 if __name__ == "__main__":
     unittest.main()

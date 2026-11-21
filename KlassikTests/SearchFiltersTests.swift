@@ -135,6 +135,33 @@ struct SearchFiltersTests {
         #expect(Self.summary(composers) == ["Frédéric Chopin 1"])
     }
 
+    @Test func orChoicesRequireTheirOwnMatchInTheTextPool() {
+        let pool = Self.filters.pool(of: Self.search.results(for: "chopin"))
+        let conditions = [Condition(terms: [Self.genre("Piano")])]
+        let genres = Self.filters.choices(in: .genres, conditions: conditions, joining: 0, pool: pool)
+        #expect(Self.summary(genres) == ["Piano check 2"])
+        let composers = Self.filters.choices(in: .composers, conditions: conditions, joining: 0, pool: pool)
+        #expect(Self.summary(composers) == ["Frédéric Chopin or 2"])
+        let performers = Self.filters.choices(in: .performers, conditions: conditions, joining: 0, pool: pool)
+        #expect(performers.map(\.term.name) == ["Pia Nissimo"])
+    }
+
+    @Test func orChoicesRequireTheirOwnMatchInOtherConditions() {
+        let conditions = [
+            Condition(terms: [Self.composer(Self.chopin)]), Condition(terms: [Self.genre("Piano")]),
+        ]
+        let genres = Self.filters.choices(in: .genres, conditions: conditions, joining: 1, pool: Self.everything)
+        #expect(Self.summary(genres) == ["Piano check 2"])
+    }
+
+    @Test func conditionsNarrowRecordingsFoundByPerformer() {
+        let found = Self.search.results(for: "kubelik")
+        let narrowed = Self.filters.narrow(found, by: [Condition(terms: [Self.composer(Self.dvorak)])])
+        #expect(Set(narrowed.results.recordings.flatMap { $0.recording.songs.map(\.id) }) == ["d8", "d9"])
+        let empty = Self.filters.narrow(found, by: [Condition(terms: [Self.genre("Piano")])])
+        #expect(empty.results.recordings.isEmpty)
+    }
+
     /// A person in the results brings every recording that names them.
     @Test func aPersonOfTheTextBringsTheirRecordings() {
         let pool = Self.filters.pool(of: Self.search.results(for: "kubelik"))
@@ -161,7 +188,6 @@ struct SearchFiltersTests {
         #expect(filtered.results.works.map(\.title) == ["Symphony No. 9"])
         #expect(filtered.matching[work.id] == 1)
         #expect(work.recordings.count == 2)
-        #expect(filtered.hiddenWorks == 1)
         #expect(found.albums.map(\.title) == ["Dvořák Symphonies"])
         #expect(filtered.results.albums.isEmpty)
         let dvorak = try #require(filtered.results.people.first)
@@ -176,7 +202,6 @@ struct SearchFiltersTests {
         #expect(filtered.results.works.map(\.title) == ["Ballade No. 1", "Nocturne No. 1"])
         #expect(filtered.results.people.isEmpty)
         #expect(filtered.results.albums.map(\.title) == ["Ballades", "Nocturnes"])
-        #expect(filtered.hiddenWorks == 4)
     }
 
     @Test func noConditionsLeaveTheResults() {
@@ -184,7 +209,6 @@ struct SearchFiltersTests {
         let filtered = Self.filters.narrow(found, by: [])
         #expect(filtered.results.works.count == found.works.count)
         #expect(filtered.matching.isEmpty)
-        #expect(filtered.hiddenWorks == 0)
         #expect(Self.filters.narrow(nil, by: []).results.isEmpty)
     }
 

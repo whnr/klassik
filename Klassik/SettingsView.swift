@@ -1,87 +1,52 @@
 import SwiftUI
 
-/// The Settings place: what the listener sets, and what shows how Klassik reads the library.
+/// Settings, in groups (ADR 0040): what the listener sets first, the technical part behind its switch.
 struct SettingsView: View {
+    /// The Technical details switch. It stays off until the listener wants the technical part.
+    static let technicalDetailsKey = "settings.technicalDetails"
+
     @Environment(AppModel.self) private var model
     @AppStorage(TimelineSide.storageKey) private var timelineSide = TimelineSide.standard
     @AppStorage(ComposerWorks.separatesPartialKey) private var separatesPartial = true
-
     @AppStorage(CoverWash.strengthKey) private var tintStrength = CoverWash.defaultStrength
+    @AppStorage(Self.technicalDetailsKey) private var showsTechnicalDetails = false
+    @State private var confirmsDelete = false
+    @State private var deleteError: String?
 
     private var tintLabel: String { "\(tintStrength.formatted())×" }
 
     var body: some View {
-        let library = model.library
         @Bindable var player = model.playback
+        // A menu picker keeps the tint that it got when it was made. A new identity for each family remakes it.
+        let family = AccentChoice.shared.family
         GroupedPageList {
-            Section {
-                if library.syncedAt == nil {
-                    if library.isSyncing {
-                        LabeledContent("Syncing") {
-                            Text("\(library.received) tracks")
-                        }
-                        .ink()
-                    } else {
-                        Text("Not synced")
-                            .foregroundStyle(Palette.textSecondary)
-                    }
-                } else {
-                    NavigationLink(value: Page.albums(classical: true)) {
-                        LabeledContent("Classical Albums", value: library.classicalAlbumCount.formatted())
-                            .ink()
-                    }
-                    .accessibilityIdentifier("classical-albums")
-                    LabeledContent("Classical Tracks", value: library.classical.count.formatted())
-                        .ink()
-                    NavigationLink(value: Page.albums(classical: false)) {
-                        LabeledContent(
-                            "Other Albums", value: (library.albumCount - library.classicalAlbumCount).formatted()
-                        )
-                        .ink()
-                    }
-                    .accessibilityIdentifier("other-albums")
-                }
-                if !library.index.composers.isEmpty {
-                    NavigationLink(value: Page.musicBrainz) {
-                        LabeledContent {
-                            Text(lookupState)
-                                .foregroundStyle(Palette.textSecondary)
-                        } label: {
-                            InkLabel("MusicBrainz", systemImage: "books.vertical")
-                        }
-                    }
-                    .accessibilityIdentifier("musicbrainz")
-                }
-            } header: {
-                SectionHeading("Library")
-            }
-
-            Section {
-                Picker("ReplayGain", selection: $player.leveling) {
-                    ForEach(VolumeLeveling.allCases) { Text($0.title).tag($0) }
-                }
-                .accessibilityIdentifier("replaygain")
-            } footer: {
-                Text("Album keeps the loudness steps between the movements of a work.")
-            }
-
-            Section {
-                Toggle("Scrobbles", isOn: $player.scrobblesEnabled)
-                    .accessibilityIdentifier("scrobbles")
-            } footer: {
-                Text("Count played movements on your server. Your server can send them to linked listening services.")
-            }
-
             Section {
                 Picker("Timeline", selection: $timelineSide) {
                     ForEach(TimelineSide.allCases) { Text($0.title).tag($0) }
                 }
                 .accessibilityIdentifier("timeline-side")
+                .id(family)
+                Picker("ReplayGain", selection: $player.leveling) {
+                    ForEach(VolumeLeveling.allCases) { Text($0.title).tag($0) }
+                }
+                .accessibilityIdentifier("replaygain")
+                .id(family)
+                Toggle("Scrobbles", isOn: $player.scrobblesEnabled)
+                    .accessibilityIdentifier("scrobbles")
+            } header: {
+                SectionHeading("Playback")
             } footer: {
-                Text("While music plays, the timeline runs on this screen edge.")
+                Text(
+                    "While music plays, the timeline runs on this screen edge. Album keeps the loudness steps between the movements of a work. Scrobbles count played movements on your server. Your server can send them to linked listening services."
+                )
             }
 
             Section {
+                Picker("Accent", selection: accent) {
+                    ForEach(AccentFamily.allCases) { Text($0.title).tag($0) }
+                }
+                .accessibilityIdentifier("accent")
+                .id(family)
                 VStack {
                     LabeledContent("Player Tint") {
                         Text(tintLabel)
@@ -96,34 +61,52 @@ struct SettingsView: View {
                     .accessibilityValue(tintLabel)
                     .accessibilityIdentifier("player-tint-strength")
                 }
+            } header: {
+                SectionHeading("Colour")
             } footer: {
-                Text("Temporary comparison of the cover tint strength.")
+                Text(
+                    "The accent marks links, controls and what plays. Player Tint is a temporary comparison of the cover tint strength."
+                )
             }
 
             Section {
+                NavigationLink(value: Page.classicalRules) {
+                    InkLabel("Classical Rules", systemImage: "line.3.horizontal.decrease.circle")
+                }
+                .accessibilityIdentifier("classical-rules")
                 Toggle("Separate Partial Works", isOn: $separatesPartial)
                     .accessibilityIdentifier("partial-works")
+                NavigationLink(value: Page.swipeActions) {
+                    InkLabel("Swipe Actions", systemImage: "arrow.left.arrow.right")
+                }
+                .accessibilityIdentifier("swipe-actions")
+            } header: {
+                SectionHeading("Library")
             } footer: {
                 Text("A composer page lists a work with no complete recording under Partial works.")
             }
 
             Section {
-                NavigationLink(value: Page.classicalFilter) {
-                    InkLabel("Classical Filter", systemImage: "line.3.horizontal.decrease.circle")
-                }
-                .accessibilityIdentifier("classical-filter")
-                NavigationLink(value: Page.localStorage) {
-                    InkLabel("Local Storage", systemImage: "internaldrive")
-                }
-                .accessibilityIdentifier("local-storage")
-                NavigationLink(value: Page.swipeActions) {
-                    InkLabel("Swipe Actions", systemImage: "arrow.left.arrow.right")
-                }
-                .accessibilityIdentifier("swipe-actions")
-                NavigationLink(value: Page.diagnostics) {
-                    InkLabel("Diagnostics", systemImage: "stethoscope")
-                }
-                .accessibilityIdentifier("diagnostics")
+                Button("Delete Listening Data", role: .destructive) { confirmsDelete = true }
+                    .accessibilityIdentifier("delete-listening-data")
+            } header: {
+                SectionHeading("Listening data")
+            } footer: {
+                Text(
+                    "Favourite works, the order of favourite recordings, listening notes, recent searches and the changes that wait stay on this iPhone, for this server and user. Sign-out keeps them."
+                )
+            }
+
+            Section {
+                Toggle("Technical Details", isOn: $showsTechnicalDetails)
+                    .accessibilityIdentifier("technical-details")
+            } footer: {
+                Text("Shows the library counts, the lookups, local storage and diagnostics with the changes that wait.")
+            }
+
+            if showsTechnicalDetails { technicalDetails }
+
+            Section {
                 NavigationLink(value: Page.licences) {
                     InkLabel("Licences", systemImage: "doc.text")
                 }
@@ -131,6 +114,92 @@ struct SettingsView: View {
             }
         }
         .pageTitle("Settings")
+        .confirmationDialog("Delete Listening Data?", isPresented: $confirmsDelete, titleVisibility: .visible) {
+            Button("Delete Listening Data", role: .destructive) {
+                do { try model.deleteListeningData() } catch { deleteError = error.localizedDescription }
+            }
+        } message: {
+            Text(
+                "This removes the favourite works, the order of favourite recordings, the listening notes, the recent searches and the changes that wait of this server and user from this iPhone. You cannot undo this."
+            )
+        }
+        // A failure of the device file is the one listening data notice (ADR 0058).
+        .alert(
+            "Listening Data",
+            isPresented: Binding(get: { deleteError != nil }, set: { if !$0 { deleteError = nil } })
+        ) {
+            Button("OK") { deleteError = nil }
+        } message: {
+            Text(deleteError ?? "")
+        }
+    }
+
+    private var accent: Binding<AccentFamily> {
+        Binding(get: { AccentChoice.shared.family }, set: { AccentChoice.shared.family = $0 })
+    }
+
+    @ViewBuilder private var technicalDetails: some View {
+        let library = model.library
+        Section {
+            if library.syncedAt == nil {
+                if library.isSyncing {
+                    LabeledContent("Syncing") {
+                        Text("\(library.received) tracks")
+                    }
+                    .ink()
+                } else {
+                    Text("Not synced")
+                        .foregroundStyle(Palette.textSecondary)
+                }
+            } else {
+                NavigationLink(value: Page.albums(classical: true)) {
+                    LabeledContent("Classical Albums", value: library.classicalAlbumCount.formatted())
+                        .ink()
+                }
+                .accessibilityIdentifier("classical-albums")
+                LabeledContent("Classical Tracks", value: library.classical.count.formatted())
+                    .ink()
+                NavigationLink(value: Page.albums(classical: false)) {
+                    LabeledContent(
+                        "Other Albums", value: (library.albumCount - library.classicalAlbumCount).formatted()
+                    )
+                    .ink()
+                }
+                .accessibilityIdentifier("other-albums")
+            }
+            if !library.index.composers.isEmpty {
+                NavigationLink(value: Page.musicBrainz) {
+                    LabeledContent {
+                        Text(lookupState)
+                            .foregroundStyle(Palette.textSecondary)
+                    } label: {
+                        InkLabel("MusicBrainz", systemImage: "books.vertical")
+                    }
+                }
+                .accessibilityIdentifier("musicbrainz")
+            }
+            NavigationLink(value: Page.localStorage) {
+                InkLabel("Local Storage", systemImage: "internaldrive")
+            }
+            .accessibilityIdentifier("local-storage")
+            NavigationLink(value: Page.diagnostics) {
+                LabeledContent {
+                    Text(waitingChanges)
+                        .foregroundStyle(Palette.textSecondary)
+                } label: {
+                    InkLabel("Diagnostics", systemImage: "stethoscope")
+                }
+            }
+            .accessibilityIdentifier("diagnostics")
+        } header: {
+            SectionHeading("Technical details")
+        }
+    }
+
+    /// The favourite changes that wait for the server. Diagnostics lists them.
+    private var waitingChanges: String {
+        let count = model.recordingOrder.pendingChanges.count
+        return count == 0 ? "" : "\(count) waiting"
     }
 
     /// Progress while the lookup runs, else the works that wait for the listener.

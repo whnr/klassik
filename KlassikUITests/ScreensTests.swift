@@ -280,6 +280,13 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertTrue(app.buttons.matching(identifier: "search-album").firstMatch.exists)
         field.typeText("\n")
         XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5), "Search does not close the keyboard")
+        let composerRow = app.buttons.matching(identifier: "search-person").firstMatch
+        XCTAssertLessThan(composerRow.frame.minY, works.firstMatch.frame.minY, "Works precede composers")
+        XCTAssertTrue(
+            app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Composers (")).firstMatch.exists)
+        XCTAssertFalse(
+            app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Composers and performers")).firstMatch
+                .exists)
         snap(app, "19b-search-results")
         let fieldTop = field.frame.minY
         app.swipeUp()
@@ -301,6 +308,16 @@ final class BrowseScreens: ScreensTestCase {
         field.typeText("zzz\n")
         XCTAssertTrue(app.staticTexts["search-no-match"].waitForExistence(timeout: 10))
         snap(app, "19c-search-no-match")
+
+        app.buttons["search-clear"].tap()
+        field.tap()
+        field.typeText("s\n")
+        let people = app.buttons.matching(identifier: "search-person")
+        XCTAssertTrue(eventually(timeout: 10) { people.count == 2 })
+        XCTAssertTrue(people.element(boundBy: 0).label.contains("Johann Sebastian Bach"))
+        XCTAssertTrue(people.element(boundBy: 1).label.contains("Sine Wave Chamber Orchestra"))
+        XCTAssertLessThan(people.element(boundBy: 0).frame.minY, people.element(boundBy: 1).frame.minY)
+        XCTAssertLessThan(people.element(boundBy: 1).frame.minY, works.firstMatch.frame.minY)
 
         openPlace(app, "Library")
         openPlace(app, "Search")
@@ -360,6 +377,7 @@ final class BrowseScreens: ScreensTestCase {
         // With "or" on, the next term joins the condition and its own term shows a check. The checked term sorts
         // first, so only the row under it is sure to be inside the medium detent; the lazy list loads no more.
         app.buttons["filter-or"].tap()
+        XCTAssertFalse(terms.matching(NSPredicate(format: "label CONTAINS %@", "Baroque")).firstMatch.exists)
         XCTAssertTrue(romantic.waitForExistence(timeout: 5))
         XCTAssertTrue(romantic.isSelected, "The term of the open condition shows no check")
         let offered = terms.matching(NSPredicate(format: "NOT (label CONTAINS %@)", "Romantic")).firstMatch
@@ -385,7 +403,7 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertTrue(done.waitForNonExistence(timeout: 5))
         XCTAssertEqual(filters.value as? String, "2\u{00A0}conditions", "The badge does not count the conditions")
         XCTAssertTrue(eventually(timeout: 5) { works.count == 2 }, "The conditions do not narrow the works")
-        XCTAssertTrue(app.staticTexts["search-hidden"].exists, "No note on the works that the filters hide")
+        XCTAssertFalse(app.staticTexts["search-hidden"].exists, "Search shows a hidden-work count")
         snap(app, "19f-search-filtered")
 
         // The x in the field clears the text only; the conditions stay and still find works.
@@ -399,6 +417,72 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertTrue(recent.firstMatch.waitForExistence(timeout: 5), "The empty page does not show")
         XCTAssertNotEqual(filters.value as? String, "2\u{00A0}conditions")
         XCTAssertFalse(app.buttons["search-reset"].isEnabled, "The x pill is on with nothing to clear")
+    }
+
+    /// A modal sheet dims its page and provides Back without exposing controls behind the sheet.
+    @MainActor
+    func testSearchSheetBackAndDimming() throws {
+        let app = try launchAndConnect(openComposers: false)
+        openPlace(app, "Search")
+        let field = app.textFields["search-field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        field.tap()
+        field.typeText("chopin\n")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.buttons.matching(identifier: "search-work").firstMatch.waitForExistence(timeout: 10))
+        let before = try XCTUnwrap(ScreenPixels(app))
+        app.buttons["search-filters"].tap()
+        XCTAssertTrue(app.buttons["filter-back"].waitForExistence(timeout: 10))
+        let sample = CGRect(x: 8, y: field.frame.maxY + 10, width: 12, height: 60)
+        XCTAssertTrue(
+            eventually(timeout: 5) {
+                guard let after = ScreenPixels(app) else { return false }
+                return after.differingShare(in: sample, from: before) > 0.9
+            }, "Filters does not dim the page")
+        snap(app, "19i-search-modal")
+        app.buttons["filter-back"].tap()
+        XCTAssertTrue(app.buttons["filter-done"].waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["library-composers"].waitForExistence(timeout: 10), "Back did not leave Search")
+        openPlace(app, "Search")
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["filter-done"].exists, "The sheet survived Back")
+        app.buttons["search-filters"].tap()
+        app.buttons["filter-done"].tap()
+        app.buttons["place-back"].tap()
+        XCTAssertTrue(app.buttons["library-composers"].waitForExistence(timeout: 10))
+    }
+
+    /// Search lists every matching recording under Albums; a favourite one shows its fermata (ADR 0067).
+    @MainActor
+    func testSearchFavouriteRecording() throws {
+        let app = try launchAndConnect(openComposers: false)
+        openPlace(app, "Search")
+        let field = app.textFields["search-field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        field.tap()
+        field.typeText("chopin\n")
+        let row = app.buttons.matching(identifier: "search-recording").firstMatch
+        let mark = app.buttons["favourite-recording"]
+        let marked = { "\(row.label) \(row.value ?? "")".contains("Favourite") }
+        // Server stars survive UI test launches, so the walk sets the mark it needs and restores it at the end.
+        func setMark(_ favourite: Bool) {
+            reveal(row, in: app).tap()
+            XCTAssertTrue(mark.waitForExistence(timeout: 10), "The row does not open the recording")
+            let wanted = favourite ? "Favourite" : "Not a favourite"
+            if mark.value as? String != wanted { mark.tap() }
+            XCTAssertTrue(eventually(timeout: 10) { mark.value as? String == wanted })
+            back(app)
+        }
+        XCTAssertTrue(row.waitForExistence(timeout: 10), "Search lists no recording")
+        let wasFavourite = marked()
+        setMark(false)
+        XCTAssertTrue(row.waitForExistence(timeout: 5), "Search hides a recording that is no favourite")
+        XCTAssertTrue(eventually(timeout: 5) { !marked() }, "A recording that is no favourite shows the fermata")
+        setMark(true)
+        reveal(row, in: app)
+        XCTAssertTrue(eventually(timeout: 5) { marked() }, "The favourite recording shows no fermata")
+        snap(app, "19j-search-favourite-recording")
+        if !wasFavourite { setMark(false) }
     }
 
     /// The overview of the composers with life dates, then one composer among the contemporaries, the scrub, the
@@ -598,9 +682,11 @@ final class BrowseScreens: ScreensTestCase {
     @MainActor
     func testMusicBrainz() throws {
         let app = try launchAndConnect()
-        openSettings(app)
-        XCTAssertTrue(app.buttons["musicbrainz"].waitForExistence(timeout: 30))
-        app.buttons["musicbrainz"].tap()
+        openSettings(app, technical: true)
+        // The row shows once the library has composers.
+        let musicBrainz = app.buttons["musicbrainz"]
+        XCTAssertTrue(eventually(timeout: 30) { reveal(musicBrainz, in: app).exists })
+        musicBrainz.tap()
         let toConfirm = app.buttons["to-confirm"]
         XCTAssertTrue(toConfirm.waitForExistence(timeout: 10))
         // The lookup may still run right after the connect.
@@ -613,9 +699,11 @@ final class BrowseScreens: ScreensTestCase {
     @MainActor
     func testPeopleFromWikidata() throws {
         let app = try launchAndConnect()
-        openSettings(app)
-        XCTAssertTrue(app.buttons["musicbrainz"].waitForExistence(timeout: 30))
-        app.buttons["musicbrainz"].tap()
+        openSettings(app, technical: true)
+        // The row shows once the library has composers.
+        let musicBrainz = app.buttons["musicbrainz"]
+        XCTAssertTrue(eventually(timeout: 30) { reveal(musicBrainz, in: app).exists })
+        musicBrainz.tap()
         let status = app.descendants(matching: .any)["people-status"]
         XCTAssertTrue(reveal(status, in: app).waitForExistence(timeout: 10))
         let done = expectation(for: NSPredicate(format: "label CONTAINS 'Up to date'"), evaluatedWith: status)
@@ -689,7 +777,7 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertEqual(mark.value as? String, "Favourite")
         mark.tap()
         XCTAssertEqual(mark.value as? String, "Not a favourite")
-        openSettings(app)
+        openSettings(app, technical: true)
         reveal(app.buttons["diagnostics"], in: app).tap()
         let pending = app.descendants(matching: .any)["pending-favourite"].firstMatch
         XCTAssertTrue(reveal(pending, in: app).exists)
@@ -918,6 +1006,32 @@ final class BrowseScreens: ScreensTestCase {
 
 /// A recording, the player, the queue and the downloads.
 final class PlaybackScreens: ScreensTestCase {
+    /// The quiet spell returns to the playing row after the listener scrolls away (ADR 0014, 0027).
+    @MainActor
+    func testPlayerFollowsAfterQuietSpell() throws {
+        let app = try launchAndConnect()
+        openRecording(app)
+        playPaused(app)
+        openPlayer(app)
+        let overlay = app.descendants(matching: .any)["player-overlay"].firstMatch
+        let position = overlay.sliders["position"].firstMatch
+        XCTAssertTrue(eventually(timeout: 12) { position.exists && position.isHittable })
+        // The fixture page is short, so its end is the follow target. The top puts the hero above the playing row.
+        let rowY = { position.exists ? position.frame.midY : CGFloat.infinity }
+        let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2))
+        let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85))
+        for _ in 0..<2 { from.press(forDuration: 0.05, thenDragTo: to) }
+        let still = Date()
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
+        let low = rowY()
+        XCTAssertTrue(
+            eventually(timeout: 15) { rowY() < low - 40 },
+            "The player did not return after eight quiet seconds: row at \(rowY()), was \(low)")
+        XCTAssertGreaterThan(
+            Date().timeIntervalSince(still), 7, "The player followed before eight quiet seconds")
+        snap(app, "05d-player-follow")
+    }
+
     @MainActor
     func testOverlayOpensAndSlidesDown() throws {
         let app = try launchAndConnect()
@@ -1341,7 +1455,7 @@ final class PlaybackScreens: ScreensTestCase {
     @MainActor
     func testPlayOnTheAlbumPage() throws {
         let app = try launchAndConnect()
-        openSettings(app)
+        openSettings(app, technical: true)
         reveal(app.buttons["classical-albums"], in: app).tap()
         let encores = app.buttons.matching(identifier: "album")
             .matching(NSPredicate(format: "label CONTAINS 'Romantic Encores'")).firstMatch
@@ -1366,7 +1480,7 @@ final class PlaybackScreens: ScreensTestCase {
     @MainActor
     func testAlbumWorkHasOneDisclosureOnThePageAndOverlay() throws {
         let app = try launchAndConnect()
-        openSettings(app)
+        openSettings(app, technical: true)
         reveal(app.buttons["classical-albums"], in: app).tap()
         let album = app.buttons.matching(identifier: "album")
             .matching(NSPredicate(format: "label CONTAINS 'Mendelssohn: Violin Concerto'")).firstMatch
@@ -1415,7 +1529,7 @@ final class PlaybackScreens: ScreensTestCase {
         snap(app, "05a-downloaded")
         back(app, times: 3)
 
-        openSettings(app)
+        openSettings(app, technical: true)
         reveal(app.buttons["local-storage"], in: app).tap()
         XCTAssertTrue(app.navigationBars["Local Storage"].waitForExistence(timeout: 10))
         // The list builds rows lazily, and the Downloads section starts below the storage sections.
@@ -1565,7 +1679,7 @@ final class PlaybackScreens: ScreensTestCase {
     @MainActor
     func testOfflineAlbumAppearsInFavourites() throws {
         let app = try launchAndConnect(arguments: ["-offlineFavourites"])
-        openSettings(app)
+        openSettings(app, technical: true)
         reveal(app.buttons["classical-albums"], in: app).tap()
         let album = app.buttons.matching(identifier: "album")
             .matching(NSPredicate(format: "label CONTAINS 'Romantic Encores'")).firstMatch
@@ -1754,6 +1868,22 @@ final class TimelineScreens: ScreensTestCase {
         if pause.label == "Pause" { pause.tap() }
     }
 
+    /// The scrub label on each edge, beside a scrub pinned in the middle of the bar (ADR 0035, specimen .scrub-label).
+    @MainActor
+    func testScrubLabelOnEitherEdge() throws {
+        for side in ["right", "left"] {
+            let app = try launchAndConnect(arguments: ["-\(timelineSideKey)", side, "-pinScrub", "0.5"])
+            _ = pausedPlayerInLibrary(app)
+            let bar = timeline(app)
+            XCTAssertTrue(bar.exists)
+            XCTAssertEqual(
+                side == "right" ? bar.frame.maxX : bar.frame.minX, side == "right" ? app.frame.maxX : 0,
+                accuracy: 1, "The timeline is not on the \(side) edge")
+            snap(app, side == "right" ? "15j-scrub-label-right" : "15k-scrub-label-left")
+            app.terminate()
+        }
+    }
+
     /// On the left edge, a swipe from the edge goes back a page or a place. It never scrubs.
     @MainActor
     func testTimelineOnTheLeft() throws {
@@ -1822,7 +1952,7 @@ final class SettingsScreens: ScreensTestCase {
     @MainActor
     func testLocalStorage() throws {
         let app = try launchAndConnect()
-        openSettings(app)
+        openSettings(app, technical: true)
         reveal(app.buttons["local-storage"], in: app).tap()
         XCTAssertTrue(app.navigationBars["Local Storage"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.descendants(matching: .any)["storage-bar"].firstMatch.waitForExistence(timeout: 10))
@@ -1853,6 +1983,7 @@ final class SettingsScreens: ScreensTestCase {
         _ = pausedPlayerInLibrary(app)
         openSettings(app)
         snap(app, "08c-settings-top")
+        XCTAssertTrue(reveal(app.switches["scrobbles"], in: app).exists, "Scrobbles is not in Playback")
         let tint = reveal(app.sliders["player-tint-strength"], in: app)
         XCTAssertTrue(tint.isHittable)
         XCTAssertEqual(tint.value as? String, "3×")
@@ -1865,12 +1996,80 @@ final class SettingsScreens: ScreensTestCase {
         tint.adjust(toNormalizedSliderPosition: 0.6)
         XCTAssertEqual(tint.value as? String, "3×")
         snap(app, "08f-player-tint-setting")
-        XCTAssertTrue(reveal(app.buttons["diagnostics"], in: app).isHittable)
-        snap(app, "08c-settings")
 
         reveal(app.buttons["swipe-actions"], in: app).tap()
         XCTAssertTrue(app.navigationBars["Swipe Actions"].waitForExistence(timeout: 10))
         snap(app, "08b-swipe-actions")
+        back(app)
+
+        // Technical Details starts off, so its rows stay out of the way.
+        let technical = reveal(app.switches["technical-details"], in: app)
+        XCTAssertEqual(technical.value as? String, "0", "Technical Details is not off by default")
+        XCTAssertFalse(app.buttons["diagnostics"].exists)
+        snap(app, "08c-settings")
+        technical.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        XCTAssertTrue(reveal(app.buttons["diagnostics"], in: app).isHittable)
+        XCTAssertTrue(app.buttons["local-storage"].exists)
+        snap(app, "08h-settings-technical")
+    }
+
+    /// The accent switch recolours the app at once (ADR 0034).
+    @MainActor
+    func testAccent() throws {
+        let app = try launchAndConnect()
+        openSettings(app)
+        let accent = reveal(app.buttons["accent"], in: app)
+        XCTAssertTrue(accent.label.contains("Claret"), accent.label)
+        let timelinePicker = app.buttons["timeline-side"]
+        let claret = try XCTUnwrap(pickerInk(timelinePicker, in: app), "No accent ink in the Timeline picker")
+        XCTAssertGreaterThan(claret.red, claret.green, "The Timeline picker is not claret: \(claret)")
+        accent.tap()
+        let green = app.buttons["Bottle Green"].firstMatch
+        XCTAssertTrue(green.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Plum"].firstMatch.exists)
+        green.tap()
+        XCTAssertTrue(eventually(timeout: 5) { accent.label.contains("Bottle Green") }, accent.label)
+        // Another picker on the page takes the new family at once, not only the picker that changed.
+        var picked = pickerInk(timelinePicker, in: app)
+        XCTAssertTrue(
+            eventually(timeout: 5) {
+                picked = pickerInk(timelinePicker, in: app)
+                return picked.map { $0.green > $0.red } ?? false
+            }, "The Timeline picker keeps claret after Bottle Green: \(String(describing: picked))")
+        accent.tap()
+        let plum = app.buttons["Plum"].firstMatch
+        XCTAssertTrue(plum.waitForExistence(timeout: 5))
+        plum.tap()
+        XCTAssertTrue(eventually(timeout: 5) { accent.label.contains("Plum") }, accent.label)
+        snap(app, "08i-accent-plum")
+        back(app)
+        XCTAssertTrue(app.buttons["library-settings"].waitForExistence(timeout: 10))
+        snap(app, "08j-library-plum")
+    }
+
+    /// The mean accent ink of a picker value: the trailing half of its row holds the value and its chevron.
+    @MainActor
+    func pickerInk(_ picker: XCUIElement, in app: XCUIApplication) -> (red: Int, green: Int, blue: Int)? {
+        let frame = picker.frame.offsetBy(dx: -app.frame.minX, dy: -app.frame.minY)
+        let value = CGRect(x: frame.midX, y: frame.minY, width: frame.width / 2, height: frame.height)
+        return ScreenPixels(app)?.accentInk(in: value)
+    }
+
+    /// Delete Listening Data asks first, then removes the device data of this server and user.
+    @MainActor
+    func testDeleteListeningData() throws {
+        let app = try launchAndConnect()
+        openSettings(app)
+        reveal(app.buttons["delete-listening-data"], in: app).tap()
+        let confirm = app.buttons.matching(
+            NSPredicate(format: "label == %@ AND identifier != %@", "Delete Listening Data", "delete-listening-data")
+        ).firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5), "No confirmation")
+        snap(app, "08k-delete-listening-data")
+        confirm.tap()
+        XCTAssertTrue(confirm.waitForNonExistence(timeout: 5))
+        XCTAssertFalse(app.alerts.firstMatch.exists, "The device file refused the delete")
+        XCTAssertTrue(app.navigationBars["Settings"].exists)
     }
 
     @MainActor
@@ -1878,8 +2077,8 @@ final class SettingsScreens: ScreensTestCase {
         let app = try launchAndConnect()
         _ = pausedPlayerInLibrary(app)
         openSettings(app)
-        reveal(app.buttons["classical-filter"], in: app).tap()
-        let field = app.textFields.matching(identifier: "condition-text").firstMatch
+        reveal(app.buttons["classical-rules"], in: app).tap()
+        let field = app.textFields.matching(identifier: "check-text").firstMatch
         XCTAssertTrue(field.waitForExistence(timeout: 10))
         let bar = app.tabBars["tab-row"]
         let barFrame = bar.frame
@@ -1922,7 +2121,7 @@ final class SettingsScreens: ScreensTestCase {
     @MainActor
     func testClassicalAlbums() throws {
         let app = try launchAndConnect()
-        openSettings(app)
+        openSettings(app, technical: true)
         reveal(app.buttons["classical-albums"], in: app).tap()
         let concerto = app.buttons.matching(identifier: "album")
             .matching(NSPredicate(format: "label CONTAINS 'Mendelssohn: Violin Concerto'")).firstMatch
@@ -1946,7 +2145,7 @@ final class SettingsScreens: ScreensTestCase {
         let app = try launchAndConnect()
         // Diagnostics checks that the mini player leaves the last row free, so something must be playing.
         let bar = pausedPlayerInLibrary(app)
-        openSettings(app)
+        openSettings(app, technical: true)
         reveal(app.buttons["diagnostics"], in: app).tap()
         XCTAssertTrue(app.staticTexts["Diagnostics"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.descendants(matching: .any)["opensubsonic"].waitForExistence(timeout: 10))
@@ -1966,7 +2165,7 @@ final class SettingsScreens: ScreensTestCase {
     @MainActor
     func testGapless() throws {
         let app = try launchAndConnect()
-        openSettings(app)
+        openSettings(app, technical: true)
         reveal(app.buttons["diagnostics"], in: app).tap()
         XCTAssertTrue(app.descendants(matching: .any)["opensubsonic"].waitForExistence(timeout: 10))
         reveal(app.buttons["gapless-test"], in: app).tap()
@@ -2229,15 +2428,22 @@ class ScreensTestCase: XCTestCase {
         return identified.exists ? identified : app.tabBars["tab-row"].buttons[name]
     }
 
-    /// Settings belongs to the Library stack, behind its toolbar cog.
+    /// Settings belongs to the Library stack, behind its toolbar cog. `technical` turns on Technical Details, so
+    /// that its rows show below the switch. A reset launch turns the switch off again.
     @MainActor
-    func openSettings(_ app: XCUIApplication) {
+    func openSettings(_ app: XCUIApplication, technical: Bool = false) {
         openPlace(app, "Library")
         for _ in 0..<10 where !app.buttons["library-settings"].exists { back(app) }
         let cog = app.buttons["library-settings"]
         XCTAssertTrue(cog.waitForExistence(timeout: 10))
         cog.tap()
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 10))
+        guard technical else { return }
+        let toggle = reveal(app.switches["technical-details"], in: app)
+        if toggle.value as? String != "1" {
+            toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        }
+        XCTAssertEqual(toggle.value as? String, "1", "Technical Details does not turn on")
     }
 
     /// Taps a place in the tab bar.
@@ -2456,6 +2662,25 @@ class ScreensTestCase: XCTestCase {
             return CGRect(
                 x: CGFloat(first) / scale, y: frame.minY, width: CGFloat(last + 1 - first) / scale, height: frame.height
             )
+        }
+
+        /// The mean colour of the coloured pixels in a rect, in points. Text, hairlines and the page ground are
+        /// grey, so only the accent ink counts.
+        func accentInk(in rect: CGRect) -> (red: Int, green: Int, blue: Int)? {
+            let xs = pixels(rect.minX...rect.maxX).clamped(to: 0..<width)
+            let ys = pixels(rect.minY...rect.maxY).clamped(to: 0..<height)
+            var (sum, count) = ([0, 0, 0], 0)
+            for y in ys {
+                for x in xs {
+                    let index = (y * width + x) * 4
+                    let pixel = (0..<3).map { Int(bytes[index + $0]) }
+                    guard let high = pixel.max(), let low = pixel.min(), high - low > 40 else { continue }
+                    sum = zip(sum, pixel).map { $0 + $1 }
+                    count += 1
+                }
+            }
+            guard count > 0 else { return nil }
+            return (sum[0] / count, sum[1] / count, sum[2] / count)
         }
 
         /// The share of pixels in a rect, in points, that differ from the same pixels of another screenshot.

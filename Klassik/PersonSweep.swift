@@ -36,6 +36,11 @@ final class PersonSweep {
     nonisolated static let jitterDays = 10.0
     /// A pass tries one person at most this many times (ADR 0044). Then the person waits for its next due time.
     static let triesPerPass = 2
+    /// A picture that Commons did not answer in any try of a pass waits this long after the first such pass, then
+    /// twice as long after each next one, at most `pictureWaitMaxHours` (ADR 0044). The first wait is short,
+    /// because a short loss of the connection can fail both tries of a pass.
+    static let pictureWaitHours = 1.0
+    static let pictureWaitMaxHours = 24.0
     /// The most shown performers that the pass keeps in front. A long scroll through the performers adds more.
     static let shownLimit = 100
 
@@ -90,8 +95,7 @@ final class PersonSweep {
 
     /// The days after which the person is due again.
     func interval(of person: Person) -> Int {
-        let qid = person.kind == .composer ? store.qid(ofComposer: person.tag) : store.qid(ofPerformer: person.tag)
-        guard let qid, let facts = store.cache.people[qid] else { return Self.unknownDays }
+        guard let qid = qid(of: person), let facts = store.cache.people[qid] else { return Self.unknownDays }
         return facts.died == nil ? Self.livingDays : Self.deadDays
     }
 
@@ -101,6 +105,16 @@ final class PersonSweep {
         var new: [Person] = []
         var due: [(person: Person, overdue: TimeInterval)] = []
         for person in people {
+            // A picture that Commons did not answer goes first after its short wait, whatever the check says.
+            if missesPicture(person) {
+                if let wait = store.cache.pictureWait[person.key], wait > current { continue }
+                if store.cache.checked[person.key] == nil {
+                    new.append(person)
+                } else {
+                    due.append((person, .greatestFiniteMagnitude))
+                }
+                continue
+            }
             guard let last = store.cache.checked[person.key] else {
                 // A person that failed in an earlier pass waits for the due time that the pass saved.
                 if let due = store.cache.due[person.key], due > current { continue }
@@ -266,8 +280,16 @@ final class PersonSweep {
     }
 
     /// A person that failed every try of the pass gets the due time of a check, without being marked checked.
+    /// A person without their picture waits a short time instead, so that a lasting Commons failure costs one
+    /// pass a day at most and the picture still arrives soon after Commons works again.
     private func postpone(_ person: Person) {
-        store.postpone(person.key, due: dueDate(of: person))
+        if missesPicture(person) {
+            let failures = (store.cache.pictureFailures[person.key] ?? 0) + 1
+            let hours = min(Self.pictureWaitMaxHours, Self.pictureWaitHours * pow(2, Double(min(failures - 1, 10))))
+            store.postponePicture(person.key, until: now().addingTimeInterval(hours * 3600), failures: failures)
+        } else {
+            store.postpone(person.key, due: dueDate(of: person))
+        }
     }
 
     private func dueDate(of person: Person) -> Date {
@@ -279,13 +301,19 @@ final class PersonSweep {
     private func settle(_ person: Person) async -> Bool {
         let before = portrait(of: person)
         let isNew = store.cache.checked[person.key] == nil
-        let ok: Bool
-        switch person.kind {
-        case .composer:
-            ok = await settle(composer: person, isNew: isNew)
-        case .performer:
-            ok = await settle(performer: person, isNew: isNew)
+        var ok: Bool
+        if missesPicture(person), let qid = qid(of: person) {
+            ok = await store.retryPicture(qid)
+        } else {
+            switch person.kind {
+            case .composer:
+                ok = await settle(composer: person, isNew: isNew)
+            case .performer:
+                ok = await settle(performer: person, isNew: isNew)
+            }
         }
+        // Facts without their picture do not settle a person, so the next pass asks Commons again.
+        if ok, missesPicture(person) { ok = false }
         if ok { store.markChecked(person.key, at: now(), due: dueDate(of: person)) }
         // Each lookup fetches the picture, so a page never waits for it and a changed one replaces the old (ADR 0059).
         if ok, let found = portrait(of: person) {
@@ -295,9 +323,16 @@ final class PersonSweep {
         return ok
     }
 
+    private func qid(of person: Person) -> String? {
+        person.kind == .composer ? store.qid(ofComposer: person.tag) : store.qid(ofPerformer: person.tag)
+    }
+
     private func portrait(of person: Person) -> PersonPortrait? {
-        let qid = person.kind == .composer ? store.qid(ofComposer: person.tag) : store.qid(ofPerformer: person.tag)
-        return qid.flatMap { store.cache.people[$0]?.portrait }
+        qid(of: person).flatMap { store.cache.people[$0]?.portrait }
+    }
+
+    private func missesPicture(_ person: Person) -> Bool {
+        qid(of: person).flatMap { store.cache.people[$0]?.pictureUnread } == true
     }
 
     private func queuePicture(_ key: String, work: PersonFactsStore.PictureWork) {

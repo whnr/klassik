@@ -19,6 +19,7 @@ struct PlacesView: View {
             side: side,
             reservedWidth: playing ? MiniPlayer.width(height: rowHeight, edgeInset: pillInset) + Space.s.points : 0,
             playerOpen: navigator.isPlayerOpen,
+            accent: AccentChoice.shared.family,
             onLayout: { tabBarFrame = $0 }
         )
         .ignoresSafeArea(.container)
@@ -63,6 +64,16 @@ struct PlacesView: View {
     }
 }
 
+/// A hosting controller starts its own environment, so the root of each host reads the accent pick itself
+/// (ADR 0034). The read observes the pick, so every control under it takes a new family at once.
+private struct AccentRoot: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .tint(Palette.tint)
+            .environment(\.accentFamily, AccentChoice.shared.family)
+    }
+}
+
 /// UIKit supplies glass selection, drag tracking and accessibility. Only the bar's available width changes.
 private struct SystemPlaces: UIViewControllerRepresentable {
     let model: AppModel
@@ -72,6 +83,8 @@ private struct SystemPlaces: UIViewControllerRepresentable {
     let side: TimelineSide
     let reservedWidth: CGFloat
     let playerOpen: Bool
+    /// A new pick updates the controller, so the tab bar takes the new tint.
+    let accent: AccentFamily
     let onLayout: @MainActor (CGRect) -> Void
 
     func makeUIViewController(context: Context) -> PlacesController {
@@ -92,13 +105,13 @@ private struct SystemPlaces: UIViewControllerRepresentable {
                     .environment(navigator)
                     .environment(\.placeBackTransition, backTransition)
                     .environment(\.tabRowClearance, Space.s.points)
-                    .tint(Palette.tint))
+                    .modifier(AccentRoot()))
             return place.tab(host)
         }
         controller.installPlayer(
             AnyView(
                 PlayerOverlayLayer().environment(model).environment(navigator)
-                    .environment(controller.playerLayout).tint(Palette.tint)))
+                    .environment(controller.playerLayout).modifier(AccentRoot())))
         return controller
     }
 
@@ -112,7 +125,7 @@ private struct SystemPlaces: UIViewControllerRepresentable {
         controller.onLayout = onLayout
         controller.reservedWidth = reservedWidth
         controller.side = side
-        controller.tabBar.tintColor = Palette.tint.uiColor
+        controller.tabBar.tintColor = UIColor(named: Palette.tint.assetName(in: accent))
         controller.view.setNeedsLayout()
     }
 

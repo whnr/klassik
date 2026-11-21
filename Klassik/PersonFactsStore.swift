@@ -24,7 +24,7 @@ final class PersonFactsStore {
 
     struct Cache: Codable, Sendable {
         /// Facts need a new version when parsing rules require another lookup.
-        static let version = 1
+        static let version = 2
         var version = Cache.version
         var people: [String: PersonFacts] = [:]
         /// The resolution of each composer tag.
@@ -44,6 +44,10 @@ final class PersonFactsStore {
         /// When each check of the background pass falls due, with its random spread (ADR 0042).
         var due: [String: Date] = [:]
         var picturePending: [String: PictureWork] = [:]
+        /// When the background pass asks Commons again for an unread picture, by person key (ADR 0044).
+        var pictureWait: [String: Date] = [:]
+        /// How many passes in a row ended without the picture, by person key. It sets the length of the wait (ADR 0044).
+        var pictureFailures: [String: Int] = [:]
 
         init() {}
 
@@ -61,6 +65,8 @@ final class PersonFactsStore {
             checked = try container.decodeIfPresent([String: Date].self, forKey: .checked) ?? [:]
             due = try container.decodeIfPresent([String: Date].self, forKey: .due) ?? [:]
             picturePending = try container.decodeIfPresent([String: PictureWork].self, forKey: .picturePending) ?? [:]
+            pictureWait = try container.decodeIfPresent([String: Date].self, forKey: .pictureWait) ?? [:]
+            pictureFailures = try container.decodeIfPresent([String: Int].self, forKey: .pictureFailures) ?? [:]
             // A saved pick list that the name rule settles takes its composer, without a request. The facts
             // load on the next lookup, and the background pass takes the tag first.
             for (tag, resolution) in composers where !chosen.contains(tag) && !reopenedPickers.contains(tag) {
@@ -72,10 +78,13 @@ final class PersonFactsStore {
                 due["composer:\(tag)"] = nil
             }
             // Resolutions and listener choices must survive facts invalidation.
-            if version < Cache.version {
-                people = [:]
-                version = Cache.version
+            if version < 1 { people = [:] }
+            // Older builds saved facts without a picture when the Commons request failed. A person without a
+            // picture gets one more check, which keeps the facts and asks Commons again.
+            if version < 2 {
+                for (qid, facts) in people where facts.portrait == nil { people[qid]?.pictureUnread = true }
             }
+            version = Cache.version
         }
     }
 
@@ -203,7 +212,39 @@ final class PersonFactsStore {
     /// Returns false on a failed request.
     func refresh(_ qid: String) async -> Bool {
         do {
-            if let facts = try await service.facts(qid: qid) { cache.people[qid] = facts }
+            if var facts = try await service.facts(qid: qid) {
+                // A stored picture stays until Commons answers for its replacement (ADR 0059).
+                if facts.pictureUnread == true, let old = cache.people[qid], let portrait = old.portrait {
+                    facts.portrait = portrait
+                    facts.credits += old.credits.filter { $0.kind == .picture }
+                }
+                cache.people[qid] = facts
+            } else {
+                // The item answered without facts: there is no picture to read.
+                cache.people[qid]?.pictureUnread = nil
+                cache.people[qid]?.pictureFile = nil
+            }
+            lastError = nil
+            save()
+            return true
+        } catch {
+            lastError = error.localizedDescription
+            return false
+        }
+    }
+
+    /// Asks Commons again for the unread picture of an item. Facts without the file name load again in full.
+    /// Returns false on a failed request.
+    func retryPicture(_ qid: String) async -> Bool {
+        guard var facts = cache.people[qid], let file = facts.pictureFile else { return await refresh(qid) }
+        do {
+            let found = try await service.portrait(file: file)
+            facts.portrait = found?.portrait
+            facts.credits.removeAll { $0.kind == .picture }
+            if let found { facts.credits.append(found.credit) }
+            facts.pictureUnread = nil
+            facts.pictureFile = nil
+            cache.people[qid] = facts
             lastError = nil
             save()
             return true
@@ -235,6 +276,8 @@ final class PersonFactsStore {
     func markChecked(_ key: String, at date: Date, due: Date) {
         cache.checked[key] = date
         cache.due[key] = due
+        cache.pictureWait[key] = nil
+        cache.pictureFailures[key] = nil
         save()
     }
 
@@ -257,12 +300,19 @@ final class PersonFactsStore {
         save()
     }
 
+    /// Records when the background pass asks again for a picture that Commons did not answer.
+    func postponePicture(_ key: String, until date: Date, failures: Int) {
+        cache.pictureWait[key] = date
+        cache.pictureFailures[key] = failures
+        save()
+    }
+
     /// The listener's choice from a pick list. Nil is "None of these".
     func choose(_ match: PersonMatch?, forComposer tag: String) async {
         pin(tag)
-        cache.reopenedPickers.remove(tag)
         guard let match else {
             cache.composers[tag] = .unknown
+            cache.reopenedPickers.remove(tag)
             save()
             return
         }
@@ -270,6 +320,7 @@ final class PersonFactsStore {
         defer { loading.remove(tag) }
         do {
             cache.composers[tag] = try await load(match.qid) ? .person(match.qid) : .unknown
+            cache.reopenedPickers.remove(tag)
             lastError = nil
         } catch {
             lastError = error.localizedDescription

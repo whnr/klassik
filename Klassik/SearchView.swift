@@ -13,6 +13,7 @@ struct SearchView: View {
     /// The condition that the next term of the sheet joins with "or".
     @State private var joining: Int?
     @State private var showsFilters = false
+    @State private var returnsAfterFilters = false
     @FocusState private var focused: Bool
     /// The start that the page last handled.
     @State private var started: Int?
@@ -74,15 +75,6 @@ struct SearchView: View {
             } else if !filtered.results.isEmpty {
                 SearchResults(results: filtered.results, matching: filtered.matching)
             }
-            if filtered.hiddenWorks > 0 {
-                let hidden = WorkIndex.Recording.count(filtered.hiddenWorks, "more work")
-                Text(typed ? "The filters hide \(hidden) that match the text." : "The filters hide \(hidden).")
-                    .typeStyle(.footnote)
-                    .foregroundStyle(Palette.textSecondary)
-                    .listRowSeparator(.hidden)
-                    .pageEdges(top: Layout.searchNoMatchTop)
-                    .accessibilityIdentifier("search-hidden")
-            }
         }
         .navigationTitle(Place.search.title)
         .navigationBarTitleDisplayMode(.inline)
@@ -112,19 +104,37 @@ struct SearchView: View {
             .background(Palette.backgroundPage)
         }
         .scrollDismissesKeyboard(.immediately)
-        .sheet(isPresented: $showsFilters) {
+        .sheet(
+            isPresented: $showsFilters,
+            onDismiss: {
+                if returnsAfterFilters {
+                    returnsAfterFilters = false
+                    navigator.back()
+                }
+            }
+        ) {
             FilterSheet(
-                conditions: $conditions, joining: $joining, pool: pool(of: found), hasText: typed, done: commit)
+                conditions: $conditions, joining: $joining, pool: pool(of: found), hasText: typed, done: commit,
+                back: {
+                    commit()
+                    returnsAfterFilters = true
+                    showsFilters = false
+                })
         }
         .onAppear(perform: start)
         .onChange(of: navigator.searchStarts, start)
         // Opening a result and leaving the page commit the search of the session (ADR 0029).
         .onChange(of: navigator.pages(in: .search).count) { before, after in
+            showsFilters = false
             if after > before { commit() }
         }
         .onChange(of: navigator.selection) { before, _ in
-            if before == .search { commit() }
+            if before == .search {
+                commit()
+                showsFilters = false
+            }
         }
+        .onDisappear { showsFilters = false }
         .task(id: Query(text: text, version: model.library.indexVersion)) {
             let library = model.library
             await live.show(text, version: library.indexVersion) { await library.results(for: $0) }
@@ -332,7 +342,7 @@ private struct RecentList: View {
     }
 }
 
-/// The sections of the results: works, then composers and performers, then albums (search.html).
+/// People precede works; recordings share the Albums section (ADR 0067).
 private struct SearchResults: View {
     @Environment(AppModel.self) private var model
     let results: Search.Results
@@ -342,6 +352,8 @@ private struct SearchResults: View {
 
     var body: some View {
         let playing = model.playback.item
+        people(results.composers, title: "Composers")
+        people(results.performers, title: "Performers")
         if !results.works.isEmpty {
             Section {
                 CountedHeading("Works", count: results.works.count)
@@ -359,24 +371,9 @@ private struct SearchResults: View {
                 }
             }
         }
-        if !results.people.isEmpty {
+        if !results.albums.isEmpty || !results.recordings.isEmpty {
             Section {
-                CountedHeading("Composers and performers", count: results.people.count)
-                ForEach(results.people) { person in
-                    PersonPageLink(page: person.composes ? .composer(person.name) : .performer(person.name)) {
-                        lines(
-                            title: person.name, isFavourite: model.recordingOrder.isFavourite(person: person.name),
-                            detail: person.counts())
-                    }
-                    .accessibilityIdentifier("search-person")
-                    .itemSeparator(
-                        first: person.id == results.people.first?.id, last: person.id == results.people.last?.id)
-                }
-            }
-        }
-        if !results.albums.isEmpty {
-            Section {
-                CountedHeading("Albums", count: results.albums.count)
+                CountedHeading("Albums", count: results.albums.count + results.recordings.count)
                 ForEach(results.albums) { album in
                     NavigationLink(value: Page.album(album.id)) {
                         HStack(spacing: Layout.rowGap) {
@@ -393,7 +390,42 @@ private struct SearchResults: View {
                     .playingRow(playing?.recording.albumKey.map { album.keys.contains($0) } ?? false)
                     .accessibilityIdentifier("search-album")
                     .itemSeparator(
-                        first: album.id == results.albums.first?.id, last: album.id == results.albums.last?.id)
+                        first: album.id == results.albums.first?.id,
+                        last: album.id == results.albums.last?.id && results.recordings.isEmpty)
+                }
+                ForEach(results.recordings) { item in
+                    NavigationLink(value: Page.recording(work: item.work.id, recording: item.id)) {
+                        lines(
+                            title: item.work.title,
+                            isFavourite: model.recordingOrder.isFavourite(item.recording, of: item.work),
+                            detail: [
+                                item.recording.summary, item.recording.album, item.recording.year.map(String.init),
+                            ]
+                            .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: ", "))
+                    }
+                    .playingRow(playing?.recording.id == item.id)
+                    .accessibilityIdentifier("search-recording")
+                    .itemSeparator(
+                        first: results.albums.isEmpty && item.id == results.recordings.first?.id,
+                        last: item.id == results.recordings.last?.id)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func people(_ people: [Search.Person], title: String) -> some View {
+        if !people.isEmpty {
+            Section {
+                CountedHeading(title, count: people.count)
+                ForEach(people) { person in
+                    PersonPageLink(page: person.composes ? .composer(person.name) : .performer(person.name)) {
+                        lines(
+                            title: person.name, isFavourite: model.recordingOrder.isFavourite(person: person.name),
+                            detail: person.counts())
+                    }
+                    .accessibilityIdentifier("search-person")
+                    .itemSeparator(first: person.id == people.first?.id, last: person.id == people.last?.id)
                 }
             }
         }

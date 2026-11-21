@@ -361,6 +361,72 @@ class PlanTests(unittest.TestCase):
             self.assertEqual(ui, "all")
             self.assertEqual(len(matrix["include"]), 4)
 
+    def test_unclear_release_versions_walk_everything(self):
+        for title in ("Release Klassik 1.0", "Release Klassik 0.16.x", "Release Klassik ", "Release Klassik 0.16.00"):
+            with self.subTest(title=title):
+                self.assertEqual(screen_report.plan("pull_request", "", "[ui: browse]", title)[0], "all")
+
+    @staticmethod
+    def project(version):
+        return (
+            f'name: Klassik\nsettings:\n  base:\n    MARKETING_VERSION: {version}\n    CURRENT_PROJECT_VERSION: "1"\n'
+        )
+
+    def test_patch_release_walks_only_requested_areas(self):
+        for title, version in (("Release Klassik 0.16.1", "0.16.1"), ("[sz-123] Release Klassik 0.16.10", "0.16.10")):
+            with self.subTest(title=title), contextlib.redirect_stderr(io.StringIO()) as warnings:
+                project = self.project(f'"{version}"')
+                ui, matrix = screen_report.plan("pull_request", "", "Fix\n\n[ui: browse]\n", title, project=project)
+                self.assertEqual((ui, [entry["group"] for entry in matrix["include"]]), ("browse", ["places-browse"]))
+                self.assertEqual(warnings.getvalue(), "")
+
+    def test_patch_release_without_request_warns(self):
+        with contextlib.redirect_stderr(io.StringIO()) as warnings:
+            project = self.project('"0.16.1"')
+            self.assertEqual(
+                screen_report.plan("pull_request", "", "", "Release Klassik 0.16.1", project=project)[0], "false"
+            )
+        self.assertIn("::warning::Patch release requests no walk areas.", warnings.getvalue())
+
+    def test_patch_title_that_project_yml_does_not_prove_walks_everything(self):
+        for project in (
+            self.project('"0.17.0"'),
+            self.project("0.16.1"),
+            self.project('"0.16.1"') + '    MARKETING_VERSION: "0.17.0"\n',
+            "",
+        ):
+            with self.subTest(project=project), contextlib.redirect_stderr(io.StringIO()) as warnings:
+                ui, matrix = screen_report.plan(
+                    "pull_request", "", "[ui: browse]", "Release Klassik 0.16.1", project=project
+                )
+                self.assertEqual((ui, len(matrix["include"])), ("all", 4))
+                self.assertIn("::warning::Release title version 0.16.1 is not MARKETING_VERSION", warnings.getvalue())
+
+    def test_plan_command_reads_project_yml_of_the_head(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory, "project.yml")
+            path.write_text(self.project('"0.17.0"'))
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(pathlib.Path(screen_report.__file__)),
+                    "plan",
+                    "pull_request",
+                    "",
+                    "Release Klassik 0.17.1",
+                    "refs/pull/1/merge",
+                    str(path),
+                ],
+                input="[ui: browse]\n",
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+        self.assertIn("ui=all\n", result.stdout)
+
+    def test_other_titles_are_not_releases(self):
+        self.assertEqual(screen_report.plan("pull_request", "", "", "Fix the Release Klassik 0.16.0 notes")[0], "false")
+
     def test_playback_shards_cover_every_method_and_screenshot_once(self):
         source = screen_report.WALK.read_text()
         queue = screen_report.group_tests("playback-queue")

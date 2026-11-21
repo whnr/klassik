@@ -372,6 +372,12 @@ enum Layout {
     static let scrubLabelHorizontal = Space.s.points
     /// css: specimen.css .scrub-label | border-top-left-radius
     static let scrubLabelCorner = Radius.s
+    /// css: specimen.css .scrub-label | box-shadow | 10px
+    static let scrubLabelShadow: CGFloat = 10
+    /// css: specimen.css .scrub-label | box-shadow | 2px
+    static let scrubLabelShadowY: CGFloat = 2
+    /// css: specimen.css .scrub-label | box-shadow | 0.18
+    static let scrubLabelShadowOpacity: CGFloat = 0.18
 
     // MARK: Chronology
 

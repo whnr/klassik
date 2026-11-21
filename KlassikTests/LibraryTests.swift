@@ -14,8 +14,8 @@ struct LibraryTests {
             works: work.map { [Song.Work(name: $0)] }, movements: movement.map { [Song.Movement(name: $0)] })
     }
 
-    static func rule(_ conditions: ClassicalFilter.Condition...) -> ClassicalFilter.Rule {
-        ClassicalFilter.Rule(conditions: conditions)
+    static func rule(_ checks: ClassicalFilter.Check...) -> ClassicalFilter.Rule {
+        ClassicalFilter.Rule(checks: checks)
     }
 
     @Test(arguments: ["Classical > Orchestral", "classical", "Neoclassical"])
@@ -31,7 +31,7 @@ struct LibraryTests {
         #expect(!filter.matches(Self.song("t", genre: "Jazz", composer: "Mozart")))
     }
 
-    @Test func allConditionsOfARuleMustMatch() {
+    @Test func allChecksOfARuleMustMatch() {
         let filter = ClassicalFilter(rules: [
             Self.rule(.init(kind: .hasComposer), .init(kind: .genreDoesNotContain, text: "Pop"))
         ])
@@ -40,13 +40,24 @@ struct LibraryTests {
         #expect(!filter.matches(Self.song("t", genre: "Jazz")))
     }
 
-    /// A condition the listener is still typing must not let the whole library in.
+    /// A check the listener is still typing must not let the whole library in.
     @Test func emptyRulesAndEmptyTextMatchNothing() {
         let song = Self.song("t", genre: "Classical", work: "W", movement: "M", composer: "C")
         #expect(!ClassicalFilter(rules: []).matches(song))
         #expect(!ClassicalFilter(rules: [Self.rule()]).matches(song))
         #expect(!ClassicalFilter(rules: [Self.rule(.init(kind: .genreContains, text: " "))]).matches(song))
         #expect(!ClassicalFilter(rules: [Self.rule(.init(kind: .genreDoesNotContain))]).matches(song))
+    }
+
+    /// The device keeps the classical rules as JSON under fixed keys, so saved rules load.
+    @Test func savedRulesLoadAndKeepTheirKey() throws {
+        let check = #"{"id":"7F9619FF-8B86-D011-B42D-00C04FC964FF","kind":"genreContains","text":"Oper"}"#
+        let saved = Data(#"{"rules":[{"id":"6F9619FF-8B86-D011-B42D-00C04FC964FF","conditions":[\#(check)]}]}"#.utf8)
+        let filter = try JSONDecoder().decode(ClassicalFilter.self, from: saved)
+        #expect(filter.rules.map(\.checks) == [[ClassicalFilter.Check(kind: .genreContains, text: "Oper")]])
+        let written = try JSONSerialization.jsonObject(with: JSONEncoder().encode(filter)) as? [String: Any]
+        let rule = (written?["rules"] as? [[String: Any]])?.first
+        #expect(rule?["conditions"] != nil)
     }
 
     @Test func albumCountsWhenMostTracksMatch() {

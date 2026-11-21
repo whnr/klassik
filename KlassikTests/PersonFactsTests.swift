@@ -230,6 +230,17 @@ struct PersonFactsServiceTests {
         #expect(!facts.credits.contains { $0.kind == .picture })
     }
 
+    @Test func aFailedPictureRequestMarksThePictureUnread() async throws {
+        let rules = PersonStub.bachRules.filter { $0.contains != "commons.wikimedia.org" }
+        let facts = try #require(try await PersonStub(rules).service.facts(qid: "Q1339"))
+        #expect(facts.born == 1685)
+        #expect(facts.portrait == nil)
+        #expect(facts.pictureUnread == true)
+        #expect(facts.pictureFile == "Bach.jpg")
+        let answered = try #require(try await PersonStub(PersonStub.bachRules).service.facts(qid: "Q1339"))
+        #expect(answered.pictureUnread == nil)
+    }
+
     @Test func aCreditLinkOnAnotherSchemeIsDropped() {
         let page = Data(
             """
@@ -619,6 +630,50 @@ struct PersonFactsStoreTests {
 
         let relaunched = PersonFactsStore(service: PersonStub([]).service, cacheURL: url)
         #expect(relaunched.resolution(ofComposer: tag) == .pick(PersonStub.beethovenHits))
+    }
+
+    @Test func aFailedSelectionKeepsTheReopenedPickerAfterRelaunch() async throws {
+        let stub = PersonStub(PersonStub.beethovenRules)
+        let service = PersonFactsService(
+            fetch: { request in
+                let url = request.url!.absoluteString.removingPercentEncoding ?? ""
+                if url.contains("ids=Q12368917&props=labels|descriptions|claims") {
+                    throw URLError(.notConnectedToInternet)
+                }
+                return try await stub.fetch(request)
+            }, pacer: WikimediaPacer(interval: .zero))
+        let url = FileManager.default.temporaryDirectory.appending(path: "\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let store = PersonFactsStore(service: service, cacheURL: url)
+        let tag = "Ludwig van Beethoven"
+        await store.resolve(composer: tag, artistIDs: [])
+        #expect(store.resolution(ofComposer: tag) == .person("Q255"))
+        await store.chooseAgain(composer: tag)
+        await store.choose(PersonStub.beethovenHits[1], forComposer: tag)
+        #expect(store.lastError != nil)
+        #expect(store.resolution(ofComposer: tag) == .pick(PersonStub.beethovenHits))
+        #expect(store.cache.reopenedPickers.contains(tag))
+        #expect(!store.cache.chosen.contains(tag))
+        await store.saved()
+
+        let relaunched = PersonFactsStore(service: PersonStub([]).service, cacheURL: url)
+        #expect(relaunched.resolution(ofComposer: tag) == .pick(PersonStub.beethovenHits))
+    }
+
+    @Test(arguments: [false, true])
+    func aCompletedSelectionClearsTheReopenedPicker(none: Bool) async throws {
+        let (store, _, url) = makeStore(PersonStub.beethovenRules)
+        defer { try? FileManager.default.removeItem(at: url) }
+        let tag = "Ludwig van Beethoven"
+        await store.resolve(composer: tag, artistIDs: [])
+        await store.chooseAgain(composer: tag)
+        await store.choose(none ? nil : PersonStub.beethovenHits[1], forComposer: tag)
+        #expect(store.lastError == nil)
+        #expect(!store.cache.reopenedPickers.contains(tag))
+        await store.saved()
+
+        let relaunched = PersonFactsStore(service: PersonStub([]).service, cacheURL: url)
+        #expect(relaunched.resolution(ofComposer: tag) == (none ? .unknown : .person("Q12368917")))
     }
 
     @Test func surnameOnlyMeansOneWord() {

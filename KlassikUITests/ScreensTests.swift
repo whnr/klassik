@@ -1605,13 +1605,16 @@ final class PlaybackScreens: ScreensTestCase {
             .withOffset(CGVector(dx: mark.frame.minX + line / 2, dy: mark.frame.maxY - line / 2)).tap()
         XCTAssertEqual(mark.value as? String, before, "A tap on the name changed the favourite")
         mark.tap()
-        XCTAssertEqual(mark.value as? String, "Favourite")
+        let performerFavourite = expectation(for: NSPredicate(format: "value == 'Favourite'"), evaluatedWith: mark)
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [performerFavourite], timeout: 5), .completed, "The performer is not a favourite")
         snap(app, "06d-performer-favourite")
         cover.tap()
         let albumMark = app.buttons["favourite-album"]
         XCTAssertTrue(albumMark.waitForExistence(timeout: 10))
         if albumMark.value as? String != "Favourite" { albumMark.tap() }
-        XCTAssertEqual(albumMark.value as? String, "Favourite")
+        let albumFavourite = expectation(for: NSPredicate(format: "value == 'Favourite'"), evaluatedWith: albumMark)
+        XCTAssertEqual(XCTWaiter.wait(for: [albumFavourite], timeout: 5), .completed, "The album is not a favourite")
         pageMenuItem(app, "Tags and Grouping").tap()
         XCTAssertTrue(app.navigationBars["Tags"].waitForExistence(timeout: 10))
         snap(app, "06c-tags")
@@ -3055,13 +3058,16 @@ class ScreensTestCase: XCTestCase {
             upperText: Layout.pageTitle)
         // person.html: the album grid is a .section on the plain page list, so the section gap follows the tabs.
         // The placeholder fill is close to the page ground, so the element frame stands in for the ink.
-        // A grid row centres its cells, so a cover above a shorter title sits lower and the query order need not
-        // give the left cover. The left column gives the edge, the top cover gives the gap.
+        // Different title heights must not move the covers from the top of their grid row.
         let covers = app.buttons.matching(identifier: "performer-album").allElementsBoundByIndex.map(\.frame)
-        guard let left = covers.min(by: { $0.minX < $1.minX }), let top = covers.min(by: { $0.minY < $1.minY })
-        else { return XCTFail("No album cover") }
+            .sorted { $0.minY < $1.minY }.prefix(2).sorted { $0.minX < $1.minX }
+        guard covers.count == 2 else { return XCTFail("The performer needs two album covers") }
+        let left = covers[0]
+        let right = covers[1]
+        XCTAssertGreaterThan(abs(left.height - right.height), 2, "The album titles need different line counts")
+        XCTAssertEqual(left.minY, right.minY, accuracy: 2, "The album covers are not top-aligned")
         expectPageEdges(left, in: app, "First album")
-        expectGap(from: tabs, to: top, Layout.sectionTop, "Tabs to albums")
+        expectGap(from: tabs, to: left, Layout.sectionTop, "Tabs to albums")
         checkTabs(app, "performer-tabs", from: "Albums", to: "About")
         tabsElement.buttons["Albums"].tap()
     }

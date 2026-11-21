@@ -346,6 +346,7 @@ struct ComposerListTests {
     }
 }
 
+@MainActor
 struct LookupStatusTextTests {
     @Test func namesTheComposerInProse() {
         let text = LookupStatus.text(.init(done: 3, total: 9, composer: "Beethoven"))

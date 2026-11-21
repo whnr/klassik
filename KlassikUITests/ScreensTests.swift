@@ -482,37 +482,78 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertTrue(app.buttons["library-composers"].waitForExistence(timeout: 10))
     }
 
-    /// Search lists every matching recording under Albums; a favourite one shows its fermata (ADR 0067).
+    /// Search shows its results in typed sections: Composers, Performers, Works, then Albums. Albums holds only
+    /// albums, and a recording shows only inside its work. A track title finds its work and the row names that
+    /// track (ADR 0067, 0071).
     @MainActor
-    func testSearchFavouriteRecording() throws {
+    func testSearchSections() throws {
         let app = try launchAndConnect(openComposers: false)
         openPlace(app, "Search")
         let field = app.textFields["search-field"]
         XCTAssertTrue(field.waitForExistence(timeout: 10))
         field.tap()
         field.typeText("chopin\n")
-        let row = app.buttons.matching(identifier: "search-recording").firstMatch
-        let mark = app.buttons["favourite-recording"]
-        let marked = { "\(row.label) \(row.value ?? "")".contains("Favourite") }
-        // Server stars survive UI test launches, so the walk sets the mark it needs and restores it at the end.
-        func setMark(_ favourite: Bool) {
-            reveal(row, in: app).tap()
-            XCTAssertTrue(mark.waitForExistence(timeout: 10), "The row does not open the recording")
-            let wanted = favourite ? "Favourite" : "Not a favourite"
-            if mark.value as? String != wanted { mark.tap() }
-            XCTAssertTrue(eventually(timeout: 10) { mark.value as? String == wanted })
-            back(app)
+        let works = app.buttons.matching(identifier: "search-work")
+        let albums = app.buttons.matching(identifier: "search-album")
+        let four = expectation(for: NSPredicate(format: "count == 4"), evaluatedWith: works)
+        XCTAssertEqual(XCTWaiter.wait(for: [four], timeout: 10), .completed, "\(works.count) works, not four")
+        XCTAssertTrue(albums.firstMatch.exists, "No album for Chopin")
+        XCTAssertFalse(app.buttons["search-recording"].exists, "Search lists a recording apart from its work")
+        let heading = { (title: String) in
+            app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "\(title) (")).firstMatch
         }
-        XCTAssertTrue(row.waitForExistence(timeout: 10), "Search lists no recording")
-        let wasFavourite = marked()
-        setMark(false)
-        XCTAssertTrue(row.waitForExistence(timeout: 5), "Search hides a recording that is no favourite")
-        XCTAssertTrue(eventually(timeout: 5) { !marked() }, "A recording that is no favourite shows the fermata")
-        setMark(true)
-        reveal(row, in: app)
-        XCTAssertTrue(eventually(timeout: 5) { marked() }, "The favourite recording shows no fermata")
-        snap(app, "19j-search-favourite-recording")
-        if !wasFavourite { setMark(false) }
+        XCTAssertEqual(heading("Albums").label, "Albums (\(albums.count))", "Albums counts more than its albums")
+        XCTAssertLessThan(heading("Works").frame.minY, heading("Albums").frame.minY, "Albums precede works")
+        XCTAssertLessThan(works.element(boundBy: 3).frame.minY, albums.firstMatch.frame.minY)
+        snap(app, "19j-search-sections")
+
+        // A movement title finds the work, not the album, and the row says which track matched.
+        app.buttons["search-clear"].tap()
+        field.tap()
+        field.typeText("sarabande\n")
+        XCTAssertTrue(works.firstMatch.waitForExistence(timeout: 10), "A track title finds no work")
+        XCTAssertEqual(works.count, 1)
+        XCTAssertTrue(works.firstMatch.label.contains("Cello Suite No. 1"), works.firstMatch.label)
+        XCTAssertTrue(works.firstMatch.label.contains("Track: "), "The row does not name the track")
+        XCTAssertTrue(works.firstMatch.label.contains("Sarabande"), works.firstMatch.label)
+        XCTAssertFalse(albums.firstMatch.exists, "A tagged track title finds its album")
+        snap(app, "19k-search-track-match")
+    }
+
+    /// A swipe down on the rows of a sheet with a grabber closes it, as on every system sheet.
+    @MainActor
+    func testSwipeDownClosesTheFilterSheet() throws {
+        let app = try launchAndConnect(openComposers: false)
+        openPlace(app, "Search")
+        let field = app.textFields["search-field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        field.tap()
+        field.typeText("chopin\n")
+        XCTAssertTrue(app.buttons.matching(identifier: "search-work").firstMatch.waitForExistence(timeout: 10))
+        app.buttons["search-filters"].tap()
+        let term = app.buttons.matching(identifier: "filter-term").firstMatch
+        XCTAssertTrue(term.waitForExistence(timeout: 10))
+        swipeSheetDown(from: term, in: app)
+        XCTAssertTrue(app.buttons["filter-done"].waitForNonExistence(timeout: 5), "A swipe down left Filters open")
+        XCTAssertTrue(field.isHittable)
+    }
+
+    @MainActor
+    func testSwipeDownClosesTheChronologyWorks() throws {
+        let app = try launchAndConnect()
+        openPlace(app, "Chronology")
+        let brahms = app.buttons.matching(identifier: "chronology-line")
+            .matching(NSPredicate(format: "label == 'Johannes Brahms'")).firstMatch
+        XCTAssertTrue(brahms.waitForExistence(timeout: 30), "The overview shows no line for Brahms")
+        brahms.tap()
+        let undated = app.buttons.matching(identifier: "chronology-works").firstMatch
+        XCTAssertTrue(undated.waitForExistence(timeout: 30), "Brahms shows no counted row")
+        undated.tap()
+        let listed = app.buttons.matching(identifier: "chronology-listed-work").firstMatch
+        XCTAssertTrue(listed.waitForExistence(timeout: 10))
+        swipeSheetDown(from: listed, in: app)
+        XCTAssertTrue(listed.waitForNonExistence(timeout: 5), "A swipe down left the works sheet open")
+        XCTAssertTrue(app.buttons["chronology-name"].isHittable)
     }
 
     /// The overview of the composers with life dates, then one composer among the contemporaries, the scrub, the
@@ -1084,6 +1125,23 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(show.waitForExistence(timeout: 10))
         XCTAssertEqual(show.frame.minY, before.minY, accuracy: 2, "The underlying page scrolled")
         snap(app, "16b-overlay-dismissed")
+    }
+
+    /// A swipe down on the content of the player closes it when its list is at the top, as a system sheet closes.
+    @MainActor
+    func testSwipeDownClosesThePlayer() throws {
+        let app = try launchAndConnect()
+        openRecording(app)
+        playPaused(app)
+        openPlayer(app)
+        let overlay = app.descendants(matching: .any)["player-overlay"].firstMatch
+        XCTAssertTrue(overlay.exists)
+        let start = overlay.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35))
+        start.press(
+            forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85)),
+            withVelocity: .fast, thenHoldForDuration: 0)
+        expectPlayerClosed(app)
+        XCTAssertTrue(app.buttons["show-player"].waitForExistence(timeout: 10))
     }
 
     @MainActor
@@ -2519,6 +2577,14 @@ class ScreensTestCase: XCTestCase {
         XCTAssertTrue(handle.waitForExistence(timeout: 10))
         // The overlay slides in below the tab row, so the handle becomes hittable only when the slide ends.
         XCTAssertTrue(eventually(timeout: 5) { handle.isHittable }, "The player is behind the selected place")
+    }
+
+    /// Drags down from a row of a sheet to near the bottom of the screen, the way a finger closes a sheet.
+    @MainActor
+    func swipeSheetDown(from element: XCUIElement, in app: XCUIApplication) {
+        element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(
+            forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95)),
+            withVelocity: .fast, thenHoldForDuration: 0)
     }
 
     @MainActor

@@ -653,7 +653,7 @@ struct RecordingView: View {
                 while !Task.isCancelled {
                     try? await Task.sleep(for: .seconds(1))
                     guard let movement = player.movement, recording.songs.indices.contains(movement),
-                        spell.follow(movement)
+                        spell.follow()
                     else { continue }
                     withAnimation(Motion.glide.animation(reduceMotion: reduceMotion)) {
                         proxy.scrollTo(recording.songs[movement].id, anchor: UnitPoint(x: 0.5, y: 0.2))

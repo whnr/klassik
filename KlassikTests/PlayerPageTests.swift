@@ -107,31 +107,31 @@ struct QuietSpellTests {
         #expect(QuietSpell.length == .seconds(8))
     }
 
-    @Test func followsOnceForEachMovementAndEachTouch() {
+    @Test func retriesFollowingUntilAnotherTouch() {
         var spell = QuietSpell()
         spell.touch(at: start)
-        let follow1 = spell.follow(0, at: start.advanced(by: .seconds(7)))
+        let follow1 = spell.follow(at: start.advanced(by: .seconds(7)))
         #expect(!follow1)
-        let follow2 = spell.follow(0, at: start.advanced(by: .seconds(8)))
+        let follow2 = spell.follow(at: start.advanced(by: .seconds(8)))
         #expect(follow2)
-        let follow3 = spell.follow(0, at: start.advanced(by: .seconds(9)))
-        #expect(!follow3)
-        let follow4 = spell.follow(1, at: start.advanced(by: .seconds(10)))
+        let follow3 = spell.follow(at: start.advanced(by: .seconds(9)))
+        #expect(follow3)
+        let follow4 = spell.follow(at: start.advanced(by: .seconds(10)))
         #expect(follow4)
         spell.touch(at: start.advanced(by: .seconds(11)))
-        let follow5 = spell.follow(1, at: start.advanced(by: .seconds(12)))
+        let follow5 = spell.follow(at: start.advanced(by: .seconds(12)))
         #expect(!follow5)
-        let follow6 = spell.follow(1, at: start.advanced(by: .seconds(19)))
+        let follow6 = spell.follow(at: start.advanced(by: .seconds(19)))
         #expect(follow6)
     }
 
     @Test func neverFollowsDuringATouch() {
         var spell = QuietSpell()
         spell.touching(true, at: start)
-        let early = spell.follow(1, at: start.advanced(by: .seconds(60)))
+        let early = spell.follow(at: start.advanced(by: .seconds(60)))
         #expect(!early)
         spell.touching(false, at: start.advanced(by: .seconds(60)))
-        let late = spell.follow(1, at: start.advanced(by: .seconds(68)))
+        let late = spell.follow(at: start.advanced(by: .seconds(68)))
         #expect(late)
     }
 

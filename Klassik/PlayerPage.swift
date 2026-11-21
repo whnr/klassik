@@ -48,9 +48,6 @@ struct QuietSpell: Sendable {
     static let length = Duration.seconds(8)
 
     private var lastTouch: ContinuousClock.Instant?
-    /// The movement and the touch of the last follow. The page follows again only when one of them changes,
-    /// so a still page does not scroll each second.
-    private var followed: (movement: Int, touch: ContinuousClock.Instant?)?
     private(set) var isHeld = false
     private(set) var isTouched = false
 
@@ -80,12 +77,9 @@ struct QuietSpell: Sendable {
         return rest > .zero ? rest : nil
     }
 
-    /// True when the page should bring the playing row back now. Then the follow counts as done.
-    mutating func follow(_ movement: Int, at now: ContinuousClock.Instant = .now) -> Bool {
-        guard wait(at: now) == nil else { return false }
-        if let followed, followed.movement == movement, followed.touch == lastTouch { return false }
-        followed = (movement, lastTouch)
-        return true
+    /// A scroll request can miss a lazy row. Keep trying during the quiet spell, as the specimen does.
+    func follow(at now: ContinuousClock.Instant = .now) -> Bool {
+        wait(at: now) == nil
     }
 }
 

@@ -1104,6 +1104,28 @@ final class PlaybackScreens: ScreensTestCase {
         expectMovementPlayEdge(app)
     }
 
+    /// The quiet spell returns to the playing row after the listener scrolls away (ADR 0014, 0027).
+    @MainActor
+    func testPlayerFollowsAfterQuietSpell() throws {
+        let app = try launchAndConnect()
+        openRecording(app)
+        playPaused(app)
+        openPlayer(app)
+        let position = app.sliders["position"].firstMatch
+        XCTAssertTrue(eventually(timeout: 12) { position.exists && position.isHittable })
+        let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
+        let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25))
+        for _ in 0..<3 { from.press(forDuration: 0.05, thenDragTo: to) }
+        XCTAssertFalse(position.exists && position.isHittable, "The drag did not leave the playing row")
+        XCTAssertFalse(
+            eventually(timeout: 6) { position.exists && position.isHittable },
+            "The player followed before eight quiet seconds")
+        XCTAssertTrue(
+            eventually(timeout: 7) { position.exists && position.isHittable },
+            "The player did not return after eight quiet seconds")
+        snap(app, "05d-player-follow")
+    }
+
     /// A listening note is written in the playing row, never in a modal. It stays open while the bar scrubs, "End here"
     /// makes a span, and the saved note opens its row once another movement plays (ADR 0027).
     @MainActor

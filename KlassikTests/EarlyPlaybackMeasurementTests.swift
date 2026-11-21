@@ -272,7 +272,8 @@ struct EarlyPlaybackMeasurementTests {
             target: root.appending(path: "far-seek.mp3"), url: client.streamURL(songID: song.id),
             rangeLoader: ranges.loader)
         transfer.begin(length: Int64(data.count), validator: validator)
-        // A seek comes after the head of the file arrived. The sequential bytes then stay far behind the seek target.
+        // A seek comes after the head of the file arrived. The sequential bytes run at the bitrate, as on the same
+        // link, and stay far behind the seek target in the middle of the file.
         let head = 512 * 1024
         await withCheckedContinuation { continuation in
             DispatchQueue.global().async {
@@ -281,7 +282,7 @@ struct EarlyPlaybackMeasurementTests {
             }
         }
         let feeder = Self.pace(
-            data.subdata(in: head..<data.count), into: transfer, bitrate: bitrate, ratio: 0.1, latency: .zero)
+            data.subdata(in: head..<data.count), into: transfer, bitrate: bitrate, ratio: 1, latency: .zero)
         let tap = Tap()
         let engine = GaplessEngine(rendered: { tap.record($0) })
         let timeline = Timeline()

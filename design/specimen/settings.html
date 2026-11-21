@@ -184,16 +184,18 @@
             [toggle("Technical Details", technical, () => reload("technical", technical ? "off" : "on"))],
             "Shows the library counts, the lookups, local storage and diagnostics with the changes that wait.",
           ),
-          technical
-            ? group("Technical details", [
-                link("Classical Albums", null, "412"),
-                count("Classical Tracks", "9,873"),
-                link("Other Albums", null, "138"),
-                link("MusicBrainz", "lookup.html", "3 to confirm"),
-                link("Local Storage", "storage.html"),
-                link("Diagnostics", null, "2 waiting"),
-              ])
-            : null,
+          ...(technical
+            ? [
+                group("Technical details", [
+                  link("Classical Albums", null, "412"),
+                  count("Classical Tracks", "9,873"),
+                  link("Other Albums", null, "138"),
+                  link("MusicBrainz", "lookup.html", "3 to confirm"),
+                  link("Local Storage", "storage.html"),
+                  link("Diagnostics", null, "2 waiting"),
+                ]),
+              ]
+            : []),
           group(null, [link("Licences")]),
         );
       });

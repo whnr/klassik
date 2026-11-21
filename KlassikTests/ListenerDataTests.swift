@@ -17,7 +17,8 @@ struct ListenerDataTests {
 
     private let data = DeviceStore.Data(
         favouriteWorks: ["work"], recordingOrder: ["work": ["album"]],
-        notes: ["recording": [ListeningNote(movement: 0, at: 12, text: "Horns")]])
+        notes: ["recording": [ListeningNote(movement: 0, at: 12, text: "Horns")]],
+        recentSearches: [RecentSearch(id: UUID(), text: "Dvořák", conditions: [])])
 
     @Test func signOutKeepsTheDeviceFile() throws {
         let root = folder()

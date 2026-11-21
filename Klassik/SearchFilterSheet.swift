@@ -50,40 +50,50 @@ struct FilterSheet: View {
                     }
                 }
             }
+            // The note, the kinds and the field start at the inset of the title (search.html `.fsheet .body`).
             Section {
-                PageTabs(tabs: Search.Scope.allCases, title: \.title, selection: $scope)
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                    .accessibilityIdentifier("filter-scopes")
-                NarrowField(text: $narrowing, scope: scope, focused: $narrowFocused)
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-            } header: {
                 Text(note)
                     .typeStyle(.footnote)
                     .foregroundStyle(Palette.textSecondary)
-                    .textCase(nil)
                     .accessibilityIdentifier("filter-note")
+                    .listRowInsets(EdgeInsets())
+                PageTabs(tabs: Search.Scope.allCases, title: \.title, selection: $scope, style: .kinds)
+                    .accessibilityIdentifier("filter-scopes")
+                    .listRowInsets(
+                        EdgeInsets(
+                            top: Layout.filterKindsTop, leading: 0, bottom: Layout.filterKindsBottom, trailing: 0))
+                NarrowField(text: $narrowing, scope: scope, focused: $narrowFocused)
+                    .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: Layout.narrowBottom, trailing: 0))
             }
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .listSectionSpacing(0)
+            // The terms are rows of one plain list on the sheet ground, with hairlines across the list.
             Section {
                 if choices.isEmpty {
                     Text("No term of this kind is left.")
                         .typeStyle(.subheadline)
                         .foregroundStyle(Palette.textSecondary)
                         .accessibilityIdentifier("filter-none")
+                        .termRow()
                 }
                 ForEach(choices) { choice in
                     TermRow(choice: choice) { pick(choice) }
+                        .termRow()
                 }
             }
-            .listRowBackground(Palette.backgroundRow.color)
+            .listRowBackground(Color.clear)
         }
         .grounds()
+        .contentMargins(.horizontal, Layout.filterHeadInset, for: .scrollContent)
+        .environment(\.defaultMinListRowHeight, 0)
+        .environment(\.defaultMinListHeaderHeight, 0)
         .safeAreaInset(edge: .top, spacing: 0) {
             head(total: filters.count(conditions, in: pool))
         }
         .onChange(of: scope) { narrowing = "" }
         .presentationDetents([.medium])
+        .presentationDragIndicator(.visible)
         .presentationBackgroundInteraction(.enabled(upThrough: .medium))
         .presentationBackground(Palette.backgroundGrouped)
     }
@@ -110,7 +120,8 @@ struct FilterSheet: View {
             .typeStyle(.body)
             .accessibilityIdentifier("filter-done")
         }
-        .padding(.top, Layout.filterHeadTop)
+        // The system grabber sits above the head, as the specimen `.grabber` does.
+        .padding(.top, Layout.grabberTop + Layout.grabberHeight + Layout.filterHeadTop)
         .padding(.bottom, Layout.filterHeadBottom)
         .padding(.horizontal, Layout.filterHeadInset)
         .background(Palette.backgroundGrouped)
@@ -227,6 +238,16 @@ private struct ConditionRow: View {
         )
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("filter-condition")
+    }
+}
+
+extension View {
+    /// A term row keeps the specimen row inset inside the list, and its hairline spans the list.
+    fileprivate func termRow() -> some View {
+        listRowInsets(EdgeInsets(top: 0, leading: Layout.termInset, bottom: 0, trailing: Layout.termInset))
+            .frame(minHeight: Measure.hitTarget)
+            .alignmentGuide(.listRowSeparatorLeading) { _ in -Layout.termInset }
+            .alignmentGuide(.listRowSeparatorTrailing) { $0.width + Layout.termInset }
     }
 }
 

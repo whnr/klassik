@@ -55,11 +55,30 @@ struct PerformersView: View {
 /// and the content under it changes at once. The system segmented control draws glass that morphs between the
 /// states, which this page does not want.
 struct PageTabs<Tab: Hashable>: View {
+    /// The look of the control: the person page tabs, or the kinds of the filter sheet.
+    struct Style {
+        var label: TypeStyle
+        var height: CGFloat
+        var corner: CGFloat
+        /// The filter sheet sets the chosen kind in bold (search.html `.seg button.on`).
+        var boldSelection: Bool
+
+        static let page = Style(
+            label: Layout.segmentedLabel, height: Layout.segmentedHeight, corner: Layout.segmentedCorner,
+            boldSelection: false)
+        static let kinds = Style(
+            label: Layout.filterKindsLabel, height: Layout.filterKindsHeight, corner: Layout.filterKindsCorner,
+            boldSelection: true)
+    }
+
     let tabs: [Tab]
     let title: (Tab) -> String
     @Binding var selection: Tab
+    var style = Style.page
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @ScaledMetric(relativeTo: .subheadline) private var height = Layout.segmentedHeight
+    /// Dynamic Type scales both heights by the factor of the page height.
+    @ScaledMetric(relativeTo: .subheadline) private var scaledHeight = Layout.segmentedHeight
+    private var scale: CGFloat { scaledHeight / Layout.segmentedHeight }
 
     var body: some View {
         let chosen = tabs.firstIndex(of: selection) ?? 0
@@ -69,10 +88,11 @@ struct PageTabs<Tab: Hashable>: View {
                     selection = tab
                 } label: {
                     Text(title(tab))
-                        .typeStyle(Layout.segmentedLabel)
+                        .typeStyle(style.label)
+                        .fontWeight(style.boldSelection && tab == selection ? .semibold : nil)
                         .foregroundStyle(Palette.textPrimary)
                         .lineLimit(1)
-                        .frame(maxWidth: .infinity, minHeight: height)
+                        .frame(maxWidth: .infinity, minHeight: style.height * scale)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(FlatPress())
@@ -82,7 +102,7 @@ struct PageTabs<Tab: Hashable>: View {
         .background(alignment: .leading) {
             GeometryReader { proxy in
                 let width = proxy.size.width / CGFloat(max(tabs.count, 1))
-                RoundedRectangle(cornerRadius: Layout.segmentedCorner - Layout.segmentedPadding)
+                RoundedRectangle(cornerRadius: style.corner - Layout.segmentedPadding)
                     .fill(Palette.backgroundRow)
                     .shadow(color: .black.opacity(0.12), radius: Layout.segmentedShadow, y: Layout.segmentedShadowY)
                     .frame(width: width, height: proxy.size.height)
@@ -92,7 +112,7 @@ struct PageTabs<Tab: Hashable>: View {
             .accessibilityHidden(true)
         }
         .padding(Layout.segmentedPadding)
-        .background(Palette.fillQuiet, in: RoundedRectangle(cornerRadius: Layout.segmentedCorner))
+        .background(Palette.fillQuiet, in: RoundedRectangle(cornerRadius: style.corner))
         .accessibilityElement(children: .contain)
     }
 }

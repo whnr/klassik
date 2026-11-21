@@ -91,6 +91,13 @@ class TokenTests(unittest.TestCase):
         """
         self.assertIn("is not type title1", self.check(swift))
 
+    def test_a_class_list_built_in_script(self):
+        swift = """
+        /// css: search.html "t-footnote" + (k === kind ? " on" : "" | class
+        static let kinds = TypeStyle.footnote
+        """
+        self.assertIsNone(self.check(swift))
+
     def test_a_missing_rule(self):
         swift = """
         /// css: specimen.css .nothing | margin-top

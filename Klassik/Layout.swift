@@ -130,6 +130,23 @@ enum Layout {
     /// css: search.html .badge | top
     static let badgeOffset: CGFloat = -3
 
+    // MARK: Sheets
+
+    /// The grabber at the top of every sheet.
+    /// css: specimen.css .sheet .grabber | margin-top
+    static let grabberTop = Space.xs.points
+    /// css: specimen.css .sheet .grabber | height
+    static let grabberHeight: CGFloat = 5
+    /// The heading row of a sheet: its title and Done.
+    /// css: specimen.css .sheet .sheet-head | padding-top
+    static let sheetHeadTop = Space.s.points
+    /// css: specimen.css .sheet .sheet-head | padding-bottom
+    static let sheetHeadBottom = Space.s.points
+    /// css: specimen.css .sheet .sheet-head | padding-left
+    static let sheetHeadInset = Space.l.points
+    /// css: specimen.css .sheet .sheet-head | gap
+    static let sheetHeadGap = Space.s.points
+
     // MARK: Filter sheet
 
     /// The heading row of the sheet: its title, the recordings that remain and Done.
@@ -141,6 +158,23 @@ enum Layout {
     static let filterHeadBottom = Space.xs.points
     /// css: search.html .fsheet .head | padding-left
     static let filterHeadInset = Space.l.points
+    /// The kind control of the sheet: Genres, Composers, Conductors and Performers.
+    /// css: search.html .seg | margin-top
+    static let filterKindsTop = Space.m.points
+    /// css: search.html .seg | margin-bottom
+    static let filterKindsBottom = Space.s.points
+    /// css: search.html .seg | border-top-left-radius
+    static let filterKindsCorner: CGFloat = 9
+    /// css: search.html .seg button | min-height
+    static let filterKindsHeight: CGFloat = 30
+    /// css: search.html "t-footnote" + (k === kind ? " on" : "" | class
+    static let filterKindsLabel = TypeStyle.footnote
+    /// The gap under the field that narrows the terms.
+    /// css: search.html .narrow | margin-bottom
+    static let narrowBottom = Space.s.points
+    /// The inset of a term in its row. The hairline spans the list, from the sheet inset.
+    /// css: specimen.css .row | padding-left
+    static let termInset = Space.l.points
     /// The gap between the terms of a condition and the "or" between them.
     /// css: search.html .cond .terms | gap
     static let conditionTermGap = Space.xs.points
@@ -169,6 +203,9 @@ enum Layout {
     /// A round button in a row, such as play from here.
     /// css: specimen.css .round | width
     static let roundButton: CGFloat = 32
+    /// A round button in a row reaches past the row's text by this much, so the row keeps the height of its text.
+    /// css: specimen.css .row .round | margin-top
+    static let roundInRow: CGFloat = -6
 
     // MARK: Buttons and chips
 

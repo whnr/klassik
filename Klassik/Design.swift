@@ -180,6 +180,31 @@ struct PageForm<Content: View>: View {
     }
 }
 
+/// The head of a sheet under the system grabber: a leading title and a plain Done in the tint
+/// (specimen.css `.sheet .sheet-head`).
+struct SheetHead: View {
+    let title: String
+    let done: () -> Void
+
+    var body: some View {
+        HStack(spacing: Layout.sheetHeadGap) {
+            Text(title)
+                .typeStyle(.headline)
+                .foregroundStyle(Palette.textPrimary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("sheet-title")
+            Button("Done", action: done)
+                .typeStyle(.body)
+                .buttonStyle(.borderless)
+                .accessibilityIdentifier("sheet-done")
+        }
+        .padding(.top, Layout.grabberTop + Layout.grabberHeight + Layout.sheetHeadTop)
+        .padding(.bottom, Layout.sheetHeadBottom)
+        .padding(.horizontal, Layout.sheetHeadInset)
+    }
+}
+
 /// A label with its title in ink. The icon keeps the tint, which `ink()` on a whole label replaces.
 struct InkLabel: View {
     let title: String
@@ -392,7 +417,11 @@ extension View {
 
 extension View {
     /// The tint ground of a row that holds what plays, as the recording rows of a work page show it.
+    /// The tint stays inside the page edges, as the specimen `.row.playing` does on a plain list.
     func playingRow(_ isPlaying: Bool) -> some View {
-        listRowBackground(isPlaying ? Palette.tint.color.opacity(0.12) : Color.clear)
+        listRowBackground(
+            (isPlaying ? Palette.tint.color.opacity(0.12) : Color.clear)
+                .padding(Layout.edges(side: .standard, timeline: false))
+        )
     }
 }

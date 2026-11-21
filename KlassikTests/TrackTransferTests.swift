@@ -59,6 +59,14 @@ struct TrackTransferTests {
         try? FileManager.default.removeItem(at: root)
     }
 
+    @Test func storageFailureBeforeTheFirstByteEndsTheWait() async throws {
+        try Data([1]).write(to: root)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let transfer = self.transfer()
+        await #expect(throws: TrackTransfer.Failure.storage) { try await transfer.finished() }
+        #expect(throws: TrackTransfer.Failure.storage) { try Self.read(transfer, at: 0, count: 1) }
+    }
+
     @Test func theEndOfTheFileGivesAShortRead() throws {
         let transfer = self.transfer()
         transfer.begin(length: 6, validator: nil)

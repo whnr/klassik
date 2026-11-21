@@ -45,12 +45,27 @@ The probe does not separate threshold readiness from first sound. It does not es
 The 44.1-to-48 kHz impulse produced 8,725 frames instead of 8,726.
 The mixed-rate recording required 22,068 frames; conversion returned 22,067.
 The conversion supplies zero input context for final interpolation, without extending the declared output length.
-Its impulse, extended-reference, source-EOF, and rendered comparisons still require iOS validation.
+The following run validates its impulse, extended-reference, source-EOF, and rendered comparisons.
+
+[Run 44916100058](https://github.com/whnr/klassik/actions/runs/44916100058) validates conversion at 99f2797.
+Converter callbacks hold the converter lock. Reading `primeInfo` inside that callback caused a recursive-lock crash.
+Reading it before conversion removes that crash. All 795 unit tests pass.
+Fractional frame counts, chunk invariance, impulse positions, zero-extended references, and source-EOF checks pass.
+Rendered mixed-format joins match their complete-file reference at frames 22,051 and 44,117.
+The queue contains 44.1, 48, and 32 kHz audio, with mono and stereo tracks.
+MP3 and FLAC recording joins retain zero frame shifts. Existing complete-file and seek controls also pass.
+
+The partial-file backing retains metadata and maps a reclaimable circular window into source coordinates.
+Its tests cover repeated wraps, missing ranges, download reconstruction, disk truncation, and atomic publication.
+The shared budget counts complete files, partial files, and open files after deletion.
+Concurrent writers cannot spend the same free bytes. Publication preserves one physical charge.
+Transfers use that backing without a finite capacity. Production rolling storage remains disabled.
+TrackStore accounting, transfer backpressure, download ownership changes, and bounded fallback must precede finite-capacity use.
 
 The cache lacks bounded storage for oversized tracks. Read-ahead still waits for the current transfer to finish.
 Pause cancels following automatic transfers and invalidates their decoder. Resume rebuilds from the audible checkpoint.
 Shared downloads retain tracks until their last owner releases them. Their total counts physical files once.
-These lifecycle changes still require iOS validation. Clear Music needs further coverage for active decoders and refill suppression.
+These lifecycle checks pass in run 44916100058. Clear Music needs further coverage for active decoders and refill suppression.
 The throughput matrix, path changes, seeks, remaining format controls, storage pressure, and recovery still need measurements.
 ReplayGain changes also need rendered coverage across recording boundaries. The current gain stage follows session metadata updates.
 Passing decoder and timeline checks do not close these production requirements.

@@ -47,8 +47,7 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
     private var rangesRefused = false
     private var finishHandlers: [@Sendable (Result<URL, Failure>) -> Void] = []
     private var waiters: [UUID: CheckedContinuation<URL, any Error>] = [:]
-    private var descriptor: Int32 = -1
-    private var writer: FileHandle?
+    private var storage: PartialAudioFile?
     private var session: URLSession?
 
     init(songID: String, partial: URL, target: URL, url: URL?) {
@@ -57,16 +56,12 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
         self.target = target
         self.url = url
         super.init()
-        try? FileManager.default.createDirectory(
-            at: partial.deletingLastPathComponent(), withIntermediateDirectories: true)
-        _ = FileManager.default.createFile(atPath: partial.path(percentEncoded: false), contents: nil)
-        writer = try? FileHandle(forWritingTo: partial)
-        descriptor = open(partial.path(percentEncoded: false), O_RDONLY)
+        do {
+            storage = try PartialAudioFile(url: partial)
+        } catch {
+            failure = .storage
+        }
         meter.start(at: Self.now)
-    }
-
-    deinit {
-        if descriptor >= 0 { close(descriptor) }
     }
 
     // MARK: Network
@@ -118,9 +113,9 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
 
     func append(_ data: Data) {
         condition.lock()
-        guard !complete, failure == nil, let writer else { return condition.unlock() }
+        guard !complete, failure == nil, let storage else { return condition.unlock() }
         do {
-            try writer.write(contentsOf: data)
+            try storage.append(data)
         } catch {
             condition.unlock()
             return finish(.storage)
@@ -137,19 +132,17 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
         guard !complete, failure == nil else { return condition.unlock() }
         var outcome = failed
         if outcome == nil, let expected, available != expected { outcome = .truncated }
-        try? writer?.close()
-        writer = nil
         if let outcome {
             failure = outcome
             try? FileManager.default.removeItem(at: partial)
         } else {
             do {
-                try? FileManager.default.removeItem(at: target)
-                try FileManager.default.moveItem(at: partial, to: target)
+                guard let storage else { throw Failure.storage }
+                try storage.publish(to: target)
                 complete = true
                 expected = available
             } catch {
-                failure = .truncated
+                failure = .storage
                 try? FileManager.default.removeItem(at: partial)
             }
         }
@@ -236,12 +229,20 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
             }
             let end = expected.map { min(position + Int64(count), $0) } ?? position + Int64(count)
             if available >= end || complete {
-                let copied = Self.copy(
-                    descriptor, from: position, count: Int(max(0, min(end, available) - position)), into: destination)
                 let wanted = Int(max(0, min(end, available) - position))
-                condition.unlock()
-                guard copied == wanted else { throw .storage }
-                return copied
+                if wanted == 0 {
+                    condition.unlock()
+                    return 0
+                }
+                do {
+                    guard let storage else { throw Failure.storage }
+                    let copied = try storage.read(at: position, count: wanted, into: destination)
+                    condition.unlock()
+                    return copied
+                } catch {
+                    condition.unlock()
+                    throw .storage
+                }
             }
             if let chunk = chunk(covering: position, end: end) {
                 let offset = Int(position - chunk.start)
@@ -303,20 +304,6 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
             return (start, data)
         }
         return nil
-    }
-
-    private static func copy(
-        _ descriptor: Int32, from position: Int64, count: Int, into destination: UnsafeMutableRawPointer
-    ) -> Int {
-        guard count > 0, descriptor >= 0 else { return 0 }
-        var copied = 0
-        while copied < count {
-            let offset = off_t(position) + off_t(copied)
-            let read = pread(descriptor, destination.advanced(by: copied), count - copied, offset)
-            if read <= 0 { break }
-            copied += read
-        }
-        return copied
     }
 
     /// One validated range from the server. A 200 answer to a range request is a whole-file answer, so its bytes

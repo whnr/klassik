@@ -141,6 +141,20 @@ struct TrackTransferTests {
         try? FileManager.default.removeItem(at: root)
     }
 
+    @Test(arguments: [nil, "W/\"weak\""] as [String?])
+    func unvalidatedTailReadsRequireACompleteFile(validator: String?) throws {
+        let url = try #require(URL(string: "https://fixture.invalid/stream"))
+        let transfer = TrackTransfer(
+            songID: "tail", partial: root.appending(path: "tail.partial"), target: root.appending(path: "tail.mp3"),
+            url: url)
+        transfer.begin(length: 100_000_000, validator: validator)
+        #expect(throws: TrackTransfer.Failure.requiresCompleteFile) {
+            try Self.read(transfer, at: 99_999_872, count: 128)
+        }
+        transfer.cancel()
+        try? FileManager.default.removeItem(at: root)
+    }
+
     // MARK: Store
 
     func makeStore(_ started: Started) throws -> TrackStore {

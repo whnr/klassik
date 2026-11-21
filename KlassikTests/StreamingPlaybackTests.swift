@@ -49,7 +49,7 @@ struct StreamingPlaybackTests {
     ) -> Task<Void, Never> {
         Task.detached {
             var position = offset
-            while position < data.count {
+            while position < data.count, !Task.isCancelled {
                 let end = min(position + chunk, data.count)
                 transfer.append(data.subdata(in: position..<end))
                 position = end
@@ -119,12 +119,13 @@ struct StreamingPlaybackTests {
             let first = try await Task.detached {
                 let decoder = try StreamDecoder(transfer: transfer, suffix: suffix, cancelled: flag)
                 let buffer = try decoder.read(frames: 11_025)
-                return (Int(buffer?.frameLength ?? 0), decoder.playable)
+                return (Int(buffer?.frameLength ?? 0), decoder.playable, decoder.consumed)
             }.value
             times.append(started.duration(to: .now))
             watchdog.cancel()
             print("\(suffix) run \(run + 1): first PCM \(first.0) frames after \(times[run]), resource \(data.count)")
             #expect(first.0 > 0)
+            #expect(first.2 < Int64(head), "Tail metadata must not consume the buffered audio estimate")
             #expect(transfer.snapshot.available == Int64(head))
             #expect(!transfer.snapshot.complete)
             #expect(first.1 != nil, "The header declares the length, so missing bytes never end the track")
@@ -132,6 +133,60 @@ struct StreamingPlaybackTests {
         }
         #expect(times.min()! < .milliseconds(500), "\(times)")
         try? FileManager.default.removeItem(at: root)
+    }
+
+    private final class FirstSound: @unchecked Sendable {
+        private let lock = NSLock()
+        private var heard: ContinuousClock.Instant?
+        var instant: ContinuousClock.Instant? { lock.withLock { heard } }
+        func record(_ buffer: AVAudioPCMBuffer) {
+            guard let samples = buffer.floatChannelData, buffer.frameLength > 0,
+                (0..<Int(buffer.frameLength)).contains(where: { abs(samples[0][$0]) > 0.001 })
+            else { return }
+            lock.withLock { if heard == nil { heard = .now } }
+        }
+    }
+
+    /// A render tap establishes sound separately from decoder output and scheduling events.
+    @MainActor @Test(arguments: ["mp3", "flac"])
+    func theEngineRendersBeforeLargeResourcesFinish(suffix: String) async throws {
+        let (client, songs) = try await Self.album("Early Playback", named: "Early Playback \(suffix.uppercased())")
+        let song = try #require(songs.first)
+        let (data, validator) = try await Self.resource(of: song, from: client)
+        let transfer = self.transfer(
+            "render.\(suffix)", length: data.count, url: client.streamURL(songID: song.id), validator: validator)
+        let first = FirstSound()
+        let engine = GaplessEngine(rendered: { first.record($0) })
+        let bitrate = AudioBitrate.initial(song)
+        let chunk = 32 * 1024
+        let interval = Double(chunk) * 8 / (bitrate * 2)
+        let started = ContinuousClock.now
+        let feeder = Task.detached {
+            var offset = 0
+            while offset < data.count, !Task.isCancelled {
+                let end = min(offset + chunk, data.count)
+                transfer.append(data.subdata(in: offset..<end))
+                offset = end
+                do { try await Task.sleep(for: .seconds(interval)) } catch { return }
+            }
+            if !Task.isCancelled { transfer.finish(nil) }
+        }
+        defer {
+            engine.discard()
+            feeder.cancel()
+            transfer.cancel()
+            try? FileManager.default.removeItem(at: root)
+        }
+        engine.load([song], from: 0, offset: 0) { _ in .stream(transfer) }
+        for _ in 0..<1000 where first.instant == nil { try await Task.sleep(for: .milliseconds(10)) }
+        let rendered = try #require(first.instant, "The engine must render audible samples from partial bytes")
+        let snapshot = transfer.snapshot
+        print(
+            "render \(suffix): elapsed=\(started.duration(to: rendered)), bytes=\(snapshot.available), resource=\(data.count), ratio=2"
+        )
+        #expect(!snapshot.complete)
+        #expect(snapshot.available < Int64(data.count / 10))
+        #expect(started.duration(to: rendered) < .seconds(3))
     }
 
     /// A read far past the arrived bytes asks the server for a validated range instead of waiting for the file.

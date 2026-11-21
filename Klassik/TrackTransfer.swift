@@ -10,6 +10,7 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
         /// The connection ended before the declared length arrived.
         case truncated
         case http(Int)
+        case requiresCompleteFile
         case invalidRead
         case storage
     }
@@ -227,9 +228,11 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
                 condition.unlock()
                 return length
             }
-            if let url, let expected, let validator, Self.isSafeValidator(validator), !rangesRefused,
-                position >= available + Self.rangeLead
-            {
+            if let url, let expected, position >= available + Self.rangeLead {
+                guard let validator, Self.isSafeValidator(validator), !rangesRefused else {
+                    condition.unlock()
+                    throw .requiresCompleteFile
+                }
                 condition.unlock()
                 let length = min(Self.rangeChunk, expected - position)
                 let data = Self.fetchRange(url, from: position, length: length, total: expected, validator: validator)
@@ -333,7 +336,12 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
     }
 
     static func isSafeValidator(_ value: String) -> Bool {
-        !value.isEmpty && !value.hasPrefix("W/")
+        if value.hasPrefix("\""), value.hasSuffix("\"") { return true }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "EEE, dd MMM yyyy HH:mm:ss 'GMT'"
+        return formatter.date(from: value) != nil
     }
 
     private final class RangeBox: @unchecked Sendable {

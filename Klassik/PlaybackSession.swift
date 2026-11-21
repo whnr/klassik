@@ -612,7 +612,7 @@ final class PlaybackSession {
         let next = ReadAhead.plan(item, movement: movement, upNext: upNext, mode: .constrained)
         let plan =
             playback.wantsPlayback ? ReadAhead.plan(item, movement: movement, upNext: upNext, mode: dataMode) : []
-        let kept = Set(([current] + (playback.wantsPlayback && dataMode != .offline ? next + plan : [])).map(\.id))
+        let kept = Set(([current] + (dataMode != .offline ? next + plan : [])).map(\.id))
         store.pinned = kept
         store.cancelTransfers(except: kept)
         let ids = plan.map(\.id)

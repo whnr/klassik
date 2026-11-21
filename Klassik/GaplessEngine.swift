@@ -49,13 +49,16 @@ final class GaplessEngine: PlaybackEngine {
     private var cancelled = CancelFlag()
     private var worker: DispatchQueue?
     private let deliverCompletion: CompletionDelivery
+    private let rendered: (@Sendable (AVAudioPCMBuffer) -> Void)?
 
     init(
         deliverCompletion: @escaping CompletionDelivery = { completion in
             Task { @MainActor in completion() }
-        }
+        },
+        rendered: (@Sendable (AVAudioPCMBuffer) -> Void)? = nil
     ) {
         self.deliverCompletion = deliverCompletion
+        self.rendered = rendered
     }
 
     func load(_ songs: [Song], from movement: Int, offset: Double, file: @escaping PlaybackFileSource) {
@@ -228,6 +231,9 @@ final class GaplessEngine: PlaybackEngine {
         sampleRate = incoming.sampleRate
         try engine.connectNode(node, to: gain, format: incoming)
         try engine.connectNode(gain, to: engine.mainMixerNode, format: incoming)
+        if let rendered {
+            gain.installTap(onBus: 0, bufferSize: 1024, format: incoming) { buffer, _ in rendered(buffer) }
+        }
         try Self.activateSession()
         try engine.start()
         return true
@@ -264,8 +270,11 @@ final class GaplessEngine: PlaybackEngine {
             decoder = try await work {
                 try Box(StreamDecoder(transfer: transfer, suffix: suffix, cancelled: flag))
             }.value
-        } catch is StreamDecoder.Failure {
-            // Missing metadata or a refusing system decoder: the track plays once it is complete (ADR 0060).
+        } catch {
+            guard error is StreamDecoder.Failure || (error as? TrackTransfer.Failure) == .requiresCompleteFile else {
+                throw error
+            }
+            // A decoder or metadata range that prevents early playback requires a complete file (ADR 0060).
             let url = try await transfer.finished()
             try check(generation)
             return try scheduleFile(url, position: position, offset: offset, generation: generation)

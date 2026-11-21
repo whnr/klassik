@@ -27,7 +27,7 @@ final class StreamDecoder: @unchecked Sendable {
     /// padding, FLAC from STREAMINFO. Nil means that the end of the file ends the track.
     let playable: Range<Int64>?
     var sampleRate: Double { format.sampleRate }
-    /// The furthest byte that the decoder read.
+    /// The furthest sequential byte that the decoder read. Tail metadata never counts as consumed audio.
     var consumed: Int64 { context.consumed }
 
     private let context: Context
@@ -205,7 +205,9 @@ final class StreamDecoder: @unchecked Sendable {
                     at: position, count: Int(requested), into: destination, timeout: StreamDecoder.readTimeout,
                     isCancelled: { cancelled.isSet })
                 actual.pointee = UInt32(count)
-                consumed = max(consumed, position + Int64(count))
+                if position + Int64(count) <= transfer.snapshot.available {
+                    consumed = max(consumed, position + Int64(count))
+                }
                 return noErr
             } catch {
                 failure = error

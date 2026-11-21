@@ -226,10 +226,11 @@ struct PersonSweepTests {
         let stub = PersonStub(PersonStub.bachRules)
         let sent = NameLog()
         let failures = Counter()
+        let tries = PersonSweep.triesPerPass
         let (store, _) = try makeStore(fetch: { request in
             let url = request.url?.absoluteString.removingPercentEncoding ?? ""
             sent.append(url)
-            if url.contains("commons.wikimedia.org"), failures.next() < PersonSweep.triesPerPass {
+            if url.contains("commons.wikimedia.org"), failures.next() < tries {
                 throw URLError(.networkConnectionLost)
             }
             return try await stub.fetch(request)

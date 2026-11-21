@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Search</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="../tokens.css?v=50" />
-    <link rel="stylesheet" href="specimen.css?v=50" />
-    <script src="specimen.js?v=50"></script>
+    <link rel="stylesheet" href="../tokens.css?v=51" />
+    <link rel="stylesheet" href="specimen.css?v=51" />
+    <script src="specimen.js?v=51"></script>
   </head>
   <body>
     <!--
@@ -976,11 +976,7 @@
             .map((x) => ({ ...x, n: x.a.recordings.filter((r) => ok.has(r)).length }))
             .filter((x) => x.n > 0)
             .sort((a, b) => a.a.name.localeCompare(b.a.name));
-          // Only favourite recordings get a row (ADR 0067); the others open through their works and albums.
-          const recordings = recs.filter(
-            ({ r }) =>
-              K.isFavourite("rec:" + r.id) && ok.has(r) && (!tokens.length || matches(tokens, recordingHay(r))),
-          );
+          const recordings = recs.filter(({ r }) => ok.has(r) && (!tokens.length || matches(tokens, recordingHay(r))));
           if (al.length || recordings.length)
             out.push(
               section(

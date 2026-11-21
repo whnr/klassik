@@ -321,20 +321,22 @@ struct TrackTransferTests {
     }
 
     /// Serves byte ranges of `data` from memory, as a server that honours Range does. The first `failures` requests
-    /// end with a network error, as a timeout does.
+    /// end with a network error, as a timeout does. With `rate`, each range arrives at that many bytes a second.
     final class RangeServer: @unchecked Sendable {
         let data: Data
         let validator = "\"fixture\""
         let status: Int
+        let rate: Double?
         private let lock = NSLock()
         private var failures: Int
         private var log: [String] = []
         var requests: [String] { lock.withLock { log } }
 
-        init(data: Data, failures: Int = 0, status: Int = 206) {
+        init(data: Data, failures: Int = 0, status: Int = 206, rate: Double? = nil) {
             self.data = data
             self.failures = failures
             self.status = status
+            self.rate = rate
         }
 
         var loader: TrackTransfer.RangeLoader {
@@ -346,7 +348,7 @@ struct TrackTransferTests {
                     return failures >= 0
                 }
                 let bounds = header.dropFirst("bytes=".count).split(separator: "-").compactMap { Int($0) }
-                let task = Task.detached { [data, status, validator] in
+                let task = Task.detached { [data, status, validator, rate] in
                     try? await Task.sleep(for: .milliseconds(20))
                     guard !fails, bounds.count == 2, let url = request.url else { return receiver.end(failed: true) }
                     let range = "bytes \(bounds[0])-\(bounds[1])/\(data.count)"
@@ -354,19 +356,32 @@ struct TrackTransferTests {
                     let response = HTTPURLResponse(
                         url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: headers)
                     guard let response, receiver.head(response) else { return receiver.end(failed: true) }
-                    _ = receiver.receive(data.subdata(in: bounds[0]..<(bounds[1] + 1)))
-                    receiver.end(failed: false)
+                    guard let rate else {
+                        _ = receiver.receive(data.subdata(in: bounds[0]..<(bounds[1] + 1)))
+                        return receiver.end(failed: false)
+                    }
+                    let piece = max(1024, Int(rate / 16))
+                    let started = ContinuousClock.now
+                    var offset = bounds[0]
+                    while offset <= bounds[1], !Task.isCancelled {
+                        let next = min(offset + piece, bounds[1] + 1)
+                        guard receiver.receive(data.subdata(in: offset..<next)) else { return }
+                        offset = next
+                        try? await Task.sleep(
+                            until: started + .seconds(Double(offset - bounds[0]) / rate), clock: .continuous)
+                    }
+                    receiver.end(failed: Task.isCancelled)
                 }
                 return { task.cancel() }
             }
         }
     }
 
-    func rangedTransfer(_ server: RangeServer) throws -> TrackTransfer {
+    func rangedTransfer(_ server: RangeServer, chunk: Int64 = TrackTransfer.rangeChunk) throws -> TrackTransfer {
         let transfer = TrackTransfer(
             songID: "ranged", partial: root.appending(path: "ranged.partial"),
             target: root.appending(path: "ranged.mp3"),
-            url: URL(string: "https://fixture.invalid/stream"), rangeLoader: server.loader)
+            url: URL(string: "https://fixture.invalid/stream"), rangeChunk: chunk, rangeLoader: server.loader)
         transfer.begin(length: Int64(server.data.count), validator: server.validator)
         return transfer
     }
@@ -419,6 +434,37 @@ struct TrackTransferTests {
         #expect(server.requests == ranges)
         let across = try await Self.readOnWorker(transfer, at: Int64(start + chunk - 8), count: 16)
         #expect(across == Array(Self.resource[(start + chunk - 8)..<(start + chunk + 8)]))
+    }
+
+    /// A reader that jumps past the arrived bytes and then reads at the bitrate never waits on a range boundary:
+    /// at twice the bitrate, the next range streams in before the reader reaches it (ADR 0060).
+    @Test func aFarReaderAtTheBitrateNeverWaits() async throws {
+        let bitrate = 40_000.0
+        let server = RangeServer(data: Data((0..<6_000_000).map { UInt8($0 % 241) }), rate: bitrate * 2)
+        let transfer = try rangedTransfer(server, chunk: 64 * 1024)
+        defer {
+            transfer.cancel()
+            try? FileManager.default.removeItem(at: root)
+        }
+        let waits = try await Task.detached {
+            var waits: [Duration] = []
+            var position: Int64 = 3_000_000
+            let started = ContinuousClock.now
+            for step in 0..<60 {
+                let before = ContinuousClock.now
+                let bytes = try Self.read(transfer, at: position, count: 4_000)
+                waits.append(before.duration(to: .now))
+                #expect(bytes == Array(server.data[Int(position)..<Int(position) + 4_000]))
+                position += 4_000
+                // 4,000 bytes last 0.1 s at the bitrate.
+                try? await Task.sleep(until: started + .milliseconds(100 * (step + 1)), clock: .continuous)
+            }
+            return waits
+        }.value
+        let longest = waits.dropFirst().max() ?? .zero
+        print("far reader: first=\(waits[0]), longest later wait=\(longest), ranges=\(server.requests.count)")
+        #expect(longest < .milliseconds(150), "the reader waited at a range boundary")
+        #expect(server.requests.count >= 3)
     }
 
     /// A wait for bytes that keep arriving never times out; only a silent transfer does.

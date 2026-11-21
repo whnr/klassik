@@ -117,6 +117,9 @@ The slow-connection line needs bytes within the last second. A server that stops
 A wait for bytes times out only after 30 s without any arriving byte.
 A read past the arrived bytes streams one 512 KiB range after another, at most one ahead of the reader.
 A range that fails without an answer retries after 0.5 s; only a whole-file or mismatched answer turns ranges off.
+A reader at the bitrate, far past the arrived bytes, never waited at a range boundary with ranges at twice the bitrate.
+ExtAudioFileSeek on a streamed MP3 reads the packets from the head of the file. So a seek far into an MP3 that is
+still arriving waits for the sequential bytes; ranges serve the decoder only where it jumps, as at the MP3 tail.
 
 ## Throughput, seek and gain measurements
 

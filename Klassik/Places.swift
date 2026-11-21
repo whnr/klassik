@@ -391,6 +391,7 @@ struct PlaceStack<Root: View>: View {
                 set: { navigator.setPages($0, in: place) })
         ) {
             root
+                .background { NavigationBackTitle(title: place.title) }
                 .modifier(PlaceInsets())
                 .toolbar {
                     if let target {
@@ -407,9 +408,8 @@ struct PlaceStack<Root: View>: View {
                                     navigator.goBack(from: place)
                                 }
                             } label: {
-                                // The system back button of iOS 27 draws the chevron only. The label keeps the name.
-                                Image(systemName: "chevron.backward")
-                                    .fontWeight(.semibold)
+                                Label(name, systemImage: "chevron.backward")
+                                    .labelStyle(.titleAndIcon)
                             }
                             // The system back button draws in the primary colour, not in the tint of the app.
                             .tint(.primary)
@@ -422,11 +422,53 @@ struct PlaceStack<Root: View>: View {
                     // From the second page on, the back button has a pages menu behind it.
                     // A repeated copy of the first page gets index 0 and shows no back tip.
                     PageView(page: page)
+                        .background { NavigationBackTitle(title: page.backTitle(in: model.library)) }
                         .modifier(PlaceInsets())
                         .environment(\.showsBackTip, (navigator.pages(in: place).firstIndex(of: page) ?? 0) >= 1)
                 }
         }
         .accessibilityHidden(navigator.isPlayerOpen)
+    }
+}
+
+/// An explicit native bar item supplies the visible name without replacing the system pop or its pages menu.
+private struct NavigationBackTitle: UIViewControllerRepresentable {
+    let title: String
+
+    func makeUIViewController(context: Context) -> Controller { Controller() }
+
+    func updateUIViewController(_ controller: Controller, context: Context) {
+        controller.backTitle = title
+        controller.configure()
+    }
+
+    final class Controller: UIViewController {
+        var backTitle = ""
+
+        override func didMove(toParent parent: UIViewController?) {
+            super.didMove(toParent: parent)
+            configure()
+        }
+
+        override func viewWillAppear(_ animated: Bool) {
+            super.viewWillAppear(animated)
+            configure()
+        }
+
+        override func viewDidLayoutSubviews() {
+            super.viewDidLayoutSubviews()
+            configure()
+        }
+
+        func configure() {
+            var host: UIViewController = self
+            while let parent = host.parent, !(parent is UINavigationController) { host = parent }
+            guard host.parent is UINavigationController else { return }
+            let item = host.navigationItem
+            guard item.backBarButtonItem?.title != backTitle else { return }
+            item.backButtonDisplayMode = .default
+            item.backBarButtonItem = UIBarButtonItem(title: backTitle, style: .plain, target: nil, action: nil)
+        }
     }
 }
 

@@ -214,6 +214,9 @@ def main():
                     failures.append(f"{where}: {' | '.join(errors)}")
                 if not page.locator(".app").count():
                     failures.append(f"{where}: no app frame")
+                for back in page.locator(".nav .back").all():
+                    if back.inner_text() != back.get_attribute("aria-label"):
+                        failures.append(f"{where}: Back does not draw its destination name")
                 if page.locator(".timeline .seg").count() == 0:
                     failures.append(f"{where}: no timeline")
                 if "overlay=" in page_path:

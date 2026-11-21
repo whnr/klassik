@@ -156,10 +156,9 @@ final class PlacesScreens: ScreensTestCase {
         XCTAssertFalse(app.buttons["place-back"].exists)
     }
 
-    /// The check of sz-rs30.1.87. It reads the accessibility label of the system back button only. The screenshots
-    /// 02i and 02j show the arrow of a place next to the system back button.
+    /// A visible destination name must accompany the native pop, pages menu and edge swipe.
     @MainActor
-    func testSystemBackButtonAccessibilityLabel() throws {
+    func testSystemBackButtonNamesPage() throws {
         let app = try launchAndConnect()
         composer(app, "Felix Mendelssohn").tap()
         let work = app.buttons.matching(identifier: "work").firstMatch
@@ -169,6 +168,15 @@ final class PlacesScreens: ScreensTestCase {
         XCTAssertTrue(back.waitForExistence(timeout: 10))
         snap(app, "02j-back-names-page")
         XCTAssertTrue(back.label.contains("Mendelssohn"), "The back button reads \"\(back.label)\"")
+        expectVisibleBackName(back)
+        back.press(forDuration: 1)
+        let composers = app.buttons["Composers"].firstMatch
+        XCTAssertTrue(composers.waitForExistence(timeout: 5), "The native pages menu lost Composers")
+        composers.tap()
+        XCTAssertTrue(composer(app, "Felix Mendelssohn").waitForExistence(timeout: 10))
+        composer(app, "Felix Mendelssohn").tap()
+        swipeFromLeftEdge(app)
+        XCTAssertTrue(composer(app, "Felix Mendelssohn").waitForExistence(timeout: 10))
     }
 
     @MainActor
@@ -2406,15 +2414,19 @@ class ScreensTestCase: XCTestCase {
         return app
     }
 
-    /// A place opened from another one shows an arrow like the system back button: a chevron with no name on
-    /// screen. Its label names the place or page behind it.
+    /// A cross-tab Back shows the destination name beside its chevron.
     @MainActor
     func expectBackArrow(_ app: XCUIApplication, to name: String) {
         let arrow = app.buttons["place-back"]
         XCTAssertTrue(arrow.waitForExistence(timeout: 10), "No back arrow")
         XCTAssertTrue(arrow.label.contains(name), "The back arrow reads \"\(arrow.label)\", not \"\(name)\"")
-        // A chevron in a glass circle is about 44 points wide. A button that also draws a name is wider.
-        XCTAssertLessThan(arrow.frame.width, 64, "The back arrow draws a name: \(arrow.frame.width) points wide")
+        expectVisibleBackName(arrow)
+    }
+
+    /// An accessibility label alone cannot prove that the destination name appears on screen.
+    @MainActor
+    func expectVisibleBackName(_ button: XCUIElement) {
+        XCTAssertGreaterThan(button.frame.width, 64, "Back draws only a chevron: \(button.label)")
     }
 
     /// A swipe from the left screen edge to the middle, as a thumb makes it.
@@ -3150,6 +3162,10 @@ class ScreensTestCase: XCTestCase {
 
     @MainActor
     func snap(_ app: XCUIApplication, _ name: String) {
+        for button in app.navigationBars.buttons.allElementsBoundByIndex
+        where button.identifier == "BackButton" || button.identifier == "place-back" {
+            expectVisibleBackName(button)
+        }
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = name
         attachment.lifetime = .keepAlways

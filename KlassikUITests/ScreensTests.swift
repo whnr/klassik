@@ -2521,8 +2521,11 @@ class ScreensTestCase: XCTestCase {
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 10))
         guard technical else { return }
         let toggle = reveal(app.switches["technical-details"], in: app)
-        if toggle.value as? String != "1" {
+        // The switch reports its new value after its animation. A tap during the page's push can be lost; one
+        // more tap follows then.
+        for _ in 0..<2 where toggle.value as? String != "1" {
             toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+            _ = eventually(timeout: 3) { toggle.value as? String == "1" }
         }
         XCTAssertEqual(toggle.value as? String, "1", "Technical Details does not turn on")
     }

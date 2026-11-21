@@ -121,7 +121,7 @@ struct FilterSheet: View {
             .accessibilityIdentifier("filter-done")
         }
         // The system grabber sits above the head, as the specimen `.grabber` does.
-        .padding(.top, Layout.grabberTop + Layout.grabberHeight + Layout.filterHeadTop)
+        .padding(.top, Layout.sheetGrabberTop + Layout.sheetGrabberHeight + Layout.filterHeadTop)
         .padding(.bottom, Layout.filterHeadBottom)
         .padding(.horizontal, Layout.filterHeadInset)
         .background(Palette.backgroundGrouped)

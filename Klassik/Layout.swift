@@ -134,9 +134,9 @@ enum Layout {
 
     /// The grabber at the top of every sheet.
     /// css: specimen.css .sheet .grabber | margin-top
-    static let grabberTop = Space.xs.points
+    static let sheetGrabberTop = Space.xs.points
     /// css: specimen.css .sheet .grabber | height
-    static let grabberHeight: CGFloat = 5
+    static let sheetGrabberHeight: CGFloat = 5
     /// The heading row of a sheet: its title and Done.
     /// css: specimen.css .sheet .sheet-head | padding-top
     static let sheetHeadTop = Space.s.points

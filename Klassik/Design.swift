@@ -199,7 +199,7 @@ struct SheetHead: View {
                 .buttonStyle(.borderless)
                 .accessibilityIdentifier("sheet-done")
         }
-        .padding(.top, Layout.grabberTop + Layout.grabberHeight + Layout.sheetHeadTop)
+        .padding(.top, Layout.sheetGrabberTop + Layout.sheetGrabberHeight + Layout.sheetHeadTop)
         .padding(.bottom, Layout.sheetHeadBottom)
         .padding(.horizontal, Layout.sheetHeadInset)
     }

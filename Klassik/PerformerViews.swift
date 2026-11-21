@@ -51,30 +51,30 @@ struct PerformersView: View {
     }
 }
 
+/// The look of the control: the person page tabs, or the kinds of the filter sheet.
+struct PageTabsStyle {
+    var label: TypeStyle
+    var height: CGFloat
+    var corner: CGFloat
+    /// The filter sheet sets the chosen kind in bold (search.html `.seg button.on`).
+    var boldSelection: Bool
+
+    static let page = PageTabsStyle(
+        label: Layout.segmentedLabel, height: Layout.segmentedHeight, corner: Layout.segmentedCorner,
+        boldSelection: false)
+    static let kinds = PageTabsStyle(
+        label: Layout.filterKindsLabel, height: Layout.filterKindsHeight, corner: Layout.filterKindsCorner,
+        boldSelection: true)
+}
+
 /// The tabs of a person page, drawn flat as person.html .segmented draws them. The thumb slides to the chosen tab
 /// and the content under it changes at once. The system segmented control draws glass that morphs between the
 /// states, which this page does not want.
 struct PageTabs<Tab: Hashable>: View {
-    /// The look of the control: the person page tabs, or the kinds of the filter sheet.
-    struct Style {
-        var label: TypeStyle
-        var height: CGFloat
-        var corner: CGFloat
-        /// The filter sheet sets the chosen kind in bold (search.html `.seg button.on`).
-        var boldSelection: Bool
-
-        static let page = Style(
-            label: Layout.segmentedLabel, height: Layout.segmentedHeight, corner: Layout.segmentedCorner,
-            boldSelection: false)
-        static let kinds = Style(
-            label: Layout.filterKindsLabel, height: Layout.filterKindsHeight, corner: Layout.filterKindsCorner,
-            boldSelection: true)
-    }
-
     let tabs: [Tab]
     let title: (Tab) -> String
     @Binding var selection: Tab
-    var style = Style.page
+    var style = PageTabsStyle.page
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Dynamic Type scales both heights by the factor of the page height.
     @ScaledMetric(relativeTo: .subheadline) private var scaledHeight = Layout.segmentedHeight

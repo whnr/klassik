@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// The conditions of a search in a sheet at the medium detent (ADR 0020, 0025, 0029). The results stay live above
-/// it. The sheet lists the terms of one scope with its own narrowing field; each term shows what a tap does.
+/// The conditions of a search in a modal sheet at the medium detent (ADR 0067).
+/// Each scope has a narrowing field; each term shows what a tap does.
 struct FilterSheet: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
@@ -14,19 +14,21 @@ struct FilterSheet: View {
     let hasText: Bool
     /// Done keeps the search as a recent search (ADR 0029).
     let done: () -> Void
+    let back: () -> Void
     @State private var scope: Search.Scope = .composers
     @State private var narrowing = ""
     @FocusState private var narrowFocused: Bool
 
     init(
         conditions: Binding<[Search.Condition]>, joining: Binding<Int?>, pool: Search.Pool, hasText: Bool,
-        done: @escaping () -> Void
+        done: @escaping () -> Void, back: @escaping () -> Void
     ) {
         _conditions = conditions
         _joining = joining
         self.pool = pool
         self.hasText = hasText
         self.done = done
+        self.back = back
     }
 
     var body: some View {
@@ -84,13 +86,16 @@ struct FilterSheet: View {
         }
         .onChange(of: scope) { narrowing = "" }
         .presentationDetents([.medium])
-        .presentationBackgroundInteraction(.enabled(upThrough: .medium))
+        .presentationBackgroundInteraction(.disabled)
         .presentationBackground(Palette.backgroundGrouped)
     }
 
     /// The title, the recordings that remain, and Done (search.html .fsheet .head).
     private func head(total: Int) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: Layout.filterHeadGap) {
+            Button("Back", action: back)
+                .typeStyle(.body)
+                .accessibilityIdentifier("filter-back")
             Text("Filters")
                 .typeStyle(.headline)
                 .foregroundStyle(Palette.textPrimary)

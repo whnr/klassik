@@ -6,7 +6,6 @@ enum Page: Hashable {
     case settings
     case composers
     case favourites
-    case performers
     case composer(String)
     case work(String)
     case recording(work: String, recording: String)
@@ -77,7 +76,6 @@ extension Page {
         case .settings: return "Settings"
         case .composers: return "Composers"
         case .favourites: return "Favourites"
-        case .performers: return "Performers"
         case .composer(let name): return name
         case .work(let id): return index.work(id)?.title ?? "Work"
         case .recording(let work, let recording):
@@ -200,8 +198,6 @@ struct PageView: View {
             ComposersView()
         case .favourites:
             FavouritesView()
-        case .performers:
-            PerformersView()
         case .composer(let name):
             if let composer = index.composer(named: name) { ComposerPage(composer: composer) } else { Gone() }
         case .work(let id):

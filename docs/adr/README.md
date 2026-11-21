@@ -12,12 +12,12 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 
 | No.                                                          | Decision                                                                                                     | Date       |
 | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ | ---------- |
-| [0001](0001-work-first.md)                                   | The work is the primary object                                                                               | 2026-10-17 |
+| [0001](0001-work-first.md)                                   | The work is the primary object (partly replaced by 0069)                                                     | 2026-10-17 |
 | [0002](0002-library-sync.md)                                 | Sync the whole library into a local cache                                                                    | 2026-10-17 |
 | [0003](0003-classical-filter.md)                             | Classical filter: rules joined by OR, conditions joined by AND                                               | 2026-10-17 |
 | [0004](0004-work-grouping.md)                                | How tracks group into works and recordings                                                                   | 2026-10-17 |
 | [0005](0005-gapless-playback.md)                             | Gapless playback with AVAudioEngine and the MP3 header (partly replaced by 0060)                                                       | 2026-10-17 |
-| [0006](0006-queue.md)                                        | The queue holds recordings (partly replaced by 0013 and 0039)                                                | 2026-10-18 |
+| [0006](0006-queue.md)                                        | The queue holds recordings (partly replaced by 0013, 0039 and 0069)                                          | 2026-10-18 |
 | [0007](0007-replaygain.md)                                   | ReplayGain in album mode                                                                                     | 2026-10-18 |
 | [0008](0008-offline-storage.md)                              | Downloads and the cache (partly replaced by 0051 and 0060)                                                            | 2026-10-18 |
 | [0009](0009-reference-recording.md)                          | The reference recording is a star (replaced by 0013)                                                         | 2026-10-18 |
@@ -65,7 +65,7 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0054](0054-timeline-ends-at-the-pill.md)                    | The timeline ends at the top of the pill                                                                     | 2026-11-17 |
 | [0055](0055-hairlines-between-list-items.md)                 | Hairlines separate list items only                                                                           | 2026-11-17 |
 | [0056](0056-interactive-back-gestures.md)                    | Back gestures follow the finger                                                                              | 2026-11-17 |
-| [0057](0057-search-apart-from-place-tabs.md)                 | Search stays apart from the place tabs                                                                       | 2026-11-18 |
+| [0057](0057-search-apart-from-place-tabs.md)                 | Search stays apart from the place tabs (partly replaced by 0069)                                             | 2026-11-18 |
 | [0058](0058-one-quiet-server-status.md)                      | One quiet server status                                                                                      | 2026-11-18 |
 | [0059](0059-covers-and-pictures-before-pages.md) | Fetch covers and pictures before pages need them (partly replaced by 0061) | 2026-11-18 |
 | [0060](0060-early-playback-and-read-ahead.md) | Start playback early and read ahead quietly (partly replaces 0005 and 0008; extends 0051) | 2026-11-18 |
@@ -76,3 +76,4 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0065](0065-feedback-controls.md) | Keep feedback controls visible and useful | 2026-11-20 |
 | [0066](0066-a-full-name-takes-its-composer.md) | A full-name tag takes its composer | 2026-11-20 |
 | [0067](0067-search-results-and-modal-sheets.md) | People lead Search; sheets block the page | 2026-11-21 |
+| [0069](0069-no-shuffle-and-no-performer-list.md) | No Shuffle and no performer list before 1.0 | 2026-11-21 |

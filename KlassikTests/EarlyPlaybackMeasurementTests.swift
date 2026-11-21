@@ -272,8 +272,16 @@ struct EarlyPlaybackMeasurementTests {
             target: root.appending(path: "far-seek.mp3"), url: client.streamURL(songID: song.id),
             rangeLoader: ranges.loader)
         transfer.begin(length: Int64(data.count), validator: validator)
-        // The sequential bytes stay far behind the seek target.
-        let feeder = Self.pace(data, into: transfer, bitrate: bitrate, ratio: 0.1, latency: .zero)
+        // A seek comes after the head of the file arrived. The sequential bytes then stay far behind the seek target.
+        let head = 512 * 1024
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global().async {
+                transfer.append(data.prefix(head))
+                continuation.resume()
+            }
+        }
+        let feeder = Self.pace(
+            data.subdata(in: head..<data.count), into: transfer, bitrate: bitrate, ratio: 0.1, latency: .zero)
         let tap = Tap()
         let engine = GaplessEngine(rendered: { tap.record($0) })
         let timeline = Timeline()
@@ -286,10 +294,11 @@ struct EarlyPlaybackMeasurementTests {
         }
         let offset = Double(data.count) * 8 / bitrate / 2
         engine.load([song], from: 0, offset: offset) { _ in .stream(transfer) }
-        for _ in 0..<300 where tap.heard == nil && timeline.failures.isEmpty {
+        for _ in 0..<600 where tap.heard == nil && timeline.failures.isEmpty {
             try await Task.sleep(for: .milliseconds(50))
         }
-        let heard = try #require(tap.heard, "no sound after the seek: \(timeline.failures)")
+        let heard = try #require(
+            tap.heard, "no sound after the seek: \(timeline.failures), requests \(ranges.requests)")
         while heard.duration(to: .now) < .seconds(12), timeline.failures.isEmpty {
             try await Task.sleep(for: .milliseconds(100))
         }

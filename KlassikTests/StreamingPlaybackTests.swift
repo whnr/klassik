@@ -388,6 +388,8 @@ struct StreamingPlaybackTests {
         for _ in 0..<500 where !events.log.contains(last) && !events.log.contains(where: { $0.hasPrefix("failed") }) {
             try await Task.sleep(for: .milliseconds(10))
         }
+        // The tap delivers whole blocks, so its last block can arrive after the end event.
+        try await Task.sleep(for: .milliseconds(600))
         return events.log
     }
 

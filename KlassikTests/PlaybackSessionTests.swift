@@ -273,7 +273,11 @@ struct PlaybackSessionTests {
         session.moveInQueue(from: IndexSet(integer: 2), to: 1)
         session.removeFromQueue(at: IndexSet(integer: 2))
         #expect(engine.loads.count == 1)
-        #expect(!engine.calls.contains(.discard))
+        // Play itself discards before its load; nothing after the load may discard.
+        let afterLoad = engine.calls.drop { call in
+            if case .load = call { false } else { true }
+        }
+        #expect(!afterLoad.contains(.discard))
         #expect(engine.calls.last == .replace(["a-0", "a-1", "c-0", "d-0"]))
         engine.end(0)
         engine.end(1)

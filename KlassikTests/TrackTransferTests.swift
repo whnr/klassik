@@ -366,7 +366,7 @@ struct TrackTransferTests {
         let transfer = TrackTransfer(
             songID: "ranged", partial: root.appending(path: "ranged.partial"),
             target: root.appending(path: "ranged.mp3"),
-            url: try #require(URL(string: "https://fixture.invalid/stream")), rangeLoader: server.loader)
+            url: URL(string: "https://fixture.invalid/stream"), rangeLoader: server.loader)
         transfer.begin(length: Int64(server.data.count), validator: server.validator)
         return transfer
     }

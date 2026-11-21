@@ -178,6 +178,7 @@ Downloads remain persistent, outside the music limit. Publish a requested record
 A failed recording download removes its new uncommitted download files, as 0008 requires.
 Automatic read-ahead must never remove an explicit download.
 Clear Music cancels speculative work and removes music files; active playback can retain only its bounded memory buffers.
+Clear Music also pauses active playback and releases its decoders. Otherwise a starved engine shows the slow-connection line.
 Do not refill cleared music until another Play or Resume request. Signing out cancels all account transfers and removes their partial files.
 Embedded art follows 0059 and counts under Album Art. Art extraction must not delay first sound.
 

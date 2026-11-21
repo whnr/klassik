@@ -54,6 +54,7 @@ struct EarlyPlaybackMeasurementTests {
                     if let wait { waits.append((.now, wait)) } else { sounds.append(.now) }
                 case .movementEnded(let index): ended.append(index)
                 case .failed(let text), .problem(let text): failures.append(text)
+                case .serverFailed(let trouble): failures.append("server \(trouble)")
                 default: break
                 }
             }
@@ -167,8 +168,10 @@ struct EarlyPlaybackMeasurementTests {
         let limit = observe + (recover ? .seconds(target / ratio + 15) : .zero)
         // Decoded audio stays bounded; the rest of the buffer waits encoded in the transfer.
         var peak = 0.0
+        var playable = 0.0
         while timeline.failures.isEmpty, heard.duration(to: .now) < limit {
-            peak = max(peak, engine.bufferedSeconds ?? 0)
+            peak = max(peak, engine.decodedSeconds ?? 0)
+            playable = max(playable, engine.bufferedSeconds ?? 0)
             if ratio < 1, starvation() != nil, !recover || recovery() != nil { break }
             if ratio >= 1, heard.duration(to: .now) >= observe { break }
             try await Task.sleep(for: .milliseconds(50))
@@ -186,7 +189,8 @@ struct EarlyPlaybackMeasurementTests {
             "bytes-at-sound=\(atSound.available)", "resource=\(data.count)",
             "throughput=\(measured.map { String(Int($0)) } ?? "none")", "bitrate=\(Int(bitrate))",
             "predicted-exhaustion=\(predicted.map { "\($0)s" } ?? "none")",
-            "peak-decoded=\(peak)s", "starvation=\(starvedAfter.map { "\($0)s" } ?? "none")",
+            "peak-decoded=\(peak)s", "peak-playable=\(playable)s",
+            "starvation=\(starvedAfter.map { "\($0)s" } ?? "none")",
             "recovery=\(refill.map { "\($0)s" } ?? "none")",
         ]
         print("throughput matrix: " + report.joined(separator: ", "))
@@ -197,6 +201,9 @@ struct EarlyPlaybackMeasurementTests {
         if ratio >= 2 {
             #expect(ready.duration(to: heard) < .milliseconds(500), "ratio \(ratio)")
             #expect(starved == nil, "ratio \(ratio): a sustainable connection must not starve")
+            // The next opening may compete only above this floor; decoded audio alone never reaches it.
+            #expect(
+                playable >= PlaybackSession.competitionFloor, "ratio \(ratio): arrived audio must count as buffered")
         }
         if let predicted {
             let offset = try #require(starvedAfter, "ratio \(ratio): a bounded buffer must run dry at r < 1")
@@ -206,6 +213,94 @@ struct EarlyPlaybackMeasurementTests {
     }
 
     // MARK: Seeks
+
+    /// Serves validated ranges of `data` at `ratio` times `bitrate`, as a server at that speed does.
+    final class PacedRanges: @unchecked Sendable {
+        let data: Data
+        let validator: String
+        let rate: Double
+        private let lock = NSLock()
+        private var log: [String] = []
+        var requests: [String] { lock.withLock { log } }
+
+        init(data: Data, validator: String, bitrate: Double, ratio: Double) {
+            self.data = data
+            self.validator = validator
+            rate = bitrate * ratio / 8
+        }
+
+        var loader: TrackTransfer.RangeLoader {
+            { [self] request, receiver in
+                let header = request.value(forHTTPHeaderField: "Range") ?? ""
+                lock.withLock { log.append(header) }
+                let bounds = header.dropFirst("bytes=".count).split(separator: "-").compactMap { Int($0) }
+                let task = Task.detached { [data, validator, rate] in
+                    guard bounds.count == 2, let url = request.url else { return receiver.end(failed: true) }
+                    let end = min(bounds[1] + 1, data.count)
+                    let headers = ["Content-Range": "bytes \(bounds[0])-\(end - 1)/\(data.count)", "ETag": validator]
+                    let response = HTTPURLResponse(
+                        url: url, statusCode: 206, httpVersion: "HTTP/1.1", headerFields: headers)
+                    guard let response, receiver.head(response) else { return receiver.end(failed: true) }
+                    let chunk = max(1024, Int(rate / 16))
+                    let started = ContinuousClock.now
+                    var offset = bounds[0]
+                    while offset < end, !Task.isCancelled {
+                        let next = min(offset + chunk, end)
+                        guard receiver.receive(data.subdata(in: offset..<next)) else { return }
+                        offset = next
+                        let due = started + .seconds(Double(offset - bounds[0]) / rate)
+                        try? await Task.sleep(until: due, clock: .continuous)
+                    }
+                    receiver.end(failed: Task.isCancelled)
+                }
+                return { task.cancel() }
+            }
+        }
+    }
+
+    /// A seek past the arrived bytes reads ahead in ranges. At twice the bitrate the sound never runs dry
+    /// (ADR 0060).
+    @MainActor @Test func aSeekPastTheArrivedBytesReadsAhead() async throws {
+        let (client, songs) = try await StreamingPlaybackTests.album("Early Playback", named: "Early Playback MP3")
+        let song = try #require(songs.first)
+        let (data, validator) = try await StreamingPlaybackTests.resource(of: song, from: client)
+        let bitrate = AudioBitrate.initial(song)
+        let ranges = PacedRanges(
+            data: data, validator: try #require(validator), bitrate: bitrate, ratio: 2)
+        let transfer = TrackTransfer(
+            songID: "far-seek", partial: root.appending(path: "far-seek.partial"),
+            target: root.appending(path: "far-seek.mp3"), url: client.streamURL(songID: song.id),
+            rangeLoader: ranges.loader)
+        transfer.begin(length: Int64(data.count), validator: validator)
+        // The sequential bytes stay far behind the seek target.
+        let feeder = Self.pace(data, into: transfer, bitrate: bitrate, ratio: 0.1, latency: .zero)
+        let tap = Tap()
+        let engine = GaplessEngine(rendered: { tap.record($0) })
+        let timeline = Timeline()
+        timeline.observe(engine)
+        defer {
+            engine.discard()
+            feeder.cancel()
+            transfer.cancel()
+            try? FileManager.default.removeItem(at: root)
+        }
+        let offset = Double(data.count) * 8 / bitrate / 2
+        engine.load([song], from: 0, offset: offset) { _ in .stream(transfer) }
+        for _ in 0..<300 where tap.heard == nil && timeline.failures.isEmpty {
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        let heard = try #require(tap.heard, "no sound after the seek: \(timeline.failures)")
+        while heard.duration(to: .now) < .seconds(12), timeline.failures.isEmpty {
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        let starved = timeline.waits.filter { $0.at > heard && $0.wait.kind == .resume }
+        print(
+            "far seek: requests=\(ranges.requests.count), starvation=\(starved.count), "
+                + "first=\(ranges.requests.first ?? "none")")
+        #expect(timeline.failures.isEmpty, "\(timeline.failures)")
+        #expect(starved.isEmpty, "a seek at twice the bitrate must not run dry")
+        #expect(ranges.requests.count >= 2)
+    }
 
     /// A seek inside a stream that is still arriving starts at the chosen sample and joins the next movement
     /// without inserted or missing frames.

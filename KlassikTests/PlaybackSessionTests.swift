@@ -263,15 +263,48 @@ struct PlaybackSessionTests {
         #expect(session.state.queueEnded)
     }
 
-    @Test func queueEditsReplaceScheduledSuccessorsAtTheSavedPosition() throws {
+    /// A queue edit keeps the sound: the engine takes the new tracks after the ones it already asked for.
+    @Test func queueEditsKeepTheSoundAndReplaceLaterTracks() throws {
+        let (session, engine) = try makeSession()
+        session.play(queue: [item("a", movements: 2), item("b")])
+        engine.playing = (0, 4)
+        session.playNext(item("c"))
+        session.addToQueue(item("d"))
+        session.moveInQueue(from: IndexSet(integer: 2), to: 1)
+        session.removeFromQueue(at: IndexSet(integer: 2))
+        #expect(engine.loads.count == 1)
+        #expect(!engine.calls.contains(.discard))
+        #expect(engine.calls.last == .replace(["a-0", "a-1", "c-0", "d-0"]))
+        engine.end(0)
+        engine.end(1)
+        #expect(session.state.item?.recording.id == "c")
+        #expect(session.state.upNext.map(\.recording.id) == ["d"])
+    }
+
+    /// Only an edit of a track that the engine already asked for loads again, from the audible place.
+    @Test func anEditOfAnAlreadyScheduledTrackLoadsAgain() throws {
         let (session, engine) = try makeSession()
         session.play(queue: [item("a"), item("b")])
         engine.playing = (0, 4)
+        engine.requested = 1
+        session.addToQueue(item("d"))
+        #expect(engine.loads.count == 1)
         session.playNext(item("c"))
-        #expect(engine.loads.last == load("a", at: 4, following: ["c-0", "b-0"]))
+        #expect(engine.loads.last == load("a", at: 4, following: ["c-0", "b-0", "d-0"]))
         engine.end(0)
         #expect(session.state.item?.recording.id == "c")
-        #expect(session.state.upNext.map(\.recording.id) == ["b"])
+        #expect(session.state.upNext.map(\.recording.id) == ["b", "d"])
+    }
+
+    /// A paused edit keeps the paused engine, so Resume plays on without a seek.
+    @Test func aPausedQueueEditKeepsTheEngine() throws {
+        let (session, engine) = try makeSession()
+        session.play(queue: [item("a", movements: 2), item("b")])
+        session.pause()
+        session.addToQueue(item("c"))
+        session.resume()
+        #expect(engine.loads.count == 1)
+        #expect(engine.calls.last == .resume)
     }
 
     @Test func theEndOfTheQueueStopsAndReportsIt() throws {
@@ -528,6 +561,36 @@ struct PlaybackSessionTests {
         engine.report(.problem("Movement 2 has a different audio format."))
         #expect(session.state.error == "Movement 2 has a different audio format.")
         #expect(!session.state.isPaused)
+    }
+
+    /// A server failure pauses without a notice. The cause joins the one server status until the next sound.
+    @Test func aServerFailurePausesQuietly() throws {
+        let (session, engine) = try makeSession()
+        session.play(item("a", movements: 2))
+        engine.report(.serverFailed(.unreachable))
+        #expect(session.state.isPaused)
+        #expect(session.state.error == nil)
+        #expect(session.playbackTrouble == .unreachable)
+        session.resume()
+        #expect(session.playbackTrouble == .unreachable)
+        engine.report(.waiting(nil))
+        #expect(session.playbackTrouble == nil)
+    }
+
+    @Test func playbackFailuresMapToTheQuietStatus() {
+        #expect(ServerTrouble(playback: URLError(.notConnectedToInternet)) == .unreachable)
+        #expect(ServerTrouble(playback: TrackTransfer.Failure.timedOut) == .unreachable)
+        #expect(ServerTrouble(playback: TrackTransfer.Failure.truncated) == .unreachable)
+        #expect(ServerTrouble(playback: TrackStore.Failure.offline) == .unreachable)
+        #expect(ServerTrouble(playback: TrackTransfer.Failure.http(404)) == .refused)
+        #expect(ServerTrouble(playback: TrackTransfer.Failure.storage) == nil)
+        #expect(ServerTrouble(playback: StreamDecoder.Failure.status(-1)) == nil)
+        // A device failure still explains itself; no failure shows a type name.
+        let failures: [any Error] = [
+            TrackTransfer.Failure.cancelled, TrackTransfer.Failure.invalidRead, StreamDecoder.Failure.unsupported,
+            StreamDecoder.Failure.prematureEnd(expected: 2, actual: 1), TrackStore.Failure.offline,
+        ]
+        for failure in failures { #expect(!failure.localizedDescription.contains("Klassik."), "\(failure)") }
     }
 
     @Test func aFailurePausesAndPlayRetries() throws {

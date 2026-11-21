@@ -10,14 +10,25 @@ final class GaplessEngine: PlaybackEngine {
     /// Each decoded buffer holds this much audio.
     nonisolated static let chunkSeconds = 0.25
     /// The decoded audio that may wait on the node ahead of the render position (ADR 0060).
-    static let aheadSeconds = 2.0
+    nonisolated static let aheadSeconds = 2.0
+    /// The most decoded audio on the node: the decoder stops two chunks below `aheadSeconds` and adds one chunk.
+    nonisolated static let decodedPeak = aheadSeconds - chunkSeconds
     static let watchInterval = Duration.milliseconds(100)
 
     var onEvent: (@MainActor (PlaybackEngineEvent) -> Void)?
     var isRunning: Bool { engine?.isRunning == true && node != nil }
-    var bufferedSeconds: Double? {
+    /// Decoded audio on the node ahead of the render position. It stays below `decodedPeak`.
+    var decodedSeconds: Double? {
         guard started, let played = playedSamples() else { return nil }
         return Double(max(scheduledEnd - played, 0)) / sampleRate
+    }
+    /// Playable audio ahead of the render position (ADR 0060): decoded audio, the buffer that waits off the node,
+    /// and the arrived bytes after the decoder's place in the file.
+    var bufferedSeconds: Double? {
+        guard let decoded = decodedSeconds else { return nil }
+        guard let stream else { return decoded }
+        let encoded = Double(stream.transfer.bufferedBytes(from: consumed)) * 8 / stream.bitrate
+        return decoded + Double(heldFrames) / sampleRate + encoded
     }
 
     private var engine: AVAudioEngine?
@@ -50,6 +61,16 @@ final class GaplessEngine: PlaybackEngine {
     private var decoding = false
     /// The transfer that the engine reads now, and the bitrate that it needs.
     private var stream: (transfer: TrackTransfer, bitrate: Double)?
+    /// The decoder's place in the file of `stream`.
+    private var consumed: Int64 = 0
+    /// The decoded frames that wait off the node, so that the last buffer of a track carries its end callback.
+    private var heldFrames: AVAudioFrameCount = 0
+    /// The tracks of this load. A queue edit replaces the ones that the load has not asked for yet.
+    private var songs: [Song] = []
+    /// The last track that this load asked a source for.
+    private var requested = -1
+    /// A converted track whose resampler continues into the next track of its source format.
+    private var carry: Carry?
     private var reported: PlaybackWait?
     /// Stops the blocked reads of the worker when a load ends.
     private var cancelled = CancelFlag()
@@ -69,12 +90,15 @@ final class GaplessEngine: PlaybackEngine {
 
     func load(_ songs: [Song], from movement: Int, offset: Double, file: @escaping PlaybackFileSource) {
         discard()
+        self.songs = songs
+        // The track at the load's start is fixed before the scheduler asks for it.
+        requested = movement
         playing = true
         let generation = generation
         cancelled = CancelFlag()
         worker = DispatchQueue(label: "de.whnr.klassik.decoder", qos: .default)
         task = Task {
-            await schedule(songs, from: movement, offset: offset, file: file, generation: generation)
+            await schedule(from: movement, offset: offset, file: file, generation: generation)
         }
     }
 
@@ -105,6 +129,14 @@ final class GaplessEngine: PlaybackEngine {
         }
     }
 
+    func replace(_ songs: [Song]) -> Bool {
+        let fixed = requested + 1
+        guard task != nil, songs.count >= fixed, songs.prefix(fixed).map(\.id) == self.songs.prefix(fixed).map(\.id)
+        else { return false }
+        self.songs = songs
+        return true
+    }
+
     func discard() {
         // Invalidate callbacks before stopping: node teardown also calls completion handlers.
         generation += 1
@@ -130,6 +162,11 @@ final class GaplessEngine: PlaybackEngine {
         starved = false
         decoding = false
         stream = nil
+        consumed = 0
+        heldFrames = 0
+        songs = []
+        requested = -1
+        carry = nil
         reported = nil
         playing = false
     }
@@ -166,9 +203,7 @@ final class GaplessEngine: PlaybackEngine {
         return playerTime.sampleTime
     }
 
-    private func schedule(
-        _ songs: [Song], from index: Int, offset: Double, file source: PlaybackFileSource, generation: Int
-    ) async {
+    private func schedule(from index: Int, offset: Double, file source: PlaybackFileSource, generation: Int) async {
         // A `discard()` can run between `load` and the start of this task. Then no state may change.
         guard generation == self.generation, !Task.isCancelled else { return }
         let engine = AVAudioEngine()
@@ -192,15 +227,23 @@ final class GaplessEngine: PlaybackEngine {
         decoding = true
         watch(generation)
         do {
-            for position in index..<songs.count {
-                // Only the audible track and its immediate successor may request playback bytes.
-                while !playing || (position > index + 1 && audibleMovement() < position - 1) {
+            var position = index
+            while true {
+                // After the last track, the load waits for a queue edit.
+                while !mayRequest(position, from: index) {
+                    if position >= songs.count, decoding {
+                        try await settle(generation: generation)
+                        decoding = false
+                    }
                     try await Task.sleep(for: Self.watchInterval)
                     try check(generation)
                 }
+                decoding = true
+                requested = position
+                let song = songs[position]
                 let seconds = position == index ? offset : 0
                 report()
-                let track = try await source(songs[position])
+                let track = try await source(song)
                 try check(generation)
                 switch track {
                 case .file(let url):
@@ -211,17 +254,25 @@ final class GaplessEngine: PlaybackEngine {
                 case .stream(let transfer):
                     guard
                         try await scheduleStream(
-                            transfer, song: songs[position], position: position, offset: seconds,
-                            generation: generation)
+                            transfer, song: song, position: position, offset: seconds, generation: generation)
                     else { return }
                 }
                 onEvent?(.scheduled(position))
+                position += 1
             }
-            decoding = false
         } catch {
             guard generation == self.generation, !Task.isCancelled else { return }
-            onEvent?(.failed(error.localizedDescription))
+            if let trouble = ServerTrouble(playback: error) {
+                onEvent?(.serverFailed(trouble))
+            } else {
+                onEvent?(.failed(error.localizedDescription))
+            }
         }
+    }
+
+    /// Only the audible track and its immediate successor may request playback bytes.
+    private func mayRequest(_ position: Int, from index: Int) -> Bool {
+        playing && position < songs.count && (position <= index + 1 || audibleMovement() >= position - 1)
     }
 
     private func audibleMovement() -> Int {
@@ -233,17 +284,22 @@ final class GaplessEngine: PlaybackEngine {
         guard generation == self.generation, !Task.isCancelled else { throw CancellationError() }
     }
 
-    /// The first track fixes the node format. Later tracks convert their PCM before they reach this graph.
+    /// The first track sets the node's rate. The node keeps at least two channels, so a mono opener never downmixes
+    /// the stereo recordings after it. Later tracks of another format convert their PCM before they reach this graph.
     private func connect(_ incoming: AVAudioFormat, position: Int, generation: Int) async throws -> Bool {
         guard let engine, let node, let gain else { return false }
         if format != nil { return true }
-        format = incoming
-        sampleRate = incoming.sampleRate
-        try engine.connectNode(node, to: gain, format: incoming)
-        try engine.connectNode(gain, to: engine.mainMixerNode, format: incoming)
+        let stable =
+            incoming.channelCount >= 2
+            ? incoming : AVAudioFormat(standardFormatWithSampleRate: incoming.sampleRate, channels: 2)
+        guard let stable else { throw PCMConversion.Failure.format }
+        format = stable
+        sampleRate = stable.sampleRate
+        try engine.connectNode(node, to: gain, format: stable)
+        try engine.connectNode(gain, to: engine.mainMixerNode, format: stable)
         if let rendered {
             try gain.installAudioTap(
-                onBus: 0, bufferSize: AVAudioFrameCount(incoming.sampleRate * Self.chunkSeconds), format: incoming
+                onBus: 0, bufferSize: AVAudioFrameCount(stable.sampleRate * Self.chunkSeconds), format: stable
             ) { buffer, _ in rendered(buffer) }
         }
         try await Self.activateSession()
@@ -265,6 +321,7 @@ final class GaplessEngine: PlaybackEngine {
             return try await scheduleConvertedFile(
                 file, playable: playable, range: range, position: position, generation: generation)
         }
+        try await settle(generation: generation)
         // A slow download leaves the player idle; the movement then starts at the current position.
         timeline.declare(position, frames: Int64(playable.count))
         let skipped = range.lowerBound - playable.lowerBound
@@ -282,18 +339,14 @@ final class GaplessEngine: PlaybackEngine {
     private func scheduleConvertedFile(
         _ file: AVAudioFile, playable: Range<Int64>, range: Range<Int64>, position: Int, generation: Int
     ) async throws -> Bool {
-        guard let format else { return false }
-        let output = Box(format)
         let url = file.url
         let inputRate = file.processingFormat.sampleRate
         let skipped = Int64((Double(range.lowerBound - playable.lowerBound) * sampleRate / inputRate).rounded())
         let count = convertedFrames.frames(Int64(range.count), from: inputRate, to: sampleRate)
-        let conversion = try await work {
-            let decoder = try FilePCMDecoder(url, playable: range)
-            return try PCMConversion(from: decoder.file.processingFormat, to: output.value, frames: count) {
-                try decoder.read(frames: $0)
-            }
-        }
+        let decoder = try await work { try FilePCMDecoder(url, playable: range) }
+        let conversion = try await self.conversion(
+            for: decoder, format: file.processingFormat, frames: count, continuous: range == playable,
+            generation: generation)
         try check(generation)
         timeline.declare(position, frames: skipped + count)
         var cursor = skipped
@@ -306,18 +359,29 @@ final class GaplessEngine: PlaybackEngine {
                 try await Task.sleep(for: Self.watchInterval)
                 try check(generation)
             }
-            let next = try await work { try Box(conversion.read(frames: chunk)) }.value
+            let next = try await work { try Box(conversion.next(frames: chunk)) }.value
             try check(generation)
-            if let held {
-                enqueue(held, position: position, audioStart: heldStart, last: next == nil, generation: generation)
+            switch next {
+            case .audio(let buffer):
+                if let held {
+                    enqueue(held, position: position, audioStart: heldStart, last: false, generation: generation)
+                    try sound()
+                }
+                heldStart = cursor
+                cursor += Int64(buffer.frameLength)
+                held = buffer
+            case .end:
+                guard let held else { throw StreamDecoder.Failure.status(kAudioFileEndOfFileError) }
+                enqueue(held, position: position, audioStart: heldStart, last: true, generation: generation)
                 try sound()
+                keep(conversion)
+                return true
+            case .waiting:
+                carry = Carry(conversion: conversion, position: position, held: held, start: heldStart, cursor: cursor)
+                try sound()
+                return true
             }
-            guard let next else { break }
-            heldStart = cursor
-            cursor += Int64(next.frameLength)
-            held = next
         }
-        return true
     }
 
     /// Decodes a track while it arrives, and keeps at most `aheadSeconds` of it on the node.
@@ -325,6 +389,8 @@ final class GaplessEngine: PlaybackEngine {
         _ transfer: TrackTransfer, song: Song, position: Int, offset: Double, generation: Int
     ) async throws -> Bool {
         stream = (transfer, AudioBitrate.initial(song))
+        consumed = 0
+        heldFrames = 0
         let flag = cancelled
         let suffix = song.suffix ?? ""
         let decoder: StreamDecoder
@@ -349,13 +415,11 @@ final class GaplessEngine: PlaybackEngine {
         let skipped = selected.lowerBound - playable.lowerBound
         if skipped > 0 { _ = try await work { try Box(decoder.seek(to: selected.lowerBound)) } }
         let rate = sampleRate
-        let output = Box(format!)
         let expected = decoder.playable.map { _ in
             convertedFrames.frames(Int64(selected.count), from: sourceRate, to: rate)
         }
-        let conversion = try await work {
-            try PCMConversion(from: decoder.format, to: output.value, frames: expected) { try decoder.read(frames: $0) }
-        }
+        let conversion = try await self.conversion(
+            for: decoder, format: decoder.format, frames: expected, continuous: skipped == 0, generation: generation)
         try check(generation)
         var emitted = Int64((Double(skipped) * rate / sourceRate).rounded())
         let fullLength = emitted + (expected ?? Int64(Double(playable.count) * rate / sourceRate))
@@ -364,12 +428,9 @@ final class GaplessEngine: PlaybackEngine {
         // One buffer waits off the node, so that the last buffer of the track carries the end callback.
         var held: AVAudioPCMBuffer?
         var heldStart = emitted
-        var consumed: Int64 = 0
-        while true {
+        reading: while true {
             if scheduledEnd - (playedSamples() ?? 0) >= ahead {
-                try startIfReady(
-                    transfer, consumed: consumed, remaining: Double(fullLength - emitted) / rate,
-                    pending: held.map { Int64($0.frameLength) } ?? 0)
+                try startIfReady(transfer, remaining: Double(fullLength - emitted) / rate)
                 try await Task.sleep(for: Self.watchInterval)
                 try check(generation)
                 continue
@@ -378,26 +439,110 @@ final class GaplessEngine: PlaybackEngine {
             try check(generation)
             stream = (transfer, AudioBitrate.current(song, observed: decoded.bitrate))
             consumed = decoded.consumed
-            if let held {
-                enqueue(
-                    held, position: position, audioStart: heldStart, last: decoded.buffer == nil, generation: generation
-                )
+            switch decoded.output {
+            case .audio(let buffer):
+                if let held {
+                    enqueue(held, position: position, audioStart: heldStart, last: false, generation: generation)
+                }
+                held = buffer
+                heldStart = emitted
+                emitted += Int64(buffer.frameLength)
+                heldFrames = buffer.frameLength
+                try startIfReady(transfer, remaining: Double(fullLength - emitted) / rate)
+            case .end:
+                guard let held else { throw StreamDecoder.Failure.status(kAudioFileEndOfFileError) }
+                enqueue(held, position: position, audioStart: heldStart, last: true, generation: generation)
+                // The decoder knows the exact length now, also where the file declared none.
+                timeline.declare(position, frames: emitted)
+                keep(conversion)
+                break reading
+            case .waiting:
+                carry = Carry(conversion: conversion, position: position, held: held, start: heldStart, cursor: emitted)
+                break reading
             }
-            guard let buffer = decoded.buffer else { break }
-            held = buffer
-            heldStart = emitted
-            emitted += Int64(buffer.frameLength)
-            try startIfReady(
-                transfer, consumed: consumed, remaining: Double(fullLength - emitted) / rate,
-                pending: held.map { Int64($0.frameLength) } ?? 0)
         }
-        guard held != nil else {
-            throw StreamDecoder.Failure.status(kAudioFileEndOfFileError)
-        }
-        // The decoder knows the exact length now, also where the file declared none.
-        timeline.declare(position, frames: emitted)
+        heldFrames = 0
         try sound()
         return true
+    }
+
+    // MARK: Conversion across tracks
+
+    /// A converted track whose last frames wait for the samples of the next track. The resampler of one source
+    /// format runs across its tracks, so a continuous join interpolates between real samples (ADR 0060).
+    private struct Carry {
+        var conversion: PCMConversion
+        /// The track whose end waits, its last buffer off the node, that buffer's first frame and the next frame.
+        var position: Int?
+        var held: AVAudioPCMBuffer?
+        var start: Int64 = 0
+        var cursor: Int64 = 0
+    }
+
+    /// The conversion for the next track. A track of the carried source format, played from its start, continues
+    /// that resampler. Any other track first ends the carried one with its final interpolation.
+    private func conversion(
+        for source: some PCMSource, format input: AVAudioFormat, frames: Int64?, continuous: Bool, generation: Int
+    ) async throws -> PCMConversion {
+        if let carry, continuous, let frames, carry.conversion.continues(from: input) {
+            self.carry = nil
+            let conversion = carry.conversion
+            try await work { conversion.append(frames: frames) { try source.read(frames: $0) } }
+            try await drain(carry, generation: generation)
+            return conversion
+        }
+        try await settle(generation: generation)
+        guard let format else { throw PCMConversion.Failure.format }
+        let output = Box(format)
+        return try await work {
+            try PCMConversion(from: source.format, to: output.value, frames: frames, followable: true) {
+                try source.read(frames: $0)
+            }
+        }
+    }
+
+    /// Keeps a finished track's resampler for a following track of the same format.
+    private func keep(_ conversion: PCMConversion) {
+        if conversion.continues(from: conversion.inputFormat) { carry = Carry(conversion: conversion) }
+    }
+
+    /// No track of the carried format follows: its last track ends with the converter's final interpolation.
+    private func settle(generation: Int) async throws {
+        guard let carry else { return }
+        self.carry = nil
+        let conversion = carry.conversion
+        try await work { try conversion.finish() }
+        try check(generation)
+        try await drain(carry, generation: generation)
+    }
+
+    /// Schedules the waiting end of the carried track, now that its following samples or its end are known.
+    private func drain(_ carry: Carry, generation: Int) async throws {
+        guard let position = carry.position else { return }
+        let conversion = carry.conversion
+        let chunk = AVAudioFrameCount(Self.chunkSeconds * sampleRate)
+        var held = carry.held
+        var start = carry.start
+        var cursor = carry.cursor
+        while true {
+            let next = try await work { try Box(conversion.next(frames: chunk)) }.value
+            try check(generation)
+            switch next {
+            case .audio(let buffer):
+                if let held {
+                    enqueue(held, position: position, audioStart: start, last: false, generation: generation)
+                }
+                held = buffer
+                start = cursor
+                cursor += Int64(buffer.frameLength)
+            case .end:
+                guard let held else { throw StreamDecoder.Failure.status(kAudioFileEndOfFileError) }
+                enqueue(held, position: position, audioStart: start, last: true, generation: generation)
+                return
+            case .waiting:
+                throw PCMConversion.Failure.conversion
+            }
+        }
     }
 
     private func enqueue(
@@ -425,16 +570,15 @@ final class GaplessEngine: PlaybackEngine {
 
     /// Starts the first sound, or ends a refill, once the start threshold of ADR 0060 is met. Encoded bytes that
     /// arrived but wait undecoded count as buffered audio.
-    private func startIfReady(_ transfer: TrackTransfer, consumed: Int64, remaining: Double, pending: Int64) throws {
+    private func startIfReady(_ transfer: TrackTransfer, remaining: Double) throws {
         guard !started || starved, let stream else { return }
-        let snapshot = transfer.snapshot
         let decoded = Double(scheduledEnd - (playedSamples() ?? 0)) / sampleRate
-        let encoded = Double(max(snapshot.available - consumed, 0)) * 8 / stream.bitrate
+        let encoded = Double(transfer.bufferedBytes(from: consumed)) * 8 / stream.bitrate
         // A complete file needs no network estimate.
-        let throughput = snapshot.complete ? Double.infinity : transfer.throughput
+        let throughput = transfer.snapshot.complete ? Double.infinity : transfer.throughput
         guard decoded >= StartThreshold.minimum || remaining <= 0 else { return report() }
         if let target = StartThreshold.seconds(bitrate: stream.bitrate, throughput: throughput, remaining: remaining),
-            decoded + encoded + Double(pending) / sampleRate >= target
+            decoded + encoded + Double(heldFrames) / sampleRate >= target
         {
             try sound()
         } else {
@@ -481,8 +625,7 @@ final class GaplessEngine: PlaybackEngine {
     private func report() {
         var wait: PlaybackWait?
         if playing && (!started || starved) {
-            var slow = false
-            if let stream, let throughput = stream.transfer.throughput { slow = throughput < stream.bitrate }
+            let slow = stream.map { $0.transfer.isSlow(below: $0.bitrate) } ?? false
             wait = PlaybackWait(kind: started ? .resume : .start, slow: slow)
         }
         guard wait != reported else { return }
@@ -509,14 +652,14 @@ final class GaplessEngine: PlaybackEngine {
         init(_ value: Value) { self.value = value }
     }
 
-    /// One decoder read: its buffer, nil at the end, and what the decoder consumed so far.
+    /// One decoder read: its output, and the decoder's bitrate and place in the file after it.
     private struct Decoded: @unchecked Sendable {
-        var buffer: AVAudioPCMBuffer?
+        var output: PCMConversion.Output
         var bitrate: Double?
         var consumed: Int64
 
         init(_ decoder: StreamDecoder, conversion: PCMConversion) throws {
-            buffer = try conversion.read(
+            output = try conversion.next(
                 frames: AVAudioFrameCount(GaplessEngine.chunkSeconds * conversion.format.sampleRate))
             bitrate = decoder.observedBitrate
             consumed = decoder.consumed

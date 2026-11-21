@@ -3,7 +3,7 @@ import AudioToolbox
 
 /// Decodes a track while its bytes arrive (ADR 0060). The system decoder reads through callbacks; each callback
 /// waits on the decoder's worker queue for missing bytes. Call every method on that one queue.
-final class StreamDecoder: @unchecked Sendable {
+final class StreamDecoder: PCMSource, @unchecked Sendable {
     enum Failure: Error, Equatable {
         /// The format has not passed the early-start gate, so the track must be complete first.
         case unsupported
@@ -29,7 +29,7 @@ final class StreamDecoder: @unchecked Sendable {
     /// padding, FLAC from STREAMINFO. Nil means that the end of the file ends the track.
     let playable: Range<Int64>?
     var sampleRate: Double { format.sampleRate }
-    /// The furthest sequential byte that the decoder read. Tail metadata never counts as consumed audio.
+    /// The end of the latest read: the decoder's place in the file. Arrived bytes after it are buffered audio.
     var consumed: Int64 { context.consumed }
 
     private let context: Context
@@ -220,7 +220,7 @@ final class StreamDecoder: @unchecked Sendable {
         let transfer: TrackTransfer
         let length: Int64
         let cancelled: CancelFlag
-        /// The furthest byte that a read reached.
+        /// The end of the latest read. The decoder reads its audio in order, so a tail metadata read is soon replaced.
         var consumed: Int64 = 0
         var failure: TrackTransfer.Failure?
 
@@ -240,9 +240,7 @@ final class StreamDecoder: @unchecked Sendable {
                     at: position, count: Int(requested), into: destination, timeout: StreamDecoder.readTimeout,
                     isCancelled: { cancelled.isSet })
                 actual.pointee = UInt32(count)
-                if position + Int64(count) <= transfer.snapshot.available {
-                    consumed = max(consumed, position + Int64(count))
-                }
+                consumed = position + Int64(count)
                 return noErr
             } catch {
                 failure = error
@@ -260,6 +258,16 @@ final class StreamDecoder: @unchecked Sendable {
                     isCancelled: { cancelled.isSet })
             }
             return Array(bytes.prefix(read))
+        }
+    }
+}
+
+extension StreamDecoder.Failure: LocalizedError {
+    var errorDescription: String? {
+        switch self {
+        case .unsupported, .unknownLength, .status: "This iPhone could not decode the track."
+        case .allocation: "This iPhone cannot allocate an audio buffer."
+        case .prematureEnd: "The track ended before its declared length."
         }
     }
 }

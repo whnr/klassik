@@ -48,6 +48,11 @@ struct ThroughputMeter: Sendable {
         arrivals.removeAll { $0.time <= time - Self.longWindow }
     }
 
+    /// True when bytes arrived within the latest `window` seconds, at most `longWindow`.
+    func delivered(within window: Double, at now: Double) -> Bool {
+        arrivals.contains { $0.time > now - window }
+    }
+
     /// The lower of the latest short-window rate and the moving average, in bits per second.
     /// Nil until the first short window has passed.
     func bitsPerSecond(at now: Double) -> Double? {

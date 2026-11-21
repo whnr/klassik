@@ -190,6 +190,28 @@ struct MusicStorageTests {
         #expect(!FileManager.default.fileExists(atPath: transfer.target.path()))
     }
 
+    /// A rolling window asks the cache for its own size, never for the rest of the oversized resource.
+    @Test func aRollingWindowEvictsOnlyTheRoomItNeeds() async throws {
+        try cached("old", bytes: 8, age: 300)
+        try cached("middle", bytes: 8, age: 200)
+        try cached("recent", bytes: 8, age: 100)
+        let store = try makeStore(limit: 32)
+        defer { clean(store) }
+        let large = song("large")
+        store.pinned = [large.id]
+        store.playing = large.id
+        let transfer = store.transfer(for: large, client: client)
+        transfer.begin(length: 200, validator: nil)
+        let writer = Task { await Self.append(Data(0..<16), to: transfer, finish: false) }
+        try await wait { transfer.snapshot.available == 16 }
+        await writer.value
+        #expect(transfer.snapshot.available == 16)
+        #expect(!exists("old"))
+        #expect(exists("middle"))
+        #expect(exists("recent"))
+        #expect(store.budget.storedBytes <= 32)
+    }
+
     @Test func anOversizedTrackThatCannotRollFailsAtItsHead() async throws {
         let store = try makeStore(limit: 32)
         defer { clean(store) }

@@ -985,6 +985,18 @@ final class BrowseScreens: ScreensTestCase {
 
 /// A recording, the player, the queue and the downloads.
 final class PlaybackScreens: ScreensTestCase {
+    /// Music that arrives far below its bitrate shows the slow-connection line in place of the times (ADR 0060).
+    @MainActor
+    func testSlowConnectionLine() throws {
+        let app = try launchAndConnect(arguments: ["-slowMusic"])
+        openRecording(app)
+        startPlaying(app)
+        openPlayer(app)
+        let line = app.staticTexts["slow-connection"]
+        XCTAssertTrue(line.waitForExistence(timeout: 20), "No slow-connection line while the music trickles in")
+        snap(app, "07s-slow-connection")
+    }
+
     /// The quiet spell returns to the playing row after the listener scrolls away (ADR 0014, 0027).
     @MainActor
     func testPlayerFollowsAfterQuietSpell() throws {

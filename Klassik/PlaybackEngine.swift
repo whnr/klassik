@@ -15,6 +15,8 @@ enum PlaybackEngineEvent: Sendable {
     case problem(String)
     /// Playback cannot go on.
     case failed(String)
+    /// Playback cannot go on because the server or the network failed. It shows as the one quiet status (ADR 0058).
+    case serverFailed(ServerTrouble)
 }
 
 /// Where the engine gets the bytes of one track.
@@ -36,11 +38,15 @@ protocol PlaybackEngine: AnyObject {
     var onEvent: (@MainActor (PlaybackEngineEvent) -> Void)? { get set }
     /// True while the engine can make sound.
     var isRunning: Bool { get }
-    /// Decoded audio that waits ahead of the render position, in seconds, or nil before the first sound.
+    /// Playable audio ahead of the render position, in seconds, or nil before the first sound: decoded audio plus
+    /// arrived encoded bytes that the decoder has not read (ADR 0060).
     var bufferedSeconds: Double? { get }
 
     /// Drops what plays. Then plays `songs` from a movement and a position, and asks `file` for each track.
     func load(_ songs: [Song], from movement: Int, offset: Double, file: @escaping PlaybackFileSource)
+    /// Replaces the tracks of the load that it has not asked for yet, so a queue edit keeps the sound. False when
+    /// the edit changes a track that the load already asked for, or when no load runs.
+    func replace(_ songs: [Song]) -> Bool
     func pause()
     /// Plays on after `pause`. It throws if the audio session does not start.
     func resume() throws
@@ -51,4 +57,24 @@ protocol PlaybackEngine: AnyObject {
     func position(from movement: Int) -> (movement: Int, elapsed: Double)?
     /// The exact length of a scheduled movement, in seconds.
     func duration(of movement: Int) -> Double?
+}
+
+extension ServerTrouble {
+    /// The quiet status of a playback failure, or nil when the device failed (ADR 0060). A policy that forbids the
+    /// network shows as no answer.
+    init?(playback error: any Error) {
+        if error is URLError || (error as? TrackStore.Failure) == .offline {
+            self = .unreachable
+        } else if let failure = error as? TrackTransfer.Failure {
+            switch failure {
+            case .timedOut, .truncated: self = .unreachable
+            case .http: self = .refused
+            default: return nil
+            }
+        } else if error is SubsonicError {
+            self = .refused
+        } else {
+            return nil
+        }
+    }
 }

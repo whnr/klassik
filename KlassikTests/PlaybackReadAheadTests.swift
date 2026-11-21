@@ -143,14 +143,42 @@ struct PlaybackReadAheadTests {
         #expect(store.transfers[playing.recording.songs[0].id] === current)
         #expect((store.transfers[playing.recording.songs[1].id] === next) == explicitNext)
         #expect(session.isPaused)
-        #expect(!engine.isRunning)
+        // Only a cancelled next transfer can break the engine's decoder; a download keeps it.
+        #expect(engine.isRunning == explicitNext)
         session.resume()
-        #expect(engine.loads.count == 2)
+        #expect(engine.loads.count == (explicitNext ? 1 : 2))
         #expect(engine.loads.last?.movement == 0)
         #expect(session.error == nil)
         session.stop()
         store.clearAll()
         try? FileManager.default.removeItem(at: root)
+    }
+
+    /// A download of another recording leaves the paused engine in place, so Resume needs no seek.
+    @Test func pauseKeepsTheEngineBesideAnUnrelatedDownload() async throws {
+        let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
+        let store = TrackStore(
+            cacheFolder: root.appending(path: "cache"), downloadFolder: root.appending(path: "downloads"),
+            defaults: defaults, transport: { _, _, _ in })
+        let engine = FakeEngine()
+        let session = PlaybackSession(engine: engine, store: store, defaults: defaults)
+        let client = InMemoryServer()
+        session.server = client
+        defer {
+            session.stop()
+            store.clearAll()
+            try? FileManager.default.removeItem(at: root)
+        }
+        session.play(item("a", movements: 1))
+        let other = item("other", movements: 2).recording
+        store.download(other, title: "Other", client: client)
+        try await wait { store.transfers[other.songs[0].id] != nil }
+        session.pause()
+        #expect(engine.isRunning)
+        #expect(store.transfers[other.songs[0].id] != nil)
+        session.resume()
+        #expect(engine.loads.count == 1)
+        #expect(engine.calls.last == .resume)
     }
 
     private typealias Streaming = (session: PlaybackSession, engine: FakeEngine, store: TrackStore)
@@ -171,7 +199,8 @@ struct PlaybackReadAheadTests {
     }
 
     /// The next opening starts before the current transfer ends only when the current track nears its end, and
-    /// it waits while current playback has less than two decoded seconds (ADR 0060).
+    /// it waits while current playback has less than two playable seconds (ADR 0060). The fake engine holds no
+    /// more decoded audio than the real one, so the arrived encoded audio decides.
     @Test func theNextOpeningStartsWhenTheCurrentTrackNeedsIt() async throws {
         let started = MusicStorageTests.Started()
         let (session, engine, store) = try makeStreamingSession(started)
@@ -185,15 +214,20 @@ struct PlaybackReadAheadTests {
         session.play(playing)
         #expect(started.ids == ["a-0"])
         let current = try #require(store.transfers["a-0"])
-        engine.bufferedSeconds = 3
+        engine.decodedSeconds = 3
+        engine.encodedSeconds = 1
         try await Task.sleep(for: .milliseconds(600))
         #expect(started.ids == ["a-0"])
+        engine.encodedSeconds = 0
         engine.playing = (0, 7)
+        try await Task.sleep(for: .milliseconds(600))
+        #expect(started.ids == ["a-0"], "The decoded audio alone never reaches two seconds")
+        engine.encodedSeconds = 1
         try await wait { started.ids.count == 2 }
         #expect(started.ids == ["a-0", "a-1"])
         let opening = try #require(store.transfers["a-1"])
         #expect(!opening.isHeld)
-        engine.bufferedSeconds = 1
+        engine.encodedSeconds = 0
         try await wait { opening.isHeld }
         #expect(opening.isHeld)
         current.begin(length: 1, validator: nil)

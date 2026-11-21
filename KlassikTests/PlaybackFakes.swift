@@ -80,6 +80,7 @@ final class FakeEngine: PlaybackEngine {
 
     enum Call: Equatable {
         case load(Load)
+        case replace([String])
         case pause
         case resume
         case discard
@@ -90,13 +91,19 @@ final class FakeEngine: PlaybackEngine {
     private(set) var calls: [Call] = []
     private(set) var gain: Float = 0
     private(set) var file: PlaybackFileSource?
-    private var songCount = 0
+    private var songs: [String] = []
+    /// The last track that the load asked for. A test moves it on, as the real engine does near a join.
+    var requested = 0
     /// What `position(from:)` answers. A load sets it to the place that it starts at.
     var playing: (movement: Int, elapsed: Double)?
     /// The exact length of scheduled movements.
     var lengths: [Int: Double] = [:]
     var resumeError: (any Error)?
-    var bufferedSeconds: Double?
+    /// Decoded audio on the node. The real engine never holds more than `GaplessEngine.decodedPeak`.
+    var decodedSeconds: Double?
+    /// Arrived encoded audio that the decoder has not read yet.
+    var encodedSeconds = 0.0
+    var bufferedSeconds: Double? { decodedSeconds.map { min($0, GaplessEngine.decodedPeak) + encodedSeconds } }
 
     var loads: [Load] {
         calls.compactMap { call in
@@ -107,9 +114,20 @@ final class FakeEngine: PlaybackEngine {
     func load(_ songs: [Song], from movement: Int, offset: Double, file: @escaping PlaybackFileSource) {
         calls.append(.load(Load(songs: songs.map(\.id), movement: movement, offset: offset)))
         self.file = file
-        songCount = songs.count
+        self.songs = songs.map(\.id)
+        requested = movement
         isRunning = true
         playing = (movement, offset)
+    }
+
+    func replace(_ songs: [Song]) -> Bool {
+        let ids = songs.map(\.id)
+        calls.append(.replace(ids))
+        guard isRunning, ids.count > requested, ids.prefix(requested + 1) == self.songs.prefix(requested + 1) else {
+            return false
+        }
+        self.songs = ids
+        return true
     }
 
     func pause() {
@@ -141,7 +159,7 @@ final class FakeEngine: PlaybackEngine {
 
     /// A movement plays to its end and the next one begins.
     func end(_ movement: Int) {
-        if movement + 1 < songCount { playing = (movement + 1, 0) }
+        if movement + 1 < songs.count { playing = (movement + 1, 0) }
         onEvent?(.movementEnded(movement))
     }
 

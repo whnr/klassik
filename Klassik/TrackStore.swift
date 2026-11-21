@@ -36,7 +36,11 @@ final class TrackStore {
     private(set) var progress: [String: Double] = [:]
     private(set) var failures: [String: String] = [:]
     var networkAllowed = true
-    enum Failure: Error { case offline }
+    enum Failure: LocalizedError {
+        case offline
+
+        var errorDescription: String? { "This iPhone has no network for music now." }
+    }
     @ObservationIgnored private var downloadTracks: [String: Set<String>] = [:]
     private var generation = 0
 
@@ -111,6 +115,11 @@ final class TrackStore {
 
     func isDownloaded(_ recording: WorkIndex.Recording) -> Bool {
         downloads.contains { $0.id == recording.id }
+    }
+
+    /// True while an explicit download owns the track's transfer, so automatic preparation never cancels it.
+    func isDownloading(_ songID: String) -> Bool {
+        downloadTracks.values.contains { $0.contains(songID) }
     }
 
     /// What playback reads for a track: a file on the device, or the transfer of a format that starts early.
@@ -196,8 +205,8 @@ final class TrackStore {
     /// with a storage failure only when nothing else can go (ADR 0060).
     private func relieve(_ blocked: TrackTransfer) {
         guard transfers[blocked.songID] === blocked else { return }
-        let snapshot = blocked.snapshot
-        evict(room: snapshot.expected.map { $0 - snapshot.available } ?? TrackTransfer.rangeChunk)
+        // A rolling window needs only its own size, never room for the whole oversized resource.
+        evict(room: blocked.storageNeed ?? TrackTransfer.rangeChunk)
         guard budget.availableBytes == 0 else { return }
         let downloading = Set(downloadTracks.values.flatMap { $0 })
         if !pinned.contains(blocked.songID) && !downloading.contains(blocked.songID) {

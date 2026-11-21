@@ -53,7 +53,11 @@ final class AppModel {
         recordingOrder = RecordingOrder(library: library)
         notes = ListeningNotes(store: nil)
         recentSearches = RecentSearches(store: nil)
-        tracks = TrackStore()
+        #if DEBUG
+            tracks = SlowMusic.isOn ? TrackStore(transport: SlowMusic.transport) : TrackStore()
+        #else
+            tracks = TrackStore()
+        #endif
         albumCovers = AlbumCovers(store: ImageStore.albumArt)
         playback = PlaybackSession(engine: GaplessEngine(), store: tracks)
         enrichment = Enrichment.forLaunch()
@@ -214,9 +218,10 @@ final class AppModel {
 
     /// Shows the cached library at once, then checks the server and syncs again.
     /// Then looks up the works on MusicBrainz and the persons on Wikidata, side by side.
-    /// Why changes of the listener wait on this iPhone: favourites, scrobbles and the play queue together.
+    /// Why changes of the listener wait on this iPhone, or why music stopped loading: favourites, scrobbles, the
+    /// play queue and playback together.
     var serverTrouble: ServerTrouble? {
-        ServerTrouble.worst([recordingOrder.serverTrouble, playback.listeningTrouble])
+        ServerTrouble.worst([recordingOrder.serverTrouble, playback.listeningTrouble, playback.playbackTrouble])
     }
 
     func start() async {

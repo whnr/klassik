@@ -96,6 +96,9 @@ final class PlaybackSession {
     }
     /// Why listening data waits on the device. The Library shows it in the one server status (ADR 0058).
     private(set) var listeningTrouble: ServerTrouble?
+    /// Why music stopped loading from the server. It joins the one server status and goes with the next sound
+    /// (ADR 0060).
+    private(set) var playbackTrouble: ServerTrouble?
 
     /// A different login must never receive the queue of this login.
     @ObservationIgnored var server: (any ServerPort)? {
@@ -120,6 +123,7 @@ final class PlaybackSession {
                 return created
             }
             listeningTrouble = nil
+            playbackTrouble = nil
             let currentHistory = history
             history?.onTrouble = { [weak self, weak currentHistory] trouble in
                 guard let self, self.history === currentHistory else { return }
@@ -184,6 +188,8 @@ final class PlaybackSession {
     private var recordingCompleted = false
     /// The current recording starts here in the engine's queue-wide track indices.
     private var engineBase = 0
+    /// The tracks that the engine plays, from the first one of its load.
+    private var engineSongs: [Song] = []
     private let engine: any PlaybackEngine
     private let store: TrackStore
     private let defaults: UserDefaults
@@ -317,10 +323,20 @@ final class PlaybackSession {
         queueChanged()
     }
 
-    /// A queue edit invalidates already scheduled successors, including their completion callbacks.
+    /// A queue edit changes the tracks that the engine has not asked for yet, so the sound goes on. Only an edit of
+    /// a track that the engine already scheduled loads again from the audible place.
     private func queueChanged() {
         savePosition()
-        if playback.shouldPlay { rebuild() } else { discardEngine() }
+        if let item {
+            let songs = Array(engineSongs.prefix(engineBase)) + ([item] + upNext).flatMap { $0.recording.songs }
+            if engine.replace(songs) {
+                engineSongs = songs
+            } else if playback.shouldPlay {
+                rebuild()
+            } else {
+                discardEngine()
+            }
+        }
         persistQueue()
         prepareAhead()
     }
@@ -407,8 +423,11 @@ final class PlaybackSession {
         case .pause:
             savePosition()
             engine.pause()
-            // Cancelling a following transfer invalidates its decoder. Resume rebuilds from the audible checkpoint.
-            if let song = coverSong, store.transfers.keys.contains(where: { $0 != song.id }) { discardEngine() }
+            // Pause cancels the transfer of the next track, unless a download owns it. The engine can already
+            // decode that transfer, so Resume then rebuilds from the audible checkpoint.
+            if let next = nextAudibleSong(), store.transfers[next.id] != nil, !store.isDownloading(next.id) {
+                discardEngine()
+            }
             clearWait()
         case .suspend:
             savePosition()
@@ -450,6 +469,7 @@ final class PlaybackSession {
         case .configurationChanged: handle(.configurationChanged)
         case .problem(let text): error = text
         case .failed(let text): playbackFailed(text)
+        case .serverFailed(let trouble): playbackFailed(nil, trouble: trouble)
         }
     }
 
@@ -528,6 +548,7 @@ final class PlaybackSession {
         let store = store
         engineBase = 0
         let songs = ([item] + upNext).flatMap { $0.recording.songs }
+        engineSongs = songs
         soundRequested = .now
         engine.load(songs, from: checkpoint.movement, offset: checkpoint.elapsed) { song in
             try await store.source(for: song, client: server)
@@ -544,11 +565,13 @@ final class PlaybackSession {
         }
     }
 
-    private func playbackFailed(_ text: String) {
+    /// A server failure pauses quietly: the Library shows its cause in the one server status (ADR 0058, 0060).
+    private func playbackFailed(_ text: String?, trouble: ServerTrouble? = nil) {
         savePosition()
         _ = playback.handle(.pause)
         discardEngine()
         error = text
+        if let trouble { playbackTrouble = trouble }
         updateNowPlaying()
         persistQueue()
     }
@@ -621,6 +644,7 @@ final class PlaybackSession {
 
     /// The engine waits for bytes, or sound started. The line follows after one second (ADR 0060).
     private func waited(_ wait: PlaybackWait?) {
+        if wait == nil { playbackTrouble = nil }
         if wait == nil, let requested = soundRequested {
             soundRequested = nil
             if let song = coverSong, store.transfers[song.id] != nil {
@@ -659,6 +683,12 @@ final class PlaybackSession {
         savePosition()
         discardEngine()
         prepareAhead()
+    }
+
+    /// The track that plays after the audible one, across a recording boundary.
+    private func nextAudibleSong() -> Song? {
+        guard let item, let movement else { return nil }
+        return ReadAhead.plan(item, movement: movement, upNext: upNext, mode: .constrained).first
     }
 
     /// Prepares the tracks that ADR 0060 allows for the current place in the queue, and cancels the rest.
@@ -711,7 +741,7 @@ final class PlaybackSession {
 
     /// The current track has priority. The next opening starts before the current transfer ends only when the
     /// current track would end before the opening is ready, and it waits while current playback has less than
-    /// `competitionFloor` seconds of decoded audio (ADR 0060).
+    /// `competitionFloor` playable seconds: decoded audio plus arrived bytes that wait undecoded (ADR 0060).
     private func prepareOpening(_ opening: Song, after running: TrackTransfer, client: any ServerPort) async throws {
         func current() -> Bool { !running.snapshot.complete && store.transfers[running.songID] === running }
         func buffered() -> Double { engine.bufferedSeconds ?? 0 }

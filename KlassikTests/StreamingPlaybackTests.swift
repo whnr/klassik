@@ -320,20 +320,200 @@ struct StreamingPlaybackTests {
         try? FileManager.default.removeItem(at: root)
     }
 
+    /// The tap's samples, one array for each channel of the node format.
     private final class RenderedAudio: Sendable {
-        private let storage = Mutex<[Float]>([])
-        var samples: [Float] { storage.withLock { $0 } }
+        private let storage = Mutex<[[Float]]>([])
+        var samples: [Float] { channel(0) }
+        var channels: Int { storage.withLock { $0.count } }
+
+        func channel(_ index: Int) -> [Float] {
+            storage.withLock { $0.indices.contains(index) ? $0[index] : [] }
+        }
 
         func record(_ buffer: AVReadOnlyAudioPCMBuffer) {
-            guard buffer.format.commonFormat == .pcmFormatFloat32 else { return }
+            guard buffer.format.commonFormat == .pcmFormatFloat32, !buffer.format.isInterleaved else { return }
+            let frames = Int(buffer.frameLength)
             buffer.withUnsafeAudioBufferList { list in
-                guard let source = list.pointee.mBuffers.mData?.assumingMemoryBound(to: Float.self) else { return }
-                storage.withLock { samples in
-                    guard samples.count < 1_000_000 else { return }
-                    samples.append(contentsOf: UnsafeBufferPointer(start: source, count: Int(buffer.frameLength)))
+                let buffers = UnsafeMutableAudioBufferListPointer(UnsafeMutablePointer(mutating: list))
+                storage.withLock { channels in
+                    if channels.isEmpty { channels = Array(repeating: [], count: buffers.count) }
+                    guard channels[0].count < 1_000_000 else { return }
+                    for (index, audio) in buffers.enumerated() where index < channels.count {
+                        guard let source = audio.mData?.assumingMemoryBound(to: Float.self) else { continue }
+                        channels[index].append(contentsOf: UnsafeBufferPointer(start: source, count: frames))
+                    }
                 }
             }
         }
+    }
+
+    /// Writes a 32-bit float WAV file with `channels[n]` as channel n.
+    func wav(_ name: String, rate: Double, channels: [[Float]]) throws -> URL {
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let format = try #require(
+            AVAudioFormat(standardFormatWithSampleRate: rate, channels: AVAudioChannelCount(channels.count)))
+        let buffer = try #require(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: UInt32(channels[0].count)))
+        buffer.frameLength = buffer.frameCapacity
+        for (index, samples) in channels.enumerated() {
+            for (frame, sample) in samples.enumerated() { buffer.floatChannelData![index][frame] = sample }
+        }
+        let url = root.appending(path: name)
+        var settings = format.settings
+        settings[AVLinearPCMIsNonInterleaved] = false
+        let file = try AVAudioFile(forWriting: url, settings: settings)
+        try file.write(from: buffer)
+        return url
+    }
+
+    static func tone(_ count: Int, rate: Double, from start: Int = 0) -> [Float] {
+        (start..<(start + count)).map { Float(sin(Double($0) * 2 * .pi * 440 / rate) * 0.25) }
+    }
+
+    /// Plays local files through the real engine until the last one ends or the engine fails.
+    @MainActor private func render(_ files: [URL], output: RenderedAudio) async throws -> [String] {
+        let events = Events()
+        let engine = GaplessEngine(rendered: { output.record($0) })
+        engine.onEvent = { event in
+            switch event {
+            case .movementEnded(let index): events.log.append("end \(index)")
+            case .failed(let text), .problem(let text): events.log.append("failed \(text)")
+            case .serverFailed(let trouble): events.log.append("failed server \(trouble)")
+            default: break
+            }
+        }
+        defer { engine.discard() }
+        let songs = files.indices.map { Song(id: String($0), title: "Tone", duration: 1, suffix: "wav") }
+        engine.load(songs, from: 0, offset: 0) { .file(files[Int($0.id)!]) }
+        let last = "end \(files.count - 1)"
+        for _ in 0..<500 where !events.log.contains(last) && !events.log.contains(where: { $0.hasPrefix("failed") }) {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        return events.log
+    }
+
+    /// A mono opener never downmixes the stereo recording after it: the node keeps two channels (ADR 0060).
+    @MainActor @Test func aMonoOpenerKeepsTheStereoAfterIt() async throws {
+        let count = 22_050
+        let mono = try wav("mono.wav", rate: 44_100, channels: [Self.tone(count, rate: 44_100)])
+        let stereo = try wav(
+            "stereo.wav", rate: 44_100, channels: [Self.tone(count, rate: 44_100), Array(repeating: 0, count: count)])
+        defer { try? FileManager.default.removeItem(at: root) }
+        let output = RenderedAudio()
+        let log = try await render([mono, stereo], output: output)
+        #expect(log == ["end 0", "end 1"])
+        #expect(output.channels == 2)
+        let left = output.channel(0)
+        let right = output.channel(1)
+        let first = try #require(left.firstIndex { abs($0) > 0.01 }) - 1
+        let opener = (first + 256)..<(first + count - 256)
+        let second = (first + count + 256)..<(first + 2 * count - 256)
+        try #require(right.indices.contains(second.upperBound))
+        #expect(opener.map { abs(left[$0] - right[$0]) }.max() ?? 1 < 0.0001, "The mono opener plays in both ears")
+        #expect(second.map { abs(left[$0]) }.max() ?? 0 > 0.2, "The left channel plays the tone")
+        #expect(second.map { abs(right[$0]) }.max() ?? 1 < 0.0001, "The silent right channel stays silent")
+    }
+
+    /// One resampler runs across two tracks of one source format, so a continuous tone split between them joins
+    /// as a one-pass conversion does (ADR 0060).
+    @MainActor @Test func aResampledJoinMatchesOnePassConversion() async throws {
+        let opener = 11_025
+        let split = 24_000
+        let total = 48_000
+        let tone = Self.tone(total, rate: 48_000)
+        let files = [
+            try wav("opener.wav", rate: 44_100, channels: Array(repeating: Self.tone(opener, rate: 44_100), count: 2)),
+            try wav("first.wav", rate: 48_000, channels: [Array(tone[..<split]), Array(tone[..<split])]),
+            try wav("second.wav", rate: 48_000, channels: [Array(tone[split...]), Array(tone[split...])]),
+        ]
+        defer { try? FileManager.default.removeItem(at: root) }
+        let whole = try wav("whole.wav", rate: 48_000, channels: [tone, tone])
+        let output44 = try #require(AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 2))
+        var count = ConvertedFrameCount()
+        let frames = count.frames(Int64(total), from: 48_000, to: 44_100)
+        let decoder = try FilePCMDecoder(whole, playable: 0..<Int64(total))
+        let conversion = try PCMConversion(from: decoder.file.processingFormat, to: output44, frames: frames) {
+            try decoder.read(frames: $0)
+        }
+        var reference: [Float] = []
+        while let buffer = try conversion.read(frames: 4096) {
+            reference += Array(UnsafeBufferPointer(start: buffer.floatChannelData![0], count: Int(buffer.frameLength)))
+        }
+        let output = RenderedAudio()
+        let log = try await render(files, output: output)
+        #expect(log == ["end 0", "end 1", "end 2"])
+        let rendered = output.samples
+        let first = try #require(rendered.firstIndex { abs($0) > 0.01 }) - 1
+        let converted = first + opener
+        var tracks = ConvertedFrameCount()
+        let join = Int(tracks.frames(Int64(split), from: 48_000, to: 44_100))
+        let window = (join - 256)..<(join + 256)
+        try #require(rendered.indices.contains(converted + window.upperBound))
+        let error = window.map { abs(rendered[converted + $0] - reference[$0]) }.max() ?? .infinity
+        print("resampled join: start=\(first), join=\(join), error=\(error)")
+        #expect(error < 0.0001, "The join must interpolate between real samples, never against zeros")
+    }
+
+    /// A server that goes away during playback pauses quietly: no notice, only the one server status (ADR 0058).
+    @MainActor @Test func aServerThatGoesAwayPausesQuietly() async throws {
+        let (client, songs) = try await Self.album("Glide", named: "Glide in FLAC")
+        let song = try #require(songs.first)
+        let data = try await Self.bytes(of: song, from: client)
+        let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
+        let store = TrackStore(
+            cacheFolder: root.appending(path: "cache"), downloadFolder: root.appending(path: "downloads"),
+            defaults: defaults,
+            transport: { _, _, transfer in
+                transfer.begin(length: Int64(data.count), validator: nil)
+                Task.detached {
+                    transfer.append(data.prefix(data.count / 3))
+                    try? await Task.sleep(for: .milliseconds(500))
+                    transfer.finish(.truncated)
+                }
+            })
+        let player = PlaybackSession(engine: GaplessEngine(), store: store, defaults: defaults)
+        player.server = InMemoryServer()
+        defer {
+            player.stop()
+            store.clearAll()
+            try? FileManager.default.removeItem(at: root)
+        }
+        let recording = WorkIndex.Recording(id: "recording", album: "Fixture", songs: [song])
+        let work = WorkIndex.Work(
+            id: "work", title: "Fixture", composer: "Fixture", isTagged: false, recordings: [recording])
+        player.play(QueueItem(work: work, recording: recording))
+        for _ in 0..<200 where !player.isPaused { try await Task.sleep(for: .milliseconds(50)) }
+        #expect(player.isPaused)
+        #expect(player.error == nil)
+        #expect(player.playbackTrouble == .unreachable)
+    }
+
+    /// A server that stops sending shows no slow-connection line: the line is for a slow transfer only.
+    @MainActor @Test func aStalledServerShowsNoSlowLine() async throws {
+        let (client, songs) = try await Self.album("Glide", named: "Glide in FLAC")
+        let song = try #require(songs.first)
+        let data = try await Self.bytes(of: song, from: client)
+        let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
+        let store = TrackStore(
+            cacheFolder: root.appending(path: "cache"), downloadFolder: root.appending(path: "downloads"),
+            defaults: defaults,
+            transport: { _, _, transfer in
+                transfer.begin(length: Int64(data.count), validator: nil)
+                transfer.append(data.prefix(4096))
+            })
+        let player = PlaybackSession(engine: GaplessEngine(), store: store, defaults: defaults)
+        player.server = InMemoryServer()
+        defer {
+            player.stop()
+            store.clearAll()
+            try? FileManager.default.removeItem(at: root)
+        }
+        let recording = WorkIndex.Recording(id: "recording", album: "Fixture", songs: [song])
+        let work = WorkIndex.Work(
+            id: "work", title: "Fixture", composer: "Fixture", isTagged: false, recordings: [recording])
+        player.play(QueueItem(work: work, recording: recording))
+        try await Task.sleep(for: .milliseconds(2_500))
+        #expect(player.isLoading)
+        #expect(player.slowLine == nil)
     }
 
     /// Both recordings share the production node. The tap measures each join against the continuous fixture glide.
@@ -387,7 +567,8 @@ struct StreamingPlaybackTests {
         #expect(shifts == [0, 0])
     }
 
-    /// The output timeline stays at the first rate and channel count while subsequent files differ.
+    /// The output timeline stays at the first rate while subsequent files differ. Each converted track ends on its
+    /// own, because the next one has another source format.
     @MainActor @Test func mixedRatesAndChannelsUseOneTimeline() async throws {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let rates = [44_100.0, 48_000.0, 32_000.0]
@@ -414,7 +595,8 @@ struct StreamingPlaybackTests {
         }
         let songs = rates.indices.map { Song(id: String($0), title: "Tone", duration: 1, suffix: "wav") }
         let files = urls
-        let outputFormat = try #require(AVAudioFormat(standardFormatWithSampleRate: rates[0], channels: channels[0]))
+        // A mono opener gives a stereo node, so the stereo track after it keeps both channels.
+        let outputFormat = try #require(AVAudioFormat(standardFormatWithSampleRate: rates[0], channels: 2))
         var frameCount = ConvertedFrameCount()
         var reference: [Float] = []
         var joins: [Int] = []
@@ -554,8 +736,15 @@ struct StreamingPlaybackTests {
                 transfer.append(data.prefix(half))
                 feeders.append(
                     Task.detached {
-                        try? await Task.sleep(for: .seconds(7))
-                        await Self.feed(data, from: half, into: transfer).value
+                        // A trickle far below the bitrate: the node runs dry on a slow connection, not a dead one.
+                        var position = half
+                        let stall = ContinuousClock.now + .seconds(7)
+                        while ContinuousClock.now < stall, !Task.isCancelled {
+                            transfer.append(data.subdata(in: position..<(position + 512)))
+                            position += 512
+                            try? await Task.sleep(for: .milliseconds(100))
+                        }
+                        await Self.feed(data, from: position, into: transfer).value
                     })
             } else {
                 feeders.append(Self.feed(data, into: transfer))
@@ -570,6 +759,7 @@ struct StreamingPlaybackTests {
                 if let wait { events.waits.append(wait) }
             case .movementEnded(let movement): events.log.append("end \(movement)")
             case .failed(let text), .problem(let text): events.log.append("failed \(text)")
+            case .serverFailed(let trouble): events.log.append("failed server \(trouble)")
             default: break
             }
         }

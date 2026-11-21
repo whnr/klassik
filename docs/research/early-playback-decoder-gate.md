@@ -99,9 +99,24 @@ A wrapped window cannot become a file, so the download then fetches the track wh
 
 The next opening starts when the current track has no more remaining time than the opening needs plus 2 s.
 The opening time is the measured delay from engine load to first sound. Its default is 2 s.
-The opening transfer holds while less than 2 s of decoded audio is buffered and the current transfer is incomplete.
-Clear Music pauses playback, releases the decoders, and starts no transfer until Play or Resume.
-Pausing is stricter than the ADR permits. A starved engine would otherwise show the slow-connection line for a cleared cache.
+The opening transfer holds while less than 2 s of playable audio is buffered and the current transfer is incomplete.
+Playable audio is the decoded audio plus the arrived bytes that the decoder has not read, at the track's bitrate.
+Decoded audio alone stays below 1.75 s, so it can never reach the 2 s floor.
+Clear Music pauses playback, releases the decoders, and starts no transfer until Play or Resume, as the ADR records.
+
+A queue edit keeps the sound. The engine takes the new tracks after the last one that it asked for a source.
+Only an edit of a track that it already asked for loads again from the audible place.
+Pause keeps the engine, unless pause cancels the transfer of the next audible track. A download keeps that transfer.
+
+The node keeps at least two channels, so a mono opener never downmixes the stereo recordings after it.
+A converted track keeps its resampler for the next track of the same source format, when that track plays from its start.
+So a continuous join interpolates between real samples. Another source format first ends the carried track.
+
+A server or network failure pauses playback and shows the one quiet status of ADR 0058; device failures keep their text.
+The slow-connection line needs bytes within the last second. A server that stops sending never shows it.
+A wait for bytes times out only after 30 s without any arriving byte.
+A read past the arrived bytes streams one 512 KiB range after another, at most one ahead of the reader.
+A range that fails without an answer retries after 0.5 s; only a whole-file or mismatched answer turns ranges off.
 
 ## Throughput, seek and gain measurements
 

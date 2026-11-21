@@ -36,6 +36,14 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
     static let rangeLead: Int64 = 1 << 20
     static let rangeChunk: Int64 = 1 << 19
     static let keptChunks = 4
+    /// A range request that failed without a refusal waits this long before the reader asks again.
+    static let rangeRetry = 0.5
+    /// No byte for this long means a stalled server, not a slow connection (ADR 0060).
+    static let stallWindow = 1.0
+
+    /// Delivers one range response to `receiver` and returns the action that cancels it. Production uses one
+    /// URLSession for each transfer, so the ranges of a seek share a connection. A test paces the bytes itself.
+    typealias RangeLoader = @Sendable (URLRequest, RangeReceiver) -> @Sendable () -> Void
 
     let songID: String
     /// Where the bytes arrive. The file moves to `target` once it is complete; open readers keep working.
@@ -54,8 +62,18 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
     private var published = false
     private var failure: Failure?
     private var meter = ThroughputMeter()
-    private var chunks: [Int64: Data] = [:]
-    /// The server refused a range once, so later reads wait for the sequential bytes.
+    /// Every byte that arrived, sequential or ranged. A wait for bytes times out only while this stands still.
+    private var delivered: Int64 = 0
+    /// Range responses in memory, by first byte. Reads use their bytes while they arrive.
+    private var chunks: [Int64: RangeChunk] = [:]
+    /// The end of the latest read from a range response. The next range starts at the end of the one before.
+    private var rangeHead: Int64?
+    private var rangeRetryAt = -Double.infinity
+    private var rangeSession: URLSession?
+    private let rangeLoader: RangeLoader?
+    private let rangeChunk: Int64
+    /// The server answered a range with another representation or the whole file. Later reads wait for the
+    /// sequential bytes.
     private var rangesRefused = false
     private var finishHandlers: [@Sendable (Result<URL, Failure>) -> Void] = []
     private var waiters: [UUID: CheckedContinuation<URL, any Error>] = [:]
@@ -79,7 +97,8 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
     init(
         songID: String, partial: URL, target: URL, url: URL?, capacity: Int64? = nil,
         budget: AudioStorageBudget? = nil, sizing: (@Sendable (Int64?) -> Sizing)? = nil,
-        pressure: (@Sendable (TrackTransfer) -> Void)? = nil
+        pressure: (@Sendable (TrackTransfer) -> Void)? = nil, rangeChunk: Int64 = TrackTransfer.rangeChunk,
+        rangeLoader: RangeLoader? = nil
     ) {
         self.songID = songID
         self.partial = partial
@@ -89,6 +108,8 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
         self.budget = budget
         self.sizing = sizing
         self.pressure = pressure
+        self.rangeChunk = rangeChunk
+        self.rangeLoader = rangeLoader
         super.init()
         do {
             storage = try PartialAudioFile(url: partial, capacity: capacity, budget: budget)
@@ -100,6 +121,7 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
 
     deinit {
         if complete && !published { try? FileManager.default.removeItem(at: partial) }
+        rangeSession?.invalidateAndCancel()
     }
 
     // MARK: Network
@@ -226,6 +248,7 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
                     try storage.append(part)
                     offset += count
                     available += Int64(count)
+                    delivered += Int64(count)
                     meter.record(count, at: Self.now)
                     condition.broadcast()
                     continue
@@ -276,7 +299,10 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
                 self.storage = nil
             }
         }
+        let ranges = chunks.values.compactMap(\.cancel)
         chunks = [:]
+        let rangeSession = self.rangeSession
+        self.rangeSession = nil
         let handlers = finishHandlers
         finishHandlers = []
         let waiters = self.waiters.values
@@ -286,6 +312,8 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
         condition.broadcast()
         condition.unlock()
         stoppedSession?.invalidateAndCancel()
+        for cancel in ranges { cancel() }
+        rangeSession?.invalidateAndCancel()
         for handler in handlers { handler(result) }
         for waiter in waiters { waiter.resume(with: result.mapError { $0 as any Error }) }
     }
@@ -353,18 +381,53 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
         return complete ? nil : meter.bitsPerSecond(at: Self.now)
     }
 
+    /// True while bytes arrive slower than `bitrate`. A transfer that delivered nothing for `stallWindow` is not
+    /// slow: a server that stops answering never shows as a slow connection (ADR 0060).
+    func isSlow(below bitrate: Double) -> Bool {
+        condition.withLock {
+            let now = Self.now
+            guard !complete, meter.delivered(within: Self.stallWindow, at: now),
+                let rate = meter.bitsPerSecond(at: now)
+            else { return false }
+            return rate < bitrate
+        }
+    }
+
+    /// The arrived bytes that follow `position` without a gap, in the sequential file or in range responses.
+    func bufferedBytes(from position: Int64) -> Int64 {
+        condition.withLock {
+            if position <= available, storage?.contains(position..<available) == true { return available - position }
+            var cursor = position
+            while let chunk = chunks.values.first(where: { $0.start <= cursor && cursor < $0.end }) {
+                cursor = chunk.end
+            }
+            return cursor - position
+        }
+    }
+
+    /// The bytes that the stored file can still grow by: the rest of a whole file, or the unfilled part of a
+    /// rolling window. Nil when the length is unknown.
+    var storageNeed: Int64? {
+        condition.withLock {
+            guard let storage else { return nil }
+            if let capacity { return max(capacity - storage.storedBytes, 0) }
+            return expected.map { max($0 - available, 0) }
+        }
+    }
+
     // MARK: Reading
 
     /// Copies up to `count` bytes from `position`. It waits on the calling thread until they arrive, the transfer
-    /// ends, `isCancelled` turns true, or `timeout` passes. It returns fewer bytes only at the end of the file.
-    /// A missing range is never read as zeros or as the end of the file.
+    /// ends, `isCancelled` turns true, or no byte arrives for `timeout`. It returns fewer bytes only at the end of
+    /// the file. A missing range is never read as zeros or as the end of the file.
     func read(
         at position: Int64, count: Int, into destination: UnsafeMutableRawPointer, timeout: Duration,
         isCancelled: () -> Bool
     ) throws(Failure) -> Int {
         guard position >= 0, count >= 0, position <= Int64.max - Int64(count) else { throw .invalidRead }
-        let deadline = ContinuousClock.now + timeout
+        var deadline = ContinuousClock.now + timeout
         condition.lock()
+        var progress = delivered
         while true {
             if let failure {
                 condition.unlock()
@@ -395,35 +458,25 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
                     throw .storage
                 }
             }
-            if let chunk = chunk(covering: position, end: end) {
-                let offset = Int(position - chunk.start)
-                let length = Int(end - position)
-                chunk.data.withUnsafeBytes { bytes in
-                    destination.copyMemory(from: bytes.baseAddress!.advanced(by: offset), byteCount: length)
-                }
+            if let copied = copyFromRanges(position, end, into: destination) {
+                requestRanges(from: end)
                 condition.unlock()
-                return length
+                return copied
             }
             let arrivedEnd = min(end, available)
             let discarded = position < arrivedEnd && storage?.contains(position..<arrivedEnd) != true
-            if let url, let expected, discarded || position >= available + Self.rangeLead {
-                guard let validator, Self.isSafeValidator(validator), !rangesRefused else {
+            if url != nil, expected != nil, discarded || position >= available + Self.rangeLead {
+                guard let validator, Self.isSafeValidator(validator) else {
                     condition.unlock()
                     throw .requiresCompleteFile
                 }
-                condition.unlock()
-                let length = min(Self.rangeChunk, expected - position)
-                let data = Self.fetchRange(url, from: position, length: length, total: expected, validator: validator)
-                condition.lock()
-                if failure != nil { continue }
-                if let data {
-                    chunks[position] = data
-                    while chunks.count > Self.keptChunks, let oldest = chunks.keys.min() { chunks[oldest] = nil }
-                    continue
+                // Without ranges only the sequential bytes remain, and a rolling window cannot wait for them.
+                if rangesRefused && (discarded || capacity != nil) {
+                    condition.unlock()
+                    throw .requiresCompleteFile
                 }
-                rangesRefused = true
-            }
-            if discarded {
+                requestRanges(from: position)
+            } else if discarded {
                 condition.unlock()
                 throw .requiresCompleteFile
             }
@@ -432,6 +485,10 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
                 throw .cancelled
             }
             let now = ContinuousClock.now
+            if delivered != progress {
+                progress = delivered
+                deadline = now + timeout
+            }
             if now >= deadline {
                 condition.unlock()
                 throw .timedOut
@@ -456,34 +513,176 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
         }
     }
 
-    private func chunk(covering position: Int64, end: Int64) -> (start: Int64, data: Data)? {
-        for (start, data) in chunks where start <= position && end <= start + Int64(data.count) {
-            return (start, data)
-        }
-        return nil
+    // MARK: Ranges
+
+    /// One range response in memory.
+    private struct RangeChunk {
+        var start: Int64
+        var length: Int64
+        var data = Data()
+        var accepted = false
+        var done = false
+        var cancel: (@Sendable () -> Void)?
+        /// The end of the bytes that arrived so far.
+        var end: Int64 { start + Int64(data.count) }
     }
 
-    /// One validated range from the server. A 200 answer to a range request is a whole-file answer, so its bytes
-    /// never go at the requested offset; the reader then waits for the sequential transfer.
-    private static func fetchRange(
-        _ url: URL, from start: Int64, length: Int64, total: Int64, validator: String?
-    ) -> Data? {
-        guard length > 0, let validator, isSafeValidator(validator) else { return nil }
+    /// Call with the transfer lock held. Copies `position..<end` when range responses hold all of it.
+    private func copyFromRanges(_ position: Int64, _ end: Int64, into destination: UnsafeMutableRawPointer) -> Int? {
+        guard end > position, !chunks.isEmpty else { return nil }
+        var parts: [(chunk: RangeChunk, from: Int64, to: Int64)] = []
+        var cursor = position
+        while cursor < end {
+            guard let chunk = chunks.values.first(where: { $0.start <= cursor && cursor < $0.end }) else { return nil }
+            let to = min(end, chunk.end)
+            parts.append((chunk, cursor, to))
+            cursor = to
+        }
+        for part in parts {
+            part.chunk.data.withUnsafeBytes { bytes in
+                destination.advanced(by: Int(part.from - position)).copyMemory(
+                    from: bytes.baseAddress!.advanced(by: Int(part.from - part.chunk.start)),
+                    byteCount: Int(part.to - part.from))
+            }
+        }
+        rangeHead = end
+        return Int(end - position)
+    }
+
+    /// Call with the transfer lock held. Keeps one range request running for the bytes from `position`. Each
+    /// response streams into memory, and the next one starts when it completes, at most one chunk ahead of the
+    /// reader. So a seek past the arrived bytes reads ahead at the rate of the connection.
+    private func requestRanges(from position: Int64) {
+        guard let url, let expected, let validator, !rangesRefused, failure == nil, !complete else { return }
+        var cursor = position
+        while let chunk = chunks.values.first(where: { $0.start <= cursor && cursor < $0.start + $0.length }) {
+            guard chunk.done else { return }
+            cursor = chunk.start + chunk.length
+        }
+        guard cursor < expected, cursor - position <= rangeChunk, Self.now >= rangeRetryAt else { return }
+        // Bytes that the sequential file holds need no range.
+        if cursor < available, storage?.contains(cursor..<available) == true { return }
+        while chunks.count >= Self.keptChunks,
+            let oldest = chunks.values.filter({ $0.start + $0.length <= position }).min(by: { $0.start < $1.start })
+        {
+            chunks[oldest.start] = nil
+            oldest.cancel?()
+        }
+        let length = min(rangeChunk, expected - cursor)
         var request = URLRequest(url: url, timeoutInterval: 10)
-        request.setValue("bytes=\(start)-\(start + length - 1)", forHTTPHeaderField: "Range")
+        request.setValue("bytes=\(cursor)-\(cursor + length - 1)", forHTTPHeaderField: "Range")
         request.setValue("identity", forHTTPHeaderField: "Accept-Encoding")
         request.setValue(validator, forHTTPHeaderField: "If-Range")
-        let receiver = RangeReceiver(start: start, length: length, total: total, validator: validator)
-        let configuration = URLSessionConfiguration.default
-        configuration.allowsConstrainedNetworkAccess = true
-        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
-        let queue = OperationQueue()
-        queue.maxConcurrentOperationCount = 1
-        let session = URLSession(configuration: configuration, delegate: receiver, delegateQueue: queue)
-        session.dataTask(with: request).resume()
-        defer { session.invalidateAndCancel() }
-        guard receiver.done.wait(timeout: .now() + 10) == .success else { return nil }
-        return receiver.result
+        chunks[cursor] = RangeChunk(start: cursor, length: length)
+        let receiver = RangeReceiver(transfer: self, start: cursor)
+        chunks[cursor]?.cancel = rangeLoader.map { $0(request, receiver) } ?? loadRange(request, receiver)
+    }
+
+    /// Call with the transfer lock held. One URLSession carries every range of this transfer.
+    private func loadRange(_ request: URLRequest, _ receiver: RangeReceiver) -> @Sendable () -> Void {
+        let session: URLSession
+        if let rangeSession {
+            session = rangeSession
+        } else {
+            let configuration = URLSessionConfiguration.default
+            configuration.allowsConstrainedNetworkAccess = true
+            configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+            session = URLSession(configuration: configuration)
+            rangeSession = session
+        }
+        let task = TaskHandle(task: session.dataTask(with: request))
+        task.task.delegate = receiver
+        task.task.resume()
+        return { task.task.cancel() }
+    }
+
+    /// URLSessionTask is thread-safe; this box lets a cancel action carry it.
+    private struct TaskHandle: @unchecked Sendable {
+        let task: URLSessionDataTask
+    }
+
+    /// The response head of a range. Only a 200 answer or another representation refuses ranges for good; a
+    /// failed or busy server leaves them on for the next read.
+    func rangeHead(_ start: Int64, _ response: URLResponse) -> Bool {
+        condition.lock()
+        defer { condition.unlock() }
+        guard let chunk = chunks[start], let http = response as? HTTPURLResponse, let expected else { return false }
+        if Self.acceptsRange(
+            http, bytes: Int(chunk.length), start: start, length: chunk.length, total: expected, validator: validator)
+        {
+            chunks[start]?.accepted = true
+            return true
+        }
+        chunks[start] = nil
+        if http.statusCode == 200 || http.statusCode == 206 {
+            rangesRefused = true
+        } else {
+            rangeRetryAt = Self.now + Self.rangeRetry
+        }
+        condition.broadcast()
+        return false
+    }
+
+    func rangeData(_ start: Int64, _ data: Data) -> Bool {
+        condition.lock()
+        defer { condition.unlock() }
+        guard var chunk = chunks[start], chunk.accepted, Int64(chunk.data.count + data.count) <= chunk.length else {
+            return false
+        }
+        chunk.data.append(data)
+        chunks[start] = chunk
+        delivered += Int64(data.count)
+        meter.record(data.count, at: Self.now)
+        condition.broadcast()
+        return true
+    }
+
+    func rangeEnded(_ start: Int64, failed: Bool) {
+        condition.lock()
+        defer { condition.unlock() }
+        guard let chunk = chunks[start] else { return }
+        if failed || chunk.end != chunk.start + chunk.length {
+            chunks[start] = nil
+            rangeRetryAt = Self.now + Self.rangeRetry
+        } else {
+            chunks[start]?.done = true
+            if let rangeHead { requestRanges(from: rangeHead) }
+        }
+        condition.broadcast()
+    }
+
+    /// One range response. It checks the response head before any byte reaches the transfer, so an ignored range
+    /// never collects a whole resource in memory.
+    final class RangeReceiver: NSObject, URLSessionDataDelegate, @unchecked Sendable {
+        let start: Int64
+        private weak var transfer: TrackTransfer?
+
+        init(transfer: TrackTransfer, start: Int64) {
+            self.transfer = transfer
+            self.start = start
+        }
+
+        /// False refuses the response; the loader then cancels it.
+        func head(_ response: URLResponse) -> Bool { transfer?.rangeHead(start, response) ?? false }
+
+        /// False means that the bytes do not fit the range; the loader then cancels it.
+        func receive(_ data: Data) -> Bool { transfer?.rangeData(start, data) ?? false }
+
+        func end(failed: Bool) { transfer?.rangeEnded(start, failed: failed) }
+
+        func urlSession(
+            _ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse
+        ) async -> URLSession.ResponseDisposition {
+            head(response) ? .allow : .cancel
+        }
+
+        func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+            if !receive(data) { dataTask.cancel() }
+        }
+
+        func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: (any Error)?) {
+            end(failed: error != nil)
+        }
     }
 
     /// Separate responses may share bytes only when their validators identify the same representation.
@@ -505,50 +704,6 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
         formatter.dateFormat = "EEE, dd MMM yyyy HH:mm:ss 'GMT'"
         return formatter.date(from: value) != nil
-    }
-
-    /// Reject ignored ranges at the response head, before URLSession can collect a complete resource in memory.
-    private final class RangeReceiver: NSObject, URLSessionDataDelegate, @unchecked Sendable {
-        let done = DispatchSemaphore(value: 0)
-        private let start: Int64
-        private let length: Int64
-        private let total: Int64
-        private let validator: String
-        private let lock = NSLock()
-        private var bytes = Data()
-        private var success = false
-        var result: Data? { lock.withLock { success ? bytes : nil } }
-
-        init(start: Int64, length: Int64, total: Int64, validator: String) {
-            self.start = start
-            self.length = length
-            self.total = total
-            self.validator = validator
-        }
-
-        func urlSession(
-            _ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse
-        ) async -> URLSession.ResponseDisposition {
-            guard let http = response as? HTTPURLResponse,
-                TrackTransfer.acceptsRange(
-                    http, bytes: Int(length), start: start, length: length, total: total, validator: validator)
-            else { return .cancel }
-            return .allow
-        }
-
-        func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
-            let accepted = lock.withLock {
-                guard Int64(bytes.count) + Int64(data.count) <= length else { return false }
-                bytes.append(data)
-                return true
-            }
-            if !accepted { dataTask.cancel() }
-        }
-
-        func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: (any Error)?) {
-            lock.withLock { success = error == nil && Int64(bytes.count) == length }
-            done.signal()
-        }
     }
 
     static func validator(of response: HTTPURLResponse) -> String? {
@@ -579,7 +734,10 @@ extension TrackTransfer.Failure: LocalizedError {
         // Playback meets this only when a rolling window cannot serve a decoder that needs the whole file.
         case .requiresCompleteFile:
             "This track must load whole, and it is larger than the Music limit. Raise the limit in Local Storage."
-        default: nil
+        case .timedOut, .truncated: "The server stopped sending this track."
+        case .http(let status): "The server answered with HTTP \(status)."
+        case .cancelled: "Loading this track stopped."
+        case .invalidRead: "This iPhone could not read the track."
         }
     }
 }

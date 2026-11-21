@@ -320,6 +320,159 @@ struct TrackTransferTests {
         try? FileManager.default.removeItem(at: root)
     }
 
+    /// Serves byte ranges of `data` from memory, as a server that honours Range does. The first `failures` requests
+    /// end with a network error, as a timeout does.
+    final class RangeServer: @unchecked Sendable {
+        let data: Data
+        let validator = "\"fixture\""
+        let status: Int
+        private let lock = NSLock()
+        private var failures: Int
+        private var log: [String] = []
+        var requests: [String] { lock.withLock { log } }
+
+        init(data: Data, failures: Int = 0, status: Int = 206) {
+            self.data = data
+            self.failures = failures
+            self.status = status
+        }
+
+        var loader: TrackTransfer.RangeLoader {
+            { [self] request, receiver in
+                let header = request.value(forHTTPHeaderField: "Range") ?? ""
+                let fails = lock.withLock {
+                    log.append(header)
+                    failures -= 1
+                    return failures >= 0
+                }
+                let bounds = header.dropFirst("bytes=".count).split(separator: "-").compactMap { Int($0) }
+                let task = Task.detached { [data, status, validator] in
+                    try? await Task.sleep(for: .milliseconds(20))
+                    guard !fails, bounds.count == 2, let url = request.url else { return receiver.end(failed: true) }
+                    let range = "bytes \(bounds[0])-\(bounds[1])/\(data.count)"
+                    let headers = ["Content-Range": range, "ETag": validator]
+                    let response = HTTPURLResponse(
+                        url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: headers)
+                    guard let response, receiver.head(response) else { return receiver.end(failed: true) }
+                    _ = receiver.receive(data.subdata(in: bounds[0]..<(bounds[1] + 1)))
+                    receiver.end(failed: false)
+                }
+                return { task.cancel() }
+            }
+        }
+    }
+
+    func rangedTransfer(_ server: RangeServer) throws -> TrackTransfer {
+        let transfer = TrackTransfer(
+            songID: "ranged", partial: root.appending(path: "ranged.partial"),
+            target: root.appending(path: "ranged.mp3"),
+            url: try #require(URL(string: "https://fixture.invalid/stream")), rangeLoader: server.loader)
+        transfer.begin(length: Int64(server.data.count), validator: server.validator)
+        return transfer
+    }
+
+    static let resource = Data((0..<3_000_000).map { UInt8($0 % 251) })
+
+    /// A range that fails without an answer leaves ranges on; the next read asks again (ADR 0060).
+    @Test func aRangeTimeoutLeavesRangesOn() async throws {
+        let server = RangeServer(data: Self.resource, failures: 1)
+        let transfer = try rangedTransfer(server)
+        defer {
+            transfer.cancel()
+            try? FileManager.default.removeItem(at: root)
+        }
+        let bytes = try await Self.readOnWorker(transfer, at: 2_000_000, count: 16)
+        #expect(bytes == Array(Self.resource[2_000_000..<2_000_016]))
+        let first = try #require(server.requests.first)
+        #expect(server.requests.prefix(2) == [first, first])
+    }
+
+    /// Only a whole-file answer refuses ranges. Then a far read waits for the sequential bytes.
+    @Test func aWholeFileAnswerStopsRanges() async throws {
+        let server = RangeServer(data: Self.resource, status: 200)
+        let transfer = try rangedTransfer(server)
+        defer {
+            transfer.cancel()
+            try? FileManager.default.removeItem(at: root)
+        }
+        let reader = Task { try await Self.readOnWorker(transfer, at: 2_000_000, count: 16) }
+        try await Task.sleep(for: .milliseconds(300))
+        await Self.appendOnWorker(Self.resource, to: transfer)
+        #expect(try await reader.value == Array(Self.resource[2_000_000..<2_000_016]))
+        #expect(server.requests.count == 1)
+    }
+
+    /// Reads past the arrived bytes follow one range after another, and the next range starts before the reader
+    /// needs it.
+    @Test func rangesReadAheadOfTheReader() async throws {
+        let server = RangeServer(data: Self.resource)
+        let transfer = try rangedTransfer(server)
+        defer {
+            transfer.cancel()
+            try? FileManager.default.removeItem(at: root)
+        }
+        let start = 1_500_000
+        _ = try await Self.readOnWorker(transfer, at: Int64(start), count: 4096)
+        for _ in 0..<100 where server.requests.count < 2 { try await Task.sleep(for: .milliseconds(10)) }
+        let chunk = Int(TrackTransfer.rangeChunk)
+        let ranges = ["bytes=\(start)-\(start + chunk - 1)", "bytes=\(start + chunk)-\(start + 2 * chunk - 1)"]
+        #expect(server.requests == ranges)
+        let across = try await Self.readOnWorker(transfer, at: Int64(start + chunk - 8), count: 16)
+        #expect(across == Array(Self.resource[(start + chunk - 8)..<(start + chunk + 8)]))
+    }
+
+    /// A wait for bytes that keep arriving never times out; only a silent transfer does.
+    @Test func aWaitTimesOutOnlyWithoutArrivingBytes() async throws {
+        let transfer = self.transfer()
+        transfer.begin(length: 1_000, validator: nil)
+        let feeder = Task.detached {
+            for _ in 0..<10 {
+                try? await Task.sleep(for: .milliseconds(100))
+                transfer.append(Data(count: 100))
+            }
+        }
+        let bytes = try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.global().async {
+                continuation.resume(
+                    with: Result { try Self.read(transfer, at: 990, count: 10, timeout: .milliseconds(300)) })
+            }
+        }
+        await feeder.value
+        #expect(bytes.count == 10)
+        transfer.cancel()
+        try? FileManager.default.removeItem(at: root)
+    }
+
+    /// A server that stops sending is not a slow connection (ADR 0060).
+    @Test func aStalledTransferIsNotSlow() async throws {
+        let transfer = self.transfer()
+        transfer.begin(length: 100_000, validator: nil)
+        transfer.append(Data(count: 1_000))
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(transfer.isSlow(below: 1_000_000))
+        try await Task.sleep(for: .milliseconds(1_100))
+        #expect(!transfer.isSlow(below: 1_000_000))
+        transfer.cancel()
+        try? FileManager.default.removeItem(at: root)
+    }
+
+    @Test func bufferedBytesAndStorageNeedFollowTheFile() throws {
+        let whole = self.transfer("whole")
+        whole.begin(length: 100, validator: nil)
+        whole.append(Data(count: 30))
+        #expect(whole.bufferedBytes(from: 10) == 20)
+        #expect(whole.storageNeed == 70)
+        let rolling = TrackTransfer(
+            songID: "rolling", partial: root.appending(path: "rolling.partial"),
+            target: root.appending(path: "rolling.flac"), url: nil, capacity: 16)
+        rolling.begin(length: 200, validator: nil)
+        rolling.append(Data(count: 8))
+        #expect(rolling.storageNeed == 8)
+        whole.cancel()
+        rolling.cancel()
+        try? FileManager.default.removeItem(at: root)
+    }
+
     @Test func dateValidatorsRequireSeparatedClocks() throws {
         let url = try #require(URL(string: "https://fixture.invalid/stream"))
         let modified = "Fri, 20 Nov 2026 12:00:00 GMT"

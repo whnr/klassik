@@ -1,7 +1,7 @@
 {
-  "sha": "1a91b23e95356d2f7f156879cc6f360ed2e3a628",
+  "sha": "953f872679ce45c8df6e9a3c684e6e2de02a73eb",
   "branch": "claude-147-search-sheets",
   "path": "claude-147-search-sheets",
-  "subject": "[sz-rs30.1.147.10] Close the player only from the top",
-  "ts": 1795299530
+  "subject": "[sz-rs30.1.147.5] Keep the tab bar beside the mini player",
+  "ts": 1795303398
 }

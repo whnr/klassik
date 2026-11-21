@@ -1,7 +1,7 @@
 {
-  "sha": "57db4e57360e5c91a7a29f1d3552f0df93860a3f",
+  "sha": "2c44aca7f78873b18fc36a8b95dd314b79e92a46",
   "branch": "codex-sz-rs30.1.125.3",
   "path": "codex-sz-rs30.1.125.3",
-  "subject": "[sz-rs30.1.125.1] Record storage and ratio measurements",
-  "ts": 1795283946
+  "subject": "[sz-rs30.1.125.1] Fix the instant play review findings",
+  "ts": 1795289755
 }

@@ -153,6 +153,88 @@ struct PlaybackReadAheadTests {
         try? FileManager.default.removeItem(at: root)
     }
 
+    private typealias Streaming = (session: PlaybackSession, engine: FakeEngine, store: TrackStore)
+
+    private func makeStreamingSession(_ started: MusicStorageTests.Started) throws -> Streaming {
+        let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
+        let store = TrackStore(
+            cacheFolder: root.appending(path: "cache"), downloadFolder: root.appending(path: "downloads"),
+            defaults: defaults, transport: { song, _, _ in started.ids.append(song.id) })
+        let engine = FakeEngine()
+        let session = PlaybackSession(engine: engine, store: store, defaults: defaults)
+        session.server = InMemoryServer()
+        return (session, engine, store)
+    }
+
+    private func wait(until condition: () -> Bool) async throws {
+        for _ in 0..<300 where !condition() { try await Task.sleep(for: .milliseconds(10)) }
+    }
+
+    /// The next opening starts before the current transfer ends only when the current track nears its end, and
+    /// it waits while current playback has less than two decoded seconds (ADR 0060).
+    @Test func theNextOpeningStartsWhenTheCurrentTrackNeedsIt() async throws {
+        let started = MusicStorageTests.Started()
+        let (session, engine, store) = try makeStreamingSession(started)
+        defer {
+            session.stop()
+            store.clearAll()
+            try? FileManager.default.removeItem(at: root)
+        }
+        session.dataMode = .constrained
+        let playing = item("a", movements: 2)
+        session.play(playing)
+        #expect(started.ids == ["a-0"])
+        let current = try #require(store.transfers["a-0"])
+        engine.bufferedSeconds = 3
+        try await Task.sleep(for: .milliseconds(600))
+        #expect(started.ids == ["a-0"])
+        engine.playing = (0, 7)
+        try await wait { started.ids.count == 2 }
+        #expect(started.ids == ["a-0", "a-1"])
+        let opening = try #require(store.transfers["a-1"])
+        #expect(!opening.isHeld)
+        engine.bufferedSeconds = 1
+        try await wait { opening.isHeld }
+        #expect(opening.isHeld)
+        current.begin(length: 1, validator: nil)
+        current.append(Data([1]))
+        current.finish(nil)
+        try await wait { !opening.isHeld }
+        #expect(!opening.isHeld)
+        #expect(store.transfers["a-1"] === opening)
+    }
+
+    @Test func clearMusicPausesPlaybackAndRefillsOnlyOnResume() async throws {
+        let started = MusicStorageTests.Started()
+        let (session, engine, store) = try makeStreamingSession(started)
+        defer {
+            session.stop()
+            store.clearAll()
+            try? FileManager.default.removeItem(at: root)
+        }
+        session.play(item("a", movements: 3))
+        #expect(started.ids == ["a-0"])
+        let current = try #require(store.transfers["a-0"])
+        current.begin(length: 4, validator: nil)
+        current.append(Data([1, 2]))
+        store.clearCache()
+        #expect(session.isPaused)
+        #expect(!engine.isRunning)
+        #expect(engine.calls.last == .discard)
+        await #expect(throws: TrackTransfer.Failure.cancelled) { try await current.finished() }
+        #expect(store.transfers.isEmpty)
+        #expect(store.cacheBytes == 0)
+        session.dataMode = .constrained
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(started.ids == ["a-0"])
+        #expect(store.transfers.isEmpty)
+        session.resume()
+        #expect(engine.loads.count == 2)
+        #expect(engine.loads.last?.movement == 0)
+        #expect(started.ids == ["a-0", "a-0"])
+        #expect(session.error == nil)
+    }
+
     // MARK: Slow-connection line
 
     @Test func theLineAppearsAfterOneSecondOnASlowConnection() async throws {

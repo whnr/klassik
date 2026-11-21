@@ -13,6 +13,17 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
         case requiresCompleteFile
         case invalidRead
         case storage
+        /// The track is larger than the Music limit, and its format cannot play from a rolling window.
+        case exceedsStorage
+    }
+
+    /// How the store keeps a track, decided when the response head gives its length (ADR 0060).
+    enum Sizing: Equatable, Sendable {
+        /// The whole file, inside the shared Music limit.
+        case whole
+        /// A rolling window of this many bytes, for a track larger than the limit. It never becomes a cache file.
+        case rolling(Int64)
+        case refuse
     }
 
     struct Snapshot: Equatable, Sendable {
@@ -51,17 +62,33 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
     private var storage: PartialAudioFile?
     private var session: URLSession?
     private var dataTask: URLSessionDataTask?
-    private let capacity: Int64?
+    private var capacity: Int64?
+    private let budget: AudioStorageBudget?
+    private let sizing: (@Sendable (Int64?) -> Sizing)?
+    /// An explicit download owns the bytes: they stay whole and outside the Music limit.
+    private var promoted = false
+    /// Read-ahead holds a speculative request while current playback has little buffered audio.
+    private var held = false
+    /// A blocked write suspended the request and resumes it when it returns.
+    private var writing = false
+    private var lastPressure = -Double.infinity
+    /// Called on the transport queue, with the transfer lock held, when the Music limit blocks a write.
+    /// It must not wait for this transfer.
+    private let pressure: (@Sendable (TrackTransfer) -> Void)?
 
     init(
         songID: String, partial: URL, target: URL, url: URL?, capacity: Int64? = nil,
-        budget: AudioStorageBudget? = nil
+        budget: AudioStorageBudget? = nil, sizing: (@Sendable (Int64?) -> Sizing)? = nil,
+        pressure: (@Sendable (TrackTransfer) -> Void)? = nil
     ) {
         self.songID = songID
         self.partial = partial
         self.target = target
         self.url = url
         self.capacity = capacity
+        self.budget = budget
+        self.sizing = sizing
+        self.pressure = pressure
         super.init()
         do {
             storage = try PartialAudioFile(url: partial, capacity: capacity, budget: budget)
@@ -97,8 +124,9 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
         self.session = session
         let task = session.dataTask(with: request)
         dataTask = task
+        let held = held
         condition.unlock()
-        task.resume()
+        if !held { task.resume() }
     }
 
     /// Stops the transfer and removes its partial bytes.
@@ -125,9 +153,53 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
         expected = length.flatMap { $0 >= 0 ? $0 : nil }
         self.validator = validator
         headReceived = true
+        var refusal: Failure?
+        var waiting: [CheckedContinuation<URL, any Error>] = []
+        if !promoted, let sizing, failure == nil, storage?.received == 0 {
+            switch sizing(expected) {
+            case .whole: break
+            case .rolling(let window):
+                do {
+                    storage = try PartialAudioFile(url: partial, capacity: window, budget: budget)
+                    capacity = window
+                    // A rolling window never completes as a file, so whole-file consumers stop waiting now.
+                    waiting = Array(waiters.values)
+                    waiters = [:]
+                } catch {
+                    refusal = .storage
+                }
+            case .refuse: refusal = .exceedsStorage
+            }
+        }
         condition.broadcast()
         condition.unlock()
+        for waiter in waiting { waiter.resume(throwing: Failure.requiresCompleteFile) }
+        if let refusal { finish(refusal) }
     }
+
+    /// An explicit download takes over the bytes. It fails when a rolling window already discarded some of them.
+    func promote() -> Bool {
+        condition.withLock {
+            guard failure == nil, let storage else { return false }
+            if complete && !published { return false }
+            guard storage.promote() else { return false }
+            promoted = true
+            capacity = nil
+            return true
+        }
+    }
+
+    /// Suspends or resumes the network request, without effect on bytes that already arrived.
+    func hold(_ value: Bool) {
+        condition.lock()
+        defer { condition.unlock() }
+        guard held != value else { return }
+        held = value
+        guard !writing else { return }
+        if value { dataTask?.suspend() } else { dataTask?.resume() }
+    }
+
+    var isHeld: Bool { condition.withLock { held } }
 
     /// Finite writes wait on the transport queue. Main-actor and render callbacks must never append there.
     func append(_ data: Data) {
@@ -139,7 +211,10 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
         var offset = 0
         var suspended = false
         defer {
-            if suspended { dataTask?.resume() }
+            if suspended {
+                writing = false
+                if !held { dataTask?.resume() }
+            }
             condition.unlock()
         }
         while offset < data.count {
@@ -165,6 +240,11 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
             if !suspended {
                 dataTask?.suspend()
                 suspended = true
+                writing = true
+            }
+            if storage.isBlockedByBudget, Self.now - lastPressure >= 0.5 {
+                lastPressure = Self.now
+                pressure?(self)
             }
             _ = condition.wait(until: Date.now.addingTimeInterval(0.1))
         }
@@ -179,6 +259,8 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
         if let outcome {
             failure = outcome
             try? FileManager.default.removeItem(at: partial)
+            // Closing the file releases its reservation, so the Music limit frees the bytes at once.
+            storage = nil
         } else {
             do {
                 guard let storage else { throw Failure.storage }
@@ -191,6 +273,7 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
             } catch {
                 failure = .storage
                 try? FileManager.default.removeItem(at: partial)
+                self.storage = nil
             }
         }
         chunks = [:]
@@ -228,6 +311,9 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
                 if Task.isCancelled {
                     condition.unlock()
                     continuation.resume(throwing: CancellationError())
+                } else if capacity != nil && failure == nil {
+                    condition.unlock()
+                    continuation.resume(throwing: Failure.requiresCompleteFile)
                 } else if complete || failure != nil {
                     let result = completionResult()
                     condition.unlock()
@@ -482,6 +568,20 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
     }
 
     private static var now: Double { ProcessInfo.processInfo.systemUptime }
+}
+
+extension TrackTransfer.Failure: LocalizedError {
+    /// Storage failures are the listener's to fix, so they name Local Storage (ADR 0060).
+    var errorDescription: String? {
+        switch self {
+        case .storage: "The device could not store this track. Free some space and play again."
+        case .exceedsStorage: "This track is larger than the Music limit. Raise the limit in Local Storage."
+        // Playback meets this only when a rolling window cannot serve a decoder that needs the whole file.
+        case .requiresCompleteFile:
+            "This track must load whole, and it is larger than the Music limit. Raise the limit in Local Storage."
+        default: nil
+        }
+    }
 }
 
 extension TrackTransfer {

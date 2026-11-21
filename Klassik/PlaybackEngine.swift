@@ -36,6 +36,8 @@ protocol PlaybackEngine: AnyObject {
     var onEvent: (@MainActor (PlaybackEngineEvent) -> Void)? { get set }
     /// True while the engine can make sound.
     var isRunning: Bool { get }
+    /// Decoded audio that waits ahead of the render position, in seconds, or nil before the first sound.
+    var bufferedSeconds: Double? { get }
 
     /// Drops what plays. Then plays `songs` from a movement and a position, and asks `file` for each track.
     func load(_ songs: [Song], from movement: Int, offset: Double, file: @escaping PlaybackFileSource)

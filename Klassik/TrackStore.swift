@@ -24,6 +24,8 @@ final class TrackStore {
     static let gigabyte: Int64 = 1_000_000_000
     static let limitRange = 1...50
     static let defaultLimit = 2 * gigabyte
+    /// The encoded bytes that a track larger than the limit keeps on the device while it plays (ADR 0060).
+    static let rollingWindow: Int64 = 64_000_000
 
     private(set) var downloads: [Download] = []
     /// The tracks that play without the server, downloaded or cached.
@@ -41,9 +43,12 @@ final class TrackStore {
     var cacheLimit: Int64 {
         didSet {
             defaults.set(cacheLimit, forKey: Self.limitKey)
+            budget.limit = cacheLimit
             evict()
         }
     }
+    /// Counts every automatic audio byte under Music: complete files, partial files and open rolling windows.
+    let budget: AudioStorageBudget
 
     private let cacheFolder: URL
     private let downloadFolder: URL
@@ -55,8 +60,14 @@ final class TrackStore {
     private let transport: Transport?
     /// The transfers in flight, by song ID. Playback, read-ahead and downloads share them (ADR 0060).
     @ObservationIgnored private(set) var transfers: [String: TrackTransfer] = [:]
-    /// Tracks that playback and read-ahead need now. Eviction keeps their files.
+    /// The current track and the next opening. Eviction keeps their files (ADR 0060).
     @ObservationIgnored var pinned: Set<String> = []
+    /// The track that plays now. The Music limit interrupts it only after every other automatic byte.
+    @ObservationIgnored var playing: String?
+    /// Every track of the preparation set. Their transfers keep running when a download ends.
+    @ObservationIgnored var wanted: Set<String> = []
+    /// Clear Music calls it first, so that playback stops reading the files that it removes.
+    @ObservationIgnored var willClearMusic: (@MainActor () -> Void)?
     /// Whole-file loads in flight, by song ID, so that playback and read-ahead share one.
     @ObservationIgnored private var fetches: [String: Task<URL, any Error>] = [:]
     /// A track file is on the device: for playback when the flag is true, else for a download. Its embedded art
@@ -83,6 +94,7 @@ final class TrackStore {
         self.defaults = defaults
         let stored = defaults.object(forKey: Self.limitKey) as? Int64
         cacheLimit = stored ?? Self.defaultLimit
+        budget = AudioStorageBudget(limit: cacheLimit)
         downloads = (try? JSONDecoder().decode([Download].self, from: Data(contentsOf: manifestURL))) ?? []
         // No transfer runs yet, so a partial file is left over from an earlier run.
         for file in Self.files(in: cacheFolder) where file.isPartial {
@@ -129,14 +141,32 @@ final class TrackStore {
         return cached
     }
 
+    /// The transfer that playback of a track uses, started at once. Nil when the track is on the device, the
+    /// network is off, or a test fetch loads whole files.
+    func playbackTransfer(for song: Song, client: any ServerPort) -> TrackTransfer? {
+        guard transport != nil, networkAllowed, !isOffline(song) else { return nil }
+        return transfer(for: song, client: client)
+    }
+
     /// The running transfer of a track, or a new one into the cache.
     @discardableResult
     func transfer(for song: Song, client: any ServerPort) -> TrackTransfer {
         if let running = transfers[song.id] { return running }
         let name = Self.fileName(song)
+        let limit = cacheLimit
+        let early = StreamDecoder.canStartEarly(song)
+        let window = min(Self.rollingWindow, limit / 2)
         let transfer = TrackTransfer(
             songID: song.id, partial: cacheFolder.appending(path: name + ".\(UUID().uuidString).partial"),
-            target: cacheFolder.appending(path: name), url: client.streamURL(songID: song.id))
+            target: cacheFolder.appending(path: name), url: client.streamURL(songID: song.id), budget: budget,
+            sizing: { length in
+                // An unknown length stays whole; the Music limit then stops it, never an endless wait.
+                guard let length, length > limit else { return .whole }
+                return early ? .rolling(window) : .refuse
+            },
+            pressure: { [weak self] blocked in
+                Task { @MainActor [weak self] in self?.relieve(blocked) }
+            })
         transfers[song.id] = transfer
         transfer.whenFinished { [weak self] _ in
             Task { @MainActor in
@@ -160,6 +190,38 @@ final class TrackStore {
             removed = true
         }
         if removed { rescan() }
+    }
+
+    /// The Music limit blocks a write. Old files go first, then speculative transfers. Current playback stops
+    /// with a storage failure only when nothing else can go (ADR 0060).
+    private func relieve(_ blocked: TrackTransfer) {
+        guard transfers[blocked.songID] === blocked else { return }
+        let snapshot = blocked.snapshot
+        evict(room: snapshot.expected.map { $0 - snapshot.available } ?? TrackTransfer.rangeChunk)
+        guard budget.availableBytes == 0 else { return }
+        let downloading = Set(downloadTracks.values.flatMap { $0 })
+        if !pinned.contains(blocked.songID) && !downloading.contains(blocked.songID) {
+            transfers[blocked.songID] = nil
+            blocked.cancel()
+            rescan()
+            return
+        }
+        var removed = false
+        for (id, transfer) in transfers where transfer !== blocked && !downloading.contains(id) {
+            // The next opening waits for the current track to play; then its file can go.
+            guard !pinned.contains(id) || blocked.songID == playing else { continue }
+            transfers[id] = nil
+            transfer.cancel()
+            removed = true
+        }
+        if removed { rescan() }
+        // Other open files can still hold bytes; they close soon. Only a track that fills the limit alone fails.
+        guard budget.availableBytes == 0, blocked.songID == playing, blocked.snapshot.available >= cacheLimit else {
+            return
+        }
+        transfers[blocked.songID] = nil
+        blocked.finish(.storage)
+        rescan()
     }
 
     /// A new network path starts new throughput measurements.
@@ -204,8 +266,10 @@ final class TrackStore {
                     if !FileManager.default.fileExists(atPath: target.path()) {
                         let cached = cacheFolder.appending(path: Self.fileName(song))
                         if transport != nil, !FileManager.default.fileExists(atPath: cached.path()) {
-                            // The download reuses the bytes that playback or read-ahead already loads.
-                            _ = try await transfer(for: song, client: client).finished()
+                            // The download reuses the bytes that playback or read-ahead already loads. A wrapped
+                            // rolling window lacks discarded bytes, so that track then loads whole below.
+                            let shared = transfer(for: song, client: client)
+                            if shared.promote() { _ = try await shared.finished() }
                             try Task.checkCancellation()
                         }
                         // Another recording can publish this shared track while the transfer wait suspends.
@@ -245,7 +309,8 @@ final class TrackStore {
             progress[recording.id] = nil
             tasks[recording.id] = nil
             downloadTracks[recording.id] = nil
-            cancelTransfers(except: pinned)
+            // A promoted transfer that playback still needs stays outside the limit until it ends.
+            cancelTransfers(except: pinned.union(wanted))
             rescan()
         }
     }
@@ -264,6 +329,7 @@ final class TrackStore {
     }
 
     func clearCache() {
+        willClearMusic?()
         cancelTransfers()
         // An explicit download owns its shared partial file until it publishes the recording.
         let downloading = Set(downloadTracks.values.flatMap { $0 })
@@ -297,17 +363,22 @@ final class TrackStore {
         cacheBytes = cached.reduce(0) { $0 + $1.size }
         downloadBytes = kept.reduce(0) { $0 + $1.size }
         offline = Set((cached + kept).filter { !$0.isPartial }.map(\.id))
+        budget.synchronize(Dictionary(cached.map { ($0.url, $0.size) }, uniquingKeysWith: { $1 }))
     }
 
-    /// Deletes the least recently played cache files until the cache fits its limit.
-    func evict(keeping keep: URL? = nil) {
-        var files = Self.files(in: cacheFolder).sorted { $0.date < $1.date }
-        var total = files.reduce(0) { $0 + $1.size }
-        while total > cacheLimit, let oldest = files.first {
-            files.removeFirst()
-            if oldest.url == keep || oldest.isPartial || pinned.contains(oldest.id) { continue }
-            try? FileManager.default.removeItem(at: oldest.url)
-            total -= oldest.size
+    /// Deletes the least recently played cache files until every automatic byte, plus `room`, fits the limit.
+    /// Partial files, the current track, the next opening and tracks of a running download stay.
+    func evict(keeping keep: URL? = nil, room: Int64 = 0) {
+        rescan()
+        var excess = budget.storedBytes + max(room, 0) - cacheLimit
+        guard excess > 0 else { return }
+        let downloading = Set(downloadTracks.values.flatMap { $0 })
+        for file in Self.files(in: cacheFolder).sorted(by: { $0.date < $1.date }) where excess > 0 {
+            if file.url == keep || file.isPartial || pinned.contains(file.id) || downloading.contains(file.id) {
+                continue
+            }
+            try? FileManager.default.removeItem(at: file.url)
+            excess -= file.size
         }
         rescan()
     }

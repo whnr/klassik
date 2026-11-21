@@ -96,6 +96,7 @@ final class FakeEngine: PlaybackEngine {
     /// The exact length of scheduled movements.
     var lengths: [Int: Double] = [:]
     var resumeError: (any Error)?
+    var bufferedSeconds: Double?
 
     var loads: [Load] {
         calls.compactMap { call in

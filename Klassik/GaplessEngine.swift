@@ -15,6 +15,10 @@ final class GaplessEngine: PlaybackEngine {
 
     var onEvent: (@MainActor (PlaybackEngineEvent) -> Void)?
     var isRunning: Bool { engine?.isRunning == true && node != nil }
+    var bufferedSeconds: Double? {
+        guard started, let played = playedSamples() else { return nil }
+        return Double(max(scheduledEnd - played, 0)) / sampleRate
+    }
 
     private var engine: AVAudioEngine?
     private var node: AVAudioPlayerNode?

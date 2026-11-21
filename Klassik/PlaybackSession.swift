@@ -165,6 +165,14 @@ final class PlaybackSession {
     private var waiting = SlowConnectionLine()
     private var lineTask: Task<Void, Never>?
     private var readAheadTask: Task<Void, Never>?
+    /// When the latest load asked for sound. The time to first sound measures how long an opening takes.
+    private var soundRequested: ContinuousClock.Instant?
+    /// The measured time from a request to the first sound of a streamed track, in seconds.
+    private var openingSeconds = PlaybackSession.defaultOpeningSeconds
+    static let defaultOpeningSeconds = 2.0
+    /// Speculative bytes never compete with current playback below this much decoded audio (ADR 0060).
+    static let competitionFloor = 2.0
+    static let readAheadPoll = Duration.milliseconds(250)
     /// The read-ahead set that `readAheadTask` prepares, so that an unchanged set keeps its work.
     private var readAheadPlan: [String] = []
     private let notifications = PlaybackNotifications()
@@ -188,6 +196,7 @@ final class PlaybackSession {
         scrobblesEnabled = defaults.object(forKey: Self.scrobblesKey) as? Bool ?? true
         leveling = defaults.string(forKey: Self.levelingKey).flatMap(VolumeLeveling.init) ?? .album
         engine.onEvent = { [weak self] event in self?.engineEvent(event) }
+        store.willClearMusic = { [weak self] in self?.musicCleared() }
         observeAudioSession()
         registerRemoteCommands()
         updateNextCommand()
@@ -519,6 +528,7 @@ final class PlaybackSession {
         let store = store
         engineBase = 0
         let songs = ([item] + upNext).flatMap { $0.recording.songs }
+        soundRequested = .now
         engine.load(songs, from: checkpoint.movement, offset: checkpoint.elapsed) { song in
             try await store.source(for: song, client: server)
         }
@@ -611,6 +621,12 @@ final class PlaybackSession {
 
     /// The engine waits for bytes, or sound started. The line follows after one second (ADR 0060).
     private func waited(_ wait: PlaybackWait?) {
+        if wait == nil, let requested = soundRequested {
+            soundRequested = nil
+            if let song = coverSong, store.transfers[song.id] != nil {
+                openingSeconds = requested.duration(to: .now) / .seconds(1)
+            }
+        }
         isLoading = wait != nil
         waiting.update(wait, at: .now)
         refreshLine()
@@ -635,6 +651,16 @@ final class PlaybackSession {
         }
     }
 
+    /// Clear Music removes the files that playback reads. Playback pauses at its place, releases its decoders,
+    /// and loads music again only on Play or Resume (ADR 0060).
+    private func musicCleared() {
+        guard item != nil else { return }
+        if playback.wantsPlayback { handle(.pause) }
+        savePosition()
+        discardEngine()
+        prepareAhead()
+    }
+
     /// Prepares the tracks that ADR 0060 allows for the current place in the queue, and cancels the rest.
     /// The current track and the next audible one keep their transfers; a pause or offline mode starts no new one.
     private func prepareAhead() {
@@ -643,33 +669,67 @@ final class PlaybackSession {
             readAheadTask = nil
             readAheadPlan = []
             store.pinned = []
+            store.wanted = []
+            store.playing = nil
             store.cancelTransfers()
             return
         }
         let current = item.recording.songs[movement]
-        let next = ReadAhead.plan(item, movement: movement, upNext: upNext, mode: .constrained)
+        let preparing = playback.wantsPlayback && dataMode != .offline
+        let next = preparing ? ReadAhead.plan(item, movement: movement, upNext: upNext, mode: .constrained) : []
         let plan =
             playback.wantsPlayback ? ReadAhead.plan(item, movement: movement, upNext: upNext, mode: dataMode) : []
-        let kept = Set(([current] + (playback.wantsPlayback && dataMode != .offline ? next + plan : [])).map(\.id))
-        store.pinned = kept
+        let kept = Set(([current] + next + (preparing ? plan : [])).map(\.id))
+        // Only the current track and the next opening keep their files under a full limit (ADR 0060).
+        store.pinned = Set(([current] + next).map(\.id))
+        store.wanted = kept
+        store.playing = current.id
         store.cancelTransfers(except: kept)
         let ids = plan.map(\.id)
         guard ids != readAheadPlan else { return }
         readAheadTask?.cancel()
         readAheadPlan = ids
-        guard !plan.isEmpty else { return }
+        guard let opening = plan.first else { return }
         let store = store
-        readAheadTask = Task {
+        // Starting the current transfer here lets read-ahead yield to it before the engine asks for its bytes.
+        let running =
+            preparing ? store.playbackTransfer(for: current, client: server) : store.transfers[current.id]
+        readAheadTask = Task { [weak self] in
             do {
-                // The current track has priority: speculative transfers wait until it is complete.
-                if let running = store.transfers[current.id] { _ = try await running.finished() }
-                for song in plan {
+                if let running { try await self?.prepareOpening(opening, after: running, client: server) }
+                for (index, song) in plan.enumerated() {
+                    // The rest of the set waits for the current track's bytes.
+                    if index > 0, let running { _ = try? await running.finished() }
                     try Task.checkCancellation()
                     _ = try await store.file(for: song, client: server)
                 }
             } catch {
                 // A failed read-ahead is not a playback error; playback asks for the track again.
             }
+        }
+    }
+
+    /// The current track has priority. The next opening starts before the current transfer ends only when the
+    /// current track would end before the opening is ready, and it waits while current playback has less than
+    /// `competitionFloor` seconds of decoded audio (ADR 0060).
+    private func prepareOpening(_ opening: Song, after running: TrackTransfer, client: any ServerPort) async throws {
+        func current() -> Bool { !running.snapshot.complete && store.transfers[running.songID] === running }
+        func buffered() -> Double { engine.bufferedSeconds ?? 0 }
+        while current() {
+            if let movement, segments.indices.contains(movement),
+                segments[movement] - position <= openingSeconds + Self.competitionFloor,
+                buffered() >= Self.competitionFloor
+            {
+                break
+            }
+            try await Task.sleep(for: Self.readAheadPoll)
+        }
+        guard current(), !store.isOffline(opening) else { return }
+        let transfer = store.transfer(for: opening, client: client)
+        defer { transfer.hold(false) }
+        while current() {
+            transfer.hold(buffered() < Self.competitionFloor)
+            try await Task.sleep(for: Self.readAheadPoll)
         }
     }
 

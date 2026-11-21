@@ -15,9 +15,9 @@ final class PartialAudioFile {
 
     private let descriptor: Int32
     let url: URL
-    let capacity: Int64?
-    private let prefix: Int64
-    private let window: Int64
+    private(set) var capacity: Int64?
+    private var prefix: Int64
+    private var window: Int64
     private let reservation: AudioStorageBudget.Reservation?
     private(set) var received: Int64 = 0
     private(set) var reclaimed: Int64 = 0
@@ -57,6 +57,26 @@ final class PartialAudioFile {
     func discard(before position: Int64) {
         guard capacity != nil else { return }
         reclaimed = max(reclaimed, min(max(position, prefix), received))
+    }
+
+    /// True when the shared Music limit, rather than unread bytes in the window, stops the next write.
+    var isBlockedByBudget: Bool {
+        guard let reservation, reservation.availableGrowth == 0 else { return false }
+        return capacity.map { received < $0 } ?? true
+    }
+
+    /// An explicit download takes these bytes outside the Music limit. A window that has not wrapped still holds
+    /// every byte at its source offset, so it becomes a whole file. A wrapped window cannot.
+    func promote() -> Bool {
+        if let capacity {
+            guard received <= capacity else { return false }
+            self.capacity = nil
+            prefix = 0
+            window = .max
+            reclaimed = 0
+        }
+        reservation?.isExempt = true
+        return true
     }
 
     var writableBytes: Int64 {

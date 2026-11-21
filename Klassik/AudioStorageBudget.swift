@@ -5,6 +5,8 @@ final class AudioStorageBudget: @unchecked Sendable {
     private struct Entry {
         var url: URL
         var bytes: Int64
+        /// An explicit download owns these bytes. Downloads stay outside the Music limit (ADR 0060).
+        var exempt = false
     }
 
     private let lock = NSLock()
@@ -20,6 +22,7 @@ final class AudioStorageBudget: @unchecked Sendable {
     }
 
     var storedBytes: Int64 { lock.withLock { total() } }
+    var availableBytes: Int64 { lock.withLock { max(0, maximum - total()) } }
 
     /// Reconciles complete files and abandoned partial files. Active reservations count their own bytes.
     func synchronize(_ sizes: [URL: Int64]) {
@@ -36,7 +39,7 @@ final class AudioStorageBudget: @unchecked Sendable {
     }
 
     private func total() -> Int64 {
-        files.values.reduce(0, +) + entries.values.reduce(0) { $0 + $1.bytes }
+        files.values.reduce(0, +) + entries.values.reduce(0) { $0 + ($1.exempt ? 0 : $1.bytes) }
     }
 
     final class Reservation {
@@ -48,14 +51,27 @@ final class AudioStorageBudget: @unchecked Sendable {
             self.id = id
         }
 
-        var availableGrowth: Int64 { budget.lock.withLock { max(0, budget.maximum - budget.total()) } }
+        var availableGrowth: Int64 {
+            budget.lock.withLock {
+                budget.entries[id]?.exempt == true ? .max : max(0, budget.maximum - budget.total())
+            }
+        }
+
+        /// An exempt reservation grows without the limit and does not count against it. Its directory entry stays
+        /// managed, so a rescan of the cache folder does not count it as an abandoned file.
+        var isExempt: Bool {
+            get { budget.lock.withLock { budget.entries[id]?.exempt == true } }
+            set { budget.lock.withLock { budget.entries[id]?.exempt = newValue } }
+        }
 
         /// Reserve growth before writing. Reusing circular slots needs no additional reservation.
         func resize(to bytes: Int64) -> Bool {
             budget.lock.withLock {
                 guard bytes >= 0, let current = budget.entries[id] else { return false }
                 let growth = bytes - current.bytes
-                guard growth <= 0 || growth <= budget.maximum - budget.total() else { return false }
+                guard current.exempt || growth <= 0 || growth <= budget.maximum - budget.total() else {
+                    return false
+                }
                 budget.entries[id]?.bytes = bytes
                 return true
             }
@@ -72,6 +88,7 @@ final class AudioStorageBudget: @unchecked Sendable {
         deinit {
             budget.lock.withLock {
                 guard let entry = budget.entries.removeValue(forKey: id) else { return }
+                // A completed download that stays in the cache folder counts under Music from here on.
                 if FileManager.default.fileExists(atPath: entry.url.path()) {
                     budget.files[entry.url] = entry.bytes
                 }

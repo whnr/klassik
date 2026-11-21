@@ -2426,7 +2426,19 @@ class ScreensTestCase: XCTestCase {
     /// An accessibility label alone cannot prove that the destination name appears on screen.
     @MainActor
     func expectVisibleBackName(_ button: XCUIElement) {
-        XCTAssertGreaterThan(button.frame.width, 64, "Back draws only a chevron: \(button.label)")
+        // The title can be a child of the button that extends past the frame of the button.
+        var right = button.frame.maxX
+        for child in button.descendants(matching: .any).allElementsBoundByIndex where !child.frame.isEmpty {
+            right = max(right, child.frame.maxX)
+        }
+        let width = right - button.frame.minX
+        if width <= 64 {
+            let hierarchy = XCTAttachment(string: button.debugDescription)
+            hierarchy.name = "back-button-\(button.label)"
+            hierarchy.lifetime = .keepAlways
+            add(hierarchy)
+        }
+        XCTAssertGreaterThan(width, 64, "Back draws only a chevron: \(button.label), frame \(button.frame)")
     }
 
     /// A swipe from the left screen edge to the middle, as a thumb makes it.
@@ -3162,14 +3174,14 @@ class ScreensTestCase: XCTestCase {
 
     @MainActor
     func snap(_ app: XCUIApplication, _ name: String) {
-        for button in app.navigationBars.buttons.allElementsBoundByIndex
-        where button.identifier == "BackButton" || button.identifier == "place-back" {
-            expectVisibleBackName(button)
-        }
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+        for button in app.navigationBars.buttons.allElementsBoundByIndex
+        where button.identifier == "BackButton" || button.identifier == "place-back" {
+            expectVisibleBackName(button)
+        }
     }
 }
 

@@ -884,7 +884,189 @@ h1[class] {
   height: var(--space-s);
   border-radius: var(--radius-full);
 }
+
+/* Settings and its pages keep inset grouped lists (ADR 0030). K.page({ grouped: true }) marks them. */
+:root.grouped .app,
+:root.grouped .scroll {
+  background: var(--color-background-grouped);
+}
+:root.grouped .nav {
+  --edge-colour: var(--color-background-grouped);
+}
+:root.grouped .section {
+  position: relative;
+}
+:root.grouped .section .list {
+  background: var(--color-background-row);
+  border-radius: var(--radius-m);
+  overflow: hidden;
+}
+:root.grouped .section :is(.row, .section-head, .section-foot) {
+  padding-left: var(--space-l);
+  padding-right: var(--space-l);
+}
+:root.grouped :is(.row, .row-block) + :is(.row, .row-block)::before {
+  left: var(--sep-inset, var(--space-l));
+}
+/* A switch is a control, so its on state takes the tint (ADR 0034). Its size is system chrome. */
+.switch {
+  appearance: none;
+  flex: none;
+  width: 51px;
+  height: 31px;
+  border-radius: var(--radius-full);
+  background: var(--color-fill-standard);
+  position: relative;
+  margin: 0;
+}
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 27px;
+  height: 27px;
+  border-radius: var(--radius-full);
+  background: #fff;
+  transition: transform var(--motion-duration-quick);
+}
+.switch:checked {
+  background: var(--color-tint);
+}
+.switch:checked::after {
+  transform: translateX(20px);
+}
+/* A menu picker shows its value in the accent with the up and down chevrons. */
+.menu-value {
+  color: var(--color-tint);
+}
+.row .trail.menu-value {
+  color: var(--color-tint);
+  gap: var(--space-xs);
+}
+.updown {
+  width: 10px;
+  height: 16px;
+  display: block;
+}
+.menu-pop {
+  position: absolute;
+  z-index: 30;
+  right: 0;
+  min-width: 60%;
+  padding: var(--space-xs) 0;
+  border-radius: var(--radius-m);
+  background: var(--color-background-row);
+  box-shadow: 0 8px 32px rgb(0 0 0 / 0.22);
+}
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-s);
+  width: 100%;
+  min-height: var(--size-hitTarget);
+  padding: 0 var(--space-l) 0 var(--space-s);
+  text-align: left;
+  border-radius: 0;
+}
+.menu-item:active {
+  background: var(--color-fill-quiet);
+}
+.menu-mark {
+  flex: none;
+  width: 14px;
+  display: grid;
+}
+.check {
+  width: 14px;
+  height: 12px;
+}
+/* The SwiftUI slider: the accent up to the thumb, a quiet track after it, a white capsule thumb, a dot per step. */
+.slider {
+  --fill: 50%;
+  display: block;
+  width: calc(100% - 2 * var(--space-l));
+  height: 28px;
+  margin: 0 var(--space-l);
+  appearance: none;
+  background: transparent;
+}
+.slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(to right, var(--color-tint) var(--fill), var(--color-fill-standard) var(--fill));
+}
+.slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 38px;
+  height: 24px;
+  margin-top: -9px;
+  border-radius: var(--radius-full);
+  background: #fff;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.18);
+}
+.slider::-moz-range-track {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-fill-standard);
+}
+.slider::-moz-range-progress {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-tint);
+}
+.slider::-moz-range-thumb {
+  width: 38px;
+  height: 24px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: #fff;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.18);
+}
+.slider-dots {
+  display: flex;
+  justify-content: space-between;
+  margin: 0 calc(var(--space-l) + 19px) var(--space-s);
+}
+.slider-dots > span {
+  width: 4px;
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--color-fill-standard);
+}
+/* The SwiftUI stepper: one quiet capsule with a minus and a plus, a hairline between them. */
 .stepper {
   flex: none;
+  display: flex;
+  align-items: center;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: var(--color-fill-quiet);
+  color: var(--color-text-primary);
+}
+.stepper button {
+  width: 47px;
+  height: 32px;
+  font-size: var(--type-title3-size);
+  border-radius: 0;
+}
+.stepper button + button {
+  border-left: 0.5px solid var(--color-separator);
+}
+.form-button {
   color: var(--color-tint);
+  border-radius: 0;
+}
+.form-button:disabled {
+  color: var(--color-text-tertiary);
+}
+/* The destructive red is system chrome. */
+.destructive {
+  color: #ff3b30;
+}
+[data-theme="dark"] .destructive {
+  color: #ff453a;
+}
+:root.grouped .legend + .legend::before {
+  left: calc(var(--space-l) + var(--space-s) + var(--space-m));
 }

@@ -919,16 +919,19 @@ final class PlaybackScreens: ScreensTestCase {
         let overlay = app.descendants(matching: .any)["player-overlay"].firstMatch
         let position = overlay.sliders["position"].firstMatch
         XCTAssertTrue(eventually(timeout: 12) { position.exists && position.isHittable })
-        let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
-        let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25))
-        for _ in 0..<3 { from.press(forDuration: 0.05, thenDragTo: to) }
-        XCTAssertFalse(position.exists && position.isHittable, "The drag did not leave the playing row")
-        XCTAssertFalse(
-            eventually(timeout: 6) { position.exists && position.isHittable },
-            "The player followed before eight quiet seconds")
+        // The fixture page is short, so its end is the follow target. The top puts the hero above the playing row.
+        let rowY = { position.exists ? position.frame.midY : CGFloat.infinity }
+        let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2))
+        let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85))
+        for _ in 0..<2 { from.press(forDuration: 0.05, thenDragTo: to) }
+        let still = Date()
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
+        let low = rowY()
         XCTAssertTrue(
-            eventually(timeout: 7) { position.exists && position.isHittable },
-            "The player did not return after eight quiet seconds")
+            eventually(timeout: 15) { rowY() < low - 40 },
+            "The player did not return after eight quiet seconds: row at \(rowY()), was \(low)")
+        XCTAssertGreaterThan(
+            Date().timeIntervalSince(still), 7, "The player followed before eight quiet seconds")
         snap(app, "05d-player-follow")
     }
 

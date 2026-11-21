@@ -652,7 +652,8 @@ struct RecordingView: View {
                 spell.touch()
                 while !Task.isCancelled {
                     try? await Task.sleep(for: .seconds(1))
-                    guard let movement = player.movement, recording.songs.indices.contains(movement),
+                    // specimen player.html: a note being written holds the rows.
+                    guard draft == nil, let movement = player.movement, recording.songs.indices.contains(movement),
                         spell.follow()
                     else { continue }
                     withAnimation(Motion.glide.animation(reduceMotion: reduceMotion)) {

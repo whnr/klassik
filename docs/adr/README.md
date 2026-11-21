@@ -36,7 +36,7 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0022](0022-chronology-taps.md)                              | Chronology taps open pages                                                                                   | 2026-11-07 |
 | [0023](0023-no-title-in-the-bar.md)                          | No title in the navigation bar                                                                               | 2026-11-07 |
 | [0024](0024-album-work-headings.md)                          | Work headings on an album page only for whole works                                                          | 2026-11-07 |
-| [0025](0025-search-field-and-filter-sheet.md)                | The search field finds; filters open in a sheet (partly replaced by 0029 and 0067)                                    | 2026-11-07 |
+| [0025](0025-search-field-and-filter-sheet.md)                | The search field finds; filters open in a sheet (partly replaced by 0029, 0067 and 0071)                                    | 2026-11-07 |
 | [0026](0026-contemporaries-by-active-years.md)               | Contemporaries by overlapping active years                                                                   | 2026-11-07 |
 | [0027](0027-player-rows.md)                                  | Player rows: play at the end, open only what differs                                                         | 2026-11-08 |
 | [0028](0028-mini-player-pill.md)                             | The mini player is a pill at the end of the timeline (partly replaced by 0041)                               | 2026-11-08 |
@@ -75,5 +75,6 @@ One file for each decision that a code comment or a commit body cannot hold. Eac
 | [0064](0064-player-tint-comparison.md) | Compare stronger player tints (partly replaced by 0065) | 2026-11-19 |
 | [0065](0065-feedback-controls.md) | Keep feedback controls visible and useful | 2026-11-20 |
 | [0066](0066-a-full-name-takes-its-composer.md) | A full-name tag takes its composer | 2026-11-20 |
-| [0067](0067-search-results-and-modal-sheets.md) | People lead Search; sheets block the page | 2026-11-21 |
+| [0067](0067-search-results-and-modal-sheets.md) | People lead Search; sheets block the page (partly replaced by 0071) | 2026-11-21 |
 | [0069](0069-no-shuffle-and-no-performer-list.md) | No Shuffle and no performer list before 1.0 | 2026-11-21 |
+| [0071](0071-search-sections-and-track-matches.md) | Search shows each kind in its own section; a track title finds its work | 2026-11-21 |

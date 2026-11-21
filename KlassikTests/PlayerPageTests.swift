@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import Testing
 
 @testable import Klassik
@@ -29,8 +30,8 @@ struct PlayerPageTests {
                 Self.song("a", 1, year: 1972, [Self.conductor]), Self.song("b", 2, year: 1972, [Self.conductor]),
             ]))
         #expect(page.composer == "Ludwig van Beethoven")
-        #expect(page.header.map(\.label) == ["conductor", "album", "year"])
-        #expect(page.header.last?.names == ["1972"])
+        #expect(page.header.map(\.label) == ["conductor", "album"])
+        #expect(page.facts == "Recorded in 1972. 2\u{00A0}minutes, 2\u{00A0}movements.")
         #expect(page.differing.allSatisfy { $0.isEmpty })
     }
 
@@ -62,21 +63,27 @@ struct PlayerPageTests {
 
     @Test func recordingShowsTheYearItsTracksCarry() {
         let page = PlayerPage(recording: Self.recording([Self.song("a", 1, year: 1972)], year: 2005))
-        #expect(page.header.last?.names == ["1972"])
+        // One movement gives no count.
+        #expect(page.facts == "Recorded in 1972. 1\u{00A0}minute.")
     }
 
     @Test func recordingWithMixedYearsShowsNone() {
         let page = PlayerPage(
             recording: Self.recording([Self.song("a", 1, year: 1972), Self.song("b", 2, year: 1973)], year: 2005))
-        #expect(!page.header.map(\.label).contains("year"))
+        #expect(page.facts == "2\u{00A0}minutes, 2\u{00A0}movements.")
     }
 
     @Test func albumShowsItsOwnYearAndNoAlbumLine() {
         let page = PlayerPage(
             recording: Self.recording(
                 [Self.song("a", 1, year: 1972), Self.song("b", 2, year: 1973)], year: 1973, isAlbum: true))
-        #expect(page.header.map(\.label) == ["year"])
-        #expect(page.header.first?.names == ["1973"])
+        #expect(page.header.isEmpty)
+        #expect(page.facts == "Recorded in 1973. 2\u{00A0}minutes, 2\u{00A0}tracks.")
+    }
+
+    @Test func factsGiveNoYearWhenNoneIsTagged() {
+        let page = PlayerPage(recording: Self.recording([Self.song("a", 1), Self.song("b", 2)]))
+        #expect(page.facts == "2\u{00A0}minutes, 2\u{00A0}movements.")
     }
 }
 
@@ -164,5 +171,53 @@ struct QuietSpellTests {
         spell.hold(false, at: start.advanced(by: .seconds(60)))
         #expect(spell.wait(at: start.advanced(by: .seconds(61))) != nil)
         #expect(spell.wait(at: start.advanced(by: .seconds(60) + QuietSpell.length)) == nil)
+    }
+}
+
+struct PageLinkTests {
+    @Test(arguments: [
+        Page.composer("Felix Mendelssohn"), .performer("Anne-Sophie Mutter & Friends"), .album("al-1|disc 2?x=1"),
+    ])
+    func aPageGoesThroughItsURL(_ page: Page) throws {
+        let url = try #require(PageLink.url(page))
+        #expect(url.scheme == PageLink.scheme)
+        #expect(PageLink.page(url) == page)
+    }
+
+    @Test func otherPagesHaveNoURL() {
+        #expect(PageLink.url(.settings) == nil)
+        #expect(PageLink.url(.work("w")) == nil)
+    }
+
+    @Test func otherURLsHaveNoPage() throws {
+        #expect(PageLink.page(try #require(URL(string: "https://example.org/composer?id=x"))) == nil)
+        #expect(PageLink.page(try #require(URL(string: "klassik-page://work?id=x"))) == nil)
+    }
+}
+
+struct LinkedNamesTests {
+    static func links(_ text: AttributedString) -> [String: URL] {
+        var found: [String: URL] = [:]
+        for run in text.runs {
+            if let url = run.link { found[String(text[run.range].characters)] = url }
+        }
+        return found
+    }
+
+    @Test func onlyNamesWithAPageAreLinks() {
+        let text = LinkedNames.text(
+            "Kurt Masur and Gewandhausorchester", names: ["Kurt Masur", "Gewandhausorchester"],
+            link: { $0 == "Kurt Masur" ? .performer($0) : nil }, tint: .red, underline: false)
+        #expect(String(text.characters) == "Kurt Masur and Gewandhausorchester")
+        #expect(Self.links(text) == ["Kurt Masur": PageLink.url(.performer("Kurt Masur"))!])
+    }
+
+    /// A name inside an earlier name links the later occurrence, so each name links once in its place.
+    @Test func eachNameLinksInItsPlace() {
+        let text = LinkedNames.text(
+            "Anna Berg and Berg", names: ["Anna Berg", "Berg"], link: { .performer($0) }, tint: .red,
+            underline: true)
+        #expect(Self.links(text).count == 2)
+        #expect(Self.links(text)["Berg"] == PageLink.url(.performer("Berg")))
     }
 }

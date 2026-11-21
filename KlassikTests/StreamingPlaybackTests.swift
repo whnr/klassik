@@ -317,7 +317,9 @@ struct StreamingPlaybackTests {
                 }
             }
             let url = root.appending(path: "mixed-\(index).wav")
-            let file = try AVAudioFile(forWriting: url, settings: format.settings)
+            var settings = format.settings
+            settings[AVLinearPCMIsNonInterleaved] = false
+            let file = try AVAudioFile(forWriting: url, settings: settings)
             try file.write(from: buffer)
             urls[String(index)] = url
         }

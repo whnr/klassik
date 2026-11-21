@@ -16,11 +16,21 @@ struct ConvertedFrameCount {
 final class PCMConversion: @unchecked Sendable {
     typealias Read = (AVAudioFrameCount) throws -> AVAudioPCMBuffer?
 
-    enum Failure: Error {
+    enum Failure: LocalizedError {
         case format
         case allocation
         case conversion
         case prematureEnd(expected: Int64, actual: Int64)
+
+        var errorDescription: String? {
+            switch self {
+            case .format: "The audio formats cannot be converted."
+            case .allocation: "This iPhone cannot allocate an audio buffer."
+            case .conversion: "This iPhone could not convert the audio."
+            case .prematureEnd(let expected, let actual):
+                "Audio conversion ended after \(actual) of \(expected) frames."
+            }
+        }
     }
 
     let format: AVAudioFormat
@@ -52,8 +62,8 @@ final class PCMConversion: @unchecked Sendable {
             emitted += Int64(buffer.frameLength)
             return buffer
         }
-        let wanted = expected.map { min(Int64(frames), $0 - emitted) } ?? Int64(frames)
-        guard let output = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(wanted)) else {
+        // Keep the converter's output capacity stable through its final flush. Trim only the emitted PCM.
+        guard let output = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames) else {
             throw Failure.allocation
         }
         var conversionError: NSError?
@@ -77,6 +87,7 @@ final class PCMConversion: @unchecked Sendable {
         if let conversionError { throw conversionError }
         guard status != .error else { throw Failure.conversion }
         guard output.frameLength > 0 else { return try end() }
+        if let expected { output.frameLength = min(output.frameLength, AVAudioFrameCount(expected - emitted)) }
         emitted += Int64(output.frameLength)
         return output
     }

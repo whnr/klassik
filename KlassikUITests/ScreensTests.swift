@@ -1516,8 +1516,10 @@ final class PlaybackScreens: ScreensTestCase {
 
     @MainActor
     func testPerformers() throws {
-        let app = try launchAndConnect(arguments: ["-offlineFavourites"])
-        // The Composers title is the title of a pushed page, where the performer name must sit.
+        let app = try launchAndConnect(openComposers: false, arguments: ["-offlineFavourites"])
+        // The performer name must sit where a pushed page has its title. The ink of "Favourites" ends on the
+        // baseline, as the name does: a descender would move the ink bottom.
+        app.buttons["library-favourites"].tap()
         let heading = app.staticTexts["page-heading"].firstMatch
         XCTAssertTrue(heading.waitForExistence(timeout: 10))
         let title = drawn(heading, in: app)

@@ -259,7 +259,11 @@ final class TrackStore {
 
     func clearCache() {
         cancelTransfers()
-        try? FileManager.default.removeItem(at: cacheFolder)
+        // An explicit download owns its shared partial file until it publishes the recording.
+        let downloading = Set(downloadTracks.values.flatMap { $0 })
+        for file in Self.files(in: cacheFolder) where !downloading.contains(file.id) {
+            try? FileManager.default.removeItem(at: file.url)
+        }
         rescan()
     }
 
@@ -346,8 +350,9 @@ final class TrackStore {
         let urls = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: keys)) ?? []
         return urls.map { url in
             let values = try? url.resourceValues(forKeys: Set(keys))
+            let track = url.pathExtension == "partial" ? url.deletingPathExtension() : url
             return StoredFile(
-                url: url, id: url.deletingPathExtension().lastPathComponent, size: Int64(values?.fileSize ?? 0),
+                url: url, id: track.deletingPathExtension().lastPathComponent, size: Int64(values?.fileSize ?? 0),
                 date: values?.contentModificationDate ?? .distantPast)
         }
     }

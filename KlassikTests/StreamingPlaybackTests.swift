@@ -323,8 +323,25 @@ struct StreamingPlaybackTests {
         }
         let songs = rates.indices.map { Song(id: String($0), title: "Tone", duration: 1, suffix: "wav") }
         let files = urls
+        let outputFormat = try #require(AVAudioFormat(standardFormatWithSampleRate: rates[0], channels: channels[0]))
+        var frameCount = ConvertedFrameCount()
+        var reference: [Float] = []
+        var joins: [Int] = []
+        for index in rates.indices {
+            if index > 0 { joins.append(reference.count) }
+            let decoder = try FilePCMDecoder(files[String(index)]!, playable: 0..<Int64(counts[index]))
+            let count = frameCount.frames(Int64(counts[index]), from: rates[index], to: rates[0])
+            let conversion = try PCMConversion(from: decoder.file.processingFormat, to: outputFormat, frames: count) {
+                try decoder.read(frames: $0)
+            }
+            while let buffer = try conversion.read(frames: 4096) {
+                reference += Array(
+                    UnsafeBufferPointer(start: buffer.floatChannelData![0], count: Int(buffer.frameLength)))
+            }
+        }
         let events = Events()
-        let engine = GaplessEngine()
+        let output = RenderedAudio()
+        let engine = GaplessEngine(rendered: { output.record($0) })
         engine.onEvent = { event in
             if case .movementEnded(let index) = event { events.log.append("end \(index)") }
             if case .failed(let text) = event { events.log.append("failed \(text)") }
@@ -340,6 +357,17 @@ struct StreamingPlaybackTests {
             try await Task.sleep(for: .milliseconds(10))
         }
         #expect(events.log == ["end 0", "end 1", "end 2"])
+        let rendered = output.samples
+        let first = try #require(rendered.firstIndex { abs($0) > 0.01 })
+        let expectedFirst = try #require(reference.firstIndex { abs($0) > 0.01 })
+        let start = first - expectedFirst
+        for join in joins {
+            let window = (join - 128)..<(join + 512)
+            let actual = try #require(rendered.indices.contains(start + window.upperBound - 1) ? rendered : nil)
+            let error = window.map { abs(actual[start + $0] - reference[$0]) }.max() ?? .infinity
+            #expect(error < 0.00001, "Converted join at \(join) differs from its complete-file reference")
+        }
+        print("mixed-format rendered joins: start=\(start), joins=\(joins), frames=\(reference.count)")
         var count = ConvertedFrameCount()
         for index in rates.indices {
             let frames = count.frames(Int64(counts[index]), from: rates[index], to: rates[0])

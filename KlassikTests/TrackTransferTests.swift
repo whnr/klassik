@@ -346,6 +346,33 @@ struct TrackTransferTests {
         try? FileManager.default.removeItem(at: root)
     }
 
+    @Test func clearMusicKeepsASharedExplicitDownload() async throws {
+        let started = Started()
+        let store = try makeStore(started)
+        let song = Song(id: "shared", title: "Shared", suffix: "flac")
+        let recording = WorkIndex.Recording(id: "shared-recording", album: "Fixture", songs: [song])
+        let transfer = store.transfer(for: song, client: client)
+        transfer.begin(length: 4, validator: nil)
+        transfer.append(Data([1, 2]))
+        store.download(recording, title: "Fixture", client: client)
+        let obsolete = store.transfer(for: Song(id: "obsolete", title: "Obsolete", suffix: "flac"), client: client)
+        obsolete.begin(length: 4, validator: nil)
+        obsolete.append(Data([9]))
+        store.clearCache()
+        #expect(FileManager.default.fileExists(atPath: transfer.partial.path()))
+        #expect(!FileManager.default.fileExists(atPath: obsolete.partial.path()))
+        #expect(store.cacheBytes == 2)
+        #expect(try Self.read(transfer, at: 0, count: 2) == [1, 2])
+        transfer.append(Data([3, 4]))
+        transfer.finish(nil)
+        for _ in 0..<100 where !store.isDownloaded(recording) { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(store.isDownloaded(recording))
+        #expect(started.transfers.filter { $0.id == song.id }.count == 1)
+        #expect(try Data(contentsOf: root.appending(path: "downloads/shared.flac")) == Data([1, 2, 3, 4]))
+        store.clearAll()
+        try? FileManager.default.removeItem(at: root)
+    }
+
     @Test func signOutDiscardsQueuedCompletionCallbacks() async throws {
         let started = Started()
         let store = try makeStore(started)

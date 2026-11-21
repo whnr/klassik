@@ -25,8 +25,25 @@ MP3 returned its first PCM in 12.1 ms; FLAC took 220.2 ms. Callback byte counts 
 Both complete-file controls passed. The run failed when the separate render probe crashed.
 The render probe requires the iOS 27 Sendable tap API; this run does not establish rendered startup time.
 
+## Production timeline measurements
+
+[Run 44868823497](https://github.com/whnr/klassik/actions/runs/44868823497) passed the decoder gates, rendered startup, and complete-file controls.
+The production node rendered MP3 and FLAC joins across recordings with zero inserted or missing frames.
+The sample map excludes starvation silence from movement position and duration. Premature decoded EOF fails instead of ending the movement.
+
+| Format | Resource bytes | Bytes at first sound | Time from engine load to sound |
+| --- | ---: | ---: | ---: |
+| MP3 | 104,003,020 | 98,304 | 1,051 ms |
+| FLAC | 111,017,069 | 196,608 | 344 ms |
+
+The feeder delivered twice the initial bitrate estimate. These times include initialization and buffering.
+The probe does not separate threshold readiness from first sound. It does not establish the 500 ms readiness requirement.
+
 ## Remaining production work
 
-The engine rebuilds at recording boundaries and rejects different sample rates or channel counts.
-The cache lacks bounded storage for oversized tracks. Preparation and clearing still need full storage-lifecycle coverage.
-The throughput matrix, path changes, and rendered joins need measurements before this feature ships.
+Mixed-format conversion has production code and tests. Its resampler latency and rendered comparisons still require iOS validation.
+The cache lacks bounded storage for oversized tracks. Read-ahead still waits for the current transfer to finish.
+Pause cancellation and Clear Music require full lifecycle coverage, including explicit downloads and active decoders.
+The throughput matrix, path changes, seeks, remaining format controls, storage pressure, and recovery still need measurements.
+ReplayGain changes also need rendered coverage across recording boundaries. The current gain stage follows session metadata updates.
+Passing decoder and timeline checks do not close these production requirements.

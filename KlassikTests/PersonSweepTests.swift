@@ -164,6 +164,71 @@ struct PersonSweepTests {
         #expect(stub.requests.count == requests)
     }
 
+    /// A fetch that fails the first `times` Commons requests and answers the rest from the Bach rules.
+    private func commonsFailing(times: Int) -> MusicBrainz.Fetch {
+        let stub = PersonStub(PersonStub.bachRules)
+        let attempts = Counter()
+        return { request in
+            let url = request.url?.absoluteString ?? ""
+            if url.contains("commons.wikimedia.org"), attempts.next() < times { throw URLError(.networkConnectionLost) }
+            return try await stub.fetch(request)
+        }
+    }
+
+    @Test func aFailedCommonsRequestLeavesThePersonOpenUntilThePictureArrives() async throws {
+        let (store, _) = try makeStore(fetch: commonsFailing(times: PersonSweep.triesPerPass))
+        let log = PictureLog()
+        let sweep = PersonSweep(
+            store: store, now: { Self.start }, sleep: { _ in },
+            pictures: { portrait, old in
+                log.add(portrait, old)
+                return true
+            })
+        await sweep.run([Self.bach])
+        await sweep.finish()
+        #expect(store.facts(ofComposer: Self.bach.tag)?.born == 1685)
+        #expect(store.facts(ofComposer: Self.bach.tag)?.portrait == nil)
+        #expect(store.cache.checked[Self.bach.key] == nil)
+        // The failed tries set a due time; a missing picture does not wait for it.
+        #expect(sweep.plan([Self.bach]).new == [Self.bach])
+        await sweep.run([Self.bach])
+        await sweep.finish()
+        let facts = try #require(store.facts(ofComposer: Self.bach.tag))
+        #expect(facts.portrait?.url.absoluteString == "https://thumb.wikimedia.org/bach-1200.jpg")
+        #expect(facts.pictureUnread == nil)
+        #expect(store.cache.checked[Self.bach.key] == Self.start)
+        #expect(log.found.count == 1)
+    }
+
+    @Test func aRefreshWithAFailedCommonsRequestKeepsTheStoredPicture() async throws {
+        let old = Self.start.addingTimeInterval(-400 * 86_400)
+        let picture = "\"portrait\":{\"url\":\"https://thumb.wikimedia.org/old.jpg\"},\"credits\":[]"
+        let saved = cache(tag: "Johann Sebastian Bach", born: 1685, died: 1750, checked: old)
+            .replacingOccurrences(of: "\"Q1\"", with: "\"Q1339\"").replacingOccurrences(of: "Q1:", with: "Q1339:")
+            .replacingOccurrences(of: "\"credits\":[]", with: picture)
+        let (store, _) = try makeStore(cache: saved, fetch: commonsFailing(times: .max))
+        let sweep = PersonSweep(store: store, now: { Self.start }, sleep: { _ in })
+        await sweep.run([Self.bach])
+        let facts = try #require(store.facts(ofComposer: Self.bach.tag))
+        #expect(facts.bio == "Johann Sebastian Bach was a German composer.")
+        #expect(facts.portrait?.url.absoluteString == "https://thumb.wikimedia.org/old.jpg")
+        #expect(store.cache.checked[Self.bach.key] == old)
+    }
+
+    @Test func factsSavedWithoutAPictureByAnOlderBuildGetOneNewCheck() async throws {
+        let saved = cache(tag: "Johann Sebastian Bach", born: 1685, died: 1750, checked: Self.start)
+            .replacingOccurrences(of: "\"Q1\"", with: "\"Q1339\"").replacingOccurrences(of: "Q1:", with: "Q1339:")
+            .replacingOccurrences(of: "\"version\":\(PersonFactsStore.Cache.version)", with: "\"version\":1")
+        let (store, stub) = try makeStore(cache: saved)
+        let sweep = PersonSweep(store: store, now: { Self.start })
+        #expect(sweep.plan([Self.bach]).due == [Self.bach])
+        await sweep.run([Self.bach])
+        await sweep.finish()
+        #expect(stub.requests.contains { $0.contains("commons.wikimedia.org") })
+        #expect(store.facts(ofComposer: Self.bach.tag)?.portrait != nil)
+        #expect(sweep.plan([Self.bach]).due.isEmpty)
+    }
+
     @Test func anInterruptedPictureRemainsPendingAcrossRelaunch() async throws {
         let (store, _) = try makeStore()
         let started = Gate()

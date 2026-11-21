@@ -75,6 +75,8 @@ struct PersonFacts: Codable, Equatable, Identifiable, Sendable {
     /// The lead of the Wikipedia article.
     var bio: String?
     var portrait: PersonPortrait?
+    /// True when the item names a picture and the Commons request for it failed. Nil when Commons answered.
+    var pictureUnread: Bool?
     var credits: [PersonCredit] = []
     var id: String { qid }
 
@@ -312,9 +314,16 @@ struct PersonFactsService: Sendable {
                     PersonCredit(kind: .text, text: "Wikipedia, CC BY-SA 4.0", url: summary.page))
             }
         }
-        if let file = Self.pictureFile(entity), let found = try? await portrait(file: file) {
-            facts.portrait = found.portrait
-            facts.credits.append(found.credit)
+        if let file = Self.pictureFile(entity) {
+            do {
+                if let found = try await portrait(file: file) {
+                    facts.portrait = found.portrait
+                    facts.credits.append(found.credit)
+                }
+            } catch {
+                // A failed request is no answer: the facts stay, and the background pass asks Commons again.
+                facts.pictureUnread = true
+            }
         }
         return facts
     }

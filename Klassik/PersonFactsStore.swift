@@ -24,7 +24,7 @@ final class PersonFactsStore {
 
     struct Cache: Codable, Sendable {
         /// Facts need a new version when parsing rules require another lookup.
-        static let version = 1
+        static let version = 2
         var version = Cache.version
         var people: [String: PersonFacts] = [:]
         /// The resolution of each composer tag.
@@ -72,10 +72,13 @@ final class PersonFactsStore {
                 due["composer:\(tag)"] = nil
             }
             // Resolutions and listener choices must survive facts invalidation.
-            if version < Cache.version {
-                people = [:]
-                version = Cache.version
+            if version < 1 { people = [:] }
+            // Older builds saved facts without a picture when the Commons request failed. A person without a
+            // picture gets one more check, which keeps the facts and asks Commons again.
+            if version < 2 {
+                for (qid, facts) in people where facts.portrait == nil { people[qid]?.pictureUnread = true }
             }
+            version = Cache.version
         }
     }
 
@@ -203,7 +206,14 @@ final class PersonFactsStore {
     /// Returns false on a failed request.
     func refresh(_ qid: String) async -> Bool {
         do {
-            if let facts = try await service.facts(qid: qid) { cache.people[qid] = facts }
+            if var facts = try await service.facts(qid: qid) {
+                // A stored picture stays until Commons answers for its replacement (ADR 0059).
+                if facts.pictureUnread == true, let old = cache.people[qid], let portrait = old.portrait {
+                    facts.portrait = portrait
+                    facts.credits += old.credits.filter { $0.kind == .picture }
+                }
+                cache.people[qid] = facts
+            }
             lastError = nil
             save()
             return true

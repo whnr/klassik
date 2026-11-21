@@ -90,8 +90,7 @@ final class PersonSweep {
 
     /// The days after which the person is due again.
     func interval(of person: Person) -> Int {
-        let qid = person.kind == .composer ? store.qid(ofComposer: person.tag) : store.qid(ofPerformer: person.tag)
-        guard let qid, let facts = store.cache.people[qid] else { return Self.unknownDays }
+        guard let qid = qid(of: person), let facts = store.cache.people[qid] else { return Self.unknownDays }
         return facts.died == nil ? Self.livingDays : Self.deadDays
     }
 
@@ -101,6 +100,15 @@ final class PersonSweep {
         var new: [Person] = []
         var due: [(person: Person, overdue: TimeInterval)] = []
         for person in people {
+            // A picture that Commons did not answer is due at once, whatever check or wait the person has.
+            if missesPicture(person) {
+                if store.cache.checked[person.key] == nil {
+                    new.append(person)
+                } else {
+                    due.append((person, .greatestFiniteMagnitude))
+                }
+                continue
+            }
             guard let last = store.cache.checked[person.key] else {
                 // A person that failed in an earlier pass waits for the due time that the pass saved.
                 if let due = store.cache.due[person.key], due > current { continue }
@@ -279,13 +287,19 @@ final class PersonSweep {
     private func settle(_ person: Person) async -> Bool {
         let before = portrait(of: person)
         let isNew = store.cache.checked[person.key] == nil
-        let ok: Bool
-        switch person.kind {
-        case .composer:
-            ok = await settle(composer: person, isNew: isNew)
-        case .performer:
-            ok = await settle(performer: person, isNew: isNew)
+        var ok: Bool
+        if missesPicture(person), let qid = qid(of: person) {
+            ok = await store.refresh(qid)
+        } else {
+            switch person.kind {
+            case .composer:
+                ok = await settle(composer: person, isNew: isNew)
+            case .performer:
+                ok = await settle(performer: person, isNew: isNew)
+            }
         }
+        // Facts without their picture do not settle a person, so the next pass asks Commons again.
+        if ok, missesPicture(person) { ok = false }
         if ok { store.markChecked(person.key, at: now(), due: dueDate(of: person)) }
         // Each lookup fetches the picture, so a page never waits for it and a changed one replaces the old (ADR 0059).
         if ok, let found = portrait(of: person) {
@@ -295,9 +309,16 @@ final class PersonSweep {
         return ok
     }
 
+    private func qid(of person: Person) -> String? {
+        person.kind == .composer ? store.qid(ofComposer: person.tag) : store.qid(ofPerformer: person.tag)
+    }
+
     private func portrait(of person: Person) -> PersonPortrait? {
-        let qid = person.kind == .composer ? store.qid(ofComposer: person.tag) : store.qid(ofPerformer: person.tag)
-        return qid.flatMap { store.cache.people[$0]?.portrait }
+        qid(of: person).flatMap { store.cache.people[$0]?.portrait }
+    }
+
+    private func missesPicture(_ person: Person) -> Bool {
+        qid(of: person).flatMap { store.cache.people[$0]?.pictureUnread } == true
     }
 
     private func queuePicture(_ key: String, work: PersonFactsStore.PictureWork) {

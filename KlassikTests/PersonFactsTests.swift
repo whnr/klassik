@@ -230,6 +230,16 @@ struct PersonFactsServiceTests {
         #expect(!facts.credits.contains { $0.kind == .picture })
     }
 
+    @Test func aFailedPictureRequestMarksThePictureUnread() async throws {
+        let rules = PersonStub.bachRules.filter { $0.contains != "commons.wikimedia.org" }
+        let facts = try #require(try await PersonStub(rules).service.facts(qid: "Q1339"))
+        #expect(facts.born == 1685)
+        #expect(facts.portrait == nil)
+        #expect(facts.pictureUnread == true)
+        let answered = try #require(try await PersonStub(PersonStub.bachRules).service.facts(qid: "Q1339"))
+        #expect(answered.pictureUnread == nil)
+    }
+
     @Test func aCreditLinkOnAnotherSchemeIsDropped() {
         let page = Data(
             """

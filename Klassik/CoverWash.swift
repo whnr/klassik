@@ -261,6 +261,9 @@ enum WashRoom: CaseIterable, Sendable {
 enum CoverWash {
     /// Temporary installed-app comparison until Flo selects the cover tint strength (ADR 0064).
     static let strengthKey = "player.tintStrength"
+    static let defaultStrength = 3.0
+    static let strengthRange = 0.0...5.0
+    static let strengthStep = 0.5
 
     /// The colours that are solved again on the wash.
     static let solvedColours: [Palette] = [.textPrimary, .textSecondary, .tint, .favourite, .favouriteOff]
@@ -397,7 +400,7 @@ struct CoverWashModifier: ViewModifier {
     /// The song whose cover gives the hue, or nil when the item has no song.
     let song: Song?
     let isPlaying: Bool
-    @AppStorage(CoverWash.strengthKey) private var strength = 2
+    @AppStorage(CoverWash.strengthKey) private var strength = CoverWash.defaultStrength
     @State private var loaded: Loaded?
     @State private var scroll = WashScroll()
 
@@ -425,7 +428,7 @@ struct CoverWashModifier: ViewModifier {
         let load = Load(song: song, covers: covers)
         let wash: CoverWash.Wash? =
             if isPlaying, let loaded, loaded.slot == load.slot {
-                CoverWash.wash(loaded.pick, in: room, strength: Double(strength)) {
+                CoverWash.wash(loaded.pick, in: room, strength: strength) {
                     SRGB($0.color.resolve(in: environment))
                 }
             } else {

@@ -18,7 +18,7 @@ enum Page: Hashable {
     case musicBrainz
     case worksToConfirm
     case worksWithoutMatch
-    case classicalFilter
+    case classicalRules
     case localStorage
     case swipeActions
     case diagnostics
@@ -90,7 +90,7 @@ extension Page {
         case .musicBrainz: return "MusicBrainz"
         case .worksToConfirm: return "To Confirm"
         case .worksWithoutMatch: return "No Match"
-        case .classicalFilter: return "Classical Filter"
+        case .classicalRules: return "Classical Rules"
         case .localStorage: return "Local Storage"
         case .swipeActions: return "Swipe Actions"
         case .diagnostics: return "Diagnostics"
@@ -118,19 +118,17 @@ struct PersonPageLink<Label: View>: View {
             let place = navigator.selection
             let stack = navigator.pages(in: place)
             Task {
-                await model.preparePortrait(for: page)
+                await model.preparePortrait(for: page, opening: true)
                 opening = false
                 guard navigator.selection == place, navigator.pages(in: place) == stack else { return }
                 navigator.open(page, in: place)
             }
         } label: {
-            HStack(spacing: Layout.rowGap) {
-                label
+            Group {
                 if disclosure {
-                    Image(systemName: "chevron.right")
-                        .typeStyle(.footnote)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(Palette.textTertiary)
+                    DisclosureRow { label }
+                } else {
+                    label
                 }
             }
             .contentShape(.rect)
@@ -141,9 +139,40 @@ struct PersonPageLink<Label: View>: View {
     }
 }
 
+/// Counts and carets must stay at the trailing edge when a title wraps.
+struct DisclosureRow<Label: View>: View {
+    @ViewBuilder let label: Label
+
+    var body: some View {
+        HStack(spacing: Layout.rowGap) {
+            label
+                .labeledContentStyle(TrailingValue())
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Image(systemName: "chevron.right")
+                .typeStyle(.footnote)
+                .fontWeight(.semibold)
+                .foregroundStyle(Palette.textTertiary)
+                .accessibilityHidden(true)
+        }
+    }
+}
+
+/// Counts must remain aligned when their labels wrap.
+struct TrailingValue: LabeledContentStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: Layout.rowGap) {
+            configuration.label
+                .frame(maxWidth: .infinity, alignment: .leading)
+            configuration.content
+                .foregroundStyle(.secondary)
+                .fixedSize()
+        }
+    }
+}
+
 extension AppModel {
     /// Only local decoding can delay a push. The first image pass must never block browsing on a network request.
-    func preparePortrait(for page: Page) async {
+    func preparePortrait(for page: Page, opening: Bool = false) async {
         let portrait: PersonPortrait?
         switch page {
         case .composer(let name): portrait = people.facts(ofComposer: name)?.portrait
@@ -152,7 +181,7 @@ extension AppModel {
         }
         guard let portrait, PortraitLoader.ready(portrait) == nil else { return }
         let local = PortraitLoader.stored({ _ in throw URLError(.notConnectedToInternet) }, in: { .pictures })
-        _ = await PortraitLoader.load(portrait, screen: PortraitLoader.deviceScreen, fetch: local)
+        _ = await PortraitLoader.load(portrait, screen: PortraitLoader.deviceScreen, fetch: local, opening: opening)
     }
 }
 
@@ -207,8 +236,8 @@ struct PageView: View {
             WorkListView(title: "To Confirm", works: model.enrichment.summary(of: index).toConfirm)
         case .worksWithoutMatch:
             WorkListView(title: "No Match", works: model.enrichment.summary(of: index).unmatched)
-        case .classicalFilter:
-            FilterView()
+        case .classicalRules:
+            ClassicalRulesView()
         case .localStorage:
             LocalStorageView()
         case .swipeActions:

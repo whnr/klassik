@@ -114,19 +114,22 @@ enum PictureScrim {
         increasedContrast ? (7, 4.5) : (4.5, 3)
     }
 
-    /// The weakest scrim opacity that lifts both lines to their target over the picture, between the minimum
-    /// and the maximum. A picture that cannot reach the targets gets the maximum.
-    /// `picture` is the brightest part under the text, after the blur.
-    static func opacity(over picture: RGB, increasedContrast: Bool) -> Double {
+    /// The weakest scrim that protects the text and marks over the brightest blurred region.
+    /// Quiet marks can need a solid scrim over a white picture.
+    static func opacity(over picture: RGB, increasedContrast: Bool, marks: [SRGB] = []) -> Double {
         let target = targets(increasedContrast: increasedContrast)
         let needed = max(target.facts, target.name)
         func reaches(_ opacity: Double) -> Bool {
-            contrast(over: picture.covered(by: hall, opacity: opacity)) >= needed
+            let ground = picture.covered(by: hall, opacity: opacity)
+            let background = SRGB(red: ground.red, green: ground.green, blue: ground.blue)
+            return contrast(over: ground) >= needed
+                && marks.allSatisfy { SRGB.contrast($0, background) >= (increasedContrast ? 4.5 : 3) }
         }
         guard !reaches(minimum) else { return minimum }
-        guard reaches(maximum) else { return maximum }
+        let limit = marks.isEmpty ? maximum : 1.0
+        guard reaches(limit) else { return limit }
         var low = minimum
-        var high = maximum
+        var high = limit
         for _ in 0..<24 {
             let middle = (low + high) / 2
             if reaches(middle) { high = middle } else { low = middle }

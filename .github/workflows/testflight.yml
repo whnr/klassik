@@ -44,7 +44,8 @@ jobs:
       - name: Require What to Test notes for this version
         if: steps.age.outputs.upload == 'true'
         run: python3 scripts/testflight_notes.py --check
-      # The commit, or the newest earlier commit before a run of documentation-only changes, needs a green test run.
+      # The commit, or the newest earlier commit before a run of documentation-only and version-only changes,
+      # needs a green test run.
       # The UI walk is not required.
       - name: Require a green test run
         if: steps.age.outputs.upload == 'true'

@@ -1,7 +1,10 @@
 """Finds the green Test run that covers a commit, for the TestFlight gate.
 
 A push to main that changes only ignored paths starts no Test run (the paths-ignore list of test.yml).
-Such a commit is covered by the newest ancestor with a green run, if every change since then is ignored.
+A release commit changes only the version lines of project.yml and the TestFlight notes. Its Test run
+would build the same code as its parent, so the release need not wait for it.
+Such a commit is covered by the newest ancestor with a green run, if every change since then is
+ignored or a version line. Any other change fails closed.
 The ignore list here must match `pull_request.paths-ignore` and `push.paths-ignore` in test.yml.
 
 Usage: GH_TOKEN=... GITHUB_REPOSITORY=owner/repo python3 scripts/green_test_gate.py <sha>
@@ -10,11 +13,21 @@ Prints the covering SHA. Exits 1 and prints the reason when none covers the comm
 
 import json
 import os
+import re
 import subprocess
 import sys
 
 IGNORED = ["**.md", "LICENSE", "docs/**"]
 DEPTH = 50  # Docs-only pushes in a row are few; a longer chain needs a real Test run.
+VERSION_FILE = "project.yml"
+# CURRENT_PROJECT_VERSION is replaced by the TestFlight run number at archive time.
+# The value is fully quoted or bare. One quote alone opens a YAML string that takes in the lines after it.
+VERSION_LINE = re.compile(
+    r'[+-](?P<key> *(?:MARKETING_VERSION|CURRENT_PROJECT_VERSION)): (?:"[0-9]+(?:\.[0-9]+)*"|[0-9]+(?:\.[0-9]+)*)'
+)
+HUNK = re.compile(r"@@ -(?P<old>[0-9]+)(?:,(?P<removed>[0-9]+))? \+(?P<new>[0-9]+)(?:,(?P<added>[0-9]+))? @@.*")
+# The headers of a plain content change. A rename, mode change, deletion or binary diff adds other lines.
+DIFF_HEADERS = ("diff --git ", "index ", "--- ", "+++ ")
 
 
 def is_ignored(path):
@@ -29,32 +42,80 @@ def is_ignored(path):
     )
 
 
-def covering(commits, changed, green):
-    """The first of `commits` (newest first) with a green run, if each commit before it changed only ignored paths.
+def version_only(diff):
+    """True if `diff` (zero-context patch of project.yml) changes at least one line and only replaces version
+    values in place.
 
-    `changed(sha)` gives the paths that the commit changed, `green(sha)` tells if Test passed on it.
+    A bump never adds or removes a line. So each hunk must remove n lines and add n lines at the same place,
+    and the i-th added line must keep the key and indentation of the i-th removed line.
+    """
+    lines = diff.splitlines()
+    hunks = next((i for i, line in enumerate(lines) if line.startswith("@@")), len(lines))
+    if hunks == len(lines) or not all(line.startswith(DIFF_HEADERS) for line in lines[:hunks]):
+        return False
+    rest = lines[hunks:]
+    while rest:
+        header = HUNK.fullmatch(rest[0])
+        if not header:
+            return False
+        count = int(header["removed"] or 1)
+        if count == 0 or header["old"] != header["new"] or int(header["added"] or 1) != count:
+            return False
+        removed, added, rest = rest[1 : count + 1], rest[count + 1 : 2 * count + 1], rest[2 * count + 1 :]
+        if len(added) != count:
+            return False
+        for old, new in zip(removed, added):
+            before, after = VERSION_LINE.fullmatch(old.rstrip()), VERSION_LINE.fullmatch(new.rstrip())
+            if not (before and after and old[0] == "-" and new[0] == "+" and before["key"] == after["key"]):
+                return False
+    return True
+
+
+def covering(commits, changed, green, version_diff):
+    """The first of `commits` (newest first) with a green run, if each commit before it changed only ignored
+    paths and version lines.
+
+    `changed(sha)` gives the paths that the commit changed, `green(sha)` tells if Test passed on it, and
+    `version_diff(sha)` gives the commit's patch of project.yml.
     Returns (sha, None), or (None, reason).
     """
     for sha in commits:
         if green(sha):
             return sha, None
-        if not all(is_ignored(path) for path in changed(sha)):
-            return None, f"no green Test run for {sha}, and it changes files that Test covers"
+        covered = [path for path in changed(sha) if not is_ignored(path)]
+        if covered == [VERSION_FILE] and version_only(version_diff(sha)):
+            continue
+        if covered:
+            return None, f"no green Test run for {sha}, and it changes files that Test covers: {', '.join(covered)}"
     return None, f"no green Test run in the last {len(commits)} commits"
 
 
-def run(*argv):
+def run(*argv, cwd=None):
     # stderr stays on the job log: it names the real cause when git or gh fails.
-    return subprocess.run(argv, stdout=subprocess.PIPE, text=True, check=True).stdout
+    return subprocess.run(argv, stdout=subprocess.PIPE, text=True, check=True, cwd=cwd).stdout
 
 
-def git(*args):
-    return run("git", *args)
+def git(*args, cwd=None):
+    return run("git", *args, cwd=cwd)
 
 
 def parse_paths(output):
     """The changed paths in `git diff-tree --name-only` output. The output ends with a newline."""
     return [path for path in output.splitlines() if path]
+
+
+def changed(commit, cwd=None):
+    return parse_paths(git("diff-tree", "--no-commit-id", "--name-only", "-r", "-m", "--first-parent", commit, cwd=cwd))
+
+
+def version_diff(commit, cwd=None):
+    """The patch of project.yml against the first parent. A root commit gives an empty patch, which fails closed."""
+    options = ["-p", "-U0", "--no-color", "--no-ext-diff", "--no-renames", "--no-commit-id", "-m", "--first-parent"]
+    return git("diff-tree", *options, commit, "--", VERSION_FILE, cwd=cwd)
+
+
+def commits_from(sha, cwd=None):
+    return git("rev-list", "--first-parent", f"--max-count={DEPTH}", sha, cwd=cwd).split()
 
 
 def main(sha):
@@ -65,11 +126,7 @@ def main(sha):
         out = run("gh", "api", query)
         return json.loads(out)["total_count"] > 0
 
-    def changed(commit):
-        return parse_paths(git("diff-tree", "--no-commit-id", "--name-only", "-r", "-m", "--first-parent", commit))
-
-    commits = git("rev-list", "--first-parent", f"--max-count={DEPTH}", sha).split()
-    found, reason = covering(commits, changed, green)
+    found, reason = covering(commits_from(sha), changed, green, version_diff)
     if found is None:
         print(reason)
         sys.exit(1)

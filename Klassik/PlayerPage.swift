@@ -61,17 +61,15 @@ struct PlayerPage: Sendable {
 }
 
 /// When the player may scroll by itself (ADR 0027): only after a quiet spell without touches, and never while
-/// a scrub on the timeline holds the rows still.
+/// a scrub on the timeline or a note being written holds the rows still.
 struct QuietSpell: Sendable {
     /// specimen player.html waits 8000 ms.
     static let length = Duration.seconds(8)
 
     private var lastTouch: ContinuousClock.Instant?
-    /// The movement and the touch of the last follow. The page follows again only when one of them changes,
-    /// so a still page does not scroll each second.
-    private var followed: (movement: Int, touch: ContinuousClock.Instant?)?
     private(set) var isHeld = false
     private(set) var isTouched = false
+    private(set) var isWriting = false
 
     mutating func touch(at now: ContinuousClock.Instant = .now) {
         lastTouch = now
@@ -91,20 +89,25 @@ struct QuietSpell: Sendable {
         lastTouch = now
     }
 
+    /// An open note holds the rows. Its own flag, so a scrub that ends while the note is open keeps the hold.
+    /// The spell begins when the note closes: in the specimen, the Save tap is a touch.
+    mutating func writing(_ on: Bool, at now: ContinuousClock.Instant = .now) {
+        guard on != isWriting else { return }
+        isWriting = on
+        lastTouch = now
+    }
+
     /// How long the page must still wait, or nil when it may scroll now.
     func wait(at now: ContinuousClock.Instant = .now) -> Duration? {
-        if isHeld || isTouched { return Self.length }
+        if isHeld || isTouched || isWriting { return Self.length }
         guard let lastTouch else { return nil }
         let rest = Self.length - (now - lastTouch)
         return rest > .zero ? rest : nil
     }
 
-    /// True when the page should bring the playing row back now. Then the follow counts as done.
-    mutating func follow(_ movement: Int, at now: ContinuousClock.Instant = .now) -> Bool {
-        guard wait(at: now) == nil else { return false }
-        if let followed, followed.movement == movement, followed.touch == lastTouch { return false }
-        followed = (movement, lastTouch)
-        return true
+    /// A scroll request can miss a lazy row. Keep trying during the quiet spell, as the specimen does.
+    func follow(at now: ContinuousClock.Instant = .now) -> Bool {
+        wait(at: now) == nil
     }
 }
 

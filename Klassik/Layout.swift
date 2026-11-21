@@ -111,6 +111,61 @@ enum Layout {
     /// The gap under the field row, above the results.
     /// css: search.html .fieldrow | padding-bottom
     static let searchRowBottom = Space.s.points
+    /// The gap between the field, the Filters button and the x pill.
+    /// css: search.html .fieldrow | gap
+    static let searchRowGap = Space.s.points
+    /// The Filters button and the x pill beside the field.
+    /// css: search.html .fieldrow .roundglass | width
+    static let searchButton: CGFloat = 40
+    /// css: search.html .roundglass svg | width
+    static let searchButtonIcon: CGFloat = 22
+    /// css: search.html .fieldrow .reset svg | width
+    static let searchResetIcon: CGFloat = 18
+    /// The badge on Filters that counts the conditions.
+    /// css: search.html .badge | min-width
+    static let badgeSize: CGFloat = 19
+    /// css: search.html .badge | padding-left
+    static let badgePadding: CGFloat = 5
+    /// The badge reaches past the corner of the button.
+    /// css: search.html .badge | top
+    static let badgeOffset: CGFloat = -3
+
+    // MARK: Filter sheet
+
+    /// The heading row of the sheet: its title, the recordings that remain and Done.
+    /// css: search.html .fsheet .head | gap
+    static let filterHeadGap = Space.s.points
+    /// css: search.html .fsheet .head | padding-top
+    static let filterHeadTop = Space.s.points
+    /// css: search.html .fsheet .head | padding-bottom
+    static let filterHeadBottom = Space.xs.points
+    /// css: search.html .fsheet .head | padding-left
+    static let filterHeadInset = Space.l.points
+    /// The gap between the terms of a condition and the "or" between them.
+    /// css: search.html .cond .terms | gap
+    static let conditionTermGap = Space.xs.points
+    /// The bar on the leading edge of the condition that the next term joins.
+    /// css: search.html .cond.marked | box-shadow | 3px
+    static let conditionMark: CGFloat = 3
+    /// The "or" control of a condition.
+    /// css: search.html .orbtn | min-height
+    static let orButtonHeight: CGFloat = 30
+    /// css: search.html .orbtn | padding-left
+    static let orButtonPadding = Space.m.points
+    /// The field that narrows the terms of one kind.
+    /// css: search.html .narrow | min-height
+    static let narrowHeight: CGFloat = 36
+    /// css: search.html .narrow | border-top-left-radius
+    static let narrowCorner: CGFloat = 10
+    /// css: search.html .narrow | gap
+    static let narrowGap = Space.s.points
+    /// css: search.html .narrow | padding-left
+    static let narrowInset = Space.m.points
+    /// css: search.html .narrow svg | width
+    static let narrowIcon: CGFloat = 15
+    /// The symbol in front of a recent search.
+    /// css: search.html .recent .row svg | width
+    static let searchRecentIcon: CGFloat = 16
     /// A round button in a row, such as play from here.
     /// css: specimen.css .round | width
     static let roundButton: CGFloat = 32
@@ -296,6 +351,12 @@ enum Layout {
     static let scrubLabelHorizontal = Space.s.points
     /// css: specimen.css .scrub-label | border-top-left-radius
     static let scrubLabelCorner = Radius.s
+    /// css: specimen.css .scrub-label | box-shadow | 10px
+    static let scrubLabelShadow: CGFloat = 10
+    /// css: specimen.css .scrub-label | box-shadow | 2px
+    static let scrubLabelShadowY: CGFloat = 2
+    /// css: specimen.css .scrub-label | box-shadow | 0.18
+    static let scrubLabelShadowOpacity: CGFloat = 0.18
 
     // MARK: Chronology
 

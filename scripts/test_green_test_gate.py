@@ -21,9 +21,13 @@ class IgnoredTests(unittest.TestCase):
             self.assertFalse(green_test_gate.is_ignored(path), path)
 
 
+def no_version_diff(sha):
+    raise AssertionError(f"read the project.yml patch of {sha}")
+
+
 class CoveringTests(unittest.TestCase):
     def find(self, commits, changes, green):
-        return green_test_gate.covering(commits, lambda sha: changes[sha], lambda sha: sha in green)
+        return green_test_gate.covering(commits, lambda sha: changes[sha], lambda sha: sha in green, no_version_diff)
 
     def test_the_commit_itself_is_green(self):
         self.assertEqual(self.find(["c", "b"], {"c": ["a.swift"]}, {"c"}), ("c", None))
@@ -68,7 +72,184 @@ class CoveringTests(unittest.TestCase):
         self.assertEqual(green_test_gate.parse_paths("docs/x.md\nREADME.md\n"), ["docs/x.md", "README.md"])
         self.assertEqual(green_test_gate.parse_paths(""), [])
         changes = {"c": green_test_gate.parse_paths("docs/x.md\n"), "a": []}
-        self.assertEqual(green_test_gate.covering(["c", "a"], changes.get, lambda s: s == "a"), ("a", None))
+        found = green_test_gate.covering(["c", "a"], changes.get, lambda s: s == "a", no_version_diff)
+        self.assertEqual(found, ("a", None))
+
+
+PROJECT = """name: Klassik
+settings:
+  base:
+    MARKETING_VERSION: "0.16.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  Klassik:
+    type: application
+    dependencies:
+      - target: TaskRegistry
+    settings:
+      base:
+        SWIFT_VERSION: "6.0"
+"""
+
+
+class History:
+    """A scratch repo, because a CI checkout can be shallow and then diff-tree prints nothing."""
+
+    def __init__(self, tmp):
+        self.tmp = pathlib.Path(tmp)
+        self.git("init", "-q", "-b", "main")
+
+    def git(self, *args):
+        return subprocess.run(
+            ["git", "-c", "user.name=t", "-c", "user.email=t@t", *args],
+            stdout=subprocess.PIPE,
+            text=True,
+            check=True,
+            cwd=self.tmp,
+        ).stdout
+
+    def commit(self, files, message="c"):
+        for name, text in files.items():
+            path = self.tmp / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text)
+        self.git("add", "-A")
+        self.git("commit", "-q", "--allow-empty", "-m", message)
+        return self.git("rev-parse", "HEAD").strip()
+
+    def find(self, green):
+        head = self.git("rev-parse", "HEAD").strip()
+        return green_test_gate.covering(
+            green_test_gate.commits_from(head, cwd=self.tmp),
+            lambda sha: green_test_gate.changed(sha, cwd=self.tmp),
+            lambda sha: sha in green,
+            lambda sha: green_test_gate.version_diff(sha, cwd=self.tmp),
+        )
+
+
+def bump(version="0.16.1", build="1"):
+    return PROJECT.replace('"0.16.0"', f'"{version}"').replace('VERSION: "1"', f'VERSION: "{build}"')
+
+
+class ReleaseHistoryTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.repo = History(self.tmp.name)
+        self.root = self.repo.commit({"project.yml": PROJECT, "Klassik/App.swift": "a"})
+        self.green = self.repo.commit({"Klassik/App.swift": "b"})
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_a_release_commit_reuses_the_green_parent(self):
+        self.repo.commit({"project.yml": bump(), "docs/what-to-test.md": "# 0.16.1"})
+        self.assertEqual(self.repo.find({self.green}), (self.green, None))
+
+    def test_both_version_lines_and_a_docs_commit_on_top(self):
+        self.repo.commit({"project.yml": bump("0.17.0", "2"), "docs/what-to-test.md": "# 0.17.0"})
+        self.repo.commit({"README.md": "x"})
+        self.assertEqual(self.repo.find({self.green}), (self.green, None))
+
+    def test_a_merge_commit_of_a_release_branch(self):
+        self.repo.git("checkout", "-q", "-b", "release")
+        self.repo.commit({"project.yml": bump(), "docs/what-to-test.md": "# 0.16.1"})
+        self.repo.git("checkout", "-q", "main")
+        self.repo.git("-c", "user.name=t", "-c", "user.email=t@t", "merge", "-q", "--no-ff", "-m", "m", "release")
+        self.assertEqual(self.repo.find({self.green}), (self.green, None))
+
+    def test_a_project_change_that_is_not_the_version_fails_closed(self):
+        sha = self.repo.commit({"project.yml": bump().replace('"6.0"', '"6.2"')})
+        found, reason = self.repo.find({self.green})
+        self.assertIsNone(found)
+        self.assertIn(f"no green Test run for {sha}", reason)
+        self.assertIn("project.yml", reason)
+
+    def test_a_new_project_line_fails_closed(self):
+        self.repo.commit({"project.yml": bump() + "options:\n  bundleIdPrefix: x\n"})
+        self.assertIsNone(self.repo.find({self.green})[0])
+
+    def test_a_version_commit_with_code_fails_closed(self):
+        self.repo.commit({"project.yml": bump(), "Klassik/App.swift": "c"})
+        found, reason = self.repo.find({self.green})
+        self.assertIsNone(found)
+        self.assertIn("Klassik/App.swift", reason)
+
+    def test_a_version_line_that_is_not_a_number_fails_closed(self):
+        self.repo.commit({"project.yml": PROJECT.replace('"0.16.0"', '"$(BUILD)"')})
+        self.assertIsNone(self.repo.find({self.green})[0])
+
+    def test_a_mode_change_fails_closed(self):
+        (self.repo.tmp / "project.yml").chmod(0o755)
+        self.repo.git("add", "-A")
+        self.repo.git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "mode")
+        self.assertIsNone(self.repo.find({self.green})[0])
+
+    def test_one_quote_lines_around_a_dependency_fail_closed(self):
+        # In YAML the open quote takes in every line up to the close quote, so the target loses its dependency.
+        attack = PROJECT.replace(
+            "    dependencies:\n      - target: TaskRegistry\n",
+            '    MARKETING_VERSION: "1\n    dependencies:\n      - target: TaskRegistry\n    MARKETING_VERSION: 1"\n',
+        )
+        sha = self.repo.commit({"project.yml": attack, "docs/what-to-test.md": "# 0.16.1"})
+        found, reason = self.repo.find({self.green})
+        self.assertIsNone(found)
+        self.assertIn(f"no green Test run for {sha}", reason)
+
+    def test_an_added_version_line_fails_closed(self):
+        self.repo.commit(
+            {"project.yml": PROJECT.replace("      base:\n", '      base:\n        MARKETING_VERSION: "9"\n')}
+        )
+        self.assertIsNone(self.repo.find({self.green})[0])
+
+    def test_a_removed_version_line_fails_closed(self):
+        self.repo.commit({"project.yml": PROJECT.replace('    CURRENT_PROJECT_VERSION: "1"\n', "")})
+        self.assertIsNone(self.repo.find({self.green})[0])
+
+    def test_a_version_line_that_moves_fails_closed(self):
+        line = '    CURRENT_PROJECT_VERSION: "1"\n'
+        self.repo.commit({"project.yml": PROJECT.replace(line, "").replace("  base:\n", "  base:\n" + line, 1)})
+        self.assertIsNone(self.repo.find({self.green})[0])
+
+    def test_a_root_commit_fails_closed(self):
+        self.assertIsNone(self.repo.find(set())[0])
+
+
+class VersionOnlyTests(unittest.TestCase):
+    HEAD = "diff --git a/project.yml b/project.yml\nindex 1..2 100644\n--- a/project.yml\n+++ b/project.yml\n"
+
+    def test_version_lines(self):
+        for body in (
+            '@@ -9 +9 @@\n-    MARKETING_VERSION: "0.16.0"\n+    MARKETING_VERSION: "0.16.1"\n',
+            '@@ -9,2 +9,2 @@\n-  MARKETING_VERSION: "0.16.0"\n-  CURRENT_PROJECT_VERSION: 1\n'
+            '+  MARKETING_VERSION: "0.17.0"\n+  CURRENT_PROJECT_VERSION: 2\n',
+            "@@ -4 +4 @@ x\n-  MARKETING_VERSION: 1\n+  MARKETING_VERSION: 2\n"
+            "@@ -9 +9 @@\n-  CURRENT_PROJECT_VERSION: 1\n+  CURRENT_PROJECT_VERSION: 2\n",
+        ):
+            with self.subTest(body=body):
+                self.assertTrue(green_test_gate.version_only(self.HEAD + body))
+
+    def test_rejects(self):
+        for diff in (
+            "",
+            self.HEAD,
+            self.HEAD + "@@ -1 +1 @@\n----\n+---\n",
+            self.HEAD + '@@ -9 +9 @@\n-    MARKETING_VERSION: "0.16.0"\n+    MARKETING_VERSION: "0.16.1" # x\n',
+            self.HEAD + '@@ -9 +9 @@\n+    MARKETING_VERSION: "0.16.1"\n\\ No newline at end of file\n',
+            "diff --git a/project.yml b/project.yml\nold mode 100644\nnew mode 100755\n",
+            self.HEAD + '@@ -15,0 +16 @@\n+    MARKETING_VERSION: "1\n@@ -17,0 +19 @@\n+    MARKETING_VERSION: 1"\n',
+            self.HEAD + '@@ -9 +9 @@\n-    MARKETING_VERSION: "0.16.0"\n+    MARKETING_VERSION: "1\n',
+            self.HEAD + '@@ -9 +9 @@\n-    MARKETING_VERSION: "0.16.0"\n+    MARKETING_VERSION: 1"\n',
+            self.HEAD + '@@ -9 +9 @@\n-    MARKETING_VERSION: "0.16.0"\n+      MARKETING_VERSION: "0.16.1"\n',
+            self.HEAD + '@@ -9 +9 @@\n-    MARKETING_VERSION: "0.16.0"\n+    CURRENT_PROJECT_VERSION: "2"\n',
+            self.HEAD + '@@ -9 +10 @@\n-    MARKETING_VERSION: "0.16.0"\n+    MARKETING_VERSION: "0.16.1"\n',
+            self.HEAD + '@@ -9,2 +9 @@\n-    MARKETING_VERSION: "0.16.0"\n-    CURRENT_PROJECT_VERSION: "1"\n'
+            '+    MARKETING_VERSION: "0.16.1"\n',
+            self.HEAD + '@@ -9 +9 @@\n-    MARKETING_VERSION: "0.16.0"\n',
+            self.HEAD + '@@ -9 +9 @@\n+    MARKETING_VERSION: "0.16.1"\n-    MARKETING_VERSION: "0.16.0"\n',
+            "diff --git a/project.yml b/project.yml\ndeleted file mode 100644\n" + self.HEAD[40:],
+        ):
+            with self.subTest(diff=diff):
+                self.assertFalse(green_test_gate.version_only(diff))
 
 
 if __name__ == "__main__":

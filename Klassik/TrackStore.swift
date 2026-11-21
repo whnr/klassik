@@ -32,6 +32,9 @@ final class TrackStore {
     /// Share of a running download, by recording ID.
     private(set) var progress: [String: Double] = [:]
     private(set) var failures: [String: String] = [:]
+    var networkAllowed = true
+    enum Failure: Error { case offline }
+    @ObservationIgnored private var downloadTracks: [String: Set<String>] = [:]
 
     var cacheLimit: Int64 {
         didSet {
@@ -101,6 +104,7 @@ final class TrackStore {
     /// What playback reads for a track: a file on the device, or the transfer of a format that starts early.
     func source(for song: Song, client: any ServerPort) async throws -> PlaybackSource {
         if let local = localFile(song) { return .file(local) }
+        guard networkAllowed else { throw Failure.offline }
         if transport != nil, StreamDecoder.canStartEarly(song) { return .stream(transfer(for: song, client: client)) }
         return try await .file(file(for: song, client: client))
     }
@@ -108,6 +112,7 @@ final class TrackStore {
     /// The local file of a track. A track that is not on the device downloads into the cache first.
     func file(for song: Song, client: any ServerPort) async throws -> URL {
         if let local = localFile(song) { return local }
+        guard networkAllowed else { throw Failure.offline }
         if transport != nil { return try await transfer(for: song, client: client).finished() }
         if let running = fetches[song.id] { return try await running.value }
         let cached = cacheFolder.appending(path: Self.fileName(song))
@@ -120,6 +125,7 @@ final class TrackStore {
         _ = try await task.value
         rescan()
         evict(keeping: cached)
+        loaded?(song, cached, true)
         return cached
     }
 
@@ -133,7 +139,11 @@ final class TrackStore {
             target: cacheFolder.appending(path: name), url: client.streamURL(songID: song.id))
         transfers[song.id] = transfer
         transfer.whenFinished { [weak self] _ in
-            Task { @MainActor in self?.transferEnded(transfer) }
+            Task { @MainActor in
+                guard let self else { return }
+                self.transferEnded(transfer)
+                if transfer.snapshot.complete { self.loaded?(song, transfer.target, false) }
+            }
         }
         transport?(song, client, transfer)
         return transfer
@@ -141,7 +151,11 @@ final class TrackStore {
 
     /// Stops every transfer that no one needs any more. Their partial bytes go.
     func cancelTransfers(except kept: Set<String> = []) {
-        for (id, transfer) in transfers where !kept.contains(id) { transfer.cancel() }
+        let downloads = Set(downloadTracks.values.flatMap { $0 })
+        for (id, transfer) in transfers where !kept.contains(id) && !downloads.contains(id) {
+            transfers[id] = nil
+            transfer.cancel()
+        }
     }
 
     /// A new network path starts new throughput measurements.
@@ -175,6 +189,7 @@ final class TrackStore {
         guard tasks[recording.id] == nil, !isDownloaded(recording) else { return }
         failures[recording.id] = nil
         progress[recording.id] = 0
+        downloadTracks[recording.id] = Set(recording.songs.map(\.id))
         tasks[recording.id] = Task {
             var added: [String] = []
             do {
@@ -187,6 +202,7 @@ final class TrackStore {
                         if transport != nil, !FileManager.default.fileExists(atPath: cached.path()) {
                             // The download reuses the bytes that playback or read-ahead already loads.
                             _ = try await transfer(for: song, client: client).finished()
+                            try Task.checkCancellation()
                         }
                         if FileManager.default.fileExists(atPath: cached.path()) {
                             try FileManager.default.createDirectory(
@@ -213,6 +229,7 @@ final class TrackStore {
             }
             progress[recording.id] = nil
             tasks[recording.id] = nil
+            downloadTracks[recording.id] = nil
             rescan()
         }
     }
@@ -238,8 +255,11 @@ final class TrackStore {
 
     /// Signing out removes everything the account stored.
     func clearAll() {
+        downloadTracks = [:]
         cancelTransfers()
         for task in tasks.values { task.cancel() }
+        for task in fetches.values { task.cancel() }
+        fetches = [:]
         downloads = []
         try? FileManager.default.removeItem(at: downloadFolder)
         try? FileManager.default.removeItem(at: manifestURL)
@@ -270,6 +290,8 @@ final class TrackStore {
 
     private func fetch(_ song: Song, to target: URL, client: any ServerPort) async throws {
         let temporary = try await load(song, client)
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        try Task.checkCancellation()
         try FileManager.default.createDirectory(
             at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
         try? FileManager.default.removeItem(at: target)

@@ -102,6 +102,45 @@ struct TrackTransferTests {
         try? FileManager.default.removeItem(at: root)
     }
 
+    @Test(arguments: [200, 206, 416])
+    func rangeResponsesRequireTheSameRepresentation(status: Int) throws {
+        let url = try #require(URL(string: "https://fixture.invalid/stream"))
+        func accepts(_ headers: [String: String], count: Int = 4, validator: String? = "\"a\"") throws -> Bool {
+            let response = try #require(
+                HTTPURLResponse(url: url, statusCode: status, httpVersion: nil, headerFields: headers))
+            return TrackTransfer.acceptsRange(
+                response, bytes: count, start: 100, length: 4, total: 200, validator: validator)
+        }
+        let valid = ["Content-Range": "bytes 100-103/200", "ETag": "\"a\""]
+        #expect(try accepts(valid) == (status == 206))
+        #expect(try !accepts(valid, count: 3))
+        #expect(try !accepts(valid, validator: nil))
+        #expect(try !accepts(valid, validator: "W/\"a\""))
+        #expect(try !accepts(["Content-Range": "bytes 100-103/200", "ETag": "\"b\""]))
+        #expect(try !accepts(["Content-Range": "bytes 100-103/201", "ETag": "\"a\""]))
+        #expect(try !accepts(valid.merging(["Content-Encoding": "gzip"]) { _, new in new }))
+    }
+
+    @Test func invalidReadsFailWithoutTouchingTheFile() throws {
+        let transfer = self.transfer()
+        #expect(throws: TrackTransfer.Failure.invalidRead) { try Self.read(transfer, at: -1, count: 1) }
+        #expect(throws: TrackTransfer.Failure.invalidRead) { try Self.read(transfer, at: .max, count: 2) }
+        transfer.cancel()
+        try? FileManager.default.removeItem(at: root)
+    }
+
+    @Test func missingDiskBytesNeverBecomeEndOfAudio() throws {
+        let transfer = self.transfer()
+        transfer.begin(length: 4, validator: nil)
+        transfer.append(Data([1, 2, 3, 4]))
+        let handle = try FileHandle(forWritingTo: transfer.partial)
+        try handle.truncate(atOffset: 0)
+        try handle.close()
+        #expect(throws: TrackTransfer.Failure.storage) { try Self.read(transfer, at: 0, count: 4) }
+        transfer.cancel()
+        try? FileManager.default.removeItem(at: root)
+    }
+
     // MARK: Store
 
     func makeStore(_ started: Started) throws -> TrackStore {
@@ -195,6 +234,61 @@ struct TrackTransferTests {
         try await Task.sleep(for: .milliseconds(50))
         #expect(store.transfers.keys.sorted() == ["a"])
         store.cancelTransfers()
+        try? FileManager.default.removeItem(at: root)
+    }
+
+    @Test func offlinePlaybackUsesLocalFilesWithoutStartingATransfer() async throws {
+        let started = Started()
+        let store = try makeStore(started)
+        let song = Song(id: "local", title: "Local", suffix: "flac")
+        let local = root.appending(path: "cache/local.flac")
+        try FileManager.default.createDirectory(
+            at: local.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data([1]).write(to: local)
+        store.networkAllowed = false
+        guard case .file(let found) = try await store.source(for: song, client: client) else {
+            Issue.record("Offline playback must use the local file")
+            return
+        }
+        #expect(found == local)
+        await #expect(throws: TrackStore.Failure.offline) {
+            try await store.source(for: Song(id: "missing", title: "Missing", suffix: "flac"), client: client)
+        }
+        #expect(started.transfers.isEmpty)
+        try? FileManager.default.removeItem(at: root)
+    }
+
+    @Test func stoppingPreparationKeepsAnExplicitDownload() async throws {
+        let started = Started()
+        let store = try makeStore(started)
+        let song = Song(id: "download", title: "Download", suffix: "flac")
+        let recording = WorkIndex.Recording(id: "recording", album: "Fixture", songs: [song])
+        store.download(recording, title: "Fixture", client: client)
+        for _ in 0..<50 where started.transfers.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
+        let transfer = try #require(started.transfers.first?.transfer)
+        store.cancelTransfers()
+        transfer.begin(length: 4, validator: nil)
+        transfer.append(Data([1, 2, 3, 4]))
+        transfer.finish(nil)
+        for _ in 0..<50 where !store.isDownloaded(recording) { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(store.isDownloaded(recording))
+        #expect(store.isOffline(song))
+        try? FileManager.default.removeItem(at: root)
+    }
+
+    @Test func completedStreamsInspectEmbeddedArt() async throws {
+        let started = Started()
+        let store = try makeStore(started)
+        let song = Song(id: "art", title: "Art", suffix: "flac")
+        var inspected: [String] = []
+        store.loaded = { song, _, _ in inspected.append(song.id) }
+        let transfer = store.transfer(for: song, client: client)
+        transfer.begin(length: 1, validator: nil)
+        transfer.append(Data([1]))
+        transfer.finish(nil)
+        for _ in 0..<50 where inspected.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(inspected == [song.id])
+        store.clearAll()
         try? FileManager.default.removeItem(at: root)
     }
 

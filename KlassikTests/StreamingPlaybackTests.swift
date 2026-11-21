@@ -23,18 +23,23 @@ struct StreamingPlaybackTests {
         return (client, try await client.album(id: try #require(found).id).songs)
     }
 
-    static func bytes(of song: Song, from client: SubsonicClient) async throws -> Data {
+    static func resource(of song: Song, from client: SubsonicClient) async throws -> (Data, String?) {
         let (data, response) = try await URLSession.shared.data(from: client.streamURL(songID: song.id))
-        #expect((response as? HTTPURLResponse)?.statusCode == 200)
-        return data
+        let http = try #require(response as? HTTPURLResponse)
+        #expect(http.statusCode == 200)
+        return (data, TrackTransfer.validator(of: http))
+    }
+
+    static func bytes(of song: Song, from client: SubsonicClient) async throws -> Data {
+        try await resource(of: song, from: client).0
     }
 
     /// `url` turns on range requests, which the MP3 decoder needs for its look at the end of the file.
-    func transfer(_ name: String, length: Int, url: URL? = nil) -> TrackTransfer {
+    func transfer(_ name: String, length: Int, url: URL? = nil, validator: String? = nil) -> TrackTransfer {
         let transfer = TrackTransfer(
             songID: name, partial: root.appending(path: "\(name).partial"), target: root.appending(path: name),
             url: url)
-        transfer.begin(length: Int64(length), validator: nil)
+        transfer.begin(length: Int64(length), validator: validator)
         return transfer
     }
 
@@ -96,13 +101,13 @@ struct StreamingPlaybackTests {
     func firstSoundComesBeforeTheFileIsComplete(suffix: String) async throws {
         let (client, songs) = try await Self.album("Early Playback", named: "Early Playback \(suffix.uppercased())")
         let song = try #require(songs.first)
-        let data = try await Self.bytes(of: song, from: client)
+        let (data, validator) = try await Self.resource(of: song, from: client)
         #expect(data.count >= 100_000_000)
         let head = 512 * 1024
         var times: [Duration] = []
         for run in 0..<2 {
             let url = client.streamURL(songID: song.id)
-            let transfer = self.transfer("early\(run).\(suffix)", length: data.count, url: url)
+            let transfer = self.transfer("early\(run).\(suffix)", length: data.count, url: url, validator: validator)
             transfer.append(data.prefix(head))
             let flag = CancelFlag()
             // A decoder that wants the whole file would wait; the flag ends that wait as a failure.
@@ -133,8 +138,10 @@ struct StreamingPlaybackTests {
     @Test func aRangeReadsTheEndOfTheFile() async throws {
         let (client, songs) = try await Self.album("Early Playback", named: "Early Playback MP3")
         let song = try #require(songs.first)
-        let data = try await Self.bytes(of: song, from: client)
-        let transfer = self.transfer("tail.mp3", length: data.count, url: client.streamURL(songID: song.id))
+        let (data, validator) = try await Self.resource(of: song, from: client)
+        #expect(validator != nil, "The fixture server must identify its range responses")
+        let transfer = self.transfer(
+            "tail.mp3", length: data.count, url: client.streamURL(songID: song.id), validator: validator)
         let tail = try await Task.detached {
             try TrackTransferTests.read(transfer, at: Int64(data.count - 128), count: 128)
         }.value
@@ -183,6 +190,32 @@ struct StreamingPlaybackTests {
             return GaplessTests.alignment(joined, at: start + join + 256, referenceAt: join + 256)
         }
         #expect(shifts == Array(repeating: 0, count: shifts.count), "start \(start), shifts \(shifts)")
+        try? FileManager.default.removeItem(at: root)
+    }
+
+    /// Pause can reach the engine while its first callback waits. Resuming must still start that same load.
+    @MainActor @Test func pauseBeforeTheFirstBytesKeepsTheLoad() async throws {
+        let (client, songs) = try await Self.album("Glide", named: "Glide in FLAC")
+        let song = try #require(songs.first)
+        let data = try await Self.bytes(of: song, from: client)
+        let transfer = self.transfer("paused.flac", length: data.count)
+        let events = Events()
+        let engine = GaplessEngine()
+        engine.onEvent = { event in
+            if case .movementEnded(let index) = event { events.log.append("end \(index)") }
+            if case .failed(let text) = event { events.log.append("failed \(text)") }
+        }
+        engine.load([song], from: 0, offset: 0) { _ in .stream(transfer) }
+        defer { engine.discard() }
+        try await Task.sleep(for: .milliseconds(200))
+        engine.pause()
+        transfer.append(data)
+        transfer.finish(nil)
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(events.log.isEmpty)
+        try engine.resume()
+        for _ in 0..<100 where !events.log.contains("end 0") { try await Task.sleep(for: .milliseconds(100)) }
+        #expect(events.log == ["end 0"])
         try? FileManager.default.removeItem(at: root)
     }
 

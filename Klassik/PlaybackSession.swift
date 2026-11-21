@@ -76,7 +76,10 @@ final class PlaybackSession {
     private(set) var slowLine: String?
     /// What the app may prepare without a request. AppModel follows the network path and Low Power Mode.
     var dataMode = DataMode.normal {
-        didSet { if dataMode != oldValue { prepareAhead() } }
+        didSet {
+            store.networkAllowed = dataMode != .offline
+            if dataMode != oldValue { prepareAhead() }
+        }
     }
     private(set) var queueEnded = false
     private(set) var error: String?
@@ -609,7 +612,7 @@ final class PlaybackSession {
         let next = ReadAhead.plan(item, movement: movement, upNext: upNext, mode: .constrained)
         let plan =
             playback.wantsPlayback ? ReadAhead.plan(item, movement: movement, upNext: upNext, mode: dataMode) : []
-        let kept = Set(([current] + next + plan).map(\.id))
+        let kept = Set(([current] + (playback.wantsPlayback && dataMode != .offline ? next + plan : [])).map(\.id))
         store.pinned = kept
         store.cancelTransfers(except: kept)
         let ids = plan.map(\.id)

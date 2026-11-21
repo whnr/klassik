@@ -10,6 +10,8 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
         /// The connection ended before the declared length arrived.
         case truncated
         case http(Int)
+        case invalidRead
+        case storage
     }
 
     struct Snapshot: Equatable, Sendable {
@@ -114,15 +116,13 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
 
     func append(_ data: Data) {
         condition.lock()
-        let writer = complete || failure != nil ? nil : self.writer
-        condition.unlock()
-        guard let writer else { return }
+        guard !complete, failure == nil, let writer else { return condition.unlock() }
         do {
             try writer.write(contentsOf: data)
         } catch {
-            return finish(.truncated)
+            condition.unlock()
+            return finish(.storage)
         }
-        condition.lock()
         available += Int64(data.count)
         meter.record(data.count, at: Self.now)
         condition.broadcast()
@@ -201,6 +201,7 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
         at position: Int64, count: Int, into destination: UnsafeMutableRawPointer, timeout: Duration,
         isCancelled: () -> Bool
     ) throws(Failure) -> Int {
+        guard position >= 0, count >= 0, position <= Int64.max - Int64(count) else { throw .invalidRead }
         let deadline = ContinuousClock.now + timeout
         condition.lock()
         while true {
@@ -212,7 +213,9 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
             if available >= end || complete {
                 let copied = Self.copy(
                     descriptor, from: position, count: Int(max(0, min(end, available) - position)), into: destination)
+                let wanted = Int(max(0, min(end, available) - position))
                 condition.unlock()
+                guard copied == wanted else { throw .storage }
                 return copied
             }
             if let chunk = chunk(covering: position, end: end) {
@@ -224,12 +227,14 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
                 condition.unlock()
                 return length
             }
-            if let url, let expected, !rangesRefused, position >= available + Self.rangeLead {
-                let validator = self.validator
+            if let url, let expected, let validator, Self.isSafeValidator(validator), !rangesRefused,
+                position >= available + Self.rangeLead
+            {
                 condition.unlock()
                 let length = min(Self.rangeChunk, expected - position)
                 let data = Self.fetchRange(url, from: position, length: length, total: expected, validator: validator)
                 condition.lock()
+                if failure != nil || complete { continue }
                 if let data {
                     chunks[position] = data
                     while chunks.count > Self.keptChunks, let oldest = chunks.keys.min() { chunks[oldest] = nil }
@@ -292,27 +297,50 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
     private static func fetchRange(
         _ url: URL, from start: Int64, length: Int64, total: Int64, validator: String?
     ) -> Data? {
-        guard length > 0 else { return nil }
+        guard length > 0, let validator, isSafeValidator(validator) else { return nil }
         var request = URLRequest(url: url, timeoutInterval: 10)
         request.setValue("bytes=\(start)-\(start + length - 1)", forHTTPHeaderField: "Range")
         request.setValue("identity", forHTTPHeaderField: "Accept-Encoding")
+        request.setValue(validator, forHTTPHeaderField: "If-Range")
         let box = RangeBox()
         let done = DispatchSemaphore(value: 0)
-        rangeSession.dataTask(with: request) { data, response, _ in
+        let task = rangeSession.dataTask(with: request) { data, response, _ in
             defer { done.signal() }
-            guard let http = response as? HTTPURLResponse, http.statusCode == 206, let data,
-                Int64(data.count) == length,
-                http.value(forHTTPHeaderField: "Content-Range") == "bytes \(start)-\(start + length - 1)/\(total)",
-                validator == nil || Self.validator(of: http) == validator
+            guard let http = response as? HTTPURLResponse, let data,
+                Self.acceptsRange(
+                    http, bytes: data.count, start: start, length: length, total: total, validator: validator)
             else { return }
-            box.data = data
-        }.resume()
-        _ = done.wait(timeout: .now() + 10)
-        return box.data
+            box.set(data)
+        }
+        task.resume()
+        guard done.wait(timeout: .now() + 10) == .success else {
+            task.cancel()
+            return nil
+        }
+        return box.get()
+    }
+
+    /// Separate responses may share bytes only when their validators identify the same representation.
+    static func acceptsRange(
+        _ response: HTTPURLResponse, bytes: Int, start: Int64, length: Int64, total: Int64, validator: String?
+    ) -> Bool {
+        guard let validator, isSafeValidator(validator), response.statusCode == 206,
+            Int64(bytes) == length, Self.validator(of: response) == validator,
+            response.value(forHTTPHeaderField: "Content-Range") == "bytes \(start)-\(start + length - 1)/\(total)"
+        else { return false }
+        let encoding = response.value(forHTTPHeaderField: "Content-Encoding")?.lowercased()
+        return encoding == nil || encoding == "identity"
+    }
+
+    static func isSafeValidator(_ value: String) -> Bool {
+        !value.isEmpty && !value.hasPrefix("W/")
     }
 
     private final class RangeBox: @unchecked Sendable {
-        var data: Data?
+        private let lock = NSLock()
+        private var data: Data?
+        func set(_ data: Data) { lock.withLock { self.data = data } }
+        func get() -> Data? { lock.withLock { data } }
     }
 
     private static let rangeSession: URLSession = {
@@ -323,7 +351,8 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
     }()
 
     static func validator(of response: HTTPURLResponse) -> String? {
-        response.value(forHTTPHeaderField: "ETag") ?? response.value(forHTTPHeaderField: "Last-Modified")
+        if let tag = response.value(forHTTPHeaderField: "ETag"), isSafeValidator(tag) { return tag }
+        return response.value(forHTTPHeaderField: "Last-Modified")
     }
 
     private static var now: Double { ProcessInfo.processInfo.systemUptime }
@@ -334,7 +363,7 @@ extension TrackTransfer: URLSessionDataDelegate {
         _ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse
     ) async -> URLSession.ResponseDisposition {
         guard let http = response as? HTTPURLResponse else { return .allow }
-        guard (200..<300).contains(http.statusCode) else {
+        guard http.statusCode == 200 else {
             finish(.http(http.statusCode))
             return .cancel
         }

@@ -82,7 +82,7 @@ final class GaplessEngine: PlaybackEngine {
         playing = true
         // Before the first sound and during a refill, the scheduler starts the node when enough audio waits.
         guard started && !starved else { return report() }
-        node.play()
+        try node.playAudio()
         pausedAt = nil
     }
 
@@ -174,6 +174,11 @@ final class GaplessEngine: PlaybackEngine {
         watch(generation)
         do {
             for position in index..<songs.count {
+                // Only the audible track and its immediate successor may request playback bytes.
+                while !playing || (position > index + 1 && audibleMovement() < position - 1) {
+                    try await Task.sleep(for: Self.watchInterval)
+                    try check(generation)
+                }
                 let seconds = position == index ? offset : 0
                 report()
                 let track = try await source(songs[position])
@@ -199,6 +204,11 @@ final class GaplessEngine: PlaybackEngine {
         }
     }
 
+    private func audibleMovement() -> Int {
+        let sample = playedSamples() ?? 0
+        return segments.filter { $0.value.lowerBound <= sample }.keys.max() ?? -1
+    }
+
     private func check(_ generation: Int) throws {
         guard generation == self.generation, !Task.isCancelled else { throw CancellationError() }
     }
@@ -216,9 +226,8 @@ final class GaplessEngine: PlaybackEngine {
         }
         format = incoming
         sampleRate = incoming.sampleRate
-        engine.connect(node, to: gain, format: incoming)
-        engine.connect(gain, to: engine.mainMixerNode, format: incoming)
-        guard playing else { return false }
+        try engine.connectNode(node, to: gain, format: incoming)
+        try engine.connectNode(gain, to: engine.mainMixerNode, format: incoming)
         try Self.activateSession()
         try engine.start()
         return true
@@ -239,7 +248,7 @@ final class GaplessEngine: PlaybackEngine {
         node.scheduleSegment(
             file, startingFrame: range.lowerBound, frameCount: AVAudioFrameCount(range.count), at: nil,
             completionCallbackType: .dataPlayedBack, completionHandler: ended(position, generation: generation))
-        sound()
+        try sound()
         return true
     }
 
@@ -279,7 +288,8 @@ final class GaplessEngine: PlaybackEngine {
         var consumed: Int64 = 0
         while true {
             if scheduledEnd - (playedSamples() ?? 0) >= ahead {
-                startIfReady(transfer, consumed: consumed, remaining: Double(Int64(playable.count) - emitted) / rate)
+                try startIfReady(
+                    transfer, consumed: consumed, remaining: Double(Int64(playable.count) - emitted) / rate)
                 try await Task.sleep(for: Self.watchInterval)
                 try check(generation)
                 continue
@@ -294,14 +304,14 @@ final class GaplessEngine: PlaybackEngine {
             guard let buffer = decoded.buffer else { break }
             held = buffer
             emitted += Int64(buffer.frameLength)
-            startIfReady(transfer, consumed: consumed, remaining: Double(Int64(playable.count) - emitted) / rate)
+            try startIfReady(transfer, consumed: consumed, remaining: Double(Int64(playable.count) - emitted) / rate)
         }
         guard held != nil, let range = segments[position] else {
             throw StreamDecoder.Failure.status(kAudioFileEndOfFileError)
         }
         // The decoder knows the exact length now, also where the file declared none.
         segments[position] = range.lowerBound..<(range.lowerBound + emitted)
-        sound()
+        try sound()
         return true
     }
 
@@ -331,7 +341,7 @@ final class GaplessEngine: PlaybackEngine {
 
     /// Starts the first sound, or ends a refill, once the start threshold of ADR 0060 is met. Encoded bytes that
     /// arrived but wait undecoded count as buffered audio.
-    private func startIfReady(_ transfer: TrackTransfer, consumed: Int64, remaining: Double) {
+    private func startIfReady(_ transfer: TrackTransfer, consumed: Int64, remaining: Double) throws {
         guard !started || starved, let stream else { return }
         let snapshot = transfer.snapshot
         let decoded = Double(scheduledEnd - (playedSamples() ?? 0)) / sampleRate
@@ -342,18 +352,18 @@ final class GaplessEngine: PlaybackEngine {
         if let target = StartThreshold.seconds(bitrate: stream.bitrate, throughput: throughput, remaining: remaining),
             decoded + encoded >= target
         {
-            sound()
+            try sound()
         } else {
             report()
         }
     }
 
     /// Lets the node sound. A paused session keeps it silent; `resume` starts it.
-    private func sound() {
+    private func sound() throws {
         started = true
         starved = false
         if playing, let node, !node.isPlaying {
-            node.play()
+            try node.playAudio()
             pausedAt = nil
         }
         report()

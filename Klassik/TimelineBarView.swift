@@ -115,8 +115,13 @@ struct TimelineBarView: View {
         .typeStyle(.body)
         .padding(.vertical, Layout.scrubLabelVertical)
         .padding(.horizontal, Layout.scrubLabelHorizontal)
-        .background(Palette.backgroundElevated, in: .rect(cornerRadius: Layout.scrubLabelCorner))
-        .shadow(radius: 5, y: 2)
+        .background {
+            RoundedRectangle(cornerRadius: Layout.scrubLabelCorner)
+                .fill(Palette.backgroundElevated)
+                .shadow(
+                    color: .black.opacity(Layout.scrubLabelShadowOpacity), radius: Layout.scrubLabelShadow / 2,
+                    y: Layout.scrubLabelShadowY)
+        }
         .accessibilityHidden(true)
     }
 

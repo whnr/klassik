@@ -83,7 +83,10 @@ struct PerformerPage: View {
                 .listRowSeparator(.hidden)
         } else {
             LazyVGrid(
-                columns: [GridItem(.flexible(), spacing: Layout.albumColumnGap), GridItem(.flexible())],
+                columns: [
+                    GridItem(.flexible(), spacing: Layout.albumColumnGap, alignment: .top),
+                    GridItem(.flexible(), alignment: .top),
+                ],
                 alignment: .leading, spacing: Layout.albumRowGap
             ) {
                 ForEach(albums) { AlbumCover(album: $0) }

@@ -58,7 +58,17 @@ final class PCMConversion: @unchecked Sendable {
     }
 
     func read(frames: AVAudioFrameCount) throws -> AVAudioPCMBuffer? {
-        if let expected, emitted >= expected { return nil }
+        if let expected, emitted >= expected {
+            // Output rounding can finish before the last source frame. Still validate the source's declared sample count.
+            while !inputEnded {
+                guard let buffer = try source(frames) else {
+                    inputEnded = true
+                    break
+                }
+                guard buffer.frameLength > 0 else { throw Failure.conversion }
+            }
+            return nil
+        }
         guard let converter else {
             guard let buffer = try source(frames) else { return try end() }
             emitted += Int64(buffer.frameLength)

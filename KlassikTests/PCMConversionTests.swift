@@ -86,6 +86,21 @@ struct PCMConversionTests {
         #expect(throws: TrackTransfer.Failure.storage) { try converter.read(frames: 128) }
     }
 
+    @Test func reachingTheOutputLengthStillValidatesSourceEOF() throws {
+        let format = try #require(AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 1))
+        var supplied = false
+        let converter = try PCMConversion(from: format, to: format, frames: 1) { _ in
+            guard !supplied else { throw StreamDecoder.Failure.prematureEnd(expected: 2, actual: 1) }
+            supplied = true
+            let buffer = try #require(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 1))
+            buffer.frameLength = 1
+            buffer.floatChannelData![0][0] = 0.25
+            return buffer
+        }
+        #expect(try converter.read(frames: 1)?.frameLength == 1)
+        #expect(throws: StreamDecoder.Failure.prematureEnd(expected: 2, actual: 1)) { try converter.read(frames: 1) }
+    }
+
     @Test(arguments: [(44_100.0, 48_000.0, 8_017), (32_000.0, 44_100.0, 16_013)])
     func theFinalFrameMatchesAZeroExtendedReference(sourceRate: Double, targetRate: Double, length: Int) throws {
         let input = try #require(AVAudioFormat(standardFormatWithSampleRate: sourceRate, channels: 1))

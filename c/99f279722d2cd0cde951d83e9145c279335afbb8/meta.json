@@ -1,0 +1,7 @@
+{
+  "sha": "99f279722d2cd0cde951d83e9145c279335afbb8",
+  "branch": "codex-sz-rs30.1.125.3",
+  "path": "codex-sz-rs30.1.125.3",
+  "subject": "[sz-rs30.1.125.1] Avoid converter callback lock",
+  "ts": 1795272689
+}

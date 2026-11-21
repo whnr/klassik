@@ -1,1 +1,8 @@
-{}
+{
+  "page-menu": {
+    "label": "Page menu (ADR 0068)",
+    "page": "menu",
+    "css": "page-menu.css",
+    "js": "page-menu.js"
+  }
+}

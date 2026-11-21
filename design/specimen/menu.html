@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Page menu</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="../tokens.css?v=50" />
+    <link rel="stylesheet" href="specimen.css?v=50" />
+    <link rel="stylesheet" href="variants/page-menu.css?v=50" />
+    <script src="specimen.js?v=50"></script>
+    <script src="variants/page-menu.js?v=50"></script>
+  </head>
+  <body>
+    <script>
+      // The page menu of ADR 0068 (Proposed), one page for each variant, drawn open.
+      // ?for= recording, album, work or player. ?state= none, downloading, downloaded or offline.
+      // Without ?for= the page lists the variants. ?variant=page-menu shows the menu live on work.html and player.html.
+      K.start(() => {
+        const { el, href, ICON, M } = K;
+        const kind = K.params.get("for");
+        const row = (title, sub, path, extra) =>
+          el(
+            path ? "a" : "div",
+            { class: "row", href: path ? href(path, extra) : null },
+            el(
+              "div",
+              { class: "main" },
+              el("div", { class: "t-body" }, title),
+              sub && el("div", { class: "t-subheadline secondary" }, sub),
+            ),
+            path ? el("span", { html: ICON.chevron }) : null,
+          );
+        const section = (head, foot, ...rows) =>
+          el(
+            "section",
+            { class: "section" },
+            el("div", { class: "section-head t-footnote" }, head),
+            el("div", { class: "list" }, ...rows),
+            foot ? el("p", { class: "section-foot t-footnote" }, foot) : null,
+          );
+
+        if (!kind) {
+          const { scroll } = K.page({
+            tab: "library",
+            title: "Page menu",
+            back: { label: "Library", href: "index.html" },
+          });
+          const menu = (title, sub, extra) => row(title, sub, "menu.html", { back: "Page menu", ...extra });
+          scroll.append(
+            el(
+              "div",
+              { class: "page-head" },
+              el("h1", { class: "t-largeTitle" }, "Page menu"),
+              el(
+                "p",
+                { class: "t-subheadline secondary meta" },
+                "Proposed in ADR 0068. One ⋯ button at the top right of a page holds the actions of the thing the page shows. Download leads.",
+              ),
+            ),
+            section(
+              "Recording page",
+              null,
+              menu("Not downloaded", "Download, Play Next, Add to Queue, Tags and Grouping", { for: "recording" }),
+              menu("Downloading", "The state heads its section; Cancel Download", {
+                for: "recording",
+                state: "downloading",
+              }),
+              menu("Downloaded", "The size heads its section; Remove Download", {
+                for: "recording",
+                state: "downloaded",
+              }),
+              menu("Offline", "Download is dimmed and says why", { for: "recording", state: "offline" }),
+            ),
+            section(
+              "Other pages",
+              null,
+              menu("Album page", "Download, Play Next, Add to Queue", { for: "album" }),
+              menu("Work page", "Play Next, Add to Queue of the top recording; no Download", { for: "work" }),
+              menu("Player", "Download and Tags and Grouping of what plays", { for: "player" }),
+            ),
+            section(
+              "Live on the pages",
+              "The variant adds the button to the decided pages. Download runs for nine seconds.",
+              row("Work page", "Symphony No. 5, Beethoven", "work.html", { variant: "page-menu", back: "Page menu" }),
+              row("Recording page", "Carlos Kleiber", "player.html", {
+                variant: "page-menu",
+                recording: [...M.recordings.keys()][0],
+                back: "Page menu",
+              }),
+              row("Album page", "Chopin sonatas", "player.html", {
+                variant: "page-menu",
+                album: "3Is4qK0IBSlUYtEHMhh8YH",
+                back: "Page menu",
+              }),
+            ),
+            section(
+              "No menu",
+              "These pages show no one thing to download or queue. Their bars keep what they hold today.",
+              row("Library, Chronology and Search", "The roots of the places; Library keeps Edit and the cog"),
+              row("Composer and performer pages", "A person has no download (ADR 0008); the fermata favourites them"),
+              row("Lists", "Composers, Performers, Albums, Favourites: each row has its swipes and long press"),
+              row("Settings and its pages", "Tags, Local Storage, MusicBrainz, Swipe Actions"),
+            ),
+          );
+          return;
+        }
+
+        const albumId = "3Is4qK0IBSlUYtEHMhh8YH";
+        const item =
+          kind === "album"
+            ? K.resolveItem(["album", albumId])
+            : K.resolveItem(["recording", "640qawSbxRzx7BX6z3M2wM", "Symphony No. 5 in C minor, Op. 67"]);
+        const titles = { recording: "Recording page", album: "Album page", work: "Work page", player: "Player" };
+        const { nav, scroll } = K.page({
+          tab: "library",
+          title: titles[kind],
+          back: { label: "Page menu", href: href("menu.html") },
+        });
+        const name = kind === "work" ? item.recording.work : item.title;
+        scroll.append(
+          el(
+            "div",
+            { class: "page-head" },
+            el("h1", { class: "t-title1" }, name),
+            el("p", { class: "t-subheadline secondary meta" }, `On ${M.albums.get(item.album.id).name}.`),
+          ),
+        );
+        const menu = K.pageMenu.attach(nav, kind, item);
+        requestAnimationFrame(() => requestAnimationFrame(menu.open));
+      });
+    </script>
+  </body>
+</html>

@@ -26,11 +26,22 @@ struct TrackTransferTests {
         return Array(bytes.prefix(read))
     }
 
+    /// Blocking byte reads need a dispatch worker; they must not occupy the cooperative task executor.
+    nonisolated static func readOnWorker(_ transfer: TrackTransfer, at position: Int64, count: Int) async throws
+        -> [UInt8]
+    {
+        try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                continuation.resume(with: Result { try Self.read(transfer, at: position, count: count) })
+            }
+        }
+    }
+
     @Test func aReaderWaitsForTheBytes() async throws {
         let transfer = self.transfer()
         transfer.begin(length: 8, validator: nil)
         transfer.append(Data([1, 2, 3, 4]))
-        let reader = Task.detached { try Self.read(transfer, at: 2, count: 4) }
+        let reader = Task { try await Self.readOnWorker(transfer, at: 2, count: 4) }
         try await Task.sleep(for: .milliseconds(200))
         transfer.append(Data([5, 6]))
         #expect(try await reader.value == [3, 4, 5, 6])
@@ -84,7 +95,7 @@ struct TrackTransferTests {
     @Test func cancelWakesAWaitingReader() async throws {
         let transfer = self.transfer()
         transfer.begin(length: 10, validator: nil)
-        let reader = Task.detached { try Self.read(transfer, at: 0, count: 4) }
+        let reader = Task { try await Self.readOnWorker(transfer, at: 0, count: 4) }
         try await Task.sleep(for: .milliseconds(100))
         transfer.cancel()
         await #expect(throws: TrackTransfer.Failure.cancelled) { try await reader.value }

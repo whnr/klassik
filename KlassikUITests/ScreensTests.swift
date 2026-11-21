@@ -214,6 +214,57 @@ final class PlacesScreens: ScreensTestCase {
         XCTAssertFalse(tip.waitForExistence(timeout: 3), "The tip shows a second time")
     }
 
+    /// Every tab stays in the bar when the Search keyboard closes on the Search page before the listener leaves it:
+    /// through a recent search and through Enter.
+    @MainActor
+    func testTabsStayAfterTheSearchKeyboard() throws {
+        let app = try launchAndConnect(openComposers: false)
+        let bar = app.tabBars["tab-row"]
+        XCTAssertTrue(bar.waitForExistence(timeout: 10))
+        let baseline = try XCTUnwrap(ScreenPixels(app))
+        let barFrame = bar.frame
+        func expectTabs(_ step: String) {
+            for name in ["Library", "Chronology", "Search"] {
+                let item = tab(app, name)
+                XCTAssertTrue(item.waitForExistence(timeout: 5), "\(step): no tab \(name)")
+                XCTAssertTrue(item.isHittable, "\(step): tab \(name) is not hittable")
+            }
+            // A tab can keep its element while UIKit draws nothing, so the bar must look as it did at launch.
+            var share = 1.0
+            for _ in 0..<6 {
+                if let now = ScreenPixels(app) { share = now.differingShare(in: barFrame, from: baseline) }
+                if share < 0.05 { break }
+                Thread.sleep(forTimeInterval: 0.5)
+            }
+            if share >= 0.05 { add(XCTAttachment(string: bar.debugDescription)) }
+            XCTAssertLessThan(share, 0.05, "\(step): the tab bar changed")
+        }
+        let field = app.textFields["search-field"]
+        let recent = app.buttons.matching(identifier: "search-recent")
+
+        // Enter closes the keyboard on the Search page.
+        openPlace(app, "Search")
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        field.tap()
+        field.typeText("chopin\n")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+        openPlace(app, "Library")
+        XCTAssertTrue(app.buttons["library-composers"].waitForExistence(timeout: 10))
+        expectTabs("Enter, then Library")
+        snap(app, "02o-tabs-after-enter")
+
+        // The tab opens Search with the keyboard up; a recent search closes it.
+        openPlace(app, "Search")
+        XCTAssertTrue(recent.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5), "The Search tab opens no keyboard")
+        recent.firstMatch.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+        openPlace(app, "Library")
+        XCTAssertTrue(app.buttons["library-composers"].waitForExistence(timeout: 10))
+        expectTabs("Recent search, then Library")
+        snap(app, "02p-tabs-after-recent")
+    }
+
     /// The bar draws no title (ADR 0023), and the page still names the back button of the next page.
     @MainActor
     func testBarShowsNoTitle() throws {

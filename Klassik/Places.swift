@@ -385,13 +385,14 @@ struct PlaceStack<Root: View>: View {
 
     var body: some View {
         let target = navigator.backTarget(for: place)
+        let titles = [place.title] + navigator.pages(in: place).map { $0.backTitle(in: model.library) }
         NavigationStack(
             path: Binding(
                 get: { navigator.pages(in: place) },
                 set: { navigator.setPages($0, in: place) })
         ) {
             root
-                .background { NavigationBackTitle(title: place.title) }
+                .background { NavigationBackTitle(titles: titles) }
                 .modifier(PlaceInsets())
                 .toolbar {
                     if let target {
@@ -422,7 +423,7 @@ struct PlaceStack<Root: View>: View {
                     // From the second page on, the back button has a pages menu behind it.
                     // A repeated copy of the first page gets index 0 and shows no back tip.
                     PageView(page: page)
-                        .background { NavigationBackTitle(title: page.backTitle(in: model.library)) }
+                        .background { NavigationBackTitle(titles: titles) }
                         .modifier(PlaceInsets())
                         .environment(\.showsBackTip, (navigator.pages(in: place).firstIndex(of: page) ?? 0) >= 1)
                 }
@@ -433,17 +434,17 @@ struct PlaceStack<Root: View>: View {
 
 /// An explicit native bar item supplies the visible name without replacing the system pop or its pages menu.
 private struct NavigationBackTitle: UIViewControllerRepresentable {
-    let title: String
+    let titles: [String]
 
     func makeUIViewController(context: Context) -> Controller { Controller() }
 
     func updateUIViewController(_ controller: Controller, context: Context) {
-        controller.backTitle = title
+        controller.titles = titles
         controller.configure()
     }
 
     final class Controller: UIViewController {
-        var backTitle = ""
+        var titles: [String] = []
 
         override func didMove(toParent parent: UIViewController?) {
             super.didMove(toParent: parent)
@@ -463,11 +464,20 @@ private struct NavigationBackTitle: UIViewControllerRepresentable {
         func configure() {
             var host: UIViewController = self
             while let parent = host.parent, !(parent is UINavigationController) { host = parent }
-            guard host.parent is UINavigationController else { return }
-            let item = host.navigationItem
-            guard item.backBarButtonItem?.title != backTitle else { return }
-            item.backButtonDisplayMode = .default
-            item.backBarButtonItem = UIBarButtonItem(title: backTitle, style: .plain, target: nil, action: nil)
+            guard let navigation = host.parent as? UINavigationController,
+                navigation.viewControllers.count == titles.count
+            else { return }
+            // SwiftUI derives back items during each push. The arriving page must also name the pages behind it.
+            for (page, title) in zip(navigation.viewControllers, titles) {
+                let item = page.navigationItem
+                guard
+                    item.backBarButtonItem?.title != title || item.backButtonTitle != title
+                        || item.backButtonDisplayMode != .default
+                else { continue }
+                item.backButtonDisplayMode = .default
+                item.backButtonTitle = title
+                item.backBarButtonItem = UIBarButtonItem(title: title, style: .plain, target: nil, action: nil)
+            }
         }
     }
 }

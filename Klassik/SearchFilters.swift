@@ -51,8 +51,6 @@ extension Search {
         var results = Results()
         /// For each shown work, its recordings that pass the conditions. Empty without conditions.
         var matching: [String: Int] = [:]
-        /// The works that the text found and the conditions hide.
-        var hiddenWorks = 0
     }
 
     /// The recordings that a text found, through its works, people and albums. Without a text it holds every
@@ -72,6 +70,8 @@ struct SearchFilters: Sendable {
     private var postings: [Search.Term: [Int]] = [:]
     /// The terms of each scope, by name. A genre that every recording with a genre carries is not here.
     private var scopes: [Search.Scope: [Search.Term]] = [:]
+    private var recordingPositions: [String: Int] = [:]
+    private var recordings: [Search.Recording] = []
     private var workRecordings: [String: [Int]] = [:]
     private var albumRecordings: [String: [Int]] = [:]
     private var personRecordings: [String: [Int]] = [:]
@@ -95,6 +95,8 @@ struct SearchFilters: Sendable {
                 for recording in work.recordings {
                     let position = terms.count
                     positions[recording.id] = position
+                    recordingPositions[recording.id] = position
+                    recordings.append(Search.Recording(work: work, recording: recording))
                     mine.append(position)
                     var own = Set<Search.Term>()
                     let genres = Set(recording.songs.flatMap(\.allGenres))
@@ -145,6 +147,9 @@ struct SearchFilters: Sendable {
         for work in results.works { members.formUnion(workRecordings[work.id] ?? []) }
         for person in results.people { members.formUnion(personRecordings[person.name] ?? []) }
         for album in results.albums { members.formUnion(albumRecordings[album.id] ?? []) }
+        for item in results.recordings {
+            if let position = recordingPositions[item.id] { members.insert(position) }
+        }
         return Search.Pool(members: members)
     }
 
@@ -178,6 +183,8 @@ struct SearchFilters: Sendable {
                 if condition.terms.contains(term) {
                     choice = Search.Choice(term: term, effect: .check, count: remain.count)
                 } else {
+                    // Existing matches must not make an unrelated term available for "or".
+                    guard posted.contains(where: { others.contains($0) }) else { continue }
                     let added = posted.count(where: { others.contains($0) && !passes($0, condition) })
                     choice = Search.Choice(term: term, effect: .or, count: remain.count + added)
                 }
@@ -199,7 +206,7 @@ struct SearchFilters: Sendable {
     func narrow(_ results: Search.Results?, by conditions: [Search.Condition]) -> Search.Filtered {
         guard !conditions.isEmpty else { return Search.Filtered(results: results ?? Search.Results()) }
         let passing = remaining(conditions, in: Search.Pool())
-        let found = results ?? Search.Results(works: works, albums: albums)
+        let found = results ?? Search.Results(works: works, albums: albums, recordings: recordings)
         var filtered = Search.Filtered()
         for work in found.works {
             let count = (workRecordings[work.id] ?? []).count(where: { passing.contains($0) })
@@ -207,10 +214,12 @@ struct SearchFilters: Sendable {
             filtered.results.works.append(work)
             filtered.matching[work.id] = count
         }
-        filtered.hiddenWorks = found.works.count - filtered.results.works.count
         filtered.results.people = found.people.compactMap { person($0, passing: passing) }
         filtered.results.albums = found.albums.filter {
             (albumRecordings[$0.id] ?? []).contains { passing.contains($0) }
+        }
+        filtered.results.recordings = found.recordings.filter { item in
+            recordingPositions[item.id].map { passing.contains($0) } ?? false
         }
         return filtered
     }

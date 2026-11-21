@@ -2,6 +2,8 @@
 
 Date: 2026-11-07. Decided by Flo after the third specimen round. Beads: sz-rs30.1.83.7, sz-rs30.1.95. The bottom row is replaced by [0029](0029-search-at-the-top.md).
 
+The Search result and sheet rules are refined by [0067](0067-search-results-and-modal-sheets.md).
+
 ## Context
 
 The search of sz-rs30.1.74.5 built conditions from lists of search terms. On the phone, Flo found no way to reach the works that match: the page switched between term lists and results. The bottom stack of mini player, scope chips and field was crowded. Round 3 kept the conditions of ADR 0020 and tried three places for them: a sheet, a panel above the results, and chips with a page per condition.

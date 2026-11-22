@@ -1728,7 +1728,8 @@ final class PlaybackScreens: ScreensTestCase {
         mark.tap()
         XCTAssertEqual(mark.value as? String, "Favourite")
         snap(app, "05j-offline-album")
-        back(app, times: 3)
+        // Album, Classical Albums, Classical Rules and Settings lie between the album and Library.
+        back(app, times: 4)
         app.buttons["library-favourites"].tap()
         let row = app.buttons["favourite-album-row"]
         XCTAssertTrue(row.waitForExistence(timeout: 10))
@@ -2102,7 +2103,11 @@ final class SettingsScreens: ScreensTestCase {
         green.tap()
         XCTAssertTrue(eventually(timeout: 5) { accent.label.contains("Bottle Green") }, accent.label)
         // Another picker on the page takes the new family at once, not only the picker that changed.
-        for _ in 0..<6 where !timelinePicker.isHittable { app.swipeDown() }
+        // The picker must be clear of the top bar, where the soft edge washes out its ink.
+        let bar = app.navigationBars.firstMatch
+        for _ in 0..<6 where !timelinePicker.isHittable || timelinePicker.frame.minY < bar.frame.maxY {
+            app.swipeDown()
+        }
         var picked = pickerInk(timelinePicker, in: app)
         XCTAssertTrue(
             eventually(timeout: 5) {

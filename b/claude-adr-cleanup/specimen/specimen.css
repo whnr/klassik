@@ -143,7 +143,7 @@ input {
   background: var(--color-fill-quiet);
 }
 
-/* The listener puts the timeline on the right or the left edge (player.md). Content keeps clear of it. */
+/* The listener puts the timeline on the right or the left edge (player.html). Content keeps clear of it. */
 /* The content beside the timeline has even margins; the scroll indicator does not count. Without a timeline the
    content keeps that width, centred, so the timeline causes no layout shift. */
 :root {
@@ -402,7 +402,7 @@ input {
 .link {
   color: var(--color-tint);
 }
-/* Links carry colour only (sz-rs30.1.83.19.5). Increase Contrast adds an underline in the link's own colour. */
+/* Links carry colour only. Increase Contrast adds an underline in the link's own colour. */
 :root[data-contrast="high"] :is(.link, .roles a[href]) {
   text-decoration: underline;
   text-decoration-color: currentColor;
@@ -463,13 +463,13 @@ input {
 .row .round {
   margin: -6px 0;
 }
-/* A recording row keeps its cover and its trailing button on the top edge (sz-rs30.1.105.49). */
+/* A recording row keeps its cover and its trailing button on the top edge. */
 .row.top,
 .row.top .trail {
   align-items: flex-start;
 }
 
-/* The fermata (design/marks/README.md): the arc is 0.64 em high and twice as wide, feet on the baseline. */
+/* The fermata (design/marks/fermata.svg): the arc is 0.64 em high and twice as wide, feet on the baseline. */
 .fermata {
   display: inline-block;
   width: 1.036em;
@@ -565,7 +565,7 @@ input::placeholder {
   color: var(--color-tint);
 }
 
-/* Timeline and mini player: drawn by hand (player.md). The timeline shape is in timeline.css. */
+/* Timeline and mini player: drawn by hand (player.html). The timeline shape is in timeline.css. */
 .timeline {
   position: fixed;
   z-index: 40;
@@ -721,7 +721,7 @@ input::placeholder {
   margin-left: var(--space-l);
 }
 
-/* Decided type and spacing (tokens.md): Wittgenstein 500 for page titles and section headings, SF for the rest,
+/* Decided type and spacing (tokens.html): Wittgenstein 500 for page titles and section headings, SF for the rest,
    one 4:3 ratio for sizes and the three spacing roles, lining proportional figures, plain lists on content pages. */
 @font-face {
   font-family: "Wittgenstein";
@@ -799,7 +799,7 @@ h1[class] {
   font-weight: var(--type-body-weight);
 }
 
-/* Role lines (sz-rs30.1.83.16): one line per role, a small-cap label, no separator glyph. */
+/* Role lines: one line per role, a small-cap label, no separator glyph. */
 .roles {
   display: grid;
   gap: var(--space-inGroup);
@@ -885,7 +885,7 @@ h1[class] {
   border-radius: var(--radius-full);
 }
 
-/* Settings and its pages keep inset grouped lists (tokens.md). K.page({ grouped: true }) marks them. */
+/* Settings and its pages keep inset grouped lists (tokens.html). K.page({ grouped: true }) marks them. */
 :root.grouped .app,
 :root.grouped .scroll {
   background: var(--color-background-grouped);
@@ -908,7 +908,7 @@ h1[class] {
 :root.grouped :is(.row, .row-block) + :is(.row, .row-block)::before {
   left: var(--sep-inset, var(--space-l));
 }
-/* A switch is a control, so its on state takes the tint (tokens.md). Its size is system chrome. */
+/* A switch is a control, so its on state takes the tint (tokens.html). Its size is system chrome. */
 .switch {
   appearance: none;
   flex: none;

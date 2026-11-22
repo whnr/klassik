@@ -1,7 +1,7 @@
 {
-  "sha": "a324a101e6afac204cdb3f4ac6883245b4f099d1",
+  "sha": "a9c505d110cbe3ecfdc440953fbcf98cf0375ce0",
   "branch": "claude-adr-cleanup",
   "path": "claude-adr-cleanup",
-  "subject": "It’s a tab not a place",
-  "ts": 1795371014
+  "subject": "Point the token comments at the token sheet",
+  "ts": 1795372196
 }

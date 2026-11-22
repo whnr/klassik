@@ -10,6 +10,12 @@
     <script src="specimen.js?v=51"></script>
   </head>
   <body>
+    <!--
+  - Light is middle paper, never white. Dark is a warm near-black, never black.
+  - The accent marks taps and live state only. Headings stay ink. System chrome stays Apple's.
+  - One ratio, 4:3, sets the type sizes and the gaps.
+  - Content pages use plain lists; Settings and sheets use inset grouped lists.
+-->
     <style>
       .swatches {
         display: grid;
@@ -239,7 +245,7 @@
           const [l1, l2] = [luminance(front), luminance(back)].sort((x, y) => y - x);
           return (l1 + 0.05) / (l2 + 0.05);
         }
-        // Text: AA 4.5, AAA 7, large text (title and headings) 3. Marks: AA 3, and 4.5 for Increase Contrast (map sz-rs30.1.83.19).
+        // Text: AA 4.5, AAA 7, large text (title and headings) 3. Marks: AA 3, and 4.5 for Increase Contrast.
         const verdict = (r, text) =>
           text
             ? r >= 7
@@ -493,7 +499,7 @@
           ),
           section(
             "SWIPE",
-            "The app's default edges (sz-rs30.1.83.19.6). Add to Queue and Favourite sit a step darker. White labels at 4.6:1 or more.",
+            "The app's default edges. Add to Queue and Favourite sit a step darker. White labels at 4.6:1 or more.",
             el(
               "div",
               { class: "list" },

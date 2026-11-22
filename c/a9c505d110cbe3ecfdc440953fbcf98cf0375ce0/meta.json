@@ -1,0 +1,7 @@
+{
+  "sha": "a9c505d110cbe3ecfdc440953fbcf98cf0375ce0",
+  "branch": "claude-adr-cleanup",
+  "path": "claude-adr-cleanup",
+  "subject": "Point the token comments at the token sheet",
+  "ts": 1795372196
+}

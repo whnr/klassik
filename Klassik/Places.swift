@@ -270,21 +270,13 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
         }
     }
 
-    /// After a keyboard a tab label can keep a truncated width: the resting frame is unchanged, so UIKit does not
-    /// measure it again. Only the labels and the views that hold them measure again. A new size of the whole bar
-    /// lets UIKit lay the tabs out for the full screen width, and the Search tab then moves under the mini player.
-    private func remeasureLabels(in view: UIView) {
+    /// Marks the views inside the bar for a new measure. The bar keeps its own size: a new size of the bar marks its
+    /// container for layout, and that layout gives the bar the full screen width.
+    private func invalidateLayout(inside view: UIView) {
         for child in view.subviews {
-            if let label = child as? UILabel {
-                label.invalidateIntrinsicContentSize()
-                var holder: UIView? = label
-                while let current = holder, current !== tabBar {
-                    current.setNeedsLayout()
-                    holder = current.superview
-                }
-            } else {
-                remeasureLabels(in: child)
-            }
+            child.invalidateIntrinsicContentSize()
+            child.setNeedsLayout()
+            invalidateLayout(inside: child)
         }
     }
 
@@ -302,12 +294,19 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
         }
         frame.origin.x = side == .left ? reservedWidth : 0
         frame.size.width = max(0, view.bounds.width - reservedWidth)
-        tabBar.frame = frame
         if remeasuresLabels {
+            // After a keyboard the labels can stay truncated: the resting frame is unchanged, so UIKit does not lay
+            // the items out again. A changed width forces a new layout of each item.
             remeasuresLabels = false
-            remeasureLabels(in: tabBar)
+            invalidateLayout(inside: tabBar)
+            tabBar.frame = frame.insetBy(dx: 1, dy: 0)
             tabBar.layoutIfNeeded()
+            tabBar.frame = frame
+            // The container of the bar can still lay out after this pass and give the bar the full screen width,
+            // which puts the Search tab under the mini player. One more pass puts the bar back beside it.
+            Task { @MainActor [weak self] in self?.view.setNeedsLayout() }
         }
+        tabBar.frame = frame
         playerHost?.view.frame = view.bounds
         let top = view.window?.safeAreaInsets.top ?? view.safeAreaInsets.top
         let bottom = max(0, view.bounds.maxY - tabBar.convert(tabBar.bounds, to: view).minY)

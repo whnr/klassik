@@ -72,10 +72,10 @@ struct SearchTests {
 
     static let beethoven = "Ludwig van Beethoven"
 
-    /// A WORK tag without the nickname that the track title carries, on an album whose title names neither.
+    /// A WORK tag without the name that the track title carries (unquoted, so it is no nickname), on an album whose title names neither.
     static let elise: [Song] = [
         song(
-            "f1", album: "Piano Pieces", title: "Bagatelle No. 25 in A minor \u{201C}Für Elise\u{201D}",
+            "f1", album: "Piano Pieces", title: "Bagatelle No. 25 in A minor, Für Elise",
             composer: beethoven, work: "Bagatelle in A minor, WoO 59", albumArtist: "Pia Nissimo"),
         song(
             "f2", album: "Piano Pieces", track: 2, title: "Elise Waltz", composer: "Ellis Elmer",
@@ -88,7 +88,7 @@ struct SearchTests {
         let results = Search(index: WorkIndex(songs: Self.elise)).results(for: "elise")
         #expect(results.works.map(\.title) == ["Waltz for Elise", "Bagatelle in A minor, WoO 59"])
         let bagatelle = try #require(results.works.last)
-        #expect(results.workTracks[bagatelle.id] == "Bagatelle No. 25 in A minor \u{201C}Für Elise\u{201D}")
+        #expect(results.workTracks[bagatelle.id] == "Bagatelle No. 25 in A minor, Für Elise")
         #expect(results.workTracks[results.works[0].id] == nil, "A title match names a track")
         #expect(results.albums.isEmpty, "A tagged track title finds its album")
     }

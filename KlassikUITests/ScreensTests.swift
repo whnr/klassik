@@ -1111,21 +1111,14 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(eventually(timeout: 12) { position.exists && position.isHittable })
         // The fixture page is short, so its end is the follow target. The top puts the hero above the playing row.
         let rowY = { position.exists ? position.frame.midY : CGFloat.infinity }
-        let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2))
-        let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85))
-        // The drag down starts below the top, so it only scrolls back and bounces; a drag that starts at the top
-        // closes the player, as a system sheet closes.
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
-            .press(
-                forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)),
-                withVelocity: .slow, thenHoldForDuration: 0.5)
-        RunLoop.current.run(until: Date().addingTimeInterval(1))
-        from.press(forDuration: 0.05, thenDragTo: to)
-        XCTAssertFalse(
-            app.buttons["player-handle"].waitForNonExistence(timeout: 2),
-            "A drag that scrolled up to the top closed the player")
+        // Short slow drags at the top touch the rows without the pull that closes the player, as a system sheet
+        // closes.
+        let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3))
+        let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4))
+        for _ in 0..<2 { from.press(forDuration: 0.05, thenDragTo: to, withVelocity: .slow, thenHoldForDuration: 0.2) }
         let still = Date()
-        RunLoop.current.run(until: Date().addingTimeInterval(1))
+        XCTAssertFalse(
+            app.buttons["player-handle"].waitForNonExistence(timeout: 1), "A short drag at the top closed the player")
         let low = rowY()
         XCTAssertTrue(
             eventually(timeout: 15) { rowY() < low - 40 },

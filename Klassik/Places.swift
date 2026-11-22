@@ -160,8 +160,6 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
     private var reportedFrame: CGRect?
     private var restingFrame: CGRect?
     private var keyboardVisible = false
-    /// Set when the keyboard closes. The bar's items then measure their labels again.
-    private var remeasuresItems = false
     private(set) var playerHost: UIHostingController<AnyView>?
     let playerLayout = PlayerOverlayLayout()
 
@@ -189,7 +187,6 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
 
     @objc private func keyboardVisibilityChanged(_ notification: Notification) {
         keyboardVisible = notification.name == UIResponder.keyboardWillShowNotification
-        if !keyboardVisible { remeasuresItems = true }
         view.setNeedsLayout()
     }
 
@@ -270,12 +267,6 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
         }
     }
 
-    private func invalidateLayout(of view: UIView) {
-        view.invalidateIntrinsicContentSize()
-        view.setNeedsLayout()
-        view.subviews.forEach(invalidateLayout(of:))
-    }
-
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         configureBackGesture()
@@ -290,20 +281,6 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
         }
         frame.origin.x = side == .left ? reservedWidth : 0
         frame.size.width = max(0, view.bounds.width - reservedWidth)
-        // UIKit nests the native bar inside a container. The player belongs below that whole container.
-        var chrome: UIView = tabBar
-        while let parent = chrome.superview, parent !== view { chrome = parent }
-        if remeasuresItems {
-            // After a keyboard the items can keep truncated labels: the resting frame is unchanged, so UIKit does
-            // not lay them out again. A changed width forces a new layout of each item before the bar draws.
-            remeasuresItems = false
-            invalidateLayout(of: tabBar)
-            // The new size of the bar marks its container for layout, and that layout gives the bar the full width.
-            // It must run before the bar takes the width beside the mini player, or the Search tab moves under it.
-            chrome.layoutIfNeeded()
-            tabBar.frame = frame.insetBy(dx: 1, dy: 0)
-            tabBar.layoutIfNeeded()
-        }
         tabBar.frame = frame
         playerHost?.view.frame = view.bounds
         let top = view.window?.safeAreaInsets.top ?? view.safeAreaInsets.top
@@ -314,6 +291,9 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
                 layout.bottom = bottom
             }
         }
+        // UIKit nests the native bar inside a container. The player belongs below that whole container.
+        var chrome: UIView = tabBar
+        while let parent = chrome.superview, parent !== view { chrome = parent }
         if chrome.superview === view {
             view.bringSubviewToFront(chrome)
             if let playerHost { view.insertSubview(playerHost.view, belowSubview: chrome) }

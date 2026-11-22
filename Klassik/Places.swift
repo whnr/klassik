@@ -299,7 +299,12 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
         if remeasuresAtFinalFrame {
             // The bar is at its final, narrow frame. Only the items measure again: a new bar frame here would let
             // the container of the bar lay out at the full screen width after this pass.
+            // The width changes by 1 pt and returns: at an unchanged width UIKit keeps the item sizes that it
+            // measured at the full width, and the labels stay truncated.
             remeasuresAtFinalFrame = false
+            invalidateLayout(inside: tabBar)
+            tabBar.frame = frame.insetBy(dx: 1, dy: 0)
+            tabBar.layoutIfNeeded()
             tabBar.frame = frame
             invalidateLayout(inside: tabBar)
             tabBar.layoutIfNeeded()

@@ -72,7 +72,7 @@ struct SearchTests {
 
     static let beethoven = "Ludwig van Beethoven"
 
-    /// A WORK tag without the name that the track title carries (unquoted, so it is no nickname), on an album whose title names neither.
+    /// A WORK tag without the name that the track title carries. The title is unquoted, so it is no nickname.
     static let elise: [Song] = [
         song(
             "f1", album: "Piano Pieces", title: "Bagatelle No. 25 in A minor, Für Elise",

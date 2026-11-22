@@ -317,6 +317,13 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
             }
         } else if settlesFinalFrame {
             settlesFinalFrame = false
+            // A tab that gets its title again measures the label from scratch; a layout pass alone keeps the
+            // width that the label had under the keyboard.
+            for tab in tabs where !(tab is UISearchTab) {
+                let title = tab.title
+                tab.title = ""
+                tab.title = title
+            }
             invalidateLayout(inside: tabBar)
             tabBar.frame = frame
             tabBar.layoutIfNeeded()

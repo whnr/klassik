@@ -1,7 +1,0 @@
-{
-  "sha": "4a36a20b6c66d41de965393b80481125a23bd6fc",
-  "branch": "claude-ci-batch",
-  "path": "claude-ci-batch",
-  "subject": "[sz-rs30.1.111] Sort the test imports",
-  "ts": 1795161230
-}

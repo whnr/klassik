@@ -1,7 +1,0 @@
-{
-  "sha": "7d257422c5fa1912ff1b8e797f6f98abca46af72",
-  "branch": "claude-crash-0143",
-  "path": "claude-crash-0143",
-  "subject": "[sz-rs30.1.117] Set the tab identifier without a cast",
-  "ts": 1795004133
-}

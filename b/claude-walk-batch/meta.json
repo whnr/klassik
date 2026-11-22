@@ -1,7 +1,0 @@
-{
-  "sha": "e0fb2ea034255f632ac38b82201863484f43db4a",
-  "branch": "claude-walk-batch",
-  "path": "claude-walk-batch",
-  "subject": "[sz-tlsv] Make the walk checks run and not flake",
-  "ts": 1795162942
-}

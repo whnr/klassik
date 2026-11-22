@@ -1,7 +1,0 @@
-{
-  "sha": "d9ac68fc1a1bf41241c5b550a8270514f4084800",
-  "branch": "sz-swi9.7-crashlogs",
-  "path": "sz-swi9.7-crashlogs",
-  "subject": "Save full TestFlight crash logs as an artifact",
-  "ts": 1794854067
-}

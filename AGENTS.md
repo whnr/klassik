@@ -41,13 +41,12 @@ Rules for coding agents in this repository.
 - After a UI walk, job `screens-diff` compares each screenshot with the newest usable walk on the same branch, else with the newest green nightly walk on `main`. A walk is usable when its `screens` artifact holds screenshots. A run is never its own baseline. The job runs when screenshots exist. Differences never fail the run. Its job summary gives the baseline and the counts of new, changed, same and missing screens. Download artifact `screens-diff` through the GitHub REST API and read `diff.md`. Look at the `-diff.png` of each new or large screen. Look at a small screen only if the push changed it.
 - A test run keeps the raw xcodebuild log of each test group (`unit.log`, `screens.log`) in artifact `build-report` or `walk-<group>`, and adds the console of the result bundle as `*-console.txt` when the bundle holds one. The job summary counts the lines with a crash or runtime-warning sign. The job summary of `test` gives the time of each phase: project, simulator, build, boot (the wait after the build), test, ui, export.
 - `.github/workflows/testflight.yml` runs by hand. It requires a successful `test.yml` run that covers the commit. `scripts/green_test_gate.py` counts a run as green only when its `build` and `test` jobs passed. It accepts the commit's own green run, or the green run of the PR head that a merge commit adds nothing to, or the newest earlier commit with a green run when every later commit changes only ignored paths (documentation, “What to Test”) and the `MARKETING_VERSION` or `CURRENT_PROJECT_VERSION` lines of `project.yml`. Any other change, also elsewhere in `project.yml`, needs its own green run. A merge adds nothing when it has the tree of its PR head and main had not moved past that head. A run or history that the gate cannot read blocks. It archives without signing, signs at export with the App Store Connect API key, and uploads with `altool`. A daily run uploads again when the newest build is 85 days old, because TestFlight builds expire after 90 days.
-- Write each build's “What to Test” in `docs/what-to-test.md`, with at most 4000 characters.
-- Start with `Klassik X.Y.Z`, matching `MARKETING_VERSION` in `project.yml`.
-- Include only numbered checks that testers perform in the installed app. Give each check an expected result and bead ID.
-- Cover each app change since the last TestFlight build. Keep development instructions and process notes in PR descriptions or documentation.
-- `scripts/testflight_notes.py --check` rejects version mismatches, excess length, and unambiguous development terms.
+- Write each build's “What to Test” in `docs/what-to-test.md`: one bullet per real change, up to about 20 words each, about 100 words in total.
+- Say what the tester sees. Use no bead ids and no development terms. Examples: `docs/agents/release-notes.md`.
+- The owner's tester list is a separate text, in one release PR comment. See Releases and TestFlight.
+- `scripts/testflight_notes.py --check` rejects version mismatches, non-bullet lines, excess words, bead ids, and unambiguous development terms.
 - `.github/workflows/testflight-notes.yml` runs this narrow backstop and its tests on every PR and `main` push.
-- The fresh release review is the semantic gate. It checks that every instruction tests installed-app behavior.
+- The fresh release review is the semantic gate. It checks that every bullet describes installed-app behavior.
 - `testflight.yml` validates notes before its macOS job. `scripts/testflight_notes.py` sets them after upload.
 - `.github/workflows/testflight-feedback.yml` runs by hand. It checks the API key secrets (`scripts/asc_check.py`), then prints TestFlight feedback and crash logs and uploads the feedback screenshots.
 - Versions follow semantic versioning: `MARKETING_VERSION` in `project.yml` is MAJOR.MINOR.PATCH. In a release PR, increase MINOR for a batch with features and PATCH for a batch with only fixes. 1.0.0 is the first App Store release. The build number is the TestFlight run number. The TestFlight workflow tags each uploaded version as `vX.Y.Z`.
@@ -57,12 +56,13 @@ Rules for coding agents in this repository.
 ## Releases and TestFlight
 
 - Fix PRs never change the app version.
-- `Klassik release` means one PR that bumps `MARKETING_VERSION` and adds installed-app checks in “What to Test”.
+- `Klassik release` means one PR that bumps `MARKETING_VERSION` and adds the short “What to Test” text.
 - A fresh review must approve the exact PR head before an agent merges it.
 - Any head change requires a new review. Check the approved SHA against the current head before merging.
 - A patch release PR (x.y.z, z > 0) requests the walk in its head commit with `[ui: <areas>]` for the areas that its fixes changed. A feature release PR walks all groups.
 - The release agent merges the approved release PR. When the release branch is up to date with main, TestFlight accepts the green run of the release PR head and need not wait for Test on the merge commit. Otherwise it waits for successful Test on that commit.
 - The release agent starts TestFlight on the merge commit and watches all jobs, including notes publication.
+- The release PR gets one comment `@whnr` with the tester list: grouped by feature, 1 to 5 checks per feature by complexity, each written as what the owner does against what he expects. Never one check per commit. Known issues get one line each. Examples: `docs/agents/release-notes.md`.
 - Read annotations and logs. Fix failures through another reviewed PR, or report the blocker on the bead.
 - Report the build, run URL, and result on the bead. The owner only installs the build and tests the app.
 

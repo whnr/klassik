@@ -34,9 +34,9 @@ class NotesTests(unittest.TestCase):
         for instruction in cases:
             with self.subTest(instruction=instruction):
                 with self.assertRaisesRegex(ValueError, "Development term"):
-                    validate(f"Klassik 0.10.4\n\n1. {instruction}", "0.10.4")
+                    validate(f"Klassik 0.10.4\n\n- {instruction}", "0.10.4")
                 with self.assertRaisesRegex(ValueError, "Development term"):
-                    validate(f"Klassik 0.10.4\n\n1. {instruction.swapcase()}", "0.10.4")
+                    validate(f"Klassik 0.10.4\n\n- {instruction.swapcase()}", "0.10.4")
 
     def test_installed_app_actions_pass(self):
         cases = (
@@ -52,11 +52,11 @@ class NotesTests(unittest.TestCase):
         )
         for instruction in cases:
             with self.subTest(instruction=instruction):
-                notes = f"Klassik 0.10.4\n\n1. {instruction} (sz-iq9v)"
+                notes = f"Klassik 0.10.4\n\n- {instruction}"
                 self.assertEqual(validate(notes, "0.10.4"), notes)
 
     def test_words_containing_development_terms_pass(self):
-        notes = "Klassik 0.10.4\n\n1. Search for Circle, Branching, and Reposition. Expect matching recordings."
+        notes = "Klassik 0.10.4\n\n- Search for Circle, Branching, and Reposition. Expect matching recordings."
         self.assertEqual(validate(notes, "0.10.4"), notes)
 
     def test_published_app_checks_pass(self):
@@ -67,13 +67,24 @@ class NotesTests(unittest.TestCase):
 
     def test_version_mismatch_fails(self):
         with self.assertRaisesRegex(ValueError, "must start"):
-            validate("Klassik 0.10.3\n\n1. Play. Expect sound.", "0.10.4")
+            validate("Klassik 0.10.3\n\n- Play.", "0.10.4")
 
-    def test_length_limit(self):
-        notes = "Klassik 0.10.4\n".ljust(4000, "a")
-        self.assertEqual(validate(notes, "0.10.4"), notes)
-        with self.assertRaisesRegex(ValueError, "4001 characters"):
-            validate(notes + "a", "0.10.4")
+    def test_length_limits(self):
+        header = "Klassik 0.10.4\n\n"
+        ok = header + "\n".join(["- " + " ".join(["word"] * 20)] * 7)
+        self.assertEqual(validate(ok, "0.10.4"), ok)
+        with self.assertRaisesRegex(ValueError, "26 words"):
+            validate(header + "- " + " ".join(["word"] * 26), "0.10.4")
+        with self.assertRaisesRegex(ValueError, "words; the limit is 150"):
+            validate(header + "\n".join(["- " + " ".join(["word"] * 20)] * 8), "0.10.4")
+
+    def test_format_and_bead_ids_fail(self):
+        with self.assertRaisesRegex(ValueError, "Not a bullet"):
+            validate("Klassik 0.10.4\n\n1. Play. Expect sound.", "0.10.4")
+        with self.assertRaisesRegex(ValueError, "no bullets"):
+            validate("Klassik 0.10.4\n", "0.10.4")
+        with self.assertRaisesRegex(ValueError, "bead id"):
+            validate("Klassik 0.10.4\n\n- Play sound. (sz-rs30.1.125.1)", "0.10.4")
 
     def test_check_needs_no_upload_dependencies(self):
         script = pathlib.Path(__file__).with_name("testflight_notes.py")

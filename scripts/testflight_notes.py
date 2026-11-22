@@ -1,9 +1,10 @@
 """Sets the "What to Test" text of a TestFlight build from docs/what-to-test.md.
 
-Usage: testflight_notes.py --check            validates version, length, and development terms
+Usage: testflight_notes.py --check            validates version, bullet format, length, and development terms
        testflight_notes.py <build-number>     waits for the build, then sets the text
 Env for the second form: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8.
-The file starts with the line "Klassik X.Y.Z". Apple allows 4000 characters.
+The file starts with the line "Klassik X.Y.Z", then one "- " bullet per change.
+See docs/agents/release-notes.md.
 """
 
 import json
@@ -23,14 +24,30 @@ DEVELOPMENT_TERMS = re.compile(
     re.IGNORECASE,
 )
 
+BEAD_ID = re.compile(r"\bsz-[a-z0-9]+(?:\.[0-9]+)*\b", re.IGNORECASE)
+MAX_BULLET_WORDS = 25
+MAX_TOTAL_WORDS = 150
+
 
 def validate(notes, version):
     if not notes.startswith(f"Klassik {version}\n"):
         raise ValueError(
             f"docs/what-to-test.md must start with the line 'Klassik {version}'. Write the notes for this release."
         )
-    if len(notes) > 4000:
-        raise ValueError(f"docs/what-to-test.md has {len(notes)} characters; TestFlight allows 4000.")
+    bullets = [line for line in notes.splitlines()[1:] if line.strip()]
+    if not bullets:
+        raise ValueError("docs/what-to-test.md has no bullets. Write one '- ' bullet per change.")
+    for line in bullets:
+        if not line.startswith("- "):
+            raise ValueError(f"Not a bullet in docs/what-to-test.md: {line[:60]!r}. Use one '- ' line per change.")
+        words = len(line[2:].split())
+        if words > MAX_BULLET_WORDS:
+            raise ValueError(f"A bullet has {words} words; the limit is {MAX_BULLET_WORDS}: {line[:60]!r}.")
+    total = sum(len(line[2:].split()) for line in bullets)
+    if total > MAX_TOTAL_WORDS:
+        raise ValueError(f"docs/what-to-test.md has {total} words; the limit is {MAX_TOTAL_WORDS}.")
+    if BEAD_ID.search(notes):
+        raise ValueError("A bead id in docs/what-to-test.md. Testers see a feature summary only.")
     match = DEVELOPMENT_TERMS.search(notes)
     if match:
         raise ValueError(f"Development term in docs/what-to-test.md: {match.group()}. Use installed-app checks only.")

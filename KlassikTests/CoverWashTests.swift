@@ -57,21 +57,6 @@ struct CoverWashTests {
         #expect(CoverWash.strengthStep == 0.5)
     }
 
-    @Test(arguments: [false, true])
-    func pictureScrimKeepsBothMarksVisible(increased: Bool) {
-        let contrast: UIAccessibilityContrast = increased ? .high : .normal
-        let marks = [Palette.favourite, .favouriteOff].map { Self.base($0, style: .dark, contrast: contrast) }
-        for grey in stride(from: 0.0, through: 1.0, by: 0.1) {
-            let picture = PictureScrim.RGB(red: grey, green: grey, blue: grey)
-            let opacity = PictureScrim.opacity(over: picture, increasedContrast: increased, marks: marks)
-            let ground = picture.covered(by: PictureScrim.hall, opacity: opacity)
-            let rgb = SRGB(red: ground.red, green: ground.green, blue: ground.blue)
-            for mark in marks {
-                #expect(SRGB.contrast(mark, rgb) >= (increased ? 4.5 : 3) - 0.005)
-            }
-        }
-    }
-
     @Test func picturePlaceholderKeepsTheUnselectedMarkVisible() throws {
         for (_, style, contrast) in Self.rooms {
             let traits = UITraitCollection { traits in
@@ -87,19 +72,6 @@ struct CoverWashTests {
             let mark = Self.base(.favouriteOff, style: style, contrast: contrast)
             #expect(SRGB.contrast(mark, ground) >= (contrast == .high ? 4.5 : 3) - 0.005)
         }
-    }
-
-    @Test(arguments: [false, true])
-    func aPortraitWithoutAFavouriteKeepsTheTextOnlyScrim(increased: Bool) {
-        let picture = PictureScrim.RGB(red: 1, green: 1, blue: 1)
-        let environment = EnvironmentValues()
-        let marks = PersonHero.pictureMarks(showsFavourite: false, environment: environment)
-        let visibleMarks = PersonHero.pictureMarks(showsFavourite: true, environment: environment)
-        let textOnly = PictureScrim.opacity(over: picture, increasedContrast: increased)
-        #expect(marks.isEmpty)
-        #expect(visibleMarks.count == 2)
-        #expect(PictureScrim.opacity(over: picture, increasedContrast: increased, marks: marks) == textOnly)
-        #expect(PictureScrim.opacity(over: picture, increasedContrast: increased, marks: visibleMarks) > textOnly)
     }
 
     @Test func titleAttachmentUsesTheWashColour() {

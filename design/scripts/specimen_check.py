@@ -34,6 +34,7 @@ PAGES = (
     "person.html?name=Karl%20B%C3%B6hm",
     "tokens.html",
     "settings.html",
+    "rules.html",
     "lookup.html",
     "lookup.html?state=running",
     "lookup.html?state=slowDown",

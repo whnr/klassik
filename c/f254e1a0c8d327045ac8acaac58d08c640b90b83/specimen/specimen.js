@@ -922,24 +922,20 @@ const K = (() => {
     params.set("place", tab);
     const app = el("div", { class: "app" + (plain ? " plain" : "") });
     const backLabel = embedded ? null : params.get("back") || back?.label;
-    // ADR 0070 shows the destination name beside the chevron.
+    // ADR 0038 keeps the destination name in the accessibility label.
     const nav = el(
       "header",
       { class: "nav" },
       backLabel
-        ? el(
-            "button",
-            {
-              class: "back",
-              onclick: () => {
-                if (history.length > 1 && document.referrer) history.back();
-                else location.href = href(back ? back.href : "index.html");
-              },
-              "aria-label": backLabel,
-              html: ICON.back,
+        ? el("button", {
+            class: "back",
+            onclick: () => {
+              if (history.length > 1 && document.referrer) history.back();
+              else location.href = href(back ? back.href : "index.html");
             },
-            el("span", {}, backLabel),
-          )
+            "aria-label": backLabel,
+            html: ICON.back,
+          })
         : el("span"),
       el(
         "div",

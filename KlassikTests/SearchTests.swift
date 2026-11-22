@@ -70,14 +70,45 @@ struct SearchTests {
         #expect(both.performers.isEmpty)
     }
 
-    @Test func recordingsMatchWorkPerformerAlbumAndTrackTitle() {
-        let byWork = Self.search.results(for: "symphony e minor").recordings
-        #expect(Set(byWork.flatMap { $0.recording.songs.map(\.id) }) == ["d9", "d9b"])
-        #expect(Self.search.results(for: "talich").recordings.map { $0.recording.album } == ["New World"])
-        let byAlbum = Self.search.results(for: "new world").recordings
-        #expect(byAlbum.count == 1)
-        #expect(byAlbum.first?.work.title == "Symphony No. 9 in E minor, Op. 95")
-        #expect(Self.search.results(for: "humoresque").recordings.flatMap { $0.recording.songs.map(\.id) } == ["e1"])
+    static let beethoven = "Ludwig van Beethoven"
+
+    /// A WORK tag without the name that the track title carries. The title is unquoted, so it is no nickname.
+    static let elise: [Song] = [
+        song(
+            "f1", album: "Piano Pieces", title: "Bagatelle No. 25 in A minor, Für Elise",
+            composer: beethoven, work: "Bagatelle in A minor, WoO 59", albumArtist: "Pia Nissimo"),
+        song(
+            "f2", album: "Piano Pieces", track: 2, title: "Elise Waltz", composer: "Ellis Elmer",
+            work: "Waltz for Elise", albumArtist: "Pia Nissimo"),
+    ]
+
+    /// A track title finds its work under Works, and the result names that track. The album of a tagged track is
+    /// no result, and no recording shows apart from its work (ADR 0067).
+    @Test func aTrackTitleFindsItsWorkAndSaysWhich() throws {
+        let results = Search(index: WorkIndex(songs: Self.elise)).results(for: "elise")
+        #expect(results.works.map(\.title) == ["Waltz for Elise", "Bagatelle in A minor, WoO 59"])
+        let bagatelle = try #require(results.works.last)
+        #expect(results.workTracks[bagatelle.id] == "Bagatelle No. 25 in A minor, Für Elise")
+        #expect(results.workTracks[results.works[0].id] == nil, "A title match names a track")
+        #expect(results.albums.isEmpty, "A tagged track title finds its album")
+    }
+
+    /// Every word must match the work or one of its track titles.
+    @Test func aTrackTitleMatchNeedsEveryWord() {
+        let search = Search(index: WorkIndex(songs: Self.elise))
+        #expect(search.results(for: "beethoven elise").works.map(\.title) == ["Bagatelle in A minor, WoO 59"])
+        #expect(search.results(for: "elise waltz").works.map(\.title) == ["Waltz for Elise"])
+        #expect(search.results(for: "beethoven waltz").isEmpty)
+    }
+
+    /// The conditions keep the track that found a work.
+    @Test func conditionsKeepTheTrackThatFoundAWork() {
+        let index = WorkIndex(songs: Self.elise)
+        let found = Search(index: index).results(for: "elise")
+        let narrowed = SearchFilters(index: index).narrow(
+            found, by: [Search.Condition(terms: [Search.Term(scope: .composers, name: Self.beethoven)])])
+        #expect(narrowed.results.works.map(\.title) == ["Bagatelle in A minor, WoO 59"])
+        #expect(narrowed.results.workTracks == found.workTracks)
     }
 
     @Test func foldsCaseAndDiacritics() {
@@ -146,14 +177,23 @@ struct SearchTests {
         ])
         let found = Search(index: index).results(for: "eroica").works
         #expect(found.map(\.title) == [work])
+        #expect(Search(index: index).results(for: "eroica").workTracks.isEmpty)
         #expect(try #require(found.first).nicknames == ["Eroica"])
     }
 
-    @Test func albumsMatchOnNameArtistAndTrackTitles() {
+    @Test func albumsMatchOnNameArtistAndUntaggedTrackTitles() {
         #expect(Self.search.results(for: "encores").albums.map(\.title) == ["Encores for Søren"])
         #expect(Self.search.results(for: "strand").albums.map(\.title) == ["Encores for Søren"])
-        #expect(Self.search.results(for: "liebesleid").albums.map(\.title) == ["Encores for Søren"])
-        #expect(Self.search.results(for: "liebesleid").works.isEmpty)
+        let liebesleid = Self.search.results(for: "liebesleid")
+        #expect(liebesleid.albums.map(\.title) == ["Encores for Søren"])
+        #expect(liebesleid.works.isEmpty)
+        #expect(liebesleid.albumTracks.values.sorted() == ["Liebesleid"])
+        #expect(Self.search.results(for: "encores").albumTracks.isEmpty)
+        // A track with a WORK tag finds its work, not its album.
+        let track = Self.search.results(for: "track")
+        #expect(track.albums.isEmpty)
+        #expect(track.works.count == 5)
+        #expect(Set(track.workTracks.values) == ["Track 1", "Track 2"])
     }
 
     /// An album without WORK tags is an album, not a work.

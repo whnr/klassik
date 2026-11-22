@@ -271,6 +271,7 @@ final class PlacesScreens: ScreensTestCase {
                     if labelShare < 0.02 { break }
                     Thread.sleep(forTimeInterval: 0.5)
                 }
+                if labelShare >= 0.02 { snap(app, "02r-tab-label-failed") }
                 XCTAssertLessThan(labelShare, 0.02, "\(step): the \(name) label is truncated or changed")
             }
         }

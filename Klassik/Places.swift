@@ -317,7 +317,9 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
             }
         } else if settlesFinalFrame {
             settlesFinalFrame = false
+            invalidateLayout(inside: tabBar)
             tabBar.frame = frame
+            tabBar.layoutIfNeeded()
         } else if remeasuresLabels {
             // After a keyboard the labels can stay truncated: the resting frame is unchanged, so UIKit does not lay
             // the items out again. A changed width forces a new layout of each item.

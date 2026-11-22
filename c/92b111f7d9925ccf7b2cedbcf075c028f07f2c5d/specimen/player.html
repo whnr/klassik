@@ -826,6 +826,8 @@
                         href: href("work.html", { work: r.workRef.id, back: item.title }),
                       },
                       el("span", { class: "link" }, r.work),
+                      // One disclosure marks the work link, on the page and in the overlay (sz-rs30.1.117.6).
+                      el("span", { html: ICON.chevron }),
                     )
                   : null,
                 list,

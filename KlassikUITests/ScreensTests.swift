@@ -605,10 +605,12 @@ final class BrowseScreens: ScreensTestCase {
         let whole = app.descendants(matching: .any)["whole-picture"]
         XCTAssertTrue(whole.waitForExistence(timeout: 10))
         // The credit ends in the File page link, as in the specimen sheet (person.html).
-        let credit = app.links["whole-picture-file-page"]
-        XCTAssertTrue(credit.exists, "The whole picture credit has no File page link")
+        // Only those words are the link; the author and licence are plain text.
+        let credit = app.staticTexts["whole-picture-credit"]
+        XCTAssertTrue(credit.exists, "The whole picture shows no credit")
         XCTAssertTrue(credit.label.contains("Public domain"), credit.label)
         XCTAssertTrue(credit.label.hasSuffix("File page"), credit.label)
+        XCTAssertTrue(app.links["File page"].exists, "The whole picture credit has no File page link")
         let close = app.buttons["whole-picture-close"]
         XCTAssertTrue(close.exists, "The whole picture shows no close button")
         XCTAssertLessThan(close.frame.maxY, app.frame.height / 4, "The close button is not at the top")
@@ -1556,6 +1558,35 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(
             app.navigationBars["Wolfgang Amadeus Mozart"].waitForExistence(timeout: 10),
             "The composer link opens no page")
+    }
+
+    /// A name in the playing row of the overlay is a link too. It closes the player and opens the page in the place
+    /// below, as a header link does (specimen player.html `performerRows`).
+    @MainActor
+    func testPlayingRowNamesLinkFromTheOverlay() throws {
+        let app = try launchAndConnect()
+        openSettings(app, technical: true)
+        reveal(app.buttons["classical-albums"], in: app).tap()
+        let encores = app.buttons.matching(identifier: "album")
+            .matching(NSPredicate(format: "label CONTAINS 'Romantic Encores'")).firstMatch
+        XCTAssertTrue(reveal(encores, in: app).isHittable)
+        encores.tap()
+        XCTAssertTrue(app.buttons["play-recording"].waitForExistence(timeout: 10))
+        startPlaying(app)
+        openPlayer(app)
+        // The first track is Brahms; Next plays the Mozart Andante, whose soloist differs from the header.
+        let next = app.buttons["Next"].firstMatch
+        XCTAssertTrue(next.waitForExistence(timeout: 30), "No Next button")
+        next.tap()
+        pause(app)
+        let overlay = app.descendants(matching: .any)["player-overlay"].firstMatch
+        let soloist = overlay.links["Daniel Keys"].firstMatch
+        XCTAssertTrue(reveal(soloist, in: app).exists, "The soloist in the playing row is no link")
+        snap(app, "05l-playing-row-links")
+        soloist.tap()
+        expectPlayerClosed(app)
+        XCTAssertTrue(
+            app.navigationBars["Daniel Keys"].waitForExistence(timeout: 10), "The playing row link opens no page")
     }
 
     @MainActor

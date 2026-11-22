@@ -610,18 +610,18 @@ private struct PictureCredit: View {
     let credit: PersonCredit
 
     var body: some View {
-        if let url = PersonFactsService.trusted(credit.url) {
-            Link(destination: url) {
-                words(Text("\(credit.source(linked: true)). \(fileLink)"))
-            }
-            .accessibilityIdentifier("whole-picture-file-page")
-        } else {
-            words(Text(credit.text))
-        }
+        words(text)
+            .accessibilityIdentifier("whole-picture-credit")
     }
 
-    private var fileLink: Text {
-        Text("File page").foregroundStyle(Palette.tint.color).underline(contrast == .increased)
+    /// Only the words "File page" are the link, as in the specimen; the author and licence are plain text.
+    private var text: Text {
+        guard let url = PersonFactsService.trusted(credit.url) else { return Text(credit.text) }
+        var file = AttributedString("File page")
+        file.link = url
+        file.foregroundColor = Palette.tint.color
+        if contrast == .increased { file.underlineStyle = Text.LineStyle.single }
+        return Text("\(credit.source(linked: true)). ") + Text(file)
     }
 
     private func words(_ text: Text) -> some View {

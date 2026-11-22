@@ -51,7 +51,7 @@ struct ClassicalRulesView: View {
     }
 
     /// A result row value: "412 of 550 on server".
-    static func share(_ part: Int, of whole: Int) -> String {
+    nonisolated static func share(_ part: Int, of whole: Int) -> String {
         "\(part.formatted()) of \(whole.formatted()) on server"
     }
 }

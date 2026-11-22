@@ -2,10 +2,14 @@ import SwiftUI
 
 /// Settings, in groups (ADR 0040), in the order Flo set: Playback, Library, Colour, Advanced settings.
 struct SettingsView: View {
+    /// The Technical Details switch. It stays off until the listener wants MusicBrainz and Diagnostics.
+    static let technicalDetailsKey = "settings.technicalDetails"
+
     @Environment(AppModel.self) private var model
     @AppStorage(TimelineSide.storageKey) private var timelineSide = TimelineSide.standard
     @AppStorage(ComposerWorks.separatesPartialKey) private var separatesPartial = true
     @AppStorage(CoverWash.strengthKey) private var tintStrength = CoverWash.defaultStrength
+    @AppStorage(Self.technicalDetailsKey) private var showsTechnicalDetails = false
     @State private var deleteError: String?
 
     private var tintLabel: String { "\(tintStrength.formatted())×" }
@@ -89,32 +93,38 @@ struct SettingsView: View {
             }
 
             Section {
-                if !model.library.index.composers.isEmpty {
-                    NavigationLink(value: Page.musicBrainz) {
+                Toggle("Technical Details", isOn: $showsTechnicalDetails)
+                    .accessibilityIdentifier("technical-details")
+                if showsTechnicalDetails {
+                    if !model.library.index.composers.isEmpty {
+                        NavigationLink(value: Page.musicBrainz) {
+                            LabeledContent {
+                                Text(lookupState)
+                                    .foregroundStyle(Palette.textSecondary)
+                            } label: {
+                                InkLabel("MusicBrainz", systemImage: "books.vertical")
+                            }
+                        }
+                        .accessibilityIdentifier("musicbrainz")
+                    }
+                    NavigationLink(value: Page.diagnostics) {
                         LabeledContent {
-                            Text(lookupState)
+                            Text(waitingChanges)
                                 .foregroundStyle(Palette.textSecondary)
                         } label: {
-                            InkLabel("MusicBrainz", systemImage: "books.vertical")
+                            InkLabel("Diagnostics", systemImage: "stethoscope")
                         }
                     }
-                    .accessibilityIdentifier("musicbrainz")
+                    .accessibilityIdentifier("diagnostics")
                 }
-                NavigationLink(value: Page.diagnostics) {
-                    LabeledContent {
-                        Text(waitingChanges)
-                            .foregroundStyle(Palette.textSecondary)
-                    } label: {
-                        InkLabel("Diagnostics", systemImage: "stethoscope")
-                    }
-                }
-                .accessibilityIdentifier("diagnostics")
                 NavigationLink(value: Page.licences) {
                     InkLabel("Licences", systemImage: "doc.text")
                 }
                 .accessibilityIdentifier("licences")
             } header: {
                 SectionHeading("Advanced settings")
+            } footer: {
+                Text("Shows the lookups and diagnostics with the changes that wait.")
             }
         }
         .pageTitle("Settings")

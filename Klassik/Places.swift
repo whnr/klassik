@@ -160,6 +160,8 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
     private var reportedFrame: CGRect?
     private var restingFrame: CGRect?
     private var keyboardVisible = false
+    /// Set when the keyboard closes. The tab labels then measure their text again.
+    private var remeasuresLabels = false
     private(set) var playerHost: UIHostingController<AnyView>?
     let playerLayout = PlayerOverlayLayout()
 
@@ -187,6 +189,7 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
 
     @objc private func keyboardVisibilityChanged(_ notification: Notification) {
         keyboardVisible = notification.name == UIResponder.keyboardWillShowNotification
+        if !keyboardVisible { remeasuresLabels = true }
         view.setNeedsLayout()
     }
 
@@ -267,6 +270,24 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
         }
     }
 
+    /// After a keyboard a tab label can keep a truncated width: the resting frame is unchanged, so UIKit does not
+    /// measure it again. Only the labels and the views that hold them measure again. A new size of the whole bar
+    /// lets UIKit lay the tabs out for the full screen width, and the Search tab then moves under the mini player.
+    private func remeasureLabels(in view: UIView) {
+        for child in view.subviews {
+            if let label = child as? UILabel {
+                label.invalidateIntrinsicContentSize()
+                var holder: UIView? = label
+                while let current = holder, current !== tabBar {
+                    current.setNeedsLayout()
+                    holder = current.superview
+                }
+            } else {
+                remeasureLabels(in: child)
+            }
+        }
+    }
+
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         configureBackGesture()
@@ -282,6 +303,11 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
         frame.origin.x = side == .left ? reservedWidth : 0
         frame.size.width = max(0, view.bounds.width - reservedWidth)
         tabBar.frame = frame
+        if remeasuresLabels {
+            remeasuresLabels = false
+            remeasureLabels(in: tabBar)
+            tabBar.layoutIfNeeded()
+        }
         playerHost?.view.frame = view.bounds
         let top = view.window?.safeAreaInsets.top ?? view.safeAreaInsets.top
         let bottom = max(0, view.bounds.maxY - tabBar.convert(tabBar.bounds, to: view).minY)

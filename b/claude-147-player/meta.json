@@ -1,7 +1,7 @@
 {
-  "sha": "dd39005fc92b5d94508d14533b56037f7fb9f6aa",
+  "sha": "2707e029828df188f2c611d463c3e1d881086f11",
   "branch": "claude-147-player",
   "path": "claude-147-player",
-  "subject": "[sz-rs30.1.147.7] Find works by the nicknames in titles",
-  "ts": 1795321576
+  "subject": "[sz-rs30.1.147.9] Reuse the settle helper in cover tests",
+  "ts": 1795321775
 }

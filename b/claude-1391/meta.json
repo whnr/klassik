@@ -1,7 +1,7 @@
 {
-  "sha": "b254e85512549bb9435b5086463a8a968d0880d5",
+  "sha": "89d5a5c07ff9fd97123d3e92051cc09e9208add6",
   "branch": "claude-1391",
   "path": "claude-1391",
-  "subject": "[sz-rs30.1.139.1] Reorder favourites by long press and drag",
-  "ts": 1795374546
+  "subject": "Fix extension access level for lint",
+  "ts": 1795374803
 }

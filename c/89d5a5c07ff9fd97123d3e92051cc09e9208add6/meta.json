@@ -1,0 +1,7 @@
+{
+  "sha": "89d5a5c07ff9fd97123d3e92051cc09e9208add6",
+  "branch": "claude-1391",
+  "path": "claude-1391",
+  "subject": "Fix extension access level for lint",
+  "ts": 1795374803
+}

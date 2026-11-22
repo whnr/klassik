@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Checks the decided design: the contrast targets in every accent and room, and the links between ADRs.
 
-The colour rules are in design/specimen/tokens.md.
+The colour rules are in design/specimen/tokens.html.
 
 A record that replaces part of another must be answered: the old record links back, and its index row names it.
 
@@ -48,7 +48,7 @@ def colours(group, path=()):
 
 
 def pairs(room):
-    """The pairs that design/specimen/tokens.md promises, as (foreground, background, target)."""
+    """The pairs that design/specimen/tokens.html promises, as (foreground, background, target)."""
     if room.endswith("HighContrast"):
         # Increase Contrast: AAA for text, 4.5:1 for marks, on every ground.
         text, mark, label = 7, 4.5, 7

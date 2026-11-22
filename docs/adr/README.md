@@ -13,7 +13,7 @@ Write a record only when the decision meets all three conditions:
 Everything else goes elsewhere:
 
 - Terms go to [`CONTEXT.md`](../../CONTEXT.md).
-- Layout, visual and interaction rules go to the design notes beside the specimen page that they describe, such as [`design/specimen/player.md`](../../design/specimen/player.md).
+- Layout, visual and interaction rules are the specimen pages. A rule that a page cannot show is a short comment in that page's HTML, such as [`design/specimen/player.html`](../../design/specimen/player.html).
 - The reason for a code choice goes into a short comment at that code.
 - Everything else goes into the commit message or the bead.
 

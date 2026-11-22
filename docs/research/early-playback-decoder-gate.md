@@ -112,7 +112,7 @@ The node keeps at least two channels, so a mono opener never downmixes the stere
 A converted track keeps its resampler for the next track of the same source format, when that track plays from its start.
 So a continuous join interpolates between real samples. Another source format first ends the carried track.
 
-A server or network failure pauses playback and shows the one quiet server status of [the Library page](../../design/specimen/index.md#library); device failures keep their text.
+A server or network failure pauses playback and shows the one quiet server status of [the Library page](../../design/specimen/index.html); device failures keep their text.
 The slow-connection line needs bytes within the last second. A server that stops sending never shows it.
 A wait for bytes times out only after 30 s without any arriving byte.
 A read past the arrived bytes streams one 512 KiB range after another, at most one ahead of the reader.

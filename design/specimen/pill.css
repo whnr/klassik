@@ -1,4 +1,4 @@
-/* The mini player of player.md. The pill grows out of the timeline: a flat face on the timeline's side. */
+/* The mini player of player.html. The pill grows out of the timeline: a flat face on the timeline's side. */
 .edge-pill {
   position: fixed;
   z-index: 41;
@@ -9,7 +9,7 @@
   padding: var(--space-xs);
   border-radius: 28px 0 12px 28px;
   padding-right: calc(var(--size-timeline) + var(--space-xs));
-  /* The timeline ends at the top of the pill and does not run down its face (player.md). */
+  /* The timeline ends at the top of the pill and does not run down its face (player.html). */
   box-shadow:
     0 0 0 0.5px var(--color-separator),
     0 4px 18px rgb(0 0 0 / 0.12);

@@ -4,7 +4,7 @@
 
 ## Answer
 
-Wikidata finds the right conductor, soloist, singer or ensemble from a name alone. It gives a description, dates and, in most cases, a picture. The person page rules of [design/specimen/person.md](../../../design/specimen/person.md) hold, with four risks (section "Risks for the person page").
+Wikidata finds the right conductor, soloist, singer or ensemble from a name alone. It gives a description, dates and, in most cases, a picture. The person page rules of [design/specimen/person.html](../../../design/specimen/person.html) hold, with four risks (section "Risks for the person page").
 
 - Match: full-text search with `haswbstatement:P434` (the item has a MusicBrainz artist ID). First hit right for 94 of 94 tag variants: 58 of persons, 36 of ensembles. No wrong first hit.
 - Dates: persons have P569 in 52 of 52. Ensembles have P571 (inception) in 33 of 33, and P576 (dissolved) in 2.

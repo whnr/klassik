@@ -8,7 +8,7 @@
 Usage: uv run --with playwright==1.64.1 design/scripts/specimen_check.py
 (once: uv run --with playwright==1.64.1 playwright install chromium)
 It also fails when a page draws nothing, the timeline is missing or a tapped movement row does not open.
-It checks the player overlay of design/specimen/player.md: its three poses, the tab bar and the pill above it,
+It checks the player overlay of design/specimen/player.html: its three poses, the tab bar and the pill above it,
 a tap on the cover that opens it, and a tap on another tab that closes it.
 It cannot judge looks or Safari.
 """
@@ -225,7 +225,7 @@ def main():
                         failures.append(f"{where}: the tab bar or the play button is hidden by the overlay")
                 elif page_path in ("index.html", "work.html") and page.locator(".edge-pill .cover-link").count():
                     check_overlay(page, where, failures)
-                # A movement row that holds something opens in place on a tap (design/specimen/player.md).
+                # A movement row that holds something opens in place on a tap (design/specimen/player.html).
                 rows = page.locator(".row-block.track button.row")
                 if rows.count():
                     rows.first.tap()

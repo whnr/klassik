@@ -11,8 +11,9 @@
   </head>
   <body>
     <!--
-  Search round 9, Flo's verdict on round 8: the field and Filters at the top, a back arrow,
-  recent searches on the empty page, no suggestions. The x in the field clears the text; the x pill beside Filters clears the text and the conditions. The filters open in the sheet of search.md.
+  - Composers, performers, works, then albums. A recording shows only inside its work.
+  - Matching folds case and diacritics. No catalogue prefixes, no aliases, no suggestions.
+  - Recent searches stay on the device.
 -->
     <style>
       .specimen-bar {
@@ -191,7 +192,7 @@
         color: var(--color-text-secondary);
       }
 
-      /* The native sheet dims its page and keeps focus inside (search.md). */
+      /* The native sheet dims its page and keeps focus inside (search.html). */
       .fsheet {
         position: fixed;
         z-index: 61;
@@ -359,7 +360,7 @@
         });
         const allTerms = new Map();
         for (const { terms } of recs) for (const t of terms) allTerms.set(t, (allTerms.get(t) || 0) + 1);
-        // A genre that every recording carries filters nothing, so the picker hides it (as on the composer page, person.md).
+        // A genre that every recording carries filters nothing, so the picker hides it (as on the composer page, person.html).
         // Weak tags leave some recordings without a genre, so the test counts only the recordings that carry one.
         const withGenre = recs.filter((x) => x.r.genres.length).length;
         for (const [t, n] of allTerms) if (t.startsWith("genre:") && n === withGenre) allTerms.delete(t);

@@ -10,6 +10,14 @@
     <script src="specimen.js?v=51"></script>
   </head>
   <body>
+    <!--
+  - A queue item is one recording of a work, or one album. Two items never join without a gap. No Shuffle before 1.0.
+  - The player is an overlay above every tab, never a page on a stack.
+  - No rule shortens a title or a name. A row opens only when it holds something.
+  - A tapped row does not move. The view scrolls back to the playing row only after a quiet spell.
+  - A note is written in the playing row, never in a modal.
+  - The timeline shows the whole work or album and never opens the player.
+-->
     <style>
       .wash {
         position: absolute;
@@ -190,7 +198,7 @@
         width: 30px;
         height: 30px;
       }
-      /* Player rows (player.md): a faint play button at the end of every row; a row opens only with what differs. */
+      /* Player rows (player.html): a faint play button at the end of every row; a row opens only with what differs. */
       .round.faint {
         background: var(--color-fill-quiet);
         color: var(--color-text-secondary);
@@ -307,7 +315,7 @@
         let item =
           pageItem() || K.resolveItem(["recording", "640qawSbxRzx7BX6z3M2wM", "Symphony No. 5 in C minor, Op. 67"]);
         const playingHere = () => K.current() && K.current().id === item.id;
-        // Only the overlay is the player (player.md); the same page outside it is the recording or album page.
+        // Only the overlay is the player (player.html); the same page outside it is the recording or album page.
         const asPlayer = () => K.embedded && playingHere();
 
         const { app, scroll } = K.page({
@@ -516,7 +524,7 @@
           return block;
         }
 
-        // player.md: only the performers that differ from the whole page, one line per role. Never cut.
+        // player.html: only the performers that differ from the whole page, one line per role. Never cut.
         function performerRows(s) {
           const sharedNames = new Set(shared().map((p) => p.name));
           const sharedComposerNames = new Set(sharedComposers());

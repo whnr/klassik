@@ -335,7 +335,7 @@ private struct RecentList: View {
     }
 }
 
-/// Composers, performers, works, then albums, each in its own section (ADR 0071). A recording shows only inside its
+/// Composers, performers, works, then albums, each in its own section (ADR 0067). A recording shows only inside its
 /// work, so Albums holds only albums.
 private struct SearchResults: View {
     @Environment(AppModel.self) private var model

@@ -506,7 +506,7 @@ final class BrowseScreens: ScreensTestCase {
 
     /// Search shows its results in typed sections: Composers, Performers, Works, then Albums. Albums holds only
     /// albums, and a recording shows only inside its work. A track title finds its work and the row names that
-    /// track (ADR 0067, 0071).
+    /// track (ADR 0067).
     @MainActor
     func testSearchSections() throws {
         let app = try launchAndConnect(openComposers: false)

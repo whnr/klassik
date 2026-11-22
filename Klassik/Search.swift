@@ -37,7 +37,7 @@ struct Search: Sendable {
         }
     }
 
-    /// The results of the text, by kind: composers, performers, works, then albums (ADR 0067, 0071). A recording shows
+    /// The results of the text, by kind: composers, performers, works, then albums (ADR 0067). A recording shows
     /// only inside its work.
     struct Results: Sendable {
         var works: [WorkIndex.Work] = []

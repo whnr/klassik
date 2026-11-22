@@ -2,7 +2,7 @@
 
 Date: 2026-11-21. Beads: sz-rs30.1.135.1, sz-rs30.1.135.3, sz-rs30.1.135.5, sz-rs30.1.135.6, sz-rs30.1.135.7.
 Replaces the result order of [0025](0025-search-field-and-filter-sheet.md) and the taps on the results above its sheet.
-The recordings under Albums are replaced by [0071](0071-search-sections-and-track-matches.md).
+Flo's decision of 2026-11-21 replaces the agent choice on recordings: a recording shows only inside its work, and Search has no recordings section.
 
 ## Context
 

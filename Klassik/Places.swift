@@ -164,6 +164,7 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
     private var remeasuresLabels = false
     /// The pass after the first remeasure: the bar has its final, narrow frame then, and the labels must fit it.
     private var remeasuresAtFinalFrame = false
+    private var settlesFinalFrame = false
     private(set) var playerHost: UIHostingController<AnyView>?
     let playerLayout = PlayerOverlayLayout()
 
@@ -308,6 +309,15 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
             tabBar.frame = frame
             invalidateLayout(inside: tabBar)
             tabBar.layoutIfNeeded()
+            // The container lays the bar out at the full width after this width change. One more pass puts the
+            // bar back beside the mini player without a new width change.
+            Task { @MainActor [weak self] in
+                self?.settlesFinalFrame = true
+                self?.view.setNeedsLayout()
+            }
+        } else if settlesFinalFrame {
+            settlesFinalFrame = false
+            tabBar.frame = frame
         } else if remeasuresLabels {
             // After a keyboard the labels can stay truncated: the resting frame is unchanged, so UIKit does not lay
             // the items out again. A changed width forces a new layout of each item.

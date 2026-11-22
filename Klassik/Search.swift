@@ -64,8 +64,9 @@ struct Search: Sendable {
 
     private struct WorkEntry: Sendable {
         var work: WorkIndex.Work
-        /// The words of the title, the composer and the set.
+        /// The words of the title, the nicknames, the composer and the set.
         var words: [String]
+        /// The words of the title and the nicknames: a nickname names the work as its title does.
         var titleWords: [String]
         var title: String
     }
@@ -81,10 +82,11 @@ struct Search: Sendable {
         // An untagged work stands for an album. The Albums section holds it.
         works = index.composers.flatMap(\.works).filter(\.isTagged).map { work in
             let composer = work.composer == Song.unknownComposer ? "" : work.composer
+            let names = ([work.title] + work.nicknames).joined(separator: " ")
             return WorkEntry(
                 work: work,
-                words: Self.words(of: [work.title, composer, work.grouping ?? ""].joined(separator: " ")),
-                titleWords: Self.words(of: work.title), title: Self.fold(work.title))
+                words: Self.words(of: [names, composer, work.grouping ?? ""].joined(separator: " ")),
+                titleWords: Self.words(of: names), title: Self.fold(work.title))
         }
 
         // The composer role sorts before every role kind when two counts are equal.

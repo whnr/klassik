@@ -6,7 +6,6 @@ enum Page: Hashable {
     case settings
     case composers
     case favourites
-    case performers
     case composer(String)
     case work(String)
     case recording(work: String, recording: String)
@@ -77,7 +76,6 @@ extension Page {
         case .settings: return "Settings"
         case .composers: return "Composers"
         case .favourites: return "Favourites"
-        case .performers: return "Performers"
         case .composer(let name): return name
         case .work(let id): return index.work(id)?.title ?? "Work"
         case .recording(let work, let recording):
@@ -200,8 +198,6 @@ struct PageView: View {
             ComposersView()
         case .favourites:
             FavouritesView()
-        case .performers:
-            PerformersView()
         case .composer(let name):
             if let composer = index.composer(named: name) { ComposerPage(composer: composer) } else { Gone() }
         case .work(let id):
@@ -257,5 +253,38 @@ struct PageView: View {
 private struct Gone: View {
     var body: some View {
         ContentUnavailableView("Page Not Found", systemImage: "questionmark.folder")
+    }
+}
+
+/// A page as the URL of a link inside text, such as a name in a role line. Text runs cannot hold an action, so the
+/// page that shows the text opens the page of the URL.
+enum PageLink {
+    static let scheme = "klassik-page"
+
+    static func url(_ page: Page) -> URL? {
+        let target: (host: String, id: String)
+        switch page {
+        case .composer(let name): target = ("composer", name)
+        case .performer(let name): target = ("performer", name)
+        case .album(let key): target = ("album", key)
+        default: return nil
+        }
+        var parts = URLComponents()
+        parts.scheme = scheme
+        parts.host = target.host
+        parts.queryItems = [URLQueryItem(name: "id", value: target.id)]
+        return parts.url
+    }
+
+    static func page(_ url: URL) -> Page? {
+        guard let parts = URLComponents(url: url, resolvingAgainstBaseURL: false), parts.scheme == scheme,
+            let value = parts.queryItems?.first(where: { $0.name == "id" })?.value
+        else { return nil }
+        switch parts.host {
+        case "composer": return .composer(value)
+        case "performer": return .performer(value)
+        case "album": return .album(value)
+        default: return nil
+        }
     }
 }

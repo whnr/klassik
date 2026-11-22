@@ -1,22 +1,5 @@
 import SwiftUI
 
-/// Plays works in random order. The movements of each work stay in order.
-struct ShuffleButton: View {
-    @Environment(AppModel.self) private var model
-    let works: [WorkIndex.Work]
-
-    var body: some View {
-        Button("Shuffle Works", systemImage: "shuffle") {
-            let items = works.shuffled().compactMap { work in
-                model.recordingOrder.reference(of: work).map { QueueItem(work: work, recording: $0) }
-            }
-            model.playback.play(queue: items)
-        }
-        .disabled(works.isEmpty)
-        .accessibilityIdentifier("shuffle")
-    }
-}
-
 /// The name of the favourite action. On a favourite it takes the favourite away.
 enum FavouriteAction {
     static func title(isSet: Bool) -> String { isSet ? "Unfavourite" : "Favourite" }
@@ -204,11 +187,8 @@ struct WorkRow: View {
         if let album = work.albumKey.flatMap({ model.library.index.album($0) }) {
             NavigationLink(value: Page.album(album.id)) {
                 VStack(alignment: .leading, spacing: gap) {
-                    HStack {
-                        MarkedTitle(title: album.title, isFavourite: model.recordingOrder.isFavourite(album: album.id))
-                            .ink()
-                        OfflineHint(isOffline: model.tracks.isOffline(album.recording))
-                    }
+                    MarkedTitle(title: album.title, isFavourite: model.recordingOrder.isFavourite(album: album.id))
+                        .ink()
                     Text(WorkIndex.Recording.count(album.tracks.count, "track"))
                         .typeStyle(.footnote)
                         .foregroundStyle(Palette.textSecondary)
@@ -219,11 +199,8 @@ struct WorkRow: View {
         } else {
             NavigationLink(value: Page.work(work.id)) {
                 VStack(alignment: .leading, spacing: gap) {
-                    HStack {
-                        MarkedTitle(title: work.title, isFavourite: model.recordingOrder.isFavourite(work))
-                            .ink()
-                        OfflineHint(isOffline: work.recordings.contains { model.tracks.isOffline($0) })
-                    }
+                    MarkedTitle(title: work.title, isFavourite: model.recordingOrder.isFavourite(work))
+                        .ink()
                     Text(Self.detail(of: work, composed: model.enrichment.composed(work)?.span.text))
                         .typeStyle(.footnote)
                         .foregroundStyle(Palette.textSecondary)
@@ -300,11 +277,12 @@ struct WorkView: View {
                     NavigationLink(value: Page.recording(work: work.id, recording: recording.id)) {
                         RecordingRow(
                             recording: recording, isFavourite: row.isFavourite, reason: row.reason,
-                            isOffline: model.tracks.isOffline(recording),
                             isPlaying: isPlaying)
                     }
+                    // The row draws its own trailing control on the top edge (specimen `.row.top`).
+                    .navigationLinkIndicatorVisibility(.hidden)
                     // Tint identifies the playing recording while the listener browses.
-                    .listRowBackground(isPlaying ? Palette.tint.color.opacity(0.12) : Color.clear)
+                    .playingRow(isPlaying)
                     .itemActions(QueueItem(work: work, recording: recording), downloads: true, favourite: true)
                     .accessibilityIdentifier("recording")
                     .moveDisabled(!row.isFavourite)
@@ -358,7 +336,6 @@ struct CountedHeading: View {
 /// Under the title: the composer as a link, when the work was composed, and what the tracks add to the title.
 private struct WorkHeader: View {
     @Environment(AppModel.self) private var model
-    @Environment(AppNavigator.self) private var navigator
     let work: WorkIndex.Work
     @ScaledMetric(space: .inGroup) private var gap: CGFloat
 
@@ -381,20 +358,11 @@ private struct WorkHeader: View {
                     .typeStyle(.subheadline)
                     .foregroundStyle(Palette.textSecondary)
             }
-            if case .candidates = model.enrichment.link(of: work), work.isTagged {
-                Button("Confirm the MusicBrainz Work", systemImage: "questionmark.circle") {
-                    navigator.open(.sources(work: work.id), in: navigator.selection)
-                }
-                .typeStyle(.subheadline)
-                .buttonStyle(.plain)
-                .foregroundStyle(Palette.tint)
-                .accessibilityIdentifier("composed")
-            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// When the work was composed. It opens the sources of the date.
+    /// When the work was composed, as plain text (specimen work.html).
     private var composed: some View {
         let enrichment = model.enrichment
         let text =
@@ -403,12 +371,9 @@ private struct WorkHeader: View {
             } else {
                 enrichment.isRunning ? "…" : "unknown"
             }
-        return Button(", composed\u{00A0}\(text)") {
-            navigator.open(.sources(work: work.id), in: navigator.selection)
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(Palette.textSecondary)
-        .accessibilityIdentifier("composed")
+        return Text(", composed\u{00A0}\(text)")
+            .foregroundStyle(Palette.textSecondary)
+            .accessibilityIdentifier("composed")
     }
 }
 
@@ -418,7 +383,6 @@ private struct RecordingRow: View {
     let recording: WorkIndex.Recording
     let isFavourite: Bool
     let reason: String?
-    let isOffline: Bool
     let isPlaying: Bool
     @Environment(AppModel.self) private var model
     @ScaledMetric(relativeTo: .body) private var cover = Layout.rowCover
@@ -458,15 +422,20 @@ private struct RecordingRow: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            // Every row keeps the room of the slot, so the playing row tints in place and its text does not rewrap.
-            // The offline mark sits in that room too: playback stores the recording, and the mark then appears.
-            VStack(spacing: gap) {
-                slot
-                    .opacity(isPlaying ? 1 : 0)
-                    .disabled(!isPlaying)
-                    .accessibilityHidden(!isPlaying)
-                OfflineHint(isOffline: isOffline)
+            // Every row keeps the room of the round button, so the playing row tints in place and its text does not
+            // rewrap.
+            Group {
+                if isPlaying {
+                    slot
+                } else {
+                    Image(systemName: "chevron.right")
+                        .typeStyle(.footnote)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(Palette.textTertiary)
+                        .accessibilityHidden(true)
+                }
             }
+            .frame(width: Layout.roundButton, alignment: .trailing)
         }
     }
 
@@ -481,17 +450,20 @@ private struct RecordingRow: View {
         }
     }
 
-    /// The slot at the trailing edge of the playing row pauses and resumes it, so the listener need not leave the page.
+    /// The round button of the playing row pauses and resumes it, so the listener need not leave the page.
     private var slot: some View {
         let player = model.playback
         return Button {
             player.togglePause()
         } label: {
             Image(systemName: player.isPaused ? "play.fill" : "pause.fill")
-                .typeStyle(.title3)
+                .typeStyle(.caption1)
                 .foregroundStyle(Palette.tint)
-                .frame(width: Measure.hitTarget, height: Measure.hitTarget)
-                .contentShape(.rect)
+                .frame(width: Layout.roundButton, height: Layout.roundButton)
+                .background(Palette.fillQuiet, in: .circle)
+                .contentShape(.rect.inset(by: (Layout.roundButton - Measure.hitTarget) / 2))
+                // The button must not make the row taller than its text (specimen `.row .round`).
+                .padding(.vertical, Layout.roundInRow)
         }
         .buttonStyle(.borderless)
         .accessibilityLabel(player.isPaused ? "Resume" : "Pause")
@@ -499,9 +471,9 @@ private struct RecordingRow: View {
     }
 }
 
-/// The page of a recording or album. While it plays, it is the player (ADR 0015): the header holds what every track
-/// shares, a row holds what differs, and only the playing movement has a playback bar (ADR 0027). The same content
-/// fills the player overlay (ADR 0014).
+/// The page of a recording or album, and the content of the player overlay (ADR 0014): the header holds what every
+/// track shares, and a row holds what differs (ADR 0027). Only the overlay is the player. It alone shows the playing
+/// row with its playback bar, and the next queue item at its end.
 struct RecordingView: View {
     @Environment(AppModel.self) private var model
     @Environment(AppNavigator.self) private var navigator
@@ -535,60 +507,13 @@ struct RecordingView: View {
         ScrollViewReader { proxy in
             PageList {
                 Section {
-                    // The page and the player share one hero: the cover, then the title (specimen player.html hero).
-                    VStack(spacing: Layout.bigCoverBottom) {
-                        CoverImage(
-                            song: isPlayingThis ? player.coverSong : recording.songs.first,
-                            points: Layout.bigCover, playback: isPlayingThis
-                        )
-                        .frame(width: Layout.bigCover, height: Layout.bigCover)
-                        .clipShape(.rect(cornerRadius: Layout.bigCoverCorner))
-                        .accessibilityElement()
-                        .accessibilityLabel("Cover")
-                        .accessibilityIdentifier("hero-cover")
-                        heroTitle
-                            .accessibilityAddTraits(.isHeader)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .multilineTextAlignment(.center)
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                    header(page)
+                    hero(page)
+                        .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                     if isPlayingThis, let error = player.error {
                         Label(error, systemImage: "exclamationmark.triangle")
                             .foregroundStyle(Palette.textPrimary)
                             .listRowSeparator(.hidden)
-                    }
-                    if !isPlayingThis {
-                        // Play is the accent capsule; Play Album is muted beside it (sz-3hcq.2).
-                        HStack(spacing: Layout.buttonRowGap) {
-                            Button {
-                                play(from: 0)
-                            } label: {
-                                CapsuleLabel(title: "Play", systemImage: "play.fill", filled: true)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityIdentifier("play-recording")
-                            if let wholeAlbum {
-                                // The playing album pauses and resumes, so the button says that.
-                                let playsAlbum = player.recording?.id == wholeAlbum.recording.id
-                                let verb = playsAlbum ? (player.isPaused ? "Resume" : "Pause") : "Play"
-                                Button {
-                                    spell.touch()
-                                    player.play(wholeAlbum)
-                                } label: {
-                                    CapsuleLabel(
-                                        title: "\(verb) Album",
-                                        systemImage: playsAlbum && !player.isPaused ? "pause.fill" : "play.fill",
-                                        filled: false)
-                                }
-                                .buttonStyle(.plain)
-                                .accessibilityIdentifier("play-album")
-                            }
-                        }
-                        .padding(.top, Layout.buttonRowTop)
-                        .listRowSeparator(.hidden)
                     }
                 }
 
@@ -607,33 +532,13 @@ struct RecordingView: View {
                         }
                     }
                 } else {
+                    // The rows follow the header with no heading (specimen player.html).
                     Section {
-                        SectionHeading(recording.isAlbum ? "Tracks" : "Movements")
                         ForEach(Array(recording.songs.enumerated()), id: \.element.id) { index, song in
                             movementRow(song, at: index, page: page, title: recording.title(of: song))
                                 .itemSeparator(first: index == 0, last: index == recording.songs.count - 1)
                         }
                     }
-                }
-
-                Section {
-                    pageLink(to: .rawTags(work: work.id, recording: recording.id)) {
-                        HStack {
-                            Text("Tags and Grouping").ink()
-                            if isOverlay {
-                                Spacer()
-                                Image(systemName: "chevron.right").foregroundStyle(Palette.textSecondary)
-                            }
-                        }
-                    }
-                    .accessibilityIdentifier("raw-tags")
-                    .listRowSeparator(.hidden)
-                }
-
-                Section {
-                    SectionHeading("Offline")
-                    OfflineControls(recording: recording, title: work.title)
-                        .listRowSeparator(.hidden)
                 }
 
                 if isOverlay { tail }
@@ -665,10 +570,27 @@ struct RecordingView: View {
             .animation(
                 Motion.inPlace.animation(reduceMotion: reduceMotion), value: isPlayingThis ? player.movement : nil)
         }
+        // A name in the header or in a row opens its page in the place below, also from the overlay.
+        .environment(
+            \.openURL,
+            OpenURLAction { url in
+                guard let target = PageLink.page(url) else { return .systemAction }
+                follow(target)
+                return .handled
+            }
+        )
         // The hero draws the title, so the list draws no heading. The bar keeps the name for Back and VoiceOver.
         .environment(\.pageHeading, "")
         .navigationTitle(isOverlay ? "" : work.title)
         .navigationBarTitleDisplayMode(.inline)
+        // The specimen page has no settings rows. The tags and the download stay one menu away in the bar.
+        .toolbar {
+            if !isOverlay {
+                ToolbarItem(placement: .topBarTrailing) {
+                    RecordingMenu(work: work, recording: recording)
+                }
+            }
+        }
         .onAppear { model.sweep.prefer(performers: recording.performerNames) }
         .task(id: placesKey) { places = NotePlace.places(in: recording, index: model.library.index) }
     }
@@ -739,19 +661,121 @@ struct RecordingView: View {
         }
     }
 
-    /// What every track shares, in centred lines.
-    private func header(_ page: PlayerPage) -> some View {
+    /// The player is the overlay only. The page of the playing item shows no playing row (ADR 0014).
+    private var showsPlayer: Bool { isOverlay && isPlayingThis }
+
+    /// The cover, the title, then what every track shares in centred lines, the facts and the Play buttons (specimen
+    /// player.html `.hero`). Names with a page are links.
+    private func hero(_ page: PlayerPage) -> some View {
         VStack(spacing: Layout.heroGap) {
+            CoverImage(
+                song: isPlayingThis ? model.playback.coverSong : recording.songs.first,
+                points: Layout.bigCover, playback: isPlayingThis
+            )
+            .frame(width: Layout.bigCover, height: Layout.bigCover)
+            .clipShape(.rect(cornerRadius: Layout.bigCoverCorner))
+            .accessibilityElement()
+            .accessibilityLabel("Cover")
+            .accessibilityIdentifier("hero-cover")
+            .padding(.bottom, Layout.bigCoverBottom)
+            heroTitle
+                .accessibilityAddTraits(.isHeader)
             if let composer = page.composer {
-                Text(composer)
-                    .typeStyle(.headline)
-                    .ink()
-            }
-            RoleLines(lines: page.header, alignment: .center, style: .subheadline)
+                RoleLines(
+                    lines: [Roles.Line(kind: .unlabelled, label: "", names: [composer])], alignment: .center,
+                    style: .subheadline,
+                    link: { _, name in model.library.index.composer(named: name) == nil ? nil : .composer(name) }
+                )
                 .ink()
+                .accessibilityIdentifier("hero-composer")
+            }
+            RoleLines(lines: page.header, alignment: .center, style: .subheadline, link: headerLink)
+                .ink()
+                .accessibilityIdentifier("hero-roles")
+            if !page.facts.isEmpty {
+                Text(page.facts)
+                    .typeStyle(.subheadline)
+                    .foregroundStyle(Palette.textSecondary)
+                    .padding(.top, Layout.heroFactsTop)
+                    .accessibilityIdentifier("hero-facts")
+            }
+            actions
         }
         .multilineTextAlignment(.center)
         .frame(maxWidth: .infinity)
+    }
+
+    /// The album line opens the album; a performer with a page opens it.
+    private func headerLink(_ line: Roles.Line, _ name: String) -> Page? {
+        if line.kind == .other, line.label == "album" {
+            guard let key = recording.songs.first?.albumKey, model.library.album(key) != nil else { return nil }
+            return .album(key)
+        }
+        return model.library.index.performer(named: name) == nil ? nil : .performer(name)
+    }
+
+    /// A name in a row opens its page as in the header (specimen player.html `performerRows`).
+    private func rowLink(_ line: Roles.Line, _ name: String) -> Page? {
+        if line.kind == .other, line.label == PlayerPage.composerLabel {
+            return model.library.index.composer(named: name) == nil ? nil : .composer(name)
+        }
+        return model.library.index.performer(named: name) == nil ? nil : .performer(name)
+    }
+
+    /// A link of the overlay opens in the place below and closes the player. The player never owns a page stack.
+    private func follow(_ target: Page) {
+        let place = navigator.selection
+        if isOverlay { navigator.closePlayer() }
+        Task {
+            // A person page waits for its local picture, as every person link does.
+            await model.preparePortrait(for: target)
+            navigator.open(target, in: place)
+        }
+    }
+
+    /// Play and Play Album while the item does not play. While it plays, the page offers the player (specimen
+    /// player.html). The overlay shows neither.
+    @ViewBuilder private var actions: some View {
+        let player = model.playback
+        if !isPlayingThis {
+            // Play is the accent capsule; Play Album is muted beside it (sz-3hcq.2).
+            HStack(spacing: Layout.buttonRowGap) {
+                Button {
+                    play(from: 0)
+                } label: {
+                    CapsuleLabel(title: "Play", systemImage: "play.fill", filled: true)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("play-recording")
+                if let wholeAlbum {
+                    // The playing album pauses and resumes, so the button says that.
+                    let playsAlbum = player.recording?.id == wholeAlbum.recording.id
+                    let verb = playsAlbum ? (player.isPaused ? "Resume" : "Pause") : "Play"
+                    Button {
+                        spell.touch()
+                        player.play(wholeAlbum)
+                    } label: {
+                        CapsuleLabel(
+                            title: "\(verb) Album",
+                            systemImage: playsAlbum && !player.isPaused ? "pause.fill" : "play.fill",
+                            filled: false)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("play-album")
+                }
+            }
+            .padding(.top, Layout.buttonRowTop)
+        } else if !isOverlay {
+            Button {
+                navigator.openPlayer()
+            } label: {
+                CapsuleLabel(title: "Show the player", systemImage: nil, filled: true)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("show-player")
+            .modifier(ShareOfWidth(share: Layout.showPlayerShare))
+            .padding(.top, Layout.showPlayerTop)
+        }
     }
 
     /// A player link belongs to the place below the overlay. The player never owns a page stack.
@@ -797,9 +821,10 @@ struct RecordingView: View {
         return MovementRow(
             song: song, row: index, title: title,
             names: page.differing.indices.contains(index) ? page.differing[index] : [],
+            link: rowLink,
             notes: place.map { model.notes.notes(at: $0) } ?? [],
             place: place,
-            isPlaying: isPlayingThis && model.playback.movement == index,
+            isPlaying: showsPlayer && model.playback.movement == index,
             isOpen: opened.contains(index),
             draft: Binding(
                 get: { draft?.row == index ? draft : nil },
@@ -844,6 +869,8 @@ private struct MovementRow: View {
     let title: String
     /// The names that differ from the header.
     let names: [Roles.Line]
+    /// The page of a name, if it has one.
+    let link: (Roles.Line, String) -> Page?
     let notes: [ListeningNote]
     /// Where a new note of this row goes. A row without a place takes no note.
     let place: NotePlace?
@@ -870,7 +897,7 @@ private struct MovementRow: View {
                 }
                 if opens && isOpen {
                     if hasNames {
-                        RoleLines(lines: names, style: .subheadline)
+                        RoleLines(lines: names, style: .subheadline, link: link)
                             .ink()
                     }
                     NoteList(notes: notes, jump: jump)
@@ -899,7 +926,6 @@ private struct MovementRow: View {
     private var label: some View {
         HStack {
             MovementTitle(title: title, style: .body)
-            OfflineHint(isOffline: model.tracks.isOffline(song))
             if let duration = song.duration {
                 Text(Duration.seconds(duration).formatted(.time(pattern: .minuteSecond)))
                     .foregroundStyle(Palette.textSecondary)
@@ -938,41 +964,18 @@ private struct MovementRow: View {
     private var playing: some View {
         let player = model.playback
         return VStack(alignment: .leading, spacing: gap) {
+            // The bold title marks the playing row (specimen player.html). VoiceOver hears it too.
             HStack {
                 MovementTitle(title: title, style: .headline)
+                    .accessibilityLabel("Now playing, \(title)")
                 if player.isLoading {
                     ProgressView()
-                } else {
-                    Image(systemName: "speaker.wave.2.fill")
-                        .foregroundStyle(Palette.tint)
-                        .accessibilityLabel("Now playing")
                 }
             }
-            RoleLines(lines: names, style: .subheadline)
+            RoleLines(lines: names, style: .subheadline, link: link)
                 .ink()
             PlaybackProgress(player: player, notes: notes, jump: { jump($0, false) })
-            HStack {
-                Button("Previous", systemImage: "backward.fill") { player.previous() }
-                Spacer()
-                Button(
-                    player.isPaused ? "Resume" : "Pause",
-                    systemImage: player.isPaused ? "play.fill" : "pause.fill"
-                ) {
-                    player.togglePause()
-                }
-                Spacer()
-                Button("Next", systemImage: "forward.fill") { player.next() }
-                    .disabled(!player.hasNext)
-                Spacer()
-                Button("Next Work", systemImage: "forward.end.fill") { player.nextItem() }
-                    .disabled(player.upNext.isEmpty)
-                Spacer()
-                Button("Stop", systemImage: "stop.fill") { player.stop() }
-            }
-            .labelStyle(.iconOnly)
-            .buttonStyle(.borderless)
-            .typeStyle(.title2)
-            .padding(.horizontal)
+            PlayerControls(player: player)
             NoteList(notes: notes, jump: jump)
             if let place {
                 NoteEditor(
@@ -980,6 +983,65 @@ private struct MovementRow: View {
             }
         }
         .accessibilityIdentifier("movement")
+    }
+}
+
+/// The controls of the playing row, centred in ink (specimen player.html `.mv-controls`). Next Work and Stop follow
+/// Next: the specimen has neither, but the queue (sz-rs30.1.105.8) and ADR 0053 need them.
+private struct PlayerControls: View {
+    let player: PlaybackSession
+    @ScaledMetric(relativeTo: .title2) private var icon = Layout.playerControlIcon
+    @ScaledMetric(relativeTo: .title2) private var mainIcon = Layout.playerMainIcon
+
+    var body: some View {
+        HStack(spacing: 0) {
+            control("Previous", "backward.fill") { player.previous() }
+            gap
+            control(player.isPaused ? "Resume" : "Pause", player.isPaused ? "play.fill" : "pause.fill", main: true) {
+                player.togglePause()
+            }
+            gap
+            control("Next", "forward.fill") { player.next() }
+                .disabled(!player.hasNext)
+            gap
+            control("Next Work", "forward.end.fill") { player.nextItem() }
+                .disabled(player.upNext.isEmpty)
+            gap
+            control("Stop", "stop.fill") { player.stop() }
+        }
+        .frame(maxWidth: .infinity)
+        .buttonStyle(.borderless)
+    }
+
+    /// The specimen gap, closed on a narrow row so that all controls fit.
+    private var gap: some View {
+        Spacer(minLength: 0).frame(maxWidth: Layout.playerControlGap)
+    }
+
+    private func control(
+        _ title: String, _ systemImage: String, main: Bool = false, action: @escaping () -> Void
+    ) -> some View {
+        Control(title: title, systemImage: systemImage, size: main ? mainIcon : icon, action: action)
+    }
+
+    /// An explicit ink replaces the dimming of a disabled button, so an off control takes the disabled colour.
+    private struct Control: View {
+        @Environment(\.isEnabled) private var isEnabled
+        let title: String
+        let systemImage: String
+        let size: CGFloat
+        let action: () -> Void
+
+        var body: some View {
+            Button(action: action) {
+                Image(systemName: systemImage)
+                    .font(.system(size: size))
+                    .foregroundStyle(isEnabled ? Palette.textPrimary : Palette.textTertiary)
+                    .frame(width: Measure.hitTarget, height: Measure.hitTarget)
+                    .contentShape(.rect)
+            }
+            .accessibilityLabel(title)
+        }
     }
 }
 
@@ -1167,6 +1229,28 @@ struct PlaybackProgress: View {
         .foregroundStyle(Palette.textSecondary)
     }
 
+    /// The times, or the slow-connection line in their place (ADR 0060). Hidden copies of both messages reserve
+    /// their wrapped height at every width and text size, so the controls never move when the line appears.
+    static func under(_ elapsed: Double, of duration: Double, line: String?) -> some View {
+        ZStack {
+            Text(SlowConnectionLine.startText).hidden()
+            Text(SlowConnectionLine.resumeText).hidden()
+            times(elapsed, of: duration)
+                .opacity(line == nil ? 1 : 0)
+                .accessibilityHidden(line != nil)
+            if let line {
+                Text(line)
+                    .typeStyle(.caption1)
+                    .foregroundStyle(Palette.textSecondary)
+                    .accessibilityIdentifier("slow-connection")
+            }
+        }
+        .typeStyle(.caption1)
+        .multilineTextAlignment(.center)
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity)
+    }
+
     static func time(_ seconds: Double) -> String {
         Duration.seconds(seconds.rounded()).formatted(
             .time(pattern: seconds >= 3600 ? .hourMinuteSecond : .minuteSecond))
@@ -1191,7 +1275,7 @@ private struct PositionBar: View {
         let shown = min(scrub.shown(elapsed: elapsed), duration)
         VStack(alignment: .leading, spacing: lineGap) {
             bar(shown)
-            PlaybackProgress.times(shown, of: duration)
+            PlaybackProgress.under(shown, of: duration, line: player.slowLine)
         }
         .onChange(of: elapsed) { _, now in scrub.observe(elapsed: now) }
         // A cancelled drag never calls onEnded, and a new movement replaces this bar while a finger holds it.
@@ -1326,36 +1410,82 @@ struct NoteRoom: ViewModifier {
     }
 }
 
-/// Download a recording, follow the download, or remove it.
-private struct OfflineControls: View {
+/// The menu of a recording or album page: its tags, and the download with its state.
+private struct RecordingMenu: View {
     @Environment(AppModel.self) private var model
+    @Environment(AppNavigator.self) private var navigator
+    let work: WorkIndex.Work
     let recording: WorkIndex.Recording
-    let title: String
 
     var body: some View {
-        let tracks = model.tracks
-        if let download = tracks.downloads.first(where: { $0.id == recording.id }) {
-            LabeledContent("Downloaded", value: Self.size(download.bytes))
-                .ink()
-            Button("Remove Download", systemImage: "trash", role: .destructive) { tracks.remove(download) }
-                .accessibilityIdentifier("remove-download")
-        } else if let share = tracks.progress[recording.id] {
-            ProgressView(value: share) { Text("Downloading") }
-            Button("Cancel Download", systemImage: "xmark.circle") { tracks.cancelDownload(recording.id) }
-        } else {
-            Button("Download", systemImage: "arrow.down.circle") {
-                if let client = model.client { tracks.download(recording, title: title, client: client) }
+        Menu {
+            Button("Tags and Grouping", systemImage: "tag") {
+                navigator.open(.rawTags(work: work.id, recording: recording.id), in: navigator.selection)
             }
-            .accessibilityIdentifier("download")
-            if let failure = tracks.failures[recording.id] {
-                Label(failure, systemImage: "exclamationmark.triangle")
-                    .foregroundStyle(Palette.textPrimary)
-            }
+            .accessibilityIdentifier("raw-tags")
+            download
+        } label: {
+            Label("More", systemImage: "ellipsis")
         }
+        .accessibilityIdentifier("recording-menu")
+    }
+
+    /// Download, follow the download, or remove it. The state heads its section, so the menu says it.
+    @ViewBuilder private var download: some View {
+        let tracks = model.tracks
+        if let stored = tracks.downloads.first(where: { $0.id == recording.id }) {
+            Section("Downloaded, \(Self.size(stored.bytes))") {
+                Button("Remove Download", systemImage: "trash", role: .destructive) { tracks.remove(stored) }
+                    .accessibilityIdentifier("remove-download")
+            }
+        } else if let share = tracks.progress[recording.id] {
+            Section("Downloading, \(share.formatted(.percent.precision(.fractionLength(0))))") {
+                Button("Cancel Download", systemImage: "xmark.circle") { tracks.cancelDownload(recording.id) }
+            }
+        } else if let failure = tracks.failures[recording.id] {
+            Section(failure) { start }
+        } else {
+            start
+        }
+    }
+
+    private var start: some View {
+        Button("Download", systemImage: "arrow.down.circle") {
+            if let client = model.client { model.tracks.download(recording, title: work.title, client: client) }
+        }
+        .accessibilityIdentifier("download")
     }
 
     static func size(_ bytes: Int64) -> String {
         bytes.formatted(.byteCount(style: .file))
+    }
+}
+
+/// Proposes a share of the offered width to its one subview and centres it (specimen `width: 60%`).
+private struct ShareOfWidth: ViewModifier {
+    let share: CGFloat
+
+    func body(content: Content) -> some View {
+        Share(share: share) { content }
+    }
+
+    private struct Share: SwiftUI.Layout {
+        let share: CGFloat
+
+        func sizeThatFits(proposal: ProposedViewSize, subviews: LayoutSubviews, cache: inout ()) -> CGSize {
+            guard let view = subviews.first else { return .zero }
+            let width = proposal.width.map { $0 * share }
+            let size = view.sizeThatFits(ProposedViewSize(width: width, height: nil))
+            return CGSize(width: proposal.width ?? size.width, height: size.height)
+        }
+
+        func placeSubviews(
+            in bounds: CGRect, proposal: ProposedViewSize, subviews: LayoutSubviews, cache: inout ()
+        ) {
+            subviews.first?.place(
+                at: CGPoint(x: bounds.midX, y: bounds.minY), anchor: .top,
+                proposal: ProposedViewSize(width: bounds.width * share, height: nil))
+        }
     }
 }
 
@@ -1389,13 +1519,15 @@ private struct NextItemRow: View {
 /// A capsule button face (specimen.css .capsule): filled in the accent, or muted on the quiet fill.
 struct CapsuleLabel: View {
     let title: String
-    let systemImage: String
+    let systemImage: String?
     let filled: Bool
 
     var body: some View {
         HStack(spacing: Layout.capsuleGap) {
-            Image(systemName: systemImage)
-                .accessibilityHidden(true)
+            if let systemImage {
+                Image(systemName: systemImage)
+                    .accessibilityHidden(true)
+            }
             Text(title)
                 .fixedSize(horizontal: false, vertical: true)
         }

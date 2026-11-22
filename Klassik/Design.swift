@@ -162,6 +162,8 @@ struct GroupedPageList<Content: View>: View {
             content.listRowBackground(Palette.backgroundRow.color)
         }
         .grounds()
+        // The heading row sets the gap under the bar, as on a plain page. A grouped list adds its own above it.
+        .contentMargins(.top, 0, for: .scrollContent)
     }
 }
 
@@ -177,6 +179,33 @@ struct PageForm<Content: View>: View {
             content.listRowBackground(Palette.backgroundRow.color)
         }
         .grounds()
+        // The heading row sets the gap under the bar, as on a plain page. A grouped list adds its own above it.
+        .contentMargins(.top, 0, for: .scrollContent)
+    }
+}
+
+/// The head of a sheet under the system grabber: a leading title and a plain Done in the tint
+/// (specimen.css `.sheet .sheet-head`).
+struct SheetHead: View {
+    let title: String
+    let done: () -> Void
+
+    var body: some View {
+        HStack(spacing: Layout.sheetHeadGap) {
+            Text(title)
+                .typeStyle(.headline)
+                .foregroundStyle(Palette.textPrimary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("sheet-title")
+            Button("Done", action: done)
+                .typeStyle(.body)
+                .buttonStyle(.borderless)
+                .accessibilityIdentifier("sheet-done")
+        }
+        .padding(.top, Layout.sheetGrabberTop + Layout.sheetGrabberHeight + Layout.sheetHeadTop)
+        .padding(.bottom, Layout.sheetHeadBottom)
+        .padding(.horizontal, Layout.sheetHeadInset)
     }
 }
 
@@ -246,12 +275,27 @@ private struct PageHeading: View {
             .multilineTextAlignment(.leading)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityAddTraits(.isHeader)
-            .padding(.top, plain ? 0 : Layout.headTop)
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
-            .listRowInsets(
-                plain ? Layout.edges(side: .standard, timeline: false, top: Layout.headTop, bottom: bottom) : nil
-            )
+            .modifier(HeadingInsets(plain: plain, bottom: bottom))
+        }
+    }
+}
+
+/// Every page title has the specimen gaps above and below (specimen.css `.page-head`). A grouped list keeps the
+/// system side insets (ADR 0045) and takes only the vertical gaps.
+private struct HeadingInsets: ViewModifier {
+    let plain: Bool
+    let bottom: CGFloat
+
+    func body(content: Content) -> some View {
+        if plain {
+            content.listRowInsets(
+                Layout.edges(side: .standard, timeline: false, top: Layout.headTop, bottom: bottom))
+        } else {
+            content
+                .listRowInsets(.top, Layout.headTop)
+                .listRowInsets(.bottom, bottom)
         }
     }
 }
@@ -392,7 +436,11 @@ extension View {
 
 extension View {
     /// The tint ground of a row that holds what plays, as the recording rows of a work page show it.
+    /// The tint stays inside the page edges, as the specimen `.row.playing` does on a plain list.
     func playingRow(_ isPlaying: Bool) -> some View {
-        listRowBackground(isPlaying ? Palette.tint.color.opacity(0.12) : Color.clear)
+        listRowBackground(
+            (isPlaying ? Palette.tint.color.opacity(0.12) : Color.clear)
+                .padding(Layout.edges(side: .standard, timeline: false))
+        )
     }
 }

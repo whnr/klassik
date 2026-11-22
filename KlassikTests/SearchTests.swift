@@ -131,6 +131,24 @@ struct SearchTests {
         #expect(minor == ["Symphony No. 9 in E minor, Op. 95"])
     }
 
+    /// The WORK tag and the movement names leave out a nickname. The track titles keep it, and it finds the work.
+    @Test func aNicknameInTheTrackTitlesFindsTheWork() throws {
+        let beethoven = "Ludwig van Beethoven"
+        let work = "Symphonie Nr. 3 Es-Dur, Op. 55"
+        let index = WorkIndex(songs: [
+            Self.song(
+                "e1", album: "Beethoven 3", title: "Symphonie Nr.3 Es-Dur \"Eroica\": I. Allegro con brio",
+                composer: beethoven, work: work),
+            Self.song(
+                "e2", album: "Beethoven 3", track: 2, title: "Symphonie Nr.3 Es-Dur \"Eroica\": II. Marcia funebre",
+                composer: beethoven, work: work),
+            Self.song("f1", album: "Beethoven 5", title: "Symphonie Nr.5", composer: beethoven, work: "Op. 67"),
+        ])
+        let found = Search(index: index).results(for: "eroica").works
+        #expect(found.map(\.title) == [work])
+        #expect(try #require(found.first).nicknames == ["Eroica"])
+    }
+
     @Test func albumsMatchOnNameArtistAndTrackTitles() {
         #expect(Self.search.results(for: "encores").albums.map(\.title) == ["Encores for Søren"])
         #expect(Self.search.results(for: "strand").albums.map(\.title) == ["Encores for Søren"])

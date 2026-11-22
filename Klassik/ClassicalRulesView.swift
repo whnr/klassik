@@ -8,6 +8,8 @@ struct ClassicalRulesView: View {
     var body: some View {
         @Bindable var library = model.library
         PageForm {
+            ResultSection(library: library)
+
             ForEach($library.filter.rules) { $rule in
                 let number = (library.filter.rules.firstIndex { $0.id == rule.id } ?? 0) + 1
                 Section {
@@ -40,19 +42,57 @@ struct ClassicalRulesView: View {
                 )
             }
 
-            Section("Result") {
-                LabeledContent("Classical Albums", value: library.classicalAlbumCount.formatted())
-                    .ink()
-                LabeledContent("Classical Tracks", value: library.classical.count.formatted())
-                    .ink()
-            }
-
             Section {
                 Button("Restore Default Rules") { library.filter = ClassicalFilter() }
                     .disabled(library.filter == ClassicalFilter())
             }
         }
         .pageTitle("Classical Rules")
+    }
+
+    /// A result row value: "412 of 550 on server".
+    nonisolated static func share(_ part: Int, of whole: Int) -> String {
+        "\(part.formatted()) of \(whole.formatted()) on server"
+    }
+}
+
+/// What the rules let through. It comes first, so a rule change shows its effect at the top.
+private struct ResultSection: View {
+    let library: Library
+
+    private var albums: String { ClassicalRulesView.share(library.classicalAlbumCount, of: library.albumCount) }
+    private var tracks: String { ClassicalRulesView.share(library.classical.count, of: library.songs.count) }
+
+    var body: some View {
+        Section("Result") {
+            if library.syncedAt == nil {
+                if library.isSyncing {
+                    LabeledContent("Syncing") {
+                        Text("\(library.received) tracks")
+                    }
+                    .ink()
+                } else {
+                    Text("Not synced")
+                        .foregroundStyle(Palette.textSecondary)
+                }
+            } else {
+                NavigationLink(value: Page.albums(classical: true)) {
+                    LabeledContent("Albums", value: albums)
+                        .ink()
+                }
+                .accessibilityIdentifier("classical-albums")
+                LabeledContent("Tracks", value: tracks)
+                    .ink()
+                    .accessibilityIdentifier("classical-tracks")
+                NavigationLink(value: Page.albums(classical: false)) {
+                    LabeledContent(
+                        "Other Albums", value: (library.albumCount - library.classicalAlbumCount).formatted()
+                    )
+                    .ink()
+                }
+                .accessibilityIdentifier("other-albums")
+            }
+        }
     }
 }
 

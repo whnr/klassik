@@ -137,7 +137,7 @@ struct CoverImage: View {
         }
         let cached = load?.candidates.first.flatMap { model.covers.image(hash: $0, pixels: pixels) }
         let visible = cached ?? ((playback || shown?.slot == song?.id) ? shown?.image : nil)
-        // The image sits in an overlay, so a cover of any shape fills the slot and never sizes it.
+        // The slot is square wherever the cover shows. The image sits in an overlay, so it never sizes the slot.
         Rectangle()
             .fill(Palette.fillQuiet)
             .overlay {
@@ -150,6 +150,7 @@ struct CoverImage: View {
                         .foregroundStyle(Palette.textSecondary)
                 }
             }
+            .aspectRatio(1, contentMode: .fit)
             .clipped()
             .task(id: load) { await show(load) }
     }
@@ -164,7 +165,7 @@ struct CoverImage: View {
                 return
             }
             if let data = await model.albumArt.data(named: hash),
-                let image = await CoverArt.scaled(data, to: load.pixels)
+                let image = await CoverArt.square(data, to: load.pixels)
             {
                 guard !Task.isCancelled else { return }
                 model.covers.store(image, hash: hash, pixels: load.pixels)

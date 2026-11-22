@@ -22,26 +22,11 @@ struct ComposerPage: View {
         let artistIDs = composer.works.compactMap { model.enrichment.facts(of: $0)?.composerID }
         let facts = people.facts(ofComposer: composer.name)
         let catalogue = ComposerWorks(composer)
-        GeometryReader { proxy in
-            List {
-                Group { content(proxy: proxy, facts: facts, catalogue: catalogue) }
-                    .listRowBackground(Color.clear)
-                    .listSectionSeparator(.hidden)
-                    .pageRow()
-            }
-            .listStyle(.plain)
-            .listSectionSeparator(.hidden)
-            .environment(\.defaultMinListRowHeight, 0)
-            .environment(\.defaultMinListHeaderHeight, 0)
-            .environment(\.isPageList, true)
-            .scrollContentBackground(.hidden)
-            .pageContentPosition()
-            .background(Palette.backgroundPage)
-            .ignoresSafeArea(.container, edges: .top)
+        PersonPageList { proxy in
+            content(proxy: proxy, facts: facts, catalogue: catalogue)
         }
         .navigationTitle(composer.name)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar { ShuffleButton(works: composer.works) }
         // A person page puts all its covers in front of the cover queue (ADR 0059).
         .onAppear { model.albumCovers.prefer(composer.works.flatMap { $0.recordings.compactMap(\.songs.first) }) }
         .task(id: artistIDs) { await people.resolve(composer: composer.name, artistIDs: artistIDs) }
@@ -174,38 +159,11 @@ struct ComposerPage: View {
         }
     }
 
-    @ViewBuilder private func aboutTab(_ facts: PersonFacts?) -> some View {
-        if let facts {
-            if let bio = facts.bio {
-                Section {
-                    SectionHeading("Biography")
-                    Text(bio)
-                        .ink()
-                        .accessibilityIdentifier("composer-bio")
-                        .listRowSeparator(.hidden)
-                }
-            }
-            if !facts.credits.isEmpty {
-                Section {
-                    SectionHeading("Credits")
-                    ForEach(facts.credits, id: \.self) { credit in
-                        CreditRow(credit: credit)
-                            .itemSeparator(first: credit == facts.credits.first, last: credit == facts.credits.last)
-                    }
-                }
-            }
-        } else {
-            Section {
-                Text("Wikidata has no facts for this composer. Klassik shows your tags.")
-                    .foregroundStyle(Palette.textSecondary)
-                    .listRowSeparator(.hidden)
-            }
-        }
-        Section {
-            SectionHeading("Your tags")
-            let people = model.people
-            let choosesAgain =
-                people.resolution(ofComposer: composer.name) != nil && !people.loading.contains(composer.name)
+    private func aboutTab(_ facts: PersonFacts?) -> some View {
+        let people = model.people
+        let choosesAgain =
+            people.resolution(ofComposer: composer.name) != nil && !people.loading.contains(composer.name)
+        return PersonAbout(facts: facts, kind: "composer") {
             LabeledContent("Name in your tags", value: composer.name)
                 .ink()
                 .itemSeparator(first: true, last: false)
@@ -418,8 +376,9 @@ struct PersonHero: View {
                 .clipped()
                 .padding(.bottom, spacesChronology ? Layout.pictureBottom + Layout.buttonRowTop : 0)
             } else {
-                // No picture: the name sits close under the back arrow, as a page title does.
-                // The width frame keeps the grouped list from insetting the name, as in the picture branch.
+                // No picture: the name sits close under the back arrow, as a page title does. Its edge is the page
+                // edge of ADR 0045, as `.page-head` in person.html: 20 pt without a timeline, 16 pt on the side
+                // away from it. The width frame keeps the list from insetting the name, as in the picture branch.
                 heading
                     .frame(width: width, alignment: .leading)
                     .padding(.top, topInset + Layout.headTop)
@@ -644,6 +603,35 @@ struct PersonHero: View {
     }
 }
 
+/// The credit under the whole picture: author and licence, then "File page" in the tint (person.html, `.link`).
+/// Increase Contrast underlines the link in its own colour.
+private struct PictureCredit: View {
+    @Environment(\.colorSchemeContrast) private var contrast
+    let credit: PersonCredit
+
+    var body: some View {
+        words(text)
+            .accessibilityIdentifier("whole-picture-credit")
+    }
+
+    /// Only the words "File page" are the link, as in the specimen; the author and licence are plain text.
+    private var text: Text {
+        guard let url = PersonFactsService.trusted(credit.url) else { return Text(credit.text) }
+        var file = AttributedString("File page")
+        file.link = url
+        file.foregroundColor = Palette.tint.color
+        if contrast == .increased { file.underlineStyle = Text.LineStyle.single }
+        return Text(AttributedString("\(credit.source(linked: true)). ") + file)
+    }
+
+    private func words(_ text: Text) -> some View {
+        text
+            .typeStyle(.footnote)
+            .foregroundStyle(Palette.textPrimary)
+            .multilineTextAlignment(.center)
+    }
+}
+
 /// The whole picture with its credit, full screen. A swipe down or the system close button closes it, as for any
 /// full-screen overlay. Flo chose this over the specimen's sheet with Done (sz-rs30.1.105.73).
 private struct WholePicture: View {
@@ -665,10 +653,7 @@ private struct WholePicture: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .accessibilityLabel("Whole picture")
                 if let credit {
-                    Text(credit.text)
-                        .typeStyle(.footnote)
-                        .foregroundStyle(Palette.textPrimary)
-                        .multilineTextAlignment(.center)
+                    PictureCredit(credit: credit)
                         .padding(.horizontal, Space.l.points)
                 }
             }

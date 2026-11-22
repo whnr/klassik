@@ -184,6 +184,21 @@ struct WorkIndexTests {
         #expect(WorkRow.detail(of: work, composed: nil) == "1\u{00A0}recording")
     }
 
+    /// A nickname sits in quotes in the part that all track titles share. Quotes in a movement name do not count.
+    @Test func nicknamesComeFromTheSharedPartOfTheTrackTitles() {
+        let eroica = [
+            "Symphonie Nr.3 Es-Dur \"Eroica\": I. Allegro con brio", "Symphonie Nr.3 Es-Dur \"Eroica\": II. Marcia",
+        ]
+        #expect(WorkIndex.nicknames(in: eroica) == ["Eroica"])
+        #expect(WorkIndex.nicknames(in: ["Klavierkonzert Nr. 5 „Emperor“: I. Allegro"]) == ["Emperor"])
+        #expect(WorkIndex.nicknames(in: ["Symphony No. 94 “Surprise”"]) == ["Surprise"])
+        #expect(WorkIndex.nicknames(in: ["Quartett «Kaiser»: II. Poco adagio"]) == ["Kaiser"])
+        #expect(WorkIndex.nicknames(in: ["Sonata: II. \"Marcia funebre\""]).isEmpty)
+        #expect(WorkIndex.nicknames(in: ["Symphonie Nr.5 c-moll (1)", "Symphonie Nr.5 c-moll (2)"]).isEmpty)
+        #expect(WorkIndex.nicknames(in: ["Beethoven’s Fifth: I", "Beethoven’s Fifth: II"]).isEmpty)
+        #expect(WorkIndex.nicknames(in: []).isEmpty)
+    }
+
     @Test func namesKeepTheirOrderWhateverOrderTheServerSends() {
         func contributor(_ role: String, _ name: String, _ subRole: String? = nil) -> Song.Contributor {
             Song.Contributor(role: role, subRole: subRole, artist: Song.Artist(id: name, name: name))

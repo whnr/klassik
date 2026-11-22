@@ -58,10 +58,12 @@ struct PlaybackSessionTests {
         return QueueItem(work: work, recording: recording)
     }
 
-    private func load(_ id: String, movements: Int = 1, from movement: Int = 0, at offset: Double = 0)
+    private func load(
+        _ id: String, movements: Int = 1, from movement: Int = 0, at offset: Double = 0, following: [String] = []
+    )
         -> FakeEngine.Load
     {
-        FakeEngine.Load(songs: (0..<movements).map { "\(id)-\($0)" }, movement: movement, offset: offset)
+        FakeEngine.Load(songs: (0..<movements).map { "\(id)-\($0)" } + following, movement: movement, offset: offset)
     }
 
     // MARK: Play
@@ -152,7 +154,7 @@ struct PlaybackSessionTests {
         #expect(session.state.item?.id == playing.id)
         #expect(session.state.upNext.map(\.recording.id) == ["b"])
         #expect(session.state.movement == 2)
-        #expect(engine.loads.last == load("a", movements: 3, from: 2))
+        #expect(engine.loads.last == load("a", movements: 3, from: 2, following: ["b-0"]))
     }
 
     @Test func playOnThePlayingItemPausesAndResumesIt() throws {
@@ -166,7 +168,7 @@ struct PlaybackSessionTests {
         session.play(item("a", movements: 3))
         #expect(!session.state.isPaused)
         #expect(engine.calls.last == .resume)
-        #expect(engine.loads == [load("a", movements: 3, from: 1)])
+        #expect(engine.loads == [load("a", movements: 3, from: 1, following: ["b-0"])])
         #expect(session.state.item?.id == playing.id)
         #expect(session.state.movement == 1)
         #expect(session.state.upNext.map(\.recording.id) == ["b"])
@@ -197,7 +199,7 @@ struct PlaybackSessionTests {
         session.playQueued(third.id)
         #expect(session.state.item?.recording.id == "c")
         #expect(session.state.upNext.map(\.recording.id) == ["d"])
-        #expect(engine.loads.last == load("c"))
+        #expect(engine.loads.last == load("c", following: ["d-0"]))
     }
 
     @Test func queueEditsKeepThePlayingItem() throws {
@@ -238,7 +240,75 @@ struct PlaybackSessionTests {
         #expect(session.state.item?.recording.id == "b")
         #expect(session.state.upNext.isEmpty)
         #expect(session.state.movement == 0)
-        #expect(engine.loads.last == load("b"))
+        #expect(engine.loads == [load("a", movements: 2, following: ["b-0"])])
+        engine.end(2)
+        #expect(session.state.queueEnded)
+    }
+
+    @Test func renderPositionCrossesRecordingsBeforeCompletionDelivery() throws {
+        let (session, engine) = try makeSession()
+        session.play(queue: [item("a"), item("b", movements: 2), item("c")])
+        engine.playing = (2, 4)
+        session.pause()
+        #expect(session.state.item?.recording.id == "b")
+        #expect(session.state.movement == 1)
+        #expect(session.state.position == 4)
+        engine.end(0)
+        #expect(session.state.item?.recording.id == "b")
+        session.resume()
+        engine.end(2)
+        #expect(session.state.item?.recording.id == "c")
+        #expect(engine.loads.count == 1)
+        engine.end(3)
+        #expect(session.state.queueEnded)
+    }
+
+    /// A queue edit keeps the sound: the engine takes the new tracks after the ones it already asked for.
+    @Test func queueEditsKeepTheSoundAndReplaceLaterTracks() throws {
+        let (session, engine) = try makeSession()
+        session.play(queue: [item("a", movements: 2), item("b")])
+        engine.playing = (0, 4)
+        session.playNext(item("c"))
+        session.addToQueue(item("d"))
+        session.moveInQueue(from: IndexSet(integer: 2), to: 1)
+        session.removeFromQueue(at: IndexSet(integer: 2))
+        #expect(engine.loads.count == 1)
+        // Play itself discards before its load; nothing after the load may discard.
+        let afterLoad = engine.calls.drop { call in
+            if case .load = call { false } else { true }
+        }
+        #expect(!afterLoad.contains(.discard))
+        #expect(engine.calls.last == .replace(["a-0", "a-1", "c-0", "d-0"]))
+        engine.end(0)
+        engine.end(1)
+        #expect(session.state.item?.recording.id == "c")
+        #expect(session.state.upNext.map(\.recording.id) == ["d"])
+    }
+
+    /// Only an edit of a track that the engine already asked for loads again, from the audible place.
+    @Test func anEditOfAnAlreadyScheduledTrackLoadsAgain() throws {
+        let (session, engine) = try makeSession()
+        session.play(queue: [item("a"), item("b")])
+        engine.playing = (0, 4)
+        engine.requested = 1
+        session.addToQueue(item("d"))
+        #expect(engine.loads.count == 1)
+        session.playNext(item("c"))
+        #expect(engine.loads.last == load("a", at: 4, following: ["c-0", "b-0", "d-0"]))
+        engine.end(0)
+        #expect(session.state.item?.recording.id == "c")
+        #expect(session.state.upNext.map(\.recording.id) == ["b", "d"])
+    }
+
+    /// A paused edit keeps the paused engine, so Resume plays on without a seek.
+    @Test func aPausedQueueEditKeepsTheEngine() throws {
+        let (session, engine) = try makeSession()
+        session.play(queue: [item("a", movements: 2), item("b")])
+        session.pause()
+        session.addToQueue(item("c"))
+        session.resume()
+        #expect(engine.loads.count == 1)
+        #expect(engine.calls.last == .resume)
     }
 
     @Test func theEndOfTheQueueStopsAndReportsIt() throws {
@@ -450,6 +520,79 @@ struct PlaybackSessionTests {
         #expect(session.state.error == nil)
     }
 
+    // MARK: System players
+
+    /// The system holds the artwork and calls it from its own thread, as this box lets the test do.
+    private struct Handed: @unchecked Sendable {
+        let artwork: MPMediaItemArtwork
+    }
+
+    @MainActor private final class Kept {
+        var image: UIImage?
+    }
+
+    private static func cover(_ colour: UIColor) -> UIImage {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: CGSize(width: 4, height: 4), format: format).image { context in
+            colour.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 4, height: 4))
+        }
+    }
+
+    @Test func theSystemPlayersShowTheCoverOfEachTrack() async throws {
+        let (session, _) = try makeSession()
+        let covers = ["a-0": Self.cover(.red), "a-1": Self.cover(.green)]
+        session.coverImage = { covers[$0.id] }
+        session.coverKey = { $0.id }
+        session.play(item("a", movements: 3))
+        try await settle { session.nowPlayingArtwork?.key == "a-0" }
+        #expect(session.nowPlayingArtwork?.key == "a-0")
+        let artwork = Handed(artwork: try #require(session.nowPlayingArtwork?.artwork))
+        // The system asks for the image on a thread of its own; a main-actor handler would trap there.
+        let image = await Task.detached { artwork.artwork.image(at: CGSize(width: 4, height: 4)) }.value
+        #expect(image === covers["a-0"])
+
+        session.next()
+        try await settle { session.nowPlayingArtwork?.key == "a-1" }
+        #expect(session.nowPlayingArtwork?.key == "a-1")
+
+        // A track without a kept cover shows none, never the cover of the track before.
+        session.next()
+        try await settle { session.nowPlayingArtwork == nil }
+        #expect(session.nowPlayingArtwork == nil)
+    }
+
+    @Test func theArtworkStaysWhileMovementsShareOneCover() async throws {
+        let (session, _) = try makeSession()
+        let shared = Self.cover(.red)
+        session.coverImage = { _ in shared }
+        session.coverKey = { _ in "disc" }
+        session.play(item("a", movements: 3))
+        try await settle { session.nowPlayingArtwork != nil }
+        let before = try #require(session.nowPlayingArtwork?.artwork)
+
+        session.next()
+        // The artwork never goes nil between the movements, so the lock screen does not flicker.
+        #expect(session.nowPlayingArtwork?.artwork === before)
+        try await Task.sleep(for: .milliseconds(20))
+        #expect(session.nowPlayingArtwork?.artwork === before)
+    }
+
+    @Test func aCoverThatArrivesDuringPlaybackReachesTheSystemPlayers() async throws {
+        let (session, _) = try makeSession()
+        let kept = Kept()
+        session.coverImage = { _ in kept.image }
+        session.coverKey = { $0.id }
+        session.play(item("a"))
+        try await Task.sleep(for: .milliseconds(20))
+        #expect(session.nowPlayingArtwork == nil)
+        kept.image = Self.cover(.blue)
+        session.coverChanged()
+        try await settle { session.nowPlayingArtwork != nil }
+        #expect(session.nowPlayingArtwork?.key == "a-0")
+    }
+
     // MARK: State from the engine
 
     @Test func positionAndSegmentsFollowTheEngine() throws {
@@ -495,6 +638,36 @@ struct PlaybackSessionTests {
         engine.report(.problem("Movement 2 has a different audio format."))
         #expect(session.state.error == "Movement 2 has a different audio format.")
         #expect(!session.state.isPaused)
+    }
+
+    /// A server failure pauses without a notice. The cause joins the one server status until the next sound.
+    @Test func aServerFailurePausesQuietly() throws {
+        let (session, engine) = try makeSession()
+        session.play(item("a", movements: 2))
+        engine.report(.serverFailed(.unreachable))
+        #expect(session.state.isPaused)
+        #expect(session.state.error == nil)
+        #expect(session.playbackTrouble == .unreachable)
+        session.resume()
+        #expect(session.playbackTrouble == .unreachable)
+        engine.report(.waiting(nil))
+        #expect(session.playbackTrouble == nil)
+    }
+
+    @Test func playbackFailuresMapToTheQuietStatus() {
+        #expect(ServerTrouble(playback: URLError(.notConnectedToInternet)) == .unreachable)
+        #expect(ServerTrouble(playback: TrackTransfer.Failure.timedOut) == .unreachable)
+        #expect(ServerTrouble(playback: TrackTransfer.Failure.truncated) == .unreachable)
+        #expect(ServerTrouble(playback: TrackStore.Failure.offline) == .unreachable)
+        #expect(ServerTrouble(playback: TrackTransfer.Failure.http(404)) == .refused)
+        #expect(ServerTrouble(playback: TrackTransfer.Failure.storage) == nil)
+        #expect(ServerTrouble(playback: StreamDecoder.Failure.status(-1)) == nil)
+        // A device failure still explains itself; no failure shows a type name.
+        let failures: [any Error] = [
+            TrackTransfer.Failure.cancelled, TrackTransfer.Failure.invalidRead, StreamDecoder.Failure.unsupported,
+            StreamDecoder.Failure.prematureEnd(expected: 2, actual: 1), TrackStore.Failure.offline,
+        ]
+        for failure in failures { #expect(!failure.localizedDescription.contains("Klassik."), "\(failure)") }
     }
 
     @Test func aFailurePausesAndPlayRetries() throws {

@@ -177,15 +177,15 @@ private struct ListedWorksSheet: View {
                 }
             }
             .environment(\.pageHeading, "")
-            .navigationTitle(listed.title)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
-                }
+            // The specimen sheet head replaces the bar: a leading title and a plain Done (specimen.js `K.sheet`).
+            .toolbar(.hidden, for: .navigationBar)
+            .safeAreaInset(edge: .top, spacing: 0) {
+                SheetHead(title: listed.title, done: { dismiss() })
+                    .background(Palette.backgroundPage)
             }
         }
         .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
         .presentationBackground(Palette.backgroundPage)
     }
 }

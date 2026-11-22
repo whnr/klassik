@@ -277,7 +277,9 @@ def check(citation: Citation, properties: dict[str, str]) -> str | None:
     if style:
         wanted = style.group(1)
         if citation.property == "class":
-            return None if f"t-{wanted}" in value.split() else f"{citation.selector} is not t-{wanted}"
+            # A class list built in script code sits between quotes.
+            classes = value.replace('"', " ").split()
+            return None if f"t-{wanted}" in classes else f"{citation.selector} is not t-{wanted}"
         return None if f"--type-{wanted}-" in value else f"{citation.property}: {value} is not type {wanted}"
     try:
         swift = swift_number(citation.value, properties)

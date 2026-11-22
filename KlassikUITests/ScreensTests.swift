@@ -661,7 +661,7 @@ final class BrowseScreens: ScreensTestCase {
     @MainActor
     func testMusicBrainz() throws {
         let app = try launchAndConnect()
-        openSettings(app, technical: true)
+        openSettings(app)
         // The row shows once the library has composers.
         let musicBrainz = app.buttons["musicbrainz"]
         XCTAssertTrue(eventually(timeout: 30) { reveal(musicBrainz, in: app).exists })
@@ -678,7 +678,7 @@ final class BrowseScreens: ScreensTestCase {
     @MainActor
     func testPeopleFromWikidata() throws {
         let app = try launchAndConnect()
-        openSettings(app, technical: true)
+        openSettings(app)
         // The row shows once the library has composers.
         let musicBrainz = app.buttons["musicbrainz"]
         XCTAssertTrue(eventually(timeout: 30) { reveal(musicBrainz, in: app).exists })
@@ -756,7 +756,7 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertEqual(mark.value as? String, "Favourite")
         mark.tap()
         XCTAssertEqual(mark.value as? String, "Not a favourite")
-        openSettings(app, technical: true)
+        openSettings(app)
         reveal(app.buttons["diagnostics"], in: app).tap()
         let pending = app.descendants(matching: .any)["pending-favourite"].firstMatch
         XCTAssertTrue(reveal(pending, in: app).exists)
@@ -1502,8 +1502,7 @@ final class PlaybackScreens: ScreensTestCase {
     @MainActor
     func testPlayOnTheAlbumPage() throws {
         let app = try launchAndConnect()
-        openSettings(app, technical: true)
-        reveal(app.buttons["classical-albums"], in: app).tap()
+        openClassicalAlbums(app)
         let encores = app.buttons.matching(identifier: "album")
             .matching(NSPredicate(format: "label CONTAINS 'Romantic Encores'")).firstMatch
         XCTAssertTrue(reveal(encores, in: app).isHittable)
@@ -1527,8 +1526,7 @@ final class PlaybackScreens: ScreensTestCase {
     @MainActor
     func testAlbumWorkHasOneDisclosureOnThePageAndOverlay() throws {
         let app = try launchAndConnect()
-        openSettings(app, technical: true)
-        reveal(app.buttons["classical-albums"], in: app).tap()
+        openClassicalAlbums(app)
         let album = app.buttons.matching(identifier: "album")
             .matching(NSPredicate(format: "label CONTAINS 'Mendelssohn: Violin Concerto'")).firstMatch
         reveal(album, in: app).tap()
@@ -1585,7 +1583,7 @@ final class PlaybackScreens: ScreensTestCase {
         closeMenu(app)
         back(app, times: 3)
 
-        openSettings(app, technical: true)
+        openSettings(app)
         reveal(app.buttons["local-storage"], in: app).tap()
         XCTAssertTrue(app.navigationBars["Local Storage"].waitForExistence(timeout: 10))
         // The list builds rows lazily, and the Downloads section starts below the storage sections.
@@ -1721,8 +1719,7 @@ final class PlaybackScreens: ScreensTestCase {
     @MainActor
     func testOfflineAlbumAppearsInFavourites() throws {
         let app = try launchAndConnect(arguments: ["-offlineFavourites"])
-        openSettings(app, technical: true)
-        reveal(app.buttons["classical-albums"], in: app).tap()
+        openClassicalAlbums(app)
         let album = app.buttons.matching(identifier: "album")
             .matching(NSPredicate(format: "label CONTAINS 'Romantic Encores'")).firstMatch
         reveal(album, in: app).tap()
@@ -1995,7 +1992,7 @@ final class SettingsScreens: ScreensTestCase {
     @MainActor
     func testLocalStorage() throws {
         let app = try launchAndConnect()
-        openSettings(app, technical: true)
+        openSettings(app)
         reveal(app.buttons["local-storage"], in: app).tap()
         XCTAssertTrue(app.navigationBars["Local Storage"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.descendants(matching: .any)["storage-bar"].firstMatch.waitForExistence(timeout: 10))
@@ -2050,15 +2047,39 @@ final class SettingsScreens: ScreensTestCase {
         snap(app, "08b-swipe-actions")
         back(app)
 
-        // Technical Details starts off, so its rows stay out of the way.
-        let technical = reveal(app.switches["technical-details"], in: app)
-        XCTAssertEqual(technical.value as? String, "0", "Technical Details is not off by default")
-        XCTAssertFalse(app.buttons["diagnostics"].exists)
+        // Flo's groups: Playback, Library, Colour, Advanced settings. Each row follows the one before it.
+        let order = [
+            "timeline-side", "replaygain", "scrobbles", "classical-rules", "partial-works", "swipe-actions",
+            "local-storage", "delete-listening-data", "accent", "player-tint-strength", "musicbrainz", "diagnostics",
+            "licences",
+        ]
+        reveal(row(app, order[0]), in: app)
+        for (above, below) in zip(order, order.dropFirst()) {
+            let next = reveal(row(app, below), in: app)
+            let previous = row(app, above)
+            XCTAssertTrue(previous.exists, "\(above) is gone when \(below) shows")
+            XCTAssertLessThan(previous.frame.minY, next.frame.minY, "\(below) is not below \(above)")
+        }
+        XCTAssertFalse(app.switches["technical-details"].exists, "Settings still has the Technical Details switch")
         snap(app, "08c-settings")
-        technical.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
-        XCTAssertTrue(reveal(app.buttons["diagnostics"], in: app).isHittable)
-        XCTAssertTrue(app.buttons["local-storage"].exists)
-        snap(app, "08h-settings-technical")
+    }
+
+    /// The drawn ink of the page title, after the push has settled.
+    @MainActor
+    func titleInk(_ title: String, in app: XCUIApplication) -> CGRect {
+        let heading = app.staticTexts.matching(
+            NSPredicate(format: "identifier == %@ AND label == %@", "page-heading", title)
+        ).firstMatch
+        XCTAssertTrue(heading.waitForExistence(timeout: 10), "No title \(title)")
+        _ = eventually(timeout: 3) { heading.isHittable && heading.frame.minX >= 0 }
+        Thread.sleep(forTimeInterval: 0.5)
+        return drawn(heading, in: app)
+    }
+
+    /// One row of a grouped list, whatever control it is.
+    @MainActor
+    func row(_ app: XCUIApplication, _ identifier: String) -> XCUIElement {
+        app.descendants(matching: .any).matching(identifier: identifier).firstMatch
     }
 
     /// The accent switch recolours the app at once (ADR 0034).
@@ -2113,6 +2134,15 @@ final class SettingsScreens: ScreensTestCase {
             NSPredicate(format: "label == %@ AND identifier != %@", "Delete Listening Data", "delete-listening-data")
         ).firstMatch
         XCTAssertTrue(confirm.waitForExistence(timeout: 5), "No confirmation")
+        // The popover points at the button that opened it, so the whole dialog is on one side of the button.
+        let source = app.buttons["delete-listening-data"]
+        let title = app.staticTexts["Delete Listening Data?"].firstMatch
+        XCTAssertTrue(title.exists, "The dialog has no title")
+        let below = title.frame.minY >= source.frame.maxY - 1 && confirm.frame.minY >= source.frame.maxY - 1
+        let above = title.frame.maxY <= source.frame.minY + 1 && confirm.frame.maxY <= source.frame.minY + 1
+        XCTAssertTrue(
+            below || above,
+            "The dialog is not on the button: button \(source.frame), title \(title.frame), confirm \(confirm.frame)")
         snap(app, "08k-delete-listening-data")
         confirm.tap()
         XCTAssertTrue(confirm.waitForNonExistence(timeout: 5))
@@ -2169,8 +2199,29 @@ final class SettingsScreens: ScreensTestCase {
     @MainActor
     func testClassicalAlbums() throws {
         let app = try launchAndConnect()
-        openSettings(app, technical: true)
-        reveal(app.buttons["classical-albums"], in: app).tap()
+        // Every page title sits at the same gap under the bar: grouped Settings, the Classical Rules form and a
+        // plain list.
+        openSettings(app)
+        let settingsTitle = titleInk("Settings", in: app)
+        reveal(app.buttons["classical-rules"], in: app).tap()
+        XCTAssertTrue(app.navigationBars["Classical Rules"].waitForExistence(timeout: 10))
+        let rulesTitle = titleInk("Classical Rules", in: app)
+        // The result comes before the rules.
+        let albums = app.buttons["classical-albums"]
+        XCTAssertTrue(albums.waitForExistence(timeout: 10))
+        // A row can merge its label and value into one element, so the check reads every element that shows one.
+        let shares = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", " on server"))
+        let shareRows = shares.allElementsBoundByIndex.map(\.frame)
+        XCTAssertGreaterThanOrEqual(Set(shareRows.map(\.minY.rounded)).count, 2, "No albums and tracks result")
+        let firstCheck = app.buttons["add-check"].firstMatch
+        XCTAssertTrue(firstCheck.exists)
+        let resultBottom = shareRows.map(\.maxY).max() ?? .infinity
+        XCTAssertLessThan(resultBottom, firstCheck.frame.minY, "The result is not above the rules")
+        snap(app, "09c-classical-rules")
+        albums.tap()
+        let albumsTitle = titleInk("Classical Albums", in: app)
+        XCTAssertEqual(settingsTitle.minY, albumsTitle.minY, accuracy: 2, "Settings title gap")
+        XCTAssertEqual(rulesTitle.minY, albumsTitle.minY, accuracy: 2, "Classical Rules title gap")
         let concerto = app.buttons.matching(identifier: "album")
             .matching(NSPredicate(format: "label CONTAINS 'Mendelssohn: Violin Concerto'")).firstMatch
         XCTAssertTrue(concerto.waitForExistence(timeout: 10))
@@ -2193,7 +2244,7 @@ final class SettingsScreens: ScreensTestCase {
         let app = try launchAndConnect()
         // Diagnostics checks that the mini player leaves the last row free, so something must be playing.
         let bar = pausedPlayerInLibrary(app)
-        openSettings(app, technical: true)
+        openSettings(app)
         reveal(app.buttons["diagnostics"], in: app).tap()
         XCTAssertTrue(app.staticTexts["Diagnostics"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.descendants(matching: .any)["opensubsonic"].waitForExistence(timeout: 10))
@@ -2213,7 +2264,7 @@ final class SettingsScreens: ScreensTestCase {
     @MainActor
     func testGapless() throws {
         let app = try launchAndConnect()
-        openSettings(app, technical: true)
+        openSettings(app)
         reveal(app.buttons["diagnostics"], in: app).tap()
         XCTAssertTrue(app.descendants(matching: .any)["opensubsonic"].waitForExistence(timeout: 10))
         reveal(app.buttons["gapless-test"], in: app).tap()
@@ -2509,25 +2560,24 @@ class ScreensTestCase: XCTestCase {
         return identified.exists ? identified : app.tabBars["tab-row"].buttons[name]
     }
 
-    /// Settings belongs to the Library stack, behind its toolbar cog. `technical` turns on Technical Details, so
-    /// that its rows show below the switch. A reset launch turns the switch off again.
+    /// Settings belongs to the Library stack, behind its toolbar cog.
     @MainActor
-    func openSettings(_ app: XCUIApplication, technical: Bool = false) {
+    func openSettings(_ app: XCUIApplication) {
         openPlace(app, "Library")
         for _ in 0..<10 where !app.buttons["library-settings"].exists { back(app) }
         let cog = app.buttons["library-settings"]
         XCTAssertTrue(cog.waitForExistence(timeout: 10))
         cog.tap()
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 10))
-        guard technical else { return }
-        let toggle = reveal(app.switches["technical-details"], in: app)
-        // The switch reports its new value after its animation. A tap during the page's push can be lost; one
-        // more tap follows then.
-        for _ in 0..<2 where toggle.value as? String != "1" {
-            toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
-            _ = eventually(timeout: 3) { toggle.value as? String == "1" }
-        }
-        XCTAssertEqual(toggle.value as? String, "1", "Technical Details does not turn on")
+    }
+
+    /// The classical albums open from the Result rows of Classical Rules.
+    @MainActor
+    func openClassicalAlbums(_ app: XCUIApplication) {
+        openSettings(app)
+        reveal(app.buttons["classical-rules"], in: app).tap()
+        XCTAssertTrue(app.navigationBars["Classical Rules"].waitForExistence(timeout: 10))
+        reveal(app.buttons["classical-albums"], in: app).tap()
     }
 
     /// Taps a place in the tab bar.

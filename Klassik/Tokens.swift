@@ -2,7 +2,7 @@
 
 import SwiftUI
 
-/// An accent family (design/specimen/tokens.md). The raw value is the folder of its colour sets.
+/// An accent family (design/specimen/tokens.html). The raw value is the folder of its colour sets.
 enum AccentFamily: String, CaseIterable, Sendable {
     case claret = "Claret"
     case green = "Green"
@@ -51,7 +51,7 @@ enum Palette: String, CaseIterable, ShapeStyle, Sendable {
     }
 }
 
-/// A text style (design/specimen/tokens.md). `typeStyle(_:)` sets it on a view.
+/// A text style (design/specimen/tokens.html). `typeStyle(_:)` sets it on a view.
 enum TypeStyle: CaseIterable, Sendable {
     case largeTitle
     case title1

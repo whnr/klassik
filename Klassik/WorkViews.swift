@@ -336,7 +336,6 @@ struct CountedHeading: View {
 /// Under the title: the composer as a link, when the work was composed, and what the tracks add to the title.
 private struct WorkHeader: View {
     @Environment(AppModel.self) private var model
-    @Environment(AppNavigator.self) private var navigator
     let work: WorkIndex.Work
     @ScaledMetric(space: .inGroup) private var gap: CGFloat
 
@@ -359,20 +358,11 @@ private struct WorkHeader: View {
                     .typeStyle(.subheadline)
                     .foregroundStyle(Palette.textSecondary)
             }
-            if case .candidates = model.enrichment.link(of: work), work.isTagged {
-                Button("Confirm the MusicBrainz Work", systemImage: "questionmark.circle") {
-                    navigator.open(.sources(work: work.id), in: navigator.selection)
-                }
-                .typeStyle(.subheadline)
-                .buttonStyle(.plain)
-                .foregroundStyle(Palette.tint)
-                .accessibilityIdentifier("composed")
-            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// When the work was composed. It opens the sources of the date.
+    /// When the work was composed, as plain text (specimen work.html).
     private var composed: some View {
         let enrichment = model.enrichment
         let text =
@@ -381,12 +371,9 @@ private struct WorkHeader: View {
             } else {
                 enrichment.isRunning ? "…" : "unknown"
             }
-        return Button(", composed\u{00A0}\(text)") {
-            navigator.open(.sources(work: work.id), in: navigator.selection)
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(Palette.textSecondary)
-        .accessibilityIdentifier("composed")
+        return Text(", composed\u{00A0}\(text)")
+            .foregroundStyle(Palette.textSecondary)
+            .accessibilityIdentifier("composed")
     }
 }
 

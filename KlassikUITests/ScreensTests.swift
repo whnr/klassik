@@ -861,28 +861,22 @@ final class BrowseScreens: ScreensTestCase {
             .matching(NSPredicate(format: "label BEGINSWITH %@", title + " (")).firstMatch
     }
 
-    /// Two good matches in another language: the listener picks one once.
+    /// The work page offers no MusicBrainz confirmation, and the date is plain text (specimen work.html).
+    /// Ambiguous matches are picked from the sources page, which the status list opens.
     @MainActor
-    func testConfirmMatch() throws {
+    func testWorkPageHasNoConfirmButton() throws {
         let app = try launchAndConnect()
         reveal(composer(app, "Wolfgang"), in: app).tap()
         let work = app.buttons.matching(identifier: "work").matching(NSPredicate(format: "label CONTAINS 'K. 467'"))
             .firstMatch
         XCTAssertTrue(work.waitForExistence(timeout: 10))
         work.tap()
-        let confirm = app.buttons.matching(NSPredicate(format: "identifier == 'composed' AND label CONTAINS 'Confirm'"))
-            .firstMatch
-        XCTAssertTrue(confirm.waitForExistence(timeout: 30), app.buttons["composed"].label)
-        confirm.tap()
-        let candidate = app.buttons.matching(identifier: "candidate").firstMatch
-        XCTAssertTrue(candidate.waitForExistence(timeout: 10))
-        snap(app, "04b-confirm-match")
-        candidate.tap()
-        let linked = app.descendants(matching: .any)["musicbrainz-work"]
-        XCTAssertTrue(linked.waitForExistence(timeout: 10))
-        let year = app.staticTexts.matching(NSPredicate(format: "label CONTAINS '1785'")).firstMatch
-        XCTAssertTrue(year.waitForExistence(timeout: 10))
-        snap(app, "04c-sources")
+        let composed = app.staticTexts["composed"]
+        XCTAssertTrue(composed.waitForExistence(timeout: 30), "The work page shows no composed date")
+        XCTAssertTrue(composed.label.contains("composed"), composed.label)
+        XCTAssertFalse(app.buttons["composed"].exists, "The composed date is a button")
+        XCTAssertFalse(app.buttons["Confirm the MusicBrainz Work"].exists, "The work page has a Confirm button")
+        snap(app, "04b-work-plain-date")
     }
 
     /// The empty Search page lists the recent searches, newest first. One search session is one entry; a tap
@@ -1196,8 +1190,9 @@ final class PlaybackScreens: ScreensTestCase {
         let recording = app.buttons.matching(identifier: "recording").firstMatch
         XCTAssertTrue(recording.waitForExistence(timeout: 10))
         // The MusicBrainz pass may still run right after the connect.
-        let composed = app.buttons.matching(NSPredicate(format: "identifier == 'composed' AND label CONTAINS '1844'"))
-        XCTAssertTrue(composed.firstMatch.waitForExistence(timeout: 30), app.buttons["composed"].label)
+        let composed = app.staticTexts.matching(NSPredicate(format: "identifier == 'composed' AND label CONTAINS '1844'"))
+        XCTAssertTrue(composed.firstMatch.waitForExistence(timeout: 30), app.staticTexts["composed"].label)
+        XCTAssertFalse(app.buttons["composed"].exists, "The composed date is a button")
         snap(app, "04-work")
         checkWorkPage(app)
 

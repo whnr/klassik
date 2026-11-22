@@ -621,7 +621,7 @@ private struct PictureCredit: View {
         file.link = url
         file.foregroundColor = Palette.tint.color
         if contrast == .increased { file.underlineStyle = Text.LineStyle.single }
-        return Text("\(credit.source(linked: true)). ") + Text(file)
+        return Text(AttributedString("\(credit.source(linked: true)). ") + file)
     }
 
     private func words(_ text: Text) -> some View {

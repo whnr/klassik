@@ -544,17 +544,18 @@ struct PlaybackSessionTests {
         let (session, _) = try makeSession()
         let covers = ["a-0": Self.cover(.red), "a-1": Self.cover(.green)]
         session.coverImage = { covers[$0.id] }
+        session.coverKey = { $0.id }
         session.play(item("a", movements: 3))
-        try await settle { session.nowPlayingArtwork?.songID == "a-0" }
-        #expect(session.nowPlayingArtwork?.songID == "a-0")
+        try await settle { session.nowPlayingArtwork?.key == "a-0" }
+        #expect(session.nowPlayingArtwork?.key == "a-0")
         let artwork = Handed(artwork: try #require(session.nowPlayingArtwork?.artwork))
         // The system asks for the image on a thread of its own; a main-actor handler would trap there.
         let image = await Task.detached { artwork.artwork.image(at: CGSize(width: 4, height: 4)) }.value
         #expect(image === covers["a-0"])
 
         session.next()
-        try await settle { session.nowPlayingArtwork?.songID == "a-1" }
-        #expect(session.nowPlayingArtwork?.songID == "a-1")
+        try await settle { session.nowPlayingArtwork?.key == "a-1" }
+        #expect(session.nowPlayingArtwork?.key == "a-1")
 
         // A track without a kept cover shows none, never the cover of the track before.
         session.next()
@@ -562,17 +563,34 @@ struct PlaybackSessionTests {
         #expect(session.nowPlayingArtwork == nil)
     }
 
+    @Test func theArtworkStaysWhileMovementsShareOneCover() async throws {
+        let (session, _) = try makeSession()
+        let shared = Self.cover(.red)
+        session.coverImage = { _ in shared }
+        session.coverKey = { _ in "disc" }
+        session.play(item("a", movements: 3))
+        try await settle { session.nowPlayingArtwork != nil }
+        let before = try #require(session.nowPlayingArtwork?.artwork)
+
+        session.next()
+        // The artwork never goes nil between the movements, so the lock screen does not flicker.
+        #expect(session.nowPlayingArtwork?.artwork === before)
+        try await Task.sleep(for: .milliseconds(20))
+        #expect(session.nowPlayingArtwork?.artwork === before)
+    }
+
     @Test func aCoverThatArrivesDuringPlaybackReachesTheSystemPlayers() async throws {
         let (session, _) = try makeSession()
         let kept = Kept()
         session.coverImage = { _ in kept.image }
+        session.coverKey = { $0.id }
         session.play(item("a"))
         try await Task.sleep(for: .milliseconds(20))
         #expect(session.nowPlayingArtwork == nil)
         kept.image = Self.cover(.blue)
         session.coverChanged()
         try await settle { session.nowPlayingArtwork != nil }
-        #expect(session.nowPlayingArtwork?.songID == "a-0")
+        #expect(session.nowPlayingArtwork?.key == "a-0")
     }
 
     // MARK: State from the engine

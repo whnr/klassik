@@ -102,6 +102,7 @@ final class AppModel {
         library.classicalChanged = { [weak self] in self?.planCovers() }
         let covers = albumCovers
         playback.coverImage = { song in await covers.playbackImage(for: song) }
+        playback.coverKey = { song in covers.candidates(for: song).first }
         followPlayingCover()
         reconnect = ConnectionMonitor { [weak self] in
             Task { @MainActor [weak self] in

@@ -87,9 +87,12 @@ final class PlaybackSession {
     /// The kept cover of a song, or nil. AppModel reads it from the cover store, so the system players never
     /// wait for the network (ADR 0059).
     @ObservationIgnored var coverImage: (@MainActor (Song) async -> UIImage?)?
-    /// The cover in the system players and the song that it belongs to.
-    @ObservationIgnored private(set) var nowPlayingArtwork: (songID: String, artwork: MPMediaItemArtwork)?
-    /// The song whose cover loads now.
+    /// The identity of the kept cover of a song, or nil. Songs with the same key share one picture, so the system
+    /// players keep their artwork when the movement changes inside one recording.
+    @ObservationIgnored var coverKey: (@MainActor (Song) -> String?)?
+    /// The cover in the system players and the key that it belongs to.
+    @ObservationIgnored private(set) var nowPlayingArtwork: (key: String, artwork: MPMediaItemArtwork)?
+    /// The cover key that loads now.
     @ObservationIgnored private var artworkLoading: String?
     var leveling: VolumeLeveling {
         didSet {
@@ -793,7 +796,7 @@ final class PlaybackSession {
             MPNowPlayingInfoPropertyElapsedPlaybackTime: position,
             MPNowPlayingInfoPropertyPlaybackRate: isPaused ? 0.0 : 1.0,
         ]
-        if let shown = nowPlayingArtwork, shown.songID == song.id {
+        if let shown = nowPlayingArtwork, shown.key == coverKey?(song) {
             info[MPMediaItemPropertyArtwork] = shown.artwork
         } else {
             nowPlayingArtwork = nil
@@ -813,14 +816,14 @@ final class PlaybackSession {
     /// A track change shows the new cover when it is loaded. Until then, the system players show none, never the
     /// cover of another album.
     private func loadArtwork(for song: Song) {
-        guard artworkLoading != song.id, let coverImage else { return }
-        artworkLoading = song.id
+        guard let key = coverKey?(song), artworkLoading != key, let coverImage else { return }
+        artworkLoading = key
         Task { [weak self] in
             let image = await coverImage(song)
-            guard let self, self.artworkLoading == song.id else { return }
+            guard let self, self.artworkLoading == key else { return }
             self.artworkLoading = nil
-            guard let image, self.coverSong?.id == song.id else { return }
-            self.nowPlayingArtwork = (song.id, Self.artwork(image))
+            guard let image, self.coverSong.flatMap({ self.coverKey?($0) }) == key else { return }
+            self.nowPlayingArtwork = (key, Self.artwork(image))
             self.updateNowPlaying()
         }
     }

@@ -5,38 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>MusicBrainz</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="../tokens.css?v=50" />
-    <link rel="stylesheet" href="specimen.css?v=50" />
-    <script src="specimen.js?v=50"></script>
+    <link rel="stylesheet" href="../tokens.css?v=51" />
+    <link rel="stylesheet" href="specimen.css?v=51" />
+    <script src="specimen.js?v=51"></script>
   </head>
   <body>
     <script>
       // The lookup page of Settings, with the section for the Wikidata pass of ADR 0042.
       // ?state= running, upToDate (default), waiting, connection or slowDown.
       K.start(() => {
-        const { el, href } = K;
+        const { el, href, form } = K;
         const { scroll } = K.page({
           tab: "library",
           title: "MusicBrainz",
           back: { label: "Settings", href: href("settings.html", { place: "library", back: "Library" }) },
+          grouped: true,
         });
         const state = K.params.get("state") || "upToDate";
-        const row = (label, value) =>
-          el("div", { class: "row" }, el("span", { class: "main" }, label), el("span", { class: "trail" }, value));
+        const row = form.value;
         const status = {
           running: [
             el(
               "div",
-              { class: "row-block", "data-id": "people-progress" },
+              { class: "row", "data-id": "people-progress" },
               el(
-                "div",
-                { class: "row" },
-                el(
-                  "span",
-                  { class: "main" },
-                  el("span", { class: "t-body" }, "Looking up 120 of 540 people"),
-                  el("progress", { class: "bar", value: 120, max: 540 }),
-                ),
+                "span",
+                { class: "main" },
+                el("span", { class: "t-body" }, "Looking up 120 of 540 people"),
+                el("progress", { class: "bar", value: 120, max: 540 }),
               ),
             ),
           ],
@@ -49,19 +45,13 @@
         const extra = state === "upToDate" ? [] : [row("New", "230"), row("Due for a New Check", "12")];
         scroll.append(
           el("div", { class: "page-head" }, el("h1", { class: "t-largeTitle" }, "MusicBrainz")),
-          el(
-            "section",
-            { class: "section" },
-            el("div", { class: "section-head t-footnote" }, "People from Wikidata"),
-            el("div", { class: "list" }, ...status, row("People Checked", checked), ...extra),
-            el(
-              "p",
-              { class: "section-foot t-footnote" },
-              "Klassik looks up every composer and performer of your library, new people first, one at a time at " +
-                "the pace that Wikidata asks for. It asks again for living people after about 30 days and for " +
-                "others after about a year, or after about 3 months when Wikidata does not know them. It waits for " +
-                "a connection that is not metered and not in Low Data Mode.",
-            ),
+          form.group(
+            "People from Wikidata",
+            [...status, row("People Checked", checked), ...extra],
+            "Klassik looks up every composer and performer of your library, new people first, one at a time at " +
+              "the pace that Wikidata asks for. It asks again for living people after about 30 days and for " +
+              "others after about a year, or after about 3 months when Wikidata does not know them. It waits for " +
+              "a connection that is not metered and not in Low Data Mode.",
           ),
         );
       });

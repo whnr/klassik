@@ -2031,6 +2031,93 @@ final class PlaybackScreens: ScreensTestCase {
         snap(app, "06e-favourite-in-composer-works")
     }
 
+    /// A long press lifts a favourite row and a drag drops it elsewhere with no Edit mode. A still long press on
+    /// the same row keeps the context menu. The new order stays on the device across a relaunch (ADR 0013).
+    @MainActor
+    func testFavouriteRecordingLongPressDrag() throws {
+        let app = try launchAndConnect()
+        composer(app, "Ludwig van Beethoven").tap()
+        app.buttons.matching(identifier: "work").firstMatch.tap()
+        let rows = app.buttons.matching(identifier: "recording")
+        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 10))
+
+        // Server stars survive UI test launches, so each recording is set to a favourite, not toggled.
+        for name in ["Carl Fixture", "Anna Probe"] {
+            rows.matching(NSPredicate(format: "label CONTAINS %@", name)).firstMatch.tap()
+            let mark = app.buttons["favourite-recording"]
+            XCTAssertTrue(mark.waitForExistence(timeout: 10))
+            if mark.value as? String != "Favourite" {
+                mark.tap()
+                XCTAssertTrue(eventually(timeout: 10) { mark.value as? String == "Favourite" })
+            }
+            back(app)
+        }
+        let first = rows.element(boundBy: 0).label
+        let second = rows.element(boundBy: 1).label
+        XCTAssertNotEqual(first, second)
+
+        // A still press shows the menu, so a lift must need movement.
+        rows.element(boundBy: 0).press(forDuration: 1.2)
+        let unfavourite = app.buttons["favourite-action"].firstMatch
+        XCTAssertTrue(unfavourite.waitForExistence(timeout: 5), "A still long press did not open the menu")
+        XCTAssertEqual(unfavourite.label, "Unfavourite")
+        snap(app, "05e-still-press-menu")
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
+        XCTAssertTrue(eventually(timeout: 5) { !unfavourite.exists }, "The menu did not close")
+        XCTAssertEqual(rows.element(boundBy: 0).label, first, "A still press changed the order")
+
+        // Press the second row for 0.6 s, drag it above the first, and hold. A thread beside the drag takes the
+        // screenshot of the lifted row, because the drag call blocks until the finger lifts.
+        var dragged: XCUIScreenshot?
+        let lock = NSLock()
+        for _ in 0..<3 where !rows.element(boundBy: 0).label.contains(second) {
+            let source = rows.element(boundBy: 1).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            let target = rows.element(boundBy: 0).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.1))
+            DispatchQueue.global().asyncAfter(deadline: .now() + 1.6) {
+                let shot = XCUIScreen.main.screenshot()
+                lock.lock()
+                dragged = shot
+                lock.unlock()
+            }
+            source.press(forDuration: 0.6, thenDragTo: target, withVelocity: .slow, thenHoldForDuration: 1.5)
+            _ = eventually(timeout: 3) { rows.element(boundBy: 0).label.contains(second) }
+        }
+        lock.lock()
+        if let dragged {
+            let attachment = XCTAttachment(screenshot: dragged)
+            attachment.name = "05f-recording-dragged"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+        lock.unlock()
+        XCTAssertTrue(
+            eventually(timeout: 10) {
+                rows.element(boundBy: 0).label.contains(second) && rows.element(boundBy: 1).label.contains(first)
+            }, "The long-press drag did not move the favourite")
+        snap(app, "05g-recording-dropped")
+
+        // The order lives in the device file. A launch without -resetServer keeps it and the login.
+        app.terminate()
+        app.launchArguments = []
+        app.launch()
+        let connect = app.buttons["connect"]
+        if connect.waitForExistence(timeout: 5) { connect.tap() }
+        let composers = app.buttons["library-composers"]
+        XCTAssertTrue(composers.waitForExistence(timeout: 30))
+        composers.tap()
+        XCTAssertTrue(composer(app, "Ludwig van Beethoven").waitForExistence(timeout: 30))
+        composer(app, "Ludwig van Beethoven").tap()
+        let work = app.buttons.matching(identifier: "work").firstMatch
+        XCTAssertTrue(work.waitForExistence(timeout: 10))
+        work.tap()
+        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(
+            eventually(timeout: 10) { rows.element(boundBy: 0).label.contains(second) },
+            "The dragged order did not survive a relaunch")
+        snap(app, "05h-recording-order-after-relaunch")
+        app.terminate()
+    }
+
 }
 
 /// The timeline on the screen edge and the mini player in the tab row (ADR 0014, 0028, 0035).

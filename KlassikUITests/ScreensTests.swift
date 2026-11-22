@@ -2023,30 +2023,6 @@ final class SettingsScreens: ScreensTestCase {
         _ = pausedPlayerInLibrary(app)
         openSettings(app)
         snap(app, "08c-settings-top")
-        XCTAssertTrue(reveal(app.switches["scrobbles"], in: app).exists, "Scrobbles is not in Playback")
-        let tint = reveal(app.sliders["player-tint-strength"], in: app)
-        XCTAssertTrue(tint.isHittable)
-        XCTAssertEqual(tint.value as? String, "3×")
-        tint.adjust(toNormalizedSliderPosition: 0)
-        XCTAssertEqual(tint.value as? String, "0×")
-        tint.adjust(toNormalizedSliderPosition: 0.5)
-        XCTAssertEqual(tint.value as? String, "2.5×")
-        tint.adjust(toNormalizedSliderPosition: 1)
-        XCTAssertEqual(tint.value as? String, "5×")
-        tint.adjust(toNormalizedSliderPosition: 0.6)
-        XCTAssertEqual(tint.value as? String, "3×")
-        snap(app, "08f-player-tint-setting")
-
-        reveal(app.buttons["swipe-actions"], in: app).tap()
-        XCTAssertTrue(app.navigationBars["Swipe Actions"].waitForExistence(timeout: 10))
-        // The list shows the buttons as the row does: Play Next left of Add to Queue (tokens.html SWIPE).
-        let playNext = app.staticTexts["Play Next"].firstMatch
-        let addToQueue = app.staticTexts["Add to Queue"].firstMatch
-        XCTAssertTrue(playNext.waitForExistence(timeout: 10) && addToQueue.exists, "No swipe left actions")
-        XCTAssertLessThan(playNext.frame.minY, addToQueue.frame.minY, "Add to Queue is above Play Next")
-        snap(app, "08b-swipe-actions")
-        back(app)
-
         // Flo's groups: Playback, Library, Colour, Advanced settings. Each row follows the one before it.
         let order = [
             "timeline-side", "replaygain", "scrobbles", "classical-rules", "partial-works", "swipe-actions",
@@ -2062,6 +2038,32 @@ final class SettingsScreens: ScreensTestCase {
         }
         XCTAssertFalse(app.switches["technical-details"].exists, "Settings still has the Technical Details switch")
         snap(app, "08c-settings")
+        for _ in 0..<6 where !app.switches["scrobbles"].isHittable { app.swipeDown() }
+        XCTAssertTrue(reveal(app.switches["scrobbles"], in: app).exists, "Scrobbles is not in Playback")
+
+        // Swipe Actions in Library comes before the tint in Colour, because the walk only scrolls down.
+        reveal(app.buttons["swipe-actions"], in: app).tap()
+        XCTAssertTrue(app.navigationBars["Swipe Actions"].waitForExistence(timeout: 10))
+        // The list shows the buttons as the row does: Play Next left of Add to Queue (tokens.html SWIPE).
+        let playNext = app.staticTexts["Play Next"].firstMatch
+        let addToQueue = app.staticTexts["Add to Queue"].firstMatch
+        XCTAssertTrue(playNext.waitForExistence(timeout: 10) && addToQueue.exists, "No swipe left actions")
+        XCTAssertLessThan(playNext.frame.minY, addToQueue.frame.minY, "Add to Queue is above Play Next")
+        snap(app, "08b-swipe-actions")
+        back(app)
+
+        let tint = reveal(app.sliders["player-tint-strength"], in: app)
+        XCTAssertTrue(tint.isHittable)
+        XCTAssertEqual(tint.value as? String, "3×")
+        tint.adjust(toNormalizedSliderPosition: 0)
+        XCTAssertEqual(tint.value as? String, "0×")
+        tint.adjust(toNormalizedSliderPosition: 0.5)
+        XCTAssertEqual(tint.value as? String, "2.5×")
+        tint.adjust(toNormalizedSliderPosition: 1)
+        XCTAssertEqual(tint.value as? String, "5×")
+        tint.adjust(toNormalizedSliderPosition: 0.6)
+        XCTAssertEqual(tint.value as? String, "3×")
+        snap(app, "08f-player-tint-setting")
     }
 
     /// The drawn ink of the page title, after the push has settled.
@@ -2087,11 +2089,12 @@ final class SettingsScreens: ScreensTestCase {
     func testAccent() throws {
         let app = try launchAndConnect()
         openSettings(app)
-        let accent = reveal(app.buttons["accent"], in: app)
-        XCTAssertTrue(accent.label.contains("Claret"), accent.label)
+        // The Timeline picker sits at the top and the accent further down, so the check reads it from the top.
         let timelinePicker = app.buttons["timeline-side"]
         let claret = try XCTUnwrap(pickerInk(timelinePicker, in: app), "No accent ink in the Timeline picker")
         XCTAssertGreaterThan(claret.red, claret.green, "The Timeline picker is not claret: \(claret)")
+        let accent = reveal(app.buttons["accent"], in: app)
+        XCTAssertTrue(accent.label.contains("Claret"), accent.label)
         accent.tap()
         let green = app.buttons["Bottle Green"].firstMatch
         XCTAssertTrue(green.waitForExistence(timeout: 5))
@@ -2099,13 +2102,14 @@ final class SettingsScreens: ScreensTestCase {
         green.tap()
         XCTAssertTrue(eventually(timeout: 5) { accent.label.contains("Bottle Green") }, accent.label)
         // Another picker on the page takes the new family at once, not only the picker that changed.
+        for _ in 0..<6 where !timelinePicker.isHittable { app.swipeDown() }
         var picked = pickerInk(timelinePicker, in: app)
         XCTAssertTrue(
             eventually(timeout: 5) {
                 picked = pickerInk(timelinePicker, in: app)
                 return picked.map { $0.green > $0.red } ?? false
             }, "The Timeline picker keeps claret after Bottle Green: \(String(describing: picked))")
-        accent.tap()
+        reveal(accent, in: app).tap()
         let plum = app.buttons["Plum"].firstMatch
         XCTAssertTrue(plum.waitForExistence(timeout: 5))
         plum.tap()

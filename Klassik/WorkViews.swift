@@ -590,7 +590,8 @@ struct RecordingView: View {
                 guard let target = PageLink.page(url) else { return .systemAction }
                 follow(target)
                 return .handled
-            })
+            }
+        )
         // The hero draws the title, so the list draws no heading. The bar keeps the name for Back and VoiceOver.
         .environment(\.pageHeading, "")
         .navigationTitle(isOverlay ? "" : work.title)

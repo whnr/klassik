@@ -143,7 +143,7 @@ input {
   background: var(--color-fill-quiet);
 }
 
-/* The listener puts the timeline on the right or the left edge (ADR 0014). Content keeps clear of it. */
+/* The listener puts the timeline on the right or the left edge (player.md). Content keeps clear of it. */
 /* The content beside the timeline has even margins; the scroll indicator does not count. Without a timeline the
    content keeps that width, centred, so the timeline causes no layout shift. */
 :root {
@@ -469,7 +469,7 @@ input {
   align-items: flex-start;
 }
 
-/* ADR 0032: the arc is 0.64 em high and twice as wide, feet on the baseline. */
+/* The fermata (design/marks/README.md): the arc is 0.64 em high and twice as wide, feet on the baseline. */
 .fermata {
   display: inline-block;
   width: 1.036em;
@@ -565,7 +565,7 @@ input::placeholder {
   color: var(--color-tint);
 }
 
-/* Timeline and mini player: drawn by hand (ADR 0014). The timeline shape is in timeline.css (ADR 0035). */
+/* Timeline and mini player: drawn by hand (player.md). The timeline shape is in timeline.css. */
 .timeline {
   position: fixed;
   z-index: 40;
@@ -721,7 +721,7 @@ input::placeholder {
   margin-left: var(--space-l);
 }
 
-/* Decided type and spacing (ADR 0030): Wittgenstein 500 for page titles and section headings, SF for the rest,
+/* Decided type and spacing (tokens.md): Wittgenstein 500 for page titles and section headings, SF for the rest,
    one 4:3 ratio for sizes and the three spacing roles, lining proportional figures, plain lists on content pages. */
 @font-face {
   font-family: "Wittgenstein";
@@ -885,7 +885,7 @@ h1[class] {
   border-radius: var(--radius-full);
 }
 
-/* Settings and its pages keep inset grouped lists (ADR 0030). K.page({ grouped: true }) marks them. */
+/* Settings and its pages keep inset grouped lists (tokens.md). K.page({ grouped: true }) marks them. */
 :root.grouped .app,
 :root.grouped .scroll {
   background: var(--color-background-grouped);
@@ -908,7 +908,7 @@ h1[class] {
 :root.grouped :is(.row, .row-block) + :is(.row, .row-block)::before {
   left: var(--sep-inset, var(--space-l));
 }
-/* A switch is a control, so its on state takes the tint (ADR 0034). Its size is system chrome. */
+/* A switch is a control, so its on state takes the tint (tokens.md). Its size is system chrome. */
 .switch {
   appearance: none;
   flex: none;

@@ -1,23 +1,23 @@
 # Specimen
 
-The design reference of Klassik: every decision of the design map sz-rs30.1.83 and the colour map sz-rs30.1.83.19 on six pages and a token sheet, in light, dark and Increase Contrast. It shows only what is decided (ADR 0021 to 0035). Claret is the default accent.
+The design reference of Klassik: every decision of the design map sz-rs30.1.83 and the colour map sz-rs30.1.83.19 on six pages and a token sheet, in light, dark and Increase Contrast. It shows only what is decided. The rules that a picture cannot show are in the design notes beside the pages: [index.md](index.md), [work.md](work.md), [player.md](player.md), [chronology.md](chronology.md), [search.md](search.md), [person.md](person.md), [lookup.md](lookup.md), [storage.md](storage.md) and [tokens.md](tokens.md). Claret is the default accent.
 
 ## Pages
 
 - `index.html`: the Library place, with links to every page.
 - `work.html`: a work page with recording rows. `?work=<composer>|<work>` picks another work.
-- `player.html`: the recording page or album page. With `?embed=player` it is the content of the player overlay (ADR 0014), in the cover room (or the hall, a setting), with the open movement. The overlay needs no other URL: the cover of the mini player opens it on every page. A tap opens a movement row: the performers that differ from the whole page (ADR 0014) and its notes, the play button in place of the chevron. An album page heads its tracks by work only when a work has two movements on consecutive tracks (ADR 0024). Each work heading links its work page and stays in the text colour and ends in one disclosure chevron (sz-rs30.1.117.6; Flo 2026-11-22). In the player overlay a tap on the Next row plays the next item (Flo 2026-11-22). `?recording=<id>` or `?album=<id>` shows another page; Play starts it, and the page then offers "Show the player". Movement rows follow sz-rs30.1.83.8: a faint play button at the end of every row; a row with notes or with names that differ from the header opens under a trailing disclosure chevron. The header shows what every track shares, the composer included. After a quiet spell the view brings the playing row back (ADR 0014). A scrub on the timeline holds the rows still until the finger lifts. A row that does not play has no bar. A note is written in the playing row: one tap starts it at the playing time and opens the text field; "End here" is optional and makes a span. The first pill button puts the timeline on the right or the left edge (`?side=`), on every page. On this page the pill's Slow start fakes a play tap on a slow connection (ADR 0060): one second of silence, the slow-connection line, the start, a later wait and its line, then normal playback. A second tap ends it. The small line replaces the times under the bar. Both messages reserve their wrapped height before either appears.
+- `player.html`: the recording page or album page. With `?embed=player` it is the content of the player overlay ([player.md](player.md)), in the cover room (or the hall, a setting), with the open movement. The overlay needs no other URL: the cover of the mini player opens it on every page. A tap opens a movement row: the performers that differ from the whole page ([player.md](player.md)) and its notes, the play button in place of the chevron. An album page heads its tracks by work only when a work has two movements on consecutive tracks ([player.md](player.md)). Each work heading links its work page and stays in the text colour and ends in one disclosure chevron (sz-rs30.1.117.6; Flo 2026-11-22). In the player overlay a tap on the Next row plays the next item (Flo 2026-11-22). `?recording=<id>` or `?album=<id>` shows another page; Play starts it, and the page then offers "Show the player". Movement rows follow sz-rs30.1.83.8: a faint play button at the end of every row; a row with notes or with names that differ from the header opens under a trailing disclosure chevron. The header shows what every track shares, the composer included. After a quiet spell the view brings the playing row back ([player.md](player.md)). A scrub on the timeline holds the rows still until the finger lifts. A row that does not play has no bar. A note is written in the playing row: one tap starts it at the playing time and opens the text field; "End here" is optional and makes a span. The first pill button puts the timeline on the right or the left edge (`?side=`), on every page. On this page the pill's Slow start fakes a play tap on a slow connection (ADR 0060): one second of silence, the slow-connection line, the start, a later wait and its line, then normal playback. A second tap ends it. The small line replaces the times under the bar. Both messages reserve their wrapped height before either appears.
 - `chronology.html`: one composer among the contemporaries, and the overview (`?level=overview`).
-- `search.html`: the field finds works, names and albums; filters on demand in a sheet (ADR 0025). The field and the Filters button sit at the top under the back arrow, which returns to the page Search was opened from. The x in the field clears the text; the x pill beside Filters clears the text and every condition. The empty page lists recent searches, newest first, each with its filters; One search session is one entry: Enter, Done on the filters, opening a result and leaving the page update it; the x pill ends the session. Back from a result keeps the search; a tab or a link opens Search fresh. A tap restores the text and the filters. A pick in the filters clears their narrowing field. Filters closes the keyboard as the sheet rises (sz-rs30.1.83.13).
-- `person.html`: a composer or performer page with the screen-wide picture (ADR 0017, 0019). The name sits on the picture over a blur and a measured scrim (ADR 0034). `?name=<artist name>`.
+- `search.html`: the field finds works, names and albums; filters on demand in a sheet ([search.md](search.md)). The field and the Filters button sit at the top under the back arrow, which returns to the page Search was opened from. The x in the field clears the text; the x pill beside Filters clears the text and every condition. The empty page lists recent searches, newest first, each with its filters; One search session is one entry: Enter, Done on the filters, opening a result and leaving the page update it; the x pill ends the session. Back from a result keeps the search; a tab or a link opens Search fresh. A tap restores the text and the filters. A pick in the filters clears their narrowing field. Filters closes the keyboard as the sheet rises (sz-rs30.1.83.13).
+- `person.html`: a composer or performer page with the screen-wide picture ([person.md](person.md)). The name sits on the picture over a blur and a measured scrim ([tokens.md](tokens.md)). `?name=<artist name>`.
 - `lookup.html`: the MusicBrainz page of Settings with the Wikidata pass (ADR 0042). `?state=running`, `upToDate`, `waiting`, `connection` or `slowDown`. Settings links to it.
-- `settings.html`: Settings in inset grouped lists (ADR 0030): playback, library, colour and advanced settings with the Technical Details switch. `?technical=on` shows the rows behind the switch.
+- `settings.html`: Settings in inset grouped lists ([tokens.md](tokens.md)): playback, library, colour and advanced settings with the Technical Details switch. `?technical=on` shows the rows behind the switch.
 - `rules.html`: the Classical Rules page. The result counts come first, then the rules.
 - `swipe.html`: the Swipe Actions page of Settings. Each edge lists its buttons as the row shows them, from left to right: Download and Favourite on a swipe right, Play Next and Add to Queue on a swipe left.
-- Settings, `lookup.html`, `storage.html` and `swipe.html` draw inset grouped lists with the SwiftUI Form controls from `K.form` (ADR 0030): a menu picker with its value in the accent, a switch, a slider with a dot for each step, a stepper and button rows. `K.page({ grouped: true })` marks such a page.
+- Settings, `lookup.html`, `storage.html` and `swipe.html` draw inset grouped lists with the SwiftUI Form controls from `K.form` ([tokens.md](tokens.md)): a menu picker with its value in the accent, a switch, a slider with a dot for each step, a stepper and button rows. `K.page({ grouped: true })` marks such a page.
 - `tokens.html`: the token sheet. Every colour in the four themes side by side, contrast on rows, the type scale at each Dynamic Type size, spacing, radius, size and each animation alone. The Library cog opens Settings. Settings links to the token sheet.
 
-The flows follow ADR 0013 to 0029. Nothing comes from the UX prototypes.
+Nothing comes from the UX prototypes.
 
 ## Words and role lines
 
@@ -25,7 +25,7 @@ The pages carry no middle dot (sz-rs30.1.83.16). Facts read as prose: "Recorded 
 
 ## Mini player and player overlay
 
-`pill.css` and `pill.js` draw the mini player of ADR 0028 on every page. The cover opens the player overlay of ADR 0014: `overlay.css` and `overlay.js` slide it up from the bottom over the place, in a frame that shows `player.html?embed=player`. A drag down on its handle, or a tap on another tab, slides it down. The tab bar, the pill and the timeline stay above it, and the pill then holds only play/pause. The frame follows the clock of the place under it. A link inside the overlay leaves it, because the frame has no stack. `?overlay=opening`, `open` or `closing` shows a pose without a finger; the control at the top sets it. They load before any variant, so a variant can still replace the mini player through `K.setMini`.
+`pill.css` and `pill.js` draw the mini player on every page ([player.md](player.md)). The cover opens the player overlay: `overlay.css` and `overlay.js` slide it up from the bottom over the place, in a frame that shows `player.html?embed=player`. A drag down on its handle, or a tap on another tab, slides it down. The tab bar, the pill and the timeline stay above it, and the pill then holds only play/pause. The frame follows the clock of the place under it. A link inside the overlay leaves it, because the frame has no stack. `?overlay=opening`, `open` or `closing` shows a pose without a finger; the control at the top sets it. They load before any variant, so a variant can still replace the mini player through `K.setMini`.
 
 ## Specimen controls
 
@@ -33,19 +33,19 @@ The pill at the top belongs to the specimen, not to the app. It sets the timelin
 
 ## Drawn views
 
-- `timeline.css`: the timeline shape of ADR 0035. `K.setTimeline` sets the gap between two segments.
-- `cover.css` and `cover.js`: the player page while it plays (ADR 0034). The cover room solves the ground, secondary text, the tint and the favourite from the cover's hue; the hall lights the dark room with a glow in the cover's hue.
-- `picture.css` and `picture.js`: the person picture. The script measures the blurred picture under the name and sets the scrim just strong enough (ADR 0034).
-- `pill.css` and `pill.js`: the mini player of ADR 0028. A look can replace it through `K.setMini`.
-- `overlay.css` and `overlay.js`: the player overlay of ADR 0014.
-- The fermata of ADR 0033 is drawn in `specimen.js`; `design/marks/fermata.svg` on `main` holds the same path.
+- `timeline.css`: the timeline shape ([player.md](player.md)). `K.setTimeline` sets the gap between two segments.
+- `cover.css` and `cover.js`: the player page while it plays ([tokens.md](tokens.md)). The cover room solves the ground, secondary text, the tint and the favourite from the cover's hue; the hall lights the dark room with a glow in the cover's hue.
+- `picture.css` and `picture.js`: the person picture. The script measures the blurred picture under the name and sets the scrim just strong enough ([tokens.md](tokens.md)).
+- `pill.css` and `pill.js`: the mini player of [player.md](player.md). A look can replace it through `K.setMini`.
+- `overlay.css` and `overlay.js`: the player overlay of [player.md](player.md).
+- The fermata of [design/marks/README.md](../marks/README.md) is drawn in `specimen.js`; `design/marks/fermata.svg` on `main` holds the same path.
 
 ## Values
 
 - `tokens.css` is `design/tokens.css` on `main`, which `design/scripts/tokens.py` writes from the token files. The copy under `design/specimen/` on `main` links it directly.
 - `specimen.css` and every page read tokens only. A fixed value in them is chrome that iOS fixes, such as the tab label size.
 - Favourites, listening notes and the queue are specimen state in the session. Close the tab to reset them.
-- `design/scripts/palette.py` solves the colour values from their contrast targets (ADR 0037); `design/scripts/check.py` proves the pairs.
+- `design/scripts/palette.py` solves the colour values from their contrast targets ([tokens.md](tokens.md)); `design/scripts/check.py` proves the pairs.
 
 ## Variants for a new look ticket
 
@@ -63,7 +63,7 @@ In the folder above the specimen, run `python3 -m http.server 8765 --bind 0.0.0.
 
 ## Parity and previews
 
-The frame has three places, a Library Settings cog and a chevron Back button (ADRs 0038 and 0040).
+The frame has three places, a Library Settings cog and a chevron Back button ([index.md](index.md)).
 A first tab tap restores its page. A second tap returns to its root.
 Above the player, every tab tap closes the overlay and restores that tab’s last page.
 A slide down restores the page underneath. The full pill stays visible.

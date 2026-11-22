@@ -3,7 +3,7 @@
 
 Usage: python3 make_people.py
 It reads specimen.json and chronology.json and needs network access.
-Composers come from their item in chronology.json. Performers are found as ADR 0019 says:
+Composers come from their item in chronology.json. Performers are found as design/specimen/person.md says:
 a search with haswbstatement:P434, else without it.
 """
 

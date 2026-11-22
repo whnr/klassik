@@ -32,7 +32,7 @@ Rules for coding agents in this repository.
 - `.github/workflows/test.yml` runs `scripts/lint.sh` on Linux, then unit, library sync and gapless tests on `xcode-27` with Xcode 27.2 against fixture Navidrome. It runs on `main` and `ci` pushes and pull requests, except documentation-only changes (`**.md`, `LICENSE`, `docs/**`), and manual requests. Main pushes run build, unit tests and the Release launch check, without a UI walk. Nightly runs walk all groups on main. A feature release PR titled `Release Klassik x.y.0` walks all groups. A patch release PR (`Release Klassik x.y.z`, z > 0, equal to `MARKETING_VERSION` in its `project.yml`) and other pull requests walk only requested areas. A release title without a clear x.y.z version walks all groups. The legacy `ci` branch still walks all groups. The walk uploads the screenshots as artifact `screens`.
 - The walk has four groups: `playback-queue`, `playback-controls`, `places-browse` and `settings-timeline`. Both playback groups select methods from `PlaybackScreens`. Each failed test gets one retry inside its job. Reports name failed tests, count attempts, and retain first failures. Result bundles remain available after recovered retries.
 - The UI walk and its screenshots take most of a run's macOS time. A pull request requests the walk with a line `[ui: <areas>]` in a commit message, such as `[ui: playback,browse]` or `[ui: all]`. The areas are the classes in `ScreensTests.swift` without `Screens`. The run walks the union of the requests in all commits of the PR, so later pushes walk the same areas. The plan warns about unknown areas and ignores them. It prints valid areas and UI group names.
-- A pull request that changes the UI requests the walk for each area that it changes. Its review compares the screenshots with the specimen pages and ADRs, and checks that the PR requested the walk for the changed areas.
+- A pull request that changes the UI requests the walk for each area that it changes. Its review compares the screenshots with the specimen pages and their design notes, and checks that the PR requested the walk for the changed areas.
 - A pull request that changes only logic does not request the walk. Its run starts no UI job, and the `test` check is green when the build and unit tests pass.
 - The build job boots its simulator before the build and runs unit tests against the same products. Walk jobs boot during artifact setup. The Release launch check boots its simulator before building optimized products separately.
 - On a run by hand, set input `ui` to the areas to walk, such as `browse,settings`, `all` (the default when the input is empty), or `false` to skip the walk. Each test of an area starts from a reset app and keeps a few screenshots. A release needs a green test run, not a passed UI walk.
@@ -76,7 +76,7 @@ Rules for coding agents in this repository.
 - Copy the same test plan to the bead.
 - A PR that changes the UI requests the walk for the changed areas (see Build and ship). Its description has a `## Screenshots` section that names the Test run of the PR head whose `screens` artifact holds the walk. It carries no inline before and after screenshots.
 - Each later push that changes the UI updates the `## Screenshots` section, or adds a PR comment, with the new run and the head SHA.
-- The review compares the `screens` artifact of that run with the specimen pages and ADRs. A missing inline image is not a finding.
+- The review compares the `screens` artifact of that run with the specimen pages and their design notes. A missing inline image is not a finding.
 - Report on the PR and on the bead. A bead comment alone is not enough.
 - Workers do not push to the `screenshots` branch.
 
@@ -92,7 +92,7 @@ Then open a PR with `gh pr create`. An approved review and green CI merge it.
 - Comments state WHY, or a CONSTRAINT that the code cannot show. Never history: no "previously", "changed from", "now uses", "fixed bug where", no dates, no ticket stories. Git keeps the history.
 - Commit subject: what the commit does, imperative, 50 characters or fewer. Body: why, and what it affects. No file lists, no test lists, no story of the diff. The agent that wrote the code writes the message, in the same session.
 - If you do not know why, ask one question. Do not guess.
-- A decision that a comment or a commit body cannot hold goes into an architecture decision record in [`docs/adr/`](docs/adr/). Write it when the owner makes the decision, and link it from the commit body. A changed decision gets a new record, and the old record points to it. Flo can instead annul a record and revive the earlier one. [`docs/adr/README.md`](docs/adr/README.md) gives the rule.
+- A decision that is hard to reverse, surprising without context, and a real trade-off with a named alternative goes into an architecture decision record in [`docs/adr/`](docs/adr/). Write it as Proposed and link it from the commit body; it becomes Accepted only after Flo reviews it. Terms go to `CONTEXT.md`, and layout, visual and interaction rules go to the design notes beside the specimen pages (`design/specimen/*.md`). [`docs/adr/README.md`](docs/adr/README.md) gives the rule.
 - Prose (documentation, comments, commit bodies, bead text) follows ASD-STE100 Simplified Technical English: sentences of 20 words or fewer (25 for descriptions), active voice, one meaning for each word, no hedging.
 - Generated text is never longer than the thing it explains.
 
@@ -112,4 +112,4 @@ HTML prototypes that the tester tests on a phone: three variants or more, judged
 
 ### Domain docs
 
-Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+Single-context: `CONTEXT.md` and `docs/adr/` at the repo root, and the design notes in `design/specimen/`. See `docs/agents/domain.md`.

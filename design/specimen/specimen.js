@@ -8,7 +8,7 @@ const K = (() => {
   document.documentElement.dataset.page = location.pathname.split("/").pop().replace(".html", "") || "index";
   // Variant files carry the stamp of specimen.js, so Safari loads new copies with it.
   const STAMP = document.currentScript ? new URL(document.currentScript.src).searchParams.get("v") || "" : "";
-  // The player overlay (ADR 0014) shows its page in a frame over the place; the frame has no chrome of its own.
+  // The player overlay (player.md) shows its page in a frame over the place; the frame has no chrome of its own.
   const embedded = params.get("embed") === "player";
   const CARRIED = ["variant", "look", "theme", "paper", "contrast", "size", "playing", "side", "edge", "place"];
   const SIZES = [
@@ -89,7 +89,7 @@ const K = (() => {
     note: '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M9 17.5a3 3 0 1 1-2-2.8V5l11-2v11.5a3 3 0 1 1-2-2.8V6.3L9 7.6z"/></svg>',
   };
 
-  // The favourite mark of ADR 0033: the engraved arc, the accent at full strength when set and a quiet grey when not.
+  // The favourite mark of design/marks/README.md: the engraved arc, the accent at full strength when set and a quiet grey when not.
   const FERMATA =
     "M0 14.5A8.5 10.5 0 0 1 17 14.5H16.3A7.8 7.9 0 0 0 0.7 14.5Z M10.9 11.9A2.4 2.4 0 1 1 6.1 11.9A2.4 2.4 0 1 1 10.9 11.9Z";
   function fermata(on, small = false) {
@@ -563,7 +563,7 @@ const K = (() => {
   }
 
   // ---------- Names ----------
-  // ADR 0014: a surname comes from the artist's sort name; without a sort name, the full name shows.
+  // player.md: a surname comes from the artist's sort name; without a sort name, the full name shows.
   function surname(name) {
     const artist = [...M.artists.values()].find((a) => a.name === name);
     const sort = artist?.sortName;
@@ -596,7 +596,7 @@ const K = (() => {
     const root = document.documentElement;
     // Only the switch sets the room, so each variant is judged in the room that Flo picks.
     root.dataset.theme = room || (setting("theme", "light") === "dark" ? "dark" : "light");
-    // Claret is the default accent (ADR 0034): tokens.css writes it without an attribute.
+    // Claret is the default accent (tokens.md): tokens.css writes it without an attribute.
     const accent = setting("accent", "claret");
     if (accent === "claret") delete root.dataset.accent;
     else root.dataset.accent = accent;
@@ -752,7 +752,7 @@ const K = (() => {
         el("option", { value: k, selected: setting("playing", "recording") === k }, "▶ " + q.label),
       ),
     );
-    // The accent switch and the player look are in-app settings until sz-rs30.1.83.19.15 decides (ADR 0034).
+    // The accent switch and the player look are in-app settings until sz-rs30.1.83.19.15 decides (tokens.md).
     const accents = { claret: "Claret", green: "Bottle green", plum: "Plum" };
     const accent = el(
       "select",
@@ -781,7 +781,7 @@ const K = (() => {
         ["hall", "Hall"],
       ].map(([k, v]) => el("option", { value: k, selected: setting("player", "room") === k }, v)),
     );
-    // The overlay states of ADR 0014, for review without a finger: closed, mid-slide up, open, mid-slide down.
+    // The overlay states of player.md, for review without a finger: closed, mid-slide up, open, mid-slide down.
     const overlayStates = {
       closed: "Player closed",
       opening: "Player sliding up",
@@ -915,14 +915,14 @@ const K = (() => {
     tabs = true,
     grouped = false,
   }) {
-    // Settings and its pages keep inset grouped lists (ADR 0030); content pages use plain lists.
+    // Settings and its pages keep inset grouped lists (tokens.md); content pages use plain lists.
     document.documentElement.classList.toggle("grouped", grouped);
     const filename = location.pathname.split("/").pop();
     if (!["index.html", "chronology.html", "search.html", ""].includes(filename)) tab = params.get("place") || tab;
     params.set("place", tab);
     const app = el("div", { class: "app" + (plain ? " plain" : "") });
     const backLabel = embedded ? null : params.get("back") || back?.label;
-    // ADR 0038 keeps the destination name in the accessibility label.
+    // The accessibility label keeps the destination name (index.md).
     const nav = el(
       "header",
       { class: "nav" },
@@ -1015,7 +1015,7 @@ const K = (() => {
     });
   }
 
-  // The complete pill stays in place above the player overlay (ADR 0028).
+  // The complete pill stays in place above the player overlay (player.md).
   function setPlayerOpen(open) {
     chrome.player = open;
     layoutChrome();
@@ -1039,7 +1039,7 @@ const K = (() => {
   function updatePlayingChrome() {
     drawTimelineProgress();
     if (!current()) {
-      // When nothing plays, the mini player and the timeline go. The open player closes first (ADR 0053).
+      // When nothing plays, the mini player and the timeline go. The open player closes first (player.md).
       if (!chrome.player) {
         MINI.remove();
         if (chrome.timeline) chrome.timeline.remove();
@@ -1051,7 +1051,7 @@ const K = (() => {
   }
 
   // ---------- Mini player ----------
-  // The card of ADR 0014. A mini player variant (sz-rs30.1.83.9) replaces any of these steps through K.setMini.
+  // The mini player (player.md). A mini player variant (sz-rs30.1.83.9) replaces any of these steps through K.setMini.
   let lastMini = "";
   const cardMini = {
     build() {
@@ -1132,7 +1132,7 @@ const K = (() => {
   }
 
   // A timeline look (sz-rs30.1.83.21) sets the gap between two segments through K.setTimeline.
-  // The gap is space-xxs between every segment (ADR 0035).
+  // The gap is space-xxs between every segment (player.md).
   let TL = { gap: () => 2 };
   function setTimeline(provider) {
     TL = { ...TL, ...provider };
@@ -1293,7 +1293,7 @@ const K = (() => {
     chrome.overlay?.init();
   }
 
-  // The controls of an inset grouped page, drawn as SwiftUI draws them in a Form (ADR 0030): a menu picker with
+  // The controls of an inset grouped page, drawn as SwiftUI draws them in a Form (tokens.md): a menu picker with
   // the value in the accent, a switch, a slider with step dots, a stepper, a link row and a destructive button.
   const form = {
     group: (head, rows, foot) =>

@@ -3,9 +3,9 @@
 Klassik/MiniPlayer.swift | .padding(.vertical, max(0, (height - itemSize) / 2)) | Centres the item in the row of the tab bar: half of the free height.
 Klassik/PersonLaunchStub.swift | static let originalWidth: CGFloat = 3000 | The pixel width of a fixture picture, not a layout value.
 Klassik/Places.swift | nonisolated static let height: CGFloat = 62 | The height of the iOS 27 tab bar capsule. The system draws it; the specimen only approximates it.
-Klassik/PortraitFraming.swift | static let maxZoom: CGFloat = 2 | A zoom limit of the picture crop (ADR 0017), not a distance.
-Klassik/PortraitFraming.swift | static let faceHeight: CGFloat = 0.3 | A share of the frame for the face in the crop (ADR 0017), not a distance.
-Klassik/PortraitFraming.swift | static let faceLine: CGFloat = 0.4 | A share of the frame for the face centre in the crop (ADR 0017), not a distance.
+Klassik/PortraitFraming.swift | static let maxZoom: CGFloat = 2 | A zoom limit of the picture crop (design/specimen/person.md), not a distance.
+Klassik/PortraitFraming.swift | static let faceHeight: CGFloat = 0.3 | A share of the frame for the face in the crop (design/specimen/person.md), not a distance.
+Klassik/PortraitFraming.swift | static let faceLine: CGFloat = 0.4 | A share of the frame for the face centre in the crop (design/specimen/person.md), not a distance.
 Klassik/RoleLines.swift | private var tie: Text { Text("\u{00A0}").kerning(size * 0.2) } | With the no-break space it ties a role label to the first name, about 0.45 em. The specimen has no CSS value for it.
 Klassik/TimelineBarView.swift | floor: proxy.size.height - Space.s.points) - labelHeight / 2 | Centres the scrub label on the finger, as translateY(-50%) in specimen.css .scrub-label.
 Klassik/Chronology.swift | static let gutter: CGFloat = 44 | A placement of the chronology.html script, which has no CSS rule for it.

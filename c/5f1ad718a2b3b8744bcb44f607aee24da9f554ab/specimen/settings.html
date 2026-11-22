@@ -5,13 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Settings</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="../tokens.css?v=51" />
-    <link rel="stylesheet" href="specimen.css?v=51" />
-    <script src="specimen.js?v=51"></script>
+    <link rel="stylesheet" href="../tokens.css?v=52" />
+    <link rel="stylesheet" href="specimen.css?v=52" />
+    <script src="specimen.js?v=52"></script>
   </head>
   <body>
     <script>
-      // Settings in groups (ADR 0030, 0040). ?technical=on shows the rows behind Technical Details.
+      // Settings in groups (ADR 0030, 0040), in the order Flo set: Playback, Library, Colour, Advanced settings.
+      // ?technical=on shows the rows behind Technical Details.
       K.start(() => {
         const { el, form } = K;
         const { scroll } = K.page({
@@ -25,7 +26,7 @@
           url.searchParams.set(name, value);
           location.href = url.href;
         };
-        const { group, toggle, link, value, menu, slider, button } = form;
+        const { group, toggle, link, menu, slider, button } = form;
         const technical = K.params.get("technical") === "on";
         scroll.append(
           el("div", { class: "page-head" }, el("h1", { class: "t-largeTitle" }, "Settings")),
@@ -43,6 +44,19 @@
               "linked listening services.",
           ),
           group(
+            "Library",
+            [
+              link("Classical Rules", "rules.html"),
+              toggle("Separate Partial Works", true),
+              link("Swipe Actions", "swipe.html"),
+              link("Local Storage", "storage.html"),
+              button("Delete Listening Data", { destructive: true }),
+            ],
+            "A composer page lists a work with no complete recording under Partial works. Favourite works, the " +
+              "order of favourite recordings, listening notes, recent searches and the changes that wait stay on " +
+              "this iPhone, for this server and user. Sign-out keeps them.",
+          ),
+          group(
             "Colour",
             [
               menu(
@@ -58,34 +72,16 @@
               "tint strength.",
           ),
           group(
-            "Library",
-            [link("Classical Rules"), toggle("Separate Partial Works", true), link("Swipe Actions", "swipe.html")],
-            "A composer page lists a work with no complete recording under Partial works.",
+            "Advanced settings",
+            [
+              toggle("Technical Details", technical, () => reload("technical", technical ? "off" : "on")),
+              ...(technical
+                ? [link("MusicBrainz", "lookup.html", "3 to confirm"), link("Diagnostics", null, "2 waiting")]
+                : []),
+              link("Licences"),
+            ],
+            "Shows the lookups and diagnostics with the changes that wait.",
           ),
-          group(
-            "Listening data",
-            [button("Delete Listening Data", { destructive: true })],
-            "Favourite works, the order of favourite recordings, listening notes, recent searches and the changes " +
-              "that wait stay on this iPhone, for this server and user. Sign-out keeps them.",
-          ),
-          group(
-            null,
-            [toggle("Technical Details", technical, () => reload("technical", technical ? "off" : "on"))],
-            "Shows the library counts, the lookups, local storage and diagnostics with the changes that wait.",
-          ),
-          ...(technical
-            ? [
-                group("Technical details", [
-                  link("Classical Albums", null, "412"),
-                  value("Classical Tracks", "9,873"),
-                  link("Other Albums", null, "138"),
-                  link("MusicBrainz", "lookup.html", "3 to confirm"),
-                  link("Local Storage", "storage.html"),
-                  link("Diagnostics", null, "2 waiting"),
-                ]),
-              ]
-            : []),
-          group(null, [link("Licences")]),
         );
       });
     </script>

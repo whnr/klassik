@@ -985,6 +985,18 @@ final class BrowseScreens: ScreensTestCase {
 
 /// A recording, the player, the queue and the downloads.
 final class PlaybackScreens: ScreensTestCase {
+    /// Music that arrives far below its bitrate shows the slow-connection line in place of the times (ADR 0060).
+    @MainActor
+    func testSlowConnectionLine() throws {
+        let app = try launchAndConnect(arguments: ["-slowMusic"])
+        openRecording(app)
+        startPlaying(app)
+        openPlayer(app)
+        let line = app.staticTexts["slow-connection"]
+        XCTAssertTrue(line.waitForExistence(timeout: 20), "No slow-connection line while the music trickles in")
+        snap(app, "07s-slow-connection")
+    }
+
     /// The quiet spell returns to the playing row after the listener scrolls away (ADR 0014, 0027).
     @MainActor
     func testPlayerFollowsAfterQuietSpell() throws {
@@ -2509,8 +2521,11 @@ class ScreensTestCase: XCTestCase {
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 10))
         guard technical else { return }
         let toggle = reveal(app.switches["technical-details"], in: app)
-        if toggle.value as? String != "1" {
+        // The switch reports its new value after its animation. A tap during the page's push can be lost; one
+        // more tap follows then.
+        for _ in 0..<2 where toggle.value as? String != "1" {
             toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+            _ = eventually(timeout: 3) { toggle.value as? String == "1" }
         }
         XCTAssertEqual(toggle.value as? String, "1", "Technical Details does not turn on")
     }

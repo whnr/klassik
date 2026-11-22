@@ -121,8 +121,9 @@ struct PlaybackSessionEngineTests {
         player.pause()
         if deliverBeforeResume { completions.deliver() }
         #expect(player.isPaused)
-        #expect(player.item?.id == first.id)
-        #expect(player.upNext.count == (queued ? 1 : 0))
+        // The render position can enter the scheduled successor before the held completion reaches the session.
+        #expect(player.item?.id == (queued ? second.id : first.id))
+        #expect(player.upNext.isEmpty)
 
         player.resume()
         if !deliverBeforeResume { completions.deliver() }

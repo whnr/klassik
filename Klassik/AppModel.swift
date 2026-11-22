@@ -27,6 +27,7 @@ final class AppModel {
     let albumArt = ImageStore.albumArt
     let albumCovers: AlbumCovers
     let playback: PlaybackSession
+    @ObservationIgnored private var dataModes: DataModeMonitor?
     /// The timeline and the mini player show while an item is in playback; the page insets follow them.
     var showsTimeline: Bool { playback.item != nil }
     let enrichment: Enrichment
@@ -52,7 +53,11 @@ final class AppModel {
         recordingOrder = RecordingOrder(library: library)
         notes = ListeningNotes(store: nil)
         recentSearches = RecentSearches(store: nil)
-        tracks = TrackStore()
+        #if DEBUG
+            tracks = SlowMusic.isOn ? TrackStore(transport: SlowMusic.transport) : TrackStore()
+        #else
+            tracks = TrackStore()
+        #endif
         albumCovers = AlbumCovers(store: ImageStore.albumArt)
         playback = PlaybackSession(engine: GaplessEngine(), store: tracks)
         enrichment = Enrichment.forLaunch()
@@ -83,6 +88,11 @@ final class AppModel {
         }
         credentials = store.load()
         updateServer()
+        dataModes = DataModeMonitor { [weak self] mode, pathChanged in
+            guard let self else { return }
+            if pathChanged { self.tracks.networkPathChanged() }
+            self.playback.dataMode = mode
+        }
         tracks.loaded = { [weak self] song, file, playing in
             guard let self else { return }
             albumCovers.inspect(song, file: file)
@@ -208,9 +218,10 @@ final class AppModel {
 
     /// Shows the cached library at once, then checks the server and syncs again.
     /// Then looks up the works on MusicBrainz and the persons on Wikidata, side by side.
-    /// Why changes of the listener wait on this iPhone: favourites, scrobbles and the play queue together.
+    /// Why changes of the listener wait on this iPhone, or why music stopped loading: favourites, scrobbles, the
+    /// play queue and playback together.
     var serverTrouble: ServerTrouble? {
-        ServerTrouble.worst([recordingOrder.serverTrouble, playback.listeningTrouble])
+        ServerTrouble.worst([recordingOrder.serverTrouble, playback.listeningTrouble, playback.playbackTrouble])
     }
 
     func start() async {

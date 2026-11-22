@@ -1,3 +1,7 @@
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["mutagen"]
+# ///
 """Generates a small classical fixture library: sine-tone MP3s with classical tags.
 
 Usage: python3 scripts/fixtures.py <output-dir> [minimum-seconds]
@@ -266,7 +270,45 @@ def main(out, minimum_seconds=0):
         path = folder / f"{number:02d} {title}.flac"
         encode(path, glide(number))
         tag_flac(path, number, len(FLAC_ALBUM[5]), title)
-    print(f"wrote {sum(len(a[5]) for a in ALBUMS) + len(JAZZ[5]) + len(FLAC_ALBUM[5])} tracks to {out}")
+    if not minimum_seconds:
+        early_playback(out)
+    count = sum(len(a[5]) for a in ALBUMS) + len(JAZZ[5]) + len(FLAC_ALBUM[5]) + (0 if minimum_seconds else 2)
+    print(f"wrote {count} tracks to {out}")
+
+
+def early_playback(out):
+    """Large generated resources expose decoders that scan the complete file before producing PCM."""
+    folder = out / "Early Playback"
+    folder.mkdir(parents=True, exist_ok=True)
+    for suffix, seconds, codec in [
+        ("mp3", 2600, ["-codec:a", "libmp3lame", "-b:a", "320k"]),
+        ("flac", 840, ["-codec:a", "flac", "-sample_fmt", "s32"]),
+    ]:
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-loglevel",
+                "error",
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                f"anoisesrc=color=white:seed=125:sample_rate=44100:duration={seconds}",
+                "-ac",
+                "2",
+                *codec,
+                "-metadata",
+                f"album=Early Playback {suffix.upper()}",
+                "-metadata",
+                "artist=Fixture Decoder",
+                "-metadata",
+                "genre=Electronic",
+                "-metadata",
+                "title=Decoder gate",
+                str(folder / f"gate.{suffix}"),
+            ],
+            check=True,
+        )
 
 
 if __name__ == "__main__":

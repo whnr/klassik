@@ -3,6 +3,8 @@ name: Test
 # One build runs unit tests and supplies the requested UI shards.
 # A pull request walks the areas that the commit message of its head requests, so interim pushes skip the walk.
 # Main pushes run no walk. Nightly runs and feature release pull requests walk every group.
+# The Release launch check runs on main, nightly and release pull requests, not on other pull requests.
+# A merge to main that adds nothing to its green PR head skips the build: TestFlight accepts that PR run.
 # UI_TESTS_REQUIRED controls whether a failed walk blocks the run.
 # A push that changes only documentation starts no run. TestFlight accepts such a commit through
 # scripts/green_test_gate.py, which keeps the same ignore list.
@@ -34,12 +36,30 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
+      actions: read
       contents: read
     outputs:
       ui: ${{ steps.plan.outputs.ui }}
       matrix: ${{ steps.plan.outputs.matrix }}
+      release_launch: ${{ steps.plan.outputs.release_launch }}
+      covered: ${{ steps.covered.outputs.head }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 50
+      # scripts/green_test_gate.py decides, as for TestFlight. Any doubt or error runs the full build.
+      - id: covered
+        name: Skip the build of a merge that a green PR head covers
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if head=$(python3 scripts/green_test_gate.py merged "$GITHUB_SHA"); then
+            echo "head=$head" >> "$GITHUB_OUTPUT"
+            echo "The green Test run of PR head $head covers this merge, so build and unit tests do not run." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Full build: $head"
+          fi
       - id: plan
         env:
           GH_TOKEN: ${{ github.token }}
@@ -124,7 +144,8 @@ jobs:
           retention-days: 1
 
   build:
-    needs: [lint, layout, fixtures]
+    needs: [plan, lint, layout, fixtures]
+    if: needs.plan.outputs.covered == ''
     runs-on: xcode-27
     timeout-minutes: 40
     # The xcode-27 image holds the iOS 27 SDK. Its default Xcode 27.1 has one simulator on its own iOS;
@@ -266,7 +287,8 @@ jobs:
 
   # TestFlight gets an optimized Release build. This job opens one after a login and after a relaunch.
   release-launch:
-    needs: [lint, layout, fixtures]
+    needs: [plan, lint, layout, fixtures]
+    if: needs.plan.outputs.release_launch == 'true'
     runs-on: xcode-27
     timeout-minutes: 40
     env:
@@ -306,11 +328,14 @@ jobs:
       screens: ${{ steps.report.outputs.screens }}
     steps:
       - uses: actions/checkout@v7
+      # A covered merge has no build, so it has no reports to collect.
       - uses: actions/download-artifact@v8
+        if: needs.build.result != 'skipped'
         with:
           pattern: walk-*
           path: reports
       - name: Preserve the single walk report directory
+        if: needs.build.result != 'skipped'
         env:
           MATRIX: ${{ needs.plan.outputs.matrix }}
         run: |
@@ -321,11 +346,13 @@ jobs:
             find reports -maxdepth 1 -type f -exec mv -t "reports/walk-$group" {} +
           fi
       - uses: actions/download-artifact@v8
+        if: needs.build.result != 'skipped'
         with:
           name: build-report
           path: reports/build-report
       - name: Collect screenshots and results
         id: report
+        if: needs.build.result != 'skipped'
         env:
           INPUT: ${{ needs.plan.outputs.ui }}
           BUILD: ${{ needs.build.result }}
@@ -360,18 +387,24 @@ jobs:
           if ls screens/*.png >/dev/null 2>&1; then echo screens=true; else echo screens=false; fi >> "$GITHUB_OUTPUT"
           exit "$incomplete"
       - uses: actions/upload-artifact@v7
-        if: always()
+        if: always() && needs.build.result != 'skipped'
         with:
           name: screens
           path: screens
+      # A skipped job passes only where the plan skipped it.
       - name: Require plan, build, test and release launch jobs
         env:
           PLAN: ${{ needs.plan.result }}
           BUILD: ${{ needs.build.result }}
           WALK: ${{ needs.walk.result }}
           RELEASE: ${{ needs.release-launch.result }}
+          COVERED: ${{ needs.plan.outputs.covered }}
+          WANT_RELEASE: ${{ needs.plan.outputs.release_launch }}
         run: |
-          test "$PLAN" = success && test "$BUILD" = success && { test "$WALK" = success || test "$WALK" = skipped; } && test "$RELEASE" = success
+          test "$PLAN" = success
+          test "$BUILD" = success || { test "$BUILD" = skipped && test -n "$COVERED"; }
+          test "$WALK" = success || test "$WALK" = skipped
+          test "$RELEASE" = success || { test "$RELEASE" = skipped && test "$WANT_RELEASE" = false; }
 
   # The diff informs; it never fails the run. It runs when screenshots exist, also after a failed test job.
   # Without screenshots the job shows as skipped, and the summary of test says why.

@@ -433,6 +433,22 @@ class PlanTests(unittest.TestCase):
             )
         self.assertIn("ui=all\n", result.stdout)
 
+    def test_release_launch_runs_except_on_pull_requests_that_are_no_release(self):
+        for event in ("push", "schedule", "workflow_dispatch"):
+            self.assertTrue(screen_report.release_launch(event))
+        self.assertTrue(screen_report.release_launch("pull_request", "Release Klassik 0.21.0"))
+        self.assertTrue(screen_report.release_launch("pull_request", "[sz-1] Release Klassik 0.21.1"))
+        self.assertFalse(screen_report.release_launch("pull_request", "Fix the Release Klassik 0.21.0 notes"))
+        self.assertFalse(screen_report.release_launch("pull_request", ""))
+
+    def test_plan_command_prints_the_release_launch_flag(self):
+        script = str(pathlib.Path(screen_report.__file__))
+        for args, flag in ((["pull_request", "", "Fix"], "false"), (["push", ""], "true")):
+            result = subprocess.run(
+                [sys.executable, script, "plan", *args], input="", capture_output=True, text=True, check=True
+            )
+            self.assertIn(f"release_launch={flag}\n", result.stdout)
+
     def test_other_titles_are_not_releases(self):
         self.assertEqual(screen_report.plan("pull_request", "", "", "Fix the Release Klassik 0.16.0 notes")[0], "false")
 

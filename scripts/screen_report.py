@@ -2,8 +2,8 @@
 
 Usage:
     python3 scripts/screen_report.py plan <event> <dispatch-input> [<pr-title> <ref> [<project.yml>]] < <message>
-        Prints the UI areas of the run and the matrix of the walk job, for GITHUB_OUTPUT. <message> is the commit
-        message of the PR head, and <project.yml> is the file at the PR head.
+        Prints the UI areas of the run, the matrix of the walk job and whether the Release launch check runs, for
+        GITHUB_OUTPUT. <message> is the commit message of the PR head, and <project.yml> is the file at the PR head.
     python3 scripts/screen_report.py select <requested-areas> <group-areas>
         Prints the selected areas and rejects unknown names.
     python3 scripts/screen_report.py aggregate-ui <reports-dir> <requested-areas>
@@ -233,6 +233,11 @@ def release_walk(title, project=""):
     return "patch"
 
 
+def release_launch(event, title=""):
+    """The Release launch check runs everywhere except on a pull request that is no release."""
+    return event != "pull_request" or RELEASE_TITLE.match(title) is not None
+
+
 def plan(event, dispatch_input, message, title="", ref="refs/heads/main", project=""):
     """Feature release requests and nightly runs walk everything. Main pushes run no walk.
     `message` is the commit message of the PR head, and `project` is the text of project.yml at the PR head."""
@@ -420,6 +425,7 @@ def main(args):
         ui, matrix = plan(args[1], args[2], sys.stdin.read(), *args[3:5], project=project)
         print(f"ui={ui}")
         print("matrix=" + json.dumps(matrix, separators=(",", ":")))
+        print("release_launch=" + str(release_launch(args[1], args[3] if len(args) > 3 else "")).lower())
         return
     if command == "select":
         print(selected_areas(args[1], args[2]))

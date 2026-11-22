@@ -1529,8 +1529,7 @@ final class PlaybackScreens: ScreensTestCase {
     @MainActor
     func testMovementNamesAreLinks() throws {
         let app = try launchAndConnect()
-        openSettings(app, technical: true)
-        reveal(app.buttons["classical-albums"], in: app).tap()
+        openClassicalAlbums(app)
         let encores = app.buttons.matching(identifier: "album")
             .matching(NSPredicate(format: "label CONTAINS 'Romantic Encores'")).firstMatch
         XCTAssertTrue(reveal(encores, in: app).isHittable)
@@ -1560,8 +1559,7 @@ final class PlaybackScreens: ScreensTestCase {
     @MainActor
     func testPlayingRowNamesLinkFromTheOverlay() throws {
         let app = try launchAndConnect()
-        openSettings(app, technical: true)
-        reveal(app.buttons["classical-albums"], in: app).tap()
+        openClassicalAlbums(app)
         let encores = app.buttons.matching(identifier: "album")
             .matching(NSPredicate(format: "label CONTAINS 'Romantic Encores'")).firstMatch
         XCTAssertTrue(reveal(encores, in: app).isHittable)

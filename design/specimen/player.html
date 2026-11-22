@@ -382,7 +382,7 @@
                   .filter(Boolean),
               ),
             );
-          // One line per role, the album as one more labelled line (sz-rs30.1.83.16).
+          // One line per role, the album as one more labelled line.
           const albumLine =
             item.kind === "recording" ? [{ label: "album", list: [{ name: item.album.name, album: true }] }] : [];
           const roles = K.roleBlock(shared(), {
@@ -429,7 +429,7 @@
               K.playItem(item);
               render();
             });
-            // A recording on a disc with more tracks also plays the whole disc, from a muted capsule (sz-3hcq.2).
+            // A recording on a disc with more tracks also plays the whole disc, from a muted capsule.
             const wholeAlbum =
               item.kind === "recording" && item.album.song.length > item.songs.length
                 ? el("button", {
@@ -826,7 +826,7 @@
                         href: href("work.html", { work: r.workRef.id, back: item.title }),
                       },
                       // The heading stays in the text colour with one disclosure, on the page and in the overlay
-                      // (sz-rs30.1.117.6; Flo 2026-11-22).
+                      // (Flo 2026-11-22).
                       el("span", { style: "color: var(--color-text-primary)" }, r.work),
                       el("span", { html: ICON.chevron }),
                     )
@@ -898,7 +898,7 @@
         last = [K.current()?.id, K.P.index, K.P.paused].join("|");
         render();
 
-        // player.md, confirmed by Flo for sz-rs30.1.83.8: after a quiet spell without touches, the view brings the playing row back.
+        // After a quiet spell without touches, the view brings the playing row back.
         var quiet = Date.now();
         ["touchstart", "pointerdown", "wheel"].forEach((t) => {
           scroll.addEventListener(t, () => (quiet = Date.now()), { passive: true });

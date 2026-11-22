@@ -1,6 +1,6 @@
 # What Wikidata and Wikipedia give a composer page
 
-Bead: sz-rs30.1.74.2. Checked 2026-10-31 against the live APIs from Linux. Probe: `probe.py` in this folder. It downloads no image. Names come from a weak library: a composer name, nothing else.
+ Checked 2026-10-31 against the live APIs from Linux. Probe: `probe.py` in this folder. It downloads no image. Names come from a weak library: a composer name, nothing else.
 
 ## Answer
 

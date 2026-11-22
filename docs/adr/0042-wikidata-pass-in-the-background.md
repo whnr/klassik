@@ -2,7 +2,6 @@
 
 Date: 2026-11-14. Decided by Flo in the 0.13.0 device notes. Refined by Flo on 2026-11-15, before the build
 reached his phone: parallel start, one person for each lookup, Wikimedia's pace and spread re-checks.
-Bead: sz-rs30.1.105.62.
 Replaces the rule "fetched once" and the 1.1-second pace of [0011](0011-enrichment.md) for the facts of persons.
 The retry rule for a failed person is replaced by 0044.
 The order of the persons is replaced by 0046.

@@ -1,6 +1,6 @@
 # What Wikidata gives a performer page
 
-Bead: sz-rs30.1.74.13. Checked 2026-11-04 against the live APIs from Linux. Probe: `probe.py` in this folder (566 requests). It downloads no image and reads no library. The names are public, well-known classical performers, typed as weak tags spell them. Method as in `../wikidata-composer-facts/`.
+ Checked 2026-11-04 against the live APIs from Linux. Probe: `probe.py` in this folder (566 requests). It downloads no image and reads no library. The names are public, well-known classical performers, typed as weak tags spell them. Method as in `../wikidata-composer-facts/`.
 
 ## Answer
 

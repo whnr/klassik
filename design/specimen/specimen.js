@@ -156,7 +156,7 @@ const K = (() => {
     return list.sort((a, b) => rank(a) - rank(b));
   }
 
-  // ---------- Words (sz-rs30.1.83.16): prose and plain words carry facts; no separator glyph ----------
+  // ---------- Words: prose and plain words carry facts; no separator glyph ----------
   const NB = " ";
   // A number never wraps away from its word: "4 movements", "1 movement".
   function count(n, one, many = one + "s") {
@@ -191,7 +191,7 @@ const K = (() => {
     return out;
   }
   const accessibilitySize = () => /^AX/.test(document.documentElement.dataset.typeSize || "");
-  // One line per role: the small-cap label before its names, tied by a no-break space (sz-rs30.1.83.16).
+  // One line per role: the small-cap label before its names, tied by a no-break space.
   // At accessibility sizes the label stands above its names, so a long label never takes half a line.
   function roleBlock(people, { link = (p) => p.name, extra = [] } = {}) {
     // ?edge=sort shows every name in the sort form some libraries tag ("Kubelík, Rafael").
@@ -320,7 +320,7 @@ const K = (() => {
       ],
       start: [1, 40],
     },
-    // Round 25 (sz-rs30.1.83.21): a long work, and an album of three works, for the timeline's gaps.
+    // Round 25: a long work, and an album of three works, for the timeline's gaps.
     passion: { label: "Matthäus-Passion", items: [["album", "0E6R5t8dsTf408V87Y7Lct"]], start: [20, 60] },
     sonatas: { label: "Chopin sonatas", items: [["album", "3Is4qK0IBSlUYtEHMhh8YH"]], start: [4, 60] },
     weak: {
@@ -752,7 +752,7 @@ const K = (() => {
         el("option", { value: k, selected: setting("playing", "recording") === k }, "▶ " + q.label),
       ),
     );
-    // The accent switch and the player look are in-app settings until sz-rs30.1.83.19.15 decides (tokens.md).
+    // The accent switch and the player look are in-app settings until Flo decides.
     const accents = { claret: "Claret", green: "Bottle green", plum: "Plum" };
     const accent = el(
       "select",
@@ -1051,7 +1051,7 @@ const K = (() => {
   }
 
   // ---------- Mini player ----------
-  // The mini player (player.md). A mini player variant (sz-rs30.1.83.9) replaces any of these steps through K.setMini.
+  // The mini player (player.md). A mini player variant replaces any of these steps through K.setMini.
   let lastMini = "";
   const cardMini = {
     build() {
@@ -1131,7 +1131,7 @@ const K = (() => {
     MINI = { ...cardMini, ...provider };
   }
 
-  // A timeline look (sz-rs30.1.83.21) sets the gap between two segments through K.setTimeline.
+  // A timeline look sets the gap between two segments through K.setTimeline.
   // The gap is space-xxs between every segment (player.md).
   let TL = { gap: () => 2 };
   function setTimeline(provider) {

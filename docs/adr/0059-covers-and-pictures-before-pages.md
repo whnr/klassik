@@ -1,6 +1,6 @@
 # 0059. Fetch covers and pictures before pages need them
 
-Date: 2026-11-18. Decided by Flo for sz-rs30.1.117.7, sz-rs30.1.118 and sz-rs30.1.120. Implementation belongs to 0.15.
+Date: 2026-11-18. Decided by Flo. Implementation belongs to 0.15.
 Replaces the image fetch, cover key and refresh rules of [0051](0051-pictures-and-album-art-in-local-storage.md).
 Refines 0010 for image refreshes.
 

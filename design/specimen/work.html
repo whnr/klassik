@@ -47,7 +47,7 @@
         );
 
         const playBtn = el("button", { class: "capsule filled t-headline" });
-        // While any recording of the work plays, the pill pauses it. Else it plays the top of the list (sz-swi9.4).
+        // While any recording of the work plays, the pill pauses it. Else it plays the top of the list.
         const playsWork = () => {
           const playing = K.current()?.recording;
           return Boolean(playing && K.orderedRecordings(work).some((r) => r.id === playing.id));
@@ -85,7 +85,7 @@
           r.performers.some((p) => !isEnsemble(p)) ? r.performers.filter((p) => !isEnsemble(p)) : r.performers;
         const others = (r) => r.performers.filter((p) => !lead(r).includes(p));
         const people = (r) => K.joinNames(lead(r).map((p) => p.name));
-        // Facts as prose (sz-rs30.1.83.16): "Recorded in 1972 on Dvořák Symphonies. 42 minutes, 4 movements."
+        // Facts as prose: "Recorded in 1972 on Dvořák Symphonies. 42 minutes, 4 movements."
         const facts = (r) =>
           [
             r.year ? `Recorded in ${r.year} on ${r.album.name}.` : `On ${r.album.name}.`,

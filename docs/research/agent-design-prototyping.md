@@ -1,6 +1,6 @@
 # How agents best prototype a design system
 
-Bead: sz-rs30.1.83.1. Read on 2026-11-05 from primary sources. No artifact was made and no Figma file was opened.
+ Read on 2026-11-05 from primary sources. No artifact was made and no Figma file was opened.
 
 ## Question
 

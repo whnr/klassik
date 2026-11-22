@@ -1,6 +1,6 @@
 # 0003. Classical filter: rules joined by OR, conditions joined by AND
 
-Date: 2026-10-17. Decided by Flo after testing 0.3.0. Bead: sz-rs30.1.2.
+Date: 2026-10-17. Decided by Flo after testing 0.3.0.
 
 ## Context
 

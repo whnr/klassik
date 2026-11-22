@@ -37,24 +37,21 @@ struct Search: Sendable {
         }
     }
 
-    /// A recording opens its own page from the Albums section.
-    struct Recording: Identifiable, Sendable {
-        var work: WorkIndex.Work
-        var recording: WorkIndex.Recording
-        var id: String { recording.id }
-    }
-
-    /// The results of the text. People show before works; recordings share the Albums section.
+    /// The results of the text, by kind: composers, performers, works, then albums. A recording shows
+    /// only inside its work.
     struct Results: Sendable {
         var works: [WorkIndex.Work] = []
         var people: [Person] = []
         var albums: [WorkIndex.Album] = []
-        var recordings: [Recording] = []
+        /// The track title that found a work or an album whose own words do not match, by the ID of the result.
+        /// The row shows it, so the listener sees why the result is there.
+        var workTracks: [String: String] = [:]
+        var albumTracks: [String: String] = [:]
 
         var composers: [Person] { people.filter(\.composes) }
         var performers: [Person] { people.filter { !$0.composes } }
 
-        var isEmpty: Bool { works.isEmpty && people.isEmpty && albums.isEmpty && recordings.isEmpty }
+        var isEmpty: Bool { works.isEmpty && people.isEmpty && albums.isEmpty }
     }
 
     private struct Entry<Item: Sendable>: Sendable {
@@ -62,10 +59,40 @@ struct Search: Sendable {
         var words: [String]
     }
 
-    private struct WorkEntry: Sendable {
-        var work: WorkIndex.Work
-        /// The words of the title, the nicknames, the composer and the set.
+    /// A track title with its words.
+    private struct Track: Sendable {
+        var title: String
         var words: [String]
+    }
+
+    /// A work or an album with its own words and the titles of the tracks that it answers for.
+    private struct Tracked<Item: Sendable>: Sendable {
+        var item: Item
+        var words: [String]
+        var tracks: [Track]
+        /// The words of every track, for a fast test before the search for the one track that matches.
+        var trackWords: [String]
+
+        init(item: Item, words: [String], titles: [String]) {
+            self.item = item
+            self.words = words
+            var seen = Set<String>()
+            tracks = titles.filter { seen.insert($0).inserted }.map { Track(title: $0, words: Search.words(of: $0)) }
+            var all = Set(words)
+            trackWords = tracks.flatMap(\.words).filter { all.insert($0).inserted }
+        }
+
+        /// Nil when the tokens do not match. Else the track title that the match needs, or "" for a match on the
+        /// own words.
+        func match(_ tokens: [String]) -> String? {
+            if Search.matches(tokens, words) { return "" }
+            guard Search.matches(tokens, words, trackWords) else { return nil }
+            return tracks.first { Search.matches(tokens, words, $0.words) }?.title
+        }
+    }
+
+    private struct WorkEntry: Sendable {
+        var tracked: Tracked<WorkIndex.Work>
         /// The words of the title and the nicknames: a nickname names the work as its title does.
         var titleWords: [String]
         var title: String
@@ -73,8 +100,7 @@ struct Search: Sendable {
 
     private let works: [WorkEntry]
     private let people: [Entry<Person>]
-    private let recordings: [Entry<Recording>]
-    private let albums: [Entry<WorkIndex.Album>]
+    private let albums: [Tracked<WorkIndex.Album>]
 
     init(index: WorkIndex) {
         // A work without a composer tag is found by its title. The stand-in name finds nothing.
@@ -82,10 +108,14 @@ struct Search: Sendable {
         // An untagged work stands for an album. The Albums section holds it.
         works = index.composers.flatMap(\.works).filter(\.isTagged).map { work in
             let composer = work.composer == Song.unknownComposer ? "" : work.composer
+            // A track title can name the work where the WORK tag does not, such as "Für Elise" for WoO 59.
+            // A nickname names the work as its title does, so it joins the own words.
             let names = ([work.title] + work.nicknames).joined(separator: " ")
             return WorkEntry(
-                work: work,
-                words: Self.words(of: [names, composer, work.grouping ?? ""].joined(separator: " ")),
+                tracked: Tracked(
+                    item: work,
+                    words: Self.words(of: [names, composer, work.grouping ?? ""].joined(separator: " ")),
+                    titles: work.recordings.flatMap(\.songs).map(\.title)),
                 titleWords: Self.words(of: names), title: Self.fold(work.title))
         }
 
@@ -124,23 +154,11 @@ struct Search: Sendable {
                 : $0.item.name.localizedStandardCompare($1.item.name) == .orderedAscending
         }
 
-        self.recordings = index.composers.flatMap(\.works).flatMap { work in
-            work.recordings.map { recording in
-                let composer = work.composer == Song.unknownComposer ? "" : work.composer
-                let text =
-                    [work.title, composer, work.grouping ?? "", recording.album, recording.summary]
-                    + recording.songs.map(\.title)
-                return Entry(
-                    item: Recording(work: work, recording: recording),
-                    words: Self.words(of: text.joined(separator: " ")))
-            }
-        }
-        .sorted { $0.item.id.localizedStandardCompare($1.item.id) == .orderedAscending }
-
+        // A tagged track belongs to its work, so only a track without a WORK tag finds its album.
         albums = index.albums.map { album in
-            let artist = Self.artist(of: album) ?? ""
-            let titles = album.tracks.map(\.title)
-            return Entry(item: album, words: Self.words(of: ([album.title, artist] + titles).joined(separator: " ")))
+            Tracked(
+                item: album, words: Self.words(of: [album.title, Self.artist(of: album) ?? ""].joined(separator: " ")),
+                titles: album.tracks.filter { $0.works?.first == nil }.map(\.title))
         }
     }
 
@@ -149,19 +167,32 @@ struct Search: Sendable {
         let tokens = Self.words(of: text, unique: false)
         guard !tokens.isEmpty else { return Results() }
         // A title that starts with the text comes first, then a title that holds every word, then a match on the
-        // composer or the set only (search.html).
-        let ranked: [(work: WorkIndex.Work, rank: Int)] = works.filter { Self.matches(tokens, $0.words) }
-            .map { entry in (entry.work, Self.rank(of: entry, for: tokens)) }
-        let found = ranked.sorted { lhs, rhs in
+        // composer or the set, then a match that needs a track title (search.html).
+        var results = Results()
+        var ranked: [(work: WorkIndex.Work, rank: Int)] = []
+        for entry in works {
+            guard let track = entry.tracked.match(tokens) else { continue }
+            let work = entry.tracked.item
+            if track.isEmpty {
+                ranked.append((work, Self.rank(of: entry, for: tokens)))
+            } else {
+                ranked.append((work, 3))
+                results.workTracks[work.id] = track
+            }
+        }
+        results.works = ranked.sorted { lhs, rhs in
             lhs.rank != rhs.rank
                 ? lhs.rank < rhs.rank
                 : lhs.work.title.localizedStandardCompare(rhs.work.title) == .orderedAscending
         }
-        return Results(
-            works: found.map { $0.work },
-            people: people.filter { Self.matches(tokens, $0.words) }.map(\.item),
-            albums: albums.filter { Self.matches(tokens, $0.words) }.map(\.item),
-            recordings: recordings.filter { Self.matches(tokens, $0.words) }.map(\.item))
+        .map(\.work)
+        results.people = people.filter { Self.matches(tokens, $0.words) }.map(\.item)
+        for entry in albums {
+            guard let track = entry.match(tokens) else { continue }
+            results.albums.append(entry.item)
+            if !track.isEmpty { results.albumTracks[entry.item.id] = track }
+        }
+        return results
     }
 
     private static func rank(of entry: WorkEntry, for tokens: [String]) -> Int {
@@ -196,6 +227,11 @@ struct Search: Sendable {
     /// True when each token starts a word.
     static func matches(_ tokens: [String], _ words: [String]) -> Bool {
         tokens.allSatisfy { token in words.contains { $0.hasPrefix(token) } }
+    }
+
+    /// True when each token starts a word of either list.
+    static func matches(_ tokens: [String], _ words: [String], _ more: [String]) -> Bool {
+        tokens.allSatisfy { token in words.contains { $0.hasPrefix(token) } || more.contains { $0.hasPrefix(token) } }
     }
 }
 

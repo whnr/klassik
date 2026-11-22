@@ -70,8 +70,6 @@ struct SearchFilters: Sendable {
     private var postings: [Search.Term: [Int]] = [:]
     /// The terms of each scope, by name. A genre that every recording with a genre carries is not here.
     private var scopes: [Search.Scope: [Search.Term]] = [:]
-    private var recordingPositions: [String: Int] = [:]
-    private var recordings: [Search.Recording] = []
     private var workRecordings: [String: [Int]] = [:]
     private var albumRecordings: [String: [Int]] = [:]
     private var personRecordings: [String: [Int]] = [:]
@@ -95,8 +93,6 @@ struct SearchFilters: Sendable {
                 for recording in work.recordings {
                     let position = terms.count
                     positions[recording.id] = position
-                    recordingPositions[recording.id] = position
-                    recordings.append(Search.Recording(work: work, recording: recording))
                     mine.append(position)
                     var own = Set<Search.Term>()
                     let genres = Set(recording.songs.flatMap(\.allGenres))
@@ -147,9 +143,6 @@ struct SearchFilters: Sendable {
         for work in results.works { members.formUnion(workRecordings[work.id] ?? []) }
         for person in results.people { members.formUnion(personRecordings[person.name] ?? []) }
         for album in results.albums { members.formUnion(albumRecordings[album.id] ?? []) }
-        for item in results.recordings {
-            if let position = recordingPositions[item.id] { members.insert(position) }
-        }
         return Search.Pool(members: members)
     }
 
@@ -206,8 +199,10 @@ struct SearchFilters: Sendable {
     func narrow(_ results: Search.Results?, by conditions: [Search.Condition]) -> Search.Filtered {
         guard !conditions.isEmpty else { return Search.Filtered(results: results ?? Search.Results()) }
         let passing = remaining(conditions, in: Search.Pool())
-        let found = results ?? Search.Results(works: works, albums: albums, recordings: recordings)
+        let found = results ?? Search.Results(works: works, albums: albums)
         var filtered = Search.Filtered()
+        filtered.results.workTracks = found.workTracks
+        filtered.results.albumTracks = found.albumTracks
         for work in found.works {
             let count = (workRecordings[work.id] ?? []).count(where: { passing.contains($0) })
             guard count > 0 else { continue }
@@ -217,9 +212,6 @@ struct SearchFilters: Sendable {
         filtered.results.people = found.people.compactMap { person($0, passing: passing) }
         filtered.results.albums = found.albums.filter {
             (albumRecordings[$0.id] ?? []).contains { passing.contains($0) }
-        }
-        filtered.results.recordings = found.recordings.filter { item in
-            recordingPositions[item.id].map { passing.contains($0) } ?? false
         }
         return filtered
     }

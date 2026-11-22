@@ -160,8 +160,10 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
     private var reportedFrame: CGRect?
     private var restingFrame: CGRect?
     private var keyboardVisible = false
-    /// Set when the keyboard closes. The bar's items then measure their labels again.
-    private var remeasuresItems = false
+    /// Set when the keyboard closes. The tab labels then measure their text again.
+    private var remeasuresLabels = false
+    /// The pass after the first remeasure: the bar has its final, narrow frame then, and the labels must fit it.
+    private var remeasuresAtFinalFrame = false
     private(set) var playerHost: UIHostingController<AnyView>?
     let playerLayout = PlayerOverlayLayout()
 
@@ -189,7 +191,7 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
 
     @objc private func keyboardVisibilityChanged(_ notification: Notification) {
         keyboardVisible = notification.name == UIResponder.keyboardWillShowNotification
-        if !keyboardVisible { remeasuresItems = true }
+        if !keyboardVisible { remeasuresLabels = true }
         view.setNeedsLayout()
     }
 
@@ -270,10 +272,14 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
         }
     }
 
-    private func invalidateLayout(of view: UIView) {
-        view.invalidateIntrinsicContentSize()
-        view.setNeedsLayout()
-        view.subviews.forEach(invalidateLayout(of:))
+    /// Marks the views inside the bar for a new measure. The bar keeps its own size: a new size of the bar marks its
+    /// container for layout, and that layout gives the bar the full screen width.
+    private func invalidateLayout(inside view: UIView) {
+        for child in view.subviews {
+            child.invalidateIntrinsicContentSize()
+            child.setNeedsLayout()
+            invalidateLayout(inside: child)
+        }
     }
 
     override func viewDidLayoutSubviews() {
@@ -290,13 +296,28 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
         }
         frame.origin.x = side == .left ? reservedWidth : 0
         frame.size.width = max(0, view.bounds.width - reservedWidth)
-        if remeasuresItems {
-            // After a keyboard the items can keep truncated labels: the resting frame is unchanged, so UIKit does
-            // not lay them out again. A changed width forces a new layout of each item before the bar draws.
-            remeasuresItems = false
-            invalidateLayout(of: tabBar)
+        if remeasuresAtFinalFrame {
+            // The bar is at its final, narrow frame. Only the items measure again: a new bar frame here would let
+            // the container of the bar lay out at the full screen width after this pass.
+            remeasuresAtFinalFrame = false
+            tabBar.frame = frame
+            invalidateLayout(inside: tabBar)
+            tabBar.layoutIfNeeded()
+        } else if remeasuresLabels {
+            // After a keyboard the labels can stay truncated: the resting frame is unchanged, so UIKit does not lay
+            // the items out again. A changed width forces a new layout of each item.
+            remeasuresLabels = false
+            invalidateLayout(inside: tabBar)
             tabBar.frame = frame.insetBy(dx: 1, dy: 0)
             tabBar.layoutIfNeeded()
+            tabBar.frame = frame
+            // The container of the bar can still lay out after this pass and give the bar the full screen width,
+            // which puts the Search tab under the mini player. The next pass puts the bar back beside it and
+            // measures the labels at that narrow width.
+            Task { @MainActor [weak self] in
+                self?.remeasuresAtFinalFrame = true
+                self?.view.setNeedsLayout()
+            }
         }
         tabBar.frame = frame
         playerHost?.view.frame = view.bounds

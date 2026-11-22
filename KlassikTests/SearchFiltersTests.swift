@@ -154,14 +154,6 @@ struct SearchFiltersTests {
         #expect(Self.summary(genres) == ["Piano check 2"])
     }
 
-    @Test func conditionsNarrowRecordingsFoundByPerformer() {
-        let found = Self.search.results(for: "kubelik")
-        let narrowed = Self.filters.narrow(found, by: [Condition(terms: [Self.composer(Self.dvorak)])])
-        #expect(Set(narrowed.results.recordings.flatMap { $0.recording.songs.map(\.id) }) == ["d8", "d9"])
-        let empty = Self.filters.narrow(found, by: [Condition(terms: [Self.genre("Piano")])])
-        #expect(empty.results.recordings.isEmpty)
-    }
-
     /// A person in the results brings every recording that names them.
     @Test func aPersonOfTheTextBringsTheirRecordings() {
         let pool = Self.filters.pool(of: Self.search.results(for: "kubelik"))

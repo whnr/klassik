@@ -38,9 +38,9 @@ _Avoid_: Condition, criterion, clause
 
 ### Views
 
-**Place**:
+**Tab**:
 One of the top-level parts of the app that the listener moves between: Library, Chronology and Search. Settings opens from the Library toolbar.
-_Avoid_: Tab, section, area
+_Avoid_: Place, section, area
 
 **Library**:
 The place that holds the listener's own collection: composers, playlists and favourites. It shows nothing that Klassik picks for the listener.

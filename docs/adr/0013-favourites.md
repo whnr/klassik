@@ -1,6 +1,6 @@
 # 0013. Favourites and the recording order
 
-Date: 2026-10-31. Decided by Flo. Bead: sz-rs30.1.74.9. Replaces [0009](0009-reference-recording.md). The offline rules are replaced by [0052](0052-favourites-stay-in-the-app.md).
+Date: 2026-10-31. Decided by Flo. Bead: sz-rs30.1.74.9. Replaces 0009. The offline rules are replaced by [0052](0052-favourites-stay-in-the-app.md).
 
 ## Context
 

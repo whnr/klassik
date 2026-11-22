@@ -2,9 +2,9 @@
 
 Date: 2026-11-18. Decided by Flo for sz-rs30.1.117.7, sz-rs30.1.118 and sz-rs30.1.120. Implementation belongs to 0.15.
 Replaces the image fetch, cover key and refresh rules of [0051](0051-pictures-and-album-art-in-local-storage.md).
-Refines [0010](0010-incremental-sync.md) for image refreshes.
+Refines 0010 for image refreshes.
 
-The person-picture Low Data Mode rules are replaced by [0061](0061-work-pages-and-ready-person-pictures.md).
+The person-picture Low Data Mode rules are replaced by 0061.
 
 ## Context
 
@@ -88,7 +88,7 @@ The goal is instant pages with local images. Missing images must never change th
 - A person page requests missing pictures immediately, subject to Low Data Mode and the Pictures limit.
 - The same fixed-slot and immediate-replacement rules apply to pictures. Playback's Low Data Mode exception applies to covers only.
 - Pictures Clear permits refilling during the next people lookup or page visit, under the same limits.
-- Keep [0043](0043-every-performer-picture.md)'s rule to show every picture. This record governs fetching and storage.
+- Keep 0043's rule to show every picture. This record governs fetching and storage.
 
 ## Consequences
 
@@ -96,5 +96,5 @@ The goal is instant pages with local images. Missing images must never change th
 - Filter-first fetching avoids work for excluded albums and people.
 - Finite limits, Low Data Mode and storage failures can leave placeholders. They do not block browsing.
 - ImageStore needs immutable shared cover files and persistent database references for deduplication.
-- Show server trouble through the single quiet status of [0058](0058-one-quiet-server-status.md), without a notice per failed image.
+- Show server trouble through the single quiet status of 0058, without a notice per failed image.
 - This record changes no app code, version, layout value or colour rule.

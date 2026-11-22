@@ -1,6 +1,6 @@
 # 0052. Favourites stay in the app
 
-Date: 2026-11-18. Decided by Flo. Bead: sz-rs30.1.117.4. Replaces the offline rules of [0013](0013-favourites.md). The notice rule is replaced by [0058](0058-one-quiet-server-status.md).
+Date: 2026-11-18. Decided by Flo. Bead: sz-rs30.1.117.4. Replaces the offline rules of [0013](0013-favourites.md). The notice rule is replaced by 0058.
 
 ## Context
 

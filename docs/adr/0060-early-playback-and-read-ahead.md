@@ -1,7 +1,7 @@
 # 0060. Start playback early and read ahead quietly
 
 Date: 2026-11-18. Decided by Flo. Beads: sz-rs30.1.125, sz-rs30.1.125.1, sz-rs30.1.125.2, sz-rs30.1.125.3 and sz-rs30.1.125.4.
-Replaces the complete-file requirement of [0005](0005-gapless-playback.md) and the availability marks of [0008](0008-offline-storage.md).
+Replaces the complete-file requirement of [0005](0005-gapless-playback.md) and the availability marks of 0008.
 Extends the music cache rules of [0051](0051-pictures-and-album-art-in-local-storage.md).
 Implementation belongs to 0.15. The early-start and gapless claims hold only after the measurements below pass.
 
@@ -196,7 +196,7 @@ The small line replaces the time labels under the playback bar, as Flo chose in 
 Reserve both messages' wrapped height at the current width and text size before either message appears.
 Remove it on first sound, pause, Stop or replacement of the selection. Background preparation must never restore it.
 During later starvation, use the same single line with “Slow connection. Playback will continue shortly.”
-A connection failure or policy restriction uses the one quiet status of [0058](0058-one-quiet-server-status.md), with its actual cause.
+A connection failure or policy restriction uses the one quiet status of 0058, with its actual cause.
 Do not label missing metadata, disk errors or an unreachable server as a slow connection.
 
 Remove downloaded and cached marks from work, recording and movement rows, the player and its pill.

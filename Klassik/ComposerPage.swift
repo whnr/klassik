@@ -603,6 +603,35 @@ struct PersonHero: View {
     }
 }
 
+/// The credit under the whole picture: author and licence, then "File page" in the tint (person.html, `.link`).
+/// Increase Contrast underlines the link in its own colour.
+private struct PictureCredit: View {
+    @Environment(\.colorSchemeContrast) private var contrast
+    let credit: PersonCredit
+
+    var body: some View {
+        words(text)
+            .accessibilityIdentifier("whole-picture-credit")
+    }
+
+    /// Only the words "File page" are the link, as in the specimen; the author and licence are plain text.
+    private var text: Text {
+        guard let url = PersonFactsService.trusted(credit.url) else { return Text(credit.text) }
+        var file = AttributedString("File page")
+        file.link = url
+        file.foregroundColor = Palette.tint.color
+        if contrast == .increased { file.underlineStyle = Text.LineStyle.single }
+        return Text(AttributedString("\(credit.source(linked: true)). ") + file)
+    }
+
+    private func words(_ text: Text) -> some View {
+        text
+            .typeStyle(.footnote)
+            .foregroundStyle(Palette.textPrimary)
+            .multilineTextAlignment(.center)
+    }
+}
+
 /// The whole picture with its credit, full screen. A swipe down or the system close button closes it, as for any
 /// full-screen overlay. Flo chose this over the specimen's sheet with Done (sz-rs30.1.105.73).
 private struct WholePicture: View {
@@ -624,10 +653,7 @@ private struct WholePicture: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .accessibilityLabel("Whole picture")
                 if let credit {
-                    Text(credit.text)
-                        .typeStyle(.footnote)
-                        .foregroundStyle(Palette.textPrimary)
-                        .multilineTextAlignment(.center)
+                    PictureCredit(credit: credit)
                         .padding(.horizontal, Space.l.points)
                 }
             }

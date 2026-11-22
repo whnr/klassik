@@ -2212,7 +2212,7 @@ final class SettingsScreens: ScreensTestCase {
         // A row can merge its label and value into one element, so the check reads every element that shows one.
         let shares = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", " on server"))
         let shareRows = shares.allElementsBoundByIndex.map(\.frame)
-        XCTAssertGreaterThanOrEqual(Set(shareRows.map(\.minY.rounded)).count, 2, "No albums and tracks result")
+        XCTAssertGreaterThanOrEqual(Set(shareRows.map { $0.minY.rounded() }).count, 2, "No albums and tracks result")
         let firstCheck = app.buttons["add-check"].firstMatch
         XCTAssertTrue(firstCheck.exists)
         let resultBottom = shareRows.map(\.maxY).max() ?? .infinity

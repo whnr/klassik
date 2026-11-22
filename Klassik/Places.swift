@@ -296,24 +296,27 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
         }
         frame.origin.x = side == .left ? reservedWidth : 0
         frame.size.width = max(0, view.bounds.width - reservedWidth)
-        if remeasuresLabels || remeasuresAtFinalFrame {
+        if remeasuresAtFinalFrame {
+            // The bar is at its final, narrow frame. Only the items measure again: a new bar frame here would let
+            // the container of the bar lay out at the full screen width after this pass.
+            remeasuresAtFinalFrame = false
+            tabBar.frame = frame
+            invalidateLayout(inside: tabBar)
+            tabBar.layoutIfNeeded()
+        } else if remeasuresLabels {
             // After a keyboard the labels can stay truncated: the resting frame is unchanged, so UIKit does not lay
             // the items out again. A changed width forces a new layout of each item.
-            let first = remeasuresLabels
             remeasuresLabels = false
-            remeasuresAtFinalFrame = false
             invalidateLayout(inside: tabBar)
             tabBar.frame = frame.insetBy(dx: 1, dy: 0)
             tabBar.layoutIfNeeded()
             tabBar.frame = frame
-            if first {
-                // The container of the bar can still lay out after this pass and give the bar the full screen width,
-                // which puts the Search tab under the mini player. The next pass puts the bar back beside it and
-                // measures the labels at that narrow width, where a label measured at full width would truncate.
-                Task { @MainActor [weak self] in
-                    self?.remeasuresAtFinalFrame = true
-                    self?.view.setNeedsLayout()
-                }
+            // The container of the bar can still lay out after this pass and give the bar the full screen width,
+            // which puts the Search tab under the mini player. The next pass puts the bar back beside it and
+            // measures the labels at that narrow width.
+            Task { @MainActor [weak self] in
+                self?.remeasuresAtFinalFrame = true
+                self?.view.setNeedsLayout()
             }
         }
         tabBar.frame = frame

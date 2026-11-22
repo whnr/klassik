@@ -1,4 +1,4 @@
-/* The timeline's shape (ADR 0035, sz-rs30.1.83.21): flush with the screen edge, round only on the content side,
+/* The timeline's shape (player.md, sz-rs30.1.83.21): flush with the screen edge, round only on the content side,
    a gap of space-xxs between all segments, the first segment grows out of the edge.
    --t and --b are the top and bottom corners on the content side. */
 .timeline .seg {

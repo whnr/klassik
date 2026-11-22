@@ -1,7 +1,7 @@
 {
-  "sha": "726b37d472de576a04bf7d8303bbd67a18d558f7",
+  "sha": "57d7edad6bd70cfbb31f33bf5a18cb929510c8bc",
   "branch": "main",
   "path": "main",
-  "subject": "Merge pull request #158 from whnr/claude-release-0.20.0",
-  "ts": 1795370385
+  "subject": "Merge pull request #157 from whnr/claude-scrim-revert",
+  "ts": 1795373262
 }

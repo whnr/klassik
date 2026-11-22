@@ -308,8 +308,25 @@ class MergedHeadTests(unittest.TestCase):
             lambda commit: commit == self.head,
             no_version_diff,
             self.merged,
+            lambda commit, head: True,
         )
         self.assertEqual(found, (self.head, None))
+
+    def test_covering_refuses_a_green_head_without_a_release_launch(self):
+        sha = merge(self.repo, "feature")
+        for launched in (None, lambda commit, head: False):
+            with self.subTest(launched=launched):
+                extra = () if launched is None else (launched,)
+                found, reason = green_test_gate.covering(
+                    green_test_gate.commits_from(sha, cwd=self.repo.tmp),
+                    lambda commit: green_test_gate.changed(commit, cwd=self.repo.tmp),
+                    lambda commit: commit == self.head,
+                    no_version_diff,
+                    self.merged,
+                    *extra,
+                )
+                self.assertIsNone(found)
+                self.assertIn(f"no green Test run for {sha}", reason)
 
     def test_covering_refuses_a_merge_whose_head_is_not_green(self):
         sha = merge(self.repo, "feature")
@@ -319,19 +336,27 @@ class MergedHeadTests(unittest.TestCase):
             lambda commit: False,
             no_version_diff,
             self.merged,
+            lambda commit, head: True,
         )
         self.assertIsNone(found)
         self.assertIn(f"no green Test run for {sha}", reason)
 
 
-def jobs(build="success", test="success"):
-    named = {"build": build, "test": test}
+def jobs(build="success", test="success", release=None):
+    named = {"build": build, "test": test, "release-launch": release}
     return [{"name": name, "conclusion": conclusion} for name, conclusion in named.items() if conclusion]
 
 
 class ProvesTests(unittest.TestCase):
     def test_a_run_that_built_and_passed(self):
         self.assertTrue(green_test_gate.proves({"conclusion": "success"}, jobs()))
+
+    def test_a_required_release_launch(self):
+        launch = green_test_gate.REQUIRED_JOBS + ("release-launch",)
+        self.assertTrue(green_test_gate.proves({"conclusion": "success"}, jobs(release="success"), launch))
+        for release in ("skipped", "failure", "cancelled", None):
+            with self.subTest(release=release):
+                self.assertFalse(green_test_gate.proves({"conclusion": "success"}, jobs(release=release), launch))
 
     def test_refusals(self):
         for run, run_jobs in (
@@ -371,15 +396,15 @@ class MainTests(unittest.TestCase):
         patch.start()
         self.addCleanup(patch.stop)
 
-    def api(self, builds):
-        """A fake API: `builds` maps a commit to the conclusion of the build job of its one successful run."""
+    def api(self, runs):
+        """A fake API: `runs` maps a commit to the job conclusions (build, release) of its one successful run."""
 
         def read(query):
             if "/jobs" in query:
-                return {"jobs": jobs(build=builds[query.split("/runs/")[1].split("/")[0]])}
+                build, release = runs[query.split("/runs/")[1].split("/")[0]]
+                return {"jobs": jobs(build=build, release=release)}
             commit = query.split("head_sha=")[1].split("&")[0]
-            runs = [{"id": commit, "conclusion": "success"}] if commit in builds else []
-            return {"workflow_runs": runs}
+            return {"workflow_runs": [{"id": commit, "conclusion": "success"}] if commit in runs else []}
 
         return read
 
@@ -393,21 +418,42 @@ class MainTests(unittest.TestCase):
                 code = exit.code
         return code, out.getvalue().strip()
 
-    def test_a_covered_merge_takes_the_green_head(self):
-        read = self.api({self.merge: "skipped", self.head: "success"})
+    def test_a_covered_merge_takes_the_head_that_opened_a_release_build(self):
+        read = self.api({self.merge: ("skipped", None), self.head: ("success", "success")})
         self.assertEqual(self.main([self.merge], read), (0, self.head))
         self.assertEqual(self.main(["merged", self.merge], read), (0, self.head))
 
+    def test_a_covered_merge_takes_the_head_when_the_merge_run_opened_a_release_build(self):
+        # The PR got its release title after the last push, so the head run skipped release-launch.
+        read = self.api({self.merge: ("skipped", "success"), self.head: ("success", "skipped")})
+        self.assertEqual(self.main([self.merge], read), (0, self.head))
+
+    def test_a_green_head_without_a_release_build_anywhere_blocks(self):
+        for merge_run in (None, ("skipped", None), ("skipped", "skipped"), ("skipped", "failure")):
+            for head_release in (None, "skipped", "failure"):
+                runs = {self.head: ("success", head_release)}
+                if merge_run:
+                    runs[self.merge] = merge_run
+                with self.subTest(merge=merge_run, head=head_release):
+                    code, out = self.main([self.merge], self.api(runs))
+                    self.assertEqual(code, 1)
+                    self.assertIn(f"no green Test run for {self.merge}", out)
+
+    def test_the_main_run_plan_does_not_ask_for_a_release_build(self):
+        read = self.api({self.merge: ("skipped", None), self.head: ("success", None)})
+        self.assertEqual(self.main(["merged", self.merge], read), (0, self.head))
+
     def test_a_merge_with_its_own_green_build_takes_itself(self):
-        read = self.api({self.merge: "success"})
+        read = self.api({self.merge: ("success", None)})
         self.assertEqual(self.main([self.merge], read), (0, self.merge))
         self.assertEqual(self.main(["merged", self.merge], read), (1, f"{self.merge} is no merge of a green PR head"))
 
     def test_a_missing_run_blocks(self):
-        for builds in ({}, {self.merge: "skipped"}, {self.merge: "skipped", self.head: "skipped"}):
-            with self.subTest(builds=builds):
+        skipped = {self.merge: ("skipped", None), self.head: ("skipped", None)}
+        for runs in ({}, {self.merge: ("skipped", "success")}, skipped):
+            with self.subTest(runs=runs):
                 for args in ([self.merge], ["merged", self.merge]):
-                    self.assertEqual(self.main(args, self.api(builds))[0], 1)
+                    self.assertEqual(self.main(args, self.api(runs))[0], 1)
 
     def test_an_unreadable_answer_blocks(self):
         def fails(query):

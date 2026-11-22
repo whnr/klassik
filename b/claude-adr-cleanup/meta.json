@@ -1,0 +1,7 @@
+{
+  "sha": "7cc751a2e8ea99a22a8b41fe10223a8e30c23a86",
+  "branch": "claude-adr-cleanup",
+  "path": "claude-adr-cleanup",
+  "subject": "Drop retired ADR citations from code comments",
+  "ts": 1795351007
+}

@@ -35,7 +35,7 @@ class ScreensTestCase: XCTestCase {
 """
 
 
-def run(run_id, branch="ci"):
+def run(run_id, branch="main"):
     return {"id": run_id, "head_sha": "abcdef123456", "head_branch": branch}
 
 
@@ -561,6 +561,12 @@ class BaselineTests(unittest.TestCase):
     def test_branch_name_is_url_encoded(self):
         query = screen_baseline.runs_query("o/r", "fix&x=1#a b", "completed")
         self.assertIn("branch=fix%26x%3D1%23a%20b&status=completed", query)
+
+    def test_the_fallback_is_the_nightly_walk_on_main(self):
+        query = screen_baseline.runs_query("o/r", screen_baseline.FALLBACK, "success", screen_baseline.FALLBACK_EVENT)
+        self.assertIn("branch=main&status=success", query)
+        self.assertTrue(query.endswith("&event=schedule"))
+        self.assertNotIn("event=", screen_baseline.runs_query("o/r", "topic", "completed"))
 
     def test_usable_needs_screenshots(self):
         screens = {"name": "screens", "expired": False, "size_in_bytes": 2_000_000}

@@ -522,11 +522,6 @@ struct PlaybackSessionTests {
 
     // MARK: System players
 
-    /// Waits for the session's cover task, which runs on the main actor after the call that starts it.
-    private func settle(_ done: () -> Bool) async throws {
-        for _ in 0..<200 where !done() { try await Task.sleep(for: .milliseconds(5)) }
-    }
-
     /// The system holds the artwork and calls it from its own thread, as this box lets the test do.
     private struct Handed: @unchecked Sendable {
         let artwork: MPMediaItemArtwork

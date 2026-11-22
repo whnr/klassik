@@ -825,7 +825,10 @@
                         class: "section-head t-footnote",
                         href: href("work.html", { work: r.workRef.id, back: item.title }),
                       },
-                      el("span", { class: "link" }, r.work),
+                      // The heading stays in the text colour with one disclosure, on the page and in the overlay
+                      // (sz-rs30.1.117.6; Flo 2026-11-22).
+                      el("span", { style: "color: var(--color-text-primary)" }, r.work),
+                      el("span", { html: ICON.chevron }),
                     )
                   : null,
                 list,
@@ -844,7 +847,19 @@
                   nextItem
                     ? el(
                         "div",
-                        { class: "row", style: "--sep-inset: 0" },
+                        {
+                          class: "row",
+                          style: "--sep-inset: 0",
+                          role: "button",
+                          // A tap plays the next item (Flo 2026-11-22).
+                          onclick: () => {
+                            K.P.item++;
+                            K.P.index = 0;
+                            K.P.pos = 0;
+                            K.emit();
+                            itemEnded();
+                          },
+                        },
                         K.coverImage(nextItem.album),
                         el(
                           "div",

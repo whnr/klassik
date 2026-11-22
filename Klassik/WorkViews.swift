@@ -286,6 +286,7 @@ struct WorkView: View {
                     .itemActions(QueueItem(work: work, recording: recording), downloads: true, favourite: true)
                     .accessibilityIdentifier("recording")
                     .moveDisabled(!row.isFavourite)
+                    .modifier(RecordingDrag(row: row, work: work))
                     .itemSeparator(first: row.id == recordings.first?.id, last: row.id == recordings.last?.id)
                 }
                 .onMove { model.recordingOrder.moveFavourites(of: work, from: $0, to: $1) }
@@ -306,6 +307,39 @@ struct WorkView: View {
     private func plays(_ recording: WorkIndex.Recording) -> Bool {
         guard let item = model.playback.item else { return false }
         return item.work.id == work.id && item.recording.id == recording.id
+    }
+}
+
+/// A long press lifts a favourite recording and a drag reorders it, with no Edit mode (ADR 0013). A row that is no
+/// favourite does not lift, but it takes a drop. The system keeps the context menu on a press that does not move.
+private struct RecordingDrag: ViewModifier {
+    @Environment(AppModel.self) private var model
+    let row: RecordingOrder.Row
+    let work: WorkIndex.Work
+
+    struct Payload: Codable, Transferable {
+        let id: String
+        static var transferRepresentation: some TransferRepresentation {
+            CodableRepresentation(contentType: .json)
+        }
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .dropDestination(for: Payload.self) { items, _ in
+                guard let dragged = items.first else { return false }
+                withoutAnimation {
+                    model.recordingOrder.moveFavourite(dragged.id, of: work, onto: row.id)
+                }
+                return true
+            }
+            .applyIf(row.isFavourite) { $0.draggable(Payload(id: row.id)) }
+    }
+}
+
+private extension View {
+    @ViewBuilder func applyIf<Result: View>(_ condition: Bool, _ transform: (Self) -> Result) -> some View {
+        if condition { transform(self) } else { self }
     }
 }
 

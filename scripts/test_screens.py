@@ -321,8 +321,8 @@ class PlanTests(unittest.TestCase):
     def test_pull_request_without_request_runs_only_unit_tests(self):
         self.assertEqual(self.groups("pull_request", messages="Fix parsing\n\nui: is not a request"), ("false", []))
 
-    def test_pull_request_walks_the_union_of_its_requests(self):
-        messages = "First\n\n[ui: browse]\n\nSecond\n\n[UI: Playback, browse]\n"
+    def test_head_commit_walks_the_union_of_its_request_lines(self):
+        messages = "Fix the player\n\n[ui: browse]\n[UI: Playback, browse]\n"
         self.assertEqual(
             self.groups("pull_request", messages=messages),
             (
@@ -347,6 +347,11 @@ class PlanTests(unittest.TestCase):
                 for group in screen_report.UI_GROUPS:
                     self.assertIn(group, warnings.getvalue())
                 self.assertIn("Valid UI areas: playback, places, browse, settings, timeline", warnings.getvalue())
+
+    def test_only_the_head_commit_message_requests_the_walk(self):
+        workflow = (pathlib.Path(screen_report.ROOT) / ".github/workflows/test.yml").read_text()
+        self.assertIn("repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA\" --jq '.commit.message'", workflow)
+        self.assertNotIn('/commits" --jq', workflow)
 
     def test_main_push_runs_no_walk(self):
         self.assertEqual(self.groups("push"), ("false", []))

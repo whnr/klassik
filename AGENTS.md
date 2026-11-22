@@ -31,7 +31,7 @@ Rules for coding agents in this repository.
 - `design/scripts/tokens.py` writes `design/tokens.css`, `Klassik/Tokens.swift` and the colour sets in `Klassik/Assets.xcassets/Colors/`. Never edit them by hand. The design lint fails when one is not current. `.github/workflows/design.yml` runs it on Linux when those files change.
 - `.github/workflows/test.yml` runs `scripts/lint.sh` on Linux, then unit, library sync and gapless tests on `xcode-27` with Xcode 27.2 against fixture Navidrome. It runs on `main` and `ci` pushes and pull requests, except documentation-only changes (`**.md`, `LICENSE`, `docs/**`), and manual requests. Main pushes run build, unit tests and the Release launch check, without a UI walk. Nightly runs walk all groups on main. A feature release PR titled `Release Klassik x.y.0` walks all groups. A patch release PR (`Release Klassik x.y.z`, z > 0, equal to `MARKETING_VERSION` in its `project.yml`) and other pull requests walk only requested areas. A release title without a clear x.y.z version walks all groups. The legacy `ci` branch still walks all groups. The walk uploads the screenshots as artifact `screens`.
 - The walk has six groups: `playback-queue`, `playback-overlay`, `playback-controls`, `places-search`, `browse-pages` and `settings-timeline`. Groups that share a class split its methods by measured time (`SHARDS` in `scripts/screen_report.py`). A new test goes to the group that lists no methods for its class. A failed test makes xcodebuild run the whole group again, so each group must finish twice within the 45-minute limit. Each failed test gets one retry inside its job. Reports name failed tests, count attempts, and retain first failures. Result bundles remain available after recovered retries.
-- The UI walk and its screenshots take most of a run's macOS time. A pull request requests the walk with a line `[ui: <areas>]` in a commit message, such as `[ui: playback,browse]` or `[ui: all]`. The areas are the classes in `ScreensTests.swift` without `Screens`. The run walks the union of the requests in all commits of the PR, so later pushes walk the same areas. The plan warns about unknown areas and ignores them. It prints valid areas and UI group names.
+- The UI walk and its screenshots take most of a run's macOS time. A pull request requests the walk with a line `[ui: <areas>]` in a commit message, such as `[ui: playback,browse]` or `[ui: all]`. The areas are the classes in `ScreensTests.swift` without `Screens`. Only the commit message of the PR head counts. A push without the line runs build and unit tests only. Put the line on the final push of the PR. `git commit --allow-empty` makes a commit that only carries it. The plan warns about unknown areas and ignores them. It prints valid areas and UI group names.
 - A pull request that changes the UI requests the walk for each area that it changes. Its review compares the screenshots with the specimen pages and ADRs, and checks that the PR requested the walk for the changed areas.
 - A pull request that changes only logic does not request the walk. Its run starts no UI job, and the `test` check is green when the build and unit tests pass.
 - The build job boots its simulator before the build and runs unit tests against the same products. Walk jobs boot during artifact setup. The Release launch check boots its simulator before building optimized products separately.
@@ -60,7 +60,7 @@ Rules for coding agents in this repository.
 - `Klassik release` means one PR that bumps `MARKETING_VERSION` and adds installed-app checks in “What to Test”.
 - A fresh review must approve the exact PR head before an agent merges it.
 - Any head change requires a new review. Check the approved SHA against the current head before merging.
-- A patch release PR (x.y.z, z > 0) requests the walk with `[ui: <areas>]` for the areas that its fixes changed. A feature release PR walks all groups.
+- A patch release PR (x.y.z, z > 0) requests the walk in its head commit with `[ui: <areas>]` for the areas that its fixes changed. A feature release PR walks all groups.
 - The release agent merges the approved release PR. When the merge commit changes only the version and “What to Test”, TestFlight reuses the green Test run of its parent and need not wait for Test on the merge commit. Otherwise it waits for successful Test on that commit.
 - The release agent starts TestFlight on the merge commit and watches all jobs, including notes publication.
 - Read annotations and logs. Fix failures through another reviewed PR, or report the blocker on the bead.
@@ -84,7 +84,7 @@ Rules for coding agents in this repository.
 
 Never push main. The pre-push hook in worker checkouts refuses it.
 Push your branch: `git push origin HEAD:refs/heads/<branch>`
-Before pushing, check `[ui: ...]` lines in all PR commits against the areas in `scripts/screen_report.py` `UI_GROUPS`.
+Interim pushes carry no `[ui: ...]` line. The final push of a UI change has one in its head commit, with areas from `UI_GROUPS` in `scripts/screen_report.py`.
 Then open a PR with `gh pr create`. An approved review and green CI merge it.
 
 ## Writing

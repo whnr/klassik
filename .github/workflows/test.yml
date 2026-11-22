@@ -1,6 +1,7 @@
 name: Test
 
 # One build runs unit tests and supplies the requested UI shards.
+# A pull request walks the areas that the commit message of its head requests, so interim pushes skip the walk.
 # Main pushes run no walk. Nightly runs and feature release pull requests walk every group.
 # UI_TESTS_REQUIRED controls whether a failed walk blocks the run.
 # A push that changes only documentation starts no run. TestFlight accepts such a commit through
@@ -34,7 +35,6 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read
-      pull-requests: read
     outputs:
       ui: ${{ steps.plan.outputs.ui }}
       matrix: ${{ steps.plan.outputs.matrix }}
@@ -45,14 +45,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           EVENT: ${{ github.event_name }}
           INPUT: ${{ inputs.ui }}
-          PR: ${{ github.event.pull_request.number }}
           TITLE: ${{ github.event.pull_request.title }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         # Explicit bash adds pipefail, so a parser error fails this job and not only the walk's matrix.
         shell: bash
         run: |
           if [ "$EVENT" = pull_request ]; then
-            gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/commits" --jq '.[].commit.message' > "$RUNNER_TEMP/messages"
+            gh api "repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA" --jq '.commit.message' > "$RUNNER_TEMP/messages"
             # The checkout is the merge with main; a patch release must name the version of its own head.
             gh api -H "Accept: application/vnd.github.raw+json" \
               "repos/$GITHUB_REPOSITORY/contents/project.yml?ref=$HEAD_SHA" > "$RUNNER_TEMP/project.yml"

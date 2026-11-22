@@ -1,9 +1,9 @@
 """Reports the result of a test run and of the screenshot comparison, for the job summary.
 
 Usage:
-    python3 scripts/screen_report.py plan <event> <dispatch-input> [<pr-title> <ref> [<project.yml>]] < <messages>
-        Prints the UI areas of the run and the matrix of the walk job, for GITHUB_OUTPUT. <project.yml> is the
-        file at the PR head.
+    python3 scripts/screen_report.py plan <event> <dispatch-input> [<pr-title> <ref> [<project.yml>]] < <message>
+        Prints the UI areas of the run and the matrix of the walk job, for GITHUB_OUTPUT. <message> is the commit
+        message of the PR head, and <project.yml> is the file at the PR head.
     python3 scripts/screen_report.py select <requested-areas> <group-areas>
         Prints the selected areas and rejects unknown names.
     python3 scripts/screen_report.py aggregate-ui <reports-dir> <requested-areas>
@@ -165,11 +165,12 @@ def selected_areas(request, available):
 UI_REQUEST = re.compile(r"^\s*\[ui:([^\]]*)\]\s*$", re.IGNORECASE | re.MULTILINE)
 
 
-def requested_areas(messages):
-    """The union of the "[ui: <areas>]" lines in the commit messages of a pull request, or "false"."""
+def requested_areas(message):
+    """The union of the "[ui: <areas>]" lines in the commit message of the PR head, or "false".
+    Earlier commits do not count, so only the push that asks for the walk runs it."""
     known = list(dict.fromkeys(area for areas in UI_GROUPS.values() for area in areas.split(",")))
     wanted, everything = set(), False
-    for match in UI_REQUEST.finditer(messages):
+    for match in UI_REQUEST.finditer(message):
         request = match.group(1).replace(" ", "").lower()
         if request in ("", "false"):
             continue
@@ -210,7 +211,7 @@ def project_version(project):
 
 def release_walk(title, project=""):
     """ "all" if a pull request with `title` walks every group: a feature release. "patch" if it walks only the
-    areas that its commits request. None if it is no release.
+    areas that its head commit requests. None if it is no release.
 
     A patch release has the version x.y.z (z > 0) in its title and as MARKETING_VERSION in `project`, the
     project.yml of the PR head. Every other release title walks everything, because the title alone does
@@ -232,11 +233,11 @@ def release_walk(title, project=""):
     return "patch"
 
 
-def plan(event, dispatch_input, messages, title="", ref="refs/heads/main", project=""):
+def plan(event, dispatch_input, message, title="", ref="refs/heads/main", project=""):
     """Feature release requests and nightly runs walk everything. Main pushes run no walk.
-    `project` is the text of project.yml at the PR head."""
+    `message` is the commit message of the PR head, and `project` is the text of project.yml at the PR head."""
     if event == "pull_request":
-        ui = requested_areas(messages)
+        ui = requested_areas(message)
         release = release_walk(title, project)
         if release == "all":
             ui = "all"

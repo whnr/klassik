@@ -1190,7 +1190,8 @@ final class PlaybackScreens: ScreensTestCase {
         let recording = app.buttons.matching(identifier: "recording").firstMatch
         XCTAssertTrue(recording.waitForExistence(timeout: 10))
         // The MusicBrainz pass may still run right after the connect.
-        let composed = app.staticTexts.matching(NSPredicate(format: "identifier == 'composed' AND label CONTAINS '1844'"))
+        let composed = app.staticTexts.matching(
+            NSPredicate(format: "identifier == 'composed' AND label CONTAINS '1844'"))
         XCTAssertTrue(composed.firstMatch.waitForExistence(timeout: 30), app.staticTexts["composed"].label)
         XCTAssertFalse(app.buttons["composed"].exists, "The composed date is a button")
         snap(app, "04-work")

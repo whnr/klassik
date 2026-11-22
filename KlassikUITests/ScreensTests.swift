@@ -604,8 +604,11 @@ final class BrowseScreens: ScreensTestCase {
         picture.tap()
         let whole = app.descendants(matching: .any)["whole-picture"]
         XCTAssertTrue(whole.waitForExistence(timeout: 10))
-        let credit = app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Public domain'")).firstMatch
-        XCTAssertTrue(credit.exists, "The whole picture shows no credit")
+        // The credit ends in the File page link, as in the specimen sheet (person.html).
+        let credit = app.links["whole-picture-file-page"]
+        XCTAssertTrue(credit.exists, "The whole picture credit has no File page link")
+        XCTAssertTrue(credit.label.contains("Public domain"), credit.label)
+        XCTAssertTrue(credit.label.hasSuffix("File page"), credit.label)
         let close = app.buttons["whole-picture-close"]
         XCTAssertTrue(close.exists, "The whole picture shows no close button")
         XCTAssertLessThan(close.frame.maxY, app.frame.height / 4, "The close button is not at the top")
@@ -1522,6 +1525,37 @@ final class PlaybackScreens: ScreensTestCase {
         startPlaying(app)
         pause(app)
         snap(app, "05e-play-album")
+    }
+
+    /// An opened row links the names that differ from the header, as the header does (specimen player.html
+    /// `performerRows`). On an album of two composers, each row names its composer.
+    @MainActor
+    func testMovementNamesAreLinks() throws {
+        let app = try launchAndConnect()
+        openSettings(app, technical: true)
+        reveal(app.buttons["classical-albums"], in: app).tap()
+        let encores = app.buttons.matching(identifier: "album")
+            .matching(NSPredicate(format: "label CONTAINS 'Romantic Encores'")).firstMatch
+        XCTAssertTrue(reveal(encores, in: app).isHittable)
+        encores.tap()
+        XCTAssertTrue(app.buttons["play-recording"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.links["Daniel Keys"].exists, "The soloist of one track shows in the header")
+        let row = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Andante'")).firstMatch
+        XCTAssertTrue(reveal(row, in: app).exists, "The Mozart row does not open")
+        row.tap()
+        let composer = app.links["Wolfgang Amadeus Mozart"].firstMatch
+        XCTAssertTrue(composer.waitForExistence(timeout: 5), "The composer in the row is no link")
+        let soloist = app.links["Daniel Keys"].firstMatch
+        XCTAssertTrue(soloist.exists, "The soloist in the row is no link")
+        snap(app, "05k-movement-links")
+        soloist.tap()
+        XCTAssertTrue(app.navigationBars["Daniel Keys"].waitForExistence(timeout: 10), "The soloist link opens no page")
+        back(app)
+        XCTAssertTrue(composer.waitForExistence(timeout: 10))
+        composer.tap()
+        XCTAssertTrue(
+            app.navigationBars["Wolfgang Amadeus Mozart"].waitForExistence(timeout: 10),
+            "The composer link opens no page")
     }
 
     @MainActor

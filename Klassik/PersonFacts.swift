@@ -21,9 +21,13 @@ struct PersonCredit: Codable, Equatable, Hashable, Sendable {
 
     /// The words before the link of an About credit line. With a link, the link names Commons for a picture.
     func lead(linked: Bool) -> String {
+        "\(kind.title): \(source(linked: linked))."
+    }
+
+    /// The author and licence. With a link, the link names Commons for a picture, so the text does not.
+    func source(linked: Bool) -> String {
         let commons = ", Wikimedia Commons"
-        let source = linked && kind == .picture && text.hasSuffix(commons) ? String(text.dropLast(commons.count)) : text
-        return "\(kind.title): \(source)."
+        return linked && kind == .picture && text.hasSuffix(commons) ? String(text.dropLast(commons.count)) : text
     }
 
     /// The label of the link, as person.html words it.

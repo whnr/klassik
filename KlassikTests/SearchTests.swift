@@ -105,7 +105,7 @@ struct SearchTests {
         #expect(Self.search.results(for: "symphony cello").isEmpty)
     }
 
-    /// No catalogue prefixes and no aliases (ADR 0025): the words match as they are written.
+    /// No catalogue prefixes and no aliases: the words match as they are written.
     @Test func knowsNoCataloguePrefixesOrAliases() {
         #expect(Self.search.results(for: "op 95").works.count == 1)
         #expect(Self.search.results(for: "op95").isEmpty)
@@ -168,7 +168,7 @@ struct SearchTests {
         #expect(Self.search.results(for: "  ,. ").isEmpty)
     }
 
-    /// One count for each role, the biggest first, in prose (ADR 0031).
+    /// One count for each role, the biggest first, in prose.
     @Test func countsEachRoleOfAPerson() throws {
         let kubelik = try #require(Self.search.results(for: "rafael").people.first)
         #expect(kubelik.composes)

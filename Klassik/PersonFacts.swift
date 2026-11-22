@@ -1,6 +1,6 @@
 import Foundation
 
-/// What one source says about one picture, text or fact, for the About tab (ADR 0017).
+/// What one source says about one picture, text or fact, for the About tab.
 struct PersonCredit: Codable, Equatable, Hashable, Sendable {
     enum Kind: String, Codable, Sendable {
         case picture, text, facts
@@ -96,7 +96,7 @@ struct PersonFacts: Codable, Equatable, Identifiable, Sendable {
         }
     }
 
-    /// The Wikidata description without years, then the years, joined by a comma (ADR 0017).
+    /// The Wikidata description without years, then the years, joined by a comma.
     /// Wikidata repeats the years in some descriptions only, so they come out of the text first.
     var descriptionLine: String? {
         let text = description.map(Self.withoutYears) ?? ""
@@ -276,7 +276,7 @@ struct PersonFactsService: Sendable {
     }
 
     /// The Wikidata item of a performer. The search runs first for items that hold a MusicBrainz artist ID
-    /// (P434), then without that filter (ADR 0019). The first search takes its first hit. The second takes a hit
+    /// (P434), then without that filter. The first search takes its first hit. The second takes a hit
     /// only when its name is the tag's name, because an unfiltered hit can be anything. Nil: no item.
     func performer(named name: String) async throws -> PersonMatch? {
         guard let phrase = Self.phrase(name) else { return nil }

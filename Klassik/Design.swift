@@ -112,7 +112,7 @@ extension ScaledMetric where Value == CGFloat {
     }
 }
 
-/// The plain list of a content page (ADR 0030): rows and hairlines on the paper ground, no cards.
+/// The plain list of a content page: rows and hairlines on the paper ground, no cards.
 /// Every row takes the specimen row insets. A row that sets its own insets keeps them.
 struct PageList<Content: View>: View {
     @Environment(\.pageHeading) private var heading
@@ -149,7 +149,7 @@ struct PageList<Content: View>: View {
     }
 }
 
-/// The inset grouped list of Settings and sheets (ADR 0030), on Klassik's grounds.
+/// The inset grouped list of Settings and sheets, on Klassik's grounds.
 /// The system gives a list its own colours, and each row its own ground.
 struct GroupedPageList<Content: View>: View {
     @Environment(\.pageHeading) private var heading
@@ -283,7 +283,7 @@ private struct PageHeading: View {
 }
 
 /// Every page title has the specimen gaps above and below (specimen.css `.page-head`). A grouped list keeps the
-/// system side insets (ADR 0045) and takes only the vertical gaps.
+/// system side insets and takes only the vertical gaps.
 private struct HeadingInsets: ViewModifier {
     let plain: Bool
     let bottom: CGFloat
@@ -301,7 +301,7 @@ private struct HeadingInsets: ViewModifier {
 }
 
 extension View {
-    /// The navigation name supplies Back and VoiceOver; the list draws the visible heading (ADR 0023).
+    /// The navigation name supplies Back and VoiceOver; the list draws the visible heading.
     func pageTitle(_ title: String) -> some View {
         environment(\.pageHeading, title)
             .navigationTitle(title)
@@ -409,7 +409,7 @@ extension View {
         pageEdges(top: Layout.rowPadding, bottom: Layout.rowPadding)
     }
 
-    /// A hairline runs only between two list items (ADR 0055). The system draws the line between two rows as the
+    /// A hairline runs only between two list items. The system draws the line between two rows as the
     /// bottom edge of the upper row, and a hidden edge on either row removes it. So only the outer edges hide.
     func itemSeparator(first: Bool, last: Bool) -> some View {
         listRowSeparator(first ? .hidden : .automatic, edges: .top)

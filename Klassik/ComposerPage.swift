@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// A composer as a person: a picture, the name, a description line, a Chronology button, and the tabs Works and
-/// About (ADR 0017). Facts come from Wikidata; the tags stay the truth for the works.
+/// About. Facts come from Wikidata; the tags stay the truth for the works.
 struct ComposerPage: View {
     enum Tab: Hashable {
         case works, about
@@ -304,10 +304,10 @@ private struct ResolutionNotice: View {
 }
 
 /// The picture, the name and the description line. Without a picture the page shows the name on the plain ground.
-/// `kind` prefixes the accessibility identifiers. Every picture shows (ADR 0043).
+/// `kind` prefixes the accessibility identifiers. Every picture shows.
 struct PersonHero: View {
     /// The ground of a named picture before it loads. It is opaque, because the heading keeps the page room's
-    /// colours there and the unselected fermata needs its contrast floor on it (ADR 0065).
+    /// colours there and the unselected fermata needs its contrast floor on it.
     static let placeholder = Palette.backgroundElevated
 
     @Environment(AppModel.self) private var model
@@ -377,7 +377,7 @@ struct PersonHero: View {
                 .padding(.bottom, spacesChronology ? Layout.pictureBottom + Layout.buttonRowTop : 0)
             } else {
                 // No picture: the name sits close under the back arrow, as a page title does. Its edge is the page
-                // edge of ADR 0045, as `.page-head` in person.html: 20 pt without a timeline, 16 pt on the side
+                // edge, as `.page-head` in person.html: 20 pt without a timeline, 16 pt on the side
                 // away from it. The width frame keeps the list from insetting the name, as in the picture branch.
                 heading
                     .frame(width: width, alignment: .leading)
@@ -537,7 +537,7 @@ struct PersonHero: View {
                     .frame(width: framing.width, height: framing.height)
                     .position(x: framing.midX, y: framing.midY)
                     .accessibilityHidden(true)
-                // The name sits on a blur, which averages a small bright patch away (ADR 0034).
+                // The name sits on a blur, which averages a small bright patch away.
                 image
                     .frame(width: framing.width, height: framing.height)
                     .position(x: framing.midX, y: framing.midY)

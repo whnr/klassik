@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-/// How a composer tag turns into a Wikidata person (ADR 0017).
+/// How a composer tag turns into a Wikidata person.
 enum ComposerResolution: Codable, Equatable, Sendable {
     /// The Wikidata item of the composer.
     case person(String)
@@ -44,9 +44,9 @@ final class PersonFactsStore {
         /// When each check of the background pass falls due, with its random spread (ADR 0042).
         var due: [String: Date] = [:]
         var picturePending: [String: PictureWork] = [:]
-        /// When the background pass asks Commons again for an unread picture, by person key (ADR 0044).
+        /// When the background pass asks Commons again for an unread picture, by person key.
         var pictureWait: [String: Date] = [:]
-        /// How many passes in a row ended without the picture, by person key. It sets the length of the wait (ADR 0044).
+        /// How many passes in a row ended without the picture, by person key. It sets the length of the wait.
         var pictureFailures: [String: Int] = [:]
 
         init() {}

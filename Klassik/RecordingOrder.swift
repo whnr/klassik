@@ -262,7 +262,7 @@ final class RecordingOrder {
     }
 
     /// Sends the changes that wait. A tap calls it, and so does the app when the connection comes back. A failure
-    /// shows no notice: the changes wait, and `serverTrouble` says why (ADR 0058).
+    /// shows no notice: the changes wait, and `serverTrouble` says why.
     func synchronize() async {
         await serially { _ = await self.sendQueue() }
     }

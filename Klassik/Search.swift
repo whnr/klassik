@@ -1,11 +1,11 @@
 import Foundation
 import Observation
 
-/// The search of the Search place over the work index (ADR 0025, 0029). It finds works, people and albums by word
-/// starts, with case and diacritics folded. It knows no catalogue prefixes and no aliases (ADR 0025): "op67" does
+/// The search of the Search place over the work index. It finds works, people and albums by word
+/// starts, with case and diacritics folded. It knows no catalogue prefixes and no aliases: "op67" does
 /// not find "Op. 67", and "K. 626" does not find "KV 626".
 struct Search: Sendable {
-    /// A composer or performer, with one count for each role, the biggest first (ADR 0031).
+    /// A composer or performer, with one count for each role, the biggest first.
     struct Person: Identifiable, Sendable, Equatable {
         struct Role: Sendable, Equatable {
             /// "composer", or a role label as tagged, such as "conductor" or "violin".

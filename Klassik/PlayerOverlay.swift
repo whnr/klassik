@@ -8,7 +8,7 @@ final class PlayerOverlayLayout {
     var bottom: CGFloat = 0
 }
 
-/// One player above the places and below the native tab bar (ADR 0014).
+/// One player above the places and below the native tab bar.
 struct PlayerOverlayLayer: View {
     @Environment(AppModel.self) private var model
     @Environment(AppNavigator.self) private var navigator

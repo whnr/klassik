@@ -15,7 +15,7 @@ enum PlaybackEngineEvent: Sendable {
     case problem(String)
     /// Playback cannot go on.
     case failed(String)
-    /// Playback cannot go on because the server or the network failed. It shows as the one quiet status (ADR 0058).
+    /// Playback cannot go on because the server or the network failed. It shows as the one quiet status.
     case serverFailed(ServerTrouble)
 }
 

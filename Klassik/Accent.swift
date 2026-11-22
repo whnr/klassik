@@ -19,7 +19,7 @@ extension AccentFamily: Identifiable {
     static var current: AccentFamily { AccentChoice.shared.family }
 }
 
-/// The accent switch of Settings (ADR 0034). A view that reads a colour observes the pick, so a new pick redraws it
+/// The accent switch of Settings. A view that reads a colour observes the pick, so a new pick redraws it
 /// at once. Colours resolve off the main actor too, so a lock guards the value.
 final class AccentChoice: Observable, Sendable {
     static let shared = AccentChoice()

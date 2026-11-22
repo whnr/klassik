@@ -263,7 +263,7 @@ struct EarlyPlaybackMeasurementTests {
     // MARK: ReplayGain
 
     /// The gain stage follows the audible recording. The report gives how far after the join the new gain starts;
-    /// the join itself keeps every frame (ADR 0007, ADR 0060).
+    /// the join itself keeps every frame (ADR 0060).
     @MainActor @Test func theRecordingGainChangesAtTheJoin() async throws {
         let (client, songs) = try await StreamingPlaybackTests.album("Glide", named: "Glide in FLAC")
         var resources: [String: Data] = [:]

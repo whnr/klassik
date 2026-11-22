@@ -162,6 +162,8 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
     private var keyboardVisible = false
     /// Set when the keyboard closes. The tab labels then measure their text again.
     private var remeasuresLabels = false
+    /// The pass after the first remeasure: the bar has its final, narrow frame then, and the labels must fit it.
+    private var remeasuresAtFinalFrame = false
     private(set) var playerHost: UIHostingController<AnyView>?
     let playerLayout = PlayerOverlayLayout()
 
@@ -294,17 +296,25 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
         }
         frame.origin.x = side == .left ? reservedWidth : 0
         frame.size.width = max(0, view.bounds.width - reservedWidth)
-        if remeasuresLabels {
+        if remeasuresLabels || remeasuresAtFinalFrame {
             // After a keyboard the labels can stay truncated: the resting frame is unchanged, so UIKit does not lay
             // the items out again. A changed width forces a new layout of each item.
+            let first = remeasuresLabels
             remeasuresLabels = false
+            remeasuresAtFinalFrame = false
             invalidateLayout(inside: tabBar)
             tabBar.frame = frame.insetBy(dx: 1, dy: 0)
             tabBar.layoutIfNeeded()
             tabBar.frame = frame
-            // The container of the bar can still lay out after this pass and give the bar the full screen width,
-            // which puts the Search tab under the mini player. One more pass puts the bar back beside it.
-            Task { @MainActor [weak self] in self?.view.setNeedsLayout() }
+            if first {
+                // The container of the bar can still lay out after this pass and give the bar the full screen width,
+                // which puts the Search tab under the mini player. The next pass puts the bar back beside it and
+                // measures the labels at that narrow width, where a label measured at full width would truncate.
+                Task { @MainActor [weak self] in
+                    self?.remeasuresAtFinalFrame = true
+                    self?.view.setNeedsLayout()
+                }
+            }
         }
         tabBar.frame = frame
         playerHost?.view.frame = view.bounds

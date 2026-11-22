@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Search</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="../tokens.css?v=50" />
-    <link rel="stylesheet" href="specimen.css?v=50" />
-    <script src="specimen.js?v=50"></script>
+    <link rel="stylesheet" href="../tokens.css?v=51" />
+    <link rel="stylesheet" href="specimen.css?v=51" />
+    <script src="specimen.js?v=51"></script>
   </head>
   <body>
     <!--
@@ -366,9 +366,19 @@
         const label = (t) => t.slice(t.indexOf(":") + 1);
         const kindOf = (t) => t.slice(0, t.indexOf(":"));
 
+        // A work or an album answers for some track titles: a tagged track for its work, an untagged one for its
+        // album. A match that needs a track title names that track in the row (ADR 0071).
+        const tracksOf = (songs) =>
+          [...new Set(songs.map((s) => s.title).filter(Boolean))].map((title) => ({ title, words: words(title) }));
+        const why = (x, tokens) => {
+          if (matches(tokens, x.hay)) return "";
+          const t = x.tracks.find((t) => matches(tokens, [...x.hay, ...t.words]));
+          return t ? t.title : null;
+        };
         const works = [...M.works.values()].map((w) => ({
           w,
           hay: words(w.name + " " + w.composer + " " + (w.grouping || "")),
+          tracks: tracksOf(w.recordings.flatMap((r) => r.songs)),
           title: fold(w.name),
         }));
         const people = new Map();
@@ -386,7 +396,8 @@
           }
         const albums = [...M.albums.values()].map((a) => ({
           a,
-          hay: words([a.name, a.artist, a.displayArtist, ...a.song.map((s) => s.title)].join(" ")),
+          hay: words([a.name, a.artist, a.displayArtist].join(" ")),
+          tracks: tracksOf(a.song.filter((s) => !s.works?.[0])),
         }));
 
         // ---------- State. The query and the conditions stay when the filters hide. ----------
@@ -415,25 +426,13 @@
         // The filters count only what the text already found: the recordings of matching works, people and albums.
         let foundKey = null,
           foundSet = null;
-        const recordingHay = (r) =>
-          words(
-            [
-              r.workRef?.name,
-              r.composer,
-              r.album.name,
-              ...r.performers.map((p) => p.name),
-              ...r.songs.map((song) => song.title),
-            ]
-              .filter(Boolean)
-              .join(" "),
-          );
         function found() {
           const tokens = queryTokens(query);
           if (!tokens.length) return null;
           if (foundKey === query) return foundSet;
           const set = new Set();
           works
-            .filter((x) => matches(tokens, x.hay))
+            .filter((x) => why(x, tokens) !== null)
             .forEach((x) => {
               x.w.recordings.forEach((r) => {
                 set.add(r);
@@ -446,16 +445,11 @@
               });
           });
           albums
-            .filter((x) => matches(tokens, x.hay))
+            .filter((x) => why(x, tokens) !== null)
             .forEach((x) => {
               x.a.recordings.forEach((r) => {
                 set.add(r);
               });
-            });
-          recs
-            .filter(({ r }) => matches(tokens, recordingHay(r)))
-            .forEach(({ r }) => {
-              set.add(r);
             });
           foundKey = query;
           foundSet = set;
@@ -906,11 +900,23 @@
           }
           ok = new Set(recs.filter((x) => passes(x, conds)).map((x) => x.r));
           const out = [];
-          // A title that starts with the text comes first, then a title that holds it, then a match on the composer only.
+          // A title that starts with the text comes first, then a title that holds it, then a match on the composer or
+          // the set, then a match that needs a track title.
           const rank = (x) =>
-            !tokens.length ? 0 : x.title.startsWith(tokens[0]) ? 0 : matches(tokens, words(x.w.name)) ? 1 : 2;
+            !tokens.length
+              ? 0
+              : x.track
+                ? 3
+                : x.title.startsWith(tokens[0])
+                  ? 0
+                  : matches(tokens, words(x.w.name))
+                    ? 1
+                    : 2;
+          const trackLine = (track) =>
+            track ? el("div", { class: "t-subheadline secondary" }, `Track: ${track}`) : null;
           const wl = works
-            .filter((x) => !tokens.length || matches(tokens, x.hay))
+            .map((x) => ({ ...x, track: tokens.length ? why(x, tokens) : "" }))
+            .filter((x) => x.track !== null)
             .map((x) => ({ ...x, n: x.w.recordings.filter((r) => ok.has(r)).length, score: rank(x) }));
           const shown = wl
             .filter((x) => x.n > 0)
@@ -920,7 +926,7 @@
               section(
                 "Works",
                 shown.length,
-                shown.map(({ w, n }) =>
+                shown.map(({ w, n, track }) =>
                   el(
                     "a",
                     { class: "row", href: href("work.html", { work: w.id, back: "Search" }) },
@@ -933,6 +939,7 @@
                         { class: "t-subheadline secondary" },
                         `${w.composer}, ${conds.length ? `${n} of ${plural(w.recordings.length, "recording")} match` : plural(n, "recording")}`,
                       ),
+                      trackLine(track),
                     ),
                     el("span", { html: ICON.chevron }),
                   ),
@@ -971,19 +978,20 @@
               );
             out.unshift(...sections);
           }
+          // Albums holds only albums. A recording shows only inside its work, the favourites among them too.
           const al = albums
-            .filter((x) => !tokens.length || matches(tokens, x.hay))
+            .map((x) => ({ ...x, track: tokens.length ? why(x, tokens) : "" }))
+            .filter((x) => x.track !== null)
             .map((x) => ({ ...x, n: x.a.recordings.filter((r) => ok.has(r)).length }))
             .filter((x) => x.n > 0)
             .sort((a, b) => a.a.name.localeCompare(b.a.name));
-          const recordings = recs.filter(({ r }) => ok.has(r) && (!tokens.length || matches(tokens, recordingHay(r))));
-          if (al.length || recordings.length)
+          if (al.length)
             out.push(
               section(
                 "Albums",
-                al.length + recordings.length,
+                al.length,
                 [
-                  ...al.map(({ a }) =>
+                  ...al.map(({ a, track }) =>
                     el(
                       "a",
                       { class: "row", href: href("player.html", { album: a.id, back: "Search" }) },
@@ -997,30 +1005,7 @@
                           { class: "t-subheadline secondary" },
                           [a.displayArtist || a.artist, a.year].filter(Boolean).join(", "),
                         ),
-                      ),
-                      el("span", { html: ICON.chevron }),
-                    ),
-                  ),
-                  ...recordings.map(({ r }) =>
-                    el(
-                      "a",
-                      { class: "row", href: href("player.html", { recording: r.id, back: "Search" }) },
-                      el(
-                        "div",
-                        { class: "main" },
-                        el(
-                          "div",
-                          { class: "t-body" },
-                          K.titled(
-                            r.workRef?.name || r.album.name,
-                            K.isFavourite("rec:" + r.id) ? K.fermata(true, true) : null,
-                          ),
-                        ),
-                        el(
-                          "div",
-                          { class: "t-subheadline secondary" },
-                          [r.performers.map((p) => p.name).join(", "), r.album.name, r.year].filter(Boolean).join(", "),
-                        ),
+                        trackLine(track),
                       ),
                       el("span", { html: ICON.chevron }),
                     ),

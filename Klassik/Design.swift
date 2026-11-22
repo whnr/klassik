@@ -162,6 +162,8 @@ struct GroupedPageList<Content: View>: View {
             content.listRowBackground(Palette.backgroundRow.color)
         }
         .grounds()
+        // The heading row sets the gap under the bar, as on a plain page. A grouped list adds its own above it.
+        .contentMargins(.top, 0, for: .scrollContent)
     }
 }
 
@@ -177,6 +179,8 @@ struct PageForm<Content: View>: View {
             content.listRowBackground(Palette.backgroundRow.color)
         }
         .grounds()
+        // The heading row sets the gap under the bar, as on a plain page. A grouped list adds its own above it.
+        .contentMargins(.top, 0, for: .scrollContent)
     }
 }
 
@@ -271,12 +275,27 @@ private struct PageHeading: View {
             .multilineTextAlignment(.leading)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityAddTraits(.isHeader)
-            .padding(.top, plain ? 0 : Layout.headTop)
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
-            .listRowInsets(
-                plain ? Layout.edges(side: .standard, timeline: false, top: Layout.headTop, bottom: bottom) : nil
-            )
+            .modifier(HeadingInsets(plain: plain, bottom: bottom))
+        }
+    }
+}
+
+/// Every page title has the specimen gaps above and below (specimen.css `.page-head`). A grouped list keeps the
+/// system side insets (ADR 0045) and takes only the vertical gaps.
+private struct HeadingInsets: ViewModifier {
+    let plain: Bool
+    let bottom: CGFloat
+
+    func body(content: Content) -> some View {
+        if plain {
+            content.listRowInsets(
+                Layout.edges(side: .standard, timeline: false, top: Layout.headTop, bottom: bottom))
+        } else {
+            content
+                .listRowInsets(.top, Layout.headTop)
+                .listRowInsets(.bottom, bottom)
         }
     }
 }

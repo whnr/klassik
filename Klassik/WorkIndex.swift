@@ -44,6 +44,18 @@ struct WorkIndex: Sendable {
             guard let common = WorkIndex.commonTitle(first.map(\.title)), common != title else { return "" }
             return common
         }
+
+        /// Nicknames such as "Eroica". The WORK tag and the movement names leave them out, but the track titles
+        /// often hold them in quotes before the movement. Search finds the work by them.
+        var nicknames: [String] {
+            var found: [String] = []
+            for recording in recordings {
+                for name in WorkIndex.nicknames(in: recording.songs.map(\.title)) where !found.contains(name) {
+                    found.append(name)
+                }
+            }
+            return found
+        }
     }
 
     struct Recording: Codable, Identifiable, Sendable {
@@ -369,6 +381,39 @@ struct WorkIndex: Sendable {
         let common = prefix[..<cut].trimmingCharacters(in: CharacterSet(charactersIn: " :(-–,.["))
         return common.count >= 3 ? common : nil
     }
+
+    /// The quoted names in the part that all track titles of one recording share, such as "Eroica" in
+    /// `Symphonie Nr.3 Es-Dur "Eroica": I. Allegro con brio`. A single track counts up to its first colon, where
+    /// the movement starts. Quotes in a movement name are not nicknames of the work.
+    static func nicknames(in titles: [String]) -> [String] {
+        let shared: String?
+        if titles.count == 1, let title = titles.first {
+            shared = title.range(of: ":").map { String(title[..<$0.lowerBound]) } ?? title
+        } else {
+            shared = commonTitle(titles)
+        }
+        guard let shared else { return [] }
+        var names: [String] = []
+        var index = shared.startIndex
+        while index < shared.endIndex {
+            let start = shared.index(after: index)
+            if let pair = quotes.first(where: { $0.open == shared[index] }),
+                let close = shared[start...].firstIndex(where: pair.close.contains)
+            {
+                let name = shared[start..<close].trimmingCharacters(in: .whitespaces)
+                if !name.isEmpty { names.append(name) }
+                index = shared.index(after: close)
+            } else {
+                index = start
+            }
+        }
+        return names
+    }
+
+    /// Straight, English, German, French and single typographic quotes.
+    private static let quotes: [(open: Character, close: Set<Character>)] = [
+        ("\"", ["\""]), ("“", ["”"]), ("„", ["“", "”"]), ("«", ["»"]), ("»", ["«"]), ("‘", ["’"]),
+    ]
 
     /// Sorts "Ludwig van Beethoven" under B.
     private static func sortName(_ name: String) -> String {

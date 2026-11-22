@@ -47,7 +47,11 @@ struct TrackStoreTests {
         let url = root.appending(path: folder)
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         let file = url.appending(path: "\(id).mp3")
-        try Data(count: bytes).write(to: file)
+        // Cache eviction reads file lengths. Sparse fixtures keep those lengths without blocking unrelated cancellation tests.
+        try Data().write(to: file)
+        let handle = try FileHandle(forWritingTo: file)
+        defer { try? handle.close() }
+        try handle.truncate(atOffset: UInt64(bytes))
         try FileManager.default.setAttributes([.modificationDate: Date.now - age], ofItemAtPath: file.path())
     }
 
@@ -227,13 +231,16 @@ struct TrackStoreTests {
     }
 
     @Test func failedDownloadKeepsATrackThatAnotherDownloadHolds() async throws {
-        try write("a", in: "support/downloads", bytes: 10)
         let requests = Requests()
         requests.failing = ["b"]
         let store = try makeStore(requests)
+        store.download(recording("owner", ["a"]), title: "Other work", client: client)
+        await settle(store)
         store.download(recording("r1", ["a", "b"]), title: "Work", client: client)
         await settle(store)
         #expect(exists("a", in: "support/downloads"))
+        #expect(store.downloads.map(\.id) == ["owner"])
+        #expect(store.failures["r1"] != nil)
     }
 
     @Test func recordingDownloadsOnlyOnce() async throws {

@@ -1,6 +1,7 @@
 import AVFoundation
 import MediaPlayer
 import Observation
+import UIKit
 
 /// Owns the server and the queue. A view says what to play and reads the state; it never passes a client
 /// and never asks an engine for progress.
@@ -30,6 +31,8 @@ final class PlaybackSession {
         var segments: [Double]
         var isPaused: Bool
         var isLoading: Bool
+        /// The slow-connection line under the playback bar, or nil (ADR 0060).
+        var slowLine: String?
         /// True after the last item played to its end.
         var queueEnded: Bool
         var error: String?
@@ -70,8 +73,27 @@ final class PlaybackSession {
     private(set) var segments: [Double] = []
     var isPaused: Bool { !playback.shouldPlay }
     private(set) var isLoading = false
+    /// The line that replaces the times under the playback bar while a slow connection keeps the player silent.
+    private(set) var slowLine: String?
+    /// What the app may prepare without a request. AppModel follows the network path and Low Power Mode.
+    var dataMode = DataMode.normal {
+        didSet {
+            store.networkAllowed = dataMode != .offline
+            if dataMode != oldValue { prepareAhead() }
+        }
+    }
     private(set) var queueEnded = false
     private(set) var error: String?
+    /// The kept cover of a song, or nil. AppModel reads it from the cover store, so the system players never
+    /// wait for the network (ADR 0059).
+    @ObservationIgnored var coverImage: (@MainActor (Song) async -> UIImage?)?
+    /// The identity of the kept cover of a song, or nil. Songs with the same key share one picture, so the system
+    /// players keep their artwork when the movement changes inside one recording.
+    @ObservationIgnored var coverKey: (@MainActor (Song) -> String?)?
+    /// The cover in the system players and the key that it belongs to.
+    @ObservationIgnored private(set) var nowPlayingArtwork: (key: String, artwork: MPMediaItemArtwork)?
+    /// The cover key that loads now.
+    @ObservationIgnored private var artworkLoading: String?
     var leveling: VolumeLeveling {
         didSet {
             defaults.set(leveling.rawValue, forKey: Self.levelingKey)
@@ -85,6 +107,9 @@ final class PlaybackSession {
     }
     /// Why listening data waits on the device. The Library shows it in the one server status (ADR 0058).
     private(set) var listeningTrouble: ServerTrouble?
+    /// Why music stopped loading from the server. It joins the one server status and goes with the next sound
+    /// (ADR 0060).
+    private(set) var playbackTrouble: ServerTrouble?
 
     /// A different login must never receive the queue of this login.
     @ObservationIgnored var server: (any ServerPort)? {
@@ -93,6 +118,7 @@ final class PlaybackSession {
             if item != nil { persistQueue() }
             reset()
             upNext = []
+            prepareAhead()
             canSaveQueue = false
             queueRevision += 1
             restored = false
@@ -108,12 +134,14 @@ final class PlaybackSession {
                 return created
             }
             listeningTrouble = nil
+            playbackTrouble = nil
             let currentHistory = history
             history?.onTrouble = { [weak self, weak currentHistory] trouble in
                 guard let self, self.history === currentHistory else { return }
                 self.listeningTrouble = trouble
             }
             history?.retryScrobbles()
+            nowPlayingArtwork = nil
             MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
         }
     }
@@ -130,7 +158,7 @@ final class PlaybackSession {
     var state: State {
         State(
             item: item, upNext: upNext, movement: movement, position: position, segments: segments,
-            isPaused: isPaused, isLoading: isLoading, queueEnded: queueEnded, error: error)
+            isPaused: isPaused, isLoading: isLoading, slowLine: slowLine, queueEnded: queueEnded, error: error)
     }
 
     var progress: Progress? {
@@ -150,6 +178,19 @@ final class PlaybackSession {
     private var lastQueueSave = ContinuousClock.now
     private static let scrobblesKey = "player.scrobbles"
     private var playback = PlaybackState()
+    private var waiting = SlowConnectionLine()
+    private var lineTask: Task<Void, Never>?
+    private var readAheadTask: Task<Void, Never>?
+    /// When the latest load asked for sound. The time to first sound measures how long an opening takes.
+    private var soundRequested: ContinuousClock.Instant?
+    /// The measured time from a request to the first sound of a streamed track, in seconds.
+    private var openingSeconds = PlaybackSession.defaultOpeningSeconds
+    static let defaultOpeningSeconds = 2.0
+    /// Speculative bytes never compete with current playback below this much decoded audio (ADR 0060).
+    static let competitionFloor = 2.0
+    static let readAheadPoll = Duration.milliseconds(250)
+    /// The read-ahead set that `readAheadTask` prepares, so that an unchanged set keeps its work.
+    private var readAheadPlan: [String] = []
     private let notifications = PlaybackNotifications()
     private let remoteTargets = RemoteCommandTargets()
     private var positionTask: Task<Void, Never>?
@@ -157,6 +198,10 @@ final class PlaybackSession {
     private var checkpoint: (movement: Int, elapsed: Double)?
     /// Pause can reach the main actor before the final completion does.
     private var recordingCompleted = false
+    /// The current recording starts here in the engine's queue-wide track indices.
+    private var engineBase = 0
+    /// The tracks that the engine plays, from the first one of its load.
+    private var engineSongs: [Song] = []
     private let engine: any PlaybackEngine
     private let store: TrackStore
     private let defaults: UserDefaults
@@ -169,6 +214,7 @@ final class PlaybackSession {
         scrobblesEnabled = defaults.object(forKey: Self.scrobblesKey) as? Bool ?? true
         leveling = defaults.string(forKey: Self.levelingKey).flatMap(VolumeLeveling.init) ?? .album
         engine.onEvent = { [weak self] event in self?.engineEvent(event) }
+        store.willClearMusic = { [weak self] in self?.musicCleared() }
         observeAudioSession()
         registerRemoteCommands()
         updateNextCommand()
@@ -255,14 +301,14 @@ final class PlaybackSession {
     func playNext(_ item: QueueItem) {
         guard self.item != nil else { return play(queue: [item]) }
         upNext.insert(item, at: 0)
-        persistQueue()
+        queueChanged()
     }
 
     /// Puts an item at the end of the queue. With nothing playing, it plays at once.
     func addToQueue(_ item: QueueItem) {
         guard self.item != nil else { return play(queue: [item]) }
         upNext.append(item)
-        persistQueue()
+        queueChanged()
     }
 
     /// Skips to the next item in the queue.
@@ -281,12 +327,30 @@ final class PlaybackSession {
 
     func removeFromQueue(at offsets: IndexSet) {
         upNext.remove(atOffsets: offsets)
-        persistQueue()
+        queueChanged()
     }
 
     func moveInQueue(from source: IndexSet, to destination: Int) {
         upNext.move(fromOffsets: source, toOffset: destination)
+        queueChanged()
+    }
+
+    /// A queue edit changes the tracks that the engine has not asked for yet, so the sound goes on. Only an edit of
+    /// a track that the engine already scheduled loads again from the audible place.
+    private func queueChanged() {
+        savePosition()
+        if let item {
+            let songs = Array(engineSongs.prefix(engineBase)) + ([item] + upNext).flatMap { $0.recording.songs }
+            if engine.replace(songs) {
+                engineSongs = songs
+            } else if playback.shouldPlay {
+                rebuild()
+            } else {
+                discardEngine()
+            }
+        }
         persistQueue()
+        prepareAhead()
     }
 
     // MARK: Transport
@@ -345,6 +409,9 @@ final class PlaybackSession {
         reset()
         upNext = []
         persistQueue()
+        // Stop cancels all automatic preparation (ADR 0060).
+        prepareAhead()
+        nowPlayingArtwork = nil
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
     }
 
@@ -361,7 +428,7 @@ final class PlaybackSession {
         let action = playback.handle(event)
         guard item != nil else { return }
         if recordingCompleted && playback.shouldPlay {
-            completeRecording()
+            completeRecording(resuming: true)
             return
         }
         switch action {
@@ -369,6 +436,12 @@ final class PlaybackSession {
         case .pause:
             savePosition()
             engine.pause()
+            // Pause cancels the transfer of the next track, unless a download owns it. The engine can already
+            // decode that transfer, so Resume then rebuilds from the audible checkpoint.
+            if let next = nextAudibleSong(), store.transfers[next.id] != nil, !store.isDownloading(next.id) {
+                discardEngine()
+            }
+            clearWait()
         case .suspend:
             savePosition()
             discardEngine()
@@ -384,6 +457,7 @@ final class PlaybackSession {
         }
         updateNowPlaying()
         persistQueue()
+        prepareAhead()
     }
 
     private func perform(_ command: RemoteCommand) {
@@ -401,16 +475,19 @@ final class PlaybackSession {
         switch event {
         case .movementEnded(let ended): finished(ended)
         case .loading(let loading): isLoading = loading
+        case .waiting(let wait): waited(wait)
         case .scheduled(let scheduled):
             refreshSegments()
-            if scheduled == movement { updateNowPlaying() }
+            if scheduled == movement.map({ $0 + engineBase }) { updateNowPlaying() }
         case .configurationChanged: handle(.configurationChanged)
         case .problem(let text): error = text
         case .failed(let text): playbackFailed(text)
+        case .serverFailed(let trouble): playbackFailed(nil, trouble: trouble)
         }
     }
 
-    private func finished(_ ended: Int) {
+    private func finished(_ absolute: Int) {
+        let ended = absolute - engineBase
         guard let item, let movement, ended >= movement, segments.indices.contains(ended) else { return }
         hear(through: (ended, segments[ended]))
         if ended + 1 < item.recording.songs.count {
@@ -419,18 +496,34 @@ final class PlaybackSession {
             self.movement = ended + 1
             history?.begin(item: item, movement: ended + 1, position: 0)
             persistQueue()
+            prepareAhead()
         } else {
             recordingCompleted = true
             if playback.shouldPlay { completeRecording() }
         }
     }
 
-    private func completeRecording() {
+    private func completeRecording(resuming: Bool = false) {
         if upNext.isEmpty {
             stop()
             queueEnded = true
-        } else {
-            nextItem()
+        } else if let previous = item {
+            history?.endListening()
+            engineBase += previous.recording.songs.count
+            item = upNext.removeFirst()
+            recordingCompleted = false
+            checkpoint = (0, 0)
+            position = 0
+            refreshSegments()
+            movement = 0
+            if let item { history?.begin(item: item, movement: 0, position: 0) }
+            // A final completion can arrive after Pause. Keep the same node and its scheduled successor.
+            if resuming {
+                do { try engine.resume() } catch { playbackFailed(error.localizedDescription) }
+            }
+            updateNowPlaying()
+            persistQueue()
+            prepareAhead()
         }
     }
 
@@ -456,6 +549,7 @@ final class PlaybackSession {
         if playback.shouldPlay { rebuild() }
         updateNowPlaying()
         if save { persistQueue() }
+        prepareAhead()
     }
 
     private func rebuild() {
@@ -465,8 +559,12 @@ final class PlaybackSession {
         movement = checkpoint.movement
         error = nil
         let store = store
-        engine.load(item.recording.songs, from: checkpoint.movement, offset: checkpoint.elapsed) { song in
-            try await store.file(for: song, client: server)
+        engineBase = 0
+        let songs = ([item] + upNext).flatMap { $0.recording.songs }
+        engineSongs = songs
+        soundRequested = .now
+        engine.load(songs, from: checkpoint.movement, offset: checkpoint.elapsed) { song in
+            try await store.source(for: song, client: server)
         }
         positionTask = Task { [weak self] in
             while !Task.isCancelled {
@@ -480,11 +578,13 @@ final class PlaybackSession {
         }
     }
 
-    private func playbackFailed(_ text: String) {
+    /// A server failure pauses quietly: the Library shows its cause in the one server status (ADR 0058, 0060).
+    private func playbackFailed(_ text: String?, trouble: ServerTrouble? = nil) {
         savePosition()
         _ = playback.handle(.pause)
         discardEngine()
         error = text
+        if let trouble { playbackTrouble = trouble }
         updateNowPlaying()
         persistQueue()
     }
@@ -500,6 +600,7 @@ final class PlaybackSession {
         queueEnded = false
         position = 0
         segments = []
+        engineBase = 0
     }
 
     private func discardEngine() {
@@ -507,12 +608,24 @@ final class PlaybackSession {
         positionTask = nil
         engine.discard()
         isLoading = false
+        clearWait()
     }
 
     /// Where playback is: the engine's answer, else the last saved place.
     private func located() -> (movement: Int, elapsed: Double)? {
         guard let movement, let checkpoint else { return nil }
-        return engine.position(from: movement) ?? checkpoint
+        guard let found = engine.position(from: movement + engineBase) else { return checkpoint }
+        // Render position can cross several boundaries before the audio-thread completions reach this actor.
+        while let item, found.movement >= engineBase + item.recording.songs.count, !upNext.isEmpty,
+            playback.shouldPlay
+        {
+            let last = item.recording.songs.count - 1
+            hear(through: (last, segments[last]))
+            completeRecording()
+        }
+        let local = found.movement - engineBase
+        guard let item, item.recording.songs.indices.contains(local) else { return checkpoint }
+        return (local, found.elapsed)
     }
 
     private func savePosition() {
@@ -522,12 +635,15 @@ final class PlaybackSession {
         checkpoint = (found.movement, found.elapsed)
         if position != found.elapsed { position = found.elapsed }
         refreshSegments()
-        if movement != found.movement { self.movement = found.movement }
+        if movement != found.movement {
+            self.movement = found.movement
+            prepareAhead()
+        }
     }
 
     private func refreshSegments() {
         guard let songs = item?.recording.songs else { return }
-        let lengths = songs.indices.map { engine.duration(of: $0) ?? Double(songs[$0].duration ?? 0) }
+        let lengths = songs.indices.map { engine.duration(of: $0 + engineBase) ?? Double(songs[$0].duration ?? 0) }
         if lengths != segments { segments = lengths }
     }
 
@@ -535,6 +651,129 @@ final class PlaybackSession {
     private func applyGain() {
         guard let recording, let movement, recording.songs.indices.contains(movement) else { return engine.setGain(0) }
         engine.setGain(leveling.gain(for: recording.songs[movement]))
+    }
+
+    // MARK: Waiting and read-ahead
+
+    /// The engine waits for bytes, or sound started. The line follows after one second (ADR 0060).
+    private func waited(_ wait: PlaybackWait?) {
+        if wait == nil { playbackTrouble = nil }
+        if wait == nil, let requested = soundRequested {
+            soundRequested = nil
+            if let song = coverSong, store.transfers[song.id] != nil {
+                openingSeconds = requested.duration(to: .now) / .seconds(1)
+            }
+        }
+        isLoading = wait != nil
+        waiting.update(wait, at: .now)
+        refreshLine()
+    }
+
+    private func clearWait() {
+        waiting.clear()
+        refreshLine()
+    }
+
+    private func refreshLine() {
+        lineTask?.cancel()
+        lineTask = nil
+        let now = ContinuousClock.now
+        let text = waiting.text(at: now)
+        if slowLine != text { slowLine = text }
+        guard text == nil, let due = waiting.due, due > now else { return }
+        lineTask = Task { [weak self] in
+            try? await Task.sleep(until: due, clock: .continuous)
+            guard !Task.isCancelled else { return }
+            self?.refreshLine()
+        }
+    }
+
+    /// Clear Music removes the files that playback reads. Playback pauses at its place, releases its decoders,
+    /// and loads music again only on Play or Resume (ADR 0060).
+    private func musicCleared() {
+        guard item != nil else { return }
+        if playback.wantsPlayback { handle(.pause) }
+        savePosition()
+        discardEngine()
+        prepareAhead()
+    }
+
+    /// The track that plays after the audible one, across a recording boundary.
+    private func nextAudibleSong() -> Song? {
+        guard let item, let movement else { return nil }
+        return ReadAhead.plan(item, movement: movement, upNext: upNext, mode: .constrained).first
+    }
+
+    /// Prepares the tracks that ADR 0060 allows for the current place in the queue, and cancels the rest.
+    /// The current track and the next audible one keep their transfers; a pause or offline mode starts no new one.
+    private func prepareAhead() {
+        guard let item, let movement, let server, item.recording.songs.indices.contains(movement) else {
+            readAheadTask?.cancel()
+            readAheadTask = nil
+            readAheadPlan = []
+            store.pinned = []
+            store.wanted = []
+            store.playing = nil
+            store.cancelTransfers()
+            return
+        }
+        let current = item.recording.songs[movement]
+        let preparing = playback.wantsPlayback && dataMode != .offline
+        let next = preparing ? ReadAhead.plan(item, movement: movement, upNext: upNext, mode: .constrained) : []
+        let plan =
+            playback.wantsPlayback ? ReadAhead.plan(item, movement: movement, upNext: upNext, mode: dataMode) : []
+        let kept = Set(([current] + next + (preparing ? plan : [])).map(\.id))
+        // Only the current track and the next opening keep their files under a full limit (ADR 0060).
+        store.pinned = Set(([current] + next).map(\.id))
+        store.wanted = kept
+        store.playing = current.id
+        store.cancelTransfers(except: kept)
+        let ids = plan.map(\.id)
+        guard ids != readAheadPlan else { return }
+        readAheadTask?.cancel()
+        readAheadPlan = ids
+        guard let opening = plan.first else { return }
+        let store = store
+        // Starting the current transfer here lets read-ahead yield to it before the engine asks for its bytes.
+        let running =
+            preparing ? store.playbackTransfer(for: current, client: server) : store.transfers[current.id]
+        readAheadTask = Task { [weak self] in
+            do {
+                if let running { try await self?.prepareOpening(opening, after: running, client: server) }
+                for (index, song) in plan.enumerated() {
+                    // The rest of the set waits for the current track's bytes.
+                    if index > 0, let running { _ = try? await running.finished() }
+                    try Task.checkCancellation()
+                    _ = try await store.file(for: song, client: server)
+                }
+            } catch {
+                // A failed read-ahead is not a playback error; playback asks for the track again.
+            }
+        }
+    }
+
+    /// The current track has priority. The next opening starts before the current transfer ends only when the
+    /// current track would end before the opening is ready, and it waits while current playback has less than
+    /// `competitionFloor` playable seconds: decoded audio plus arrived bytes that wait undecoded (ADR 0060).
+    private func prepareOpening(_ opening: Song, after running: TrackTransfer, client: any ServerPort) async throws {
+        func current() -> Bool { !running.snapshot.complete && store.transfers[running.songID] === running }
+        func buffered() -> Double { engine.bufferedSeconds ?? 0 }
+        while current() {
+            if let movement, segments.indices.contains(movement),
+                segments[movement] - position <= openingSeconds + Self.competitionFloor,
+                buffered() >= Self.competitionFloor
+            {
+                break
+            }
+            try await Task.sleep(for: Self.readAheadPoll)
+        }
+        guard current(), !store.isOffline(opening) else { return }
+        let transfer = store.transfer(for: opening, client: client)
+        defer { transfer.hold(false) }
+        while current() {
+            transfer.hold(buffered() < Self.competitionFloor)
+            try await Task.sleep(for: Self.readAheadPoll)
+        }
     }
 
     // MARK: System
@@ -547,8 +786,9 @@ final class PlaybackSession {
     /// Fills the lock screen and Control Center.
     private func updateNowPlaying() {
         guard let work, let recording, let movement, segments.indices.contains(movement) else { return }
-        let text = NowPlayingText(song: recording.songs[movement], work: work)
-        MPNowPlayingInfoCenter.default().nowPlayingInfo = [
+        let song = recording.songs[movement]
+        let text = NowPlayingText(song: song, work: work)
+        var info: [String: Any] = [
             MPMediaItemPropertyTitle: text.title,
             MPMediaItemPropertyArtist: text.artist,
             MPMediaItemPropertyAlbumTitle: text.album,
@@ -556,6 +796,41 @@ final class PlaybackSession {
             MPNowPlayingInfoPropertyElapsedPlaybackTime: position,
             MPNowPlayingInfoPropertyPlaybackRate: isPaused ? 0.0 : 1.0,
         ]
+        if let shown = nowPlayingArtwork, shown.key == coverKey?(song) {
+            info[MPMediaItemPropertyArtwork] = shown.artwork
+        } else {
+            nowPlayingArtwork = nil
+            loadArtwork(for: song)
+        }
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+    }
+
+    /// The kept cover of the playing song changed, for example after it arrived from the server. The shown
+    /// cover stays until the new one is loaded.
+    func coverChanged() {
+        guard let song = coverSong, movement != nil else { return }
+        artworkLoading = nil
+        loadArtwork(for: song)
+    }
+
+    /// A track change shows the new cover when it is loaded. Until then, the system players show none, never the
+    /// cover of another album.
+    private func loadArtwork(for song: Song) {
+        guard let key = coverKey?(song), artworkLoading != key, let coverImage else { return }
+        artworkLoading = key
+        Task { [weak self] in
+            let image = await coverImage(song)
+            guard let self, self.artworkLoading == key else { return }
+            self.artworkLoading = nil
+            guard let image, self.coverSong.flatMap({ self.coverKey?($0) }) == key else { return }
+            self.nowPlayingArtwork = (key, Self.artwork(image))
+            self.updateNowPlaying()
+        }
+    }
+
+    /// The system asks for the image on a thread of its own, so the handler has no actor (see `remoteHandlers`).
+    nonisolated static func artwork(_ image: UIImage) -> MPMediaItemArtwork {
+        MPMediaItemArtwork(boundsSize: image.size) { @Sendable _ in image }
     }
 
     /// One handler for each remote command, ready for `addTarget`.

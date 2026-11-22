@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// Settings, in groups (ADR 0040): what the listener sets first, the technical part behind its switch.
+/// Settings, in groups (ADR 0040), in the order Flo set: Playback, Library, Colour, Advanced settings.
 struct SettingsView: View {
-    /// The Technical details switch. It stays off until the listener wants the technical part.
+    /// The Technical Details switch. It stays off until the listener wants MusicBrainz and Diagnostics.
     static let technicalDetailsKey = "settings.technicalDetails"
 
     @Environment(AppModel.self) private var model
@@ -10,7 +10,6 @@ struct SettingsView: View {
     @AppStorage(ComposerWorks.separatesPartialKey) private var separatesPartial = true
     @AppStorage(CoverWash.strengthKey) private var tintStrength = CoverWash.defaultStrength
     @AppStorage(Self.technicalDetailsKey) private var showsTechnicalDetails = false
-    @State private var confirmsDelete = false
     @State private var deleteError: String?
 
     private var tintLabel: String { "\(tintStrength.formatted())×" }
@@ -38,6 +37,30 @@ struct SettingsView: View {
             } footer: {
                 Text(
                     "While music plays, the timeline runs on this screen edge. Album keeps the loudness steps between the movements of a work. Scrobbles count played movements on your server. Your server can send them to linked listening services."
+                )
+            }
+
+            Section {
+                NavigationLink(value: Page.classicalRules) {
+                    InkLabel("Classical Rules", systemImage: "line.3.horizontal.decrease.circle")
+                }
+                .accessibilityIdentifier("classical-rules")
+                Toggle("Separate Partial Works", isOn: $separatesPartial)
+                    .accessibilityIdentifier("partial-works")
+                NavigationLink(value: Page.swipeActions) {
+                    InkLabel("Swipe Actions", systemImage: "arrow.left.arrow.right")
+                }
+                .accessibilityIdentifier("swipe-actions")
+                NavigationLink(value: Page.localStorage) {
+                    InkLabel("Local Storage", systemImage: "internaldrive")
+                }
+                .accessibilityIdentifier("local-storage")
+                DeleteListeningDataButton(failure: $deleteError)
+            } header: {
+                SectionHeading("Library")
+            } footer: {
+                Text(
+                    "A composer page lists a work with no complete recording under Partial works. Favourite works, the order of favourite recordings, listening notes, recent searches and the changes that wait stay on this iPhone, for this server and user. Sign-out keeps them."
                 )
             }
 
@@ -70,59 +93,41 @@ struct SettingsView: View {
             }
 
             Section {
-                NavigationLink(value: Page.classicalRules) {
-                    InkLabel("Classical Rules", systemImage: "line.3.horizontal.decrease.circle")
-                }
-                .accessibilityIdentifier("classical-rules")
-                Toggle("Separate Partial Works", isOn: $separatesPartial)
-                    .accessibilityIdentifier("partial-works")
-                NavigationLink(value: Page.swipeActions) {
-                    InkLabel("Swipe Actions", systemImage: "arrow.left.arrow.right")
-                }
-                .accessibilityIdentifier("swipe-actions")
-            } header: {
-                SectionHeading("Library")
-            } footer: {
-                Text("A composer page lists a work with no complete recording under Partial works.")
-            }
-
-            Section {
-                Button("Delete Listening Data", role: .destructive) { confirmsDelete = true }
-                    .accessibilityIdentifier("delete-listening-data")
-            } header: {
-                SectionHeading("Listening data")
-            } footer: {
-                Text(
-                    "Favourite works, the order of favourite recordings, listening notes, recent searches and the changes that wait stay on this iPhone, for this server and user. Sign-out keeps them."
-                )
-            }
-
-            Section {
                 Toggle("Technical Details", isOn: $showsTechnicalDetails)
                     .accessibilityIdentifier("technical-details")
-            } footer: {
-                Text("Shows the library counts, the lookups, local storage and diagnostics with the changes that wait.")
-            }
-
-            if showsTechnicalDetails { technicalDetails }
-
-            Section {
+                if showsTechnicalDetails {
+                    if !model.library.index.composers.isEmpty {
+                        NavigationLink(value: Page.musicBrainz) {
+                            LabeledContent {
+                                Text(lookupState)
+                                    .foregroundStyle(Palette.textSecondary)
+                            } label: {
+                                InkLabel("MusicBrainz", systemImage: "books.vertical")
+                            }
+                        }
+                        .accessibilityIdentifier("musicbrainz")
+                    }
+                    NavigationLink(value: Page.diagnostics) {
+                        LabeledContent {
+                            Text(waitingChanges)
+                                .foregroundStyle(Palette.textSecondary)
+                        } label: {
+                            InkLabel("Diagnostics", systemImage: "stethoscope")
+                        }
+                    }
+                    .accessibilityIdentifier("diagnostics")
+                }
                 NavigationLink(value: Page.licences) {
                     InkLabel("Licences", systemImage: "doc.text")
                 }
                 .accessibilityIdentifier("licences")
+            } header: {
+                SectionHeading("Advanced settings")
+            } footer: {
+                Text("Shows the lookups and diagnostics with the changes that wait.")
             }
         }
         .pageTitle("Settings")
-        .confirmationDialog("Delete Listening Data?", isPresented: $confirmsDelete, titleVisibility: .visible) {
-            Button("Delete Listening Data", role: .destructive) {
-                do { try model.deleteListeningData() } catch { deleteError = error.localizedDescription }
-            }
-        } message: {
-            Text(
-                "This removes the favourite works, the order of favourite recordings, the listening notes, the recent searches and the changes that wait of this server and user from this iPhone. You cannot undo this."
-            )
-        }
         // A failure of the device file is the one listening data notice (ADR 0058).
         .alert(
             "Listening Data",
@@ -136,64 +141,6 @@ struct SettingsView: View {
 
     private var accent: Binding<AccentFamily> {
         Binding(get: { AccentChoice.shared.family }, set: { AccentChoice.shared.family = $0 })
-    }
-
-    @ViewBuilder private var technicalDetails: some View {
-        let library = model.library
-        Section {
-            if library.syncedAt == nil {
-                if library.isSyncing {
-                    LabeledContent("Syncing") {
-                        Text("\(library.received) tracks")
-                    }
-                    .ink()
-                } else {
-                    Text("Not synced")
-                        .foregroundStyle(Palette.textSecondary)
-                }
-            } else {
-                NavigationLink(value: Page.albums(classical: true)) {
-                    LabeledContent("Classical Albums", value: library.classicalAlbumCount.formatted())
-                        .ink()
-                }
-                .accessibilityIdentifier("classical-albums")
-                LabeledContent("Classical Tracks", value: library.classical.count.formatted())
-                    .ink()
-                NavigationLink(value: Page.albums(classical: false)) {
-                    LabeledContent(
-                        "Other Albums", value: (library.albumCount - library.classicalAlbumCount).formatted()
-                    )
-                    .ink()
-                }
-                .accessibilityIdentifier("other-albums")
-            }
-            if !library.index.composers.isEmpty {
-                NavigationLink(value: Page.musicBrainz) {
-                    LabeledContent {
-                        Text(lookupState)
-                            .foregroundStyle(Palette.textSecondary)
-                    } label: {
-                        InkLabel("MusicBrainz", systemImage: "books.vertical")
-                    }
-                }
-                .accessibilityIdentifier("musicbrainz")
-            }
-            NavigationLink(value: Page.localStorage) {
-                InkLabel("Local Storage", systemImage: "internaldrive")
-            }
-            .accessibilityIdentifier("local-storage")
-            NavigationLink(value: Page.diagnostics) {
-                LabeledContent {
-                    Text(waitingChanges)
-                        .foregroundStyle(Palette.textSecondary)
-                } label: {
-                    InkLabel("Diagnostics", systemImage: "stethoscope")
-                }
-            }
-            .accessibilityIdentifier("diagnostics")
-        } header: {
-            SectionHeading("Technical details")
-        }
     }
 
     /// The favourite changes that wait for the server. Diagnostics lists them.
@@ -213,6 +160,28 @@ struct SettingsView: View {
         case .paused: return "Paused"
         case .idle, .upToDate: return ""
         }
+    }
+}
+
+/// Delete Listening Data with its confirmation. The dialog hangs on the button, so iOS points its popover at the
+/// row that the listener tapped.
+private struct DeleteListeningDataButton: View {
+    @Environment(AppModel.self) private var model
+    @Binding var failure: String?
+    @State private var confirms = false
+
+    var body: some View {
+        Button("Delete Listening Data", role: .destructive) { confirms = true }
+            .accessibilityIdentifier("delete-listening-data")
+            .confirmationDialog("Delete Listening Data?", isPresented: $confirms, titleVisibility: .visible) {
+                Button("Delete Listening Data", role: .destructive) {
+                    do { try model.deleteListeningData() } catch { failure = error.localizedDescription }
+                }
+            } message: {
+                Text(
+                    "This removes the favourite works, the order of favourite recordings, the listening notes, the recent searches and the changes that wait of this server and user from this iPhone. You cannot undo this."
+                )
+            }
     }
 }
 

@@ -352,6 +352,18 @@ struct CoverWashTests {
         #expect(loaded == CoverWashModifier.Loaded(slot: song.id, pick: nil))
     }
 
+    /// A scrub across movements changes the cover slot. A nil wash for one frame would swap the ground branches,
+    /// and their cross-fade shows the page below the player.
+    @Test func aJumpAcrossMovementsKeepsTheWashUntilTheNewCoverIsRead() {
+        let item = UUID()
+        let pick = CoverHue.Pick(hue: 30, chroma: 0.1)
+        let loaded = CoverWashModifier.Loaded(item: item, slot: "a-0", pick: pick)
+        #expect(CoverWashModifier.shown(loaded, item: item, slot: "a-0") == loaded)
+        #expect(CoverWashModifier.shown(loaded, item: item, slot: "a-2") == loaded)
+        #expect(CoverWashModifier.shown(loaded, item: UUID(), slot: "b-0") == nil)
+        #expect(CoverWashModifier.shown(nil, item: item, slot: "a-0") == nil)
+    }
+
     // MARK: The end of the player
 
     @Test func tailShowsTheNextItem() {

@@ -59,6 +59,22 @@ struct PlayerPageTests {
         let page = PlayerPage(
             recording: Self.recording([Self.song("a", 1), Self.song("b", 2, composer: "Johannes Brahms")]))
         #expect(page.composer == nil)
+        // Each row names its composer instead, first (specimen player.html `performerRows`).
+        #expect(page.differing[0].first == Roles.Line(kind: .other, label: "composer", names: ["Ludwig van Beethoven"]))
+        #expect(page.differing[1].first?.names == ["Johannes Brahms"])
+        #expect(page.opens(0))
+    }
+
+    @Test func aSharedComposerGivesNoRowComposer() {
+        let page = PlayerPage(recording: Self.recording([Self.song("a", 1), Self.song("b", 2)]))
+        #expect(page.differing.allSatisfy { $0.isEmpty })
+    }
+
+    @Test func anUnknownComposerGivesNoRowComposer() {
+        let page = PlayerPage(
+            recording: Self.recording([Self.song("a", 1), Self.song("b", 2, composer: Song.unknownComposer)]))
+        #expect(page.differing[1].isEmpty)
+        #expect(page.differing[0].first?.names == ["Ludwig van Beethoven"])
     }
 
     @Test func recordingShowsTheYearItsTracksCarry() {

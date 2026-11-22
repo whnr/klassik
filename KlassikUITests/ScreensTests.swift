@@ -2066,30 +2066,14 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(eventually(timeout: 5) { !unfavourite.exists }, "The menu did not close")
         XCTAssertEqual(rows.element(boundBy: 0).label, first, "A still press changed the order")
 
-        // Press the second row for 0.6 s, drag it above the first, and hold. A thread beside the drag takes the
-        // screenshot of the lifted row, because the drag call blocks until the finger lifts.
-        var dragged: XCUIScreenshot?
-        let lock = NSLock()
+        // Press the second row for 0.6 s and drag it above the first. The drag call blocks the test until the
+        // finger lifts and XCUIScreen is main-actor only, so no screenshot can show the row mid-drag.
         for _ in 0..<3 where !rows.element(boundBy: 0).label.contains(second) {
             let source = rows.element(boundBy: 1).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
             let target = rows.element(boundBy: 0).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.1))
-            DispatchQueue.global().asyncAfter(deadline: .now() + 1.6) {
-                let shot = XCUIScreen.main.screenshot()
-                lock.lock()
-                dragged = shot
-                lock.unlock()
-            }
-            source.press(forDuration: 0.6, thenDragTo: target, withVelocity: .slow, thenHoldForDuration: 1.5)
+            source.press(forDuration: 0.6, thenDragTo: target, withVelocity: .slow, thenHoldForDuration: 0.5)
             _ = eventually(timeout: 3) { rows.element(boundBy: 0).label.contains(second) }
         }
-        lock.lock()
-        if let dragged {
-            let attachment = XCTAttachment(screenshot: dragged)
-            attachment.name = "05f-recording-dragged"
-            attachment.lifetime = .keepAlways
-            add(attachment)
-        }
-        lock.unlock()
         XCTAssertTrue(
             eventually(timeout: 10) {
                 rows.element(boundBy: 0).label.contains(second) && rows.element(boundBy: 1).label.contains(first)

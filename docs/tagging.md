@@ -24,3 +24,13 @@ A nickname, such as "Eroica", is part of the work. Navidrome has no tag of its o
 - Quotes in a movement name, after the shared part, do not count. `Sonata: II. "Marcia funebre"` gives no nickname.
 - Search finds the work by its nicknames as it does by its title.
 - A WORK tag that holds the nickname, such as `Symphonie Nr. 3 Es-Dur „Eroica“, Op. 55`, needs none of this.
+
+## Search
+
+Search matches the start of each word. It ignores case and diacritics.
+
+- Sections run in this order: Composers, Performers, Works, Albums. Albums holds only albums. A recording shows only inside its work.
+- Works rank in four steps: the title starts with the text; the title or a nickname holds every word; the composer or the set matches; a track title matches.
+- A work or album found by a track title shows a line `Track: …`. A track with a WORK tag finds its work. Only a track without one finds its album.
+- A nickname needs quotes in the title to be found (see [Nicknames](#nicknames)).
+- Search has no alias list and no catalogue prefixes. `op67` does not find `Op. 67`, and `K. 626` does not find `KV 626`.

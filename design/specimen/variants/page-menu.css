@@ -1,4 +1,4 @@
-/* The page menu of ADR 0068 (Proposed). The specimen approximates the system Menu; iOS draws the real one. */
+/* The page menu (menu.html). The specimen approximates the system Menu; iOS draws the real one. */
 .nav .actions .menu-button {
   width: var(--size-hitTarget);
   height: var(--size-hitTarget);
@@ -37,10 +37,6 @@
 /* iOS separates menu sections with a wide band, and items within a section with a hairline. */
 .menu-section + .menu-section {
   border-top: var(--space-xs) solid var(--color-fill-quiet);
-}
-.menu-head {
-  padding: var(--space-s) var(--space-l) 0;
-  color: var(--color-text-secondary);
 }
 .menu-item {
   width: 100%;

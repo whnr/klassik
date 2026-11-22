@@ -1,7 +1,7 @@
 {
-  "sha": "04a77985d816689d525c432e50f047185bb2305f",
+  "sha": "14d8d01afaca8abfa6212e3480deeac41ab22299",
   "branch": "main",
   "path": "main",
-  "subject": "Merge pull request #153 from whnr/claude-147-settings",
-  "ts": 1795341785
+  "subject": "Fix Search sections, the Search tab and sheet swipes (#151)",
+  "ts": 1795370273
 }

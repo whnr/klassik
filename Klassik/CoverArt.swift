@@ -424,6 +424,18 @@ final class AlbumCovers {
 
     func arrival(for song: Song) -> Int { arrivals[CoverPlan.key(of: song)] ?? 0 }
 
+    /// The best kept cover of the song, square, for the system players. Nil while the device keeps none.
+    func playbackImage(for song: Song) async -> UIImage? {
+        for hash in candidates(for: song) {
+            if let data = await store.data(named: hash),
+                let image = await CoverArt.square(data, to: CoverArt.storedPixels)
+            {
+                return image
+            }
+        }
+        return nil
+    }
+
     /// Returns when the queue is empty, the embedded art is read and the links are saved.
     func idle() async {
         while let worker {

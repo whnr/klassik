@@ -1,6 +1,7 @@
 import AVFoundation
 import MediaPlayer
 import Observation
+import UIKit
 
 /// Owns the server and the queue. A view says what to play and reads the state; it never passes a client
 /// and never asks an engine for progress.
@@ -83,6 +84,13 @@ final class PlaybackSession {
     }
     private(set) var queueEnded = false
     private(set) var error: String?
+    /// The kept cover of a song, or nil. AppModel reads it from the cover store, so the system players never
+    /// wait for the network (ADR 0059).
+    @ObservationIgnored var coverImage: (@MainActor (Song) async -> UIImage?)?
+    /// The cover in the system players and the song that it belongs to.
+    @ObservationIgnored private(set) var nowPlayingArtwork: (songID: String, artwork: MPMediaItemArtwork)?
+    /// The song whose cover loads now.
+    @ObservationIgnored private var artworkLoading: String?
     var leveling: VolumeLeveling {
         didSet {
             defaults.set(leveling.rawValue, forKey: Self.levelingKey)
@@ -130,6 +138,7 @@ final class PlaybackSession {
                 self.listeningTrouble = trouble
             }
             history?.retryScrobbles()
+            nowPlayingArtwork = nil
             MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
         }
     }
@@ -399,6 +408,7 @@ final class PlaybackSession {
         persistQueue()
         // Stop cancels all automatic preparation (ADR 0060).
         prepareAhead()
+        nowPlayingArtwork = nil
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
     }
 
@@ -773,8 +783,9 @@ final class PlaybackSession {
     /// Fills the lock screen and Control Center.
     private func updateNowPlaying() {
         guard let work, let recording, let movement, segments.indices.contains(movement) else { return }
-        let text = NowPlayingText(song: recording.songs[movement], work: work)
-        MPNowPlayingInfoCenter.default().nowPlayingInfo = [
+        let song = recording.songs[movement]
+        let text = NowPlayingText(song: song, work: work)
+        var info: [String: Any] = [
             MPMediaItemPropertyTitle: text.title,
             MPMediaItemPropertyArtist: text.artist,
             MPMediaItemPropertyAlbumTitle: text.album,
@@ -782,6 +793,41 @@ final class PlaybackSession {
             MPNowPlayingInfoPropertyElapsedPlaybackTime: position,
             MPNowPlayingInfoPropertyPlaybackRate: isPaused ? 0.0 : 1.0,
         ]
+        if let shown = nowPlayingArtwork, shown.songID == song.id {
+            info[MPMediaItemPropertyArtwork] = shown.artwork
+        } else {
+            nowPlayingArtwork = nil
+            loadArtwork(for: song)
+        }
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+    }
+
+    /// The kept cover of the playing song changed, for example after it arrived from the server. The shown
+    /// cover stays until the new one is loaded.
+    func coverChanged() {
+        guard let song = coverSong, movement != nil else { return }
+        artworkLoading = nil
+        loadArtwork(for: song)
+    }
+
+    /// A track change shows the new cover when it is loaded. Until then, the system players show none, never the
+    /// cover of another album.
+    private func loadArtwork(for song: Song) {
+        guard artworkLoading != song.id, let coverImage else { return }
+        artworkLoading = song.id
+        Task { [weak self] in
+            let image = await coverImage(song)
+            guard let self, self.artworkLoading == song.id else { return }
+            self.artworkLoading = nil
+            guard let image, self.coverSong?.id == song.id else { return }
+            self.nowPlayingArtwork = (song.id, Self.artwork(image))
+            self.updateNowPlaying()
+        }
+    }
+
+    /// The system asks for the image on a thread of its own, so the handler has no actor (see `remoteHandlers`).
+    nonisolated static func artwork(_ image: UIImage) -> MPMediaItemArtwork {
+        MPMediaItemArtwork(boundsSize: image.size) { @Sendable _ in image }
     }
 
     /// One handler for each remote command, ready for `addTarget`.

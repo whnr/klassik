@@ -1,4 +1,4 @@
-// The page menu proposed in ADR 0068: one ⋯ button at the top right of a page. It holds the actions of the
+// The page menu: one ⋯ button at the top right of a page. It holds the actions of the
 // one thing that the page shows: a recording, an album or a work. A page without such a thing has no button.
 (() => {
   // menu.html loads this file itself; ?variant=page-menu there must not load it twice.
@@ -38,24 +38,32 @@
   }
   const offline = () => params.get("state") === "offline" || params.get("offline") === "on";
 
+  // Every state shows below its item, never above it as a header.
   function downloadSection(item) {
     const d = downloadOf(item);
+    const clear = () => store("menu.download." + item.id, null);
     if (d.state === "downloaded")
       return {
-        title: `Downloaded, ${size(bytesOf(item))}`,
         items: [
           {
             label: "Remove Download",
             icon: "remove",
+            sub: `Downloaded, ${size(bytesOf(item))}`,
             destructive: true,
-            run: () => store("menu.download." + item.id, null),
+            run: clear,
           },
         ],
       };
     if (d.state === "downloading")
       return {
-        title: offline() ? "Downloading, waits for the server" : `Downloading, ${Math.floor(d.share * 100)}${K.NB}%`,
-        items: [{ label: "Cancel Download", icon: "cancel", run: () => store("menu.download." + item.id, null) }],
+        items: [
+          {
+            label: "Cancel Download",
+            icon: "cancel",
+            sub: offline() ? "Downloading, waits for the server" : `Downloading, ${Math.floor(d.share * 100)}${K.NB}%`,
+            run: clear,
+          },
+        ],
       };
     return {
       items: [
@@ -116,10 +124,9 @@
     return { items: [{ label: "Tags and Grouping", icon: "tags", run: () => K.sheet("Tags", body) }] };
   }
 
-  /** The sections of a page's menu, top to bottom. Download leads; the order never changes with the state. */
+  /** The sections of a page's menu, top to bottom: queue, download, tags. The order never changes with the state. */
   function sections(kind, item) {
-    if (kind === "recording") return [downloadSection(item), queueSection(item), tagsSection(item)];
-    if (kind === "album") return [downloadSection(item), queueSection(item)];
+    if (kind === "recording" || kind === "album") return [queueSection(item), downloadSection(item), tagsSection(item)];
     if (kind === "player") return [downloadSection(item), tagsSection(item)];
     if (kind === "work") {
       const r = item.recording;
@@ -154,9 +161,7 @@
       scrim = el("div", { class: "menu-scrim", onclick: () => close() });
       panel = el("div", { class: "menu-panel glass", role: "menu", "aria-label": "More" });
       for (const section of sections(kind, item)) {
-        const group = el("div", { class: "menu-section", role: "group", "aria-label": section.title || null });
-        if (section.title)
-          group.append(el("div", { class: "menu-head t-footnote", "aria-hidden": "true" }, section.title));
+        const group = el("div", { class: "menu-section", role: "group" });
         for (const it of section.items)
           group.append(
             el(

@@ -13,9 +13,9 @@
   </head>
   <body>
     <script>
-      // The page menu of ADR 0068 (Proposed), one page for each variant, drawn open.
+      // The page menu, one page for each variant, drawn open. This page is the record of the menu.
       // ?for= recording, album, work or player. ?state= none, downloading, downloaded or offline.
-      // Without ?for= the page lists the variants. ?variant=page-menu shows the menu live on work.html and player.html.
+      // Without ?for= the page lists the variants and the rules. ?variant=page-menu shows the menu live on work.html and player.html.
       K.start(() => {
         const { el, href, ICON, M } = K;
         const kind = K.params.get("for");
@@ -55,33 +55,33 @@
               el(
                 "p",
                 { class: "t-subheadline secondary meta" },
-                "Proposed in ADR 0068. One ⋯ button at the top right of a page holds the actions of the thing the page shows. Download leads.",
+                "One ⋯ button at the top right of a page holds the actions of the one thing the page shows. It replaces the download button of the page.",
               ),
             ),
             section(
               "Recording page",
               null,
-              menu("Not downloaded", "Download, Play Next, Add to Queue, Tags and Grouping", { for: "recording" }),
-              menu("Downloading", "The state heads its section; Cancel Download", {
+              menu("Not downloaded", "Play Next, Add to Queue, Download, Tags and Grouping", { for: "recording" }),
+              menu("Downloading", "Cancel Download, the state below it", {
                 for: "recording",
                 state: "downloading",
               }),
-              menu("Downloaded", "The size heads its section; Remove Download", {
+              menu("Downloaded", "Remove Download, the size below it", {
                 for: "recording",
                 state: "downloaded",
               }),
-              menu("Offline", "Download is dimmed and says why", { for: "recording", state: "offline" }),
+              menu("Offline", "Download is dimmed and says why below it", { for: "recording", state: "offline" }),
             ),
             section(
               "Other pages",
               null,
-              menu("Album page", "Download, Play Next, Add to Queue", { for: "album" }),
+              menu("Album page", "Play Next, Add to Queue, Download, Tags and Grouping", { for: "album" }),
               menu("Work page", "Play Next, Add to Queue of the top recording; no Download", { for: "work" }),
               menu("Player", "Download and Tags and Grouping of what plays", { for: "player" }),
             ),
             section(
               "Live on the pages",
-              "The variant adds the button to the decided pages. Download runs for nine seconds.",
+              "The variant adds the button to the pages above. Download runs for nine seconds.",
               row("Work page", "Symphony No. 5, Beethoven", "work.html", { variant: "page-menu", back: "Page menu" }),
               row("Recording page", "Carlos Kleiber", "player.html", {
                 variant: "page-menu",
@@ -95,11 +95,45 @@
               }),
             ),
             section(
-              "No menu",
-              "These pages show no one thing to download or queue. Their bars keep what they hold today.",
-              row("Library, Chronology and Search", "The roots of the places; Library keeps Edit and the cog"),
+              "Order",
+              "Every menu keeps this order and leaves out what its page cannot do. A state changes the words of an item, never its place.",
+              row("1. Play Next, Add to Queue", "Not in the player: the item plays"),
+              row("2. Add to Playlist", "When playlists come"),
+              row("3. Download", "Not on the work page: a work has several recordings (ADR 0008)"),
+              row("4. Tags and Grouping", "Not on the work page"),
+            ),
+            section(
+              "Download states",
+              "Every state shows below the item, as the size does. The menu reads the state when it opens.",
+              row("Not downloaded", "Download, with the size below"),
+              row("Downloading", "Cancel Download, with “Downloading, 15 %” below"),
+              row("Downloaded", "Remove Download in red, with “Downloaded, 250 MB” below"),
+              row("Server out of reach", "Download dimmed, with “Needs the server” below"),
+              row("Album, partly downloaded", "Download, with “2 of 5 recordings downloaded” below"),
+            ),
+            section(
+              "Rules",
+              null,
+              row("Remove Download asks no question", "The server can supply the files again"),
+              row(
+                "A failed download keeps no files",
+                "The menu shows Download again; the one quiet status reports it (ADR 0058)",
+              ),
+              row("Swipes stay row shortcuts", "Swipe Actions chooses them; they do not change the page menu"),
+              row("The row long-press menu", "Play first, then the same items in the same order, words and symbols"),
+              row("Favourite", "Only the fermata beside the title; not in the menu"),
+              row("Share", "Left out: a link points at a private server"),
+              row("No mark on the button", "No download mark or progress ring; Local Storage lists the downloads"),
+              row("VoiceOver", "“More, button”; each item with the line below it: “Download, 250 megabytes”"),
+              row("UI tests", "The button has the identifier page-menu; each item is found by its label"),
+            ),
+            section(
+              "No menu yet",
+              "These pages show no one thing to download or queue. Their bars keep what they hold today. Playlist pages get a menu when playlists come.",
+              row("Library", "Keeps Edit and the cog for now; it changes later"),
+              row("Chronology and Search", "The roots of the places"),
               row("Composer and performer pages", "A person has no download (ADR 0008); the fermata favourites them"),
-              row("Lists", "Composers, Performers, Albums, Favourites: each row has its swipes and long press"),
+              row("Composers, Performers, Albums, Favourites", "Each row has its swipes and its long-press menu"),
               row("Settings and its pages", "Tags, Local Storage, MusicBrainz, Swipe Actions"),
             ),
           );

@@ -1,7 +1,7 @@
 {
-  "sha": "c0fdbb68c8c11f329850b221db6244f0f23853bb",
+  "sha": "2fb4c105636fc2ef1a07ba5939258fbe12a7966d",
   "branch": "claude-three-dots-spec",
   "path": "claude-three-dots-spec",
-  "subject": "Propose the page menu in the specimen and ADR",
-  "ts": 1795250142
+  "subject": "Record the page menu in the specimen, not an ADR",
+  "ts": 1795350424
 }

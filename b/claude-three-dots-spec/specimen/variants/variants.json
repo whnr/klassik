@@ -1,6 +1,6 @@
 {
   "page-menu": {
-    "label": "Page menu (ADR 0068)",
+    "label": "Page menu",
     "page": "menu",
     "css": "page-menu.css",
     "js": "page-menu.js"

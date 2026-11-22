@@ -365,6 +365,8 @@ struct PlayerGround: View {
 
     var body: some View {
         ZStack(alignment: .top) {
+            // The ground below both branches keeps the player opaque while one branch fades into the other.
+            Rectangle().fill(Palette.backgroundGrouped)
             if let wash {
                 Rectangle().fill(Palette.backgroundPage)
                 LinearGradient(
@@ -405,8 +407,16 @@ struct CoverWashModifier: ViewModifier {
     @State private var scroll = WashScroll()
 
     struct Loaded: Equatable {
+        var item: UUID?
         var slot: String?
         var pick: CoverHue.Pick?
+    }
+
+    /// The pick that the wash shows. A new movement of the same item keeps the last pick until its own cover is
+    /// read, so a jump across movements never drops the wash for a frame. Another item never shows it.
+    static func shown(_ loaded: Loaded?, item: UUID, slot: String?) -> Loaded? {
+        guard let loaded, loaded.slot == slot || loaded.item == item else { return nil }
+        return loaded
     }
 
     /// The kept files of the cover and their arrival count. A new file starts the pick again.
@@ -427,7 +437,7 @@ struct CoverWashModifier: ViewModifier {
         let covers = model.albumCovers
         let load = Load(song: song, covers: covers)
         let wash: CoverWash.Wash? =
-            if isPlaying, let loaded, loaded.slot == load.slot {
+            if isPlaying, let loaded = Self.shown(loaded, item: item, slot: load.slot) {
                 CoverWash.wash(loaded.pick, in: room, strength: strength) {
                     SRGB($0.color.resolve(in: environment))
                 }
@@ -442,7 +452,8 @@ struct CoverWashModifier: ViewModifier {
             .animation(Motion.inPlace.animation(reduceMotion: reduceMotion), value: wash == nil)
             .onChange(of: item, initial: true) { scroll.open(item) }
             .task(id: load) {
-                if let found = await Self.loaded(load, song: song, store: model.albumArt) {
+                if var found = await Self.loaded(load, song: song, store: model.albumArt) {
+                    found.item = item
                     if !Task.isCancelled { loaded = found }
                 } else if let song {
                     // The kept file arrives later and starts this task again. The wash waits for it.

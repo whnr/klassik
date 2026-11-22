@@ -100,6 +100,9 @@ final class AppModel {
             if playing { albumCovers.request(song, playback: true) }
         }
         library.classicalChanged = { [weak self] in self?.planCovers() }
+        let covers = albumCovers
+        playback.coverImage = { song in await covers.playbackImage(for: song) }
+        followPlayingCover()
         reconnect = ConnectionMonitor { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -111,6 +114,23 @@ final class AppModel {
         // No build reads the URL cache folder of the pictures, so its space goes back to the device.
         Task.detached(priority: .utility) {
             try? FileManager.default.removeItem(at: .cachesDirectory.appending(path: "Portraits"))
+        }
+    }
+
+    /// The system players show the kept cover of what plays. A cover that arrives or changes for that song
+    /// replaces the one they show.
+    private func followPlayingCover() {
+        withObservationTracking {
+            if let song = playback.coverSong {
+                _ = albumCovers.candidates(for: song)
+                _ = albumCovers.arrival(for: song)
+            }
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.playback.coverChanged()
+                self.followPlayingCover()
+            }
         }
     }
 

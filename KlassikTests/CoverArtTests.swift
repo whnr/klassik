@@ -412,6 +412,26 @@ struct CoverArtTests {
         #expect(makeCovers(covers.store, songs: songs).links.tracks == covers.links.tracks)
     }
 
+    @Test func theSystemPlayersGetTheBestKeptCoverOfTheTrack() async throws {
+        let songs = [
+            Self.song("1", album: "a", disc: 1, track: 1, cover: "al-a"),
+            Self.song("2", album: "a", disc: 1, track: 2, cover: "al-a"),
+        ]
+        server.covers = ["al-a": try Self.png(.red)]
+        let covers = makeCovers(try makeStore(), songs: songs)
+        #expect(await covers.playbackImage(for: songs[0]) == nil)
+        covers.keepAll()
+        await covers.idle()
+        covers.inspect(songs[0], file: try flac(with: try Self.png(.green)))
+        await covers.idle()
+        // The embedded art of the first track wins over the disc cover; the second track keeps the disc cover.
+        let embedded = try #require(await covers.playbackImage(for: songs[0])?.cgImage)
+        let disc = try #require(await covers.playbackImage(for: songs[1])?.cgImage)
+        #expect(embedded.width == 8 && embedded.height == 8)
+        #expect(!Self.isRed(embedded, x: 4, y: 4))
+        #expect(Self.isRed(disc, x: 4, y: 4))
+    }
+
     @Test func readsArtworkFromAnM4AFile() async throws {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let wav = root.appending(path: "tone.wav")

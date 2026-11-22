@@ -1,5 +1,5 @@
 // The player overlay of player.html. The pill's cover opens it. A drag down on its handle, or a tap on another tab, closes it.
-// The overlay shows player.html in a frame; the frame follows the clock of the place under it.
+// The overlay shows player.html in a frame; the frame follows the clock of the tab under it.
 
 (() => {
   const { el, chrome, params } = K;

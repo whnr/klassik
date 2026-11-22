@@ -8,7 +8,7 @@ const K = (() => {
   document.documentElement.dataset.page = location.pathname.split("/").pop().replace(".html", "") || "index";
   // Variant files carry the stamp of specimen.js, so Safari loads new copies with it.
   const STAMP = document.currentScript ? new URL(document.currentScript.src).searchParams.get("v") || "" : "";
-  // The player overlay (player.html) shows its page in a frame over the place; the frame has no chrome of its own.
+  // The player overlay (player.html) shows its page in a frame over the tab; the frame has no chrome of its own.
   const embedded = params.get("embed") === "player";
   const CARRIED = ["variant", "look", "theme", "paper", "contrast", "size", "playing", "side", "edge", "place"];
   const SIZES = [
@@ -383,7 +383,7 @@ const K = (() => {
     } else Object.assign(P, { item: 0, index: q.start[0], pos: q.start[1], paused: false });
     P.name = name;
     normalise();
-    // The place under the overlay owns the clock. Each page follows what the other writes to the shared session,
+    // The tab under the overlay owns the clock. Each page follows what the other writes to the shared session,
     // so a seek in the overlay frame moves the clock and the next tick does not undo it.
     addEventListener("storage", follow);
     if (!embedded)
@@ -962,7 +962,7 @@ const K = (() => {
     chrome.app = app;
     chrome.title = title;
     if (embedded) {
-      // The place under the overlay draws the timeline, the tab bar and the pill; the page keeps clear of them.
+      // The tab under the overlay draws the timeline, the tab bar and the pill; the page keeps clear of them.
       chrome.player = true;
       document.documentElement.classList.add("has-timeline");
       scroll.style.setProperty("--bottom-space", "150px");

@@ -337,8 +337,8 @@ private struct RecordingDrag: ViewModifier {
     }
 }
 
-private extension View {
-    @ViewBuilder func applyIf<Result: View>(_ condition: Bool, _ transform: (Self) -> Result) -> some View {
+extension View {
+    @ViewBuilder fileprivate func applyIf<Result: View>(_ condition: Bool, _ transform: (Self) -> Result) -> some View {
         if condition { transform(self) } else { self }
     }
 }

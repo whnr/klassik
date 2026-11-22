@@ -604,8 +604,13 @@ final class BrowseScreens: ScreensTestCase {
         picture.tap()
         let whole = app.descendants(matching: .any)["whole-picture"]
         XCTAssertTrue(whole.waitForExistence(timeout: 10))
-        let credit = app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Public domain'")).firstMatch
+        // The credit ends in the File page link, as in the specimen sheet (person.html).
+        // Only those words are the link; the author and licence are plain text.
+        let credit = app.staticTexts["whole-picture-credit"]
         XCTAssertTrue(credit.exists, "The whole picture shows no credit")
+        XCTAssertTrue(credit.label.contains("Public domain"), credit.label)
+        XCTAssertTrue(credit.label.hasSuffix("File page"), credit.label)
+        XCTAssertTrue(app.links["File page"].exists, "The whole picture credit has no File page link")
         let close = app.buttons["whole-picture-close"]
         XCTAssertTrue(close.exists, "The whole picture shows no close button")
         XCTAssertLessThan(close.frame.maxY, app.frame.height / 4, "The close button is not at the top")
@@ -856,28 +861,22 @@ final class BrowseScreens: ScreensTestCase {
             .matching(NSPredicate(format: "label BEGINSWITH %@", title + " (")).firstMatch
     }
 
-    /// Two good matches in another language: the listener picks one once.
+    /// The work page offers no MusicBrainz confirmation, and the date is plain text (specimen work.html).
+    /// Ambiguous matches are picked from the sources page, which the status list opens.
     @MainActor
-    func testConfirmMatch() throws {
+    func testWorkPageHasNoConfirmButton() throws {
         let app = try launchAndConnect()
         reveal(composer(app, "Wolfgang"), in: app).tap()
         let work = app.buttons.matching(identifier: "work").matching(NSPredicate(format: "label CONTAINS 'K. 467'"))
             .firstMatch
         XCTAssertTrue(work.waitForExistence(timeout: 10))
         work.tap()
-        let confirm = app.buttons.matching(NSPredicate(format: "identifier == 'composed' AND label CONTAINS 'Confirm'"))
-            .firstMatch
-        XCTAssertTrue(confirm.waitForExistence(timeout: 30), app.buttons["composed"].label)
-        confirm.tap()
-        let candidate = app.buttons.matching(identifier: "candidate").firstMatch
-        XCTAssertTrue(candidate.waitForExistence(timeout: 10))
-        snap(app, "04b-confirm-match")
-        candidate.tap()
-        let linked = app.descendants(matching: .any)["musicbrainz-work"]
-        XCTAssertTrue(linked.waitForExistence(timeout: 10))
-        let year = app.staticTexts.matching(NSPredicate(format: "label CONTAINS '1785'")).firstMatch
-        XCTAssertTrue(year.waitForExistence(timeout: 10))
-        snap(app, "04c-sources")
+        let composed = app.staticTexts["composed"]
+        XCTAssertTrue(composed.waitForExistence(timeout: 30), "The work page shows no composed date")
+        XCTAssertTrue(composed.label.contains("composed"), composed.label)
+        XCTAssertFalse(app.buttons["composed"].exists, "The composed date is a button")
+        XCTAssertFalse(app.buttons["Confirm the MusicBrainz Work"].exists, "The work page has a Confirm button")
+        snap(app, "04b-work-plain-date")
     }
 
     /// The empty Search page lists the recent searches, newest first. One search session is one entry; a tap
@@ -1191,8 +1190,10 @@ final class PlaybackScreens: ScreensTestCase {
         let recording = app.buttons.matching(identifier: "recording").firstMatch
         XCTAssertTrue(recording.waitForExistence(timeout: 10))
         // The MusicBrainz pass may still run right after the connect.
-        let composed = app.buttons.matching(NSPredicate(format: "identifier == 'composed' AND label CONTAINS '1844'"))
-        XCTAssertTrue(composed.firstMatch.waitForExistence(timeout: 30), app.buttons["composed"].label)
+        let composed = app.staticTexts.matching(
+            NSPredicate(format: "identifier == 'composed' AND label CONTAINS '1844'"))
+        XCTAssertTrue(composed.firstMatch.waitForExistence(timeout: 30), app.staticTexts["composed"].label)
+        XCTAssertFalse(app.buttons["composed"].exists, "The composed date is a button")
         snap(app, "04-work")
         checkWorkPage(app)
 
@@ -1522,6 +1523,66 @@ final class PlaybackScreens: ScreensTestCase {
         startPlaying(app)
         pause(app)
         snap(app, "05e-play-album")
+    }
+
+    /// An opened row links the names that differ from the header, as the header does (specimen player.html
+    /// `performerRows`). On an album of two composers, each row names its composer.
+    @MainActor
+    func testMovementNamesAreLinks() throws {
+        let app = try launchAndConnect()
+        openSettings(app, technical: true)
+        reveal(app.buttons["classical-albums"], in: app).tap()
+        let encores = app.buttons.matching(identifier: "album")
+            .matching(NSPredicate(format: "label CONTAINS 'Romantic Encores'")).firstMatch
+        XCTAssertTrue(reveal(encores, in: app).isHittable)
+        encores.tap()
+        XCTAssertTrue(app.buttons["play-recording"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.links["Daniel Keys"].exists, "The soloist of one track shows in the header")
+        let row = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Andante'")).firstMatch
+        XCTAssertTrue(reveal(row, in: app).exists, "The Mozart row does not open")
+        row.tap()
+        let composer = app.links["Wolfgang Amadeus Mozart"].firstMatch
+        XCTAssertTrue(composer.waitForExistence(timeout: 5), "The composer in the row is no link")
+        let soloist = app.links["Daniel Keys"].firstMatch
+        XCTAssertTrue(soloist.exists, "The soloist in the row is no link")
+        snap(app, "05k-movement-links")
+        soloist.tap()
+        XCTAssertTrue(app.navigationBars["Daniel Keys"].waitForExistence(timeout: 10), "The soloist link opens no page")
+        back(app)
+        XCTAssertTrue(composer.waitForExistence(timeout: 10))
+        composer.tap()
+        XCTAssertTrue(
+            app.navigationBars["Wolfgang Amadeus Mozart"].waitForExistence(timeout: 10),
+            "The composer link opens no page")
+    }
+
+    /// A name in the playing row of the overlay is a link too. It closes the player and opens the page in the place
+    /// below, as a header link does (specimen player.html `performerRows`).
+    @MainActor
+    func testPlayingRowNamesLinkFromTheOverlay() throws {
+        let app = try launchAndConnect()
+        openSettings(app, technical: true)
+        reveal(app.buttons["classical-albums"], in: app).tap()
+        let encores = app.buttons.matching(identifier: "album")
+            .matching(NSPredicate(format: "label CONTAINS 'Romantic Encores'")).firstMatch
+        XCTAssertTrue(reveal(encores, in: app).isHittable)
+        encores.tap()
+        XCTAssertTrue(app.buttons["play-recording"].waitForExistence(timeout: 10))
+        startPlaying(app)
+        openPlayer(app)
+        // The first track is Brahms; Next plays the Mozart Andante, whose soloist differs from the header.
+        let next = app.buttons["Next"].firstMatch
+        XCTAssertTrue(next.waitForExistence(timeout: 30), "No Next button")
+        next.tap()
+        pause(app)
+        let overlay = app.descendants(matching: .any)["player-overlay"].firstMatch
+        let soloist = overlay.links["Daniel Keys"].firstMatch
+        XCTAssertTrue(reveal(soloist, in: app).exists, "The soloist in the playing row is no link")
+        snap(app, "05l-playing-row-links")
+        soloist.tap()
+        expectPlayerClosed(app)
+        XCTAssertTrue(
+            app.navigationBars["Daniel Keys"].waitForExistence(timeout: 10), "The playing row link opens no page")
     }
 
     @MainActor

@@ -9,8 +9,11 @@ struct PlayerPage: Sendable {
     let header: [Roles.Line]
     /// The year and the length in prose, under the names (specimen player.html `.facts`).
     let facts: String
-    /// For each track, the names that differ from the header.
+    /// For each track, the names that differ from the header. A composer that the header does not show leads.
     let differing: [[Roles.Line]]
+
+    /// The label of a composer line in a row. A row has no other composer line, so the label marks it.
+    static let composerLabel = "composer"
 
     init(recording: WorkIndex.Recording) {
         let songs = recording.songs
@@ -24,7 +27,12 @@ struct PlayerPage: Sendable {
         }
         header = lines
         facts = Self.facts(of: recording)
-        differing = split.tracks
+        let shown = composer
+        differing = zip(songs, split.tracks).map { song, lines in
+            let name = song.composerName
+            guard shown == nil, name != Song.unknownComposer else { return lines }
+            return [Roles.Line(kind: .other, label: Self.composerLabel, names: [name])] + lines
+        }
     }
 
     /// True if the row of a track holds names. A row with nothing does not open.

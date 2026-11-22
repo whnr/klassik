@@ -336,7 +336,6 @@ struct CountedHeading: View {
 /// Under the title: the composer as a link, when the work was composed, and what the tracks add to the title.
 private struct WorkHeader: View {
     @Environment(AppModel.self) private var model
-    @Environment(AppNavigator.self) private var navigator
     let work: WorkIndex.Work
     @ScaledMetric(space: .inGroup) private var gap: CGFloat
 
@@ -359,20 +358,11 @@ private struct WorkHeader: View {
                     .typeStyle(.subheadline)
                     .foregroundStyle(Palette.textSecondary)
             }
-            if case .candidates = model.enrichment.link(of: work), work.isTagged {
-                Button("Confirm the MusicBrainz Work", systemImage: "questionmark.circle") {
-                    navigator.open(.sources(work: work.id), in: navigator.selection)
-                }
-                .typeStyle(.subheadline)
-                .buttonStyle(.plain)
-                .foregroundStyle(Palette.tint)
-                .accessibilityIdentifier("composed")
-            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// When the work was composed. It opens the sources of the date.
+    /// When the work was composed, as plain text (specimen work.html).
     private var composed: some View {
         let enrichment = model.enrichment
         let text =
@@ -381,12 +371,9 @@ private struct WorkHeader: View {
             } else {
                 enrichment.isRunning ? "…" : "unknown"
             }
-        return Button(", composed\u{00A0}\(text)") {
-            navigator.open(.sources(work: work.id), in: navigator.selection)
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(Palette.textSecondary)
-        .accessibilityIdentifier("composed")
+        return Text(", composed\u{00A0}\(text)")
+            .foregroundStyle(Palette.textSecondary)
+            .accessibilityIdentifier("composed")
     }
 }
 
@@ -583,6 +570,15 @@ struct RecordingView: View {
             .animation(
                 Motion.inPlace.animation(reduceMotion: reduceMotion), value: isPlayingThis ? player.movement : nil)
         }
+        // A name in the header or in a row opens its page in the place below, also from the overlay.
+        .environment(
+            \.openURL,
+            OpenURLAction { url in
+                guard let target = PageLink.page(url) else { return .systemAction }
+                follow(target)
+                return .handled
+            }
+        )
         // The hero draws the title, so the list draws no heading. The bar keeps the name for Back and VoiceOver.
         .environment(\.pageHeading, "")
         .navigationTitle(isOverlay ? "" : work.title)
@@ -707,14 +703,6 @@ struct RecordingView: View {
         }
         .multilineTextAlignment(.center)
         .frame(maxWidth: .infinity)
-        // A name in the header opens its page in the place below, also from the overlay.
-        .environment(
-            \.openURL,
-            OpenURLAction { url in
-                guard let target = PageLink.page(url) else { return .systemAction }
-                follow(target)
-                return .handled
-            })
     }
 
     /// The album line opens the album; a performer with a page opens it.
@@ -722,6 +710,14 @@ struct RecordingView: View {
         if line.kind == .other, line.label == "album" {
             guard let key = recording.songs.first?.albumKey, model.library.album(key) != nil else { return nil }
             return .album(key)
+        }
+        return model.library.index.performer(named: name) == nil ? nil : .performer(name)
+    }
+
+    /// A name in a row opens its page as in the header (specimen player.html `performerRows`).
+    private func rowLink(_ line: Roles.Line, _ name: String) -> Page? {
+        if line.kind == .other, line.label == PlayerPage.composerLabel {
+            return model.library.index.composer(named: name) == nil ? nil : .composer(name)
         }
         return model.library.index.performer(named: name) == nil ? nil : .performer(name)
     }
@@ -825,6 +821,7 @@ struct RecordingView: View {
         return MovementRow(
             song: song, row: index, title: title,
             names: page.differing.indices.contains(index) ? page.differing[index] : [],
+            link: rowLink,
             notes: place.map { model.notes.notes(at: $0) } ?? [],
             place: place,
             isPlaying: showsPlayer && model.playback.movement == index,
@@ -872,6 +869,8 @@ private struct MovementRow: View {
     let title: String
     /// The names that differ from the header.
     let names: [Roles.Line]
+    /// The page of a name, if it has one.
+    let link: (Roles.Line, String) -> Page?
     let notes: [ListeningNote]
     /// Where a new note of this row goes. A row without a place takes no note.
     let place: NotePlace?
@@ -898,7 +897,7 @@ private struct MovementRow: View {
                 }
                 if opens && isOpen {
                     if hasNames {
-                        RoleLines(lines: names, style: .subheadline)
+                        RoleLines(lines: names, style: .subheadline, link: link)
                             .ink()
                     }
                     NoteList(notes: notes, jump: jump)
@@ -973,7 +972,7 @@ private struct MovementRow: View {
                     ProgressView()
                 }
             }
-            RoleLines(lines: names, style: .subheadline)
+            RoleLines(lines: names, style: .subheadline, link: link)
                 .ink()
             PlaybackProgress(player: player, notes: notes, jump: { jump($0, false) })
             PlayerControls(player: player)

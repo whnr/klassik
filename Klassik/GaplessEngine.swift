@@ -31,6 +31,8 @@ final class GaplessEngine: PlaybackEngine {
         return decoded + Double(heldFrames) / sampleRate + encoded
     }
 
+    var requestedMovement: Int? { task == nil ? nil : requested }
+
     private var engine: AVAudioEngine?
     private var node: AVAudioPlayerNode?
     /// Applies the ReplayGain. The node volume cannot go above 1, so it cannot boost.

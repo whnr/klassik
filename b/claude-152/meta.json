@@ -1,7 +1,7 @@
 {
-  "sha": "67c0ba27e6d17b5c52cd56787f0a5fa8219ba717",
+  "sha": "66e2f02c09afeb298769121188369895f4fbac46",
   "branch": "claude-152",
   "path": "claude-152",
-  "subject": "[sz-rs30.1.152] Remeasure tab labels at the narrow bar width",
-  "ts": 1795381246
+  "subject": "[sz-rs30.1.152] Settle the bar beside the mini player",
+  "ts": 1795384163
 }

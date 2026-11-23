@@ -1,5 +1,4 @@
 import subprocess
-import sys
 import unittest
 from unittest import mock
 
@@ -64,7 +63,11 @@ class Collect(unittest.TestCase):
         return run
 
     def test_collect_lists_prs_oldest_first_and_skips_the_release_pr(self):
-        log = "aaa1111\tMerge pull request #7 from whnr/b\nbbb2222\tFix crash (#6)\nccc3333\tMerge pull request #8 from whnr/r\n"
+        log = (
+            "aaa1111\tMerge pull request #7 from whnr/b\n"
+            "bbb2222\tFix crash (#6)\n"
+            "ccc3333\tMerge pull request #8 from whnr/r\n"
+        )
         prs = {
             "7": {"title": "[sz-1.2] Add menu", "labels": []},
             "6": {"title": "Fix crash", "labels": [{"name": "ios"}]},
@@ -114,7 +117,10 @@ class Create(unittest.TestCase):
         self.assertEqual(command[command.index("--notes") + 1], "BODY")
 
     def test_unknown_lookup_error_fails(self):
-        with mock.patch.object(subprocess, "run", return_value=self.result(1, "HTTP 502")), self.assertRaises(RuntimeError):
+        with (
+            mock.patch.object(subprocess, "run", return_value=self.result(1, "HTTP 502")),
+            self.assertRaises(RuntimeError),
+        ):
             gr.create("v0.2.0", "o/r")
 
     def test_create_failure_exits_non_zero_with_an_error_annotation(self):

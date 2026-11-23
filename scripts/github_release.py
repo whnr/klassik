@@ -100,7 +100,9 @@ def collect(tag, repo):
         sha, _, subject = line.partition("\t")
         number = pr_number(subject)
         if number is None:
-            entries.append(("Changed", BEAD_PREFIX.sub("", subject), f"[{sha[:7]}](https://github.com/{repo}/commit/{sha})"))
+            entries.append(
+                ("Changed", BEAD_PREFIX.sub("", subject), f"[{sha[:7]}](https://github.com/{repo}/commit/{sha})")
+            )
             continue
         pr = gh_json("pr", "view", str(number), "--repo", repo, "--json", "title,labels")
         title = BEAD_PREFIX.sub("", pr["title"])

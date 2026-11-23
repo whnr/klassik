@@ -596,7 +596,7 @@ struct PersonFactsStoreTests {
         #expect(
             PersonFactsStore.settle("Ludwig van Beethoven", found: [hits[0], twin] + hits.dropFirst(2))
                 == .pick([hits[0], twin]))
-        // A surname tag still asks (ADR 0017).
+        // A surname tag still asks.
         #expect(PersonFactsStore.settle("Beethoven", found: hits) == .pick(hits))
     }
 

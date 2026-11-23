@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Settings, in groups (ADR 0040), in the order Flo set: Playback, Library, Colour, Advanced settings.
+/// Settings, in groups, in the order Flo set: Playback, Library, Colour, Advanced settings.
 struct SettingsView: View {
     /// The Technical Details switch. It stays off until the listener wants MusicBrainz and Diagnostics.
     static let technicalDetailsKey = "settings.technicalDetails"
@@ -128,7 +128,7 @@ struct SettingsView: View {
             }
         }
         .pageTitle("Settings")
-        // A failure of the device file is the one listening data notice (ADR 0058).
+        // A failure of the device file is the one listening data notice.
         .alert(
             "Listening Data",
             isPresented: Binding(get: { deleteError != nil }, set: { if !$0 { deleteError = nil } })

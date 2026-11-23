@@ -303,7 +303,7 @@ struct PortraitLoaderTests {
     }
 }
 
-/// The timeline translates content without changing its available width (ADR 0045).
+/// The timeline translates content without changing its available width.
 struct PageContentPositionTests {
     @Test func indicatorStaysBesideTheTimelineOnEitherSide() {
         for side in [TimelineSide.left, .right] {

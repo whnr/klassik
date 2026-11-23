@@ -64,8 +64,8 @@ struct PlacesView: View {
     }
 }
 
-/// A hosting controller starts its own environment, so the root of each host reads the accent pick itself
-/// (ADR 0034). The read observes the pick, so every control under it takes a new family at once.
+/// A hosting controller starts its own environment, so the root of each host reads the accent pick itself.
+/// The read observes the pick, so every control under it takes a new family at once.
 private struct AccentRoot: ViewModifier {
     func body(content: Content) -> some View {
         content
@@ -394,7 +394,7 @@ enum TabRow {
 
 /// The `NavigationStack` of one place. Its pages are the stack of the navigator. The back button of a page is the
 /// system one. A root has none, so a root that the listener reached from another place gets an arrow and an
-/// edge swipe back to that place (ADR 0038).
+/// edge swipe back to that place.
 struct PlaceStack<Root: View>: View {
     @Environment(AppNavigator.self) private var navigator
     @Environment(AppModel.self) private var model
@@ -451,7 +451,7 @@ struct PlaceStack<Root: View>: View {
     }
 }
 
-/// Keeps the last rows of a page clear of the tab row, and the scroll indicator clear of the timeline (ADR 0029).
+/// Keeps the last rows of a page clear of the tab row, and the scroll indicator clear of the timeline.
 /// Each page needs its own inset: an inset on the `NavigationStack` does not move the last rows of a pushed List.
 /// UIKit keeps the native tab bar visible as the page stack changes.
 private struct PlaceInsets: ViewModifier {
@@ -469,7 +469,7 @@ private struct PlaceInsets: ViewModifier {
             }
             .scrollEdgeEffectStyle(.soft, for: .top)
             .toolbarBackground(.hidden, for: .navigationBar)
-            // The bar shows no title (ADR 0023). The navigation title still names the back button of the next page.
+            // The bar shows no title. The navigation title still names the back button of the next page.
             .toolbar(removing: .title)
             .contentMargins(.trailing, beside, for: .scrollIndicators)
     }

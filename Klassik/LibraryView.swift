@@ -24,7 +24,7 @@ struct LibraryView: View {
                         Text(status)
                             .accessibilityIdentifier("library-synced")
                     }
-                    // Server trouble shows here only, never as a notice for each failed sync (ADR 0058).
+                    // Server trouble shows here only, never as a notice for each failed sync.
                     if let trouble = model.serverTrouble {
                         Text(trouble.status)
                             .accessibilityIdentifier("server-status")

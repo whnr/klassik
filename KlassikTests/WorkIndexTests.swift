@@ -233,7 +233,7 @@ struct WorkIndexTests {
         #expect(!WorkIndex.Recording(id: "r", album: "A", songs: [Self.song("a", album: "A", track: 2)]).isPartial)
     }
 
-    /// ADR 0024: one work with two movements on consecutive tracks gives every work a heading.
+    /// One work with two movements on consecutive tracks gives every work a heading.
     @Test func albumHeadsWorksWhenOneWorkHasConsecutiveMovements() throws {
         let index = WorkIndex(songs: [
             Self.song("e1", album: "Recital", track: 1, work: "Etude"),

@@ -27,7 +27,7 @@ extension WorkIndex {
 }
 
 /// A performer as a person, with the layout of the composer page: a picture, the name, a description line, and
-/// the tabs Albums and About (ADR 0017, 0019). Wikidata may know nobody: the page then shows the tags only.
+/// the tabs Albums and About. Wikidata may know nobody: the page then shows the tags only.
 struct PerformerPage: View {
     enum Tab: Hashable {
         case albums, about
@@ -91,7 +91,7 @@ struct PerformerPage: View {
             ) {
                 ForEach(albums) { AlbumCover(album: $0) }
             }
-            // person.html: the grid is a .section, which keeps the section gap above it.
+            // The grid is a .section, which keeps the section gap above it.
             .pageEdges(top: Layout.sectionTop)
             .listRowSeparator(.hidden)
         }

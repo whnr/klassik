@@ -346,7 +346,7 @@ struct RecordingOrderTests {
     }
 
     /// Offline, every tap keeps its result and shows no notice. One status says the server is not reachable, and
-    /// the next successful send clears it (ADR 0058).
+    /// the next successful send clears it.
     @Test func offlineChangesStayWithOneQuietStatusUntilTheServerAnswers() async throws {
         let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }

@@ -1,7 +1,7 @@
 import Foundation
 
 extension Search {
-    /// The kinds of search terms that the filter sheet lists, one kind at a time (ADR 0025).
+    /// The kinds of search terms that the filter sheet lists, one kind at a time.
     enum Scope: Int, CaseIterable, Identifiable, Sendable {
         case genres, composers, conductors, performers
 
@@ -22,7 +22,7 @@ extension Search {
         var name: String
     }
 
-    /// One row of a search (ADR 0020). Its terms join with "or"; the conditions of a search join with "and".
+    /// One row of a search. Its terms join with "or"; the conditions of a search join with "and".
     struct Condition: Hashable, Sendable {
         var terms: [Term]
     }
@@ -60,7 +60,7 @@ extension Search {
     }
 }
 
-/// The conditions of a search over the work index (ADR 0020, 0025, 0029). It knows the search terms of each
+/// The conditions of a search over the work index. It knows the search terms of each
 /// recording, counts what a tap on a term leaves, and narrows the results of a text. It does no text matching of its
 /// own: the pool of a text comes from the results of `Search`.
 struct SearchFilters: Sendable {

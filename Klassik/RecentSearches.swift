@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-/// One past search: its text and its conditions (ADR 0029). Recent searches stay in the device file and never go to
+/// One past search: its text and its conditions. Recent searches stay in the device file and never go to
 /// the server.
 struct RecentSearch: Codable, Equatable, Identifiable, Sendable {
     /// A search term of a condition, kept by its kind and name so that the file does not depend on the filter sheet.
@@ -26,7 +26,7 @@ struct RecentSearch: Codable, Equatable, Identifiable, Sendable {
 
     var id = UUID()
     var text: String
-    /// The terms in one condition join with "or"; the conditions join with "and" (ADR 0020).
+    /// The terms in one condition join with "or"; the conditions join with "and".
     var conditions: [[Term]]
 
     var isEmpty: Bool { text.isEmpty && conditions.isEmpty }
@@ -76,8 +76,8 @@ extension RecentSearch {
     }
 }
 
-/// The recent searches of the listener, newest first, and the search session that the Search page has open
-/// (ADR 0029). One session is one entry: each commit replaces the entry of the session, so the list does not fill
+/// The recent searches of the listener, newest first, and the search session that the Search page has open.
+/// One session is one entry: each commit replaces the entry of the session, so the list does not fill
 /// with fragments.
 @MainActor @Observable
 final class RecentSearches {

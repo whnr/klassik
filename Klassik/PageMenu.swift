@@ -4,7 +4,7 @@ import SwiftUI
 /// order and leaves out what its page cannot do: queue, download, tags. A state changes the words of an item and
 /// the line below it, never its place.
 struct PageMenu: Equatable, Sendable {
-    /// What the page or the row shows. A work has several recordings, so it has no download and no tags (ADR 0008).
+    /// What the page or the row shows. A work has several recordings, so it has no download and no tags.
     enum Kind: Sendable {
         case recording, album, work
     }

@@ -455,7 +455,7 @@ struct StreamingPlaybackTests {
         #expect(error < 0.0001, "The join must interpolate between real samples, never against zeros")
     }
 
-    /// A server that goes away during playback pauses quietly: no notice, only the one server status (ADR 0058).
+    /// A server that goes away during playback pauses quietly: no notice, only the one server status.
     @MainActor @Test func aServerThatGoesAwayPausesQuietly() async throws {
         let (client, songs) = try await Self.album("Glide", named: "Glide in FLAC")
         let song = try #require(songs.first)

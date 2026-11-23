@@ -1,11 +1,11 @@
 import Foundation
 import Observation
 
-/// The search of the Search place over the work index (ADR 0025, 0029). It finds works, people and albums by word
-/// starts, with case and diacritics folded. It knows no catalogue prefixes and no aliases (ADR 0025): "op67" does
+/// The search of the Search place over the work index. It finds works, people and albums by word
+/// starts, with case and diacritics folded. It knows no catalogue prefixes and no aliases: "op67" does
 /// not find "Op. 67", and "K. 626" does not find "KV 626".
 struct Search: Sendable {
-    /// A composer or performer, with one count for each role, the biggest first (ADR 0031).
+    /// A composer or performer, with one count for each role, the biggest first.
     struct Person: Identifiable, Sendable, Equatable {
         struct Role: Sendable, Equatable {
             /// "composer", or a role label as tagged, such as "conductor" or "violin".
@@ -37,7 +37,7 @@ struct Search: Sendable {
         }
     }
 
-    /// The results of the text, by kind: composers, performers, works, then albums (ADR 0067). A recording shows
+    /// The results of the text, by kind: composers, performers, works, then albums. A recording shows
     /// only inside its work.
     struct Results: Sendable {
         var works: [WorkIndex.Work] = []
@@ -173,7 +173,7 @@ struct Search: Sendable {
                 : $0.item.name.localizedStandardCompare($1.item.name) == .orderedAscending
         }
 
-        // A tagged track belongs to its work, so only a track without a WORK tag finds its album (ADR 0025).
+        // A tagged track belongs to its work, so only a track without a WORK tag finds its album.
         albums = index.albums.map { album in
             Tracked(
                 item: album, words: Self.words(of: [album.title, Self.artist(of: album) ?? ""].joined(separator: " ")),
@@ -186,7 +186,7 @@ struct Search: Sendable {
         let tokens = Self.words(of: text, unique: false)
         guard !tokens.isEmpty else { return Results() }
         // A title that starts with the text comes first, then a title that holds every word, then a match on the
-        // composer or the set, then a match that needs a track title (search.html).
+        // composer or the set, then a match that needs a track title.
         var results = Results()
         var ranked: [(work: WorkIndex.Work, rank: Int)] = []
         for entry in works {

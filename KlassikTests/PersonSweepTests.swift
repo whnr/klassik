@@ -573,7 +573,7 @@ struct PersonSweepTests {
         #expect(PersonSweep(store: second, now: { Self.start }).plan([Self.bach]).new.isEmpty)
     }
 
-    // MARK: Order (ADR 0046)
+    // MARK: Order
 
     static let mutter = PersonSweep.Person(kind: .performer, tag: "Anne-Sophie Mutter")
     static let ma = PersonSweep.Person(kind: .performer, tag: "Yo-Yo Ma")

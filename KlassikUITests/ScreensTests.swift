@@ -1256,7 +1256,7 @@ final class PlaybackScreens: ScreensTestCase {
         var atTop = false
         for _ in 0..<12 where !atTop {
             let before = cover.frame.minY
-            let from = row.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.1))
+            let from = titleLine(of: row)
             from.press(
                 forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: 90)), withVelocity: .slow,
                 thenHoldForDuration: 0.2)
@@ -1272,12 +1272,18 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(handle.exists, "A short drag closed the player")
         XCTAssertGreaterThan(row.frame.minY, cover.frame.maxY, "The row is not below the cover")
         snap(app, "05e-pull-from-row")
-        // The right end of the title line is empty, so the drag starts on the row and on no control.
-        row.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.1)).press(
+        titleLine(of: row).press(
             forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.95)),
             withVelocity: .fast, thenHoldForDuration: 0)
         expectPlayerClosed(app)
         XCTAssertTrue(app.buttons["show-player"].waitForExistence(timeout: 10))
+    }
+
+    /// The empty right end of the playing row's title line. The playback bar and its slider lie below the line, so
+    /// a drag from here starts on the row and on no control.
+    @MainActor
+    func titleLine(of row: XCUIElement) -> XCUICoordinate {
+        row.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0)).withOffset(CGVector(dx: 0, dy: 15))
     }
 
     /// A drag down from the cover of the player moves the whole player, and a fling closes it.
@@ -1289,9 +1295,15 @@ final class PlaybackScreens: ScreensTestCase {
         openPlayer(app)
         let cover = app.descendants(matching: .any)["hero-cover"].firstMatch
         XCTAssertTrue(cover.waitForExistence(timeout: 10))
-        cover.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(
-            forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)),
-            withVelocity: .fast, thenHoldForDuration: 0)
+        // A pull of more than 120 points closes the player, so the drag is long and does not rely on a fling
+        // estimate. A drag that the recognizer misses at its start is lost, so a lost drag repeats; three lost
+        // drags fail the check.
+        for _ in 0..<3 where app.buttons["player-handle"].exists {
+            cover.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(
+                forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)),
+                withVelocity: .default, thenHoldForDuration: 0)
+            _ = app.buttons["player-handle"].waitForNonExistence(timeout: 4)
+        }
         expectPlayerClosed(app)
         XCTAssertTrue(app.buttons["show-player"].waitForExistence(timeout: 10))
     }

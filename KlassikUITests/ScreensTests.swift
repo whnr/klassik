@@ -3174,7 +3174,8 @@ class ScreensTestCase: XCTestCase {
         }
         // One capsule holds the three tabs, so both steps are equal.
         XCTAssertEqual(
-            tabs[2].midX - tabs[1].midX, tabs[1].midX - tabs[0].midX, accuracy: 2, "Search is apart from the other tabs")
+            tabs[2].midX - tabs[1].midX, tabs[1].midX - tabs[0].midX, accuracy: 2,
+            "Search is apart from the other tabs")
         let cover = app.buttons["mini-player-cover"].frame
         // The button includes the edge padding; its inward edge is the square cover's inward edge.
         let distance = side == .right ? app.frame.maxX - cover.minX : cover.maxX - app.frame.minX

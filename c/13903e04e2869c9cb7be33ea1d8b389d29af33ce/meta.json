@@ -1,7 +1,0 @@
-{
-  "sha": "13903e04e2869c9cb7be33ea1d8b389d29af33ce",
-  "branch": "claude-ci2",
-  "path": "claude-ci2",
-  "subject": "Revert the throwaway failing walk test",
-  "ts": 1795448368
-}

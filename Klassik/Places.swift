@@ -315,7 +315,8 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
     }
 
     /// A label that kept a narrow width from the keyboard layout shows "Chronolo…" in a bar that has room. The label
-    /// gets back the widest width that it had in a bar of the same width, so it draws as before the keyboard.
+    /// gets back the width that it had in a bar of the same width, so it draws as before the keyboard. The selected
+    /// tab keeps its own layout.
     private func restoreLabelWidths() {
         let barWidth = Int(tabBar.frame.width)
         func visit(_ view: UIView) {
@@ -325,7 +326,7 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
                 // Before the first keyboard the layout is settled, so its latest width is the reference.
                 if !hadKeyboard {
                     labelWidths[key] = label.bounds.width
-                } else if abs(label.bounds.width - known) > 0.5, label.intrinsicContentSize.width > label.bounds.width {
+                } else if abs(label.bounds.width - known) > 0.5, text != selectedTab?.title {
                     let center = label.center
                     label.bounds.size.width = known
                     label.center = center

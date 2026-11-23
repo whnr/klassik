@@ -1,0 +1,7 @@
+{
+  "sha": "db2cbe69fcf0179a735c0373cf45e2c88bf1e40b",
+  "branch": "claude-ci2",
+  "path": "claude-ci2",
+  "subject": "Wait for the enrichment cache write in its test",
+  "ts": 1795445101
+}

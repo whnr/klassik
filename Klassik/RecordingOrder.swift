@@ -253,6 +253,16 @@ final class RecordingOrder {
         save(changed)
     }
 
+    /// A dragged favourite takes the place of the row it drops on. A drop on a row that is no favourite puts it last
+    /// among the favourites, because the other tiers keep their server-derived order.
+    func moveFavourite(_ id: String, of work: WorkIndex.Work, onto target: String) {
+        let ids = rows(of: work).filter(\.isFavourite).map(\.id)
+        guard let from = ids.firstIndex(of: id), id != target else { return }
+        let to = ids.firstIndex(of: target) ?? ids.count - 1
+        // `moveFavourites` takes an insertion point: after the target when the row moves down.
+        moveFavourites(of: work, from: [from], to: to > from ? to + 1 : to)
+    }
+
     /// Sends the changes that wait, then reads all stars. The server is right, except for a change that still waits.
     func refresh() async {
         await serially {

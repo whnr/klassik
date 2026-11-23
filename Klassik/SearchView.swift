@@ -335,7 +335,8 @@ private struct RecentList: View {
     }
 }
 
-/// People precede works; recordings share the Albums section (ADR 0067).
+/// Composers, performers, works, then albums, each in its own section (ADR 0067). A recording shows only inside its
+/// work, so Albums holds only albums.
 private struct SearchResults: View {
     @Environment(AppModel.self) private var model
     let results: Search.Results
@@ -356,7 +357,8 @@ private struct SearchResults: View {
                         let recordings = matching[work.id].map { "\($0) of \(total) match" } ?? total
                         lines(
                             title: work.title, isFavourite: model.recordingOrder.isFavourite(work),
-                            detail: "\(work.composer), \(recordings)")
+                            detail: "\(work.composer), \(recordings)", track: results.workTracks[work.id],
+                            nickname: results.workNicknames[work.id])
                     }
                     .playingRow(playing?.work.id == work.id)
                     .accessibilityIdentifier("search-work")
@@ -364,9 +366,9 @@ private struct SearchResults: View {
                 }
             }
         }
-        if !results.albums.isEmpty || !results.recordings.isEmpty {
+        if !results.albums.isEmpty {
             Section {
-                CountedHeading("Albums", count: results.albums.count + results.recordings.count)
+                CountedHeading("Albums", count: results.albums.count)
                 ForEach(results.albums) { album in
                     NavigationLink(value: Page.album(album.id)) {
                         HStack(spacing: Layout.rowGap) {
@@ -377,30 +379,14 @@ private struct SearchResults: View {
                             lines(
                                 title: album.title, isFavourite: model.recordingOrder.isFavourite(album: album.id),
                                 detail: [Search.artist(of: album), album.year.map(String.init)].compactMap { $0 }
-                                    .joined(separator: ", "))
+                                    .joined(separator: ", "),
+                                track: results.albumTracks[album.id])
                         }
                     }
                     .playingRow(playing?.recording.albumKey.map { album.keys.contains($0) } ?? false)
                     .accessibilityIdentifier("search-album")
                     .itemSeparator(
-                        first: album.id == results.albums.first?.id,
-                        last: album.id == results.albums.last?.id && results.recordings.isEmpty)
-                }
-                ForEach(results.recordings) { item in
-                    NavigationLink(value: Page.recording(work: item.work.id, recording: item.id)) {
-                        lines(
-                            title: item.work.title,
-                            isFavourite: model.recordingOrder.isFavourite(item.recording, of: item.work),
-                            detail: [
-                                item.recording.summary, item.recording.album, item.recording.year.map(String.init),
-                            ]
-                            .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: ", "))
-                    }
-                    .playingRow(playing?.recording.id == item.id)
-                    .accessibilityIdentifier("search-recording")
-                    .itemSeparator(
-                        first: results.albums.isEmpty && item.id == results.recordings.first?.id,
-                        last: item.id == results.recordings.last?.id)
+                        first: album.id == results.albums.first?.id, last: album.id == results.albums.last?.id)
                 }
             }
         }
@@ -424,12 +410,26 @@ private struct SearchResults: View {
         }
     }
 
-    private func lines(title: String, isFavourite: Bool, detail: String) -> some View {
+    /// `track` is the track title that found the result when its own words do not match (search.html `.why`).
+    /// `nickname` is the nickname that found a work whose title does not match.
+    private func lines(
+        title: String, isFavourite: Bool, detail: String, track: String? = nil, nickname: String? = nil
+    ) -> some View {
         VStack(alignment: .leading, spacing: gap) {
             MarkedTitle(title: title, isFavourite: isFavourite)
                 .ink()
             if !detail.isEmpty {
                 Text(detail)
+                    .typeStyle(.subheadline)
+                    .foregroundStyle(Palette.textSecondary)
+            }
+            if let track {
+                Text("Track: \(track)")
+                    .typeStyle(.subheadline)
+                    .foregroundStyle(Palette.textSecondary)
+            }
+            if let nickname {
+                Text("Nickname: \(nickname)")
                     .typeStyle(.subheadline)
                     .foregroundStyle(Palette.textSecondary)
             }

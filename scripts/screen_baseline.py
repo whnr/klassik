@@ -1,7 +1,8 @@
 """Collects the baseline for scripts/screen_diff.py: each screen as the newest usable run saw it.
 
-Runs on the branch of this run come first, so a branch is compared with its own last walk. Green runs on branch ci
-follow. A run that walked only some areas holds only their screens, so older runs fill the rest.
+Runs on the branch of this run come first, so a branch is compared with its own last walk. Green nightly runs on
+main follow: they walk every area. A run that walked only some areas holds only their screens, so older runs fill
+the rest.
 A run is usable when its artifact "screens" holds screenshots. This run is never its own baseline.
 Writes the PNGs and sources.json ({"<screen>.png": "run <id>, <commit>, <branch>"}) into the baseline directory.
 Usage: GH_TOKEN=... GITHUB_REPOSITORY=owner/repo GITHUB_RUN_ID=... BASELINE_BRANCH=... \
@@ -18,7 +19,9 @@ import tempfile
 import urllib.parse
 
 RUNS = 30  # Most pushes walk no screens; their artifact holds only the gapless report.
-FALLBACK = "ci"
+FALLBACK = "main"
+# Main pushes walk nothing, so 30 of them could hide every nightly walk.
+FALLBACK_EVENT = "schedule"
 
 
 def gh(*args):
@@ -40,14 +43,15 @@ def usable(artifacts):
     return any(a["name"] == "screens" and not a["expired"] and a["size_in_bytes"] > 100_000 for a in artifacts)
 
 
-def runs_query(repo, branch, status):
+def runs_query(repo, branch, status, event=""):
     """A branch name can hold `&`, `#` or `+`, so it needs URL encoding."""
     name = urllib.parse.quote(branch, safe="")
-    return f"repos/{repo}/actions/workflows/test.yml/runs?branch={name}&status={status}&per_page={RUNS}"
+    query = f"repos/{repo}/actions/workflows/test.yml/runs?branch={name}&status={status}&per_page={RUNS}"
+    return query + (f"&event={event}" if event else "")
 
 
-def runs_of(repo, branch, status):
-    query = runs_query(repo, branch, status)
+def runs_of(repo, branch, status, event=""):
+    query = runs_query(repo, branch, status, event)
     return json.loads(gh("api", query))["workflow_runs"]
 
 
@@ -59,7 +63,7 @@ def main(current_dir, base_dir):
     branch_runs = runs_of(repo, branch, "completed") if branch != FALLBACK else []
     wanted = {p.name for p in current_dir.glob("*.png")}
     sources = {}
-    for run in candidates(branch_runs, runs_of(repo, FALLBACK, "success"), this_run):
+    for run in candidates(branch_runs, runs_of(repo, FALLBACK, "success", FALLBACK_EVENT), this_run):
         if not wanted - set(sources):
             break
         artifacts = json.loads(gh("api", f"repos/{repo}/actions/runs/{run['id']}/artifacts"))["artifacts"]

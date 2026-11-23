@@ -311,7 +311,6 @@ struct PersonHero: View {
     static let placeholder = Palette.backgroundElevated
 
     @Environment(AppModel.self) private var model
-    @Environment(\.self) private var environment
     @Environment(\.colorScheme) private var scheme
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.displayScale) private var displayScale
@@ -503,13 +502,6 @@ struct PersonHero: View {
         model.recordingOrder.artist(named: name) != nil
     }
 
-    static func pictureMarks(showsFavourite: Bool, environment: EnvironmentValues) -> [SRGB] {
-        guard showsFavourite else { return [] }
-        var darkEnvironment = environment
-        darkEnvironment.colorScheme = .dark
-        return [Palette.favourite, .favouriteOff].map { SRGB($0.color.resolve(in: darkEnvironment)) }
-    }
-
     private func picture(_ portrait: LoadedPortrait, framing: CGRect, frame: CGSize) -> some View {
         // The scrim comes from the picture under the text, as the frame shows it.
         let visible = PortraitFraming.visible(of: framing, in: frame)
@@ -523,9 +515,8 @@ struct PersonHero: View {
         let region = CGRect(
             x: visible.minX, y: visible.minY + visible.height * (1 - under), width: visible.width * geometry.across,
             height: visible.height * under)
-        let marks = Self.pictureMarks(showsFavourite: showsFavourite, environment: environment)
         let opacity = PictureScrim.opacity(
-            over: portrait.brightestColour(in: region), increasedContrast: contrast == .increased, marks: marks)
+            over: portrait.brightestColour(in: region), increasedContrast: contrast == .increased)
         let hall = PictureScrim.hall
         let hallColour = Color(red: hall.red, green: hall.green, blue: hall.blue)
         let image = Image(uiImage: portrait.image).resizable()

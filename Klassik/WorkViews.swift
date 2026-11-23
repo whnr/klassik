@@ -286,6 +286,7 @@ struct WorkView: View {
                     .itemActions(QueueItem(work: work, recording: recording), downloads: true, favourite: true)
                     .accessibilityIdentifier("recording")
                     .moveDisabled(!row.isFavourite)
+                    .modifier(RecordingDrag(row: row, work: work))
                     .itemSeparator(first: row.id == recordings.first?.id, last: row.id == recordings.last?.id)
                 }
                 .onMove { model.recordingOrder.moveFavourites(of: work, from: $0, to: $1) }
@@ -306,6 +307,39 @@ struct WorkView: View {
     private func plays(_ recording: WorkIndex.Recording) -> Bool {
         guard let item = model.playback.item else { return false }
         return item.work.id == work.id && item.recording.id == recording.id
+    }
+}
+
+/// A long press lifts a favourite recording and a drag reorders it, with no Edit mode (ADR 0013). A row that is no
+/// favourite does not lift, but it takes a drop. The system keeps the context menu on a press that does not move.
+private struct RecordingDrag: ViewModifier {
+    @Environment(AppModel.self) private var model
+    let row: RecordingOrder.Row
+    let work: WorkIndex.Work
+
+    struct Payload: Codable, Transferable {
+        let id: String
+        static var transferRepresentation: some TransferRepresentation {
+            CodableRepresentation(contentType: .json)
+        }
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .dropDestination(for: Payload.self) { items, _ in
+                guard let dragged = items.first else { return false }
+                withoutAnimation {
+                    model.recordingOrder.moveFavourite(dragged.id, of: work, onto: row.id)
+                }
+                return true
+            }
+            .applyIf(row.isFavourite) { $0.draggable(Payload(id: row.id)) }
+    }
+}
+
+extension View {
+    @ViewBuilder fileprivate func applyIf<Result: View>(_ condition: Bool, _ transform: (Self) -> Result) -> some View {
+        if condition { transform(self) } else { self }
     }
 }
 
@@ -490,6 +524,8 @@ struct RecordingView: View {
     @State private var draft: NoteDraft?
     /// Where the notes of each row live, by track position.
     @State private var places: [NotePlace?] = []
+    /// True while a drag that began with the rows at the top runs. Only such a drag closes the player.
+    @State private var dragFromTop = false
 
     private var isPlayingThis: Bool { model.playback.recording?.id == recording.id }
 
@@ -546,8 +582,16 @@ struct RecordingView: View {
             // A finger on the page, or a scroll that it started, holds the rows. The spell begins when the page is still.
             // A scroll by the app itself is not a touch. The list has no tap gesture of its own, so row controls keep their
             // taps. Each control touches the spell itself.
-            .onScrollPhaseChange { _, phase in
+            .onScrollPhaseChange { old, phase, context in
                 spell.touching(phase == .tracking || phase == .interacting || phase == .decelerating)
+                // A drag that starts at the top and pulls past it closes the player, as a system sheet closes. A
+                // drag that scrolls up to the top only bounces. The rubber band halves the drag, so 60 points of
+                // pull ask for about 120 points of finger travel, the travel that closes the player at its handle.
+                let pull = -(context.geometry.contentOffset.y + context.geometry.contentInsets.top)
+                if phase == .interacting, old != .interacting { dragFromTop = pull >= -1 }
+                if isOverlay, dragFromTop, old == .interacting, phase != .interacting, pull > 60 {
+                    navigator.closePlayer()
+                }
             }
             .onChange(of: model.isScrubbing) { _, scrubbing in spell.hold(scrubbing) }
             .onChange(of: draft != nil) { _, writing in spell.writing(writing) }

@@ -4,7 +4,6 @@ import contextlib
 import io
 import os
 import pathlib
-import re
 import subprocess
 import sys
 import tempfile
@@ -36,7 +35,7 @@ class ScreensTestCase: XCTestCase {
 """
 
 
-def run(run_id, branch="ci"):
+def run(run_id, branch="main"):
     return {"id": run_id, "head_sha": "abcdef123456", "head_branch": branch}
 
 
@@ -240,7 +239,7 @@ class MatrixTests(unittest.TestCase):
         for group in screen_report.UI_GROUPS:
             path = reports / f"walk-{group}"
             path.mkdir()
-            state = browse if group == "places-browse" else "passed"
+            state = browse if "browse" in screen_report.UI_GROUPS[group] else "passed"
             (path / "results.txt").write_text(f"build=passed\nui={state}\n")
         for group, name in shots:
             (reports / f"walk-{group}" / f"{name}.png").write_bytes(b"")
@@ -248,8 +247,8 @@ class MatrixTests(unittest.TestCase):
 
     def test_a_passed_walk_must_keep_every_screenshot(self):
         every = [
-            ("places-browse", "01-connect"),
-            ("places-browse", "02-home"),
+            ("places-search", "01-connect"),
+            ("browse-pages", "02-home"),
             ("settings-timeline", "09-filter"),
             ("settings-timeline", "10-albums"),
         ]
@@ -278,10 +277,10 @@ class MatrixTests(unittest.TestCase):
         self.assertNotIn("01-connect", screen_report.expected(WALK, "settings"))
 
     def test_a_passed_walk_must_keep_the_connect_screenshot(self):
-        shots = [("places-browse", "02-home"), ("settings-timeline", "09-filter"), ("settings-timeline", "10-albums")]
+        shots = [("browse-pages", "02-home"), ("settings-timeline", "09-filter"), ("settings-timeline", "10-albums")]
         with tempfile.TemporaryDirectory() as directory:
             reports = self.walk_reports(directory, shots)
-            self.assertEqual(screen_report.unexplained_gaps(reports, "all", WALK), {"places-browse": ["01-connect"]})
+            self.assertEqual(screen_report.unexplained_gaps(reports, "all", WALK), {"places-search": ["01-connect"]})
             self.assertEqual(screen_report.aggregate_ui(reports, "all", WALK), "incomplete")
             self.assertEqual(screen_report.aggregate_ui(reports, "settings", WALK), "passed")
 
@@ -322,21 +321,24 @@ class PlanTests(unittest.TestCase):
     def test_pull_request_without_request_runs_only_unit_tests(self):
         self.assertEqual(self.groups("pull_request", messages="Fix parsing\n\nui: is not a request"), ("false", []))
 
-    def test_pull_request_walks_the_union_of_its_requests(self):
-        messages = "First\n\n[ui: browse]\n\nSecond\n\n[UI: Playback, browse]\n"
+    def test_head_commit_walks_the_union_of_its_request_lines(self):
+        messages = "Fix the player\n\n[ui: browse]\n[UI: Playback, browse]\n"
         self.assertEqual(
             self.groups("pull_request", messages=messages),
-            ("playback,browse", ["playback-queue", "playback-controls", "places-browse"]),
+            (
+                "playback,browse",
+                ["playback-queue", "playback-overlay", "playback-controls", "places-search", "browse-pages"],
+            ),
         )
 
     def test_pull_request_can_request_everything(self):
         ui, groups = self.groups("pull_request", messages="[ui: browse]\n[ui: all]")
-        self.assertEqual((ui, len(groups)), ("all", 4))
+        self.assertEqual((ui, groups), ("all", list(screen_report.UI_GROUPS)))
 
     def test_pull_request_warns_and_keeps_valid_requests(self):
         for messages, expected in (
             ("[ui: brwse]", ("false", [])),
-            ("[ui: places,library]\n[ui: performers]", ("places", ["places-browse"])),
+            ("[ui: places,library]\n[ui: performers]", ("places", ["places-search"])),
             ("[ui: all]\n[ui: brwse]", ("all", list(screen_report.UI_GROUPS))),
         ):
             with self.subTest(messages=messages), contextlib.redirect_stderr(io.StringIO()) as warnings:
@@ -346,6 +348,11 @@ class PlanTests(unittest.TestCase):
                     self.assertIn(group, warnings.getvalue())
                 self.assertIn("Valid UI areas: playback, places, browse, settings, timeline", warnings.getvalue())
 
+    def test_only_the_head_commit_message_requests_the_walk(self):
+        workflow = (pathlib.Path(screen_report.ROOT) / ".github/workflows/test.yml").read_text()
+        self.assertIn("repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA\" --jq '.commit.message'", workflow)
+        self.assertNotIn('/commits" --jq', workflow)
+
     def test_main_push_runs_no_walk(self):
         self.assertEqual(self.groups("push"), ("false", []))
 
@@ -353,13 +360,13 @@ class PlanTests(unittest.TestCase):
         for event, ref in (("schedule", "refs/heads/main"), ("push", "refs/heads/ci")):
             ui, matrix = screen_report.plan(event, "", "", ref=ref)
             self.assertEqual(ui, "all")
-            self.assertEqual(len(matrix["include"]), 4)
+            self.assertEqual(len(matrix["include"]), len(screen_report.UI_GROUPS))
 
     def test_release_title_walks_everything(self):
         for title in ("Release Klassik 0.15.0", "[sz-123] Release Klassik 0.15.0"):
             ui, matrix = screen_report.plan("pull_request", "", "", title)
             self.assertEqual(ui, "all")
-            self.assertEqual(len(matrix["include"]), 4)
+            self.assertEqual(len(matrix["include"]), len(screen_report.UI_GROUPS))
 
     def test_unclear_release_versions_walk_everything(self):
         for title in ("Release Klassik 1.0", "Release Klassik 0.16.x", "Release Klassik ", "Release Klassik 0.16.00"):
@@ -377,7 +384,9 @@ class PlanTests(unittest.TestCase):
             with self.subTest(title=title), contextlib.redirect_stderr(io.StringIO()) as warnings:
                 project = self.project(f'"{version}"')
                 ui, matrix = screen_report.plan("pull_request", "", "Fix\n\n[ui: browse]\n", title, project=project)
-                self.assertEqual((ui, [entry["group"] for entry in matrix["include"]]), ("browse", ["places-browse"]))
+                self.assertEqual(
+                    (ui, [entry["group"] for entry in matrix["include"]]), ("browse", ["places-search", "browse-pages"])
+                )
                 self.assertEqual(warnings.getvalue(), "")
 
     def test_patch_release_without_request_warns(self):
@@ -399,7 +408,7 @@ class PlanTests(unittest.TestCase):
                 ui, matrix = screen_report.plan(
                     "pull_request", "", "[ui: browse]", "Release Klassik 0.16.1", project=project
                 )
-                self.assertEqual((ui, len(matrix["include"])), ("all", 4))
+                self.assertEqual((ui, len(matrix["include"])), ("all", len(screen_report.UI_GROUPS)))
                 self.assertIn("::warning::Release title version 0.16.1 is not MARKETING_VERSION", warnings.getvalue())
 
     def test_plan_command_reads_project_yml_of_the_head(self):
@@ -424,44 +433,75 @@ class PlanTests(unittest.TestCase):
             )
         self.assertIn("ui=all\n", result.stdout)
 
+    def test_release_launch_runs_except_on_pull_requests_that_are_no_release(self):
+        for event in ("push", "schedule", "workflow_dispatch"):
+            self.assertTrue(screen_report.release_launch(event))
+        self.assertTrue(screen_report.release_launch("pull_request", "Release Klassik 0.21.0"))
+        self.assertTrue(screen_report.release_launch("pull_request", "[sz-1] Release Klassik 0.21.1"))
+        self.assertFalse(screen_report.release_launch("pull_request", "Fix the Release Klassik 0.21.0 notes"))
+        self.assertFalse(screen_report.release_launch("pull_request", ""))
+
+    def test_plan_command_prints_the_release_launch_flag(self):
+        script = str(pathlib.Path(screen_report.__file__))
+        for args, flag in ((["pull_request", "", "Fix"], "false"), (["push", ""], "true")):
+            result = subprocess.run(
+                [sys.executable, script, "plan", *args], input="", capture_output=True, text=True, check=True
+            )
+            self.assertIn(f"release_launch={flag}\n", result.stdout)
+
     def test_other_titles_are_not_releases(self):
         self.assertEqual(screen_report.plan("pull_request", "", "", "Fix the Release Klassik 0.16.0 notes")[0], "false")
 
-    def test_playback_shards_cover_every_method_and_screenshot_once(self):
+    def test_shards_of_a_class_cover_every_method_and_screenshot_once(self):
         source = screen_report.WALK.read_text()
-        queue = screen_report.group_tests("playback-queue")
-        controls = screen_report.group_tests("playback-controls")
-        self.assertFalse(set(queue) & set(controls))
-        playback = source.split("class PlaybackScreens:", 1)[1].split("class TimelineScreens:", 1)[0]
-        self.assertEqual(set(queue + controls), set(re.findall(r"func (test\w+)\(", playback)))
-        queue_shots = set(screen_report.expected(source, "playback", queue))
-        control_shots = set(screen_report.expected(source, "playback", controls))
-        self.assertFalse(queue_shots & control_shots)
-        self.assertEqual(queue_shots | control_shots, set(screen_report.expected(source, "playback")))
-        self.assertTrue(queue_shots)
-        self.assertTrue(control_shots)
+        for area in {area for areas in screen_report.SHARDS.values() for area in areas}:
+            name = screen_report.area_class(area)
+            groups = [group for group, areas in screen_report.UI_GROUPS.items() if area in areas.split(",")]
+            entries = [screen_report.group_tests(group, area) for group in groups]
+            with self.subTest(area=area):
+                flat = [entry for shard in entries for entry in shard]
+                self.assertEqual(len(flat), len(set(flat)))
+                methods = screen_report.class_methods(source, name)
+                self.assertEqual(set(flat), {f"{name}/{method}" for method in methods})
+                shots = [set(screen_report.expected(source, area, shard)) for shard in entries]
+                self.assertTrue(all(shots))
+                self.assertEqual(sum(len(shard) for shard in shots), len(set().union(*shots)))
+                self.assertEqual(set().union(*shots), set(screen_report.expected(source, area)))
 
-    def test_each_playback_shard_requires_only_its_own_screenshots(self):
+    def test_every_listed_shard_method_exists(self):
+        source = screen_report.WALK.read_text()
+        for group, areas in screen_report.SHARDS.items():
+            for area, methods in areas.items():
+                with self.subTest(group=group, area=area):
+                    self.assertLessEqual(methods, screen_report.class_methods(source, screen_report.area_class(area)))
+
+    def test_a_shard_runs_only_the_requested_areas(self):
+        self.assertEqual(screen_report.group_tests("places-search", "places"), ["PlacesScreens"])
+        browse = screen_report.group_tests("places-search", "browse")
+        self.assertTrue(browse)
+        self.assertTrue(all(entry.startswith("BrowseScreens/") for entry in browse))
+        self.assertEqual(screen_report.group_tests("browse-pages", "places"), [])
+        self.assertEqual(screen_report.group_tests("settings-timeline"), ["SettingsScreens", "TimelineScreens"])
+
+    def test_each_shard_requires_only_its_own_screenshots(self):
         source = screen_report.WALK.read_text()
         with tempfile.TemporaryDirectory() as directory:
             reports = pathlib.Path(directory)
-            for group in ("playback-queue", "playback-controls"):
+            for group in screen_report.UI_GROUPS:
                 report = reports / f"walk-{group}"
                 report.mkdir()
                 (report / "results.txt").write_text("build=passed\nui=passed\n")
-                for name in screen_report.expected(source, "playback", screen_report.group_tests(group)):
+                for name in screen_report.expected(source, "all", screen_report.group_tests(group)):
                     (report / f"{name}.png").touch()
-            self.assertEqual(screen_report.aggregate_ui(reports, "playback", source), "passed")
-            missing = next((reports / "walk-playback-queue").glob("*.png"))
+            self.assertEqual(screen_report.aggregate_ui(reports, "all", source), "passed")
+            missing = next((reports / "walk-browse-pages").glob("*.png"))
             missing.unlink()
-            self.assertEqual(
-                screen_report.unexplained_gaps(reports, "playback", source), {"playback-queue": [missing.stem]}
-            )
+            self.assertEqual(screen_report.unexplained_gaps(reports, "all", source), {"browse-pages": [missing.stem]})
 
     def test_run_by_hand_takes_the_input(self):
         self.assertEqual(
             self.groups("workflow_dispatch"),
-            ("all", ["playback-queue", "playback-controls", "places-browse", "settings-timeline"]),
+            ("all", list(screen_report.UI_GROUPS)),
         )
         self.assertEqual(self.groups("workflow_dispatch", "Settings"), ("settings", ["settings-timeline"]))
         self.assertEqual(self.groups("workflow_dispatch", "false"), ("false", []))
@@ -521,6 +561,12 @@ class BaselineTests(unittest.TestCase):
     def test_branch_name_is_url_encoded(self):
         query = screen_baseline.runs_query("o/r", "fix&x=1#a b", "completed")
         self.assertIn("branch=fix%26x%3D1%23a%20b&status=completed", query)
+
+    def test_the_fallback_is_the_nightly_walk_on_main(self):
+        query = screen_baseline.runs_query("o/r", screen_baseline.FALLBACK, "success", screen_baseline.FALLBACK_EVENT)
+        self.assertIn("branch=main&status=success", query)
+        self.assertTrue(query.endswith("&event=schedule"))
+        self.assertNotIn("event=", screen_baseline.runs_query("o/r", "topic", "completed"))
 
     def test_usable_needs_screenshots(self):
         screens = {"name": "screens", "expired": False, "size_in_bytes": 2_000_000}

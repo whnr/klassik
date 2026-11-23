@@ -1,7 +1,7 @@
 {
-  "sha": "95e5a6ac57f385309f48b055f2c34c95c50fcf0e",
+  "sha": "04815b144fd488edfe6c69bf4c3740acaaa05174",
   "branch": "claude-15412",
   "path": "claude-15412",
-  "subject": "Merge main into claude-15412 [ui: playback]",
-  "ts": 1795433899
+  "subject": "Walk the player in CI",
+  "ts": 1795436999
 }

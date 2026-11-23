@@ -152,6 +152,15 @@ struct BackgroundDownloadsTests {
 final class LockedCalls: @unchecked Sendable {
     private let lock = NSLock()
     private var stored: [Int] = []
-    func add(_ value: Int) { lock.lock(); stored.append(value); lock.unlock() }
-    var values: [Int] { lock.lock(); defer { lock.unlock() }; return stored }
+    func add(_ value: Int) {
+        lock.lock()
+        stored.append(value)
+        lock.unlock()
+    }
+
+    var values: [Int] {
+        lock.lock()
+        defer { lock.unlock() }
+        return stored
+    }
 }

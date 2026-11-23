@@ -121,7 +121,11 @@ final class BackgroundDownloads: NSObject, URLSessionDownloadDelegate, @unchecke
                     results.append(.success(staged))
                 } else {
                     let target = staging.appending(path: "\(staged.lastPathComponent).\(UUID().uuidString)")
-                    results.append(Result { try copyFile(staged, target); return target })
+                    results.append(
+                        Result {
+                            try copyFile(staged, target)
+                            return target
+                        })
                 }
             } else {
                 results.append(.failure(URLError(.cannotParseResponse)))

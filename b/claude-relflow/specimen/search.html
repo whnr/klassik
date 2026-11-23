@@ -360,7 +360,7 @@
         });
         const allTerms = new Map();
         for (const { terms } of recs) for (const t of terms) allTerms.set(t, (allTerms.get(t) || 0) + 1);
-        // A genre that every recording carries filters nothing, so the picker hides it (as on the composer page, person.html).
+        // A genre that every recording carries filters nothing, so the picker hides it (as on the composer page).
         // Weak tags leave some recordings without a genre, so the test counts only the recordings that carry one.
         const withGenre = recs.filter((x) => x.r.genres.length).length;
         for (const [t, n] of allTerms) if (t.startsWith("genre:") && n === withGenre) allTerms.delete(t);
@@ -376,12 +376,55 @@
           const t = x.tracks.find((t) => matches(tokens, [...x.hay, ...t.words]));
           return t ? t.title : null;
         };
-        const works = [...M.works.values()].map((w) => ({
-          w,
-          hay: words(w.name + " " + w.composer + " " + (w.grouping || "")),
-          tracks: tracksOf(w.recordings.flatMap((r) => r.songs)),
-          title: fold(w.name),
-        }));
+        // A nickname is a quoted name in the part that all track titles of a recording share, such as "Emperor" in
+        // `Piano Concerto No. 5 "Emperor": I. Allegro`. It names the work as its title does; a match that needs it
+        // says so in the row.
+        const QUOTES = { '"': '"', "“": "”", "„": "“”", "«": "»", "»": "«", "‘": "’" };
+        const sharedTitle = (titles) => {
+          if (titles.length === 1) return titles[0].split(":")[0];
+          let prefix = titles[0];
+          for (const t of titles.slice(1)) {
+            let i = 0;
+            while (i < prefix.length && i < t.length && prefix[i] === t[i]) i++;
+            prefix = prefix.slice(0, i);
+          }
+          const cut = Math.max(...[..." :(-–,["].map((c) => prefix.lastIndexOf(c)));
+          return cut < 0 ? "" : prefix.slice(0, cut);
+        };
+        const nicknamesOf = (recordings) => {
+          const names = [];
+          for (const r of recordings) {
+            const shared = sharedTitle(r.songs.map((s) => s.title));
+            for (let i = 0; i < shared.length; i++) {
+              const close = QUOTES[shared[i]];
+              const end = close ? [...shared.slice(i + 1)].findIndex((c) => close.includes(c)) : -1;
+              if (end < 0) continue;
+              const name = shared.slice(i + 1, i + 1 + end).trim();
+              if (name && !names.includes(name)) names.push(name);
+              i += end + 1;
+            }
+          }
+          return names.map((name) => ({ name, words: words(name) }));
+        };
+        const works = [...M.works.values()].map((w) => {
+          const nicks = nicknamesOf(w.recordings);
+          const plain = words(w.name + " " + w.composer + " " + (w.grouping || ""));
+          return {
+            w,
+            plain,
+            nicks,
+            hay: [...plain, ...nicks.flatMap((n) => n.words)],
+            tracks: tracksOf(w.recordings.flatMap((r) => r.songs)),
+            title: fold(w.name),
+          };
+        });
+        // The nickname that the match needs, or null when the title, composer and set match without it.
+        const nicknameOf = (x, tokens) => {
+          if (!tokens.length || !x.nicks || matches(tokens, x.plain)) return null;
+          const whole = x.nicks.find((n) => matches(tokens, [...x.plain, ...n.words]));
+          if (whole) return whole.name;
+          return x.nicks.find((n) => tokens.some((t) => n.words.some((w) => w.startsWith(t))))?.name ?? null;
+        };
         const people = new Map();
         for (const { r, terms } of recs)
           for (const t of terms) {
@@ -913,12 +956,21 @@
                   : matches(tokens, words(x.w.name))
                     ? 1
                     : 2;
-          const trackLine = (track) =>
-            track ? el("div", { class: "t-subheadline secondary" }, `Track: ${track}`) : null;
+          const trackLine = (track, nickname) =>
+            nickname
+              ? el("div", { class: "t-subheadline secondary" }, `Nickname: ${nickname}`)
+              : track
+                ? el("div", { class: "t-subheadline secondary" }, `Track: ${track}`)
+                : null;
           const wl = works
             .map((x) => ({ ...x, track: tokens.length ? why(x, tokens) : "" }))
             .filter((x) => x.track !== null)
-            .map((x) => ({ ...x, n: x.w.recordings.filter((r) => ok.has(r)).length, score: rank(x) }));
+            .map((x) => ({
+              ...x,
+              nickname: nicknameOf(x, tokens),
+              n: x.w.recordings.filter((r) => ok.has(r)).length,
+              score: rank(x),
+            }));
           const shown = wl
             .filter((x) => x.n > 0)
             .sort((a, b) => a.score - b.score || a.w.name.localeCompare(b.w.name, undefined, { numeric: true }));
@@ -927,7 +979,7 @@
               section(
                 "Works",
                 shown.length,
-                shown.map(({ w, n, track }) =>
+                shown.map(({ w, n, track, nickname }) =>
                   el(
                     "a",
                     { class: "row", href: href("work.html", { work: w.id, back: "Search" }) },
@@ -940,7 +992,7 @@
                         { class: "t-subheadline secondary" },
                         `${w.composer}, ${conds.length ? `${n} of ${plural(w.recordings.length, "recording")} match` : plural(n, "recording")}`,
                       ),
-                      trackLine(track),
+                      trackLine(track, nickname),
                     ),
                     el("span", { html: ICON.chevron }),
                   ),

@@ -14,6 +14,8 @@ final class BackgroundDownloads: NSObject, URLSessionDownloadDelegate, @unchecke
     /// Tasks whose answer was no success, by task identifier.
     private var refused: [Int: Int] = [:]
     private let staging: URL
+    /// Copies the staged file for a later waiter; a test replaces it.
+    var copyFile: @Sendable (URL, URL) throws -> Void = { try FileManager.default.copyItem(at: $0, to: $1) }
     private var session: URLSession!
 
     init(
@@ -86,7 +88,11 @@ final class BackgroundDownloads: NSObject, URLSessionDownloadDelegate, @unchecke
     /// `urlSessionDidFinishEvents` calls the handler.
     func attach(completion: @escaping () -> Void) {
         lock.lock()
-        self.completion = completion
+        let earlier = self.completion
+        self.completion = {
+            earlier?()
+            completion()
+        }
         lock.unlock()
     }
 
@@ -102,28 +108,27 @@ final class BackgroundDownloads: NSObject, URLSessionDownloadDelegate, @unchecke
         lock.unlock()
         guard !joined.isEmpty else { return }
         let staged = task.taskDescription.flatMap(stagedFile)
-        for (index, entry) in joined.enumerated() {
-            let waiter = entry.continuation
+        // Each download moves its file away, so every waiter after the first gets its own copy. All copies exist
+        // before any waiter resumes: the first consumer can move the staged file at once.
+        var results: [Result<URL, any Error>] = []
+        for index in joined.indices {
             if let status {
-                waiter.resume(throwing: SubsonicError.http(status: status))
+                results.append(.failure(SubsonicError.http(status: status)))
             } else if let error {
-                waiter.resume(throwing: error)
+                results.append(.failure(error))
             } else if let staged {
-                // Each download moves its file away, so every waiter after the first gets its own copy.
                 if index == 0 {
-                    waiter.resume(returning: staged)
+                    results.append(.success(staged))
                 } else {
-                    let copy = staging.appending(path: "\(staged.lastPathComponent).\(UUID().uuidString)")
-                    do {
-                        try FileManager.default.copyItem(at: staged, to: copy)
-                        waiter.resume(returning: copy)
-                    } catch {
-                        waiter.resume(throwing: error)
-                    }
+                    let target = staging.appending(path: "\(staged.lastPathComponent).\(UUID().uuidString)")
+                    results.append(Result { try copyFile(staged, target); return target })
                 }
             } else {
-                waiter.resume(throwing: URLError(.cannotParseResponse))
+                results.append(.failure(URLError(.cannotParseResponse)))
             }
+        }
+        for (entry, result) in zip(joined, results) {
+            entry.continuation.resume(with: result)
         }
     }
 

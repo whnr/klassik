@@ -43,6 +43,41 @@ struct BackgroundDownloadsTests {
         #expect(try String(contentsOf: two, encoding: .utf8) == "bytes")
     }
 
+    @Test func copiesExistBeforeTheFirstWaiterMovesTheFile() async throws {
+        let downloads = makeDownloads()
+        // A slow copy gives the first consumer time to move the staged file, as TrackStore does.
+        downloads.copyFile = {
+            Thread.sleep(forTimeInterval: 0.3)
+            try FileManager.default.copyItem(at: $0, to: $1)
+        }
+        let task = makeTask("a")
+        let first = Task {
+            let file = try await downloads.join(task, resume: false)
+            let moved = file.appendingPathExtension("moved")
+            try FileManager.default.moveItem(at: file, to: moved)
+            return moved
+        }
+        let second = Task { try await downloads.join(task, resume: false) }
+        await waitFor(downloads, task, count: 2)
+        downloads.received(try makeFile("bytes"), for: task, status: 200)
+        downloads.finish(task, error: nil)
+        _ = try await first.value
+        let copy = try await second.value
+        #expect(try String(contentsOf: copy, encoding: .utf8) == "bytes")
+    }
+
+    @Test func attachCallsTheEarlierHandlerToo() async {
+        let downloads = makeDownloads()
+        let calls = LockedCalls()
+        downloads.attach { calls.add(1) }
+        downloads.attach { calls.add(2) }
+        downloads.urlSessionDidFinishEvents(forBackgroundURLSession: URLSession(configuration: .ephemeral))
+        await withCheckedContinuation { (done: CheckedContinuation<Void, Never>) in
+            DispatchQueue.main.async { done.resume() }
+        }
+        #expect(calls.values == [1, 2])
+    }
+
     @Test func refusedAnswerFailsEveryWaiter() async throws {
         let downloads = makeDownloads()
         let task = makeTask("a")
@@ -112,4 +147,11 @@ struct BackgroundDownloadsTests {
             }
         }
     }
+}
+
+final class LockedCalls: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: [Int] = []
+    func add(_ value: Int) { lock.lock(); stored.append(value); lock.unlock() }
+    var values: [Int] { lock.lock(); defer { lock.unlock() }; return stored }
 }

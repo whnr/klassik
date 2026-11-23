@@ -1,7 +1,7 @@
 {
-  "sha": "37f1ac3c046a7c80a0800bbad3e782328ac4b20c",
+  "sha": "b17fdbf1f7823e16003f559968cbc6d47d68dbf7",
   "branch": "claude-15411",
   "path": "claude-15411",
-  "subject": "[sz-rs30.1.154.11] Scroll to the top in short steps",
-  "ts": 1795472797
+  "subject": "[sz-rs30.1.154.11] Start row drags on the title line",
+  "ts": 1795475965
 }

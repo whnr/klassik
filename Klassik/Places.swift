@@ -166,6 +166,11 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
     private var remeasuresAtFinalFrame = false
     private var settlesFinalFrame = false
     private var restoresFrame = false
+    /// The frame that the last layout pass gave the bar. UIKit's container can lay the bar out again at the full
+    /// width without a new pass of this controller, which puts the Search circle under the mini player.
+    private var barFrame: CGRect?
+    private var barFrameObservation: NSKeyValueObservation?
+    private var barRepairs = 0
     private(set) var playerHost: UIHostingController<AnyView>?
     let playerLayout = PlayerOverlayLayout()
 
@@ -194,6 +199,7 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
     @objc private func keyboardVisibilityChanged(_ notification: Notification) {
         keyboardVisible = notification.name == UIResponder.keyboardWillShowNotification
         if !keyboardVisible { remeasuresLabels = true }
+        barRepairs = 0
         view.setNeedsLayout()
     }
 
@@ -284,6 +290,36 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
         }
     }
 
+    /// Puts the bar back at the frame of the last pass when the container moves it. A few repairs only: a container
+    /// that always disagrees must not start a loop.
+    private func observeBarFrame() {
+        guard barFrameObservation == nil else { return }
+        barFrameObservation = tabBar.observe(\.frame, options: [.new]) { [weak self] bar, _ in
+            MainActor.assumeIsolated {
+                guard let self, let barFrame = self.barFrame, bar.frame != barFrame, self.barRepairs < 4 else { return }
+                self.barRepairs += 1
+                Task { @MainActor [weak self] in self?.view.setNeedsLayout() }
+            }
+        }
+    }
+
+    /// A label that kept the width from the keyboard layout shows "Chronolo…" in a bar that has room. The label
+    /// takes the width of its text again.
+    private func widenTruncatedLabels() {
+        func visit(_ view: UIView) {
+            if let label = view as? UILabel, label.bounds.width > 0 {
+                let wanted = label.intrinsicContentSize.width
+                if wanted > label.bounds.width + 0.5 {
+                    let center = label.center
+                    label.bounds.size.width = wanted
+                    label.center = center
+                }
+            }
+            view.subviews.forEach(visit)
+        }
+        visit(tabBar)
+    }
+
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         configureBackGesture()
@@ -353,6 +389,9 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
             }
         }
         tabBar.frame = frame
+        barFrame = frame
+        observeBarFrame()
+        widenTruncatedLabels()
         playerHost?.view.frame = view.bounds
         let top = view.window?.safeAreaInsets.top ?? view.safeAreaInsets.top
         let bottom = max(0, view.bounds.maxY - tabBar.convert(tabBar.bounds, to: view).minY)

@@ -227,6 +227,38 @@ final class PlacesScreens: ScreensTestCase {
         try expectTabsAfterTheSearchKeyboard(playing: true)
     }
 
+    /// A composer filter on the Search page, then two taps on Library: the Search circle must stay in the bar.
+    @MainActor
+    func testSearchTabStaysAfterAFilterAndTwoLibraryTaps() throws {
+        let app = try launchAndConnect(openComposers: false)
+        openPlace(app, "Library")
+        app.buttons["library-composers"].tap()
+        _ = pausedPlayerInLibrary(app)
+        openPlace(app, "Library")
+        let search = tab(app, "Search")
+        XCTAssertTrue(search.waitForExistence(timeout: 10))
+        let searchFrame = search.frame
+        openPlace(app, "Search")
+        let field = app.textFields["search-field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        field.tap()
+        field.typeText("chopin\n")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+        app.buttons["search-filters"].tap()
+        let term = app.buttons.matching(identifier: "filter-term").firstMatch
+        XCTAssertTrue(term.waitForExistence(timeout: 10))
+        term.tap()
+        app.buttons["filter-done"].tap()
+        XCTAssertTrue(app.buttons["filter-done"].waitForNonExistence(timeout: 5))
+        tab(app, "Library").tap()
+        tab(app, "Library").tap()
+        XCTAssertTrue(app.buttons["library-composers"].waitForExistence(timeout: 10))
+        XCTAssertTrue(
+            eventually(timeout: 5) { search.exists && search.isHittable && search.frame == searchFrame },
+            "The Search circle is gone or moved: \(search.frame) instead of \(searchFrame)")
+        snap(app, "02t-search-tab-after-filter-and-two-taps")
+    }
+
     @MainActor
     private func expectTabsAfterTheSearchKeyboard(playing: Bool) throws {
         let app = try launchAndConnect(openComposers: false)

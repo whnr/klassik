@@ -175,8 +175,10 @@ def check_vague(root=ROOT):
     return problems
 
 
-# A specimen file named in parentheses, such as "(design/specimen/tokens.html)", and a bead ID in Markdown.
-TAG = re.compile(r"\((?:design/specimen/)?[a-z-]{3,}\.html(?:[ ,][^)]*)?\)")
+# A specimen file named in parentheses, such as "(specimen player.html `.wash`)", and a bead ID in Markdown.
+TAG = re.compile(r"\((?:(?:specimen|see|per|from)\s+)?(?:design/specimen/)?[\w-]+\.(?:html|css|js)\b[^)]*\)", re.I)
+# Only the comment part of a line is checked, so a code string or a URL never matches.
+COMMENT = re.compile(r"(?<!:)//|#|/\*|^\s*\*")
 BEAD = re.compile(r"\bsz-(?=[a-z0-9.]*\d)[a-z0-9.]+")
 TAG_SKIP = ("design/scripts/check.py", "scripts/test_design_check.py")
 
@@ -193,7 +195,8 @@ def check_tags(root=ROOT):
         except (OSError, UnicodeDecodeError):
             continue
         for number, line in enumerate(text.splitlines(), 1):
-            if TAG.search(line) and not name.endswith(".md"):
+            comment = COMMENT.search(line)
+            if comment and TAG.search(line, comment.start()) and not name.endswith(".md"):
                 problems.append(f"{name}:{number}: a comment tags a specimen file")
             if name.endswith(".md") and BEAD.search(line):
                 problems.append(f"{name}:{number}: a document names a bead")

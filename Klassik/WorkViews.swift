@@ -789,7 +789,7 @@ struct RecordingView: View {
         return model.library.index.performer(named: name) == nil ? nil : .performer(name)
     }
 
-    /// A name in a row opens its page as in the header (specimen player.html `performerRows`).
+    /// A name in a row opens its page as in the header.
     private func rowLink(_ line: Roles.Line, _ name: String) -> Page? {
         if line.kind == .other, line.label == PlayerPage.composerLabel {
             return model.library.index.composer(named: name) == nil ? nil : .composer(name)
@@ -1042,7 +1042,7 @@ private struct MovementRow: View {
     }
 
     /// The playing row: its title, the names that differ, the playback bar with the note marks, the controls, the
-    /// notes and the note that the listener writes (specimen player.html `openBody`).
+    /// notes and the note that the listener writes.
     private var playing: some View {
         let player = model.playback
         return VStack(alignment: .leading, spacing: gap) {
@@ -1068,7 +1068,7 @@ private struct MovementRow: View {
     }
 }
 
-/// The controls of the playing row, centred in ink (specimen player.html `.mv-controls`). Next Work and Stop follow
+/// The controls of the playing row, centred in ink. Next Work and Stop follow
 /// Next: the specimen has neither, but the queue needs them.
 private struct PlayerControls: View {
     let player: PlaybackSession
@@ -1127,7 +1127,7 @@ private struct PlayerControls: View {
     }
 }
 
-/// The notes of a movement, earliest first. The time is a prefix in the tint (specimen player.html `.note`). A tap
+/// The notes of a movement, earliest first. The time is a prefix in the tint. A tap
 /// on the text moves to the note; a tap on its time moves there and plays.
 private struct NoteList: View {
     let notes: [ListeningNote]
@@ -1267,7 +1267,7 @@ private struct MovementTitle: View {
 }
 
 /// A button that does not dim its label while a finger is down. A row that opens must not flash its duration and its
-/// offline mark (specimen player.html `.track .row`).
+/// offline mark.
 struct StillButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -1547,7 +1547,7 @@ private struct NextItemRow: View {
     }
 }
 
-/// A capsule button face (specimen.css .capsule): filled in the accent, or muted on the quiet fill.
+/// A capsule button face: filled in the accent, or muted on the quiet fill.
 struct CapsuleLabel: View {
     let title: String
     let systemImage: String?

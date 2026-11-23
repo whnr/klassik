@@ -177,7 +177,7 @@ private struct ListedWorksSheet: View {
                 }
             }
             .environment(\.pageHeading, "")
-            // The specimen sheet head replaces the bar: a leading title and a plain Done (specimen.js `K.sheet`).
+            // The specimen sheet head replaces the bar: a leading title and a plain Done.
             .toolbar(.hidden, for: .navigationBar)
             .safeAreaInset(edge: .top, spacing: 0) {
                 SheetHead(title: listed.title, done: { dismiss() })

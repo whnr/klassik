@@ -649,7 +649,7 @@ final class BrowseScreens: ScreensTestCase {
             several.tap()
             let listed = app.buttons.matching(identifier: "chronology-listed-work").firstMatch
             XCTAssertTrue(listed.waitForExistence(timeout: 10), "A row of several works lists none")
-            // The sheet head has a leading title and a plain Done on its trailing edge (specimen.js K.sheet).
+            // The sheet head has a leading title and a plain Done on its trailing edge.
             let title = app.staticTexts["sheet-title"]
             let done = app.buttons["sheet-done"]
             XCTAssertTrue(title.exists, "The sheet has no head")
@@ -1794,7 +1794,7 @@ final class PlaybackScreens: ScreensTestCase {
     }
 
     /// A name in the playing row of the overlay is a link too. It closes the player and opens the page in the place
-    /// below, as a header link does (specimen player.html `performerRows`).
+    /// below, as a header link does.
     @MainActor
     func testPlayingRowNamesLinkFromTheOverlay() throws {
         let app = try launchAndConnect()
@@ -3325,7 +3325,7 @@ class ScreensTestCase: XCTestCase {
     }
 
     /// The player of a new item opens at its top, so its wash keeps the full colour below the details and fades into
-    /// the page ground at `Layout.washHeight` (specimen player.html resets scrollTop when the item changes).
+    /// the page ground at `Layout.washHeight`, as the specimen does when the item changes.
     /// The wash comes after its cover loads, so the check waits for it, but for less than the quiet spell.
     @MainActor
     func expectWashFromTheTop(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {

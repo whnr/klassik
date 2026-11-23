@@ -146,6 +146,8 @@ class RepoTests(unittest.TestCase):
                 "b.md": b"Check it. (sz-abc1.2)\n",
                 "ok.md": b"Run `unix:sz-codex`. The page tokens.html loads.\n",
                 "ok.swift": b"/// A style of the token page.\n",
+                "str.swift": b'let a = "(tokens.html)"\nlet u = "https://x.test/(tokens.html)"\n',
+                "prose.swift": b"/// As work.html draws them, with css: tokens.css .a\n",
             }
         )
         self.assertEqual(
@@ -162,6 +164,10 @@ class RepoTests(unittest.TestCase):
             "name.swift": "/// A row (person.html workRow).",
             "ticks.swift": "/// The kind in bold (search.html `.seg button.on`).",
             "caps.swift": "// Buttons beside the row (tokens.html SWIPE).",
+            "lead.swift": "/// The wash (specimen player.html `.wash`).",
+            "see.swift": "// Gaps above the title (see specimen.css `.page-head`).",
+            "per.swift": "# Title and Done (per specimen.js K.sheet)",
+            "from.swift": "/// The icon (from tokens.js ICON.chronology).",
             "html.html": "// Swipe Right opens Download (tokens.html SWIPE).",
         }
         root = self.repo({name: (text + "\n").encode() for name, text in forms.items()})

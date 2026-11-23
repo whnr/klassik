@@ -753,8 +753,8 @@ struct RecordingView: View {
         .frame(maxWidth: .infinity)
     }
 
-    /// The cover and the title. In the overlay one drag zone wraps them, so a drag moves the whole player and takes
-    /// priority over the list scroll. The page has no wrapper: it would change how the favourite mark takes a tap.
+    /// The cover and the title. In the overlay one drag zone wraps them; its UIKit pan begins only for a downward move,
+    /// so an upward drag scrolls the list. The page has no wrapper: it would change how the favourite mark takes a tap.
     @ViewBuilder private func heading(_ drag: PlayerCloseDrag?) -> some View {
         let content = Group {
             CoverImage(
@@ -774,7 +774,7 @@ struct RecordingView: View {
             VStack(spacing: Layout.heroGap) { content }
                 .frame(maxWidth: .infinity)
                 .contentShape(.rect)
-                .highPriorityGesture(drag.gesture)
+                .gesture(drag.heroGesture)
         } else {
             content
         }

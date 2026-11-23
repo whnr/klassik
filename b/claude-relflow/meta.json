@@ -1,7 +1,7 @@
 {
-  "sha": "f86b38a7a068d897e6cc97e8d103d61f93751b57",
+  "sha": "e15328ca772c3903acee3065427c521532e9e029",
   "branch": "claude-relflow",
   "path": "claude-relflow",
-  "subject": "Create the GitHub release in the TestFlight run",
-  "ts": 1795466897
+  "subject": "Format the release script and its tests",
+  "ts": 1795467072
 }

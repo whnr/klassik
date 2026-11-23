@@ -56,7 +56,7 @@ final class ImageStore {
         let removal = removal
         let data = await Task.detached(priority: .userInitiated) { () -> Data? in
             await removal?.value
-            try? Data(contentsOf: file)
+            return try? Data(contentsOf: file)
         }.value
         return data
     }

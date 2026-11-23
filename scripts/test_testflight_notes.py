@@ -34,9 +34,9 @@ class NotesTests(unittest.TestCase):
         for instruction in cases:
             with self.subTest(instruction=instruction):
                 with self.assertRaisesRegex(ValueError, "Development term"):
-                    validate(f"Klassik 0.10.4\n\n1. {instruction}", "0.10.4")
+                    validate(f"Klassik 0.10.4\n\n- {instruction}", "0.10.4")
                 with self.assertRaisesRegex(ValueError, "Development term"):
-                    validate(f"Klassik 0.10.4\n\n1. {instruction.swapcase()}", "0.10.4")
+                    validate(f"Klassik 0.10.4\n\n- {instruction.swapcase()}", "0.10.4")
 
     def test_installed_app_actions_pass(self):
         cases = (
@@ -52,15 +52,15 @@ class NotesTests(unittest.TestCase):
         )
         for instruction in cases:
             with self.subTest(instruction=instruction):
-                notes = f"Klassik 0.10.4\n\n1. {instruction}"
+                notes = f"Klassik 0.10.4\n\n- {instruction}"
                 self.assertEqual(validate(notes, "0.10.4"), notes)
 
     def test_bead_id_fails(self):
         with self.assertRaisesRegex(ValueError, "bead ID"):
-            validate("Klassik 0.10.4\n\n1. Play. Expect sound. (sz-abc1)", "0.10.4")
+            validate("Klassik 0.10.4\n\n- Play. Expect sound. (sz-abc1)", "0.10.4")
 
     def test_words_containing_development_terms_pass(self):
-        notes = "Klassik 0.10.4\n\n1. Search for Circle, Branching, and Reposition. Expect matching recordings."
+        notes = "Klassik 0.10.4\n\n- Search for Circle, Branching, and Reposition. Expect matching recordings."
         self.assertEqual(validate(notes, "0.10.4"), notes)
 
     def test_published_app_checks_pass(self):
@@ -69,9 +69,24 @@ class NotesTests(unittest.TestCase):
         version = notes.splitlines()[0].removeprefix("Klassik ")
         self.assertEqual(validate(notes, version), notes)
 
+    def test_numbered_checklist_fails(self):
+        with self.assertRaisesRegex(ValueError, "numbered checks"):
+            validate("Klassik 0.10.4\n\n1. Play. Expect sound.", "0.10.4")
+
+    def test_long_summary_fails(self):
+        with self.assertRaisesRegex(ValueError, "words"):
+            validate("Klassik 0.10.4\n\n- " + "word " * 151, "0.10.4")
+        validate("Klassik 0.10.4\n\n- " + "word " * 149, "0.10.4")
+
+    def test_repeating_the_last_release_fails(self):
+        old = "Klassik 0.10.3\n\n- Page menu on work pages.\n- Search shows nicknames."
+        with self.assertRaisesRegex(ValueError, "repeats"):
+            validate("Klassik 0.10.4\n\n- Search shows nicknames.\n- Player closes by drag.", "0.10.4", old)
+        validate("Klassik 0.10.4\n\n- Player closes by drag.", "0.10.4", old)
+
     def test_version_mismatch_fails(self):
         with self.assertRaisesRegex(ValueError, "must start"):
-            validate("Klassik 0.10.3\n\n1. Play. Expect sound.", "0.10.4")
+            validate("Klassik 0.10.3\n\n- Play. Expect sound.", "0.10.4")
 
     def test_length_limit(self):
         notes = "Klassik 0.10.4\n".ljust(4000, "a")

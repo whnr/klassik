@@ -1,6 +1,7 @@
 """Sets the "What to Test" text of a TestFlight build from docs/what-to-test.md.
 
-Usage: testflight_notes.py --check            validates version, length, and development terms
+Usage: testflight_notes.py --check            validates version, length, style, and staleness
+       testflight_notes.py --release-summary  prints the text for the Summary of the GitHub release
        testflight_notes.py <build-number>     waits for the build, then sets the text
 Env for the second form: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8.
 The file starts with the line "Klassik X.Y.Z". Apple allows 4000 characters.
@@ -10,6 +11,7 @@ import json
 import os
 import pathlib
 import re
+import subprocess
 import sys
 import time
 import urllib.error
@@ -24,9 +26,12 @@ DEVELOPMENT_TERMS = re.compile(
 )
 
 BEAD_ID = re.compile(r"\bsz-[a-z0-9]")
+NUMBERED_CHECK = re.compile(r"^\s*\d+[.)]\s", re.MULTILINE)
+# The text is a feature summary: about 100 words. The cap leaves room and still stops a checklist.
+MAX_WORDS = 150
 
 
-def validate(notes, version):
+def validate(notes, version, previous=None):
     if not notes.startswith(f"Klassik {version}\n"):
         raise ValueError(
             f"docs/what-to-test.md must start with the line 'Klassik {version}'. Write the notes for this release."
@@ -38,7 +43,29 @@ def validate(notes, version):
     match = DEVELOPMENT_TERMS.search(notes)
     if match:
         raise ValueError(f"Development term in docs/what-to-test.md: {match.group()}. Use installed-app checks only.")
+    body = notes.split("\n", 1)[1]
+    words = len(body.split())
+    if words > MAX_WORDS:
+        raise ValueError(f"docs/what-to-test.md has {words} words; the feature summary allows {MAX_WORDS}. Write one short bullet per change.")
+    if NUMBERED_CHECK.search(body):
+        raise ValueError("docs/what-to-test.md has numbered checks. Write one bullet per feature change, not a regression checklist.")
+    if previous:
+        old = {line.strip() for line in previous.splitlines()[1:] if line.strip()}
+        repeated = [line.strip() for line in body.splitlines() if line.strip() in old]
+        if repeated:
+            raise ValueError(f"docs/what-to-test.md repeats a line of the last release's notes: {repeated[0]!r}. Write this release's changes.")
     return notes
+
+
+def previous_notes(root, version):
+    """The notes of the newest release tag, or None when this version is already tagged or git has no tags."""
+    git = ["git", "-C", str(root)]
+    tag = subprocess.run(git + ["tag", "--list", "v*", "--sort=-v:refname"], capture_output=True, text=True)
+    newest = tag.stdout.split()[0] if tag.stdout.split() else None
+    if tag.returncode or not newest or newest == f"v{version}":
+        return None
+    old = subprocess.run(git + ["show", f"{newest}:docs/what-to-test.md"], capture_output=True, text=True)
+    return old.stdout if old.returncode == 0 else None
 
 
 def main():
@@ -46,10 +73,13 @@ def main():
     notes = (root / "docs/what-to-test.md").read_text().strip()
     version = re.search(r'^ *MARKETING_VERSION: "(.*)"', (root / "project.yml").read_text(), re.M).group(1)
     try:
-        validate(notes, version)
+        validate(notes, version, previous_notes(root, version))
     except ValueError as error:
         sys.exit(str(error))
     if sys.argv[1:] == ["--check"]:
+        return
+    if sys.argv[1:] == ["--release-summary"]:
+        print("## Summary\n\n" + notes.split("\n", 1)[1].strip())
         return
 
     import jwt  # pyjwt[crypto]

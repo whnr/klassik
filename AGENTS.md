@@ -45,9 +45,9 @@ Rules for coding agents in this repository.
 - `.github/workflows/testflight.yml` runs by hand. It requires a successful `test.yml` run that covers the commit. `scripts/green_test_gate.py` counts a run as green only when its `build` and `test` jobs passed. It accepts the commit's own green run, or the green run of the PR head that a merge commit adds nothing to, or the newest earlier commit with a green run when every later commit changes only ignored paths (documentation, “What to Test”) and the `MARKETING_VERSION` or `CURRENT_PROJECT_VERSION` lines of `project.yml`. Any other change, also elsewhere in `project.yml`, needs its own green run. A merge adds nothing when it has the tree of its PR head and main had not moved past that head. A run or history that the gate cannot read blocks. It archives without signing, signs at export with the App Store Connect API key, and uploads with `altool`. A daily run uploads again when the newest build is 85 days old, because TestFlight builds expire after 90 days.
 - Write each build's “What to Test” in `docs/what-to-test.md`, with at most 4000 characters.
 - Start with `Klassik X.Y.Z`, matching `MARKETING_VERSION` in `project.yml`.
-- Include only numbered checks that testers perform in the installed app. Give each check an expected result. Write no bead IDs: beads belong in PRs, commits and comments, never in documentation.
+- Write a feature summary for any tester: one bullet per real change in the release, up to about 20 words each, about 100 words in total (150 at most). No numbered checks, bead IDs or regression checks; tests cover those. Flo's tester list goes in one comment on the release PR.
 - Cover each app change since the last TestFlight build. Keep development instructions and process notes in PR descriptions or documentation.
-- `scripts/testflight_notes.py --check` rejects version mismatches, excess length, and unambiguous development terms.
+- `scripts/testflight_notes.py --check` rejects version mismatches, excess length, more than 150 words, numbered checks, bead IDs, unambiguous development terms, and a line repeated from the newest release tag's notes. `--release-summary` prints the text for the GitHub release Summary.
 - `.github/workflows/testflight-notes.yml` runs this narrow backstop and its tests on every PR and `main` push.
 - The fresh release review is the semantic gate. It checks that every instruction tests installed-app behavior.
 - `testflight.yml` validates notes before its macOS job. `scripts/testflight_notes.py` sets them after upload.
@@ -66,6 +66,7 @@ Rules for coding agents in this repository.
 - The release agent merges the approved release PR. When the release branch is up to date with main, TestFlight accepts the green run of the release PR head and need not wait for Test on the merge commit. Otherwise it waits for successful Test on that commit.
 - The release agent starts TestFlight on the merge commit and watches all jobs, including notes publication.
 - Read annotations and logs. Fix failures through another reviewed PR, or report the blocker on the bead.
+- Create the GitHub release on the tag with the TestFlight dispatch. Its Summary is the output of `scripts/testflight_notes.py --release-summary`, copied unchanged; the Changes section follows. Never take the Summary from an older release.
 - Report the build, run URL, and result on the bead. The owner only installs the build and tests the app.
 
 ## Pull requests

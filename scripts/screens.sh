@@ -73,7 +73,8 @@ fi
 # The simulator answers in two architectures; naming one spares xcodebuild the choice.
 project=(-project Klassik.xcodeproj -scheme Klassik -derivedDataPath build/DerivedData)
 common=("${project[@]}" -destination "platform=iOS Simulator,id=$udid,arch=arm64")
-# Records when xcodebuild prints its first line and its first compile step, which locates a slow start.
+# Records when xcodebuild prints its first line, regenerates the SDK stat cache and starts its first compile step,
+# which locates a slow start.
 first_output() {
   local line seen=
   while IFS= read -r line; do
@@ -82,6 +83,7 @@ first_output() {
       seen=1
     fi
     case "$line" in
+      "Base directory status changed"*) echo "build-stat-cache-regenerated $((SECONDS - phase_start)) s" >> "$out/timings.txt" ;;
       "SwiftDriver "* | "CompileC "* | "SwiftCompile "*)
         if [ "$seen" = 1 ]; then
           echo "build-first-compile $((SECONDS - phase_start)) s" >> "$out/timings.txt"

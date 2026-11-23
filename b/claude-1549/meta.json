@@ -1,7 +1,7 @@
 {
-  "sha": "a70daa92f5741e06f680145dc7c625090d3197b8",
+  "sha": "86da10e2a9af3b78e62f988a181f03bfa29f79ae",
   "branch": "claude-1549",
   "path": "claude-1549",
-  "subject": "Let upward drags on the player hero scroll",
-  "ts": 1795415086
+  "subject": "Keep the overlay pull in one value",
+  "ts": 1795415648
 }

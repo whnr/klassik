@@ -951,7 +951,6 @@ private struct MovementRow: View {
                     NoteList(notes: notes, jump: jump)
                 }
             }
-            .accessibilityIdentifier("movement")
         }
     }
 

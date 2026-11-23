@@ -115,7 +115,11 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
+      # The notes test runs the stale-notes check, which reads the newest release tag.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
       # A pinned static build: the Ubuntu mirror can take ten minutes for ffmpeg's packages.
       # BtbN prunes old builds; when this one is gone the step warns and falls back to apt.
       - name: Install ffmpeg

@@ -1,7 +1,7 @@
 {
-  "sha": "6c255076d04e6f4245fbce3511fdda9b61961134",
+  "sha": "20f7afc13d7f74fe5e933d0efdbe8ea4e1d25466",
   "branch": "claude-152",
   "path": "claude-152",
-  "subject": "[sz-rs30.1.152] Take the label width from before the keyboard",
-  "ts": 1795411733
+  "subject": "[sz-rs30.1.152] Key the label width by its font",
+  "ts": 1795414449
 }

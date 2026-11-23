@@ -1,7 +1,7 @@
 {
-  "sha": "fc194655537ab5651e70a121083028ab20f39809",
+  "sha": "75290a55d76fa79665fcb68ea62aa5af19456562",
   "branch": "claude-notes",
   "path": "claude-notes",
-  "subject": "Hold the release Summary to the feature summary",
-  "ts": 1795464101
+  "subject": "Fail closed on unreadable previous notes",
+  "ts": 1795464560
 }

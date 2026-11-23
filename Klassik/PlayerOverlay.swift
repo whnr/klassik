@@ -8,6 +8,33 @@ final class PlayerOverlayLayout {
     var bottom: CGFloat = 0
 }
 
+/// The drag that closes the player. The handle and the heading of the player (cover and title) take it, so the player
+/// follows the finger and shows the page below, as the works sheet of Chronology does. Rows below the heading scroll.
+@MainActor struct PlayerCloseDrag {
+    /// How far the finger has pulled the player down. It returns to zero when the finger lifts.
+    let pulled: GestureState<CGFloat>
+    /// Where the player stays when a drag closes it, so it leaves from there and does not jump back.
+    let leave: (CGFloat) -> Void
+    let close: () -> Void
+
+    /// A pull this far closes the player on release.
+    private static let closingPull: CGFloat = 120
+    /// A fling that would carry the player this far closes it.
+    private static let closingFling: CGFloat = 240
+
+    var gesture: some Gesture {
+        DragGesture()
+            .updating(pulled) { value, state, _ in state = max(0, value.translation.height) }
+            .onEnded { value in
+                let pull = value.translation.height
+                guard pull > Self.closingPull || value.predictedEndTranslation.height > Self.closingFling, pull > 0
+                else { return }
+                leave(pull)
+                close()
+            }
+    }
+}
+
 /// One player above the places and below the native tab bar (ADR 0014).
 struct PlayerOverlayLayer: View {
     @Environment(AppModel.self) private var model
@@ -40,11 +67,18 @@ private struct PlayerOverlay: View {
     @Environment(PlayerOverlayLayout.self) private var layout
     let item: QueueItem
     @GestureState private var dragged: CGFloat = 0
+    /// The pull that closed the player. The slide out starts from it.
+    @State private var leaving: CGFloat = 0
 
     /// The specimen's rise: the old content leaves upwards, the next one comes from below.
     private static let rise = AnyTransition.asymmetric(
         insertion: .offset(y: Layout.riseIn).combined(with: .opacity),
         removal: .offset(y: -Layout.riseOut).combined(with: .opacity))
+
+    private var closeDrag: PlayerCloseDrag {
+        PlayerCloseDrag(
+            pulled: $dragged, leave: { leaving = $0 }, close: { navigator.closePlayer() })
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -61,19 +95,13 @@ private struct PlayerOverlay: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Close the player")
             .accessibilityIdentifier("player-handle")
-            .gesture(
-                DragGesture()
-                    .updating($dragged) { value, state, _ in state = max(0, value.translation.height) }
-                    .onEnded { value in
-                        if value.translation.height > 120 || value.predictedEndTranslation.height > 240 {
-                            navigator.closePlayer()
-                        }
-                    })
+            .gesture(closeDrag.gesture)
             ZStack {
                 // When an item ends, its content leaves upwards and the next item rises in its place.
                 RecordingView(
                     work: item.work, recording: item.recording,
-                    album: item.recording.albumKey.flatMap { model.library.album($0) }, isOverlay: true
+                    album: item.recording.albumKey.flatMap { model.library.album($0) }, isOverlay: true,
+                    closeDrag: closeDrag
                 )
                 .environment(\.washOwner, item.id)
                 .id(item.id)
@@ -90,8 +118,9 @@ private struct PlayerOverlay: View {
             song: model.playback.item?.id == item.id ? model.playback.coverSong : item.recording.songs.first,
             isPlaying: model.playback.item?.id == item.id
         )
-        .offset(y: dragged)
-        .animation(Motion.rise.animation(reduceMotion: reduceMotion), value: dragged == 0)
+        .offset(y: dragged + leaving)
+        // The spring runs only when the finger lifts, so the player follows the finger without lag.
+        .animation(dragged == 0 ? Motion.rise.animation(reduceMotion: reduceMotion) : nil, value: dragged)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("player-overlay")
     }

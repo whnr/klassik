@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Classical Rules</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="../tokens.css?v=52" />
+    <link rel="stylesheet" href="specimen.css?v=52" />
+    <script src="specimen.js?v=52"></script>
+  </head>
+  <body>
+    <script>
+      // The Classical Rules page of Settings (ADR 0003): what the rules let through, then the rules.
+      K.start(() => {
+        const { el, href, form } = K;
+        const { scroll } = K.page({
+          tab: "library",
+          title: "Classical Rules",
+          back: { label: "Settings", href: href("settings.html", { place: "library", back: "Library" }) },
+          grouped: true,
+        });
+        const { group, link, value, button } = form;
+        const back = "Classical Rules";
+        const rule = (number, checks) =>
+          group(number === 1 ? "Rule 1" : `Or Rule ${number}`, [
+            ...checks.map(([kind, text]) => value(kind, text ?? "")),
+            button("Add Check"),
+            button("Delete Rule", { destructive: true }),
+          ]);
+        scroll.append(
+          el("div", { class: "page-head" }, el("h1", { class: "t-largeTitle" }, "Classical Rules")),
+          group("Result", [
+            link("Albums", null, "412 of 550 on server", back),
+            value("Tracks", "9,873 of 11,204 on server"),
+            link("Other Albums", null, "138", back),
+          ]),
+          rule(1, [["Genre contains", "Classical"]]),
+          rule(2, [["Genre contains", "Klassik"]]),
+          rule(3, [["Has a work"], ["Has a movement"]]),
+          group(
+            null,
+            [button("Add Rule")],
+            "A track is classical if one of the classical rules matches. A rule matches if all of its checks match. " +
+              "An album is classical if most of its tracks are; then all of its tracks count. Klassik keeps the " +
+              "rules on this iPhone.",
+          ),
+          group(null, [button("Restore Default Rules", { disabled: true })]),
+        );
+      });
+    </script>
+  </body>
+</html>

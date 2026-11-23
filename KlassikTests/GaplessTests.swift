@@ -149,7 +149,7 @@ final class GaplessTests: XCTestCase {
         let engine = AVAudioEngine()
         let node = AVAudioPlayerNode()
         engine.attach(node)
-        engine.connect(node, to: engine.mainMixerNode, format: format)
+        try engine.connectNode(node, to: engine.mainMixerNode, format: format)
         try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 4096)
         try engine.start()
         var total = 8192
@@ -160,7 +160,7 @@ final class GaplessTests: XCTestCase {
                 file, startingFrame: frames.lowerBound, frameCount: AVAudioFrameCount(frames.count), at: nil,
                 completionHandler: nil)
         }
-        node.play()
+        try node.playAudio()
         let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: engine.manualRenderingFormat, frameCapacity: 4096))
         var output: [Float] = []
         while output.count < total {

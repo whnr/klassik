@@ -39,7 +39,9 @@ struct TrackStoreTests {
 
     /// Waits until no download runs.
     func settle(_ store: TrackStore) async {
-        for _ in 0..<500 where !store.progress.isEmpty { try? await Task.sleep(for: .milliseconds(10)) }
+        for _ in 0..<500 where !store.progress.isEmpty || store.isRunning {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
     }
 
     /// Writes a fake track. A later `age` means an older file.
@@ -278,6 +280,31 @@ struct TrackStoreTests {
         #expect(store.downloads.isEmpty)
         #expect(store.offline.isEmpty)
         #expect(store.failures.isEmpty)
+    }
+
+    @Test func cancelShowsAtOnceAndADownloadCanStartAgain() async throws {
+        let store = try makeStore()
+        let recording = recording("r1", ["a", "b"])
+        store.download(recording, title: "Work", client: client)
+        store.cancelDownload("r1")
+        #expect(store.progress["r1"] == nil)
+        store.download(recording, title: "Work", client: client)
+        #expect(store.progress["r1"] == 0)
+        await settle(store)
+        #expect(store.downloads.map(\.id) == ["r1"])
+        #expect(store.failures.isEmpty)
+    }
+
+    @Test func cancelOfAWaitingRestartKeepsNothing() async throws {
+        let store = try makeStore()
+        let recording = recording("r1", ["a"])
+        store.download(recording, title: "Work", client: client)
+        store.cancelDownload("r1")
+        store.download(recording, title: "Work", client: client)
+        store.cancelDownload("r1")
+        await settle(store)
+        #expect(store.downloads.isEmpty)
+        #expect(store.offline.isEmpty)
     }
 
     @Test func recordingIsOfflineOnlyWithEveryTrack() throws {

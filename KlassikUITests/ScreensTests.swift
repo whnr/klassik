@@ -1817,21 +1817,14 @@ final class PlaybackScreens: ScreensTestCase {
         closeMenu(app)
     }
 
-    /// The favourite item of an open row menu. It is the last item, so on a low row the menu scrolls to show it.
+    /// The favourite item of an open row menu, found by its identifier or its label. It is the last item, so on a low
+    /// row it can sit under the tab bar: a test reads it and never drags the menu, because a lift selects an item.
     @MainActor
     func menuFavourite(_ app: XCUIApplication) -> XCUIElement {
         let favourite = app.buttons.matching(
             NSPredicate(format: "identifier == 'favourite-action' OR label IN {'Favourite', 'Unfavourite'}")
         ).firstMatch
-        if favourite.waitForExistence(timeout: 3), favourite.isHittable { return favourite }
-        // The drag starts and ends on items, so it scrolls the menu and never lifts on the row preview.
-        let from = menuItem(app, "Tags and Grouping")
-        let to = menuItem(app, "Play Next")
-        if from.exists, to.exists {
-            from.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-                .press(forDuration: 0.05, thenDragTo: to.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)))
-        }
-        _ = favourite.waitForExistence(timeout: 3)
+        _ = favourite.waitForExistence(timeout: 5)
         return favourite
     }
 

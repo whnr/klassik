@@ -1236,6 +1236,27 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(app.buttons["show-player"].waitForExistence(timeout: 10))
     }
 
+    /// A drag that starts on a row at the top of the list and pulls past the top closes the player. The hero
+    /// takes drags that start on the cover, so this path starts below it.
+    @MainActor
+    func testPullPastTopFromARowClosesThePlayer() throws {
+        let app = try launchAndConnect()
+        openRecording(app)
+        playPaused(app)
+        openPlayer(app)
+        let cover = app.descendants(matching: .any)["hero-cover"].firstMatch
+        let row = app.descendants(matching: .any)["movement"].firstMatch
+        XCTAssertTrue(cover.waitForExistence(timeout: 10))
+        XCTAssertTrue(eventually(timeout: 12) { row.exists && row.isHittable }, "No row to start the drag on")
+        XCTAssertGreaterThan(row.frame.minY, cover.frame.maxY, "The row is not below the cover")
+        // The right end of the title line is empty, so the drag starts on the row and on no control.
+        row.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.1)).press(
+            forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.95)),
+            withVelocity: .fast, thenHoldForDuration: 0)
+        expectPlayerClosed(app)
+        XCTAssertTrue(app.buttons["show-player"].waitForExistence(timeout: 10))
+    }
+
     /// A drag down from the cover of the player moves the whole player, and a fling closes it.
     @MainActor
     func testHeadingDragClosesThePlayer() throws {

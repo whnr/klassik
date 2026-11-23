@@ -139,8 +139,9 @@ class RetryReportTests(unittest.TestCase):
         expected=("PlayTests/testPlay",),
     ):
         """Runs scripts/screens.sh with a fake xcodebuild whose first run fails (and whose later runs pass unless
-        `always_fail`), and a fake xcresulttool that prints `tests_json` for the first bundle and `retry_json` (default: the
-        test passes) for the retry bundle. `expected` is what -enumerate-tests lists; None makes it fail. Returns (result, out dir, commands)."""
+        `always_fail`), and a fake xcresulttool that prints `tests_json` for the first bundle and `retry_json`
+        (default: the test passes) for the retry bundle. `expected` is what -enumerate-tests lists; None makes it
+        fail. Returns (result, out dir, commands)."""
         temporary = pathlib.Path(tempfile.mkdtemp())
         self.addCleanup(lambda: __import__("shutil").rmtree(temporary, ignore_errors=True))
         for name in ("xcodegen", "xcrun"):
@@ -165,7 +166,9 @@ class RetryReportTests(unittest.TestCase):
             "#!/bin/bash\n"
             'case "$*" in *-enumerate-tests*)\n'
             '  [ "$ENUMERATE_FAILS" != 1 ] || exit 1\n'
-            '  while [ $# -gt 0 ]; do [ "$1" != -test-enumeration-output-path ] || cp "$ENUMERATION" "$2"; shift; done\n'
+            "  while [ $# -gt 0 ]; do\n"
+            '    [ "$1" != -test-enumeration-output-path ] || cp "$ENUMERATION" "$2"; shift\n'
+            "  done\n"
             "  exit 0 ;;\nesac\n"
             'echo "$*" >> "$TEST_COMMANDS"\n'
             '[ "$1" != build-for-testing ] || { echo "SwiftDriver Klassik"; exit 0; }\n'

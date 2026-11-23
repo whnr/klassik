@@ -570,8 +570,13 @@ def main(args):
     if command in ("retry-plan", "assertion-failures", "expected-tests", "unrun", "unfinished"):
         # Exit 0 whatever the answer, and 2 on any error: a traceback exits 1, which a caller could read as "none".
         try:
-            read = lambda path: json.loads(pathlib.Path(path).read_text() or "{}")
-            lines = lambda path: pathlib.Path(path).read_text().split()
+
+            def read(path):
+                return json.loads(pathlib.Path(path).read_text() or "{}")
+
+            def lines(path):
+                return pathlib.Path(path).read_text().split()
+
             if command == "retry-plan":
                 found = retry_plan(read(args[1])) or []
             elif command == "assertion-failures":

@@ -1817,6 +1817,24 @@ final class PlaybackScreens: ScreensTestCase {
         closeMenu(app)
     }
 
+    /// The favourite item of an open row menu. It is the last item, so on a low row the menu scrolls to show it.
+    @MainActor
+    func menuFavourite(_ app: XCUIApplication) -> XCUIElement {
+        let favourite = app.buttons.matching(
+            NSPredicate(format: "identifier == 'favourite-action' OR label IN {'Favourite', 'Unfavourite'}")
+        ).firstMatch
+        if favourite.waitForExistence(timeout: 3), favourite.isHittable { return favourite }
+        // The drag starts and ends on items, so it scrolls the menu and never lifts on the row preview.
+        let from = menuItem(app, "Tags and Grouping")
+        let to = menuItem(app, "Play Next")
+        if from.exists, to.exists {
+            from.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+                .press(forDuration: 0.05, thenDragTo: to.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)))
+        }
+        _ = favourite.waitForExistence(timeout: 3)
+        return favourite
+    }
+
     /// The items of the open menu run from top to bottom in this order.
     @MainActor
     private func expectOrder(_ app: XCUIApplication, _ titles: [String], _ name: String) {
@@ -2045,8 +2063,8 @@ final class PlaybackScreens: ScreensTestCase {
         snap(app, "05b-work-reference")
         // The menu of a favourite takes it away.
         rows.firstMatch.press(forDuration: 1.2)
-        let unfavourite = app.buttons["favourite-action"].firstMatch
-        XCTAssertTrue(unfavourite.waitForExistence(timeout: 5))
+        let unfavourite = menuFavourite(app)
+        XCTAssertTrue(unfavourite.exists)
         XCTAssertEqual(unfavourite.label, "Unfavourite")
         snap(app, "05b-unfavourite-menu")
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
@@ -2115,8 +2133,8 @@ final class PlaybackScreens: ScreensTestCase {
 
         // A still press shows the menu, so a lift must need movement.
         rows.element(boundBy: 0).press(forDuration: 1.2)
-        let unfavourite = app.buttons["favourite-action"].firstMatch
-        XCTAssertTrue(unfavourite.waitForExistence(timeout: 5), "A still long press did not open the menu")
+        let unfavourite = menuFavourite(app)
+        XCTAssertTrue(unfavourite.exists, "A still long press did not open the menu")
         XCTAssertEqual(unfavourite.label, "Unfavourite")
         snap(app, "05e-still-press-menu")
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()

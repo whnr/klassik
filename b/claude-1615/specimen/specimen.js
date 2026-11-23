@@ -901,7 +901,13 @@ const K = (() => {
     return el(
       "nav",
       { class: "tabbar" },
-      el("div", { class: "tabs glass" }, item("library", "Library"), item("chronology", "Chronology"), item("search", "Search")),
+      el(
+        "div",
+        { class: "tabs glass" },
+        item("library", "Library"),
+        item("chronology", "Chronology"),
+        item("search", "Search"),
+      ),
     );
   }
 

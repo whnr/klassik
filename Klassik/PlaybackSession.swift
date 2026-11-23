@@ -770,7 +770,9 @@ final class PlaybackSession {
         guard current(), !store.isOffline(opening) else { return }
         let transfer = store.transfer(for: opening, client: client)
         defer { transfer.hold(false) }
-        while current() {
+        // Once the engine asked for the opening's source, it reads this shared transfer: a hold would starve the join.
+        func engineReads() -> Bool { (engine.requestedMovement ?? -1) > (movement ?? .max) }
+        while current(), !engineReads() {
             transfer.hold(buffered() < Self.competitionFloor)
             try await Task.sleep(for: Self.readAheadPoll)
         }

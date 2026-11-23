@@ -692,6 +692,36 @@ struct RecordingOrderTests {
         #expect(try store(root).load().recordingOrder.isEmpty)
     }
 
+    /// A drop puts the dragged favourite where the target row stands, up or down, and keeps the order on the device.
+    @Test func dropOntoARowMovesTheFavouriteAndKeepsItOnTheDevice() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let library = try await library(
+            [
+                song("a", year: 2003, starred: true), song("b", year: 2002, starred: true),
+                song("c", year: 2001, starred: true), song("d", year: 1990),
+            ], root: root)
+        let work = try #require(library.index.composers.first?.works.first)
+        let order = RecordingOrder(library: library, store: store(root))
+        func ids(_ album: String) throws -> String { try #require(work.recordings.first { $0.album == album }).id }
+        func albums() -> [String] { order.rows(of: work).map(\.recording.album) }
+        let start = albums()
+
+        order.moveFavourite(try ids(start[0]), of: work, onto: try ids(start[2]))
+        #expect(albums() == [start[1], start[2], start[0], start[3]])
+        order.moveFavourite(try ids(start[0]), of: work, onto: try ids(start[1]))
+        #expect(albums() == [start[0], start[1], start[2], start[3]])
+        // A drop on a row that is no favourite puts the row last among the favourites.
+        order.moveFavourite(try ids(start[0]), of: work, onto: try ids(start[3]))
+        #expect(albums() == [start[1], start[2], start[0], start[3]])
+        // A drop on itself, or a drag of a row that is no favourite, changes nothing.
+        order.moveFavourite(try ids(start[0]), of: work, onto: try ids(start[0]))
+        order.moveFavourite(try ids(start[3]), of: work, onto: try ids(start[1]))
+        #expect(albums() == [start[1], start[2], start[0], start[3]])
+        let kept = RecordingOrder(library: library, store: store(root))
+        #expect(kept.rows(of: work).map(\.recording.album) == albums())
+    }
+
     @Test func corruptDeviceDataReportsAnErrorAndRemainsOnDisk() async throws {
         let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }

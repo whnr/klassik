@@ -178,6 +178,8 @@ struct SearchTests {
         let found = Search(index: index).results(for: "eroica").works
         #expect(found.map(\.title) == [work])
         #expect(Search(index: index).results(for: "eroica").workTracks.isEmpty)
+        #expect(Search(index: index).results(for: "eroica").workNicknames[try #require(found.first).id] == "Eroica")
+        #expect(Search(index: index).results(for: "symphonie").workNicknames.isEmpty, "A plain title match")
         #expect(try #require(found.first).nicknames == ["Eroica"])
     }
 

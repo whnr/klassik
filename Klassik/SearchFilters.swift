@@ -203,6 +203,7 @@ struct SearchFilters: Sendable {
         var filtered = Search.Filtered()
         filtered.results.workTracks = found.workTracks
         filtered.results.albumTracks = found.albumTracks
+        filtered.results.workNicknames = found.workNicknames
         for work in found.works {
             let count = (workRecordings[work.id] ?? []).count(where: { passing.contains($0) })
             guard count > 0 else { continue }

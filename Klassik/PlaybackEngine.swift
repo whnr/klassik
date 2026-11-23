@@ -41,6 +41,9 @@ protocol PlaybackEngine: AnyObject {
     /// Playable audio ahead of the render position, in seconds, or nil before the first sound: decoded audio plus
     /// arrived encoded bytes that the decoder has not read (ADR 0060).
     var bufferedSeconds: Double? { get }
+    /// The last movement that the load asked a source for, or nil when no load runs. Past the playing movement it
+    /// means the engine reads the next track's transfer.
+    var requestedMovement: Int? { get }
 
     /// Drops what plays. Then plays `songs` from a movement and a position, and asks `file` for each track.
     func load(_ songs: [Song], from movement: Int, offset: Double, file: @escaping PlaybackFileSource)

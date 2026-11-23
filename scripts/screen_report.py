@@ -1,9 +1,9 @@
 """Reports the result of a test run and of the screenshot comparison, for the job summary.
 
 Usage:
-    python3 scripts/screen_report.py plan <event> <dispatch-input> [<pr-title> <ref> [<project.yml>]] < <messages>
-        Prints the UI areas of the run and the matrix of the walk job, for GITHUB_OUTPUT. <project.yml> is the
-        file at the PR head.
+    python3 scripts/screen_report.py plan <event> <dispatch-input> [<pr-title> <ref> [<project.yml>]] < <message>
+        Prints the UI areas of the run, the matrix of the walk job and whether the Release launch check runs, for
+        GITHUB_OUTPUT. <message> is the commit message of the PR head, and <project.yml> is the file at the PR head.
     python3 scripts/screen_report.py select <requested-areas> <group-areas>
         Prints the selected areas and rejects unknown names.
     python3 scripts/screen_report.py aggregate-ui <reports-dir> <requested-areas>
@@ -34,11 +34,12 @@ SHARED_SNAPS = {"01-connect": "places"}
 
 
 def expected(source, ui, tests=None):
-    """The screenshots that a walk of the areas in `ui` takes, from the snap calls of each area class."""
+    """The screenshots that a walk of the areas in `ui` takes, from the snap calls of each area class.
+    `tests` holds the -only-testing entries of a shard (see group_tests), or None for whole classes."""
     if ui in ("", "false"):
         return []
     areas = None if ui in ("true", "all") else {a.strip().lower() for a in ui.split(",") if a.strip()}
-    names, area, method = [], None, None
+    names, area, name, method = [], None, None, None
     for line in source.splitlines():
         if match := re.match(r"\s*(?:final )?class (\w+)", line):
             name = match.group(1)
@@ -48,7 +49,11 @@ def expected(source, ui, tests=None):
             method = match.group(1)
         elif match := re.search(r'\bsnap\(app, "([\w-]+)"\)', line):
             owner = area or SHARED_SNAPS.get(match.group(1))
-            if owner and (areas is None or owner in areas) and (tests is None or method in tests):
+            if not owner or (areas is not None and owner not in areas):
+                continue
+            # A shared snap belongs to the walk of its whole owner class.
+            entries = {area_class(owner)} if area is None else {name, f"{name}/{method}"}
+            if tests is None or entries & set(tests):
                 names.append(match.group(1))
     return sorted(set(names))
 
@@ -60,35 +65,89 @@ def read_results(text):
 
 UI_GROUPS = {
     "playback-queue": "playback",
+    "playback-overlay": "playback",
     "playback-controls": "playback",
-    "places-browse": "places,browse",
+    "places-search": "places,browse",
+    "browse-pages": "browse",
     "settings-timeline": "settings,timeline",
 }
 
 
-# Balance playback by measured duration, because method counts hide the longer navigation tests.
-PLAYBACK_QUEUE = {
-    "testFavouriteRecordingOrder",
-    "testOverlayLeavesThroughChronology",
-    "testQueue",
-    "testRecording",
-    "testWorkPlayUsesTheContentInsetsOnEitherSide",
-    "testNextEndsAtTheLastMovement",
+# A failed test makes xcodebuild run the whole selection again, so a shard must finish twice within the job limit.
+# Shards share a class by measured duration, because method counts hide the longer navigation tests.
+# A group that lists no methods for an area runs the methods that no other group lists, so a new or renamed test
+# always runs. scripts/test_screens.py refuses a listed method that ScreensTests.swift does not have.
+SHARDS = {
+    "playback-queue": {
+        "playback": {
+            "testFavouriteRecordingOrder",
+            "testOverlayLeavesThroughChronology",
+            "testQueue",
+            "testRecording",
+            "testWorkPlayUsesTheContentInsetsOnEitherSide",
+            "testNextEndsAtTheLastMovement",
+        }
+    },
+    "playback-overlay": {
+        "playback": {
+            "testAlbumWorkHasOneDisclosureOnThePageAndOverlay",
+            "testOverlayLeavesThroughLibrary",
+            "testOverlayLeavesThroughSearch",
+            "testOverlayLinkUsesTheUnderlyingStack",
+            "testOverlayOnTheLeft",
+            "testOverlayOpensAndSlidesDown",
+            "testPageMenus",
+            "testPlayerFollowsAfterQuietSpell",
+            "testPlayOnTheWorkPage",
+            "testPlayWholeAlbumOnTheRecordingPage",
+            "testPlayingRowNamesLinkFromTheOverlay",
+            "testQueueEndsHere",
+            "testSlowConnectionLine",
+            "testStopClosesThePlayer",
+            "testSwipeDownClosesThePlayer",
+        }
+    },
+    "places-search": {
+        "browse": {
+            "testRecentSearches",
+            "testSearch",
+            "testSearchFilters",
+            "testSearchSections",
+            "testSearchSheetBackAndDimming",
+            "testSwipeDownClosesTheFilterSheet",
+        }
+    },
 }
 
 
-def group_tests(group, source=None):
-    if not group.startswith("playback-"):
-        return None
-    source = WALK.read_text() if source is None else source
-    playback = re.search(r"class PlaybackScreens:.*?(?=\n(?:final )?class |\Z)", source, re.DOTALL)
-    if playback is None:
+def area_class(area):
+    return area[:1].upper() + area[1:] + "Screens"
+
+
+def class_methods(source, name):
+    body = re.search(rf"class {name}:.*?(?=\n(?:final )?class |\Z)", source, re.DOTALL)
+    return set(re.findall(r"func (test\w+)\(", body.group())) if body else set()
+
+
+def group_tests(group, request="all", source=None):
+    """The -only-testing entries of `group` for the requested areas: a whole class, or Class/method where groups
+    share the class."""
+    selected = selected_areas(request, UI_GROUPS[group])
+    if selected == "false":
         return []
-    playback = playback.group()
-    methods = set(re.findall(r"func (test\w+)\(", playback))
-    if missing := PLAYBACK_QUEUE - methods:
-        raise ValueError("Missing playback methods: " + ", ".join(sorted(missing)))
-    return sorted(PLAYBACK_QUEUE if group == "playback-queue" else methods - PLAYBACK_QUEUE)
+    source = WALK.read_text() if source is None else source
+    entries = []
+    for area in selected.split(","):
+        name = area_class(area)
+        shards = [areas[area] for areas in SHARDS.values() if area in areas]
+        if not shards:
+            entries.append(name)
+            continue
+        methods = class_methods(source, name)
+        own = SHARDS.get(group, {}).get(area)
+        wanted = methods & own if own is not None else methods - set().union(*shards)
+        entries += [f"{name}/{method}" for method in sorted(wanted)]
+    return entries
 
 
 def selected_areas(request, available):
@@ -107,11 +166,12 @@ def selected_areas(request, available):
 UI_REQUEST = re.compile(r"^\s*\[ui:([^\]]*)\]\s*$", re.IGNORECASE | re.MULTILINE)
 
 
-def requested_areas(messages):
-    """The union of the "[ui: <areas>]" lines in the commit messages of a pull request, or "false"."""
+def requested_areas(message):
+    """The union of the "[ui: <areas>]" lines in the commit message of the PR head, or "false".
+    Earlier commits do not count, so only the push that asks for the walk runs it."""
     known = list(dict.fromkeys(area for areas in UI_GROUPS.values() for area in areas.split(",")))
     wanted, everything = set(), False
-    for match in UI_REQUEST.finditer(messages):
+    for match in UI_REQUEST.finditer(message):
         request = match.group(1).replace(" ", "").lower()
         if request in ("", "false"):
             continue
@@ -152,7 +212,7 @@ def project_version(project):
 
 def release_walk(title, project=""):
     """ "all" if a pull request with `title` walks every group: a feature release. "patch" if it walks only the
-    areas that its commits request. None if it is no release.
+    areas that its head commit requests. None if it is no release.
 
     A patch release has the version x.y.z (z > 0) in its title and as MARKETING_VERSION in `project`, the
     project.yml of the PR head. Every other release title walks everything, because the title alone does
@@ -174,11 +234,16 @@ def release_walk(title, project=""):
     return "patch"
 
 
-def plan(event, dispatch_input, messages, title="", ref="refs/heads/main", project=""):
+def release_launch(event, title=""):
+    """The Release launch check runs everywhere except on a pull request that is no release."""
+    return event != "pull_request" or RELEASE_TITLE.match(title) is not None
+
+
+def plan(event, dispatch_input, message, title="", ref="refs/heads/main", project=""):
     """Feature release requests and nightly runs walk everything. Main pushes run no walk.
-    `project` is the text of project.yml at the PR head."""
+    `message` is the commit message of the PR head, and `project` is the text of project.yml at the PR head."""
     if event == "pull_request":
-        ui = requested_areas(messages)
+        ui = requested_areas(message)
         release = release_walk(title, project)
         if release == "all":
             ui = "all"
@@ -193,8 +258,8 @@ def plan(event, dispatch_input, messages, title="", ref="refs/heads/main", proje
         ui = "all"
     include = []
     for group, areas in UI_GROUPS.items():
-        if selected_areas(ui, areas) != "false":
-            include.append({"group": group, "areas": areas, "tests": ",".join(group_tests(group) or [])})
+        if tests := group_tests(group, ui):
+            include.append({"group": group, "areas": areas, "tests": ",".join(tests)})
     return ui, {"include": include}
 
 
@@ -214,7 +279,7 @@ def unexplained_gaps(reports, request, source):
         if not path.exists() or read_results(path.read_text()).get("ui") != "passed":
             continue
         captured = {p.stem for p in report.glob("*.png")}
-        if missing := sorted(set(expected(source, selected, group_tests(group, source))) - captured):
+        if missing := sorted(set(expected(source, selected, group_tests(group, request, source))) - captured):
             gaps[group] = missing
     return gaps
 
@@ -361,6 +426,7 @@ def main(args):
         ui, matrix = plan(args[1], args[2], sys.stdin.read(), *args[3:5], project=project)
         print(f"ui={ui}")
         print("matrix=" + json.dumps(matrix, separators=(",", ":")))
+        print("release_launch=" + str(release_launch(args[1], args[3] if len(args) > 3 else "")).lower())
         return
     if command == "select":
         print(selected_areas(args[1], args[2]))

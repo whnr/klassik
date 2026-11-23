@@ -7,7 +7,7 @@
 # Exports the screenshots, the gapless report, the time of each phase and results.txt (build, unit, ui).
 # KLASSIK_PHASE: all (local default), build, unit, or ui. Test phases consume archived Build/Products.
 # Usage: [KLASSIK_UI=...] [UI_TESTS_REQUIRED=...] scripts/screens.sh <output-dir>
-# KLASSIK_UI_TESTS narrows a playback shard to comma-separated test methods.
+# KLASSIK_UI_TESTS narrows a shard to comma-separated -only-testing entries: a class, or Class/method.
 # Start scripts/fixture-server.sh first.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -145,9 +145,9 @@ case "${KLASSIK_UI:-false}" in
 esac
 if [ -n "${KLASSIK_UI_TESTS:-}" ]; then
   suites=()
-  IFS=, read -ra methods <<< "$KLASSIK_UI_TESTS"
-  for method in "${methods[@]}"; do
-    suites+=("-only-testing:KlassikUITests/PlaybackScreens/$method")
+  IFS=, read -ra entries <<< "$KLASSIK_UI_TESTS"
+  for entry in "${entries[@]}"; do
+    suites+=("-only-testing:KlassikUITests/$entry")
   done
 fi
 

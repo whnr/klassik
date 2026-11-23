@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Klassik specimen</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="../tokens.css?v=51" />
-    <link rel="stylesheet" href="specimen.css?v=51" />
-    <script src="specimen.js?v=51"></script>
+    <link rel="stylesheet" href="../tokens.css?v=52" />
+    <link rel="stylesheet" href="specimen.css?v=52" />
+    <script src="specimen.js?v=52"></script>
   </head>
   <body>
     <!--
@@ -84,7 +84,12 @@
             "section",
             { class: "section" },
             el("div", { class: "section-head t-footnote" }, "Values"),
-            el("div", { class: "list" }, row("Token sheet", "Colour, type, spacing, radius, motion", "tokens.html")),
+            el(
+              "div",
+              { class: "list" },
+              row("Token sheet", "Colour, type, spacing, radius, motion", "tokens.html"),
+              row("Page menu", "The ⋯ menu of a page, each variant", "menu.html", { back: "Library" }),
+            ),
           ),
           el(
             "section",

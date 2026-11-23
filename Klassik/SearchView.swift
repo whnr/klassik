@@ -357,7 +357,8 @@ private struct SearchResults: View {
                         let recordings = matching[work.id].map { "\($0) of \(total) match" } ?? total
                         lines(
                             title: work.title, isFavourite: model.recordingOrder.isFavourite(work),
-                            detail: "\(work.composer), \(recordings)", track: results.workTracks[work.id])
+                            detail: "\(work.composer), \(recordings)", track: results.workTracks[work.id],
+                            nickname: results.workNicknames[work.id])
                     }
                     .playingRow(playing?.work.id == work.id)
                     .accessibilityIdentifier("search-work")
@@ -410,7 +411,10 @@ private struct SearchResults: View {
     }
 
     /// `track` is the track title that found the result when its own words do not match (search.html `.why`).
-    private func lines(title: String, isFavourite: Bool, detail: String, track: String? = nil) -> some View {
+    /// `nickname` is the nickname that found a work whose title does not match.
+    private func lines(
+        title: String, isFavourite: Bool, detail: String, track: String? = nil, nickname: String? = nil
+    ) -> some View {
         VStack(alignment: .leading, spacing: gap) {
             MarkedTitle(title: title, isFavourite: isFavourite)
                 .ink()
@@ -421,6 +425,11 @@ private struct SearchResults: View {
             }
             if let track {
                 Text("Track: \(track)")
+                    .typeStyle(.subheadline)
+                    .foregroundStyle(Palette.textSecondary)
+            }
+            if let nickname {
+                Text("Nickname: \(nickname)")
                     .typeStyle(.subheadline)
                     .foregroundStyle(Palette.textSecondary)
             }

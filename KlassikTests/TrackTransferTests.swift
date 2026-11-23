@@ -739,8 +739,9 @@ struct TrackTransferTests {
         transfer.begin(length: 4, validator: nil)
         transfer.append(Data([1, 2]))
         store.cancelDownload(recording.id)
-        for _ in 0..<100 where !store.progress.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
         #expect(store.progress.isEmpty)
+        // The menu shows the cancel at once; the task releases the transfers when it ends.
+        for _ in 0..<100 where store.isRunning { try await Task.sleep(for: .milliseconds(10)) }
         #expect(store.failures.isEmpty)
         #expect(store.downloads.isEmpty)
         if playbackNeedsTrack {

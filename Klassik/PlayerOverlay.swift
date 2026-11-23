@@ -1,5 +1,6 @@
 import Observation
 import SwiftUI
+import UIKit
 
 /// UIKit owns the system chrome; the overlay keeps its content clear without joining a navigation container.
 @MainActor @Observable
@@ -16,6 +17,8 @@ final class PlayerOverlayLayout {
     /// Where the player stays when a drag closes it, so it leaves from there and does not jump back.
     let leave: (CGFloat) -> Void
     let close: () -> Void
+    /// The pull of a drag that started on the hero, which UIKit tracks and SwiftUI cannot reset by itself.
+    let heroPull: Binding<CGFloat>
 
     /// A pull this far closes the player on release.
     private static let closingPull: CGFloat = 120
@@ -26,12 +29,57 @@ final class PlayerOverlayLayout {
         DragGesture()
             .updating(pulled) { value, state, _ in state = max(0, value.translation.height) }
             .onEnded { value in
-                let pull = value.translation.height
-                guard pull > Self.closingPull || value.predictedEndTranslation.height > Self.closingFling, pull > 0
-                else { return }
-                leave(pull)
-                close()
+                release(pull: value.translation.height, predicted: value.predictedEndTranslation.height)
             }
+    }
+
+    /// The drag from the hero. It begins only for a downward move, so an upward drag reaches the page scroll.
+    var heroGesture: some Gesture { HeroDrag(drag: self) }
+
+    fileprivate func release(pull: CGFloat, predicted: CGFloat) {
+        guard pull > Self.closingPull || predicted > Self.closingFling, pull > 0 else { return }
+        leave(pull)
+        close()
+    }
+
+    /// DragGesture cannot refuse a drag once it has started, and a high-priority one then takes the page scroll.
+    private struct HeroDrag: UIGestureRecognizerRepresentable {
+        let drag: PlayerCloseDrag
+
+        /// The distance a fling carries the player, as the seconds of travel that SwiftUI predicts for its drag.
+        private static let flingSeconds: CGFloat = 0.25
+
+        final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+            func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
+                guard let pan = recognizer as? UIPanGestureRecognizer else { return false }
+                let velocity = pan.velocity(in: pan.view)
+                return velocity.y > 0 && abs(velocity.y) > abs(velocity.x)
+            }
+        }
+
+        func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator { Coordinator() }
+
+        func makeUIGestureRecognizer(context: Context) -> UIPanGestureRecognizer {
+            let pan = UIPanGestureRecognizer()
+            pan.delegate = context.coordinator
+            return pan
+        }
+
+        func handleUIGestureRecognizerAction(_ pan: UIPanGestureRecognizer, context: Context) {
+            let pull = pan.translation(in: pan.view).y
+            switch pan.state {
+            case .changed:
+                drag.heroPull.wrappedValue = max(0, pull)
+            case .ended:
+                let predicted = pull + pan.velocity(in: pan.view).y * Self.flingSeconds
+                drag.heroPull.wrappedValue = 0
+                drag.release(pull: pull, predicted: predicted)
+            case .cancelled, .failed:
+                drag.heroPull.wrappedValue = 0
+            default:
+                break
+            }
+        }
     }
 }
 
@@ -67,6 +115,7 @@ private struct PlayerOverlay: View {
     @Environment(PlayerOverlayLayout.self) private var layout
     let item: QueueItem
     @GestureState private var dragged: CGFloat = 0
+    @State private var heroPulled: CGFloat = 0
     /// The pull that closed the player. The slide out starts from it.
     @State private var leaving: CGFloat = 0
 
@@ -77,7 +126,7 @@ private struct PlayerOverlay: View {
 
     private var closeDrag: PlayerCloseDrag {
         PlayerCloseDrag(
-            pulled: $dragged, leave: { leaving = $0 }, close: { navigator.closePlayer() })
+            pulled: $dragged, leave: { leaving = $0 }, close: { navigator.closePlayer() }, heroPull: $heroPulled)
     }
 
     var body: some View {
@@ -118,9 +167,11 @@ private struct PlayerOverlay: View {
             song: model.playback.item?.id == item.id ? model.playback.coverSong : item.recording.songs.first,
             isPlaying: model.playback.item?.id == item.id
         )
-        .offset(y: dragged + leaving)
+        .offset(y: dragged + heroPulled + leaving)
         // The spring runs only when the finger lifts, so the player follows the finger without lag.
-        .animation(dragged == 0 ? Motion.rise.animation(reduceMotion: reduceMotion) : nil, value: dragged)
+        .animation(
+            dragged + heroPulled == 0 ? Motion.rise.animation(reduceMotion: reduceMotion) : nil,
+            value: dragged + heroPulled)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("player-overlay")
     }

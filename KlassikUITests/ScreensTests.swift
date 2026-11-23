@@ -1133,10 +1133,12 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(eventually(timeout: 12) { position.exists && position.isHittable })
         // The fixture page is short, so its end is the follow target. The top puts the hero above the playing row.
         let rowY = { position.exists ? position.frame.midY : CGFloat.infinity }
-        // Short slow drags at the top touch the rows without the pull that closes the player, as a system sheet
-        // closes.
-        let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3))
-        let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4))
+        // Short slow drags below the cover touch the page without the pull that closes the player, as a system
+        // sheet closes. A drag that starts on the cover or the title moves the player instead.
+        let facts = app.staticTexts["hero-facts"]
+        XCTAssertTrue(facts.waitForExistence(timeout: 10), "No facts line to start the drag on")
+        let from = facts.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let to = from.withOffset(CGVector(dx: 0, dy: 0.1 * app.frame.height))
         for _ in 0..<2 { from.press(forDuration: 0.05, thenDragTo: to, withVelocity: .slow, thenHoldForDuration: 0.2) }
         let still = Date()
         XCTAssertFalse(
@@ -1148,6 +1150,28 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertGreaterThan(
             Date().timeIntervalSince(still), 7, "The player followed before eight quiet seconds")
         snap(app, "05d-player-follow")
+    }
+
+    /// A drag up from the cover scrolls the page. It does not move the player.
+    @MainActor
+    func testUpwardDragOnTheCoverScrolls() throws {
+        let app = try launchAndConnect()
+        openRecording(app)
+        playPaused(app)
+        openPlayer(app)
+        let cover = app.descendants(matching: .any)["hero-cover"].firstMatch
+        XCTAssertTrue(cover.waitForExistence(timeout: 10))
+        let handle = app.buttons["player-handle"]
+        let top = cover.frame.minY
+        let handleTop = handle.frame.minY
+        let from = cover.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        from.press(
+            forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: -0.25 * app.frame.height)),
+            withVelocity: .slow, thenHoldForDuration: 0.2)
+        XCTAssertTrue(
+            eventually(timeout: 5) { cover.frame.minY < top - 40 },
+            "An upward drag on the cover did not scroll the page: cover at \(cover.frame.minY), was \(top)")
+        XCTAssertEqual(handle.frame.minY, handleTop, accuracy: 2, "An upward drag moved the player")
     }
 
     @MainActor
@@ -1191,23 +1215,23 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(app.buttons["show-player"].waitForExistence(timeout: 10))
     }
 
-    /// A drag from the title of the player moves the whole player, and a fling closes it.
+    /// A drag down from the cover of the player moves the whole player, and a fling closes it.
     @MainActor
     func testHeadingDragClosesThePlayer() throws {
         let app = try launchAndConnect()
         openRecording(app)
         playPaused(app)
         openPlayer(app)
-        let title = app.descendants(matching: .any)["hero-cover"].firstMatch
-        XCTAssertTrue(title.waitForExistence(timeout: 10))
-        title.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(
+        let cover = app.descendants(matching: .any)["hero-cover"].firstMatch
+        XCTAssertTrue(cover.waitForExistence(timeout: 10))
+        cover.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(
             forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)),
             withVelocity: .fast, thenHoldForDuration: 0)
         expectPlayerClosed(app)
         XCTAssertTrue(app.buttons["show-player"].waitForExistence(timeout: 10))
     }
 
-    /// A short drag from the title only pulls the player. It springs back to its place.
+    /// A short drag down from the cover only pulls the player. It springs back to its place.
     @MainActor
     func testShortHeadingDragSpringsBack() throws {
         let app = try launchAndConnect()
@@ -1216,9 +1240,9 @@ final class PlaybackScreens: ScreensTestCase {
         openPlayer(app)
         let handle = app.buttons["player-handle"]
         let before = handle.frame.minY
-        let title = app.descendants(matching: .any)["hero-cover"].firstMatch
-        XCTAssertTrue(title.waitForExistence(timeout: 10))
-        let from = title.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let cover = app.descendants(matching: .any)["hero-cover"].firstMatch
+        XCTAssertTrue(cover.waitForExistence(timeout: 10))
+        let from = cover.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
         from.press(
             forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: 50)), withVelocity: .slow,
             thenHoldForDuration: 0.2)

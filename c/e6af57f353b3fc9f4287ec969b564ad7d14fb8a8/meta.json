@@ -1,0 +1,7 @@
+{
+  "sha": "e6af57f353b3fc9f4287ec969b564ad7d14fb8a8",
+  "branch": "claude-cibatch",
+  "path": "claude-cibatch",
+  "subject": "Keep the runner regex within the line limit",
+  "ts": 1795461757
+}

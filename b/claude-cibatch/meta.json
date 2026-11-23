@@ -1,7 +1,7 @@
 {
-  "sha": "aedd6b6fc85cf273efbd44cec2ded3fc5343ec78",
+  "sha": "e6af57f353b3fc9f4287ec969b564ad7d14fb8a8",
   "branch": "claude-cibatch",
   "path": "claude-cibatch",
-  "subject": "Format the new script tests",
-  "ts": 1795461743
+  "subject": "Keep the runner regex within the line limit",
+  "ts": 1795461757
 }

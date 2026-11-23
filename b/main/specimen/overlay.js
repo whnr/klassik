@@ -1,5 +1,5 @@
-// The player overlay of ADR 0014. The pill's cover opens it. A drag down on its handle, or a tap on another tab, closes it.
-// The overlay shows player.html in a frame; the frame follows the clock of the place under it.
+// The player overlay of player.html. The pill's cover opens it. A drag down on its handle, or a tap on another tab, closes it.
+// The overlay shows player.html in a frame; the frame follows the clock of the tab under it.
 
 (() => {
   const { el, chrome, params } = K;
@@ -88,7 +88,7 @@
     if (K.current() && ["open", "opening", "closing"].includes(state)) pose(state);
   }
 
-  // The player shows what plays: when the queue ends, it closes and leaves no end message (ADR 0053).
+  // The player shows what plays: when the queue ends, it closes and leaves no end message.
   K.onPlay(() => {
     if (sheet && !K.current()) close();
   });

@@ -1,4 +1,4 @@
-// The mini player of ADR 0028: a pill at the end of the timeline, play/pause beside the square cover, no text.
+// The mini player of player.html: a pill at the end of the timeline, play/pause beside the square cover, no text.
 
 (() => {
   const { el, ICON, chrome } = K;

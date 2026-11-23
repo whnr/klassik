@@ -1,7 +1,7 @@
 {
-  "sha": "213a8804b93e94fa4c632b10db396a3adab1d5f7",
+  "sha": "2f68be833e2e5289149322fcfa74e8febb73d91e",
   "branch": "main",
   "path": "main",
-  "subject": "Merge pull request #173 from whnr/claude-15412",
-  "ts": 1795440427
+  "subject": "Retire 52 ADRs into design notes and the glossary (#156)",
+  "ts": 1795440490
 }

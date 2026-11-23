@@ -1,4 +1,4 @@
-"""Builds specimen.json: the data snapshot for the design specimen (map sz-rs30.1.83, ticket sz-rs30.1.83.2).
+"""Builds specimen.json: the data snapshot for the design specimen.
 
 Usage: python3 make_data.py <library Classical folder> <work dir>
 Needs ffmpeg, mutagen, curl and network access to GitHub, Wikidata and Commons.

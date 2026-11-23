@@ -10,6 +10,10 @@
     <script src="specimen.js?v=52"></script>
   </head>
   <body>
+    <!--
+  - Years run down the screen. A composer's life fits one screen. The chart never zooms.
+  - Contemporaries are plain lines without names.
+-->
     <style>
       .scroll {
         overflow: hidden;
@@ -184,7 +188,7 @@
           return r ? r.workRef : s?.works?.[0] ? M.works.get(`${s.displayComposer}|${s.works[0].name}`) : null;
         };
 
-        // ADR 0016: opens on the composer of what plays; with nothing playing, where the listener left it.
+        // Opens on the composer of what plays; with nothing playing, where the listener left it.
         const opening =
           playingWork() && byName.get(playingWork().composer)
             ? playingWork().composer
@@ -234,7 +238,7 @@
         }
 
         function contemporaries(focus) {
-          // ADR 0026: a contemporary's active years overlap the focus window. Work dates do not decide.
+          // A contemporary's active years overlap the focus window. Work dates do not decide.
           const f = focus.facts,
             from = f.activeFrom ? f.activeFrom - 10 : f.born,
             to = f.activeFrom ? (f.died || 2030) + 10 : f.died || 2030;
@@ -259,7 +263,7 @@
               out.push({ key: "bandl:" + name, cls: "band-label t-caption2", text: name, s: { top: t + 4 } });
             });
             const x = (i) => gutter + 40 + (i + 0.5) * ((W - gutter - 40) / composers.length);
-            // ADR 0022: the overview marks the composer of what plays and the composer last opened.
+            // The overview marks the composer of what plays and the composer last opened.
             const playing = playingWork()?.composer,
               last = K.store("chronology");
             composers.forEach((c, i) => {
@@ -422,7 +426,7 @@
           }
         }
 
-        // ADR 0022: a work opens its work page.
+        // A work opens its work page.
         function openWork(w) {
           location.href = href("work.html", { work: w.id, back: "Chronology" });
         }
@@ -460,7 +464,7 @@
           );
         }
 
-        // Gestures, ADR 0022: a sideways drag scrubs across the lines on the screen, in order; the chart width maps onto them.
+        // Gestures: a sideways drag scrubs across the lines on the screen, in order; the chart width maps onto them.
         // The line under the finger is highlighted and the chart stays until release. A tap picks a work of the focus composer.
         let g = null;
         chart.addEventListener("pointerdown", (e) => {

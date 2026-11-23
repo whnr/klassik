@@ -15,9 +15,16 @@ Usage:
         Prints failed test names, attempt counts, outcomes, and first failures before log formatting.
     python3 scripts/screen_report.py retry-plan <tests.json>
         Reads `xcresulttool get test-results tests`. Prints the failed tests that the simulator or runner failed, one
-        Target/Class/method per line, or ALL when the bundle holds no test. Exits 1 when nothing may be retried.
+        Target/Class/method per line, or ALL when the bundle holds no test. Prints nothing when nothing may be retried.
+        Any error exits 2.
     python3 scripts/screen_report.py assertion-failures <tests.json>
-        Exits 0 when a failed test is not an infrastructure failure, else 1.
+        Prints the failed tests that are not an infrastructure failure. Any error exits 2, so a caller fails closed.
+    python3 scripts/screen_report.py expected-tests <enumeration.json>
+        Prints the tests of `xcodebuild -enumerate-tests` output, one Class/method per line.
+    python3 scripts/screen_report.py unrun <expected.txt> <target> <tests.json>
+        Prints the expected tests that the bundle holds no result for, one Target/Class/method per line.
+    python3 scripts/screen_report.py unfinished <expected.txt> <tests.json>...
+        Prints the expected tests with no passed result. A later bundle replaces an earlier one. Exits 2 on any error.
     python3 scripts/screen_report.py console <console-file>...
         Prints, for each console of a test process, the count of lines that point to a crash or a runtime warning.
     python3 scripts/screen_report.py diff <screens-dir> <diff-dir> [<baseline-dir>]
@@ -390,6 +397,64 @@ def assertion_failures(tests):
     return [name for name, messages in failed_cases(tests) if not infrastructure_failure(messages)]
 
 
+def test_key(identifier):
+    """Class/method of an identifier such as Target/Class/method(), so enumeration and bundle forms compare."""
+    parts = identifier.removesuffix("()").split("/")
+    return "/".join(parts[-2:])
+
+
+def enumerated_tests(enumeration):
+    """The leaf test identifiers of `xcodebuild -enumerate-tests -test-enumeration-format json` output."""
+    found = []
+
+    def walk(node, enabled):
+        if isinstance(node, dict):
+            children = node.get("children") or []
+            if enabled and isinstance(node.get("identifier"), str) and not children:
+                found.append(test_key(node["identifier"]))
+            for key, child in node.items():
+                walk(child, enabled or key == "enabledTests")
+        elif isinstance(node, list):
+            for child in node:
+                walk(child, enabled)
+
+    walk(enumeration, False)
+    return sorted(set(found))
+
+
+def recorded_results(tests):
+    """Class/method to result for every test case of a result bundle."""
+    found = {}
+
+    def walk(node):
+        if node.get("nodeType") == "Test Case":
+            found[test_key(node.get("nodeIdentifier") or node.get("name", ""))] = node.get("result", "")
+        for child in node.get("children", []):
+            walk(child)
+
+    for node in tests.get("testNodes", []):
+        walk(node)
+    return found
+
+
+def unrun_tests(expected, target, tests):
+    """Expected tests that a bundle holds no result for: the runner ended before it reached them."""
+    recorded = recorded_results(tests)
+    return [f"{target}/{key}" for key in expected if key not in recorded]
+
+
+# Results that need no further run. Failed and anything unknown do not count.
+FINISHED = {"Passed", "Skipped", "Expected Failure"}
+
+
+def unfinished_tests(expected, bundles):
+    """Expected tests without a passed result once the bundles are laid over each other, the last bundle winning."""
+    results = {}
+    for tests in bundles:
+        results.update(recorded_results(tests))
+    return [key for key in expected if results.get(key) not in FINISHED]
+
+
 def retry_report(log):
     """Read completion records before xcbeautify hides failed attempts."""
     attempts, issues = {}, {}
@@ -502,11 +567,29 @@ def main(args):
     if command == "retries":
         print(retry_report(pathlib.Path(args[1]).read_text()))
         return
-    if command in ("retry-plan", "assertion-failures"):
-        tests = json.loads(pathlib.Path(args[1]).read_text() or "{}")
-        found = retry_plan(tests) if command == "retry-plan" else assertion_failures(tests)
-        print("\n".join(found or []))
-        sys.exit(0 if found else 1)
+    if command in ("retry-plan", "assertion-failures", "expected-tests", "unrun", "unfinished"):
+        # Exit 0 whatever the answer, and 2 on any error: a traceback exits 1, which a caller could read as "none".
+        try:
+            read = lambda path: json.loads(pathlib.Path(path).read_text() or "{}")
+            lines = lambda path: pathlib.Path(path).read_text().split()
+            if command == "retry-plan":
+                found = retry_plan(read(args[1])) or []
+            elif command == "assertion-failures":
+                found = assertion_failures(read(args[1]))
+            elif command == "expected-tests":
+                found = enumerated_tests(read(args[1]))
+                if not found:
+                    raise ValueError("the enumeration holds no test")
+            elif command == "unrun":
+                found = unrun_tests(lines(args[1]), args[2], read(args[3]))
+            else:
+                found = unfinished_tests(lines(args[1]), [read(path) for path in args[2:]])
+        except Exception as error:
+            print(f"{command}: {error}", file=sys.stderr)
+            sys.exit(2)
+        if found:
+            print("\n".join(found))
+        return
     if command == "console":
         print(console_report(args[1:]))
         return

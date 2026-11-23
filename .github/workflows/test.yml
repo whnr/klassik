@@ -296,11 +296,13 @@ jobs:
           path: ${{ runner.temp }}/screens/*.xcresult
 
   # Slow and runner-dependent tests: the throughput matrix and the wall-clock latency limits. They need no
-  # pull request run, because the walk and the unit tests cover behavior. A failure here fails only this job, so
-  # TestFlight (build and test jobs) is unaffected; the run itself reads as failed.
+  # pull request run, because the walk and the unit tests cover behavior. A failure stays visible in this job and
+  # its summary but leaves the run green: scripts/screen_baseline.py takes the screens baseline from successful
+  # nightly runs only, and a red limit must not void it. TestFlight reads the build and test jobs, not this one.
   measure:
     needs: [plan, build, fixtures]
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.measure)
+    continue-on-error: true
     runs-on: xcode-27
     timeout-minutes: 30
     env:
@@ -336,6 +338,9 @@ jobs:
           cat "$out/timings.txt" >> "$GITHUB_STEP_SUMMARY" || true
           cat "$out/"*-retries.txt >> "$GITHUB_STEP_SUMMARY" || true
           grep -h 'throughput matrix' "$out/measure.log" >> "$GITHUB_STEP_SUMMARY" || true
+          if grep -q '^measure=failed' "$out/results.txt"; then
+            echo "::error::The measurement tests failed. The run stays green so the nightly screens baseline holds."
+          fi
       - uses: actions/upload-artifact@v7
         if: always()
         with:

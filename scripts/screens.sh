@@ -134,44 +134,76 @@ xcodebuild_tests() {
   return "$status"
 }
 
+# Lists the tests that the selection requests, one Class/method per line. A failure here stops the retry.
+expected_tests() {
+  local file=$1
+  shift
+  xcodebuild test-without-building "${common[@]}" "$@" -enumerate-tests -test-enumeration-style flat \
+    -test-enumeration-format json -test-enumeration-output-path "$file.json" > /dev/null || return 1
+  python3 scripts/screen_report.py expected-tests "$file.json" > "$file"
+}
+
+# Runs the failed and the never-run tests of a failed run once more and sets retry_status for run_tests.
+# A test counts only with a passed result in the first or the retry bundle, so a run that ended early cannot pass.
+# A retry that cannot be planned keeps the exit status of the first run, which run_tests passes in retry_status.
+retry_tests() {
+  local bundle=$1 plan="$out/$bundle-retry-plan.txt" expected="$out/$bundle-expected.txt" target
+  shift
+  local unplanned="::error::No retry of $bundle:"
+  expected_tests "$expected" "$@" || { echo "$unplanned the requested tests are unknown."; return 0; }
+  : > "$plan"
+  if [ -d "$out/$bundle.xcresult" ]; then
+    # An unreadable bundle may hold finished tests; a rerun of the selection would repeat them.
+    xcrun xcresulttool get test-results tests --path "$out/$bundle.xcresult" > "$out/$bundle-tests.json" 2> /dev/null ||
+      { echo "$unplanned the result bundle is unreadable."; return 0; }
+    python3 scripts/screen_report.py retry-plan "$out/$bundle-tests.json" > "$plan" || { echo "$unplanned no plan."; return 0; }
+    # Tests after an early runner exit have no result at all; the retry runs them too.
+    target=$(printf '%s\n' "$@" | sed -n 's/^-only-testing:\([^/]*\).*/\1/p' | sort -u)
+    case "$target" in "" | *$'\n'*) echo "$unplanned the selection has no single test target."; return 0 ;; esac
+    python3 scripts/screen_report.py unrun "$expected" "$target" "$out/$bundle-tests.json" >> "$plan" ||
+      { echo "$unplanned the unrun tests are unknown."; return 0; }
+  else
+    echo ALL > "$plan"
+  fi
+  [ -s "$plan" ] || return 0
+  local selection=()
+  if grep -qx ALL "$plan"; then
+    selection=("$@")
+  else
+    local id arg
+    while IFS= read -r id; do selection+=("-only-testing:$id"); done < <(sort -u "$plan")
+    # The skip list keeps its meaning; an -only-testing entry names tests that it never excludes.
+    for arg in "$@"; do case "$arg" in -skip-testing:*) selection+=("$arg") ;; esac; done
+  fi
+  echo "::warning::Simulator or runner failure in $bundle. Running these tests once more:"
+  cat "$plan"
+  retry_status=0
+  xcodebuild_tests "$bundle" "$out/$bundle-retry.xcresult" -a "${selection[@]}" -parallel-testing-enabled NO || retry_status=$?
+  [ "$retry_status" -eq 0 ] || return 0
+  retry_status=1
+  local reports=("$out/$bundle-retry-tests.json") missing failures
+  xcrun xcresulttool get test-results tests --path "$out/$bundle-retry.xcresult" > "${reports[0]}" ||
+    { echo "::error::The retry bundle of $bundle is unreadable."; return 0; }
+  [ ! -f "$out/$bundle-tests.json" ] || reports=("$out/$bundle-tests.json" "${reports[@]}")
+  # An error of a check fails the run: only an empty answer is a pass.
+  missing=$(python3 scripts/screen_report.py unfinished "$expected" "${reports[@]}") ||
+    { echo "::error::The results of $bundle could not be checked."; return 0; }
+  [ -z "$missing" ] || { echo "::error::No passed result after the retry in $bundle: $(echo $missing)"; return 0; }
+  failures=$(python3 scripts/screen_report.py assertion-failures "${reports[@]:0:1}") ||
+    { echo "::error::The failures of $bundle could not be read."; return 0; }
+  [ -z "$failures" ] || { echo "::error::Assertion failures in $bundle: $(echo $failures)"; return 0; }
+  retry_status=0
+}
+
 run_tests() {
   local bundle=$1
   local status=0
   shift
   xcodebuild_tests "$bundle" "$out/$bundle.xcresult" "" "$@" -parallel-testing-enabled NO || status=$?
   if [ "$status" -ne 0 ]; then
-    # Tests that the runner or simulator failed, one per line as Target/Class/method. "ALL" means no test ran.
-    local retry=0 plan="$out/$bundle-retry-plan.txt"
-    if [ ! -d "$out/$bundle.xcresult" ]; then
-      echo ALL > "$plan"
-    elif xcrun xcresulttool get test-results tests --path "$out/$bundle.xcresult" > "$out/$bundle-tests.json" 2> /dev/null; then
-      python3 scripts/screen_report.py retry-plan "$out/$bundle-tests.json" > "$plan" || retry=1
-    else
-      # An unreadable bundle may hold finished tests; a rerun of the selection would repeat them.
-      retry=1
-    fi
-    if [ "$retry" -eq 0 ] && [ -s "$plan" ]; then
-      local selection=()
-      if [ "$(head -1 "$plan")" = ALL ]; then
-        selection=("$@")
-      else
-        local id
-        while IFS= read -r id; do selection+=("-only-testing:$id"); done < "$plan"
-        # The skip list keeps its meaning; an -only-testing entry names tests that it never excludes.
-        local arg
-        for arg in "$@"; do case "$arg" in -skip-testing:*) selection+=("$arg") ;; esac; done
-      fi
-      echo "::warning::Simulator or runner failure in $bundle. Running these tests once more:"
-      cat "$plan"
-      status=0
-      xcodebuild_tests "$bundle" "$out/$bundle-retry.xcresult" -a "${selection[@]}" -parallel-testing-enabled NO || status=$?
-      # The retry bundle reports only the tests that it ran. The first run's failures stay in the first bundle,
-      # so the retry decides only for those infrastructure failures.
-      if [ "$status" -eq 0 ]; then
-        # An assertion failure of the first run is not covered by the retry.
-        python3 scripts/screen_report.py assertion-failures "$out/$bundle-tests.json" && status=1 || status=0
-      fi
-    fi
+    retry_status=$status
+    retry_tests "$bundle" "$@"
+    status=$retry_status
   fi
   python3 scripts/screen_report.py retries "$out/$bundle.log" > "$out/$bundle-retries.txt" || return $?
   cat "$out/$bundle-retries.txt"

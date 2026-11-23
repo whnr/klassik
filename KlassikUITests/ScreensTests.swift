@@ -1392,7 +1392,7 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertFalse(
             app.descendants(matching: .any).matching(identifier: "section-heading").firstMatch.exists,
             "The rows have a heading")
-        XCTAssertTrue(app.buttons["recording-menu"].exists, "The page bar has no menu")
+        XCTAssertTrue(app.buttons["page-menu"].exists, "The page bar has no menu")
         snap(app, "05h-recording-page")
 
         startPlaying(app)
@@ -1415,7 +1415,7 @@ final class PlaybackScreens: ScreensTestCase {
         let overlay = app.descendants(matching: .any)["player-overlay"].firstMatch
         XCTAssertTrue(reveal(overlay.sliders["position"], in: app).exists, "The player has no playing row")
         XCTAssertFalse(overlay.buttons["show-player"].exists, "The player offers itself")
-        XCTAssertFalse(overlay.buttons["recording-menu"].exists, "The player has the page menu")
+        XCTAssertFalse(overlay.buttons["page-menu"].exists, "The player has the page menu")
         snap(app, "05j-player-playing")
     }
 
@@ -1767,6 +1767,63 @@ final class PlaybackScreens: ScreensTestCase {
         pause(app)
         XCTAssertFalse(next.isEnabled, "Next turned on again after the pause")
         snap(app, "05d-next-ends")
+    }
+
+    /// The ⋯ menu of the work, recording and album pages and the long-press menu of a recording row keep the order of
+    /// specimen menu.html: queue, download, tags. The row menu has Play on top.
+    @MainActor
+    func testPageMenus() throws {
+        let app = try launchAndConnect()
+        composer(app, "Felix Mendelssohn").tap()
+        let work = app.buttons.matching(identifier: "work").firstMatch
+        XCTAssertTrue(work.waitForExistence(timeout: 10))
+        work.tap()
+        XCTAssertTrue(app.buttons["play-work"].waitForExistence(timeout: 10))
+        let queue = pageMenuItem(app, "Add to Queue")
+        XCTAssertTrue(queue.exists, "The work menu has no Add to Queue")
+        XCTAssertTrue(menuItem(app, "Play Next").exists, "The work menu has no Play Next")
+        XCTAssertFalse(menuItem(app, "Download").exists, "The work menu offers a download")
+        XCTAssertFalse(menuItem(app, "Tags and Grouping").exists, "The work menu offers the tags")
+        XCTAssertEqual(menuItem(app, "Play Next").label, "Play Next", "The work menu names the top recording")
+        snap(app, "05k-work-menu")
+        closeMenu(app)
+
+        let row = app.buttons.matching(identifier: "recording").firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        row.press(forDuration: 1.2)
+        let rowTags = menuItem(app, "Tags and Grouping")
+        XCTAssertTrue(rowTags.waitForExistence(timeout: 5), "The row menu has no Tags and Grouping")
+        expectOrder(app, ["Play", "Play Next", "Add to Queue", "Download", "Tags and Grouping"], "row menu")
+        snap(app, "05l-recording-row-menu")
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
+        XCTAssertTrue(eventually(timeout: 5) { !rowTags.exists }, "The row menu stays open")
+
+        row.tap()
+        XCTAssertTrue(app.buttons["play-recording"].waitForExistence(timeout: 10))
+        XCTAssertTrue(pageMenuItem(app, "Play Next").exists, "The recording menu has no Play Next")
+        expectOrder(app, ["Play Next", "Add to Queue", "Download", "Tags and Grouping"], "recording menu")
+        snap(app, "05m-recording-menu")
+        closeMenu(app)
+        back(app, times: 3)
+
+        openClassicalAlbums(app)
+        let album = app.buttons.matching(identifier: "album").firstMatch
+        XCTAssertTrue(reveal(album, in: app).isHittable)
+        album.tap()
+        XCTAssertTrue(app.buttons["play-recording"].waitForExistence(timeout: 10))
+        XCTAssertTrue(pageMenuItem(app, "Tags and Grouping").exists, "The album menu has no Tags and Grouping")
+        expectOrder(app, ["Play Next", "Add to Queue", "Download", "Tags and Grouping"], "album menu")
+        snap(app, "05n-album-menu")
+        closeMenu(app)
+    }
+
+    /// The items of the open menu run from top to bottom in this order.
+    @MainActor
+    private func expectOrder(_ app: XCUIApplication, _ titles: [String], _ name: String) {
+        let tops = titles.map { menuItem(app, $0).frame.minY }
+        for (index, pair) in zip(tops, tops.dropFirst()).enumerated() {
+            XCTAssertLessThan(pair.0, pair.1, "In the \(name), \(titles[index + 1]) is above \(titles[index])")
+        }
     }
 
     @MainActor
@@ -2780,15 +2837,21 @@ class ScreensTestCase: XCTestCase {
         XCTAssertEqual(bar.value as? String, before, "Back changed the playback position")
     }
 
-    /// Opens the menu in the bar of a recording or album page and returns its item with the label.
+    /// Opens the menu in the bar of a work, recording or album page and returns its item with the title.
     @MainActor
-    func pageMenuItem(_ app: XCUIApplication, _ label: String) -> XCUIElement {
-        let menu = app.buttons["recording-menu"].firstMatch
+    func pageMenuItem(_ app: XCUIApplication, _ title: String) -> XCUIElement {
+        let menu = app.buttons["page-menu"].firstMatch
         XCTAssertTrue(menu.waitForExistence(timeout: 10), "The page has no menu")
         menu.tap()
-        let item = app.buttons[label].firstMatch
+        let item = menuItem(app, title)
         _ = item.waitForExistence(timeout: 3)
         return item
+    }
+
+    /// An item of an open menu. The line below the title can join the title in the label, as "Download, 1 MB".
+    @MainActor
+    func menuItem(_ app: XCUIApplication, _ title: String) -> XCUIElement {
+        app.buttons.matching(NSPredicate(format: "label == %@ OR label BEGINSWITH %@", title, title + ",")).firstMatch
     }
 
     /// A tap beside an open menu closes it and reaches nothing below.

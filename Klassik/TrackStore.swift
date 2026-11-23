@@ -42,6 +42,8 @@ final class TrackStore {
         var errorDescription: String? { "This iPhone has no network for music now." }
     }
     @ObservationIgnored private var downloadTracks: [String: Set<String>] = [:]
+    /// Downloads asked for again while their cancelled task still ends. Each starts when its old task ended.
+    @ObservationIgnored private var restarts: [String: @MainActor () -> Void] = [:]
     private var generation = 0
 
     var cacheLimit: Int64 {
@@ -112,6 +114,9 @@ final class TrackStore {
     func isOffline(_ recording: WorkIndex.Recording) -> Bool {
         !recording.songs.isEmpty && recording.songs.allSatisfy { offline.contains($0.id) }
     }
+
+    /// True while a download task runs, also a cancelled one that still releases its files.
+    var isRunning: Bool { !tasks.isEmpty }
 
     func isDownloaded(_ recording: WorkIndex.Recording) -> Bool {
         downloads.contains { $0.id == recording.id }
@@ -261,7 +266,15 @@ final class TrackStore {
 
     /// Downloads every track of a recording. It runs in the background; `progress` shows how far it is.
     func download(_ recording: WorkIndex.Recording, title: String, client: any ServerPort) {
-        guard tasks[recording.id] == nil, !isDownloaded(recording) else { return }
+        guard !isDownloaded(recording) else { return }
+        if let running = tasks[recording.id] {
+            // The menu shows the new download at once. It starts when the cancelled task released its files.
+            guard running.isCancelled, restarts[recording.id] == nil else { return }
+            failures[recording.id] = nil
+            progress[recording.id] = 0
+            restarts[recording.id] = { [weak self] in self?.download(recording, title: title, client: client) }
+            return
+        }
         failures[recording.id] = nil
         progress[recording.id] = 0
         downloadTracks[recording.id] = Set(recording.songs.map(\.id))
@@ -321,11 +334,16 @@ final class TrackStore {
             // A promoted transfer that playback still needs stays outside the limit until it ends.
             cancelTransfers(except: pinned.union(wanted))
             rescan()
+            restarts.removeValue(forKey: recording.id)?()
         }
     }
 
+    /// The download stops at once for the listener. Its task releases the files in the background.
     func cancelDownload(_ id: String) {
-        tasks[id]?.cancel()
+        guard let task = tasks[id] else { return }
+        task.cancel()
+        restarts[id] = nil
+        progress[id] = nil
     }
 
     /// Removes a download. A track that another download also holds stays.
@@ -355,6 +373,7 @@ final class TrackStore {
         cancelTransfers()
         for task in tasks.values { task.cancel() }
         tasks = [:]
+        restarts = [:]
         progress = [:]
         for task in fetches.values { task.cancel() }
         fetches = [:]

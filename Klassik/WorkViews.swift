@@ -6,9 +6,10 @@ enum FavouriteAction {
 }
 
 /// The actions of a row that stands for one recording or one album. Trailing swipe: the queue. Leading swipe:
-/// download and favourites. The context menu holds all of them, as in Apple Music.
+/// download and favourites. The long-press menu holds Play, then the page menu of the row's item, then the favourite.
 private struct ItemActions: ViewModifier {
     @Environment(AppModel.self) private var model
+    @Environment(AppNavigator.self) private var navigator
     let item: QueueItem
     /// Only recordings and albums download, never a whole work.
     let downloads: Bool
@@ -28,12 +29,22 @@ private struct ItemActions: ViewModifier {
                 ForEach(SwipeSettings.actions(model.swipes.leading)) { button(for: $0) }
             }
             .contextMenu {
-                playButton
-                Button("Play Next", systemImage: "text.line.first.and.arrowtriangle.forward") { playNext() }
-                Button("Add to Queue", systemImage: "text.line.last.and.arrowtriangle.forward") { addToQueue() }
-                if downloads { downloadButton }
-                if hasFavourite { favouriteButton }
+                let target = PageMenuTarget(kind: kind, item: item)
+                let player = model.playback
+                let isPlaying = player.recording?.id == item.recording.id
+                let play = PageMenu.play(isPlaying: isPlaying, isPaused: player.isPaused)
+                PageMenuItems(menu: target.menu(model, play: play)) {
+                    target.run($0, model: model, navigator: navigator)
+                }
+                // Rows have no fermata of their own to tap, so the favourite stays in their menu.
+                if hasFavourite { Section { favouriteButton } }
             }
+    }
+
+    /// Only recordings and albums download and show tags; a work row queues its top recording.
+    private var kind: PageMenu.Kind {
+        guard downloads else { return .work }
+        return item.recording.isAlbum ? .album : .recording
     }
 
     /// A row that cannot do an action leaves it out: works never download.
@@ -65,18 +76,6 @@ private struct ItemActions: ViewModifier {
                     tracks.download(item.recording, title: item.work.title, client: client)
                 }
             }
-        }
-    }
-
-    /// The playing recording pauses and resumes, so its label says that.
-    private var playButton: some View {
-        let player = model.playback
-        let isPlaying = player.recording?.id == item.recording.id
-        return Button(
-            isPlaying ? (player.isPaused ? "Resume" : "Pause") : "Play",
-            systemImage: isPlaying && !player.isPaused ? "pause" : "play"
-        ) {
-            player.play(item)
         }
     }
 
@@ -300,7 +299,18 @@ struct WorkView: View {
         .navigationTitle(work.title)
         .navigationBarTitleDisplayMode(.inline)
         .environment(\.pageHeading, "")
-        .toolbar { if recordings.filter(\.isFavourite).count > 1 { EditButton() } }
+        .toolbar {
+            if recordings.filter(\.isFavourite).count > 1 {
+                ToolbarItem(placement: .topBarTrailing) { EditButton() }
+            }
+            // The menu queues the recording that Play plays: the top of the list.
+            if let recording = model.recordingOrder.reference(of: work) {
+                ToolbarItem(placement: .topBarTrailing) {
+                    PageMenuButton(
+                        target: PageMenuTarget(kind: .work, item: QueueItem(work: work, recording: recording)))
+                }
+            }
+        }
         .onAppear { model.sweep.prefer(performers: recordings.flatMap(\.recording.performerNames)) }
     }
 
@@ -627,11 +637,14 @@ struct RecordingView: View {
         .environment(\.pageHeading, "")
         .navigationTitle(isOverlay ? "" : work.title)
         .navigationBarTitleDisplayMode(.inline)
-        // The specimen page has no settings rows. The tags and the download stay one menu away in the bar.
+        // The specimen page has no settings rows. The queue, the download and the tags are in the page menu.
         .toolbar {
             if !isOverlay {
                 ToolbarItem(placement: .topBarTrailing) {
-                    RecordingMenu(work: work, recording: recording)
+                    PageMenuButton(
+                        target: PageMenuTarget(
+                            kind: recording.isAlbum ? .album : .recording,
+                            item: QueueItem(work: work, recording: recording), album: album))
                 }
             }
         }
@@ -1451,57 +1464,6 @@ struct NoteRoom: ViewModifier {
                 at: CGPoint(x: bounds.minX, y: bounds.maxY), anchor: .bottomLeading,
                 proposal: ProposedViewSize(width: bounds.width, height: nil))
         }
-    }
-}
-
-/// The menu of a recording or album page: its tags, and the download with its state.
-private struct RecordingMenu: View {
-    @Environment(AppModel.self) private var model
-    @Environment(AppNavigator.self) private var navigator
-    let work: WorkIndex.Work
-    let recording: WorkIndex.Recording
-
-    var body: some View {
-        Menu {
-            Button("Tags and Grouping", systemImage: "tag") {
-                navigator.open(.rawTags(work: work.id, recording: recording.id), in: navigator.selection)
-            }
-            .accessibilityIdentifier("raw-tags")
-            download
-        } label: {
-            Label("More", systemImage: "ellipsis")
-        }
-        .accessibilityIdentifier("recording-menu")
-    }
-
-    /// Download, follow the download, or remove it. The state heads its section, so the menu says it.
-    @ViewBuilder private var download: some View {
-        let tracks = model.tracks
-        if let stored = tracks.downloads.first(where: { $0.id == recording.id }) {
-            Section("Downloaded, \(Self.size(stored.bytes))") {
-                Button("Remove Download", systemImage: "trash", role: .destructive) { tracks.remove(stored) }
-                    .accessibilityIdentifier("remove-download")
-            }
-        } else if let share = tracks.progress[recording.id] {
-            Section("Downloading, \(share.formatted(.percent.precision(.fractionLength(0))))") {
-                Button("Cancel Download", systemImage: "xmark.circle") { tracks.cancelDownload(recording.id) }
-            }
-        } else if let failure = tracks.failures[recording.id] {
-            Section(failure) { start }
-        } else {
-            start
-        }
-    }
-
-    private var start: some View {
-        Button("Download", systemImage: "arrow.down.circle") {
-            if let client = model.client { model.tracks.download(recording, title: work.title, client: client) }
-        }
-        .accessibilityIdentifier("download")
-    }
-
-    static func size(_ bytes: Int64) -> String {
-        bytes.formatted(.byteCount(style: .file))
     }
 }
 

@@ -1,0 +1,7 @@
+{
+  "sha": "ace0831c358d9f39ae0666cc9f26366d47da6bfa",
+  "branch": "claude-ci2",
+  "path": "claude-ci2",
+  "subject": "Fail CI when retried tests never ran",
+  "ts": 1795458109
+}

@@ -468,7 +468,12 @@ final class TrackStore {
     }
 
     private func fetch(_ song: Song, to target: URL, client: any ServerPort) async throws {
-        let temporary = try await background?(song, client) ?? load(song, client)
+        let temporary: URL
+        if let background {
+            temporary = try await background(song, client)
+        } else {
+            temporary = try await load(song, client)
+        }
         defer { try? FileManager.default.removeItem(at: temporary) }
         try Task.checkCancellation()
         try FileManager.default.createDirectory(

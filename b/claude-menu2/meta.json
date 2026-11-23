@@ -1,7 +1,7 @@
 {
-  "sha": "e6639f9164df35c26148a82c37753a8548bce1e2",
+  "sha": "c283ea93ff08f0f7afb72a6c77c45a5d7978f3ba",
   "branch": "claude-menu2",
   "path": "claude-menu2",
-  "subject": "[sz-rs30.1.105.33.10.1] Show the player menu state before its checks",
-  "ts": 1795457292
+  "subject": "[sz-rs30.1.105.33.10.1] Give the player menu its own area",
+  "ts": 1795461617
 }

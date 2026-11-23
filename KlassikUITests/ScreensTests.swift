@@ -1191,6 +1191,43 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(app.buttons["show-player"].waitForExistence(timeout: 10))
     }
 
+    /// A drag from the title of the player moves the whole player, and a fling closes it.
+    @MainActor
+    func testHeadingDragClosesThePlayer() throws {
+        let app = try launchAndConnect()
+        openRecording(app)
+        playPaused(app)
+        openPlayer(app)
+        let title = app.descendants(matching: .any)["player-title"].firstMatch
+        XCTAssertTrue(title.waitForExistence(timeout: 10))
+        title.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(
+            forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)),
+            withVelocity: .fast, thenHoldForDuration: 0)
+        expectPlayerClosed(app)
+        XCTAssertTrue(app.buttons["show-player"].waitForExistence(timeout: 10))
+    }
+
+    /// A short drag from the title only pulls the player. It springs back to its place.
+    @MainActor
+    func testShortHeadingDragSpringsBack() throws {
+        let app = try launchAndConnect()
+        openRecording(app)
+        playPaused(app)
+        openPlayer(app)
+        let handle = app.buttons["player-handle"]
+        let before = handle.frame.minY
+        let title = app.descendants(matching: .any)["player-title"].firstMatch
+        XCTAssertTrue(title.waitForExistence(timeout: 10))
+        let from = title.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        from.press(
+            forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: 50)), withVelocity: .slow,
+            thenHoldForDuration: 0.2)
+        XCTAssertTrue(
+            eventually(timeout: 5) { abs(handle.frame.minY - before) < 2 },
+            "The player did not spring back: handle at \(handle.frame.minY), was \(before)")
+        XCTAssertTrue(handle.exists, "A short drag closed the player")
+    }
+
     @MainActor
     func testOverlayOnTheLeft() throws {
         let app = try launchAndConnect(arguments: ["-\(timelineSideKey)", "left"])

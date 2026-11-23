@@ -517,6 +517,8 @@ struct RecordingView: View {
     /// Set on the album page, which lists the tracks of the album.
     var album: WorkIndex.Album?
     var isOverlay = false
+    /// The drag that the heading of the player takes to close it. Set on the overlay only.
+    var closeDrag: PlayerCloseDrag?
     /// The rows that the listener opened, by track position.
     @State private var opened: Set<Int> = []
     @State private var spell = QuietSpell()
@@ -712,18 +714,24 @@ struct RecordingView: View {
     /// player.html `.hero`). Names with a page are links.
     private func hero(_ page: PlayerPage) -> some View {
         VStack(spacing: Layout.heroGap) {
-            CoverImage(
-                song: isPlayingThis ? model.playback.coverSong : recording.songs.first,
-                points: Layout.bigCover, playback: isPlayingThis
-            )
-            .frame(width: Layout.bigCover, height: Layout.bigCover)
-            .clipShape(.rect(cornerRadius: Layout.bigCoverCorner))
-            .accessibilityElement()
-            .accessibilityLabel("Cover")
-            .accessibilityIdentifier("hero-cover")
-            .padding(.bottom, Layout.bigCoverBottom)
-            heroTitle
-                .accessibilityAddTraits(.isHeader)
+            // A drag from the cover or the title moves the whole player, so it takes priority over the list scroll.
+            VStack(spacing: Layout.heroGap) {
+                CoverImage(
+                    song: isPlayingThis ? model.playback.coverSong : recording.songs.first,
+                    points: Layout.bigCover, playback: isPlayingThis
+                )
+                .frame(width: Layout.bigCover, height: Layout.bigCover)
+                .clipShape(.rect(cornerRadius: Layout.bigCoverCorner))
+                .accessibilityElement()
+                .accessibilityLabel("Cover")
+                .accessibilityIdentifier("hero-cover")
+                .padding(.bottom, Layout.bigCoverBottom)
+                heroTitle
+                    .accessibilityAddTraits(.isHeader)
+            }
+            .frame(maxWidth: .infinity)
+            .contentShape(.rect)
+            .closeDragged(closeDrag)
             if let composer = page.composer {
                 RoleLines(
                     lines: [Roles.Line(kind: .unlabelled, label: "", names: [composer])], alignment: .center,
@@ -1589,5 +1597,12 @@ struct CapsuleLabel: View {
         .frame(maxWidth: .infinity, minHeight: Layout.capsuleHeight)
         .background(filled ? Palette.accentFill : Palette.fillQuiet, in: .capsule)
         .contentShape(.capsule)
+    }
+}
+
+extension View {
+    /// Gives a drag to the player's close gesture when there is one; the page keeps its plain scroll.
+    @ViewBuilder fileprivate func closeDragged(_ drag: PlayerCloseDrag?) -> some View {
+        if let drag { highPriorityGesture(drag.gesture) } else { self }
     }
 }

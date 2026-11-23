@@ -1198,7 +1198,7 @@ final class PlaybackScreens: ScreensTestCase {
         openRecording(app)
         playPaused(app)
         openPlayer(app)
-        let title = app.descendants(matching: .any)["player-title"].firstMatch
+        let title = app.descendants(matching: .any)["hero-cover"].firstMatch
         XCTAssertTrue(title.waitForExistence(timeout: 10))
         title.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(
             forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)),
@@ -1216,7 +1216,7 @@ final class PlaybackScreens: ScreensTestCase {
         openPlayer(app)
         let handle = app.buttons["player-handle"]
         let before = handle.frame.minY
-        let title = app.descendants(matching: .any)["player-title"].firstMatch
+        let title = app.descendants(matching: .any)["hero-cover"].firstMatch
         XCTAssertTrue(title.waitForExistence(timeout: 10))
         let from = title.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
         from.press(

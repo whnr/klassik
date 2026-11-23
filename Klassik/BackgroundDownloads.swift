@@ -10,7 +10,7 @@ final class BackgroundDownloads: NSObject, URLSessionDownloadDelegate, @unchecke
     /// Every download that waits for a task. Recordings that share a track join the same task.
     private var waiters: [Int: [(id: UUID, continuation: CheckedContinuation<URL, any Error>)]] = [:]
     /// The system's call that ends a relaunch for background events, held until the session has delivered them.
-    private var completion: (@Sendable () -> Void)?
+    private var completion: (() -> Void)?
     /// Tasks whose answer was no success, by task identifier.
     private var refused: [Int: Int] = [:]
     private let staging: URL
@@ -84,7 +84,7 @@ final class BackgroundDownloads: NSObject, URLSessionDownloadDelegate, @unchecke
 
     /// Keeps the system's handler for a relaunch. The session is created by now, so its events arrive and
     /// `urlSessionDidFinishEvents` calls the handler.
-    func attach(completion: @escaping @Sendable () -> Void) {
+    func attach(completion: @escaping () -> Void) {
         lock.lock()
         self.completion = completion
         lock.unlock()
@@ -159,6 +159,9 @@ final class BackgroundDownloads: NSObject, URLSessionDownloadDelegate, @unchecke
         let handler = completion
         completion = nil
         lock.unlock()
-        if let handler { DispatchQueue.main.async(execute: handler) }
+        if let handler {
+            nonisolated(unsafe) let call = handler
+            DispatchQueue.main.async { call() }
+        }
     }
 }

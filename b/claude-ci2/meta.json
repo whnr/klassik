@@ -1,7 +1,7 @@
 {
-  "sha": "ace0831c358d9f39ae0666cc9f26366d47da6bfa",
+  "sha": "2c9ba5d7b3a81c488bcb069b16fc9c7db83978c2",
   "branch": "claude-ci2",
   "path": "claude-ci2",
-  "subject": "Fail CI when retried tests never ran",
-  "ts": 1795458109
+  "subject": "Format the retry tests",
+  "ts": 1795458380
 }

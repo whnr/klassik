@@ -1,7 +1,7 @@
 {
-  "sha": "db2cbe69fcf0179a735c0373cf45e2c88bf1e40b",
+  "sha": "13903e04e2869c9cb7be33ea1d8b389d29af33ce",
   "branch": "claude-ci2",
   "path": "claude-ci2",
-  "subject": "Wait for the enrichment cache write in its test",
-  "ts": 1795445101
+  "subject": "Revert the throwaway failing walk test",
+  "ts": 1795448368
 }

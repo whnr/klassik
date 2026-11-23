@@ -164,15 +164,11 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
     private var remeasuresLabels = false
     /// The pass after the first remeasure: the bar has its final, narrow frame then, and the labels must fit it.
     private var remeasuresAtFinalFrame = false
-    private var settlesFinalFrame = false
-    private var restoresFrame = false
     /// The frame that the last layout pass gave the bar. UIKit's container can lay the bar out again at the full
     /// width without a new pass of this controller, which puts the Search circle under the mini player.
     private var barFrame: CGRect?
     private var barFrameObservations: [NSKeyValueObservation] = []
     private var barRepairs = 0
-    private var labelWidths: [String: CGFloat] = [:]
-    private var hadKeyboard = false
     private(set) var playerHost: UIHostingController<AnyView>?
     let playerLayout = PlayerOverlayLayout()
 
@@ -200,7 +196,6 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
 
     @objc private func keyboardVisibilityChanged(_ notification: Notification) {
         keyboardVisible = notification.name == UIResponder.keyboardWillShowNotification
-        if keyboardVisible { hadKeyboard = true }
         if !keyboardVisible { remeasuresLabels = true }
         barRepairs = 0
         view.setNeedsLayout()
@@ -314,29 +309,6 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
         Task { @MainActor [weak self] in self?.view.setNeedsLayout() }
     }
 
-    /// A label that kept a narrow width from the keyboard layout shows "Chronolo…" in a bar that has room. The label
-    /// gets back the width that it had in a bar of the same width, so it draws as before the keyboard. The selected
-    /// tab keeps its own layout.
-    private func restoreLabelWidths() {
-        let barWidth = Int(tabBar.frame.width)
-        func visit(_ view: UIView) {
-            if let label = view as? UILabel, let text = label.text, label.bounds.width > 0 {
-                let key = "\(text)@\(barWidth)"
-                let known = labelWidths[key] ?? 0
-                // Before the first keyboard the layout is settled, so its latest width is the reference.
-                if !hadKeyboard {
-                    labelWidths[key] = label.bounds.width
-                } else if abs(label.bounds.width - known) > 0.5, text != selectedTab?.title {
-                    let center = label.center
-                    label.bounds.size.width = known
-                    label.center = center
-                }
-            }
-            view.subviews.forEach(visit)
-        }
-        visit(tabBar)
-    }
-
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         configureBackGesture()
@@ -355,41 +327,10 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
         if remeasuresAtFinalFrame {
             // The bar is at its final, narrow frame. Only the items measure again: a new bar frame here would let
             // the container of the bar lay out at the full screen width after this pass.
-            // The width changes by 1 pt and returns: at an unchanged width UIKit keeps the item sizes that it
-            // measured at the full width, and the labels stay truncated.
             remeasuresAtFinalFrame = false
-            invalidateLayout(inside: tabBar)
-            tabBar.frame = frame.insetBy(dx: 1, dy: 0)
-            tabBar.layoutIfNeeded()
             tabBar.frame = frame
             invalidateLayout(inside: tabBar)
             tabBar.layoutIfNeeded()
-            // The container lays the bar out at the full width after this width change. One more pass puts the
-            // bar back beside the mini player without a new width change.
-            Task { @MainActor [weak self] in
-                self?.settlesFinalFrame = true
-                self?.view.setNeedsLayout()
-            }
-        } else if settlesFinalFrame {
-            settlesFinalFrame = false
-            // A tab that gets its title again measures the label from scratch; a layout pass alone keeps the
-            // width that the label had under the keyboard.
-            for tab in tabs where !(tab is UISearchTab) {
-                let title = tab.title
-                tab.title = ""
-                tab.title = title
-            }
-            invalidateLayout(inside: tabBar)
-            tabBar.frame = frame
-            tabBar.layoutIfNeeded()
-            // The new titles make the container lay the bar out at the full width again.
-            Task { @MainActor [weak self] in
-                self?.restoresFrame = true
-                self?.view.setNeedsLayout()
-            }
-        } else if restoresFrame {
-            restoresFrame = false
-            tabBar.frame = frame
         } else if remeasuresLabels {
             // After a keyboard the labels can stay truncated: the resting frame is unchanged, so UIKit does not lay
             // the items out again. A changed width forces a new layout of each item.
@@ -409,7 +350,6 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
         tabBar.frame = frame
         barFrame = frame
         observeBarFrame()
-        restoreLabelWidths()
         playerHost?.view.frame = view.bounds
         let top = view.window?.safeAreaInsets.top ?? view.safeAreaInsets.top
         let bottom = max(0, view.bounds.maxY - tabBar.convert(tabBar.bounds, to: view).minY)

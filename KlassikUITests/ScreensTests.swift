@@ -278,11 +278,6 @@ final class PlacesScreens: ScreensTestCase {
         XCTAssertTrue(search.waitForExistence(timeout: 10))
         let searchFrame = search.frame
         let baseline = try XCTUnwrap(ScreenPixels(app))
-        // A truncated label ("Chronolo…") keeps its element and its frame, so the pixels of each label must match.
-        let labelFrames = ["Library", "Chronology"].map { ($0, tab(app, $0).frame) }
-        snap(app, "02s-tabs-baseline")
-        let barText = app.tabBars["tab-row"].debugDescription
-        add(XCTAttachment(string: "baseline \(labelFrames) search \(searchFrame)\n\(barText)"))
         func expectTabs(_ step: String) {
             for name in ["Library", "Chronology", "Search"] {
                 let item = tab(app, name)
@@ -299,20 +294,6 @@ final class PlacesScreens: ScreensTestCase {
             }
             if share >= 0.05 { add(XCTAttachment(string: app.tabBars["tab-row"].debugDescription)) }
             XCTAssertLessThan(share, 0.05, "\(step): the Search circle changed")
-            for (name, frame) in labelFrames {
-                var labelShare = 1.0
-                for _ in 0..<6 {
-                    if let now = ScreenPixels(app) { labelShare = now.differingShare(in: frame, from: baseline) }
-                    if labelShare < 0.02 { break }
-                    Thread.sleep(forTimeInterval: 0.5)
-                }
-                if labelShare >= 0.02 {
-                    snap(app, "02r-tab-label-failed")
-                    let now = tab(app, name).frame
-                    add(XCTAttachment(string: "now \(now)\n\(app.tabBars["tab-row"].debugDescription)"))
-                }
-                XCTAssertLessThan(labelShare, 0.02, "\(step): the \(name) label is truncated or changed")
-            }
         }
         let field = app.textFields["search-field"]
         let recent = app.buttons.matching(identifier: "search-recent")

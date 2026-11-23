@@ -1,0 +1,7 @@
+{
+  "sha": "0e67058080cc61c4c4c19eaada39a6d0308f5d44",
+  "branch": "claude-ci2",
+  "path": "claude-ci2",
+  "subject": "Fix lint findings in the retry check",
+  "ts": 1795458400
+}

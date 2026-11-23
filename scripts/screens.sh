@@ -5,7 +5,11 @@
 # UI_TESTS_REQUIRED: "true" makes a failed UI walk fail the script. Else the script reports the failure and passes.
 # A failed build or a failed unit test always fails the script.
 # Exports the screenshots, the gapless report, the time of each phase and results.txt (build, unit, ui).
-# KLASSIK_PHASE: all (local default), build, unit, or ui. Test phases consume archived Build/Products.
+# KLASSIK_PHASE: all (local default), build, unit, ui, or measure. Test phases consume archived Build/Products.
+# The measure phase runs the slow throughput measurement and the wall-clock latency limits. The PR path skips them,
+# because a shared runner makes elapsed time vary. The nightly run and manual runs with `measure` run them.
+# A failed test is never retried, except when the simulator or runner failed (crash, lost connection, boot): then
+# only the failed tests run once more, and a test that passes that way is reported as flaky.
 # Usage: [KLASSIK_UI=...] [UI_TESTS_REQUIRED=...] scripts/screens.sh <output-dir>
 # KLASSIK_UI_TESTS narrows a shard to comma-separated -only-testing entries: a class, or Class/method.
 # Start scripts/fixture-server.sh first.
@@ -13,10 +17,10 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 out=$(mkdir -p "$1" && cd "$1" && pwd)
-rm -rf "$out"/*.xcresult "$out/timings.txt" "$out/results.txt" "$out/"*-retries.txt "$out/"*-console.txt
+rm -rf "$out"/*.xcresult "$out/timings.txt" "$out/results.txt" "$out/"*-retries.txt "$out/"*-console.txt "$out/"*-tests.json
 required=${UI_TESTS_REQUIRED:-false}
 mode=${KLASSIK_PHASE:-all}
-case "$mode" in all | build | unit | ui) ;; *) echo "Unknown phase: $mode" >&2; exit 2 ;; esac
+case "$mode" in all | build | unit | ui | measure) ;; *) echo "Unknown phase: $mode" >&2; exit 2 ;; esac
 # The last line of a key holds its state, so an early exit leaves "failed" or "not run" behind.
 record() { echo "$1=$2" >> "$out/results.txt"; }
 record ui_areas "${KLASSIK_UI:-false}"
@@ -25,6 +29,7 @@ record ui_methods "${KLASSIK_UI_TESTS:-}"
 record build failed
 record unit "not run"
 record ui "not run"
+record measure "not run"
 
 # Without this, xcodebuild buffers its output in the pipe and the log timestamps say nothing.
 export NSUnbufferedIO=YES
@@ -50,25 +55,52 @@ phase project
 udid=${KLASSIK_SIMULATOR_UDID:-$(scripts/simulator.sh)}
 echo "Simulator: $udid"
 phase simulator
-# A ready simulator avoids cold destination discovery and startup contention during compilation.
-if [ "$mode" != build ]; then
+# Waits for the simulator and sets the status bar. Compilation does not need a booted simulator, so a full run
+# (the build job) boots in the background while it compiles and waits here only after the build.
+boot() {
   xcrun simctl bootstatus "$udid" -b >/dev/null
   xcrun simctl status_bar "$udid" override --time 9:41 --dataNetwork wifi --wifiBars 3 --cellularMode notSupported \
     --batteryState charged --batteryLevel 100 || echo "No status bar override: the screenshot diff shows the clock."
   phase boot
+}
+if [ "$mode" = all ]; then
+  # An already booted simulator answers at once; a shut down one starts here, beside the compiler.
+  xcrun simctl boot "$udid" 2>/dev/null || true
+elif [ "$mode" != build ]; then
+  boot
 fi
 
 # The simulator answers in two architectures; naming one spares xcodebuild the choice.
 project=(-project Klassik.xcodeproj -scheme Klassik -derivedDataPath build/DerivedData)
 common=("${project[@]}" -destination "platform=iOS Simulator,id=$udid,arch=arm64")
+# Records when xcodebuild prints its first line and its first compile step, which locates a slow start.
+first_output() {
+  local line seen=
+  while IFS= read -r line; do
+    if [ -z "$seen" ]; then
+      echo "build-first-output $((SECONDS - phase_start)) s" >> "$out/timings.txt"
+      seen=1
+    fi
+    case "$line" in
+      "SwiftDriver "* | "CompileC "* | "SwiftCompile "*)
+        if [ "$seen" = 1 ]; then
+          echo "build-first-compile $((SECONDS - phase_start)) s" >> "$out/timings.txt"
+          seen=2
+        fi
+        ;;
+    esac
+    printf '%s\n' "$line"
+  done
+}
 # The index store and the preview dylibs serve only the editor.
 if [ "$mode" = all ] || [ "$mode" = build ]; then
   xcodebuild build-for-testing "${common[@]}" -showBuildTimingSummary CODE_SIGN_IDENTITY=- \
     COMPILER_INDEX_STORE_ENABLE=NO ENABLE_PREVIEWS=NO ENABLE_DEBUG_DYLIB=NO \
-    | tee "$out/build.log" | $formatter
+    | tee "$out/build.log" | first_output | $formatter
   record build passed
   phase build
 fi
+[ "$mode" != all ] || boot
 [ "$mode" != build ] || exit 0
 if [ "$mode" != all ]; then
   # Test products use __TESTROOT__, so the archive can move between runners.
@@ -80,22 +112,70 @@ fi
 # Runs one group of tests into its own result bundle, so the unit tests and the UI walk each have an exit status.
 # xcodebuild hands TEST_RUNNER_* variables to the test runner without the prefix.
 # Simulator diagnostic archives add minutes after test execution. Result bundles keep test logs and attachments without them.
+# Arguments: bundle name, then the -only-testing / -skip-testing selection.
+# An assertion failure fails the run at once: a retry would hide a real bug. Only a failure of the simulator or the
+# runner earns one more run, and only of the tests that it failed. xcodebuild runs no retry of its own.
+xcodebuild_tests() {
+  local bundle=$1 result=$2 append=$3
+  shift 3
+  local status=0
+  TEST_RUNNER_KLASSIK_SERVER_URL=http://localhost:4533 \
+  TEST_RUNNER_KLASSIK_USERNAME=fixture \
+  TEST_RUNNER_KLASSIK_PASSWORD=fixture \
+  TEST_RUNNER_KLASSIK_LATENCY_LIMITS=${KLASSIK_LATENCY_LIMITS:-0} \
+  xcodebuild test-without-building \
+    "${common[@]}" \
+    -collect-test-diagnostics never \
+    "$@" \
+    -resultBundlePath "$result" \
+    | tee ${append:+"$append"} "$out/$bundle.log" | $formatter || status=$?
+  return "$status"
+}
+
 run_tests() {
   local bundle=$1
   local status=0
   shift
-  TEST_RUNNER_KLASSIK_SERVER_URL=http://localhost:4533 \
-  TEST_RUNNER_KLASSIK_USERNAME=fixture \
-  TEST_RUNNER_KLASSIK_PASSWORD=fixture \
-  xcodebuild test-without-building \
-    "${common[@]}" \
-    -collect-test-diagnostics never \
-    -retry-tests-on-failure -test-iterations 2 -test-repetition-relaunch-enabled YES \
-    "$@" \
-    -resultBundlePath "$out/$bundle.xcresult" \
-    | tee "$out/$bundle.log" | $formatter || status=$?
+  xcodebuild_tests "$bundle" "$out/$bundle.xcresult" "" "$@" -parallel-testing-enabled NO || status=$?
+  if [ "$status" -ne 0 ]; then
+    # Tests that the runner or simulator failed, one per line as Target/Class/method. "ALL" means no test ran.
+    local retry=0 plan="$out/$bundle-retry-plan.txt"
+    if [ ! -d "$out/$bundle.xcresult" ]; then
+      echo ALL > "$plan"
+    elif xcrun xcresulttool get test-results tests --path "$out/$bundle.xcresult" > "$out/$bundle-tests.json" 2> /dev/null; then
+      python3 scripts/screen_report.py retry-plan "$out/$bundle-tests.json" > "$plan" || retry=1
+    else
+      # An unreadable bundle may hold finished tests; a rerun of the selection would repeat them.
+      retry=1
+    fi
+    if [ "$retry" -eq 0 ] && [ -s "$plan" ]; then
+      local selection=()
+      if [ "$(head -1 "$plan")" = ALL ]; then
+        selection=("$@")
+      else
+        local id
+        while IFS= read -r id; do selection+=("-only-testing:$id"); done < "$plan"
+        # The skip list keeps its meaning; an -only-testing entry names tests that it never excludes.
+        local arg
+        for arg in "$@"; do case "$arg" in -skip-testing:*) selection+=("$arg") ;; esac; done
+      fi
+      echo "::warning::Simulator or runner failure in $bundle. Running these tests once more:"
+      cat "$plan"
+      status=0
+      xcodebuild_tests "$bundle" "$out/$bundle-retry.xcresult" -a "${selection[@]}" -parallel-testing-enabled NO || status=$?
+      # The retry bundle reports only the tests that it ran. The first run's failures stay in the first bundle,
+      # so the retry decides only for those infrastructure failures.
+      if [ "$status" -eq 0 ]; then
+        # An assertion failure of the first run is not covered by the retry.
+        python3 scripts/screen_report.py assertion-failures "$out/$bundle-tests.json" && status=1 || status=0
+      fi
+    fi
+  fi
   python3 scripts/screen_report.py retries "$out/$bundle.log" > "$out/$bundle-retries.txt" || return $?
   cat "$out/$bundle-retries.txt"
+  if grep -q '^\*\*Flaky' "$out/$bundle-retries.txt"; then
+    echo "::warning::Flaky test in $bundle: it failed on a simulator or runner failure and passed on the retry. File a bead."
+  fi
   return "$status"
 }
 
@@ -124,9 +204,18 @@ export_console() {
 
 unit=0
 if [ "$mode" = all ] || [ "$mode" = unit ]; then
-  run_tests unit -only-testing:KlassikTests -parallel-testing-enabled NO || unit=$?
+  # The measurement suite takes minutes and its limits depend on the runner, so the measure phase owns it.
+  run_tests unit -only-testing:KlassikTests -skip-testing:KlassikTests/EarlyPlaybackMeasurementTests || unit=$?
   record unit "$([ $unit -eq 0 ] && echo passed || echo failed)"
   phase test
+fi
+
+measure=0
+if [ "$mode" = measure ]; then
+  KLASSIK_LATENCY_LIMITS=1 run_tests measure -only-testing:KlassikTests/EarlyPlaybackMeasurementTests \
+    -only-testing:KlassikTests/EarlyPlaybackTests || measure=$?
+  record measure "$([ $measure -eq 0 ] && echo passed || echo failed)"
+  phase measure
 fi
 
 ui=0
@@ -151,23 +240,29 @@ if [ -n "${KLASSIK_UI_TESTS:-}" ]; then
   done
 fi
 
-if [ "$mode" != unit ] && [ ${#suites[@]} -gt 0 ]; then
+if [ "$mode" != unit ] && [ "$mode" != measure ] && [ ${#suites[@]} -gt 0 ]; then
   # The bundle keeps the name that the workflow uploads after a failure.
   # Each runner owns one simulator, so UI automation does not compete for its resources.
-  run_tests screens "${suites[@]}" -parallel-testing-enabled NO || ui=$?
+  run_tests screens "${suites[@]}" || ui=$?
   record ui "$([ $ui -eq 0 ] && echo passed || echo failed)"
   phase ui
 fi
 
-export_console unit
-export_console screens
-export_attachments unit
-export_attachments screens
+for bundle in unit measure screens; do
+  export_console "$bundle"
+  export_attachments "$bundle"
+  # Attachments of the retried tests overwrite the failed attempt's names.
+  export_attachments "$bundle-retry"
+done
 phase export
 
 if [ $unit -ne 0 ]; then
   echo "::error::Unit tests failed."
   exit $unit
+fi
+if [ $measure -ne 0 ]; then
+  echo "::error::Measurement tests failed."
+  exit $measure
 fi
 if [ $ui -ne 0 ]; then
   if [ "$required" = true ]; then

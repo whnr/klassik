@@ -13,6 +13,11 @@ Usage:
         Prints the results of scripts/screens.sh as Markdown and writes <screens-dir>/missing.txt.
     python3 scripts/screen_report.py retries <raw-log>
         Prints failed test names, attempt counts, outcomes, and first failures before log formatting.
+    python3 scripts/screen_report.py retry-plan <tests.json>
+        Reads `xcresulttool get test-results tests`. Prints the failed tests that the simulator or runner failed, one
+        Target/Class/method per line, or ALL when the bundle holds no test. Exits 1 when nothing may be retried.
+    python3 scripts/screen_report.py assertion-failures <tests.json>
+        Exits 0 when a failed test is not an infrastructure failure, else 1.
     python3 scripts/screen_report.py console <console-file>...
         Prints, for each console of a test process, the count of lines that point to a crash or a runtime warning.
     python3 scripts/screen_report.py diff <screens-dir> <diff-dir> [<baseline-dir>]
@@ -73,7 +78,6 @@ UI_GROUPS = {
 }
 
 
-# A failed test makes xcodebuild run the whole selection again, so a shard must finish twice within the job limit.
 # Shards share a class by measured duration, because method counts hide the longer navigation tests.
 # A group that lists no methods for an area runs the methods that no other group lists, so a new or renamed test
 # always runs. scripts/test_screens.py refuses a listed method that ScreensTests.swift does not have.
@@ -242,8 +246,9 @@ def release_launch(event, title=""):
 def plan(event, dispatch_input, message, title="", ref="refs/heads/main", project=""):
     """Feature release requests and nightly runs walk everything. Main pushes run no walk.
     `message` is the commit message of the PR head, and `project` is the text of project.yml at the PR head."""
+    asked = "false"
     if event == "pull_request":
-        ui = requested_areas(message)
+        ui = asked = requested_areas(message)
         release = release_walk(title, project)
         if release == "all":
             ui = "all"
@@ -259,7 +264,12 @@ def plan(event, dispatch_input, message, title="", ref="refs/heads/main", projec
     include = []
     for group, areas in UI_GROUPS.items():
         if tests := group_tests(group, ui):
-            include.append({"group": group, "areas": areas, "tests": ",".join(tests)})
+            # A group blocks the run when the commit of the PR head asked for one of its areas. A walk that a
+            # release title, the nightly run or a manual run starts reports only.
+            required = selected_areas(asked, areas) != "false"
+            include.append(
+                {"group": group, "areas": areas, "tests": ",".join(tests), "required": "true" if required else "false"}
+            )
     return ui, {"include": include}
 
 
@@ -313,6 +323,72 @@ def ui_result(results):
     return "**FAILED, tolerated** (`UI_TESTS_REQUIRED` is not `true`)"
 
 
+# A message that proves the simulator or the test runner failed, not the code under test.
+INFRASTRUCTURE = re.compile(
+    r"crash|Early unexpected exit|never finished bootstrapping|lost connection|connection (?:was )?(?:interrupted|invalid)"
+    r"|failed to (?:launch|boot|terminate|connect)|unable to (?:boot|launch|connect)|test runner (?:hung|failed|exited)"
+    r"|CoreSimulator|simulator (?:device )?(?:failed|crashed|disconnected)|Mach error|Application .* is not running",
+    re.IGNORECASE,
+)
+
+
+def failed_cases(tests):
+    """The failed test cases of `xcresulttool get test-results tests` JSON: (identifier, messages) pairs, where the
+    identifier is Target/Class/method for -only-testing."""
+    found = []
+
+    def walk(node, bundle):
+        kind = node.get("nodeType", "")
+        if kind in ("Unit test bundle", "UI test bundle"):
+            bundle = node.get("name", "")
+        if kind == "Test Case":
+            if node.get("result") == "Failed":
+                name = node.get("nodeIdentifier") or node.get("name", "")
+                # XCTest methods are named test*; xcodebuild accepts them without the parentheses.
+                if name.endswith("()") and name.rsplit("/", 1)[-1].startswith("test"):
+                    name = name[:-2]
+                messages = []
+
+                def collect(child):
+                    if child.get("nodeType") == "Failure Message":
+                        messages.append(child.get("name", ""))
+                    for grandchild in child.get("children", []):
+                        collect(grandchild)
+
+                collect(node)
+                found.append((f"{bundle}/{name}" if bundle else name, messages))
+            return
+        for child in node.get("children", []):
+            walk(child, bundle)
+
+    for node in tests.get("testNodes", []):
+        walk(node, "")
+    return found
+
+
+def has_cases(tests):
+    def count(node):
+        return (node.get("nodeType") == "Test Case") + sum(count(c) for c in node.get("children", []))
+
+    return any(count(node) for node in tests.get("testNodes", []))
+
+
+def infrastructure_failure(messages):
+    """Only a message that names the simulator or runner earns a retry. A failure without a message does not."""
+    return any(INFRASTRUCTURE.search(message) for message in messages)
+
+
+def retry_plan(tests):
+    """The tests to run once more, or None when no failed test may be retried. ["ALL"] if the bundle holds no test."""
+    if not has_cases(tests):
+        return ["ALL"]
+    return [name for name, messages in failed_cases(tests) if infrastructure_failure(messages)] or None
+
+
+def assertion_failures(tests):
+    return [name for name, messages in failed_cases(tests) if not infrastructure_failure(messages)]
+
+
 def retry_report(log):
     """Read completion records before xcbeautify hides failed attempts."""
     attempts, issues = {}, {}
@@ -345,6 +421,10 @@ def retry_report(log):
         outcome = "recovered" if runs[-1][0] == "passed" else "failed"
         cells = [name, str(len(runs)), outcome, f"line {first[1]}: {detail}"]
         lines.append("| " + " | ".join(cell.replace("|", "\\|") for cell in cells) + " |")
+    flaky = [name for name, runs in failed.items() if runs[-1][0] == "passed"]
+    if flaky:
+        lines += ["", "**Flaky** (failed once, passed on the retry after a simulator or runner failure). File a bead for each:"]
+        lines += [f"- `{name}`" for name in flaky]
     return "\n".join(lines) + "\n"
 
 
@@ -418,6 +498,11 @@ def main(args):
     if command == "retries":
         print(retry_report(pathlib.Path(args[1]).read_text()))
         return
+    if command in ("retry-plan", "assertion-failures"):
+        tests = json.loads(pathlib.Path(args[1]).read_text() or "{}")
+        found = retry_plan(tests) if command == "retry-plan" else assertion_failures(tests)
+        print("\n".join(found or []))
+        sys.exit(0 if found else 1)
     if command == "console":
         print(console_report(args[1:]))
         return
@@ -426,6 +511,7 @@ def main(args):
         ui, matrix = plan(args[1], args[2], sys.stdin.read(), *args[3:5], project=project)
         print(f"ui={ui}")
         print("matrix=" + json.dumps(matrix, separators=(",", ":")))
+        print("ui_required=" + str(any(g["required"] == "true" for g in matrix["include"])).lower())
         print("release_launch=" + str(release_launch(args[1], args[3] if len(args) > 3 else "")).lower())
         return
     if command == "select":

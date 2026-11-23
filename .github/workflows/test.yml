@@ -5,7 +5,9 @@ name: Test
 # Main pushes run no walk. Nightly runs and feature release pull requests walk every group.
 # The Release launch check runs on main, nightly and release pull requests, not on other pull requests.
 # A merge to main that adds nothing to its green PR head skips the build: TestFlight accepts that PR run.
-# UI_TESTS_REQUIRED controls whether a failed walk blocks the run.
+# A failed walk test blocks the run only in an area that the head commit of the pull request requested; the plan job
+# marks each walk group as required or not. Other walks, the nightly walk and manual walks report only.
+# The measure job (nightly, or by hand with `measure`) runs the slow throughput measurement and the wall-clock limits.
 # A push that changes only documentation starts no run. TestFlight accepts such a commit through
 # scripts/green_test_gate.py, which keeps the same ignore list.
 on:
@@ -22,6 +24,10 @@ on:
         description: 'Walk the screens: "all", or areas such as "browse,settings"'
         type: string
         default: ""
+      measure:
+        description: "Run the measurement tests (throughput matrix, latency limits)"
+        type: boolean
+        default: false
 
 # A newer push cancels only a pull request's older run. Any other run has its own group:
 # a shared group would drop a queued run when a newer one arrives, and TestFlight needs
@@ -42,6 +48,7 @@ jobs:
       ui: ${{ steps.plan.outputs.ui }}
       matrix: ${{ steps.plan.outputs.matrix }}
       release_launch: ${{ steps.plan.outputs.release_launch }}
+      ui_required: ${{ steps.plan.outputs.ui_required }}
       covered: ${{ steps.covered.outputs.head }}
     steps:
       - uses: actions/checkout@v7
@@ -161,6 +168,9 @@ jobs:
         run: xcrun simctl delete unavailable
       # The cached DerivedData helps only if unchanged files keep their time.
       - run: python3 scripts/git_mtimes.py
+      # The simulator boots while the compiler runs. scripts/screens.sh waits for it after the build.
+      - name: Boot the simulator early
+        run: scripts/start-simulator.sh
       - id: xcode
         env:
           SOURCES_HASH: ${{ hashFiles('project.yml', 'Klassik/**', 'KlassikTests/**', 'KlassikUITests/**') }}
@@ -217,7 +227,7 @@ jobs:
     if: needs.plan.outputs.ui != 'false'
     needs: [plan, build, fixtures]
     runs-on: xcode-27
-    # A failed test gets one retry within its shard.
+    # A failed test is never retried, except after a simulator or runner failure, and then only that test.
     timeout-minutes: 45
     strategy:
       fail-fast: false
@@ -256,7 +266,7 @@ jobs:
           KLASSIK_PHASE: ui
           KLASSIK_UI_TESTS: ${{ matrix.tests }}
           KLASSIK_UI: ${{ steps.ui.outputs.ui }}
-          UI_TESTS_REQUIRED: ${{ vars.UI_TESTS_REQUIRED || 'false' }}
+          UI_TESTS_REQUIRED: ${{ matrix.required }}
         run: scripts/screens.sh "$RUNNER_TEMP/screens"
       - name: Results and time of each phase
         id: report
@@ -284,6 +294,56 @@ jobs:
         with:
           name: screens-xcresult-${{ matrix.group }}
           path: ${{ runner.temp }}/screens/*.xcresult
+
+  # Slow and runner-dependent tests: the throughput matrix and the wall-clock latency limits. They need no
+  # pull request run, because the walk and the unit tests cover behavior. A failure here fails only this job, so
+  # TestFlight (build and test jobs) is unaffected; the run itself reads as failed.
+  measure:
+    needs: [plan, build, fixtures]
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.measure)
+    runs-on: xcode-27
+    timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v7
+      - name: Remove unavailable runner simulators
+        run: xcrun simctl delete unavailable
+      - name: Boot the simulator early
+        run: scripts/start-simulator.sh
+      - uses: actions/download-artifact@v8
+        with:
+          name: test-products
+          path: ${{ runner.temp }}
+      - run: mkdir -p build/DerivedData/Build && tar xzf "$RUNNER_TEMP/test-products.tgz" -C build/DerivedData/Build
+      - uses: actions/download-artifact@v8
+        with:
+          name: fixture-music
+          path: ${{ runner.temp }}
+      - run: mkdir -p "$RUNNER_TEMP/fixture" && tar xzf "$RUNNER_TEMP/fixture-music.tgz" -C "$RUNNER_TEMP/fixture"
+      - name: Start Navidrome on the fixture library
+        run: scripts/fixture-server.sh "$RUNNER_TEMP/fixture"
+      - name: Run the measurement tests
+        env:
+          KLASSIK_PHASE: measure
+          KLASSIK_UI: "false"
+        run: scripts/screens.sh "$RUNNER_TEMP/measure"
+      - name: Results and time of each phase
+        if: always()
+        run: |
+          out="$RUNNER_TEMP/measure"
+          mkdir -p "$out"
+          cat "$out/timings.txt" >> "$GITHUB_STEP_SUMMARY" || true
+          cat "$out/"*-retries.txt >> "$GITHUB_STEP_SUMMARY" || true
+          grep -h 'throughput matrix' "$out/measure.log" >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: measure-report
+          path: |
+            ${{ runner.temp }}/measure/*.txt
+            ${{ runner.temp }}/measure/*.log
+            ${{ runner.temp }}/measure/*.xcresult
 
   # TestFlight gets an optimized Release build. This job opens one after a login and after a relaunch.
   release-launch:
@@ -357,7 +417,7 @@ jobs:
           INPUT: ${{ needs.plan.outputs.ui }}
           BUILD: ${{ needs.build.result }}
           WALK: ${{ needs.walk.result }}
-          UI_TESTS_REQUIRED: ${{ vars.UI_TESTS_REQUIRED || 'false' }}
+          UI_TESTS_REQUIRED: ${{ needs.plan.outputs.ui_required }}
         run: |
           mkdir -p screens
           find reports -name '*.png' -exec cp {} screens/ \;

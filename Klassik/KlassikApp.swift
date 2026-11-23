@@ -5,7 +5,8 @@ import TipKit
 /// the handler it passes is called when the session has delivered its events.
 final class KlassikAppDelegate: NSObject, UIApplicationDelegate {
     func application(
-        _ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         _ = BackgroundDownloads.shared
         return true

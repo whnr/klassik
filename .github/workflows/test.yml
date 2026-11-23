@@ -461,10 +461,14 @@ jobs:
           COVERED: ${{ needs.plan.outputs.covered }}
           WANT_RELEASE: ${{ needs.plan.outputs.release_launch }}
         run: |
-          test "$PLAN" = success
-          test "$BUILD" = success || { test "$BUILD" = skipped && test -n "$COVERED"; }
-          test "$WALK" = success || test "$WALK" = skipped
-          test "$RELEASE" = success || { test "$RELEASE" = skipped && test "$WANT_RELEASE" = false; }
+          # Explicit ifs: `set -e` ignores a failed test inside `a || { b && c; }`, so that form passed after a failed build.
+          fail() { echo "::error::$1"; exit 1; }
+          [ "$PLAN" = success ] || fail "plan: $PLAN"
+          if [ "$BUILD" != success ] && { [ "$BUILD" != skipped ] || [ -z "$COVERED" ]; }; then fail "build: $BUILD"; fi
+          if [ "$WALK" != success ] && [ "$WALK" != skipped ]; then fail "walk: $WALK"; fi
+          if [ "$RELEASE" != success ] && { [ "$RELEASE" != skipped ] || [ "$WANT_RELEASE" != false ]; }; then
+            fail "release launch: $RELEASE"
+          fi
 
   # The diff informs; it never fails the run. It runs when screenshots exist, also after a failed test job.
   # Without screenshots the job shows as skipped, and the summary of test says why.

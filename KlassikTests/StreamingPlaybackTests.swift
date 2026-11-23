@@ -240,7 +240,9 @@ struct StreamingPlaybackTests {
             #expect(first.1 != nil, "The header declares the length, so missing bytes never end the track")
             transfer.cancel()
         }
-        #expect(times.min()! < .milliseconds(500), "\(times)")
+        if LatencyLimits.enforced {
+            #expect(times.min()! < .milliseconds(500), "\(times)")
+        }
         try? FileManager.default.removeItem(at: root)
     }
 
@@ -300,7 +302,9 @@ struct StreamingPlaybackTests {
         )
         #expect(!snapshot.complete)
         #expect(snapshot.available < Int64(data.count / 10))
-        #expect(started.duration(to: rendered) < .seconds(3))
+        if LatencyLimits.enforced {
+            #expect(started.duration(to: rendered) < .seconds(3))
+        }
     }
 
     /// A read far past the arrived bytes asks the server for a validated range instead of waiting for the file.

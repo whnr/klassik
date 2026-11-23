@@ -76,7 +76,7 @@ final class EarlyPlaybackTests: XCTestCase {
         XCTAssertLessThan(source.delivered, 1_000_000, "Initialization must not scan the resource. \(report)")
         // Elapsed time on a shared runner is not deterministic, so only the measure job (nightly) sets the limit.
         // Every other run keeps the byte checks above: PCM comes before the last byte.
-        if env["KLASSIK_LATENCY_LIMITS"] == "1" {
+        if LatencyLimits.enforced {
             XCTAssertLessThan(elapsed, .milliseconds(500), report)
         }
         let samples = try XCTUnwrap(buffer.floatChannelData)[0]

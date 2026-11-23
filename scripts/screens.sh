@@ -215,7 +215,8 @@ fi
 measure=0
 if [ "$mode" = measure ]; then
   KLASSIK_LATENCY_LIMITS=1 run_tests measure -only-testing:KlassikTests/EarlyPlaybackMeasurementTests \
-    -only-testing:KlassikTests/EarlyPlaybackTests || measure=$?
+    -only-testing:KlassikTests/EarlyPlaybackTests -only-testing:KlassikTests/TrackTransferTests \
+    -only-testing:KlassikTests/PortraitProgressTests -only-testing:KlassikTests/StreamingPlaybackTests || measure=$?
   record measure "$([ $measure -eq 0 ] && echo passed || echo failed)"
   phase measure
 fi

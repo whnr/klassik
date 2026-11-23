@@ -248,6 +248,8 @@ final class PlacesScreens: ScreensTestCase {
         let baseline = try XCTUnwrap(ScreenPixels(app))
         // A truncated label ("Chronolo…") keeps its element and its frame, so the pixels of each label must match.
         let labelFrames = ["Library", "Chronology"].map { ($0, tab(app, $0).frame) }
+        snap(app, "02s-tabs-baseline")
+        add(XCTAttachment(string: "baseline \(labelFrames) search \(searchFrame)\n\(app.tabBars["tab-row"].debugDescription)"))
         func expectTabs(_ step: String) {
             for name in ["Library", "Chronology", "Search"] {
                 let item = tab(app, name)
@@ -271,7 +273,10 @@ final class PlacesScreens: ScreensTestCase {
                     if labelShare < 0.02 { break }
                     Thread.sleep(forTimeInterval: 0.5)
                 }
-                if labelShare >= 0.02 { snap(app, "02r-tab-label-failed") }
+                if labelShare >= 0.02 {
+                    snap(app, "02r-tab-label-failed")
+                    add(XCTAttachment(string: "now \(tab(app, name).frame)\n\(app.tabBars["tab-row"].debugDescription)"))
+                }
                 XCTAssertLessThan(labelShare, 0.02, "\(step): the \(name) label is truncated or changed")
             }
         }

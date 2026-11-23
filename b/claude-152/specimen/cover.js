@@ -1,4 +1,4 @@
-// The player page while it plays (ADR 0034, sz-rs30.1.83.19.7).
+// The player page while it plays.
 // Only the page of what plays changes (.app.is-player); an album page that does not play stays a plain page.
 // The cover room, the default: the page ground takes the cover's hue; text and the accent are solved again for that ground.
 // The hall, a setting: the page sits in the dark room, a step darker, lit by a glow in the cover's hue.

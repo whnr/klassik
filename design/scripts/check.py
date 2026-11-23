@@ -97,9 +97,10 @@ ADR_LIST = re.compile(
     r"(?:(?:,\s*|\s+and\s+|\s+or\s+|,\s*and\s+)\d{1,4})*)",
     re.I,
 )
-ADR_FILE = re.compile(r"\b(0\d{3})-[a-z]+(?:-[a-z]+)*\.md\b")
+ADR_FILE = re.compile(r"\b(0\d{3})-[a-z]+(?:-[a-z]+)*\b")
+ADR_DASH = re.compile(r"\bADR-(\d{1,4})\b", re.I)
 ADR_CUE = re.compile(
-    r"\b(?:see|as in|as|per|by|of|from|keeps?|than|and)\s+(00\d\d)\b",
+    r"\b(?:see|as in|per|by|keeps?)\s+(00\d\d)\b",
     re.I,
 )
 BARE = re.compile(r"\b(0\d{3})\b")
@@ -109,7 +110,7 @@ LINK = re.compile(r"\[[^\]]*\]\([^)]*\)")
 def mentioned(text, in_adr):
     """The ADR numbers that `text` names. Only an ADR context counts, so years and build numbers stay out.
 
-    Context: a number after "ADR", "ADRs" or "records", an ADR file name,
+    Context: a number after "ADR", "ADRs" or "records", an ADR file name or "ADR-" prefix,
     or a number after a cue word such as "see".
     Inside docs/adr every four-digit number with a leading zero counts. Links are checked by check_links.
     """
@@ -117,6 +118,7 @@ def mentioned(text, in_adr):
     for match in ADR_LIST.finditer(text):
         found.update(n.zfill(4) for n in re.findall(r"\d+", match.group(1)))
     found.update(ADR_FILE.findall(text))
+    found.update(n.zfill(4) for n in ADR_DASH.findall(text))
     found.update(ADR_CUE.findall(text))
     if in_adr:
         body = "\n".join(line for line in text.splitlines() if not re.match(r"#\s+0\d{3}\.", line))

@@ -49,12 +49,15 @@ class MentionTests(unittest.TestCase):
             f"as in the records {a}, {b} and {c}": {a, b, c},
             f"see {c}": {c},
             f"{a}-retry-rule.md": {a},
+            f"ADR-{a} and ADR-{int(b)}": {a, b},
+            f"see {a}-retry-rule": {a},
         }
         for text, expected in forms.items():
             self.assertEqual(self.mentioned(text), expected, text)
 
     def test_numbers_outside_an_adr_context_are_ignored(self):
-        for text in ("Build 0044 shipped in 2026.", "Version 1.0.44, year 2026, 0.44 s", "timer 00:44", "Order 12044"):
+        for text in ("Build 0044 shipped in 2026.", "Version 1.0.44, year 2026, 0.44 s", "timer 00:44", "Order 12044",
+                     "Builds 0043 and 0044 passed", "Upgrade from 0044 to 0045", "Newer than 0044", "Same as 0044"):
             self.assertEqual(self.mentioned(text), set(), text)
 
     def test_inside_docs_adr_every_bare_number_counts_except_links_and_the_title(self):

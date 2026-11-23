@@ -1,7 +1,0 @@
-{
-  "sha": "2ecdd0a7509315181d77c83ea82071c3e40dd2a5",
-  "branch": "claude-adr-cleanup",
-  "path": "claude-adr-cleanup",
-  "subject": "Catch bare ADR numbers that name deleted records",
-  "ts": 1795436957
-}

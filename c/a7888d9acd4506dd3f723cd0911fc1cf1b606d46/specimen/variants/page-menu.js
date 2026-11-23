@@ -79,7 +79,7 @@
   }
 
   // Play Next and Add to Queue as in ADR 0006. With nothing in the queue, both start the item.
-  function queueSection(item, sub) {
+  function queueSection(item) {
     const add = (next) => {
       if (!K.P.queue.length) return K.playItem(item);
       K.P.queue = K.P.queue.filter((q, i) => i === K.P.item || q.id !== item.id);
@@ -88,8 +88,8 @@
     };
     return {
       items: [
-        { label: "Play Next", icon: "playNext", sub, run: () => add(true) },
-        { label: "Add to Queue", icon: "addToQueue", sub, run: () => add(false) },
+        { label: "Play Next", icon: "playNext", run: () => add(true) },
+        { label: "Add to Queue", icon: "addToQueue", run: () => add(false) },
       ],
     };
   }
@@ -128,11 +128,8 @@
   function sections(kind, item) {
     if (kind === "recording" || kind === "album") return [queueSection(item), downloadSection(item), tagsSection(item)];
     if (kind === "player") return [downloadSection(item), tagsSection(item)];
-    if (kind === "work") {
-      const r = item.recording;
-      const who = K.joinNames(r.performers.slice(0, 2).map((p) => K.surname(p.name)));
-      return [queueSection(item, `Top recording: ${who}${r.year ? ", " + r.year : ""}`)];
-    }
+    // The work page queues its top recording; the items carry no line that names it.
+    if (kind === "work") return [queueSection(item)];
     return [];
   }
 

@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Search</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="../tokens.css?v=51" />
-    <link rel="stylesheet" href="specimen.css?v=51" />
-    <script src="specimen.js?v=51"></script>
+    <link rel="stylesheet" href="../tokens.css?v=52" />
+    <link rel="stylesheet" href="specimen.css?v=52" />
+    <script src="specimen.js?v=52"></script>
   </head>
   <body>
     <!--
@@ -192,7 +192,7 @@
         color: var(--color-text-secondary);
       }
 
-      /* The native sheet dims its page and keeps focus inside (search.html). */
+      /* The native sheet dims its page and keeps focus inside. */
       .fsheet {
         position: fixed;
         z-index: 61;
@@ -368,7 +368,7 @@
         const kindOf = (t) => t.slice(0, t.indexOf(":"));
 
         // A work or an album answers for some track titles: a tagged track for its work, an untagged one for its
-        // album. A match that needs a track title names that track in the row (ADR 0067).
+        // album. A match that needs a track title names that track in the row.
         const tracksOf = (songs) =>
           [...new Set(songs.map((s) => s.title).filter(Boolean))].map((title) => ({ title, words: words(title) }));
         const why = (x, tokens) => {

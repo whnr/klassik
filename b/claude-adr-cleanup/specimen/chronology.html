@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Chronology</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="../tokens.css?v=51" />
-    <link rel="stylesheet" href="specimen.css?v=51" />
-    <script src="specimen.js?v=51"></script>
+    <link rel="stylesheet" href="../tokens.css?v=52" />
+    <link rel="stylesheet" href="specimen.css?v=52" />
+    <script src="specimen.js?v=52"></script>
   </head>
   <body>
     <!--
@@ -188,7 +188,7 @@
           return r ? r.workRef : s?.works?.[0] ? M.works.get(`${s.displayComposer}|${s.works[0].name}`) : null;
         };
 
-        // chronology.html: opens on the composer of what plays; with nothing playing, where the listener left it.
+        // Opens on the composer of what plays; with nothing playing, where the listener left it.
         const opening =
           playingWork() && byName.get(playingWork().composer)
             ? playingWork().composer
@@ -238,7 +238,7 @@
         }
 
         function contemporaries(focus) {
-          // chronology.html: a contemporary's active years overlap the focus window. Work dates do not decide.
+          // A contemporary's active years overlap the focus window. Work dates do not decide.
           const f = focus.facts,
             from = f.activeFrom ? f.activeFrom - 10 : f.born,
             to = f.activeFrom ? (f.died || 2030) + 10 : f.died || 2030;
@@ -263,7 +263,7 @@
               out.push({ key: "bandl:" + name, cls: "band-label t-caption2", text: name, s: { top: t + 4 } });
             });
             const x = (i) => gutter + 40 + (i + 0.5) * ((W - gutter - 40) / composers.length);
-            // chronology.html: the overview marks the composer of what plays and the composer last opened.
+            // The overview marks the composer of what plays and the composer last opened.
             const playing = playingWork()?.composer,
               last = K.store("chronology");
             composers.forEach((c, i) => {
@@ -426,7 +426,7 @@
           }
         }
 
-        // chronology.html: a work opens its work page.
+        // A work opens its work page.
         function openWork(w) {
           location.href = href("work.html", { work: w.id, back: "Chronology" });
         }
@@ -464,7 +464,7 @@
           );
         }
 
-        // Gestures, chronology.html: a sideways drag scrubs across the lines on the screen, in order; the chart width maps onto them.
+        // Gestures: a sideways drag scrubs across the lines on the screen, in order; the chart width maps onto them.
         // The line under the finger is highlighted and the chart stays until release. A tap picks a work of the focus composer.
         let g = null;
         chart.addEventListener("pointerdown", (e) => {

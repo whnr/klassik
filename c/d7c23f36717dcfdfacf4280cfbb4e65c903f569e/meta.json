@@ -1,0 +1,7 @@
+{
+  "sha": "d7c23f36717dcfdfacf4280cfbb4e65c903f569e",
+  "branch": "claude-adr-cleanup",
+  "path": "claude-adr-cleanup",
+  "subject": "Remove references to deleted ADRs and file-name prefixes",
+  "ts": 1795435919
+}

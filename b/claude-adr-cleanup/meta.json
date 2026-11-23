@@ -1,7 +1,7 @@
 {
-  "sha": "a9c505d110cbe3ecfdc440953fbcf98cf0375ce0",
+  "sha": "d7c23f36717dcfdfacf4280cfbb4e65c903f569e",
   "branch": "claude-adr-cleanup",
   "path": "claude-adr-cleanup",
-  "subject": "Point the token comments at the token sheet",
-  "ts": 1795372196
+  "subject": "Remove references to deleted ADRs and file-name prefixes",
+  "ts": 1795435919
 }

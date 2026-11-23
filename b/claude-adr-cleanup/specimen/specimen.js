@@ -1,5 +1,5 @@
 // The specimen frame: data model, specimen controls, app chrome, timeline, mini player and sheet.
-// Pages call K.start(render). Flows follow ADR 0013 to 0029; looks come from tokens.css and the decided drawn views.
+// Pages call K.start(render). Looks come from tokens.css and the decided drawn views.
 
 // biome-ignore lint/correctness/noUnusedVariables: every page script and look file reads K as a global.
 const K = (() => {
@@ -8,7 +8,7 @@ const K = (() => {
   document.documentElement.dataset.page = location.pathname.split("/").pop().replace(".html", "") || "index";
   // Variant files carry the stamp of specimen.js, so Safari loads new copies with it.
   const STAMP = document.currentScript ? new URL(document.currentScript.src).searchParams.get("v") || "" : "";
-  // The player overlay (player.html) shows its page in a frame over the tab; the frame has no chrome of its own.
+  // The player overlay shows its page in a frame over the tab; the frame has no chrome of its own.
   const embedded = params.get("embed") === "player";
   const CARRIED = ["variant", "look", "theme", "paper", "contrast", "size", "playing", "side", "edge", "place"];
   const SIZES = [
@@ -563,7 +563,7 @@ const K = (() => {
   }
 
   // ---------- Names ----------
-  // player.html: a surname comes from the artist's sort name; without a sort name, the full name shows.
+  // A surname comes from the artist's sort name; without a sort name, the full name shows.
   function surname(name) {
     const artist = [...M.artists.values()].find((a) => a.name === name);
     const sort = artist?.sortName;
@@ -596,7 +596,7 @@ const K = (() => {
     const root = document.documentElement;
     // Only the switch sets the room, so each variant is judged in the room that Flo picks.
     root.dataset.theme = room || (setting("theme", "light") === "dark" ? "dark" : "light");
-    // Claret is the default accent (tokens.html): tokens.css writes it without an attribute.
+    // Claret is the default accent: tokens.css writes it without an attribute.
     const accent = setting("accent", "claret");
     if (accent === "claret") delete root.dataset.accent;
     else root.dataset.accent = accent;
@@ -915,14 +915,14 @@ const K = (() => {
     tabs = true,
     grouped = false,
   }) {
-    // Settings and its pages keep inset grouped lists (tokens.html); content pages use plain lists.
+    // Settings and its pages keep inset grouped lists; content pages use plain lists.
     document.documentElement.classList.toggle("grouped", grouped);
     const filename = location.pathname.split("/").pop();
     if (!["index.html", "chronology.html", "search.html", ""].includes(filename)) tab = params.get("place") || tab;
     params.set("place", tab);
     const app = el("div", { class: "app" + (plain ? " plain" : "") });
     const backLabel = embedded ? null : params.get("back") || back?.label;
-    // The accessibility label keeps the destination name (index.html).
+    // The accessibility label keeps the destination name.
     const nav = el(
       "header",
       { class: "nav" },
@@ -1015,7 +1015,7 @@ const K = (() => {
     });
   }
 
-  // The complete pill stays in place above the player overlay (player.html).
+  // The complete pill stays in place above the player overlay.
   function setPlayerOpen(open) {
     chrome.player = open;
     layoutChrome();
@@ -1039,7 +1039,7 @@ const K = (() => {
   function updatePlayingChrome() {
     drawTimelineProgress();
     if (!current()) {
-      // When nothing plays, the mini player and the timeline go. The open player closes first (player.html).
+      // When nothing plays, the mini player and the timeline go. The open player closes first.
       if (!chrome.player) {
         MINI.remove();
         if (chrome.timeline) chrome.timeline.remove();
@@ -1051,7 +1051,7 @@ const K = (() => {
   }
 
   // ---------- Mini player ----------
-  // The mini player (player.html). A mini player variant replaces any of these steps through K.setMini.
+  // The mini player. A mini player variant replaces any of these steps through K.setMini.
   let lastMini = "";
   const cardMini = {
     build() {
@@ -1132,7 +1132,7 @@ const K = (() => {
   }
 
   // A timeline look sets the gap between two segments through K.setTimeline.
-  // The gap is space-xxs between every segment (player.html).
+  // The gap is space-xxs between every segment.
   let TL = { gap: () => 2 };
   function setTimeline(provider) {
     TL = { ...TL, ...provider };
@@ -1293,7 +1293,7 @@ const K = (() => {
     chrome.overlay?.init();
   }
 
-  // The controls of an inset grouped page, drawn as SwiftUI draws them in a Form (tokens.html): a menu picker with
+  // The controls of an inset grouped page, drawn as SwiftUI draws them in a Form: a menu picker with
   // the value in the accent, a switch, a slider with step dots, a stepper, a link row and a destructive button.
   const form = {
     group: (head, rows, foot) =>

@@ -21,6 +21,7 @@ The specimen is the design reference of Klassik: what is decided, in light, dark
 - `person.html`: a composer or performer page. `?name=<artist name>`.
 - `settings.html`, `lookup.html`, `storage.html`, `rules.html`, `swipe.html`: Settings and its pages.
 - `tokens.html`: the token sheet: every colour in the four themes, contrast, type scale, spacing, radius, size and motion.
+- `menu.html`: the page menu, one page per variant, drawn open. `?for=recording`, `album`, `work` or `player`; `?state=none`, `downloading`, `downloaded` or `offline`.
 
 The pill at the top belongs to the specimen, not to the app. It sets the timeline edge, room, accent, player look, contrast, Dynamic Type size and what plays. The settings stay in the URL.
 

@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Player</title>
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="../tokens.css?v=51" />
-    <link rel="stylesheet" href="specimen.css?v=51" />
-    <script src="specimen.js?v=51"></script>
+    <link rel="stylesheet" href="../tokens.css?v=52" />
+    <link rel="stylesheet" href="specimen.css?v=52" />
+    <script src="specimen.js?v=52"></script>
   </head>
   <body>
     <!--
@@ -198,7 +198,7 @@
         width: 30px;
         height: 30px;
       }
-      /* Player rows (player.html): a faint play button at the end of every row; a row opens only with what differs. */
+      /* Player rows: a faint play button at the end of every row; a row opens only with what differs. */
       .round.faint {
         background: var(--color-fill-quiet);
         color: var(--color-text-secondary);
@@ -315,7 +315,7 @@
         let item =
           pageItem() || K.resolveItem(["recording", "640qawSbxRzx7BX6z3M2wM", "Symphony No. 5 in C minor, Op. 67"]);
         const playingHere = () => K.current() && K.current().id === item.id;
-        // Only the overlay is the player (player.html); the same page outside it is the recording or album page.
+        // Only the overlay is the player; the same page outside it is the recording or album page.
         const asPlayer = () => K.embedded && playingHere();
 
         const { app, scroll } = K.page({
@@ -490,14 +490,28 @@
             },
           });
 
+        const pauseButton = () =>
+          el("button", {
+            class: "round quiet",
+            "aria-label": K.P.paused ? "Resume" : "Pause",
+            html: K.P.paused ? ICON.play : ICON.pause,
+            onclick: (e) => {
+              e.stopPropagation();
+              K.togglePause();
+              render();
+            },
+          });
+
         // The row head keeps one height whether open or not, so a tapped row never moves.
         function trackRow(s, i, work) {
           const isPlaying = asPlayer() && K.P.index === i;
           // A row opens only when it holds something: performers that differ from the page, or notes.
           const opens = !isPlaying && hasContent(s, i);
           const isOpen = isPlaying || (opens && open.has(i));
-          const block = el("div", { class: "row-block track" });
-          const trail = el("span", { class: "slot" }, isPlaying ? null : faintPlay(i));
+          // On the recording page the movement that plays is tinted and its button pauses it. Only the overlay is the player.
+          const current = playingHere() && !asPlayer() && K.P.index === i;
+          const block = el("div", { class: "row-block track" + (current ? " playing" : "") });
+          const trail = el("span", { class: "slot" }, isPlaying ? null : current ? pauseButton() : faintPlay(i));
           const tap = () => {
             if (isPlaying || !opens) return;
             open.has(i) ? open.delete(i) : open.add(i);
@@ -524,7 +538,7 @@
           return block;
         }
 
-        // player.html: only the performers that differ from the whole page, one line per role. Never cut.
+        // Only the performers that differ from the whole page, one line per role. Never cut.
         function performerRows(s) {
           const sharedNames = new Set(shared().map((p) => p.name));
           const sharedComposerNames = new Set(sharedComposers());
@@ -833,8 +847,7 @@
                         class: "section-head t-footnote",
                         href: href("work.html", { work: r.workRef.id, back: item.title }),
                       },
-                      // The heading stays in the text colour with one disclosure, on the page and in the overlay
-                      // (Flo 2026-11-22).
+                      // The heading stays in the text colour with one disclosure, on the page and in the overlay.
                       el("span", { style: "color: var(--color-text-primary)" }, r.work),
                       el("span", { html: ICON.chevron }),
                     )
@@ -859,7 +872,7 @@
                           class: "row",
                           style: "--sep-inset: 0",
                           role: "button",
-                          // A tap plays the next item (Flo 2026-11-22).
+                          // A tap plays the next item.
                           onclick: () => {
                             K.P.item++;
                             K.P.index = 0;

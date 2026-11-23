@@ -27,6 +27,13 @@ struct PageMenuTests {
         }
     }
 
+    @Test func playerMenuHasDownloadAndTagsOnly() {
+        let menu = PageMenu(kind: .player, download: .notDownloaded(bytes: nil), needsServer: false)
+        #expect(titles(menu) == [["Download"], ["Tags and Grouping"]])
+        let partly = PageMenu(kind: .player, download: .partly(downloaded: 2, of: 5), needsServer: false)
+        #expect(partly.sections[0][0].subtitle == "2 of 5 recordings downloaded")
+    }
+
     @Test func workQueuesOnlyAndNamesNoRecording() {
         let menu = PageMenu(kind: .work, download: .downloaded(bytes: 1), needsServer: false)
         #expect(titles(menu) == [["Play Next", "Add to Queue"]])

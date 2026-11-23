@@ -53,10 +53,13 @@ jobs:
         timeout-minutes: 4
         run: uv run --no-project --with playwright==$PLAYWRIGHT_VERSION playwright install-deps chromium
       - run: design/scripts/lint.sh
+      # A pull-request run checks out a merge commit; the revision of the specimen is the head the author pushed.
       - name: Package the validated specimen
+        env:
+          REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           cp -R design "$RUNNER_TEMP/specimen"
-          git rev-parse HEAD > "$RUNNER_TEMP/specimen/revision.txt"
+          printf '%s\n' "$REVISION" > "$RUNNER_TEMP/specimen/revision.txt"
       - uses: actions/upload-artifact@v7
         with:
           name: specimen

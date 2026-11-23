@@ -1,7 +1,7 @@
 {
-  "sha": "1f7b19b54b6fa43f3294a406e57a396e60dc6936",
+  "sha": "976c7498a7472cd257ac48dd1defd450754837b1",
   "branch": "claude-1481",
   "path": "claude-1481",
-  "subject": "[sz-rs30.1.148.1] Remove specimen tags with a leading word",
-  "ts": 1795446788
+  "subject": "[sz-rs30.1.148.1] Catch specimen tags wrapped over comment lines",
+  "ts": 1795449263
 }

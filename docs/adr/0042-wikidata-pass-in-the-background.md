@@ -2,10 +2,7 @@
 
 Date: 2026-11-14. Decided by Flo in the 0.13.0 device notes. Refined by Flo on 2026-11-15, before the build
 reached his phone: parallel start, one person for each lookup, Wikimedia's pace and spread re-checks.
-Bead: sz-rs30.1.105.62.
 Replaces the rule "fetched once" and the 1.1-second pace of [0011](0011-enrichment.md) for the facts of persons.
-The retry rule for a failed person is replaced by [0044](0044-a-failed-person-goes-to-the-end.md).
-The order of the persons is replaced by [0046](0046-composers-first-and-shown-performers.md).
 
 ## Context
 
@@ -19,7 +16,7 @@ time, so that the facts of living people do not stay old.
   MusicBrainz pass and runs beside it. Its input is the composer and person names in the tags only. It needs no
   MusicBrainz output.
 - The pass does not match Wikidata by a MusicBrainz work ID or composer ID. It searches by name, as a person
-  page does when the works give no ID (ADR 0017, 0019). A tag that a person page resolved keeps its resolution.
+  page does when the works give no ID. A tag that a person page resolved keeps its resolution.
 - One lookup asks about one person. No request holds the names or items of several people, because a mixed
   answer confuses the match.
 - The app saves when it settled each person. A later pass takes persons without a saved check first, in library
@@ -63,7 +60,7 @@ time, so that the facts of living people do not stay old.
 
 ## Consequences
 
-- The About tab credits and the pictures stay as ADR 0017 says. Only the time of the lookup changes.
+- The About tab credits and the pictures stay as they were. Only the time of the lookup changes.
 - Wikidata gets about 5 requests for each new person. At 200 requests a minute, that is about 40 new people a
   minute: 10,000 new people take about 4 hours. Klassik asks for a living person about once a month.
 - The person pass does not wait for the MusicBrainz pass, which can take much longer.

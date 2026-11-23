@@ -1,6 +1,6 @@
 import Foundation
 
-/// The screen edge that the timeline runs on. The listener picks it (ADR 0014).
+/// The screen edge that the timeline runs on. The listener picks it.
 enum TimelineSide: String, CaseIterable, Identifiable, Sendable {
     case right
     case left
@@ -18,7 +18,7 @@ enum TimelineSide: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-/// Where each movement sits on the timeline, and the place in the music under a point (ADR 0014, 0035).
+/// Where each movement sits on the timeline, and the place in the music under a point.
 /// Points count down from the top of the bar. Times are in seconds.
 struct TimelineBar: Sendable {
     struct Segment: Equatable, Sendable {
@@ -78,7 +78,7 @@ struct TimelineBar: Sendable {
 }
 
 /// What a touch on the timeline is, decided by how the finger moves. A vertical move scrubs; a tap plays the
-/// movement under the finger; a sideways swipe changes nothing in the music (ADR 0014).
+/// movement under the finger; a sideways swipe changes nothing in the music.
 enum TimelineTouch: Equatable, Sendable {
     case undecided
     case scrub
@@ -106,7 +106,7 @@ enum TimelineTouch: Equatable, Sendable {
         switch self {
         case .undecided: place.map { .play(movement: $0.movement) } ?? .nothing
         case .scrub: place.map { .seek($0) } ?? .nothing
-        // The window handles horizontal Back gestures, including their cancellation (ADR 0056).
+        // The window handles horizontal Back gestures, including their cancellation.
         case .sideways: .nothing
         }
     }

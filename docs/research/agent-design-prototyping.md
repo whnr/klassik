@@ -1,7 +1,5 @@
 # How agents best prototype a design system
 
-Bead: sz-rs30.1.83.1. Read on 2026-11-05 from primary sources. No artifact was made and no Figma file was opened.
-
 ## Question
 
 Which source of truth lets coding agents build and change Klassik's design? The design is type, colour in light and dark, spacing, radius, motion and a few hand-drawn signature views. Flo must judge it on his iPhone through HTML prototypes.

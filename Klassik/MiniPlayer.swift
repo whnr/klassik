@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-/// The mini player: a pill at the end of the timeline, in the tab row, flush with the screen edge (ADR 0028). It
+/// The mini player: a pill at the end of the timeline, in the tab row, flush with the screen edge. It
 /// holds a round play/pause button and the square cover, and no text. The cover opens the player overlay.
 struct MiniPlayer: View {
     @Environment(AppModel.self) private var model

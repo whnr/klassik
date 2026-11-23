@@ -48,4 +48,4 @@ If the concept you need isn't in the glossary yet, that's a signal: either you'r
 
 If your output contradicts an existing ADR, surface it explicitly rather than silently overriding:
 
-> _Contradicts ADR-0007 (event-sourced orders), but worth reopening because…_
+> _Contradicts [0052](../adr/0052-favourites-stay-in-the-app.md), but worth reopening because…_

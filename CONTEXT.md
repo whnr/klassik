@@ -38,16 +38,16 @@ _Avoid_: Condition, criterion, clause
 
 ### Views
 
-**Place**:
+**Tab**:
 One of the top-level parts of the app that the listener moves between: Library, Chronology and Search. Settings opens from the Library toolbar.
-_Avoid_: Tab, section, area
+_Avoid_: Place, section, area
 
 **Library**:
-The place that holds the listener's own collection: composers, playlists and favourites. It shows nothing that Klassik picks for the listener.
+The tab that holds the listener's own collection: composers, playlists and favourites. It shows nothing that Klassik picks for the listener.
 _Avoid_: Home, Browse
 
 **Chronology**:
-The place that shows one composer's works by year, among the composers of their time. Its overview shows all composers.
+The tab that shows one composer's works by year, among the composers of their time. Its overview shows all composers.
 _Avoid_: Timeline, History
 
 **Active years**:
@@ -55,15 +55,15 @@ The years from a composer's work period start in Wikidata until their death. Bef
 _Avoid_: Career, working life
 
 **Contemporary**:
-A composer in the library whose active years overlap those of the composer in focus, 10 years before and after (ADR 0026).
+A composer in the library whose active years overlap those of the composer in focus, 10 years before and after. Without a work period start, the window of the focus composer is their whole life, with no buffer. The dates of the works do not decide who is a contemporary.
 _Avoid_: Neighbour, peer
 
 **Page**:
-A view about one thing, such as a composer, work, recording, album or performer. A link pushes it onto the stack of the current place.
+A view about one thing, such as a composer, work, recording, album or performer. A link pushes it onto the stack of the current tab.
 _Avoid_: Screen, detail view
 
 **Stack**:
-The pages a listener opened in one place, in order. Back leaves the top page. A link always pushes a page, also one that the stack holds.
+The pages a listener opened in one tab, in order. Back leaves the top page. A link always pushes a page, also one that the stack holds.
 _Avoid_: History, trail, breadcrumbs
 
 **Work page**:
@@ -123,7 +123,7 @@ The pill at the end of the timeline, in the tab bar row: play/pause and the squa
 _Avoid_: Now playing bar
 
 **Player**:
-The overlay that slides up from the bottom and fills the screen. It shows the queue item that plays. The cover on the mini player opens it. A slide down restores the page underneath. Any tab tap restores that place’s last page. The tab bar and the mini player stay visible above it.
+The overlay that slides up from the bottom and fills the screen. It shows the queue item that plays. The cover on the mini player opens it. A slide down restores the page underneath. Any tab tap restores that tab’s last page. The tab bar and the mini player stay visible above it.
 _Avoid_: Now playing, playback screen
 
 **Queue item**:

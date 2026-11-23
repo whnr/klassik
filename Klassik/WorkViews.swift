@@ -521,8 +521,8 @@ private struct RecordingRow: View {
     }
 }
 
-/// The page of a recording or album, and the content of the player overlay (ADR 0014): the header holds what every
-/// track shares, and a row holds what differs (ADR 0027). Only the overlay is the player. It alone shows the playing
+/// The page of a recording or album, and the content of the player overlay: the header holds what every
+/// track shares, and a row holds what differs. Only the overlay is the player. It alone shows the playing
 /// row with its playback bar, and the next queue item at its end.
 struct RecordingView: View {
     @Environment(AppModel.self) private var model
@@ -538,7 +538,7 @@ struct RecordingView: View {
     /// The rows that the listener opened, by track position.
     @State private var opened: Set<Int> = []
     @State private var spell = QuietSpell()
-    /// The note that the listener writes in the playing row. It stays while the listener scrubs (ADR 0027).
+    /// The note that the listener writes in the playing row. It stays while the listener scrubs.
     @State private var draft: NoteDraft?
     /// Where the notes of each row live, by track position.
     @State private var places: [NotePlace?] = []
@@ -665,7 +665,7 @@ struct RecordingView: View {
         "\(recording.id)|\(model.library.classical.count)|\(model.library.syncedAt?.timeIntervalSince1970 ?? 0)"
     }
 
-    /// The favourite of the page: the album on an album page, else the recording (ADR 0013, 0017).
+    /// The favourite of the page: the album on an album page, else the recording (ADR 0013).
     private var favourite: FavouriteHeading? {
         let order = model.recordingOrder
         if recording.isAlbum {
@@ -692,7 +692,7 @@ struct RecordingView: View {
         }
     }
 
-    /// The end of the player: the next queue item, or where the queue ends (ADR 0014, specimen player.html).
+    /// The end of the player: the next queue item, or where the queue ends (specimen player.html).
     @ViewBuilder private var tail: some View {
         let player = model.playback
         switch PlayerTail(isPlaying: isPlayingThis, upNext: player.upNext.map(\.id)) {
@@ -726,31 +726,14 @@ struct RecordingView: View {
         }
     }
 
-    /// The player is the overlay only. The page of the playing item shows no playing row (ADR 0014).
+    /// The player is the overlay only. The page of the playing item shows no playing row.
     private var showsPlayer: Bool { isOverlay && isPlayingThis }
 
     /// The cover, the title, then what every track shares in centred lines, the facts and the Play buttons (specimen
     /// player.html `.hero`). Names with a page are links.
     private func hero(_ page: PlayerPage) -> some View {
         VStack(spacing: Layout.heroGap) {
-            // A drag from the cover or the title moves the whole player, so it takes a downward drag from the list scroll.
-            VStack(spacing: Layout.heroGap) {
-                CoverImage(
-                    song: isPlayingThis ? model.playback.coverSong : recording.songs.first,
-                    points: Layout.bigCover, playback: isPlayingThis
-                )
-                .frame(width: Layout.bigCover, height: Layout.bigCover)
-                .clipShape(.rect(cornerRadius: Layout.bigCoverCorner))
-                .accessibilityElement()
-                .accessibilityLabel("Cover")
-                .accessibilityIdentifier("hero-cover")
-                .padding(.bottom, Layout.bigCoverBottom)
-                heroTitle
-                    .accessibilityAddTraits(.isHeader)
-            }
-            .frame(maxWidth: .infinity)
-            .contentShape(.rect)
-            .closeDragged(closeDrag)
+            heading(closeDrag)
             if let composer = page.composer {
                 RoleLines(
                     lines: [Roles.Line(kind: .unlabelled, label: "", names: [composer])], alignment: .center,
@@ -774,6 +757,33 @@ struct RecordingView: View {
         }
         .multilineTextAlignment(.center)
         .frame(maxWidth: .infinity)
+    }
+
+    /// The cover and the title. In the overlay one drag zone wraps them; its UIKit pan begins only for a downward move,
+    /// so an upward drag scrolls the list. The page has no wrapper: it would change how the favourite mark takes a tap.
+    @ViewBuilder private func heading(_ drag: PlayerCloseDrag?) -> some View {
+        let content = Group {
+            CoverImage(
+                song: isPlayingThis ? model.playback.coverSong : recording.songs.first,
+                points: Layout.bigCover, playback: isPlayingThis
+            )
+            .frame(width: Layout.bigCover, height: Layout.bigCover)
+            .clipShape(.rect(cornerRadius: Layout.bigCoverCorner))
+            .accessibilityElement()
+            .accessibilityLabel("Cover")
+            .accessibilityIdentifier("hero-cover")
+            .padding(.bottom, Layout.bigCoverBottom)
+            heroTitle
+                .accessibilityAddTraits(.isHeader)
+        }
+        if let drag {
+            VStack(spacing: Layout.heroGap) { content }
+                .frame(maxWidth: .infinity)
+                .contentShape(.rect)
+                .gesture(drag.heroGesture)
+        } else {
+            content
+        }
     }
 
     /// The album line opens the album; a performer with a page opens it.
@@ -809,7 +819,7 @@ struct RecordingView: View {
     @ViewBuilder private var actions: some View {
         let player = model.playback
         if !isPlayingThis {
-            // Play is the accent capsule; Play Album is muted beside it (sz-3hcq.2).
+            // Play is the accent capsule; Play Album is muted beside it.
             HStack(spacing: Layout.buttonRowGap) {
                 Button {
                     play(from: 0)
@@ -918,7 +928,7 @@ struct RecordingView: View {
         model.playback.play(QueueItem(work: work, recording: recording), from: index)
     }
 
-    /// A tap on a note moves to its time; a tap on its time also plays (ADR 0014). A note of a page that does not
+    /// A tap on a note moves to its time; a tap on its time also plays. A note of a page that does not
     /// play starts that page there.
     private func jump(to note: ListeningNote, row: Int, plays: Bool) {
         spell.touch()
@@ -933,7 +943,7 @@ struct RecordingView: View {
 
 /// One movement or track. A row that does not play has a faint play button at its trailing edge. It opens only when
 /// it holds names that differ from the header or listening notes, and then shows the disclosure chevron. The playing
-/// row stays open, holds the only playback bar and takes a new note (ADR 0027).
+/// row stays open, holds the only playback bar and takes a new note.
 private struct MovementRow: View {
     @Environment(AppModel.self) private var model
     let song: Song
@@ -1065,7 +1075,7 @@ private struct MovementRow: View {
 }
 
 /// The controls of the playing row, centred in ink (specimen player.html `.mv-controls`). Next Work and Stop follow
-/// Next: the specimen has neither, but the queue (sz-rs30.1.105.8) and ADR 0053 need them.
+/// Next: the specimen has neither, but the queue needs them.
 private struct PlayerControls: View {
     let player: PlaybackSession
     @ScaledMetric(relativeTo: .title2) private var icon = Layout.playerControlIcon
@@ -1124,7 +1134,7 @@ private struct PlayerControls: View {
 }
 
 /// The notes of a movement, earliest first. The time is a prefix in the tint (specimen player.html `.note`). A tap
-/// on the text moves to the note; a tap on its time moves there and plays (ADR 0014).
+/// on the text moves to the note; a tap on its time moves there and plays.
 private struct NoteList: View {
     let notes: [ListeningNote]
     let jump: (ListeningNote, Bool) -> Void
@@ -1164,7 +1174,7 @@ private struct NoteList: View {
     }
 }
 
-/// "Add a note here", then the note in the row: never a modal (ADR 0027). The note stays open until Save or Return,
+/// "Add a note here", then the note in the row: never a modal. The note stays open until Save or Return,
 /// so the listener can scrub the bar or the timeline to find the end.
 private struct NoteEditor: View {
     @Environment(AppModel.self) private var model
@@ -1422,7 +1432,7 @@ extension PositionBar {
     /// A note mark is this many seconds wide on the bar.
     private var reach: Double { ListeningNotes.reach(width: width, duration: duration) }
 
-    /// Dots for moments and lines for spans above the bar. Notes that overlap stack in lanes (ADR 0014).
+    /// Dots for moments and lines for spans above the bar. Notes that overlap stack in lanes.
     private func marks(_ lanes: [UUID: Int]) -> some View {
         let pitch = -Layout.noteDotTop
         return ZStack(alignment: .topLeading) {
@@ -1516,7 +1526,7 @@ private struct ShareOfWidth: ViewModifier {
     }
 }
 
-/// The row of the next queue item at the end of the player (ADR 0014). It shows the cover, title and album.
+/// The row of the next queue item at the end of the player. It shows the cover, title and album.
 /// A tap on the row skips to the item at once; the row itself only shows what comes.
 private struct NextItemRow: View {
     let item: QueueItem
@@ -1565,12 +1575,5 @@ struct CapsuleLabel: View {
         .frame(maxWidth: .infinity, minHeight: Layout.capsuleHeight)
         .background(filled ? Palette.accentFill : Palette.fillQuiet, in: .capsule)
         .contentShape(.capsule)
-    }
-}
-
-extension View {
-    /// Gives a downward drag to the player's close gesture when there is one; every other drag scrolls the page.
-    @ViewBuilder fileprivate func closeDragged(_ drag: PlayerCloseDrag?) -> some View {
-        if let drag { gesture(drag.heroGesture) } else { self }
     }
 }

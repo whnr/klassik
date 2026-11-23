@@ -1,6 +1,6 @@
 # 0005. Gapless playback with AVAudioEngine and the MP3 header
 
-Date: 2026-10-17. Decided by Flo after an A/B test on the phone (0.2.0). Bead: sz-rs30.1.4.
+Date: 2026-10-17. Decided by Flo after an A/B test on the phone (0.2.0).
 The complete-file requirement is replaced by [0060](0060-early-playback-and-read-ahead.md).
 
 ## Context
@@ -19,4 +19,4 @@ Movements that run into each other (attacca) make any gap audible. An MP3 file s
 - Files without the header play whole, with their gaps. On music.whnr.de, 165 of 445 albums have no header.
 - ffmpeg sometimes writes a padding value up to 35 samples too small. The fixture lengths avoid this.
 - The test for future gapless work: Beethoven "Symphonie Nr.5", track 3 into 4.
-- FLAC is not tested yet (sz-rs30.1.29).
+- FLAC is not tested yet.

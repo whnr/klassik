@@ -1,6 +1,6 @@
 import Foundation
 
-/// The Works tab of a composer page: rows A to Z, sets folded into one row, genre chips (ADR 0017).
+/// The Works tab of a composer page: rows A to Z, sets folded into one row, genre chips.
 struct ComposerWorks: Sendable {
     /// One row of the list: a work, or the works of one set.
     enum Row: Identifiable, Sendable {

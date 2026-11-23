@@ -64,8 +64,8 @@ struct PlacesView: View {
     }
 }
 
-/// A hosting controller starts its own environment, so the root of each host reads the accent pick itself
-/// (ADR 0034). The read observes the pick, so every control under it takes a new family at once.
+/// A hosting controller starts its own environment, so the root of each host reads the accent pick itself.
+/// The read observes the pick, so every control under it takes a new family at once.
 private struct AccentRoot: ViewModifier {
     func body(content: Content) -> some View {
         content
@@ -164,6 +164,11 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
     private var remeasuresLabels = false
     /// The pass after the first remeasure: the bar has its final, narrow frame then, and the labels must fit it.
     private var remeasuresAtFinalFrame = false
+    /// The frame that the last layout pass gave the bar. UIKit's container can lay the bar out again at the full
+    /// width without a new pass of this controller, which puts the Search circle under the mini player.
+    private var barFrame: CGRect?
+    private var barFrameObservations: [NSKeyValueObservation] = []
+    private var barRepairs = 0
     private(set) var playerHost: UIHostingController<AnyView>?
     let playerLayout = PlayerOverlayLayout()
 
@@ -192,6 +197,7 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
     @objc private func keyboardVisibilityChanged(_ notification: Notification) {
         keyboardVisible = notification.name == UIResponder.keyboardWillShowNotification
         if !keyboardVisible { remeasuresLabels = true }
+        barRepairs = 0
         view.setNeedsLayout()
     }
 
@@ -282,10 +288,32 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
         }
     }
 
+    /// Puts the bar back at the frame of the last pass when the container moves it. A few repairs only: a container
+    /// that always disagrees must not start a loop.
+    private func observeBarFrame() {
+        guard barFrameObservations.isEmpty else { return }
+        // UIKit can move the bar through its layer, which a key path of the view frame does not report.
+        barFrameObservations = [
+            tabBar.layer.observe(\.bounds) { [weak self] _, _ in
+                MainActor.assumeIsolated { self?.repairBarFrame() }
+            },
+            tabBar.layer.observe(\.position) { [weak self] _, _ in
+                MainActor.assumeIsolated { self?.repairBarFrame() }
+            },
+        ]
+    }
+
+    private func repairBarFrame() {
+        guard let barFrame, tabBar.frame != barFrame, barRepairs < 6 else { return }
+        barRepairs += 1
+        Task { @MainActor [weak self] in self?.view.setNeedsLayout() }
+    }
+
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         configureBackGesture()
         var frame = tabBar.frame
+        if let barFrame, tabBar.frame == barFrame { barRepairs = 0 }
         // UIKit removes the home-indicator inset under a keyboard.
         // Playback controls must keep the resting bar position.
         if keyboardVisible, let restingFrame {
@@ -320,6 +348,8 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
             }
         }
         tabBar.frame = frame
+        barFrame = frame
+        observeBarFrame()
         playerHost?.view.frame = view.bounds
         let top = view.window?.safeAreaInsets.top ?? view.safeAreaInsets.top
         let bottom = max(0, view.bounds.maxY - tabBar.convert(tabBar.bounds, to: view).minY)
@@ -394,7 +424,7 @@ enum TabRow {
 
 /// The `NavigationStack` of one place. Its pages are the stack of the navigator. The back button of a page is the
 /// system one. A root has none, so a root that the listener reached from another place gets an arrow and an
-/// edge swipe back to that place (ADR 0038).
+/// edge swipe back to that place.
 struct PlaceStack<Root: View>: View {
     @Environment(AppNavigator.self) private var navigator
     @Environment(AppModel.self) private var model
@@ -451,7 +481,7 @@ struct PlaceStack<Root: View>: View {
     }
 }
 
-/// Keeps the last rows of a page clear of the tab row, and the scroll indicator clear of the timeline (ADR 0029).
+/// Keeps the last rows of a page clear of the tab row, and the scroll indicator clear of the timeline.
 /// Each page needs its own inset: an inset on the `NavigationStack` does not move the last rows of a pushed List.
 /// UIKit keeps the native tab bar visible as the page stack changes.
 private struct PlaceInsets: ViewModifier {
@@ -469,7 +499,7 @@ private struct PlaceInsets: ViewModifier {
             }
             .scrollEdgeEffectStyle(.soft, for: .top)
             .toolbarBackground(.hidden, for: .navigationBar)
-            // The bar shows no title (ADR 0023). The navigation title still names the back button of the next page.
+            // The bar shows no title. The navigation title still names the back button of the next page.
             .toolbar(removing: .title)
             .contentMargins(.trailing, beside, for: .scrollIndicators)
     }

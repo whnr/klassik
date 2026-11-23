@@ -4,8 +4,8 @@ import Testing
 
 @testable import Klassik
 
-/// The Chronology module on fixture songs and facts: ADR 0016 (overview, focus, rows, opening), ADR 0022 (the
-/// scrub across the lines on screen, rows that stand for several works) and ADR 0026 (contemporaries).
+/// The Chronology module on fixture songs and facts: overview, focus, rows, opening, the scrub
+/// across the lines on screen, rows that stand for several works, and contemporaries.
 @MainActor
 struct ChronologyTests {
     /// Life dates and work period starts (P2031) as Wikidata gives them. Handel and Mendelssohn have no P2031.
@@ -74,7 +74,7 @@ struct ChronologyTests {
         index.composers.flatMap(\.works).first { $0.title == title }!
     }
 
-    // MARK: ADR 0016: the overview
+    // MARK: The overview
 
     @Test func overviewHoldsComposersWithLifeDatesInBirthOrder() {
         #expect(
@@ -99,7 +99,7 @@ struct ChronologyTests {
         #expect(zip(periods, periods.dropFirst()).allSatisfy { $0.end == $1.start })
     }
 
-    // MARK: ADR 0016: one composer
+    // MARK: One composer
 
     @Test func worksAreRowsByYearWhileTheyFit() {
         let chopin = Self.composer("Frédéric Chopin")
@@ -225,7 +225,7 @@ struct ChronologyTests {
         #expect(place.open(Self.chronology, playing: fifth).composer == "Frédéric Chopin")
         // A new work opens on its composer again.
         #expect(place.open(Self.chronology, playing: Self.work("Requiem")).composer == "Wolfgang Amadeus Mozart")
-        // The last opened composer stays on the device, for the mark in the overview (ADR 0022).
+        // The last opened composer stays on the device, for the mark in the overview.
         place.keep(.init(level: .overview, composer: "Johannes Brahms"))
         let again = ChronologyPlace(defaults: defaults)
         #expect(again.lastOpened == "Johannes Brahms")
@@ -249,7 +249,7 @@ struct ChronologyTests {
         #expect(place.open(Self.chronology, playing: fifth).composer == "Frédéric Chopin")
     }
 
-    // MARK: ADR 0022: the scrub
+    // MARK: The scrub
 
     @Test func scrubMapsTheChartWidthOntoTheLinesInOrder() {
         #expect(Chronology.lane(at: 0, width: 300, count: 3) == 0)
@@ -278,7 +278,7 @@ struct ChronologyTests {
         #expect(row?.works.map(\.title) == ["Étude, Op. 10 No. 2", "Nocturne, Op. 9 No. 2"])
     }
 
-    // MARK: ADR 0026: contemporaries
+    // MARK: Contemporaries
 
     @Test func contemporariesOverlapTheActiveYearsWithTenYearsEachSide() {
         let chronology = Self.chronology

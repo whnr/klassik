@@ -1,6 +1,6 @@
 # Specimen data
 
-`specimen.json` is the data for the design specimen of map sz-rs30.1.83 (ticket sz-rs30.1.83.2). It holds the OpenSubsonic responses of Navidrome 0.64.2, so the specimen sees the same fields as the app.
+`specimen.json` is the data for the design specimen of Klassik. It holds the OpenSubsonic responses of Navidrome 0.64.2, so the specimen sees the same fields as the app.
 
 - `albums`: `getAlbum` for each album, with its songs. Field `set` is `flo` or `weak`.
 - `artists`: `getArtists`.

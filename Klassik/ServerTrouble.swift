@@ -5,7 +5,7 @@ import Foundation
 #endif
 
 /// Why changes of the listener wait on the device. Each kind of change keeps its own, and the Library shows one quiet
-/// line for all of them (ADR 0058).
+/// line for all of them.
 enum ServerTrouble: Equatable, Sendable {
     /// No answer: no connection, or the server is down.
     case unreachable

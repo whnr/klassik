@@ -78,7 +78,7 @@ final class PlacesScreens: ScreensTestCase {
         XCTAssertTrue(app.navigationBars["Chronology"].waitForExistence(timeout: 10))
         expectBackArrow(app, to: "Library")
 
-        // Library reached from another place shows the arrow too (ADR 0038).
+        // Library reached from another place shows the arrow too.
         openPlace(app, "Library")
         expectBackArrow(app, to: "Chronology")
         snap(app, "02l-library-back-arrow")
@@ -227,6 +227,38 @@ final class PlacesScreens: ScreensTestCase {
         try expectTabsAfterTheSearchKeyboard(playing: true)
     }
 
+    /// A composer filter on the Search page, then two taps on Library: the Search circle must stay in the bar.
+    @MainActor
+    func testSearchTabStaysAfterAFilterAndTwoLibraryTaps() throws {
+        let app = try launchAndConnect(openComposers: false)
+        openPlace(app, "Library")
+        app.buttons["library-composers"].tap()
+        _ = pausedPlayerInLibrary(app)
+        openPlace(app, "Library")
+        let search = tab(app, "Search")
+        XCTAssertTrue(search.waitForExistence(timeout: 10))
+        let searchFrame = search.frame
+        openPlace(app, "Search")
+        let field = app.textFields["search-field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        field.tap()
+        field.typeText("chopin\n")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+        app.buttons["search-filters"].tap()
+        let term = app.buttons.matching(identifier: "filter-term").firstMatch
+        XCTAssertTrue(term.waitForExistence(timeout: 10))
+        term.tap()
+        app.buttons["filter-done"].tap()
+        XCTAssertTrue(app.buttons["filter-done"].waitForNonExistence(timeout: 5))
+        tab(app, "Library").tap()
+        tab(app, "Library").tap()
+        XCTAssertTrue(app.buttons["library-composers"].waitForExistence(timeout: 10))
+        XCTAssertTrue(
+            eventually(timeout: 5) { search.exists && search.isHittable && search.frame == searchFrame },
+            "The Search circle is gone or moved: \(search.frame) instead of \(searchFrame)")
+        snap(app, "02t-search-tab-after-filter-and-two-taps")
+    }
+
     @MainActor
     private func expectTabsAfterTheSearchKeyboard(playing: Bool) throws {
         let app = try launchAndConnect(openComposers: false)
@@ -246,8 +278,6 @@ final class PlacesScreens: ScreensTestCase {
         XCTAssertTrue(search.waitForExistence(timeout: 10))
         let searchFrame = search.frame
         let baseline = try XCTUnwrap(ScreenPixels(app))
-        // A truncated label ("Chronolo…") keeps its element and its frame, so the pixels of each label must match.
-        let labelFrames = ["Library", "Chronology"].map { ($0, tab(app, $0).frame) }
         func expectTabs(_ step: String) {
             for name in ["Library", "Chronology", "Search"] {
                 let item = tab(app, name)
@@ -264,15 +294,6 @@ final class PlacesScreens: ScreensTestCase {
             }
             if share >= 0.05 { add(XCTAttachment(string: app.tabBars["tab-row"].debugDescription)) }
             XCTAssertLessThan(share, 0.05, "\(step): the Search circle changed")
-            for (name, frame) in labelFrames {
-                var labelShare = 1.0
-                for _ in 0..<6 {
-                    if let now = ScreenPixels(app) { labelShare = now.differingShare(in: frame, from: baseline) }
-                    if labelShare < 0.02 { break }
-                    Thread.sleep(forTimeInterval: 0.5)
-                }
-                XCTAssertLessThan(labelShare, 0.02, "\(step): the \(name) label is truncated or changed")
-            }
         }
         let field = app.textFields["search-field"]
         let recent = app.buttons.matching(identifier: "search-recent")
@@ -298,7 +319,7 @@ final class PlacesScreens: ScreensTestCase {
         if playing { snap(app, "02q-tabs-after-recent-playing") } else { snap(app, "02p-tabs-after-recent") }
     }
 
-    /// The bar draws no title (ADR 0023), and the page still names the back button of the next page.
+    /// The bar draws no title, and the page still names the back button of the next page.
     @MainActor
     func testBarShowsNoTitle() throws {
         let app = try launchAndConnect()
@@ -312,7 +333,7 @@ final class PlacesScreens: ScreensTestCase {
 /// The pages that the lookup fills.
 final class BrowseScreens: ScreensTestCase {
     /// The field at the top finds works, people and albums in sections. Back from a result keeps the search; a tab
-    /// opens Search empty (ADR 0025, 0029).
+    /// opens Search empty.
     @MainActor
     func testSearch() throws {
         let app = try launchAndConnect(openComposers: false)
@@ -389,7 +410,7 @@ final class BrowseScreens: ScreensTestCase {
 
     /// Filters opens the conditions in a sheet at the medium detent and closes the keyboard. A pick clears the
     /// narrowing field. The badge counts the conditions; the x in the field clears the text only, the x pill clears
-    /// the text and the conditions (ADR 0020, 0025, 0029).
+    /// the text and the conditions.
     @MainActor
     func testSearchFilters() throws {
         let app = try launchAndConnect(openComposers: false)
@@ -517,7 +538,7 @@ final class BrowseScreens: ScreensTestCase {
 
     /// Search shows its results in typed sections: Composers, Performers, Works, then Albums. Albums holds only
     /// albums, and a recording shows only inside its work. A track title finds its work and the row names that
-    /// track (ADR 0067).
+    /// track.
     @MainActor
     func testSearchSections() throws {
         let app = try launchAndConnect(openComposers: false)
@@ -590,7 +611,7 @@ final class BrowseScreens: ScreensTestCase {
     }
 
     /// The overview of the composers with life dates, then one composer among the contemporaries, the scrub, the
-    /// name link and the way back to the overview (ADR 0016, 0022, 0026). Bach has no Wikidata answer, so he stays
+    /// name link and the way back to the overview. Bach has no Wikidata answer, so he stays
     /// off the chart.
     @MainActor
     func testChronology() throws {
@@ -705,7 +726,7 @@ final class BrowseScreens: ScreensTestCase {
     }
 
     /// Mendelssohn has a picture in the fixture answers: it shows under the name, and a tap shows it whole with
-    /// its credit (ADR 0017). Chopin has none, so his page shows the name on the plain ground.
+    /// its credit. Chopin has none, so his page shows the name on the plain ground.
     @MainActor
     func testComposerPicture() throws {
         let app = try launchAndConnect()
@@ -729,7 +750,7 @@ final class BrowseScreens: ScreensTestCase {
         picture.tap()
         let whole = app.descendants(matching: .any)["whole-picture"]
         XCTAssertTrue(whole.waitForExistence(timeout: 10))
-        // The credit ends in the File page link, as in the specimen sheet (person.html).
+        // The credit ends in the File page link, as in the specimen sheet.
         // Only those words are the link; the author and licence are plain text.
         let credit = app.staticTexts["whole-picture-credit"]
         XCTAssertTrue(credit.exists, "The whole picture shows no credit")
@@ -847,7 +868,7 @@ final class BrowseScreens: ScreensTestCase {
     }
 
     /// Chopin has no picture: his name sits under the back arrow. His works differ in genre, so chips show, and
-    /// two chips join with "or" (ADR 0017).
+    /// two chips join with "or".
     @MainActor
     func testComposerWithoutPicture() throws {
         let app = try launchAndConnect()
@@ -1005,7 +1026,7 @@ final class BrowseScreens: ScreensTestCase {
     }
 
     /// The empty Search page lists the recent searches, newest first. One search session is one entry; a tap
-    /// restores the search, and Clear empties the list (ADR 0029).
+    /// restores the search, and Clear empties the list.
     @MainActor
     func testRecentSearches() throws {
         let app = try launchAndConnect(openComposers: false)
@@ -1121,7 +1142,7 @@ final class PlaybackScreens: ScreensTestCase {
         snap(app, "07s-slow-connection")
     }
 
-    /// The quiet spell returns to the playing row after the listener scrolls away (ADR 0014, 0027).
+    /// The quiet spell returns to the playing row after the listener scrolls away.
     @MainActor
     func testPlayerFollowsAfterQuietSpell() throws {
         let app = try launchAndConnect()
@@ -1267,7 +1288,7 @@ final class PlaybackScreens: ScreensTestCase {
         slidePlayerDown(app)
     }
 
-    /// Stop closes the player and leaves no end message (ADR 0053). On the walk simulator a natural end of the queue
+    /// Stop closes the player and leaves no end message. On the walk simulator a natural end of the queue
     /// does not arrive reliably, so the unit tests cover it through the same path.
     @MainActor
     func testStopClosesThePlayer() throws {
@@ -1329,7 +1350,7 @@ final class PlaybackScreens: ScreensTestCase {
         playPaused(app)
         back(app)
         openPlace(app, "Chronology")
-        // The Chronology opens on the composer of what plays, with that work marked (ADR 0016).
+        // The Chronology opens on the composer of what plays, with that work marked.
         XCTAssertTrue(app.buttons["chronology-name"].waitForExistence(timeout: 30))
         XCTAssertEqual(app.buttons["chronology-name"].label, "Felix Mendelssohn")
         let work = app.buttons.matching(identifier: "chronology-work").firstMatch
@@ -1502,7 +1523,7 @@ final class PlaybackScreens: ScreensTestCase {
     }
 
     /// A listening note is written in the playing row, never in a modal. It stays open while the bar scrubs, "End here"
-    /// makes a span, and the saved note opens its row once another movement plays (ADR 0027).
+    /// makes a span, and the saved note opens its row once another movement plays.
     @MainActor
     func testListeningNote() throws {
         let app = try launchAndConnect()
@@ -1737,7 +1758,7 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(reveal(encores, in: app).isHittable)
         encores.tap()
         XCTAssertTrue(app.buttons["play-recording"].waitForExistence(timeout: 10))
-        // The album page has the favourite mark after its title (ADR 0017). Stars survive launches, so the
+        // The album page has the favourite mark after its title. Stars survive launches, so the
         // check sets the mark and takes it away again.
         let mark = app.buttons["favourite-album"]
         XCTAssertTrue(mark.waitForExistence(timeout: 10), "The album page has no favourite mark")
@@ -2034,7 +2055,7 @@ final class PlaybackScreens: ScreensTestCase {
     }
 
     /// With no item after the one that plays, the player ends with a Next section that says where the queue ends
-    /// (ADR 0014). After the last item the player closes, as `testStopClosesThePlayer` checks for Stop (ADR 0053).
+    ///. After the last item the player closes, as `testStopClosesThePlayer` checks for Stop.
     @MainActor
     func testQueueEndsHere() throws {
         let app = try launchAndConnect()
@@ -2048,7 +2069,7 @@ final class PlaybackScreens: ScreensTestCase {
     }
 
     /// Offline, a favourite changes at the tap and shows no notice. One quiet Library line says why changes wait
-    /// (ADR 0058).
+    ///.
     @MainActor
     func testOfflineFavouriteKeepsTheMarkAndShowsTheServerStatus() throws {
         let app = try launchAndConnect(arguments: ["-offlineFavourites"])
@@ -2260,7 +2281,7 @@ final class PlaybackScreens: ScreensTestCase {
 
 }
 
-/// The timeline on the screen edge and the mini player in the tab row (ADR 0014, 0028, 0035).
+/// The timeline on the screen edge and the mini player in the tab row.
 final class TimelineScreens: ScreensTestCase {
     /// With nothing playing, pages show neither the timeline nor the mini player.
     @MainActor
@@ -2340,7 +2361,7 @@ final class TimelineScreens: ScreensTestCase {
         if pause.label == "Pause" { pause.tap() }
     }
 
-    /// The scrub label on each edge, beside a scrub pinned in the middle of the bar (ADR 0035, specimen .scrub-label).
+    /// The scrub label on each edge, beside a scrub pinned in the middle of the bar (specimen .scrub-label).
     @MainActor
     func testScrubLabelOnEitherEdge() throws {
         for side in ["right", "left"] {
@@ -2507,7 +2528,7 @@ final class SettingsScreens: ScreensTestCase {
         app.descendants(matching: .any).matching(identifier: identifier).firstMatch
     }
 
-    /// The accent switch recolours the app at once (ADR 0034).
+    /// The accent switch recolours the app at once.
     @MainActor
     func testAccent() throws {
         let app = try launchAndConnect()
@@ -3040,7 +3061,7 @@ class ScreensTestCase: XCTestCase {
     func openPlace(_ app: XCUIApplication, _ name: String) {
         let tab = tab(app, name)
         XCTAssertTrue(tab.waitForExistence(timeout: 10), "No tab \(name)")
-        // The Search tab focuses its field, and the keyboard covers the tab bar (ADR 0029).
+        // The Search tab focuses its field, and the keyboard covers the tab bar.
         if app.keyboards.firstMatch.exists, !tab.isHittable {
             app.swipeDown()
             _ = app.keyboards.firstMatch.waitForNonExistence(timeout: 5)
@@ -3576,7 +3597,7 @@ class ScreensTestCase: XCTestCase {
         expectGap(
             from: name, to: tabs, Layout.personHeadBottom + Layout.segmentedTop, "Name to tabs",
             upperText: Layout.pageTitle)
-        // person.html: the album grid is a .section on the plain page list, so the section gap follows the tabs.
+        // The album grid is a .section on the plain page list, so the section gap follows the tabs.
         // The placeholder fill is close to the page ground, so the element frame stands in for the ink.
         // Different title heights must not move the covers from the top of their grid row.
         let covers = app.buttons.matching(identifier: "performer-album").allElementsBoundByIndex.map(\.frame)

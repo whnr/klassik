@@ -31,7 +31,7 @@ final class Navigator<Page: Hashable> {
     private var stacks: [Place: [Page]] = [:]
     private var origins: [Place: Origin] = [:]
     /// Counts the arrivals that open Search empty: a tab or a link to its root. Back from a result is none, so the
-    /// search stays (ADR 0029).
+    /// search stays.
     private(set) var searchStarts = 0
 
     func pages(in place: Place) -> [Page] {
@@ -48,7 +48,7 @@ final class Navigator<Page: Hashable> {
 
     func closePlayer() { isPlayerOpen = false }
 
-    /// The player shows what plays, so the queue end and Stop close it (ADR 0053).
+    /// The player shows what plays, so the queue end and Stop close it.
     func playbackChanged(hasItem: Bool) {
         if !hasItem { closePlayer() }
     }
@@ -87,7 +87,7 @@ final class Navigator<Page: Hashable> {
     }
 
     /// Where the back arrow of a place goes: the page it was opened from, else Library. Library at launch has
-    /// no place behind it, so it has no arrow (ADR 0038).
+    /// no place behind it, so it has no arrow.
     func backTarget(for place: Place) -> Origin? {
         guard place != .library else { return origins[place] }
         return origins[place] ?? Origin(place: .library, page: nil)

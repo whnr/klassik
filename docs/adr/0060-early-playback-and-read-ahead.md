@@ -1,7 +1,7 @@
 # 0060. Start playback early and read ahead quietly
 
-Date: 2026-11-18. Decided by Flo. Beads: sz-rs30.1.125, sz-rs30.1.125.1, sz-rs30.1.125.2, sz-rs30.1.125.3 and sz-rs30.1.125.4.
-Replaces the complete-file requirement of [0005](0005-gapless-playback.md) and the availability marks of [0008](0008-offline-storage.md).
+Date: 2026-11-18. Decided by Flo.
+Replaces the complete-file requirement of [0005](0005-gapless-playback.md) and the availability marks, the small mark on a work, recording or track that plays without the server.
 Extends the music cache rules of [0051](0051-pictures-and-album-art-in-local-storage.md).
 Implementation belongs to 0.15. The early-start and gapless claims hold only after the measurements below pass.
 
@@ -17,7 +17,7 @@ Its loop loads every remaining movement, regardless of data mode. `PlaybackSessi
 It does not prepare the next recording before that transition. Its loading flag also describes inaudible background preparation.
 
 [0005](0005-gapless-playback.md) records measured MP3 delay handling. Existing fixture tests cover complete MP3 and FLAC files.
-Bead sz-rs30.1.43 records Flo's successful FLAC listening test. It leaves AAC and ALAC verification open.
+Flo's FLAC listening test passed. It leaves AAC and ALAC verification open.
 Neither result proves partial-file decoding. Implementation must establish that separately on iOS 27.
 
 ## Decision
@@ -57,7 +57,7 @@ The first implementation must measure decoder reads and first PCM output with in
 If a decoder scans the whole resource, it fails that format's early-start gate.
 Keep complete-file decoding as a compatibility fallback, without weakening existing gapless trims.
 Use it only when metadata or a system decoder prevents early playback. It is a documented exception, not instant playback.
-Record its reason and address supported-format failures under sz-rs30.1.43.
+Record its reason and address supported-format failures.
 Early playback ships only after MP3 and FLAC pass the early-start gate.
 
 ### Format gates
@@ -122,7 +122,7 @@ After starvation, preserve the exact next sample and refill using this rule. Nev
 
 The current track always has priority. The next track means the next audible track after skips, shuffle and queue edits.
 It can belong to another work. A whole work means the selected recording's movements, not alternate recordings.
-Flo set this rule on 2026-11-21 (sz-rs30.1.125.2). It replaces the first-track rule for the next queued item.
+Flo set this rule on 2026-11-21. It replaces the first-track rule for the next queued item.
 
 | Effective mode | Automatic music preparation |
 | --- | --- |
@@ -147,7 +147,7 @@ Cellular and Low Data Mode permit the current and next track as playback work; t
 Use URLSession's [network access controls](https://developer.apple.com/documentation/foundation/urlsessionconfiguration) to enforce applicable cellular and constrained-network restrictions.
 An explicit cellular prohibition takes precedence over playback and read-ahead.
 Any download policy that requires Wi-Fi also takes precedence for downloads. This record adds no data-settings screen.
-Do not infer permission for bulk downloads from a Play tap. The download-everything option belongs to sz-rs30.1.124.
+Do not infer permission for bulk downloads from a Play tap. The download-everything option is out of scope here.
 Keep [0059](0059-covers-and-pictures-before-pages.md)'s separate image policy, including the playing cover's Low Data Mode exception.
 
 ### Gapless scheduling continues across boundaries
@@ -160,7 +160,7 @@ For FLAC, validate the sample count. For AAC and ALAC, test packet-table and con
 Schedule consecutive buffers on the same node timeline. Schedule the next opening before the previous valid sample finishes.
 Keep the engine alive across recording boundaries. Advance session metadata from rendered sample positions, without rebuilding the graph.
 Convert differing sample rates and channel layouts into one stable output format before scheduling.
-Carry exact frame accounting through conversion; test rounding and converter latency at each join. Keep ReplayGain behavior from 0007.
+Carry exact frame accounting through conversion; test rounding and converter latency at each join. Keep ReplayGain behavior.
 
 Completing the download changes storage ownership only. Continue the same decoder and sample cursor across that event.
 A seek uses available local bytes or prioritized ranges, then rebuilds decoding from a valid packet boundary.
@@ -180,7 +180,7 @@ Disk-full playback uses bounded memory where possible and stops speculative writ
 Only complete, validated files qualify as available offline. Partial files never appear as downloads or complete cache entries.
 Publish complete cache entries atomically. Count each physical copy once and reuse cached bytes for explicit downloads.
 Downloads remain persistent, outside the music limit. Publish a requested recording only when all its tracks are complete.
-A failed recording download removes its new uncommitted download files, as 0008 requires.
+A failed recording download removes its new uncommitted download files.
 Automatic read-ahead must never remove an explicit download.
 Clear Music cancels speculative work and removes music files; active playback can retain only its bounded memory buffers.
 Clear Music also pauses active playback and releases its decoders. Otherwise a starved engine shows the slow-connection line.
@@ -192,11 +192,11 @@ Embedded art follows 0059 and counts under Album Art. Art extraction must not de
 Select the work and update transport state immediately on Play. Ordinary startup and read-ahead show no loading indicator.
 After one second without sound, show one secondary player line only when measured throughput is below the required bitrate.
 Text: “Slow connection. Playback will start shortly.” Keep the line's space stable; use no spinner or percentage.
-The small line replaces the time labels under the playback bar, as Flo chose in sz-rs30.1.125.4.
+The small line replaces the time labels under the playback bar, as Flo chose.
 Reserve both messages' wrapped height at the current width and text size before either message appears.
 Remove it on first sound, pause, Stop or replacement of the selection. Background preparation must never restore it.
 During later starvation, use the same single line with “Slow connection. Playback will continue shortly.”
-A connection failure or policy restriction uses the one quiet status of [0058](0058-one-quiet-server-status.md), with its actual cause.
+A connection failure or policy restriction uses the one quiet status, with its actual cause.
 Do not label missing metadata, disk errors or an unreachable server as a slow connection.
 
 Remove downloaded and cached marks from work, recording and movement rows, the player and its pill.

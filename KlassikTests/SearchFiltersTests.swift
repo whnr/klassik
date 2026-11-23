@@ -3,7 +3,7 @@ import Testing
 
 @testable import Klassik
 
-/// The conditions of a search: term effects, counts and the narrowed results (ADR 0020, 0025, 0029).
+/// The conditions of a search: term effects, counts and the narrowed results.
 struct SearchFiltersTests {
     typealias Term = Search.Term
     typealias Condition = Search.Condition
@@ -126,7 +126,7 @@ struct SearchFiltersTests {
         #expect(Self.summary(composers) == ["Antonín Dvořák check 0", "Frédéric Chopin or 2"])
     }
 
-    /// The counts use only the recordings that the text found (ADR 0029).
+    /// The counts use only the recordings that the text found.
     @Test func countsUseOnlyTheRecordingsThatTheTextFound() {
         let pool = Self.filters.pool(of: Self.search.results(for: "nocturne"))
         #expect(Self.filters.count([], in: pool) == 1)

@@ -38,7 +38,7 @@ struct NotePlace: Hashable, Sendable {
     }
 }
 
-/// A note while the listener writes it in the playing row (ADR 0027). It starts at the playing time; "End here"
+/// A note while the listener writes it in the playing row. It starts at the playing time; "End here"
 /// marks a second time. The earlier of the two is the start, so a scrub back still gives a span.
 struct NoteDraft: Equatable, Sendable {
     /// The row on the page that the draft belongs to.
@@ -107,7 +107,7 @@ final class ListeningNotes {
         }
     }
 
-    /// The lane of each note above the movement's bar, 0 next to the bar (ADR 0014). Notes that overlap stack: each
+    /// The lane of each note above the movement's bar, 0 next to the bar. Notes that overlap stack: each
     /// note takes the lowest lane that is free. A mark is `reach` seconds wide at least, so two dots close
     /// together do not cover each other.
     nonisolated static func lanes(_ notes: [ListeningNote], reach: Double) -> [UUID: Int] {

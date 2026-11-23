@@ -19,7 +19,7 @@ struct DeviceStore {
         var pendingFavourites: [FavouriteChange] = []
         /// Listening notes by recording ID (ADR 0013). The server never sees them.
         var notes: [String: [ListeningNote]] = [:]
-        /// Recent searches, newest first (ADR 0029). The server never sees them.
+        /// Recent searches, newest first. The server never sees them.
         var recentSearches: [RecentSearch] = []
 
         /// Keeps one change for each target: the server must get the newest choice.

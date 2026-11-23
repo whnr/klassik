@@ -1487,8 +1487,18 @@ final class PlaybackScreens: ScreensTestCase {
         let overlay = app.descendants(matching: .any)["player-overlay"].firstMatch
         XCTAssertTrue(reveal(overlay.sliders["position"], in: app).exists, "The player has no playing row")
         XCTAssertFalse(overlay.buttons["show-player"].exists, "The player offers itself")
-        XCTAssertFalse(overlay.buttons["page-menu"].exists, "The player has the page menu")
         snap(app, "05j-player-playing")
+        // specimen menu.html, Player: Download and Tags and Grouping of what plays, no queue items.
+        let menu = overlay.buttons["page-menu"].firstMatch
+        XCTAssertTrue(menu.waitForExistence(timeout: 5), "The player has no menu")
+        menu.tap()
+        XCTAssertTrue(menuItem(app, "Download").waitForExistence(timeout: 5), "The player menu has no Download")
+        XCTAssertTrue(menuItem(app, "Tags and Grouping").exists, "The player menu has no Tags and Grouping")
+        XCTAssertFalse(menuItem(app, "Play Next").exists, "The player menu has Play Next")
+        XCTAssertFalse(menuItem(app, "Add to Queue").exists, "The player menu has Add to Queue")
+        expectOrder(app, ["Download", "Tags and Grouping"], "player menu")
+        snap(app, "05o-player-menu")
+        closeMenu(app)
     }
 
     /// A listening note is written in the playing row, never in a modal. It stays open while the bar scrubs, "End here"

@@ -153,6 +153,16 @@ private struct PlayerOverlay: View {
             .accessibilityLabel("Close the player")
             .accessibilityIdentifier("player-handle")
             .gesture(closeDrag.gesture)
+            .overlay(alignment: .trailing) {
+                // specimen menu.html, Player: the menu of what plays has the download and the tags, no queue items.
+                PageMenuButton(
+                    target: PageMenuTarget(
+                        kind: .player, item: item, album: item.recording.albumKey.flatMap { model.library.album($0) })
+                )
+                .labelStyle(.iconOnly)
+                .frame(width: Measure.hitTarget, height: Measure.hitTarget)
+                .padding(.trailing, Layout.edge - Space.s.points)
+            }
             ZStack {
                 // When an item ends, its content leaves upwards and the next item rises in its place.
                 RecordingView(

@@ -130,6 +130,10 @@ private struct PlayerOverlay: View {
         insertion: .offset(y: Layout.riseIn).combined(with: .opacity),
         removal: .offset(y: -Layout.riseOut).combined(with: .opacity))
 
+    private var menuEdge: CGFloat { Layout.edge - Space.s.points }
+    /// The room of the menu at the right end of the handle row; the same room at the left keeps the handle centred.
+    private var menuWidth: CGFloat { Measure.hitTarget + menuEdge }
+
     private var pulled: CGFloat { dragged + heroPulled }
 
     private var closeDrag: PlayerCloseDrag {
@@ -139,8 +143,9 @@ private struct PlayerOverlay: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // The menu is a sibling of the handle, not inside it: the handle's button and drag would take its tap.
-            ZStack(alignment: .trailing) {
+            // The handle and the menu share no area: a tap on the menu that lands on the handle closes the player.
+            HStack(spacing: 0) {
+                Color.clear.frame(width: menuWidth, height: Measure.hitTarget)
                 Button {
                     navigator.closePlayer()
                 } label: {
@@ -162,7 +167,7 @@ private struct PlayerOverlay: View {
                 )
                 .labelStyle(.iconOnly)
                 .frame(width: Measure.hitTarget, height: Measure.hitTarget)
-                .padding(.trailing, Layout.edge - Space.s.points)
+                .padding(.trailing, menuEdge)
             }
             ZStack {
                 // When an item ends, its content leaves upwards and the next item rises in its place.

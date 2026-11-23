@@ -52,6 +52,12 @@ final class PlayerOverlayLayout {
         final class Coordinator: NSObject, UIGestureRecognizerDelegate {
             func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
                 guard let pan = recognizer as? UIPanGestureRecognizer else { return false }
+                // Velocity is an estimate that can be zero or jitter at the first callback, and a refusal
+                // fails the recognizer for the whole touch. Translation is the settled distance; velocity
+                // only decides while the translation is still zero. The page scroll pan is not made
+                // simultaneous: UIKit lets this pan win by failing the scroll only when it begins first.
+                let move = pan.translation(in: pan.view)
+                if move != .zero { return move.y > 0 && abs(move.y) > abs(move.x) }
                 let velocity = pan.velocity(in: pan.view)
                 return velocity.y > 0 && abs(velocity.y) > abs(velocity.x)
             }

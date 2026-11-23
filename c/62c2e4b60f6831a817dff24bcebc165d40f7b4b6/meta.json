@@ -1,0 +1,7 @@
+{
+  "sha": "62c2e4b60f6831a817dff24bcebc165d40f7b4b6",
+  "branch": "claude-152",
+  "path": "claude-152",
+  "subject": "[sz-rs30.1.152] Restore only labels that shrink their text",
+  "ts": 1795426552
+}

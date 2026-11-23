@@ -869,6 +869,7 @@ struct RecordingView: View {
             notes: place.map { model.notes.notes(at: $0) } ?? [],
             place: place,
             isPlaying: showsPlayer && model.playback.movement == index,
+            isCurrent: isPlayingThis && !isOverlay && model.playback.movement == index,
             isOpen: opened.contains(index),
             draft: Binding(
                 get: { draft?.row == index ? draft : nil },
@@ -880,6 +881,7 @@ struct RecordingView: View {
             play: { play(from: index) },
             jump: { note, plays in jump(to: note, row: index, plays: plays) }
         )
+        .playingRow(isPlayingThis && !isOverlay && model.playback.movement == index)
         .id(song.id)
     }
 
@@ -919,6 +921,8 @@ private struct MovementRow: View {
     /// Where a new note of this row goes. A row without a place takes no note.
     let place: NotePlace?
     let isPlaying: Bool
+    /// The movement that plays while the page shows the recording: it keeps its row and its button pauses it.
+    let isCurrent: Bool
     let isOpen: Bool
     @Binding var draft: NoteDraft?
     let toggle: () -> Void
@@ -947,7 +951,6 @@ private struct MovementRow: View {
                     NoteList(notes: notes, jump: jump)
                 }
             }
-            .accessibilityIdentifier("movement")
         }
     }
 
@@ -988,10 +991,14 @@ private struct MovementRow: View {
     }
 
     private var playButton: some View {
-        Button(action: play) {
-            Image(systemName: "play.fill")
+        let player = model.playback
+        let pauses = isCurrent && !player.isPaused
+        return Button {
+            if isCurrent { player.togglePause() } else { play() }
+        } label: {
+            Image(systemName: pauses ? "pause.fill" : "play.fill")
                 .typeStyle(.caption1)
-                .foregroundStyle(Palette.textSecondary)
+                .foregroundStyle(isCurrent ? Palette.tint : Palette.textSecondary)
                 .frame(width: Layout.roundButton, height: Layout.roundButton)
                 .background(Palette.fillQuiet, in: .circle)
                 // The circle, not its hit frame, ends on the page edge, as the specimen `.round` does.
@@ -999,8 +1006,8 @@ private struct MovementRow: View {
                 .contentShape(.rect)
         }
         .buttonStyle(.borderless)
-        .accessibilityLabel("Play from here")
-        .accessibilityIdentifier("play-movement")
+        .accessibilityLabel(isCurrent ? (player.isPaused ? "Resume" : "Pause") : "Play from here")
+        .accessibilityIdentifier(isCurrent ? "movement-slot" : "play-movement")
     }
 
     /// The playing row: its title, the names that differ, the playback bar with the note marks, the controls, the

@@ -1401,6 +1401,11 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(show.waitForExistence(timeout: 10), "The playing page does not offer the player")
         XCTAssertFalse(play.exists, "The playing page still offers Play")
         XCTAssertFalse(app.sliders["position"].exists, "The page shows the playing row of the player")
+        // The movement that plays keeps its tint and a round button that resumes it (paused here).
+        // The row may lie below the header, and a list builds only the rows near the screen.
+        let slot = reveal(app.buttons["movement-slot"], in: app)
+        XCTAssertTrue(slot.exists, "The playing movement has no pause button")
+        XCTAssertEqual(slot.label, "Resume", "The paused movement does not offer Resume")
         XCTAssertFalse(app.buttons["add-note"].exists, "The page takes a note")
         // Show the player takes its share of the content width, centred between the margins of the timeline.
         let content = app.frame.width - Layout.edge - Layout.timelineEdge
@@ -1408,6 +1413,12 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertEqual(
             show.frame.midX, app.frame.minX + Layout.edge + content / 2, accuracy: 2, "Show the player is off centre")
         snap(app, "05i-recording-playing")
+        // Resume from the row: while audio plays the same button reads Pause, with the pause icon.
+        slot.tap()
+        let reads = NSPredicate(format: "label == 'Pause'")
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: reads, object: slot)], timeout: 10), .completed,
+            "The playing movement offers \(slot.label), not Pause")
 
         show.tap()
         let handle = app.buttons["player-handle"]
@@ -1555,6 +1566,7 @@ final class PlaybackScreens: ScreensTestCase {
         // The playing row holds one round button on its top edge, in place of the chevron (specimen `.row.top`).
         let slot = first.buttons["recording-slot"]
         XCTAssertTrue(slot.exists, "The playing row has no round button")
+        XCTAssertEqual(slot.label, "Pause", "The playing row offers \(slot.label), not Pause")
         XCTAssertLessThan(slot.frame.midY, first.frame.midY, "The round button sits at the centre of the row")
         XCTAssertLessThanOrEqual(slot.frame.maxX, first.frame.maxX + 1, "The round button leaves the row")
         snap(app, "04c-work-playing")

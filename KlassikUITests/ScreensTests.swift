@@ -1249,6 +1249,20 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(cover.waitForExistence(timeout: 10))
         XCTAssertTrue(eventually(timeout: 12) { row.exists && row.isHittable }, "No row to start the drag on")
         XCTAssertGreaterThan(row.frame.minY, cover.frame.maxY, "The row is not below the cover")
+        // The player opens with the page scrolled to its playing row. Only a pull that starts at the top closes it,
+        // so a first drag down brings the page to the top and only bounces.
+        let handle = app.buttons["player-handle"]
+        row.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.1)).press(
+            forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.7)),
+            withVelocity: .slow, thenHoldForDuration: 0.2)
+        var last = CGFloat.infinity
+        XCTAssertTrue(
+            eventually(timeout: 8) {
+                defer { last = cover.frame.minY }
+                return abs(cover.frame.minY - last) < 1
+            }, "The page did not settle at its top")
+        XCTAssertTrue(handle.exists, "A drag that did not start at the top closed the player")
+        XCTAssertGreaterThan(row.frame.minY, cover.frame.maxY, "The row is not below the cover")
         // The right end of the title line is empty, so the drag starts on the row and on no control.
         row.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.1)).press(
             forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.95)),

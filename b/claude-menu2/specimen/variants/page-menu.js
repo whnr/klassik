@@ -78,7 +78,7 @@
     };
   }
 
-  // Play Next and Add to Queue as in ADR 0006. With nothing in the queue, both start the item.
+  // Play Next and Add to Queue as in the queue. With nothing in the queue, both start the item.
   function queueSection(item) {
     const add = (next) => {
       if (!K.P.queue.length) return K.playItem(item);

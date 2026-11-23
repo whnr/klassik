@@ -1,4 +1,4 @@
-/* The page menu (menu.html). The specimen approximates the system Menu; iOS draws the real one. */
+/* The page menu. The specimen approximates the system Menu; iOS draws the real one. */
 .nav .actions .menu-button {
   width: var(--size-hitTarget);
   height: var(--size-hitTarget);

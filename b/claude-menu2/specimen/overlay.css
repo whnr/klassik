@@ -1,4 +1,4 @@
-/* The player overlay of ADR 0014: it slides up from the bottom and fills the screen. The tab bar, the pill and the timeline stay above it. */
+/* The player overlay of player.html: it slides up from the bottom and fills the screen. The tab bar, the pill and the timeline stay above it. */
 .player-overlay {
   position: fixed;
   inset: 0;

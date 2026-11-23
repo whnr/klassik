@@ -360,7 +360,7 @@
         });
         const allTerms = new Map();
         for (const { terms } of recs) for (const t of terms) allTerms.set(t, (allTerms.get(t) || 0) + 1);
-        // A genre that every recording carries filters nothing, so the picker hides it (as on the composer page, person.html).
+        // A genre that every recording carries filters nothing, so the picker hides it (as on the composer page).
         // Weak tags leave some recordings without a genre, so the test counts only the recordings that carry one.
         const withGenre = recs.filter((x) => x.r.genres.length).length;
         for (const [t, n] of allTerms) if (t.startsWith("genre:") && n === withGenre) allTerms.delete(t);

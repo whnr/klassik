@@ -7,7 +7,10 @@ final class BackgroundDownloads: NSObject, URLSessionDownloadDelegate, @unchecke
     static let shared = BackgroundDownloads()
 
     private let lock = NSLock()
-    private var waiters: [Int: CheckedContinuation<URL, any Error>] = [:]
+    /// Every download that waits for a task. Recordings that share a track join the same task.
+    private var waiters: [Int: [(id: UUID, continuation: CheckedContinuation<URL, any Error>)]] = [:]
+    /// The system's call that ends a relaunch for background events, held until the session has delivered them.
+    private var completion: (@Sendable () -> Void)?
     /// Tasks whose answer was no success, by task identifier.
     private var refused: [Int: Int] = [:]
     private let staging: URL
@@ -34,18 +37,27 @@ final class BackgroundDownloads: NSObject, URLSessionDownloadDelegate, @unchecke
         }
         let task = running ?? session.downloadTask(with: url)
         task.taskDescription = songID
+        return try await join(task, resume: running == nil)
+    }
+
+    /// Waits for the end of a task. A recording that shares the track joins the same task, so cancelling one wait
+    /// stops the task only when no other wait remains.
+    func join(_ task: URLSessionTask, resume: Bool) async throws -> URL {
+        let id = UUID()
         do {
             return try await withTaskCancellationHandler {
                 try await withCheckedThrowingContinuation { continuation in
                     lock.lock()
-                    waiters[task.taskIdentifier] = continuation
+                    waiters[task.taskIdentifier, default: []].append((id, continuation))
                     lock.unlock()
-                    if running == nil { task.resume() }
+                    if resume { task.resume() }
+                    // The cancel can run before the registration above.
+                    if Task.isCancelled { leave(task, id) }
                     // The task can end between the lookup and the registration above.
                     if task.state == .completed { finish(task, error: task.error) }
                 }
             } onCancel: {
-                task.cancel()
+                leave(task, id)
             }
         } catch {
             if Task.isCancelled { throw CancellationError() }
@@ -53,9 +65,29 @@ final class BackgroundDownloads: NSObject, URLSessionDownloadDelegate, @unchecke
         }
     }
 
-    /// Removes the files of transfers that no download waits for.
-    func clearStaged() {
-        try? FileManager.default.removeItem(at: staging)
+    private func leave(_ task: URLSessionTask, _ id: UUID) {
+        lock.lock()
+        let own = waiters[task.taskIdentifier]?.first { $0.id == id }
+        waiters[task.taskIdentifier]?.removeAll { $0.id == id }
+        let others = !(waiters[task.taskIdentifier] ?? []).isEmpty
+        lock.unlock()
+        own?.continuation.resume(throwing: CancellationError())
+        if !others { task.cancel() }
+    }
+
+    /// The number of downloads that wait for a task.
+    func waiterCount(_ task: URLSessionTask) -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return waiters[task.taskIdentifier]?.count ?? 0
+    }
+
+    /// Keeps the system's handler for a relaunch. The session is created by now, so its events arrive and
+    /// `urlSessionDidFinishEvents` calls the handler.
+    func attach(completion: @escaping @Sendable () -> Void) {
+        lock.lock()
+        self.completion = completion
+        lock.unlock()
     }
 
     private func stagedFile(_ songID: String) -> URL? {
@@ -63,34 +95,55 @@ final class BackgroundDownloads: NSObject, URLSessionDownloadDelegate, @unchecke
         return FileManager.default.fileExists(atPath: file.path()) ? file : nil
     }
 
-    private func finish(_ task: URLSessionTask, error: (any Error)?) {
+    func finish(_ task: URLSessionTask, error: (any Error)?) {
         lock.lock()
-        let waiter = waiters.removeValue(forKey: task.taskIdentifier)
+        let joined = waiters.removeValue(forKey: task.taskIdentifier) ?? []
         let status = refused.removeValue(forKey: task.taskIdentifier)
         lock.unlock()
-        guard let waiter else { return }
-        if let status {
-            waiter.resume(throwing: SubsonicError.http(status: status))
-        } else if let error {
-            waiter.resume(throwing: error)
-        } else if let id = task.taskDescription, let file = stagedFile(id) {
-            waiter.resume(returning: file)
-        } else {
-            waiter.resume(throwing: URLError(.cannotParseResponse))
+        guard !joined.isEmpty else { return }
+        let staged = task.taskDescription.flatMap(stagedFile)
+        for (index, entry) in joined.enumerated() {
+            let waiter = entry.continuation
+            if let status {
+                waiter.resume(throwing: SubsonicError.http(status: status))
+            } else if let error {
+                waiter.resume(throwing: error)
+            } else if let staged {
+                // Each download moves its file away, so every waiter after the first gets its own copy.
+                if index == 0 {
+                    waiter.resume(returning: staged)
+                } else {
+                    let copy = staging.appending(path: "\(staged.lastPathComponent).\(UUID().uuidString)")
+                    do {
+                        try FileManager.default.copyItem(at: staged, to: copy)
+                        waiter.resume(returning: copy)
+                    } catch {
+                        waiter.resume(throwing: error)
+                    }
+                }
+            } else {
+                waiter.resume(throwing: URLError(.cannotParseResponse))
+            }
         }
     }
 
     // MARK: URLSessionDownloadDelegate
 
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
-        if let http = downloadTask.response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+        let status = (downloadTask.response as? HTTPURLResponse)?.statusCode
+        received(location, for: downloadTask, status: status)
+    }
+
+    /// Takes the file of a finished transfer. The system deletes `location` when the delegate call returns, so the
+    /// file moves now, also when no download waits.
+    func received(_ location: URL, for task: URLSessionTask, status: Int?) {
+        if let status, !(200..<300).contains(status) {
             lock.lock()
-            refused[downloadTask.taskIdentifier] = http.statusCode
+            refused[task.taskIdentifier] = status
             lock.unlock()
             return
         }
-        guard let id = downloadTask.taskDescription else { return }
-        // The system deletes `location` when this method returns, so the file moves now, also without a waiter.
+        guard let id = task.taskDescription else { return }
         try? FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
         let target = staging.appending(path: id)
         try? FileManager.default.removeItem(at: target)
@@ -99,5 +152,13 @@ final class BackgroundDownloads: NSObject, URLSessionDownloadDelegate, @unchecke
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: (any Error)?) {
         finish(task, error: error)
+    }
+
+    func urlSessionDidFinishEvents(forBackgroundURLSession session: URLSession) {
+        lock.lock()
+        let handler = completion
+        completion = nil
+        lock.unlock()
+        if let handler { DispatchQueue.main.async(execute: handler) }
     }
 }

@@ -265,6 +265,19 @@ struct TrackStoreTests {
         #expect(second.progress.isEmpty)
     }
 
+    @Test func cancelBeforeResumeClearsTheRestoredDownload() async throws {
+        let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
+        let first = makeBackgroundStore(defaults, loads: Requests(), hold: true)
+        first.download(recording("r1", ["a"]), title: "Work", client: client)
+        let second = makeBackgroundStore(defaults, loads: Requests())
+        #expect(second.progress["r1"] == 0)
+        second.cancelDownload("r1")
+        #expect(second.progress.isEmpty)
+        let third = makeBackgroundStore(defaults, loads: Requests())
+        #expect(third.progress.isEmpty)
+        first.cancelDownload("r1")
+    }
+
     @Test func downloadMovesCachedTracksInsteadOfFetchingThemAgain() async throws {
         try write("a", in: "cache", bytes: 40)
         let requests = Requests()

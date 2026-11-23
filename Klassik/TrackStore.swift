@@ -393,11 +393,10 @@ final class TrackStore {
 
     /// The download stops at once for the listener. Its task releases the files in the background.
     func cancelDownload(_ id: String) {
-        guard let task = tasks[id] else { return }
-        task.cancel()
         restarts[id] = nil
         progress[id] = nil
         forget(id)
+        tasks[id]?.cancel()
     }
 
     /// Removes a download. A track that another download also holds stays.

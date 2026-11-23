@@ -325,7 +325,7 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
                 // Before the first keyboard the layout is settled, so its latest width is the reference.
                 if !hadKeyboard {
                     labelWidths[key] = label.bounds.width
-                } else if label.bounds.width < known - 0.5 {
+                } else if abs(label.bounds.width - known) > 0.5, label.intrinsicContentSize.width > label.bounds.width {
                     let center = label.center
                     label.bounds.size.width = known
                     label.center = center

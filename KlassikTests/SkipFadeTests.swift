@@ -75,7 +75,9 @@ struct SkipFadeTests {
 
     @Test func aHardStopInsideAWaveJumpsAboveTheThreshold() throws {
         // The control: the same wave, cut without a ramp, at a phase that is far from a zero crossing.
-        let cut = try Self.render(hertz: 300, phase: 0, from: 1, gains: [0])
+        // The mixer smooths a volume step, so the stop is the wave with its samples after the cut set to zero.
+        let wave = try Self.render(hertz: 300, phase: 0, from: 1, gains: [])
+        let cut = Array(wave.prefix(2000)) + Array(repeating: 0, count: 2000)
         #expect(Self.largestJump(cut) > Self.threshold)
     }
 

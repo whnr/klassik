@@ -1,7 +1,7 @@
 {
-  "sha": "06f0dcd89bc123de8c4b630098a64a9757b4ebec",
+  "sha": "d92b8e274638ea7b98515fe6db76c1f0bfd48372",
   "branch": "claude-page-menu",
   "path": "claude-page-menu",
-  "subject": "[sz-rs30.1.105.33.10] Walk the page menus in the overlay shard",
-  "ts": 1795417813
+  "subject": "[sz-rs30.1.105.33.10] Read the row menu favourite without a drag",
+  "ts": 1795421759
 }

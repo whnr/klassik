@@ -1401,6 +1401,8 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(show.waitForExistence(timeout: 10), "The playing page does not offer the player")
         XCTAssertFalse(play.exists, "The playing page still offers Play")
         XCTAssertFalse(app.sliders["position"].exists, "The page shows the playing row of the player")
+        // The movement that plays keeps its tint and a round button that resumes it (paused here).
+        XCTAssertEqual(app.buttons["movement-slot"].label, "Resume", "The playing movement has no pause button")
         XCTAssertFalse(app.buttons["add-note"].exists, "The page takes a note")
         // Show the player takes its share of the content width, centred between the margins of the timeline.
         let content = app.frame.width - Layout.edge - Layout.timelineEdge
@@ -1555,6 +1557,7 @@ final class PlaybackScreens: ScreensTestCase {
         // The playing row holds one round button on its top edge, in place of the chevron (specimen `.row.top`).
         let slot = first.buttons["recording-slot"]
         XCTAssertTrue(slot.exists, "The playing row has no round button")
+        XCTAssertEqual(slot.label, "Pause", "The playing row offers \(slot.label), not Pause")
         XCTAssertLessThan(slot.frame.midY, first.frame.midY, "The round button sits at the centre of the row")
         XCTAssertLessThanOrEqual(slot.frame.maxX, first.frame.maxX + 1, "The round button leaves the row")
         snap(app, "04c-work-playing")

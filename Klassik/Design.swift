@@ -436,11 +436,8 @@ extension View {
 
 extension View {
     /// The tint ground of a row that holds what plays, as the recording rows of a work page show it.
-    /// The tint stays inside the page edges, as the specimen `.row.playing` does on a plain list.
+    /// The tint runs the full screen width, past the page edges (specimen `.row.playing`).
     func playingRow(_ isPlaying: Bool) -> some View {
-        listRowBackground(
-            (isPlaying ? Palette.tint.color.opacity(0.12) : Color.clear)
-                .padding(Layout.edges(side: .standard, timeline: false))
-        )
+        listRowBackground(isPlaying ? Palette.tint.color.opacity(0.12) : Color.clear)
     }
 }

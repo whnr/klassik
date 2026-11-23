@@ -172,6 +172,7 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
     private var barFrameObservations: [NSKeyValueObservation] = []
     private var barRepairs = 0
     private var labelWidths: [String: CGFloat] = [:]
+    private var hadKeyboard = false
     private(set) var playerHost: UIHostingController<AnyView>?
     let playerLayout = PlayerOverlayLayout()
 
@@ -199,6 +200,7 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
 
     @objc private func keyboardVisibilityChanged(_ notification: Notification) {
         keyboardVisible = notification.name == UIResponder.keyboardWillShowNotification
+        if keyboardVisible { hadKeyboard = true }
         if !keyboardVisible { remeasuresLabels = true }
         barRepairs = 0
         view.setNeedsLayout()
@@ -320,9 +322,10 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
             if let label = view as? UILabel, let text = label.text, label.bounds.width > 0 {
                 let key = "\(text)@\(barWidth)"
                 let known = labelWidths[key] ?? 0
-                if label.bounds.width > known {
+                // Before the first keyboard the layout is settled, so its latest width is the reference.
+                if !hadKeyboard {
                     labelWidths[key] = label.bounds.width
-                } else if label.bounds.width < known - 0.5 {
+                } else if abs(label.bounds.width - known) > 0.5, known > 0 {
                     let center = label.center
                     label.bounds.size.width = known
                     label.center = center

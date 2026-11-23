@@ -1,7 +1,7 @@
 {
-  "sha": "80d3959170f6458662f7e4065442c9adf5238605",
+  "sha": "b6b534e23e94c29416d37ea31b9e4a65c7b053d9",
   "branch": "claude-ci2",
   "path": "claude-ci2",
-  "subject": "Format the CI scripts with ruff",
-  "ts": 1795452360
+  "subject": "Gate wall-clock limits to the measure job; fix the gate",
+  "ts": 1795453617
 }

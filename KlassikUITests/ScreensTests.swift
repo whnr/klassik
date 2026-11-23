@@ -1891,9 +1891,12 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertEqual(menuItem(app, "Play Next").label, "Play Next", "The work menu names the top recording")
         snap(app, "05k-work-menu")
         closeMenu(app)
+        // A press while the work menu still fades out opens nothing, so the row waits for the menu to be gone.
+        XCTAssertTrue(eventually(timeout: 5) { !queue.exists }, "The work menu stays open")
 
         let row = app.buttons.matching(identifier: "recording").firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 10))
+        XCTAssertTrue(eventually(timeout: 5) { row.isHittable }, "The recording row is not ready for a press")
         row.press(forDuration: 1.2)
         let rowTags = menuItem(app, "Tags and Grouping")
         XCTAssertTrue(rowTags.waitForExistence(timeout: 5), "The row menu has no Tags and Grouping")

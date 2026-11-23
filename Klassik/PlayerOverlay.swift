@@ -139,21 +139,22 @@ private struct PlayerOverlay: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Button {
-                navigator.closePlayer()
-            } label: {
-                Capsule()
-                    .fill(Palette.textTertiary)
-                    .frame(width: Layout.grabberWidth, height: Layout.grabberHeight)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: Measure.hitTarget)
-                    .contentShape(.rect)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Close the player")
-            .accessibilityIdentifier("player-handle")
-            .gesture(closeDrag.gesture)
-            .overlay(alignment: .trailing) {
+            // The menu is a sibling of the handle, not inside it: the handle's button and drag would take its tap.
+            ZStack(alignment: .trailing) {
+                Button {
+                    navigator.closePlayer()
+                } label: {
+                    Capsule()
+                        .fill(Palette.textTertiary)
+                        .frame(width: Layout.grabberWidth, height: Layout.grabberHeight)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: Measure.hitTarget)
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Close the player")
+                .accessibilityIdentifier("player-handle")
+                .gesture(closeDrag.gesture)
                 // specimen menu.html, Player: the menu of what plays has the download and the tags, no queue items.
                 PageMenuButton(
                     target: PageMenuTarget(

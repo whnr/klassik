@@ -160,7 +160,7 @@ For FLAC, validate the sample count. For AAC and ALAC, test packet-table and con
 Schedule consecutive buffers on the same node timeline. Schedule the next opening before the previous valid sample finishes.
 Keep the engine alive across recording boundaries. Advance session metadata from rendered sample positions, without rebuilding the graph.
 Convert differing sample rates and channel layouts into one stable output format before scheduling.
-Carry exact frame accounting through conversion; test rounding and converter latency at each join. Keep ReplayGain behavior from 0007.
+Carry exact frame accounting through conversion; test rounding and converter latency at each join. Keep ReplayGain behavior.
 
 Completing the download changes storage ownership only. Continue the same decoder and sample cursor across that event.
 A seek uses available local bytes or prioritized ranges, then rebuilds decoding from a valid packet boundary.
@@ -180,7 +180,7 @@ Disk-full playback uses bounded memory where possible and stops speculative writ
 Only complete, validated files qualify as available offline. Partial files never appear as downloads or complete cache entries.
 Publish complete cache entries atomically. Count each physical copy once and reuse cached bytes for explicit downloads.
 Downloads remain persistent, outside the music limit. Publish a requested recording only when all its tracks are complete.
-A failed recording download removes its new uncommitted download files, as 0008 requires.
+A failed recording download removes its new uncommitted download files.
 Automatic read-ahead must never remove an explicit download.
 Clear Music cancels speculative work and removes music files; active playback can retain only its bounded memory buffers.
 Clear Music also pauses active playback and releases its decoders. Otherwise a starved engine shows the slow-connection line.
@@ -196,7 +196,7 @@ The small line replaces the time labels under the playback bar, as Flo chose.
 Reserve both messages' wrapped height at the current width and text size before either message appears.
 Remove it on first sound, pause, Stop or replacement of the selection. Background preparation must never restore it.
 During later starvation, use the same single line with “Slow connection. Playback will continue shortly.”
-A connection failure or policy restriction uses the one quiet status of 0058, with its actual cause.
+A connection failure or policy restriction uses the one quiet status, with its actual cause.
 Do not label missing metadata, disk errors or an unreachable server as a slow connection.
 
 Remove downloaded and cached marks from work, recording and movement rows, the player and its pill.

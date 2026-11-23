@@ -1,7 +1,6 @@
 # 0001. The work is the primary object
 
 Date: 2026-10-17. Decided by Flo.
-The Shuffle consequence is replaced by 0069.
 
 ## Context
 
@@ -17,4 +16,4 @@ Music apps show albums. A classical listener looks for a work, then picks a perf
 ## Consequences
 
 - The app builds the work index on the device from tags (see 0002 and 0004).
-- Shuffle orders works, never movements (see 0006).
+- Shuffle orders works, never movements.

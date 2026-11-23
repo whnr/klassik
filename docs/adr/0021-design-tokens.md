@@ -1,6 +1,6 @@
 # 0021. Design tokens in the repository
 
-Date: 2026-11-05. Decided by Flo after research. The script path and the lint rule are replaced by 0036.
+Date: 2026-11-05. Decided by Flo after research.
 
 ## Context
 

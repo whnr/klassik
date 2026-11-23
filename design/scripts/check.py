@@ -92,21 +92,60 @@ def check_links():
     return broken
 
 
-def check_mentions():
-    """No file names an ADR number that has no record in docs/adr."""
-    have = {record.name[:4] for record in (ROOT / "docs/adr").glob("0*.md")}
-    files = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True).stdout.split("\n")
-    missing = []
+ADR_LIST = re.compile(
+    r"\b(?:ADRs?|records?)\s+((?:0\d{3}|(?<=ADR )\d{1,4}|(?<=ADRs )\d{1,4})"
+    r"(?:(?:,\s*|\s+and\s+|\s+or\s+|,\s*and\s+)\d{1,4})*)",
+    re.I,
+)
+ADR_FILE = re.compile(r"\b(0\d{3})-[a-z]+(?:-[a-z]+)*\.md\b")
+ADR_CUE = re.compile(
+    r"\b(?:see|as in|as|per|by|of|from|keeps?|than|and)\s+(00\d\d)\b",
+    re.I,
+)
+BARE = re.compile(r"\b(0\d{3})\b")
+LINK = re.compile(r"\[[^\]]*\]\([^)]*\)")
+
+
+def mentioned(text, in_adr):
+    """The ADR numbers that `text` names. Only an ADR context counts, so years and build numbers stay out.
+
+    Context: a number after "ADR", "ADRs" or "records", an ADR file name,
+    or a number after a cue word such as "see".
+    Inside docs/adr every four-digit number with a leading zero counts. Links are checked by check_links.
+    """
+    found = set()
+    for match in ADR_LIST.finditer(text):
+        found.update(n.zfill(4) for n in re.findall(r"\d+", match.group(1)))
+    found.update(ADR_FILE.findall(text))
+    found.update(ADR_CUE.findall(text))
+    if in_adr:
+        body = "\n".join(line for line in text.splitlines() if not re.match(r"#\s+0\d{3}\.", line))
+        found.update(BARE.findall(LINK.sub("", body)))
+    return found
+
+
+def check_mentions(root=ROOT):
+    """No file names an ADR number that has no record in docs/adr. A tracked file that cannot be read fails."""
+    have = {record.name[:4] for record in (root / "docs/adr").glob("0*.md")}
+    if not have:
+        return ["docs/adr: no ADR records found"]
+    files = subprocess.run(["git", "ls-files"], cwd=root, capture_output=True, text=True, check=True).stdout.split("\n")
+    problems = []
     for name in filter(None, files):
         try:
-            text = (ROOT / name).read_text()
-        except (UnicodeDecodeError, OSError):
+            data = (root / name).read_bytes()
+        except OSError as error:
+            problems.append(f"{name}: cannot be read ({error.strerror or error})")
             continue
-        for number in re.findall(r"\bADRs?[- ]+(0\d{3})\b|\b(0\d{3})-[a-z]+(?:-[a-z]+)*\.md\b", text):
-            for n in filter(None, number):
-                if n not in have:
-                    missing.append(f"{name}: ADR {n} does not exist")
-    return sorted(set(missing))
+        try:
+            text = data.decode()
+        except UnicodeDecodeError:
+            continue
+        in_adr = name.startswith("docs/adr/") and name.endswith(".md") and name != "docs/adr/README.md"
+        for n in mentioned(text, in_adr):
+            if n not in have:
+                problems.append(f"{name}: ADR {n} does not exist")
+    return sorted(set(problems))
 
 
 def check_chain():

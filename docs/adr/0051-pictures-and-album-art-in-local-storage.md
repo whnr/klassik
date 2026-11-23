@@ -1,7 +1,7 @@
 # 0051. Pictures and album art in Local Storage
 
 Date: 2026-11-17. Decided by Flo in the 0.14.0 device notes.
-Replaces the cache and screen rules of 0008.
+Replaces the cache and screen rules of an earlier record.
 The image fetch, cover key and refresh rules are replaced by [0059](0059-covers-and-pictures-before-pages.md).
 The music cache rules are extended by [0060](0060-early-playback-and-read-ahead.md).
 
@@ -15,8 +15,7 @@ data on my phone. [...] But well respect low data mode."
 
 ## Decision
 
-- The device keeps three caches: music (the played tracks), pictures and album art. Downloads stay apart, as in
-  0008.
+- The device keeps three caches: music (the played tracks), pictures and album art. Downloads stay apart.
 - Local Storage shows one bar like the iPhone storage page. Each store has a colour and a share of the bar: Music,
   Downloads, Pictures and Album Art. A list under the bar gives the size of each store. The footnote gives the
   total and the free space of the device.

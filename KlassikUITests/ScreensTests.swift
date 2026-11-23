@@ -2400,7 +2400,6 @@ final class SettingsScreens: ScreensTestCase {
     @MainActor
     func testScrobbles() throws {
         let app = try launchAndConnect()
-        XCTFail("throwaway: proves that a requested walk blocks the run")
         openSettings(app)
         let scrobbles = reveal(app.switches["scrobbles"], in: app)
         XCTAssertTrue(scrobbles.isHittable)

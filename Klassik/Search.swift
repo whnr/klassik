@@ -105,9 +105,13 @@ struct Search: Sendable {
         /// The nickname that the match needs, or nil when the plain words match.
         func nickname(for tokens: [String]) -> String? {
             guard !Search.matches(tokens, plainWords) else { return nil }
-            let found = nicknames.first { Search.matches(tokens, plainWords, $0.words) }
-                ?? nicknames.first { nick in tokens.contains { token in nick.words.contains { $0.hasPrefix(token) } } }
-            return found?.name
+            if let whole = nicknames.first(where: { Search.matches(tokens, plainWords, $0.words) }) {
+                return whole.name
+            }
+            // The words split over two nicknames: name the first that any word starts.
+            return nicknames.first { nick in
+                tokens.contains { token in nick.words.contains { $0.hasPrefix(token) } }
+            }?.name
         }
     }
 

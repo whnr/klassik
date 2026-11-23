@@ -213,7 +213,7 @@ class RetryReportTests(unittest.TestCase):
         self.assertNotIn("Flaky", (out / "unit-retries.txt").read_text())
 
     def test_runner_crash_retries_only_the_failed_test_and_reports_it_flaky(self):
-        tests = case_tree("Failed", ["Crash: Klassik (1234) crashed"])
+        tests = case_tree("Failed", ["Test runner crashed: lost connection to the test host"])
         run, out, commands = self.run_screens(tests)
         self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
         runs = [c for c in commands if c.startswith("test-without-building")]
@@ -225,14 +225,21 @@ class RetryReportTests(unittest.TestCase):
         self.assertIn("**Flaky**", report)
         self.assertIn("::warning::Flaky test", run.stdout)
 
+    def test_crash_of_the_app_under_test_is_not_retried(self):
+        tests = case_tree("Failed", ["Crash: Klassik (1234) crashed", "Application com.klassik.app is not running"])
+        run, _, commands = self.run_screens(tests)
+        self.assertEqual(run.returncode, 65, run.stdout + run.stderr)
+        self.assertEqual(sum(c.startswith("test-without-building") for c in commands), 1)
+        self.assertIsNone(screen_report.retry_plan(tests))
+
     def test_runner_crash_that_fails_again_fails_the_run(self):
-        tests = case_tree("Failed", ["Crash: Klassik (1234) crashed"])
+        tests = case_tree("Failed", ["Test runner crashed: lost connection to the test host"])
         run, _, commands = self.run_screens(tests, always_fail=True)
         self.assertEqual(run.returncode, 65, run.stdout + run.stderr)
         self.assertEqual(sum(c.startswith("test-without-building") for c in commands), 2)
 
     def test_crash_does_not_hide_an_assertion_failure_of_the_same_run(self):
-        tests = case_tree("Failed", ["Crash: Klassik crashed"], extra=("testOther", ["XCTAssertTrue failed"]))
+        tests = case_tree("Failed", ["Test runner crashed: lost connection"], extra=("testOther", ["XCTAssertTrue failed"]))
         run, _, _ = self.run_screens(tests)
         self.assertEqual(run.returncode, 1, run.stdout + run.stderr)
 
@@ -763,6 +770,37 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(self.groups("workflow_dispatch", "false"), ("false", []))
         with self.assertRaises(ValueError):
             screen_report.plan("workflow_dispatch", "brwse", "")
+
+
+class WarningReportTests(unittest.TestCase):
+    def test_counts_each_warning_once_across_logs(self):
+        a = "/Users/r/Klassik/A.swift:12:3: warning: 'x' is deprecated\nBuild ok\n"
+        b = a + "/Users/r/Klassik/B.swift:7:1: warning: unused\nnote: not: warning: here\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            one, two = pathlib.Path(tmp) / "build.log", pathlib.Path(tmp) / "unit.log"
+            one.write_text(a)
+            two.write_text(b)
+            text, count = screen_report.warning_report([one, two, pathlib.Path(tmp) / "none.log"])
+        self.assertEqual(count, 2)
+        self.assertIn("2 compiler warnings", text)
+        self.assertIn("No build log: none.log", text)
+
+    def test_clean_log_counts_zero(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            log = pathlib.Path(tmp) / "build.log"
+            log.write_text("** BUILD SUCCEEDED **\n")
+            self.assertEqual(screen_report.warning_report([log])[1], 0)
+
+    def test_command_reports_and_exits_zero(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            log = pathlib.Path(tmp) / "build.log"
+            log.write_text("/a/B.swift:1:2: warning: w\n")
+            run = subprocess.run(
+                [sys.executable, str(pathlib.Path(screen_report.__file__)), "warnings", str(log)],
+                capture_output=True, text=True,
+            )
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertIn("::notice::Build warnings: 1", run.stdout)
 
 
 class ConsoleReportTests(unittest.TestCase):

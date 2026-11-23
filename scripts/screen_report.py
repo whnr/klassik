@@ -27,6 +27,9 @@ Usage:
         Prints the expected tests with no passed result. A later bundle replaces an earlier one. Exits 2 on any error.
     python3 scripts/screen_report.py console <console-file>...
         Prints, for each console of a test process, the count of lines that point to a crash or a runtime warning.
+    python3 scripts/screen_report.py warnings <build-log>...
+        Prints the number of distinct compiler warnings in xcodebuild logs as Markdown, and a ::notice:: line. It never
+        fails on a count: the number reports, it does not gate. A missing log is reported, not an error.
     python3 scripts/screen_report.py diff <screens-dir> <diff-dir> [<baseline-dir>]
         Prints the counts of scripts/screen_diff.py as Markdown.
 """
@@ -330,12 +333,13 @@ def ui_result(results):
     return "**FAILED, tolerated** (`UI_TESTS_REQUIRED` is not `true`)"
 
 
-# A message that proves the simulator or the test runner failed, not the code under test.
+# A message that proves the simulator or the test runner failed, not the code under test. A crash of the app under
+# test is a real fault: it must not match, or a crash that does not repeat passes on the retry.
 INFRASTRUCTURE = re.compile(
-    r"crash|Early unexpected exit|never finished bootstrapping|lost connection"
+    r"Early unexpected exit|never finished bootstrapping|lost connection"
     r"|connection (?:was )?(?:interrupted|invalid)"
-    r"|failed to (?:launch|boot|terminate|connect)|unable to (?:boot|launch|connect)|test runner (?:hung|failed|exited)"
-    r"|CoreSimulator|simulator (?:device )?(?:failed|crashed|disconnected)|Mach error|Application .* is not running",
+    r"|failed to (?:launch|boot|terminate|connect)|unable to (?:boot|launch|connect)|test runner (?:hung|failed|exited|crashed)"
+    r"|CoreSimulator|simulator (?:device )?(?:failed|crashed|disconnected)|Mach error|(?:testmanagerd|XCTRunner) .*crashed",
     re.IGNORECASE,
 )
 
@@ -515,6 +519,27 @@ def console_report(files):
     return "\n".join(lines) + "\n"
 
 
+# xcodebuild prints each warning in the build output and again in its summary, so the lines are counted once each.
+COMPILER_WARNING = re.compile(r"^(?:/\S.*?|\S+\.\w+):\d+(?::\d+)?: warning: .+", re.MULTILINE)
+
+
+def warning_report(files):
+    """The number of distinct compiler warnings in the build logs. It reports and never gates."""
+    found, missing = set(), []
+    for path in files:
+        if not pathlib.Path(path).is_file():
+            missing.append(pathlib.Path(path).name)
+            continue
+        found.update(m.group(0) for m in COMPILER_WARNING.finditer(pathlib.Path(path).read_text(errors="replace")))
+    lines = ["### Build warnings", "", f"{len(found)} compiler warnings."]
+    if missing:
+        lines.append(f"No build log: {', '.join(missing)}. The count is incomplete.")
+    lines += ["", *(f"- `{w}`" for w in sorted(found)[:20])]
+    if len(found) > 20:
+        lines.append(f"- and {len(found) - 20} more in the log")
+    return "\n".join(lines) + "\n", len(found)
+
+
 def summary(results, captured, wanted, artifacts_url=""):
     missing = sorted(set(wanted) - set(captured))
     lines = [
@@ -597,6 +622,11 @@ def main(args):
         return
     if command == "console":
         print(console_report(args[1:]))
+        return
+    if command == "warnings":
+        text, count = warning_report(args[1:])
+        print(f"::notice::Build warnings: {count}")
+        print(text)
         return
     if command == "plan":
         project = pathlib.Path(args[5]).read_text() if len(args) > 5 else ""

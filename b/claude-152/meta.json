@@ -1,7 +1,7 @@
 {
-  "sha": "36985fe7f8f3e669a99dbfd27d7c8b8306f3d5cc",
+  "sha": "4c35225dc138424421050dd72517fe769e51272b",
   "branch": "claude-152",
   "path": "claude-152",
-  "subject": "[sz-rs30.1.152] Restore the bar frame after new titles",
-  "ts": 1795393971
+  "subject": "[sz-rs30.1.152] Record the tab frames of the baseline",
+  "ts": 1795397119
 }

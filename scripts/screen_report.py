@@ -325,7 +325,8 @@ def ui_result(results):
 
 # A message that proves the simulator or the test runner failed, not the code under test.
 INFRASTRUCTURE = re.compile(
-    r"crash|Early unexpected exit|never finished bootstrapping|lost connection|connection (?:was )?(?:interrupted|invalid)"
+    r"crash|Early unexpected exit|never finished bootstrapping|lost connection"
+    r"|connection (?:was )?(?:interrupted|invalid)"
     r"|failed to (?:launch|boot|terminate|connect)|unable to (?:boot|launch|connect)|test runner (?:hung|failed|exited)"
     r"|CoreSimulator|simulator (?:device )?(?:failed|crashed|disconnected)|Mach error|Application .* is not running",
     re.IGNORECASE,
@@ -423,7 +424,10 @@ def retry_report(log):
         lines.append("| " + " | ".join(cell.replace("|", "\\|") for cell in cells) + " |")
     flaky = [name for name, runs in failed.items() if runs[-1][0] == "passed"]
     if flaky:
-        lines += ["", "**Flaky** (failed once, passed on the retry after a simulator or runner failure). File a bead for each:"]
+        lines += [
+            "",
+            "**Flaky** (failed once, passed on the retry after a simulator or runner failure). File a bead for each:",
+        ]
         lines += [f"- `{name}`" for name in flaky]
     return "\n".join(lines) + "\n"
 

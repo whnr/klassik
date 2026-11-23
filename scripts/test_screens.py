@@ -138,7 +138,8 @@ class RetryReportTests(unittest.TestCase):
             path.write_text(
                 "#!/bin/bash\n"
                 'if [ "$1" = xcresulttool ] && [ "$3" = test-results ]; then cat "$TEST_JSON"; exit 0; fi\n'
-                'if [ "$1" = xcresulttool ] && [ "$2" = export ]; then mkdir -p "${@: -1}"; echo "[]" > "${@: -1}/manifest.json"; exit 0; fi\n'
+                'if [ "$1" = xcresulttool ] && [ "$2" = export ]; then dest="${@: -1}"; mkdir -p "$dest"; '
+                'echo "[]" > "$dest/manifest.json"; exit 0; fi\n'
                 'if [ "$1" = xcresulttool ]; then exit 0; fi\n'
                 'echo "${2:-$1}" >> "$TEST_COMMANDS"\n'
                 "exit 0\n"
@@ -493,8 +494,9 @@ class PlanTests(unittest.TestCase):
 
     def test_only_requested_areas_block(self):
         _, matrix = screen_report.plan("pull_request", "", "Fix\n\n[ui: browse]\n")
-        self.assertEqual({e["group"]: e["required"] for e in matrix["include"]},
-                         {"places-search": "true", "browse-pages": "true"})
+        self.assertEqual(
+            {e["group"]: e["required"] for e in matrix["include"]}, {"places-search": "true", "browse-pages": "true"}
+        )
         _, matrix = screen_report.plan("pull_request", "", "[ui: playback]", "Release Klassik 0.15.0")
         required = {e["group"]: e["required"] for e in matrix["include"]}
         self.assertEqual(len(required), len(screen_report.UI_GROUPS))

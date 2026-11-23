@@ -1,7 +1,7 @@
 {
-  "sha": "fb12df0db0514ce7fe0077c6864a0107db8e5a56",
+  "sha": "35139a72795756986e672cdd9575036da524d75a",
   "branch": "claude-adr-cleanup",
   "path": "claude-adr-cleanup",
-  "subject": "[sz-rs30.1.148] Match hyphenated ADR refs; require ADR context",
-  "ts": 1795437566
+  "subject": "Format the ADR check tests",
+  "ts": 1795437973
 }

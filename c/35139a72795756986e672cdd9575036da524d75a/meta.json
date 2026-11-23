@@ -1,0 +1,7 @@
+{
+  "sha": "35139a72795756986e672cdd9575036da524d75a",
+  "branch": "claude-adr-cleanup",
+  "path": "claude-adr-cleanup",
+  "subject": "Format the ADR check tests",
+  "ts": 1795437973
+}

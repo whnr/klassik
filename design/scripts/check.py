@@ -178,9 +178,43 @@ def check_vague(root=ROOT):
 # A specimen file named in parentheses, such as "(specimen player.html `.wash`)", and a bead ID in Markdown.
 TAG = re.compile(r"\((?:(?:specimen|see|per|from)\s+)?(?:design/specimen/)?[\w-]+\.(?:html|css|js)\b[^)]*\)", re.I)
 # Only the comment part of a line is checked, so a code string or a URL never matches.
-COMMENT = re.compile(r"(?<!:)//|#|/\*|^\s*\*")
+COMMENT = re.compile(r"(?<!:)//|#|/\*|<!--|^\s*\*")
+# The marker that opens each line of a comment, dropped when a run of lines is joined.
+MARKER = re.compile(r"^\s*(?:/{2,}|#+|/\*+|<!--|\*+(?!/))\s*")
 BEAD = re.compile(r"\bsz-(?=[a-z0-9.]*\d)[a-z0-9.]+")
 TAG_SKIP = ("design/scripts/check.py", "scripts/test_design_check.py")
+
+
+def comment_tag_lines(text):
+    """Line numbers where a specimen tag starts; a run of comment lines is one text, so a wrapped tag counts."""
+    found, run, in_block = [], [], False
+    # Each run entry is (line number, comment text of that line).
+    for number, line in enumerate(text.splitlines(), 1):
+        if in_block:
+            part = line
+        else:
+            comment = COMMENT.search(line)
+            part = line[comment.start() :] if comment else None
+        if part is None:
+            found += _run_tags(run)
+            run = []
+            continue
+        run.append((number, part))
+        opened = max(part.rfind("/*"), part.rfind("<!--"))
+        closed = max(part.rfind("*/"), part.rfind("-->"))
+        in_block = opened > closed if opened >= 0 else (in_block and closed < 0)
+    return found + _run_tags(run)
+
+
+def _run_tags(run):
+    joined, starts = "", []
+    for number, part in run:
+        starts.append((len(joined), number))
+        joined += MARKER.sub("", part) + " "
+    lines = []
+    for match in TAG.finditer(joined):
+        lines.append(max(n for at, n in starts if at <= match.start()))
+    return lines
 
 
 def check_tags(root=ROOT):
@@ -194,10 +228,10 @@ def check_tags(root=ROOT):
             text = (root / name).read_text()
         except (OSError, UnicodeDecodeError):
             continue
-        for number, line in enumerate(text.splitlines(), 1):
-            comment = COMMENT.search(line)
-            if comment and TAG.search(line, comment.start()) and not name.endswith(".md"):
+        if not name.endswith(".md"):
+            for number in comment_tag_lines(text):
                 problems.append(f"{name}:{number}: a comment tags a specimen file")
+        for number, line in enumerate(text.splitlines(), 1):
             if name.endswith(".md") and BEAD.search(line):
                 problems.append(f"{name}:{number}: a document names a bead")
     return problems

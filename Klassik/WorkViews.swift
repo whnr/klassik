@@ -723,8 +723,7 @@ struct RecordingView: View {
     /// The player is the overlay only. The page of the playing item shows no playing row.
     private var showsPlayer: Bool { isOverlay && isPlayingThis }
 
-    /// The cover, the title, then what every track shares in centred lines, the facts and the Play buttons (specimen
-    /// player.html `.hero`). Names with a page are links.
+    /// The cover, the title, then what every track shares in centred lines, the facts and the Play buttons. Names with a page are links.
     private func hero(_ page: PlayerPage) -> some View {
         VStack(spacing: Layout.heroGap) {
             heading(closeDrag)

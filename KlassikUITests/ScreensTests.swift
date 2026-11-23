@@ -1763,8 +1763,7 @@ final class PlaybackScreens: ScreensTestCase {
         snap(app, "05e-play-album")
     }
 
-    /// An opened row links the names that differ from the header, as the header does (specimen player.html
-    /// `performerRows`). On an album of two composers, each row names its composer.
+    /// An opened row links the names that differ from the header, as the header does. On an album of two composers, each row names its composer.
     @MainActor
     func testMovementNamesAreLinks() throws {
         let app = try launchAndConnect()

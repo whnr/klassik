@@ -244,7 +244,12 @@ class RetryReportTests(unittest.TestCase):
         tests = case_tree("Failed", ["Early unexpected exit, operation never finished bootstrapping"])
         both = case_tree("Passed", [])
         both["testNodes"][0]["children"][0]["children"][0]["children"].append(
-            {"nodeType": "Test Case", "name": "testOther()", "nodeIdentifier": "PlayTests/testOther()", "result": "Passed"}
+            {
+                "nodeType": "Test Case",
+                "name": "testOther()",
+                "nodeIdentifier": "PlayTests/testOther()",
+                "result": "Passed",
+            }
         )
         expected = ("PlayTests/testPlay", "PlayTests/testOther")
         run, _, commands = self.run_screens(tests, retry_json=both, expected=expected)
@@ -288,9 +293,20 @@ class RetryReportTests(unittest.TestCase):
         failed, passed = case_tree("Failed", ["XCTAssertEqual failed"]), case_tree("Passed", [])
         expected = ["PlayTests/testOther", "PlayTests/testPlay"]
         self.assertEqual(screen_report.unfinished_tests(expected, [failed, passed]), ["PlayTests/testOther"])
-        self.assertEqual(screen_report.unfinished_tests(["PlayTests/testPlay"], [passed, failed]), ["PlayTests/testPlay"])
-        self.assertEqual(screen_report.unrun_tests(expected, "KlassikTests", passed), ["KlassikTests/PlayTests/testOther"])
-        enumeration = {"values": [{"enabledTests": [{"identifier": "KlassikTests/PlayTests/testPlay()"}], "disabledTests": [{"identifier": "A/b"}]}]}
+        self.assertEqual(
+            screen_report.unfinished_tests(["PlayTests/testPlay"], [passed, failed]), ["PlayTests/testPlay"]
+        )
+        self.assertEqual(
+            screen_report.unrun_tests(expected, "KlassikTests", passed), ["KlassikTests/PlayTests/testOther"]
+        )
+        enumeration = {
+            "values": [
+                {
+                    "enabledTests": [{"identifier": "KlassikTests/PlayTests/testPlay()"}],
+                    "disabledTests": [{"identifier": "A/b"}],
+                }
+            ]
+        }
         self.assertEqual(screen_report.enumerated_tests(enumeration), ["PlayTests/testPlay"])
 
     def test_the_pr_unit_run_skips_the_measurement_suite_and_the_measure_phase_runs_it(self):

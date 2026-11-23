@@ -261,7 +261,7 @@ def plan(event, dispatch_input, message, title="", ref="refs/heads/main", projec
         ui = asked = requested_areas(message)
         release = release_walk(title, project)
         if release == "all":
-            ui = "all"
+            ui = asked = "all"
         elif release == "patch" and ui == "false":
             print("::warning::Patch release requests no walk areas. Add a [ui: <areas>] line.", file=sys.stderr)
     elif event == "workflow_dispatch":
@@ -274,8 +274,8 @@ def plan(event, dispatch_input, message, title="", ref="refs/heads/main", projec
     include = []
     for group, areas in UI_GROUPS.items():
         if tests := group_tests(group, ui):
-            # A group blocks the run when the commit of the PR head asked for one of its areas. A walk that a
-            # release title, the nightly run or a manual run starts reports only.
+            # A group blocks the run when the PR asked for one of its areas: the head commit, or a release title that
+            # walks everything. A walk that the nightly run or a manual run starts reports only.
             required = selected_areas(asked, areas) != "false"
             include.append(
                 {"group": group, "areas": areas, "tests": ",".join(tests), "required": "true" if required else "false"}

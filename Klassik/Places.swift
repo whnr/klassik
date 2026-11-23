@@ -320,8 +320,8 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
         let barWidth = Int(tabBar.frame.width)
         func visit(_ view: UIView) {
             if let label = view as? UILabel, let text = label.text, label.bounds.width > 0 {
-                // The selected tab draws its title in another font, so the font belongs to the key.
-                let key = "\(text)@\(barWidth)@\(label.font.fontName)"
+                // The selected tab draws its title in another colour, so the colour belongs to the key.
+                let key = "\(text)@\(barWidth)@\(label.textColor.cgColor.components ?? [])"
                 let known = labelWidths[key] ?? 0
                 // Before the first keyboard the layout is settled, so its latest width is the reference.
                 if !hadKeyboard {

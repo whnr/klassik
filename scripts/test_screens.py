@@ -239,7 +239,9 @@ class RetryReportTests(unittest.TestCase):
         self.assertEqual(sum(c.startswith("test-without-building") for c in commands), 2)
 
     def test_crash_does_not_hide_an_assertion_failure_of_the_same_run(self):
-        tests = case_tree("Failed", ["Test runner crashed: lost connection"], extra=("testOther", ["XCTAssertTrue failed"]))
+        tests = case_tree(
+            "Failed", ["Test runner crashed: lost connection"], extra=("testOther", ["XCTAssertTrue failed"])
+        )
         run, _, _ = self.run_screens(tests)
         self.assertEqual(run.returncode, 1, run.stdout + run.stderr)
 
@@ -797,7 +799,8 @@ class WarningReportTests(unittest.TestCase):
             log.write_text("/a/B.swift:1:2: warning: w\n")
             run = subprocess.run(
                 [sys.executable, str(pathlib.Path(screen_report.__file__)), "warnings", str(log)],
-                capture_output=True, text=True,
+                capture_output=True,
+                text=True,
             )
         self.assertEqual(run.returncode, 0, run.stderr)
         self.assertIn("::notice::Build warnings: 1", run.stdout)

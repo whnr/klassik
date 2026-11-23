@@ -727,7 +727,7 @@ struct RecordingView: View {
     /// player.html `.hero`). Names with a page are links.
     private func hero(_ page: PlayerPage) -> some View {
         VStack(spacing: Layout.heroGap) {
-            // A drag from the cover or the title moves the whole player, so it takes priority over the list scroll.
+            // A drag from the cover or the title moves the whole player, so it takes a downward drag from the list scroll.
             VStack(spacing: Layout.heroGap) {
                 CoverImage(
                     song: isPlayingThis ? model.playback.coverSong : recording.songs.first,
@@ -1563,8 +1563,8 @@ struct CapsuleLabel: View {
 }
 
 extension View {
-    /// Gives a drag to the player's close gesture when there is one; the page keeps its plain scroll.
+    /// Gives a downward drag to the player's close gesture when there is one; every other drag scrolls the page.
     @ViewBuilder fileprivate func closeDragged(_ drag: PlayerCloseDrag?) -> some View {
-        if let drag { highPriorityGesture(drag.gesture) } else { self }
+        if let drag { gesture(drag.heroGesture) } else { self }
     }
 }

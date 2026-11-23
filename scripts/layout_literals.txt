@@ -21,3 +21,4 @@ Klassik/Chronology.swift | static let dotReach: CGFloat = 24 | A placement of th
 Klassik/Chronology.swift | static let scrubStart: CGFloat = 10 | A placement of the chronology.html script, which has no CSS rule for it.
 Klassik/PlayerOverlay.swift | private static let closingPull: CGFloat = 120 | A finger distance that closes the player, as a system sheet does. It is no layout value.
 Klassik/PlayerOverlay.swift | private static let closingFling: CGFloat = 240 | The predicted travel of a fling that closes the player. It is no layout value.
+Klassik/PlayerOverlay.swift | private static let flingSeconds: CGFloat = 0.25 | Seconds of travel that a fling carries on, not a distance. It approximates the prediction of DragGesture.

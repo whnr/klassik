@@ -1,0 +1,7 @@
+{
+  "sha": "a9b15adc06324a9722352b2a4a6e5da15c27aab5",
+  "branch": "claude-adr-cleanup",
+  "path": "claude-adr-cleanup",
+  "subject": "[sz-rs30.1.148] Name every ADR a sentence points to",
+  "ts": 1795439979
+}

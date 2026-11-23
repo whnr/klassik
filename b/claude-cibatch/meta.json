@@ -1,7 +1,7 @@
 {
-  "sha": "973b72c22f56da0d61dabda6fc81d974b2f5171c",
+  "sha": "aedd6b6fc85cf273efbd44cec2ded3fc5343ec78",
   "branch": "claude-cibatch",
   "path": "claude-cibatch",
-  "subject": "Count build warnings, narrow crash retry, pin PR revision",
-  "ts": 1795459871
+  "subject": "Format the new script tests",
+  "ts": 1795461743
 }

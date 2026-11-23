@@ -41,13 +41,16 @@ struct GaplessEngineSkipTests {
         #expect(node.volume < 1)
     }
 
-    @Test func aDiscardOfAPausedEngineStopsItAtOnce() throws {
+    @Test func aDiscardOfAPausedEngineStopsItAtOnce() async throws {
         let (engine, node) = try Self.graph()
         defer { engine.stop() }
         let player = GaplessEngine()
         player.adopt(engine, node, started: true)
         try player.start(node)
+        #expect(await Self.eventually { node.volume == 1 })
         player.pause()
+        #expect(!node.isPlaying)
+        try await Task.sleep(for: .milliseconds(50))
         player.discard()
         #expect(!engine.isRunning)
     }

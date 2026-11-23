@@ -307,13 +307,6 @@ final class AppModel {
         }
     }
 
-    /// Album Art Clear. The next library sync and every page that opens fetch the covers again.
-    func clearAlbumArt() {
-        albumArt.clear()
-        albumCovers.clear()
-        covers.clear()
-    }
-
     func check() async {
         guard let credentials, !isChecking else { return }
         isChecking = true

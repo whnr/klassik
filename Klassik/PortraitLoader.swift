@@ -115,7 +115,7 @@ enum PortraitLoader {
 
     struct TooLarge: Error {}
 
-    /// The pictures stay in `ImageStore.pictures`, which the listener can see and limit (ADR 0051). A URL cache
+    /// The pictures stay in `ImageStore.pictures`, which the listener can see (ADR 0051). A URL cache
     /// beside it would hold each picture twice.
     static let session: URLSession = {
         let configuration = URLSessionConfiguration.default
@@ -180,14 +180,13 @@ enum PortraitLoader {
 
     /// Keeps the picture that a people lookup found, before any page needs it (ADR 0059). Each later lookup
     /// fetches it again, and only a valid picture replaces the kept file. When the picture of the person changed,
-    /// the files of the old one go. The lookup stops at the Pictures limit.
+    /// the files of the old one go.
     /// People pictures also load in Low Data Mode (ADR 0061). Returns false when nothing was kept.
     @MainActor @discardableResult static func keep(
         _ portrait: PersonPortrait, replacing old: PersonPortrait?, screen: PortraitSize.Screen,
         store: ImageStore, fetch: MusicBrainz.Fetch = PortraitLoader.launchNetwork
     ) async -> Bool {
         await store.loaded()
-        guard !store.isFull, store.hasRoomForTypicalFile else { return false }
         let wanted = PortraitSize.candidates(portrait, screen: screen)
         for candidate in wanted {
             guard let url = PersonFactsService.trusted(candidate) else { continue }
@@ -199,7 +198,7 @@ enum PortraitLoader {
             else { continue }
             guard let loaded = await decoding.decode(data, url: url, screen: screen) else { continue }
             let key = url.absoluteString
-            guard store.contains(key) || store.fits(Int64(data.count)), await store.store(data, for: key) else {
+            guard await store.store(data, for: key) else {
                 return false
             }
             if let old, old != portrait {

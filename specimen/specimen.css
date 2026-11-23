@@ -396,8 +396,13 @@ input {
   place-items: center;
   color: var(--color-text-tertiary);
 }
-.row.playing {
-  background: color-mix(in srgb, var(--color-tint) 12%, var(--color-background-row));
+/* The tint of what plays runs the full screen width, past the page edges (Flo 2026-11-23, sz-rs30.1.154). */
+.row.playing,
+.row-block.playing {
+  --playing-ground: color-mix(in srgb, var(--color-tint) 12%, var(--color-background-row));
+  background: var(--playing-ground);
+  box-shadow: 0 0 0 100vmax var(--playing-ground);
+  clip-path: inset(0 -100vmax);
 }
 .link {
   color: var(--color-tint);

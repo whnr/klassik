@@ -482,14 +482,28 @@
             },
           });
 
+        const pauseButton = () =>
+          el("button", {
+            class: "round quiet",
+            "aria-label": K.P.paused ? "Resume" : "Pause",
+            html: K.P.paused ? ICON.play : ICON.pause,
+            onclick: (e) => {
+              e.stopPropagation();
+              K.togglePause();
+              render();
+            },
+          });
+
         // The row head keeps one height whether open or not, so a tapped row never moves.
         function trackRow(s, i, work) {
           const isPlaying = asPlayer() && K.P.index === i;
           // A row opens only when it holds something: performers that differ from the page, or notes.
           const opens = !isPlaying && hasContent(s, i);
           const isOpen = isPlaying || (opens && open.has(i));
-          const block = el("div", { class: "row-block track" });
-          const trail = el("span", { class: "slot" }, isPlaying ? null : faintPlay(i));
+          // On the recording page the movement that plays is tinted and its button pauses it. Only the overlay is the player.
+          const current = playingHere() && !asPlayer() && K.P.index === i;
+          const block = el("div", { class: "row-block track" + (current ? " playing" : "") });
+          const trail = el("span", { class: "slot" }, isPlaying ? null : current ? pauseButton() : faintPlay(i));
           const tap = () => {
             if (isPlaying || !opens) return;
             open.has(i) ? open.delete(i) : open.add(i);

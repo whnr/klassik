@@ -1,7 +1,7 @@
 {
-  "sha": "75290a55d76fa79665fcb68ea62aa5af19456562",
+  "sha": "b769cccf49cb98b4e8abcbe1efd22e74704e21f8",
   "branch": "claude-notes",
   "path": "claude-notes",
-  "subject": "Fail closed on unreadable previous notes",
-  "ts": 1795464560
+  "subject": "Fetch tags where the notes test runs",
+  "ts": 1795465015
 }

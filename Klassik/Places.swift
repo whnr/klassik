@@ -164,6 +164,11 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
     private var remeasuresLabels = false
     /// The pass after the first remeasure: the bar has its final, narrow frame then, and the labels must fit it.
     private var remeasuresAtFinalFrame = false
+    /// The frame that the last layout pass gave the bar. UIKit's container can lay the bar out again at the full
+    /// width without a new pass of this controller, which puts the Search circle under the mini player.
+    private var barFrame: CGRect?
+    private var barFrameObservations: [NSKeyValueObservation] = []
+    private var barRepairs = 0
     private(set) var playerHost: UIHostingController<AnyView>?
     let playerLayout = PlayerOverlayLayout()
 
@@ -192,6 +197,7 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
     @objc private func keyboardVisibilityChanged(_ notification: Notification) {
         keyboardVisible = notification.name == UIResponder.keyboardWillShowNotification
         if !keyboardVisible { remeasuresLabels = true }
+        barRepairs = 0
         view.setNeedsLayout()
     }
 
@@ -282,10 +288,32 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
         }
     }
 
+    /// Puts the bar back at the frame of the last pass when the container moves it. A few repairs only: a container
+    /// that always disagrees must not start a loop.
+    private func observeBarFrame() {
+        guard barFrameObservations.isEmpty else { return }
+        // UIKit can move the bar through its layer, which a key path of the view frame does not report.
+        barFrameObservations = [
+            tabBar.layer.observe(\.bounds) { [weak self] _, _ in
+                MainActor.assumeIsolated { self?.repairBarFrame() }
+            },
+            tabBar.layer.observe(\.position) { [weak self] _, _ in
+                MainActor.assumeIsolated { self?.repairBarFrame() }
+            },
+        ]
+    }
+
+    private func repairBarFrame() {
+        guard let barFrame, tabBar.frame != barFrame, barRepairs < 6 else { return }
+        barRepairs += 1
+        Task { @MainActor [weak self] in self?.view.setNeedsLayout() }
+    }
+
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         configureBackGesture()
         var frame = tabBar.frame
+        if let barFrame, tabBar.frame == barFrame { barRepairs = 0 }
         // UIKit removes the home-indicator inset under a keyboard.
         // Playback controls must keep the resting bar position.
         if keyboardVisible, let restingFrame {
@@ -320,6 +348,8 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
             }
         }
         tabBar.frame = frame
+        barFrame = frame
+        observeBarFrame()
         playerHost?.view.frame = view.bounds
         let top = view.window?.safeAreaInsets.top ?? view.safeAreaInsets.top
         let bottom = max(0, view.bounds.maxY - tabBar.convert(tabBar.bounds, to: view).minY)

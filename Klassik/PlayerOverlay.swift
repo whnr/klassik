@@ -34,7 +34,7 @@ final class PlayerOverlayLayout {
     }
 
     /// The drag from the hero. It begins only for a downward move, so an upward drag reaches the page scroll.
-    var heroGesture: some Gesture { HeroDrag(drag: self) }
+    var heroGesture: some UIGestureRecognizerRepresentable { HeroDrag(drag: self) }
 
     fileprivate func release(pull: CGFloat, predicted: CGFloat) {
         guard pull > Self.closingPull || predicted > Self.closingFling, pull > 0 else { return }

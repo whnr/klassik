@@ -1,7 +1,7 @@
 {
-  "sha": "693683cc3a8495e4a094cbf21947402b2a63e15e",
+  "sha": "5247b29458c099f1ba42afd21eeadaea61709fd9",
   "branch": "claude-popless",
   "path": "claude-popless",
-  "subject": "[sz-rs30.1.155] Walk the playback areas again",
-  "ts": 1795467383
+  "subject": "[sz-rs30.1.155] Let the paused-engine test settle",
+  "ts": 1795468655
 }

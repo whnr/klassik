@@ -338,8 +338,10 @@ def ui_result(results):
 INFRASTRUCTURE = re.compile(
     r"Early unexpected exit|never finished bootstrapping|lost connection"
     r"|connection (?:was )?(?:interrupted|invalid)"
-    r"|failed to (?:launch|boot|terminate|connect)|unable to (?:boot|launch|connect)|test runner (?:hung|failed|exited|crashed)"
-    r"|CoreSimulator|simulator (?:device )?(?:failed|crashed|disconnected)|Mach error|(?:testmanagerd|XCTRunner) .*crashed",
+    r"|failed to (?:launch|boot|terminate|connect)|unable to (?:boot|launch|connect)"
+    r"|test runner (?:hung|failed|exited|crashed)"
+    r"|CoreSimulator|simulator (?:device )?(?:failed|crashed|disconnected)|Mach error"
+    r"|(?:testmanagerd|XCTRunner) .*crashed",
     re.IGNORECASE,
 )
 

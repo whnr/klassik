@@ -96,6 +96,7 @@ SHARDS = {
             "testOverlayLinkUsesTheUnderlyingStack",
             "testOverlayOnTheLeft",
             "testOverlayOpensAndSlidesDown",
+            "testPageMenus",
             "testPlayerFollowsAfterQuietSpell",
             "testPlayOnTheWorkPage",
             "testPlayWholeAlbumOnTheRecordingPage",

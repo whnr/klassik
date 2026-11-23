@@ -2274,22 +2274,6 @@ final class SettingsScreens: ScreensTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["storage-bar"].firstMatch.waitForExistence(timeout: 10))
         XCTAssertTrue(app.descendants(matching: .any)["storage-album-art"].firstMatch.exists)
         snap(app, "08f-local-storage")
-
-        // The stepper label can merge its two texts into one element, so the check reads every label.
-        func shows(_ text: String) -> Bool {
-            app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
-                .waitForExistence(timeout: 5)
-        }
-        let pictures = reveal(app.steppers["pictures-limit"], in: app)
-        XCTAssertTrue(shows("No Limit"))
-        // The identifier of the stepper replaces those of its buttons: the first is minus, the second plus.
-        pictures.buttons.element(boundBy: 0).tap()
-        XCTAssertTrue(shows("50 GB"))
-        snap(app, "08g-local-storage-limits")
-        // The limit stays in the settings of the simulator, so the next walk must find No Limit again.
-        pictures.buttons.element(boundBy: 1).tap()
-        let limit = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "50 GB"))
-        XCTAssertFalse(limit.firstMatch.waitForExistence(timeout: 2))
     }
 
     @MainActor

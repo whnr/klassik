@@ -47,6 +47,8 @@ struct Search: Sendable {
         /// The row shows it, so the listener sees why the result is there.
         var workTracks: [String: String] = [:]
         var albumTracks: [String: String] = [:]
+        /// The nickname that found a work whose title, composer and set do not match, by work ID.
+        var workNicknames: [String: String] = [:]
 
         var composers: [Person] { people.filter(\.composes) }
         var performers: [Person] { people.filter { !$0.composes } }
@@ -96,6 +98,17 @@ struct Search: Sendable {
         /// The words of the title and the nicknames: a nickname names the work as its title does.
         var titleWords: [String]
         var title: String
+        /// The words of the title, composer and set without the nicknames.
+        var plainWords: [String]
+        var nicknames: [(name: String, words: [String])]
+
+        /// The nickname that the match needs, or nil when the plain words match.
+        func nickname(for tokens: [String]) -> String? {
+            guard !Search.matches(tokens, plainWords) else { return nil }
+            let found = nicknames.first { Search.matches(tokens, plainWords, $0.words) }
+                ?? nicknames.first { nick in tokens.contains { token in nick.words.contains { $0.hasPrefix(token) } } }
+            return found?.name
+        }
     }
 
     private let works: [WorkEntry]
@@ -111,12 +124,14 @@ struct Search: Sendable {
             // A track title can name the work where the WORK tag does not, such as "Für Elise" for WoO 59.
             // A nickname names the work as its title does, so it joins the own words.
             let names = ([work.title] + work.nicknames).joined(separator: " ")
+            let plain = [work.title, composer, work.grouping ?? ""].joined(separator: " ")
             return WorkEntry(
                 tracked: Tracked(
                     item: work,
                     words: Self.words(of: [names, composer, work.grouping ?? ""].joined(separator: " ")),
                     titles: work.recordings.flatMap(\.songs).map(\.title)),
-                titleWords: Self.words(of: names), title: Self.fold(work.title))
+                titleWords: Self.words(of: names), title: Self.fold(work.title), plainWords: Self.words(of: plain),
+                nicknames: work.nicknames.map { ($0, Self.words(of: $0)) })
         }
 
         // The composer role sorts before every role kind when two counts are equal.
@@ -175,6 +190,7 @@ struct Search: Sendable {
             let work = entry.tracked.item
             if track.isEmpty {
                 ranked.append((work, Self.rank(of: entry, for: tokens)))
+                if let nickname = entry.nickname(for: tokens) { results.workNicknames[work.id] = nickname }
             } else {
                 ranked.append((work, 3))
                 results.workTracks[work.id] = track

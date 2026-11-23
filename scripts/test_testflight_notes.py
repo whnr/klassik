@@ -1,11 +1,13 @@
 """Check the narrow boundary between tester notes and development instructions."""
 
 import pathlib
+import shutil
 import subprocess
 import sys
+import tempfile
 import unittest
 
-from testflight_notes import validate
+from testflight_notes import previous_notes, validate
 
 
 class NotesTests(unittest.TestCase):
@@ -84,6 +86,12 @@ class NotesTests(unittest.TestCase):
             validate("Klassik 0.10.4\n\n- Search shows nicknames.\n- Player closes by drag.", "0.10.4", old)
         validate("Klassik 0.10.4\n\n- Player closes by drag.", "0.10.4", old)
 
+    def test_empty_summary_fails(self):
+        for notes in ("Klassik 0.10.4", "Klassik 0.10.4\n", "Klassik 0.10.4\n\n  \n"):
+            with self.subTest(notes=notes):
+                with self.assertRaisesRegex(ValueError, "no summary"):
+                    validate(notes, "0.10.4")
+
     def test_version_mismatch_fails(self):
         with self.assertRaisesRegex(ValueError, "must start"):
             validate("Klassik 0.10.3\n\n- Play. Expect sound.", "0.10.4")
@@ -98,6 +106,46 @@ class NotesTests(unittest.TestCase):
         script = pathlib.Path(__file__).with_name("testflight_notes.py")
         result = subprocess.run([sys.executable, "-S", str(script), "--check"], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def make_repo(self, tag=None):
+        directory = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, directory)
+
+        def run(*args):
+            subprocess.run(["git", "-C", directory, *args], check=True, capture_output=True)
+
+        run("init", "-q")
+        run("config", "user.email", "t@example.com")
+        run("config", "user.name", "t")
+        pathlib.Path(directory, "docs").mkdir()
+        pathlib.Path(directory, "docs/what-to-test.md").write_text("Klassik 0.10.3\n\n- Old line.\n")
+        run("add", ".")
+        run("commit", "-q", "-m", "notes")
+        if tag:
+            run("tag", tag)
+        return directory
+
+    def test_previous_notes_without_tags_fails(self):
+        with self.assertRaisesRegex(ValueError, "No v\\* release tag"):
+            previous_notes(self.make_repo(), "0.10.4")
+
+    def test_previous_notes_unreadable_file_fails(self):
+        directory = self.make_repo("v0.10.3")
+        subprocess.run(["git", "-C", directory, "rm", "-q", "docs/what-to-test.md"], check=True)
+        subprocess.run(["git", "-C", directory, "commit", "-q", "-m", "drop"], check=True)
+        subprocess.run(["git", "-C", directory, "tag", "v0.10.3.1"], check=True)
+        with self.assertRaisesRegex(ValueError, "Cannot read"):
+            previous_notes(directory, "0.10.4")
+
+    def test_previous_notes_git_failure_fails(self):
+        with self.assertRaisesRegex(ValueError, "Cannot list release tags"):
+            previous_notes(pathlib.Path(tempfile.gettempdir(), "no-such-repo-dir"), "0.10.4")
+
+    def test_previous_notes_reads_newest_tag(self):
+        self.assertIn("Old line", previous_notes(self.make_repo("v0.10.3"), "0.10.4"))
+
+    def test_previous_notes_tagged_version_skips(self):
+        self.assertIsNone(previous_notes(self.make_repo("v0.10.4"), "0.10.4"))
 
 
 if __name__ == "__main__":

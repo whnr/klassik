@@ -32,7 +32,7 @@ MAX_WORDS = 150
 
 
 def validate(notes, version, previous=None):
-    if not notes.startswith(f"Klassik {version}\n"):
+    if notes.split("\n", 1)[0] != f"Klassik {version}":
         raise ValueError(
             f"docs/what-to-test.md must start with the line 'Klassik {version}'. Write the notes for this release."
         )
@@ -43,29 +43,50 @@ def validate(notes, version, previous=None):
     match = DEVELOPMENT_TERMS.search(notes)
     if match:
         raise ValueError(f"Development term in docs/what-to-test.md: {match.group()}. Use installed-app checks only.")
-    body = notes.split("\n", 1)[1]
+    body = notes.partition("\n")[2]
+    if not body.strip():
+        raise ValueError("docs/what-to-test.md has no summary. Write one short bullet per change.")
     words = len(body.split())
     if words > MAX_WORDS:
-        raise ValueError(f"docs/what-to-test.md has {words} words; the feature summary allows {MAX_WORDS}. Write one short bullet per change.")
+        raise ValueError(
+            f"docs/what-to-test.md has {words} words; the feature summary allows {MAX_WORDS}. "
+            "Write one short bullet per change."
+        )
     if NUMBERED_CHECK.search(body):
-        raise ValueError("docs/what-to-test.md has numbered checks. Write one bullet per feature change, not a regression checklist.")
+        raise ValueError(
+            "docs/what-to-test.md has numbered checks. Write one bullet per feature change, not a regression checklist."
+        )
     if previous:
         old = {line.strip() for line in previous.splitlines()[1:] if line.strip()}
         repeated = [line.strip() for line in body.splitlines() if line.strip() in old]
         if repeated:
-            raise ValueError(f"docs/what-to-test.md repeats a line of the last release's notes: {repeated[0]!r}. Write this release's changes.")
+            raise ValueError(
+                f"docs/what-to-test.md repeats a line of the last release's notes: {repeated[0]!r}. "
+                "Write this release's changes."
+            )
     return notes
 
 
 def previous_notes(root, version):
-    """The notes of the newest release tag, or None when this version is already tagged or git has no tags."""
+    """The notes of the newest release tag, or None when this version is already tagged.
+
+    A missing tag list, a git failure or an unreadable file raises: a skipped staleness check passes on no data.
+    """
     git = ["git", "-C", str(root)]
     tag = subprocess.run(git + ["tag", "--list", "v*", "--sort=-v:refname"], capture_output=True, text=True)
-    newest = tag.stdout.split()[0] if tag.stdout.split() else None
-    if tag.returncode or not newest or newest == f"v{version}":
+    if tag.returncode:
+        raise ValueError(f"Cannot list release tags to check for stale notes: {tag.stderr.strip()}")
+    tags = tag.stdout.split()
+    if f"v{version}" in tags:
         return None
-    old = subprocess.run(git + ["show", f"{newest}:docs/what-to-test.md"], capture_output=True, text=True)
-    return old.stdout if old.returncode == 0 else None
+    if not tags:
+        raise ValueError(
+            "No v* release tag in this checkout, so stale notes cannot be checked. Fetch the full history and tags."
+        )
+    old = subprocess.run(git + ["show", f"{tags[0]}:docs/what-to-test.md"], capture_output=True, text=True)
+    if old.returncode:
+        raise ValueError(f"Cannot read docs/what-to-test.md at {tags[0]}: {old.stderr.strip()}")
+    return old.stdout
 
 
 def main():

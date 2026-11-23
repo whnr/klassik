@@ -1,7 +1,7 @@
 {
-  "sha": "894565ab18f8321bcbbca454ab8256731b7b7d2c",
+  "sha": "7fb6a45265567b2f259027f304553674412f1538",
   "branch": "claude-152",
   "path": "claude-152",
-  "subject": "[sz-rs30.1.152] Keep the diagnostic lines in bounds",
-  "ts": 1795397269
+  "subject": "[sz-rs30.1.152] Repair the bar frame and truncated labels",
+  "ts": 1795400062
 }

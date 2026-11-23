@@ -102,7 +102,7 @@ The opening time is the measured delay from engine load to first sound. Its defa
 The opening transfer holds while less than 2 s of playable audio is buffered and the current transfer is incomplete.
 Playable audio is the decoded audio plus the arrived bytes that the decoder has not read, at the track's bitrate.
 Decoded audio alone stays below 1.75 s, so it can never reach the 2 s floor.
-Clear Music pauses playback, releases the decoders, and starts no transfer until Play or Resume, as the ADR records.
+Clear Music pauses playback, releases the decoders, and starts no transfer until Play or Resume, as [ADR 0060](../adr/0060-early-playback-and-read-ahead.md) records.
 
 A queue edit keeps the sound. The engine takes the new tracks after the last one that it asked for a source.
 Only an edit of a track that it already asked for loads again from the audible place.

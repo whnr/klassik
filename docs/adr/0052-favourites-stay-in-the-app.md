@@ -1,6 +1,6 @@
 # 0052. Favourites stay in the app
 
-Date: 2026-11-18. Decided by Flo. Replaces the offline rules of [0013](0013-favourites.md). A later decision replaced the notice rule: one quiet status reports a server failure.
+Date: 2026-11-18. Decided by Flo. Replaces the offline rules of [0013](0013-favourites.md). The notice rule below no longer holds: one quiet status reports a server failure, never a notice for each failed tap.
 
 ## Context
 

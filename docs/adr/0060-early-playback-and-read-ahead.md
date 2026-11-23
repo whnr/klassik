@@ -1,7 +1,7 @@
 # 0060. Start playback early and read ahead quietly
 
 Date: 2026-11-18. Decided by Flo.
-Replaces the complete-file requirement of [0005](0005-gapless-playback.md) and the availability marks of the earlier download rules.
+Replaces the complete-file requirement of [0005](0005-gapless-playback.md) and the availability marks, the small mark on a work, recording or track that plays without the server.
 Extends the music cache rules of [0051](0051-pictures-and-album-art-in-local-storage.md).
 Implementation belongs to 0.15. The early-start and gapless claims hold only after the measurements below pass.
 

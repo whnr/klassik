@@ -150,6 +150,31 @@ def check_mentions(root=ROOT):
     return sorted(set(problems))
 
 
+VAGUE = re.compile(
+    r"\b(?:earlier|former|previous|prior|deleted|retired|removed)\s+(?:ADRs?|decision records?|records?)\b"
+    r"|\b(?:the|an?|existing)\s+ADRs?\s+(?:on|about|records?|says?|requires?|states?|sets?)\b",
+    re.I,
+)
+VAGUE_SKIP = ("docs/adr/README.md", "design/scripts/check.py", "scripts/test_design_check.py")
+
+
+def check_vague(root=ROOT):
+    """No file points to an ADR without naming it. State the rule, or link the record that holds it."""
+    files = subprocess.run(["git", "ls-files"], cwd=root, capture_output=True, text=True, check=True).stdout.split("\n")
+    problems = []
+    for name in filter(None, files):
+        if name in VAGUE_SKIP or name.endswith((".json", ".png", ".jpg", ".ttf", ".otf")):
+            continue
+        try:
+            text = (root / name).read_text()
+        except (OSError, UnicodeDecodeError):
+            continue
+        for number, line in enumerate(text.splitlines(), 1):
+            if VAGUE.search(line):
+                problems.append(f"{name}:{number}: points to an ADR without naming it")
+    return problems
+
+
 def check_chain():
     """The rule of docs/adr/README.md: each "Replaces" sentence in a header line has a pointer back and an index row."""
     adr = ROOT / "docs/adr"
@@ -171,7 +196,7 @@ def check_chain():
 
 def main():
     failures = check_contrast()
-    broken = check_links() + check_chain() + check_mentions()
+    broken = check_links() + check_chain() + check_mentions() + check_vague()
     for line in failures:
         print(f"FAIL contrast: {line}")
     for line in broken:

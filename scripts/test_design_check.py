@@ -121,6 +121,24 @@ class RepoTests(unittest.TestCase):
         root = self.repo({"x.md": b"hello"}, records=())
         self.assertEqual(design_check.check_mentions(root), ["docs/adr: no ADR records found"])
 
+    def test_vague_pointer_fails(self):
+        root = self.repo(
+            {
+                "a.md": b"Replaces the rules of an earlier record.\n",
+                "b.md": b"Contradicts the ADR on orders.\n",
+                "c.md": b"The ADR table has rows. A deleted record is gone.\n",
+                "ok.md": b"Replaces [0001](0001-a.md). Another recording plays.\n",
+            }
+        )
+        self.assertEqual(
+            design_check.check_vague(root),
+            [
+                "a.md:1: points to an ADR without naming it",
+                "b.md:1: points to an ADR without naming it",
+                "c.md:1: points to an ADR without naming it",
+            ],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

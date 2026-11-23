@@ -1,7 +1,7 @@
 # 0051. Pictures and album art in Local Storage
 
 Date: 2026-11-17. Decided by Flo in the 0.14.0 device notes.
-Replaces the cache and screen rules of an earlier record.
+Replaces the cache and screen rules that counted only played tracks as the cache.
 The image fetch, cover key and refresh rules are replaced by [0059](0059-covers-and-pictures-before-pages.md).
 The music cache rules are extended by [0060](0060-early-playback-and-read-ahead.md).
 

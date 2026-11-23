@@ -1513,12 +1513,14 @@ final class PlaybackScreens: ScreensTestCase {
         let menu = overlay.buttons["page-menu"].firstMatch
         XCTAssertTrue(menu.waitForExistence(timeout: 5), "The player has no menu")
         menu.tap()
-        XCTAssertTrue(menuItem(app, "Download").waitForExistence(timeout: 5), "The player menu has no Download")
+        let download = menuItem(app, "Download")
+        _ = download.waitForExistence(timeout: 5)
+        snap(app, "05o-player-menu")
+        XCTAssertTrue(download.exists, "The player menu has no Download")
         XCTAssertTrue(menuItem(app, "Tags and Grouping").exists, "The player menu has no Tags and Grouping")
         XCTAssertFalse(menuItem(app, "Play Next").exists, "The player menu has Play Next")
         XCTAssertFalse(menuItem(app, "Add to Queue").exists, "The player menu has Add to Queue")
         expectOrder(app, ["Download", "Tags and Grouping"], "player menu")
-        snap(app, "05o-player-menu")
         closeMenu(app)
     }
 

@@ -1,7 +1,7 @@
 {
-  "sha": "2bafb0224390d7764f1a5a15f295b3e170c30ff1",
+  "sha": "d896e46dfc1f0114f8a12a3d2bd8ecc4571daed1",
   "branch": "claude-152",
   "path": "claude-152",
-  "subject": "[sz-rs30.1.152] Key the label width by its colour",
-  "ts": 1795418048
+  "subject": "[sz-rs30.1.152] Restore only narrower tab labels",
+  "ts": 1795422009
 }

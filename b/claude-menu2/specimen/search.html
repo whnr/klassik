@@ -387,7 +387,7 @@
             while (i < prefix.length && i < t.length && prefix[i] === t[i]) i++;
             prefix = prefix.slice(0, i);
           }
-          const cut = Math.max(...[...' :(-–,['].map((c) => prefix.lastIndexOf(c)));
+          const cut = Math.max(...[..." :(-–,["].map((c) => prefix.lastIndexOf(c)));
           return cut < 0 ? "" : prefix.slice(0, cut);
         };
         const nicknamesOf = (recordings) => {

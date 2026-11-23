@@ -1,7 +1,7 @@
 {
-  "sha": "976c7498a7472cd257ac48dd1defd450754837b1",
+  "sha": "647da2f2b78cd39951a082c975c97d1feb06249e",
   "branch": "claude-1481",
   "path": "claude-1481",
-  "subject": "[sz-rs30.1.148.1] Catch specimen tags wrapped over comment lines",
-  "ts": 1795449263
+  "subject": "Merge main into claude-1481",
+  "ts": 1795453786
 }

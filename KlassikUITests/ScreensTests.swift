@@ -1135,7 +1135,7 @@ final class PlaybackScreens: ScreensTestCase {
         let rowY = { position.exists ? position.frame.midY : CGFloat.infinity }
         // Short slow drags below the cover touch the page without the pull that closes the player, as a system
         // sheet closes. A drag that starts on the cover or the title moves the player instead.
-        let facts = app.staticTexts["hero-facts"]
+        let facts = overlay.staticTexts["hero-facts"].firstMatch
         XCTAssertTrue(facts.waitForExistence(timeout: 10), "No facts line to start the drag on")
         let from = facts.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
         let to = from.withOffset(CGVector(dx: 0, dy: 0.1 * app.frame.height))

@@ -171,6 +171,7 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
     private var barFrame: CGRect?
     private var barFrameObservations: [NSKeyValueObservation] = []
     private var barRepairs = 0
+    private var labelWidths: [String: CGFloat] = [:]
     private(set) var playerHost: UIHostingController<AnyView>?
     let playerLayout = PlayerOverlayLayout()
 
@@ -311,15 +312,19 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
         Task { @MainActor [weak self] in self?.view.setNeedsLayout() }
     }
 
-    /// A label that kept the width from the keyboard layout shows "Chronolo…" in a bar that has room. The label
-    /// takes the width of its text again.
-    private func widenTruncatedLabels() {
+    /// A label that kept a narrow width from the keyboard layout shows "Chronolo…" in a bar that has room. The label
+    /// gets back the widest width that it had in a bar of the same width, so it draws as before the keyboard.
+    private func restoreLabelWidths() {
+        let barWidth = Int(tabBar.frame.width)
         func visit(_ view: UIView) {
-            if let label = view as? UILabel, label.bounds.width > 0 {
-                let wanted = label.intrinsicContentSize.width
-                if wanted > label.bounds.width + 0.5 {
+            if let label = view as? UILabel, let text = label.text, label.bounds.width > 0 {
+                let key = "\(text)@\(barWidth)"
+                let known = labelWidths[key] ?? 0
+                if label.bounds.width > known {
+                    labelWidths[key] = label.bounds.width
+                } else if label.bounds.width < known - 0.5 {
                     let center = label.center
-                    label.bounds.size.width = wanted
+                    label.bounds.size.width = known
                     label.center = center
                 }
             }
@@ -400,7 +405,7 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
         tabBar.frame = frame
         barFrame = frame
         observeBarFrame()
-        widenTruncatedLabels()
+        restoreLabelWidths()
         playerHost?.view.frame = view.bounds
         let top = view.window?.safeAreaInsets.top ?? view.safeAreaInsets.top
         let bottom = max(0, view.bounds.maxY - tabBar.convert(tabBar.bounds, to: view).minY)

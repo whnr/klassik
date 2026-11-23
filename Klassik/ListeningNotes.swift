@@ -170,7 +170,7 @@ final class ListeningNotes {
     /// hit target of the iOS interface guidelines. The marks are much smaller than a finger.
     nonisolated static let target = Double(Layout.positionBar - 2 * Layout.positionBarInset)
 
-    /// "1:32" for a moment, "1:32–2:12" for a span (specimen player.html `.note .at`).
+    /// "1:32" for a moment, "1:32–2:12" for a span.
     static func time(of note: ListeningNote) -> String {
         time(at: note.at, end: note.end)
     }

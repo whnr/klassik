@@ -52,7 +52,7 @@ struct FilterSheet: View {
                     }
                 }
             }
-            // The note, the kinds and the field start under Back, at the shared inset (search.html `.fsheet .body`).
+            // The note, the kinds and the field start under Back, at the shared inset.
             Section {
                 Text(note)
                     .typeStyle(.footnote)
@@ -88,7 +88,7 @@ struct FilterSheet: View {
         }
         .grounds()
         .contentMargins(.horizontal, Layout.filterHeadInset, for: .scrollContent)
-        // The note follows the head directly (search.html `.fsheet .body` has no top padding).
+        // The note follows the head directly, with no top padding.
         .contentMargins(.top, 0, for: .scrollContent)
         .environment(\.defaultMinListRowHeight, 0)
         .environment(\.defaultMinListHeaderHeight, 0)
@@ -102,7 +102,7 @@ struct FilterSheet: View {
         .presentationBackground(Palette.backgroundGrouped)
     }
 
-    /// The title, the recordings that remain, and Done (search.html .fsheet .head).
+    /// The title, the recordings that remain, and Done.
     private func head(total: Int) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: Layout.filterHeadGap) {
             Button("Back", action: back)
@@ -293,7 +293,7 @@ private struct TermRow: View {
     }
 }
 
-/// The field that narrows the terms of one scope (search.html .narrow).
+/// The field that narrows the terms of one scope.
 private struct NarrowField: View {
     @Binding var text: String
     let scope: Search.Scope

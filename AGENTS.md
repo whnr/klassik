@@ -4,8 +4,8 @@ Rules for coding agents in this repository.
 
 ## Work tracking
 
-- Work lives in beads, in the Schaltzentrale ledger, under the epic `sz-rs30.1` with label `repo:klassik`. Use seat `code`. Follow [ledger access](docs/agents/issue-tracker.md) for identity and actor rules.
-- Every request, idea or aside from the owner becomes a bead under `sz-rs30.1`. Nothing lives only in chat.
+- Work lives in beads, in the Schaltzentrale ledger, under label `repo:klassik`. Use seat `code`. Follow [ledger access](docs/agents/issue-tracker.md) for identity and actor rules.
+- Every request, idea or aside from the owner becomes a bead with label `repo:klassik`. Nothing lives only in chat.
 - Write a decision into its bead when the owner makes it.
 - Build in tracer bullets. Each slice reaches the tester's phone through TestFlight. The tester checks it before the next slice lands.
 - After the pipeline works, put several beads into one push. Make one push per round of feedback.
@@ -45,7 +45,7 @@ Rules for coding agents in this repository.
 - `.github/workflows/testflight.yml` runs by hand. It requires a successful `test.yml` run that covers the commit. `scripts/green_test_gate.py` counts a run as green only when its `build` and `test` jobs passed. It accepts the commit's own green run, or the green run of the PR head that a merge commit adds nothing to, or the newest earlier commit with a green run when every later commit changes only ignored paths (documentation, “What to Test”) and the `MARKETING_VERSION` or `CURRENT_PROJECT_VERSION` lines of `project.yml`. Any other change, also elsewhere in `project.yml`, needs its own green run. A merge adds nothing when it has the tree of its PR head and main had not moved past that head. A run or history that the gate cannot read blocks. It archives without signing, signs at export with the App Store Connect API key, and uploads with `altool`. A daily run uploads again when the newest build is 85 days old, because TestFlight builds expire after 90 days.
 - Write each build's “What to Test” in `docs/what-to-test.md`, with at most 4000 characters.
 - Start with `Klassik X.Y.Z`, matching `MARKETING_VERSION` in `project.yml`.
-- Include only numbered checks that testers perform in the installed app. Give each check an expected result and bead ID.
+- Include only numbered checks that testers perform in the installed app. Give each check an expected result. Write no bead IDs: beads belong in PRs, commits and comments, never in documentation.
 - Cover each app change since the last TestFlight build. Keep development instructions and process notes in PR descriptions or documentation.
 - `scripts/testflight_notes.py --check` rejects version mismatches, excess length, and unambiguous development terms.
 - `.github/workflows/testflight-notes.yml` runs this narrow backstop and its tests on every PR and `main` push.

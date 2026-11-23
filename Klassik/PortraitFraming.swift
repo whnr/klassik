@@ -44,7 +44,7 @@ enum HeroSpace {
     static let name = "person-hero"
 }
 
-/// Where blur and scrim lie on the person picture, as shares of the frame (picture.css).
+/// Where blur and scrim lie on the person picture, as shares of the frame.
 /// Vertical shares count from the bottom; side shares count from the leading edge.
 struct ScrimGeometry: Equatable {
     var frame: CGSize

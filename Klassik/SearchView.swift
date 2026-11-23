@@ -221,7 +221,7 @@ private struct FiltersButton: View {
     }
 }
 
-/// The field row of search.html: a magnifier, the text and a clear button that clears the text only.
+/// The search field row: a magnifier, the text and a clear button that clears the text only.
 /// Search pages need a field under the title. The Search tab moves `searchable` to the bottom.
 struct SearchField: View {
     @Binding var text: String
@@ -410,7 +410,7 @@ private struct SearchResults: View {
         }
     }
 
-    /// `track` is the track title that found the result when its own words do not match (search.html `.why`).
+    /// `track` is the track title that found the result when its own words do not match.
     /// `nickname` is the nickname that found a work whose title does not match.
     private func lines(
         title: String, isFavourite: Bool, detail: String, track: String? = nil, nickname: String? = nil

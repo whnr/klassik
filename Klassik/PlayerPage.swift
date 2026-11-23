@@ -7,7 +7,7 @@ struct PlayerPage: Sendable {
     let composer: String?
     /// The names that every track shares, then the album as a labelled line.
     let header: [Roles.Line]
-    /// The year and the length in prose, under the names (specimen player.html `.facts`).
+    /// The year and the length in prose, under the names.
     let facts: String
     /// For each track, the names that differ from the header. A composer that the header does not show leads.
     let differing: [[Roles.Line]]

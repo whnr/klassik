@@ -234,8 +234,13 @@ struct EnrichmentTests {
         await enrichment.confirm(found[0], for: work)
         #expect(enrichment.link(of: work) == .found(found[0].id))
 
-        try await Task.sleep(for: .milliseconds(200))
-        let reloaded = Enrichment(musicBrainz: stub.musicBrainz, wikidata: stub.wikidata, cacheURL: url)
+        // The cache is written in a detached task. A fixed delay is shorter than the write on a busy runner.
+        var reloaded = Enrichment(musicBrainz: stub.musicBrainz, wikidata: stub.wikidata, cacheURL: url)
+        let deadline = ContinuousClock.now + .seconds(10)
+        while reloaded.link(of: work) != .found(found[0].id), ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(50))
+            reloaded = Enrichment(musicBrainz: stub.musicBrainz, wikidata: stub.wikidata, cacheURL: url)
+        }
         #expect(reloaded.link(of: work) == .found(found[0].id))
     }
 

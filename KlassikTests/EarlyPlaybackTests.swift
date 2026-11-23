@@ -74,7 +74,11 @@ final class EarlyPlaybackTests: XCTestCase {
         XCTAssertEqual(frames, 11_025, report)
         XCTAssertLessThan(source.delivered, data.count, report)
         XCTAssertLessThan(source.delivered, 1_000_000, "Initialization must not scan the resource. \(report)")
-        XCTAssertLessThan(elapsed, .milliseconds(500), report)
+        // Elapsed time on a shared runner is not deterministic, so only the measure job (nightly) sets the limit.
+        // Every other run keeps the byte checks above: PCM comes before the last byte.
+        if LatencyLimits.enforced {
+            XCTAssertLessThan(elapsed, .milliseconds(500), report)
+        }
         let samples = try XCTUnwrap(buffer.floatChannelData)[0]
         XCTAssertTrue((0..<Int(frames)).contains { abs(samples[$0]) > 0.001 }, report)
         let expected = try XCTUnwrap(reference.floatChannelData)[0]

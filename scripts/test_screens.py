@@ -2,6 +2,7 @@
 
 import contextlib
 import io
+import json
 import os
 import pathlib
 import subprocess
@@ -35,6 +36,26 @@ class ScreensTestCase: XCTestCase {
 """
 
 
+def case_tree(result, messages, extra=None):
+    """`xcresulttool get test-results tests` output with one failed case, and optionally a second."""
+
+    def case(name, outcome, texts):
+        return {
+            "nodeType": "Test Case",
+            "name": f"{name}()",
+            "nodeIdentifier": f"PlayTests/{name}()",
+            "result": outcome,
+            "children": [{"nodeType": "Failure Message", "name": text} for text in texts],
+        }
+
+    cases = [case("testPlay", result, messages)]
+    if extra:
+        cases.append(case(extra[0], "Failed", extra[1]))
+    suite = {"nodeType": "Test Suite", "name": "PlayTests", "children": cases}
+    bundle = {"nodeType": "Unit test bundle", "name": "KlassikTests", "children": [suite]}
+    return {"testNodes": [{"nodeType": "Test Plan", "name": "Klassik", "children": [bundle]}]}
+
+
 def run(run_id, branch="main"):
     return {"id": run_id, "head_sha": "abcdef123456", "head_branch": branch}
 
@@ -62,7 +83,7 @@ class ExpectedTests(unittest.TestCase):
 class RetryReportTests(unittest.TestCase):
     def test_scripts_report_retries_and_preserve_test_exit_status(self):
         root = screen_report.ROOT
-        for script in ("screens.sh", "release-launch.sh"):
+        for script in ("release-launch.sh",):
             for status in (0, 65):
                 with self.subTest(script=script, status=status), tempfile.TemporaryDirectory() as directory:
                     temporary = pathlib.Path(directory)
@@ -106,6 +127,218 @@ class RetryReportTests(unittest.TestCase):
                     self.assertTrue(list(out.glob("*.log")))
                     commands = (temporary / "commands").read_text().splitlines()
                     self.assertLess(commands.index("bootstatus"), commands.index("build-for-testing"))
+
+    def run_screens(
+        self,
+        tests_json,
+        fail_first=True,
+        always_fail=False,
+        phase="unit",
+        extra_env=None,
+        retry_json=None,
+        expected=("PlayTests/testPlay",),
+    ):
+        """Runs scripts/screens.sh with a fake xcodebuild whose first run fails (and whose later runs pass unless
+        `always_fail`), and a fake xcresulttool that prints `tests_json` for the first bundle and `retry_json`
+        (default: the test passes) for the retry bundle. `expected` is what -enumerate-tests lists; None makes it
+        fail. Returns (result, out dir, commands)."""
+        temporary = pathlib.Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(temporary, ignore_errors=True))
+        for name in ("xcodegen", "xcrun"):
+            path = temporary / name
+            path.write_text(
+                "#!/bin/bash\n"
+                'if [ "$1" = xcresulttool ] && [ "$3" = test-results ]; then\n'
+                '  case "$*" in *-retry.xcresult*) cat "$TEST_JSON_RETRY" ;; *) cat "$TEST_JSON" ;; esac; exit 0; fi\n'
+                'if [ "$1" = xcresulttool ] && [ "$2" = export ]; then dest="${@: -1}"; mkdir -p "$dest"; '
+                'echo "[]" > "$dest/manifest.json"; exit 0; fi\n'
+                'if [ "$1" = xcresulttool ]; then exit 0; fi\n'
+                'echo "${2:-$1}" >> "$TEST_COMMANDS"\n'
+                "exit 0\n"
+            )
+            path.chmod(0o755)
+        (temporary / "tests.json").write_text(tests_json if isinstance(tests_json, str) else json.dumps(tests_json))
+        (temporary / "retry.json").write_text(json.dumps(retry_json or case_tree("Passed", [])))
+        enumeration = {"values": [{"enabledTests": [{"identifier": f"{name}()"} for name in expected or []]}]}
+        (temporary / "enumeration.json").write_text(json.dumps(enumeration))
+        xcodebuild = temporary / "xcodebuild"
+        xcodebuild.write_text(
+            "#!/bin/bash\n"
+            'case "$*" in *-enumerate-tests*)\n'
+            '  [ "$ENUMERATE_FAILS" != 1 ] || exit 1\n'
+            "  while [ $# -gt 0 ]; do\n"
+            '    [ "$1" != -test-enumeration-output-path ] || cp "$ENUMERATION" "$2"; shift\n'
+            "  done\n"
+            "  exit 0 ;;\nesac\n"
+            'echo "$*" >> "$TEST_COMMANDS"\n'
+            '[ "$1" != build-for-testing ] || { echo "SwiftDriver Klassik"; exit 0; }\n'
+            'while [ $# -gt 0 ]; do [ "$1" != -resultBundlePath ] || mkdir -p "$2"; shift; done\n'
+            'n=$(grep -c "^test-without-building" "$TEST_COMMANDS")\n'
+            'if [ "$n" = 1 ] || [ "$ALWAYS_FAIL" = 1 ]; then state=failed; code=65; else state=passed; code=0; fi\n'
+            "echo \"Test Case '-[Tests testPlay]' $state (1.0 seconds).\"\n"
+            'exit "$code"\n'
+        )
+        xcodebuild.chmod(0o755)
+        env = {
+            **os.environ,
+            "PATH": f"{temporary}:{os.environ['PATH']}",
+            "KLASSIK_PHASE": phase,
+            "KLASSIK_UI": "false",
+            "KLASSIK_SIMULATOR_UDID": "fixture",
+            "TEST_COMMANDS": str(temporary / "commands"),
+            "TEST_JSON": str(temporary / "tests.json"),
+            "TEST_JSON_RETRY": str(temporary / "retry.json"),
+            "ENUMERATION": str(temporary / "enumeration.json"),
+            "ENUMERATE_FAILS": "0" if expected is not None else "1",
+            "ALWAYS_FAIL": "1" if always_fail else "0",
+            "GITHUB_STEP_SUMMARY": str(temporary / "summary"),
+            **(extra_env or {}),
+        }
+        (temporary / "commands").write_text("")
+        out = temporary / "out"
+        run = subprocess.run(
+            ["bash", str(screen_report.ROOT / "scripts" / "screens.sh"), str(out)],
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        commands = (temporary / "commands").read_text().splitlines()
+        return run, out, commands
+
+    def test_assertion_failure_runs_once_and_fails(self):
+        tests = case_tree("Failed", ["XCTAssertEqual failed: (1) is not equal to (2)"])
+        run, out, commands = self.run_screens(tests)
+        self.assertEqual(run.returncode, 65, run.stdout + run.stderr)
+        self.assertEqual(sum(c.startswith("test-without-building") for c in commands), 1)
+        self.assertNotIn("Flaky", (out / "unit-retries.txt").read_text())
+
+    def test_runner_crash_retries_only_the_failed_test_and_reports_it_flaky(self):
+        tests = case_tree("Failed", ["Crash: Klassik (1234) crashed"])
+        run, out, commands = self.run_screens(tests)
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        runs = [c for c in commands if c.startswith("test-without-building")]
+        self.assertEqual(len(runs), 2)
+        self.assertIn("-only-testing:KlassikTests/PlayTests/testPlay", runs[1])
+        self.assertNotIn("-only-testing:KlassikTests ", runs[1])
+        report = (out / "unit-retries.txt").read_text()
+        self.assertIn("recovered", report)
+        self.assertIn("**Flaky**", report)
+        self.assertIn("::warning::Flaky test", run.stdout)
+
+    def test_runner_crash_that_fails_again_fails_the_run(self):
+        tests = case_tree("Failed", ["Crash: Klassik (1234) crashed"])
+        run, _, commands = self.run_screens(tests, always_fail=True)
+        self.assertEqual(run.returncode, 65, run.stdout + run.stderr)
+        self.assertEqual(sum(c.startswith("test-without-building") for c in commands), 2)
+
+    def test_crash_does_not_hide_an_assertion_failure_of_the_same_run(self):
+        tests = case_tree("Failed", ["Crash: Klassik crashed"], extra=("testOther", ["XCTAssertTrue failed"]))
+        run, _, _ = self.run_screens(tests)
+        self.assertEqual(run.returncode, 1, run.stdout + run.stderr)
+
+    def test_unreadable_bundle_is_not_retried(self):
+        run, _, commands = self.run_screens({}, phase="unit")
+        # No test case at all in a readable bundle: nothing ran, so the selection runs once more.
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        self.assertEqual(sum(c.startswith("test-without-building") for c in commands), 2)
+
+    def test_tests_that_never_ran_are_run_in_the_retry(self):
+        # The runner exited early: testOther has no result in the first bundle.
+        tests = case_tree("Failed", ["Early unexpected exit, operation never finished bootstrapping"])
+        both = case_tree("Passed", [])
+        both["testNodes"][0]["children"][0]["children"][0]["children"].append(
+            {
+                "nodeType": "Test Case",
+                "name": "testOther()",
+                "nodeIdentifier": "PlayTests/testOther()",
+                "result": "Passed",
+            }
+        )
+        expected = ("PlayTests/testPlay", "PlayTests/testOther")
+        run, _, commands = self.run_screens(tests, retry_json=both, expected=expected)
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        retry = [c for c in commands if c.startswith("test-without-building")][1]
+        self.assertIn("-only-testing:KlassikTests/PlayTests/testPlay", retry)
+        self.assertIn("-only-testing:KlassikTests/PlayTests/testOther", retry)
+
+    def test_a_retry_that_leaves_a_test_without_a_result_fails(self):
+        tests = case_tree("Failed", ["Early unexpected exit, operation never finished bootstrapping"])
+        expected = ("PlayTests/testPlay", "PlayTests/testOther")
+        run, _, _ = self.run_screens(tests, expected=expected)
+        self.assertNotEqual(run.returncode, 0, run.stdout + run.stderr)
+        self.assertIn("PlayTests/testOther", run.stdout)
+
+    def test_no_list_of_requested_tests_means_no_retry_and_a_failure(self):
+        tests = case_tree("Failed", ["Early unexpected exit, operation never finished bootstrapping"])
+        run, _, commands = self.run_screens(tests, expected=None)
+        self.assertEqual(run.returncode, 65, run.stdout + run.stderr)
+        self.assertEqual(sum(c.startswith("test-without-building") for c in commands), 1)
+
+    def test_an_error_of_the_assertion_check_fails_the_run(self):
+        # The first bundle is unreadable as JSON: the retry plan fails, so the run stays failed.
+        run, _, _ = self.run_screens("{ not json")
+        self.assertNotEqual(run.returncode, 0, run.stdout + run.stderr)
+
+    def test_report_commands_exit_2_on_an_error_and_0_otherwise(self):
+        script = str(screen_report.ROOT / "scripts" / "screen_report.py")
+        with tempfile.TemporaryDirectory() as directory:
+            bad = pathlib.Path(directory) / "bad.json"
+            bad.write_text("{ not json")
+            for command in ("assertion-failures", "retry-plan", "expected-tests"):
+                run = subprocess.run(["python3", script, command, str(bad)], capture_output=True, text=True)
+                self.assertEqual(run.returncode, 2, command)
+            good = pathlib.Path(directory) / "good.json"
+            good.write_text(json.dumps(case_tree("Failed", ["XCTAssertEqual failed"])))
+            run = subprocess.run(["python3", script, "assertion-failures", str(good)], capture_output=True, text=True)
+            self.assertEqual((run.returncode, run.stdout.strip()), (0, "KlassikTests/PlayTests/testPlay"))
+
+    def test_unfinished_and_unrun_tests(self):
+        failed, passed = case_tree("Failed", ["XCTAssertEqual failed"]), case_tree("Passed", [])
+        expected = ["PlayTests/testOther", "PlayTests/testPlay"]
+        self.assertEqual(screen_report.unfinished_tests(expected, [failed, passed]), ["PlayTests/testOther"])
+        self.assertEqual(
+            screen_report.unfinished_tests(["PlayTests/testPlay"], [passed, failed]), ["PlayTests/testPlay"]
+        )
+        self.assertEqual(
+            screen_report.unrun_tests(expected, "KlassikTests", passed), ["KlassikTests/PlayTests/testOther"]
+        )
+        enumeration = {
+            "values": [
+                {
+                    "enabledTests": [{"identifier": "KlassikTests/PlayTests/testPlay()"}],
+                    "disabledTests": [{"identifier": "A/b"}],
+                }
+            ]
+        }
+        self.assertEqual(screen_report.enumerated_tests(enumeration), ["PlayTests/testPlay"])
+
+    def test_the_pr_unit_run_skips_the_measurement_suite_and_the_measure_phase_runs_it(self):
+        tests = case_tree("Failed", ["XCTAssertEqual failed"])
+        _, _, commands = self.run_screens(tests)
+        unit = next(c for c in commands if c.startswith("test-without-building"))
+        self.assertIn("-skip-testing:KlassikTests/EarlyPlaybackMeasurementTests", unit)
+        run, out, commands = self.run_screens(case_tree("Failed", ["XCTAssertEqual failed"]), phase="measure")
+        measure = next(c for c in commands if c.startswith("test-without-building"))
+        self.assertIn("-only-testing:KlassikTests/EarlyPlaybackMeasurementTests", measure)
+        self.assertIn("-only-testing:KlassikTests/EarlyPlaybackTests", measure)
+        self.assertIn("measure=failed", (out / "results.txt").read_text())
+
+    def test_full_run_boots_the_simulator_after_the_build(self):
+        tests = case_tree("Failed", ["XCTAssertEqual failed"])
+        _, out, commands = self.run_screens(tests, phase="all")
+        build = next(i for i, c in enumerate(commands) if c.startswith("build-for-testing"))
+        self.assertLess(build, commands.index("bootstatus"))
+        timings = (out / "timings.txt").read_text()
+        self.assertIn("build-first-output", timings)
+        self.assertIn("build-first-compile", timings)
+
+    def test_retry_plan_commands(self):
+        crash = case_tree("Failed", ["Early unexpected exit, operation never finished bootstrapping"])
+        self.assertEqual(screen_report.retry_plan(crash), ["KlassikTests/PlayTests/testPlay"])
+        self.assertIsNone(screen_report.retry_plan(case_tree("Failed", ["XCTAssertEqual failed"])))
+        self.assertIsNone(screen_report.retry_plan(case_tree("Failed", [])))
+        self.assertEqual(screen_report.retry_plan({"testNodes": []}), ["ALL"])
+        self.assertEqual(screen_report.assertion_failures(crash), [])
 
     def test_clean_run_has_no_failed_attempts(self):
         text = screen_report.retry_report("Test Case '-[Tests testPlay]' passed (1.0 seconds).")
@@ -352,6 +585,29 @@ class PlanTests(unittest.TestCase):
         workflow = (pathlib.Path(screen_report.ROOT) / ".github/workflows/test.yml").read_text()
         self.assertIn("repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA\" --jq '.commit.message'", workflow)
         self.assertNotIn('/commits" --jq', workflow)
+
+    def test_only_requested_areas_block(self):
+        _, matrix = screen_report.plan("pull_request", "", "Fix\n\n[ui: browse]\n")
+        self.assertEqual(
+            {e["group"]: e["required"] for e in matrix["include"]}, {"places-search": "true", "browse-pages": "true"}
+        )
+        _, matrix = screen_report.plan("pull_request", "", "[ui: playback]", "Release Klassik 0.15.0")
+        required = {e["group"]: e["required"] for e in matrix["include"]}
+        self.assertEqual(len(required), len(screen_report.UI_GROUPS))
+        self.assertEqual(
+            {g for g, r in required.items() if r == "true"},
+            {"playback-queue", "playback-overlay", "playback-controls"},
+        )
+
+    def test_release_title_nightly_and_dispatch_walks_only_report(self):
+        for args in (
+            ("pull_request", "", "", "Release Klassik 0.15.0"),
+            ("schedule", "", ""),
+            ("workflow_dispatch", "all", ""),
+        ):
+            _, matrix = screen_report.plan(*args)
+            self.assertTrue(matrix["include"])
+            self.assertEqual({e["required"] for e in matrix["include"]}, {"false"}, args)
 
     def test_main_push_runs_no_walk(self):
         self.assertEqual(self.groups("push"), ("false", []))

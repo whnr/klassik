@@ -124,6 +124,8 @@ private struct PlayerOverlay: View {
         insertion: .offset(y: Layout.riseIn).combined(with: .opacity),
         removal: .offset(y: -Layout.riseOut).combined(with: .opacity))
 
+    private var pulled: CGFloat { dragged + heroPulled }
+
     private var closeDrag: PlayerCloseDrag {
         PlayerCloseDrag(
             pulled: $dragged, leave: { leaving = $0 }, close: { navigator.closePlayer() }, heroPull: $heroPulled)
@@ -167,11 +169,9 @@ private struct PlayerOverlay: View {
             song: model.playback.item?.id == item.id ? model.playback.coverSong : item.recording.songs.first,
             isPlaying: model.playback.item?.id == item.id
         )
-        .offset(y: dragged + heroPulled + leaving)
+        .offset(y: pulled + leaving)
         // The spring runs only when the finger lifts, so the player follows the finger without lag.
-        .animation(
-            dragged + heroPulled == 0 ? Motion.rise.animation(reduceMotion: reduceMotion) : nil,
-            value: dragged + heroPulled)
+        .animation(pulled == 0 ? Motion.rise.animation(reduceMotion: reduceMotion) : nil, value: pulled)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("player-overlay")
     }

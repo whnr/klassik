@@ -1,7 +1,7 @@
 {
-  "sha": "f750e74411954e49ebe016c3a9d517e361b8c610",
+  "sha": "693683cc3a8495e4a094cbf21947402b2a63e15e",
   "branch": "claude-popless",
   "path": "claude-popless",
-  "subject": "[sz-rs30.1.155] Test the skip ramp through the engine",
-  "ts": 1795467312
+  "subject": "[sz-rs30.1.155] Walk the playback areas again",
+  "ts": 1795467383
 }

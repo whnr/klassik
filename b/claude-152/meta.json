@@ -1,7 +1,7 @@
 {
-  "sha": "92303094aa11a1942a4777f4b661d0884cd4869e",
+  "sha": "0d2add3b0ea96ffb7f8be64b5fca9093d12281dc",
   "branch": "claude-152",
   "path": "claude-152",
-  "subject": "[sz-rs30.1.154.7] Watch the bar layer for the container",
-  "ts": 1795404133
+  "subject": "[sz-rs30.1.152] Restore the tab label widths",
+  "ts": 1795407676
 }

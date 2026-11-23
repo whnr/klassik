@@ -1,7 +1,7 @@
 {
-  "sha": "b214b57726710f3aabba164b5b8bf0cd0cd50530",
+  "sha": "36985fe7f8f3e669a99dbfd27d7c8b8306f3d5cc",
   "branch": "claude-152",
   "path": "claude-152",
-  "subject": "[sz-rs30.1.152] Set the tab titles again in the settle pass",
-  "ts": 1795390898
+  "subject": "[sz-rs30.1.152] Restore the bar frame after new titles",
+  "ts": 1795393971
 }

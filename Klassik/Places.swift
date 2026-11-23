@@ -169,7 +169,7 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
     /// The frame that the last layout pass gave the bar. UIKit's container can lay the bar out again at the full
     /// width without a new pass of this controller, which puts the Search circle under the mini player.
     private var barFrame: CGRect?
-    private var barFrameObservation: NSKeyValueObservation?
+    private var barFrameObservations: [NSKeyValueObservation] = []
     private var barRepairs = 0
     private(set) var playerHost: UIHostingController<AnyView>?
     let playerLayout = PlayerOverlayLayout()
@@ -293,14 +293,22 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
     /// Puts the bar back at the frame of the last pass when the container moves it. A few repairs only: a container
     /// that always disagrees must not start a loop.
     private func observeBarFrame() {
-        guard barFrameObservation == nil else { return }
-        barFrameObservation = tabBar.observe(\.frame, options: [.new]) { [weak self] bar, _ in
-            MainActor.assumeIsolated {
-                guard let self, let barFrame = self.barFrame, bar.frame != barFrame, self.barRepairs < 4 else { return }
-                self.barRepairs += 1
-                Task { @MainActor [weak self] in self?.view.setNeedsLayout() }
-            }
-        }
+        guard barFrameObservations.isEmpty else { return }
+        // UIKit can move the bar through its layer, which a key path of the view frame does not report.
+        barFrameObservations = [
+            tabBar.layer.observe(\.bounds) { [weak self] _, _ in
+                MainActor.assumeIsolated { self?.repairBarFrame() }
+            },
+            tabBar.layer.observe(\.position) { [weak self] _, _ in
+                MainActor.assumeIsolated { self?.repairBarFrame() }
+            },
+        ]
+    }
+
+    private func repairBarFrame() {
+        guard let barFrame, tabBar.frame != barFrame, barRepairs < 6 else { return }
+        barRepairs += 1
+        Task { @MainActor [weak self] in self?.view.setNeedsLayout() }
     }
 
     /// A label that kept the width from the keyboard layout shows "Chronolo…" in a bar that has room. The label
@@ -324,6 +332,7 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
         super.viewDidLayoutSubviews()
         configureBackGesture()
         var frame = tabBar.frame
+        if let barFrame, tabBar.frame == barFrame { barRepairs = 0 }
         // UIKit removes the home-indicator inset under a keyboard.
         // Playback controls must keep the resting bar position.
         if keyboardVisible, let restingFrame {

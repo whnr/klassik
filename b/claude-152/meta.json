@@ -1,7 +1,7 @@
 {
-  "sha": "20f7afc13d7f74fe5e933d0efdbe8ea4e1d25466",
+  "sha": "2bafb0224390d7764f1a5a15f295b3e170c30ff1",
   "branch": "claude-152",
   "path": "claude-152",
-  "subject": "[sz-rs30.1.152] Key the label width by its font",
-  "ts": 1795414449
+  "subject": "[sz-rs30.1.152] Key the label width by its colour",
+  "ts": 1795418048
 }

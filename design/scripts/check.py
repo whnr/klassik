@@ -176,7 +176,7 @@ def check_vague(root=ROOT):
 
 
 # A specimen file named in parentheses, such as "(design/specimen/tokens.html)", and a bead ID in Markdown.
-TAG = re.compile(r"\((?:design/specimen/)?[a-z-]{3,}\.html(?:, [^)]*)?\)")
+TAG = re.compile(r"\((?:design/specimen/)?[a-z-]{3,}\.html(?:[ ,][^)]*)?\)")
 BEAD = re.compile(r"\bsz-(?=[a-z0-9.]*\d)[a-z0-9.]+")
 TAG_SKIP = ("design/scripts/check.py", "scripts/test_design_check.py")
 

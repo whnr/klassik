@@ -153,6 +153,23 @@ class RepoTests(unittest.TestCase):
             ["a.swift:1: a comment tags a specimen file", "b.md:1: a document names a bead"],
         )
 
+    def test_specimen_tag_forms_fail(self):
+        forms = {
+            "bare.swift": "/// A style (tokens.html).",
+            "path.swift": "/// A style (design/specimen/tokens.html).",
+            "comma.swift": "/// A style (search.html, the sheet).",
+            "class.swift": "/// The field (search.html .narrow).",
+            "name.swift": "/// A row (person.html workRow).",
+            "ticks.swift": "/// The kind in bold (search.html `.seg button.on`).",
+            "caps.swift": "// Buttons beside the row (tokens.html SWIPE).",
+            "html.html": "// Swipe Right opens Download (tokens.html SWIPE).",
+        }
+        root = self.repo({name: (text + "\n").encode() for name, text in forms.items()})
+        self.assertEqual(
+            design_check.check_tags(root),
+            [f"{name}:1: a comment tags a specimen file" for name in sorted(forms)],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

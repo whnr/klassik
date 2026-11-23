@@ -410,7 +410,7 @@ private struct SearchResults: View {
         }
     }
 
-    /// `track` is the track title that found the result when its own words do not match (search.html `.why`).
+    /// `track` is the track title that found the result when its own words do not match.
     /// `nickname` is the nickname that found a work whose title does not match.
     private func lines(
         title: String, isFavourite: Bool, detail: String, track: String? = nil, nickname: String? = nil

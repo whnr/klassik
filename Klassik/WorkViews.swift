@@ -214,7 +214,7 @@ struct WorkRow: View {
     }
 
     /// The one line under the title: when the work was composed, then the recordings, as
-    /// "Composed 1844, 1 recording" (person.html workRow). The track titles stay on the work page: in a list they
+    /// "Composed 1844, 1 recording". The track titles stay on the work page: in a list they
     /// repeat the title or name one movement.
     nonisolated static func detail(of work: WorkIndex.Work, composed: String?) -> String {
         let recordings = WorkIndex.Recording.count(work.recordings.count, "recording")

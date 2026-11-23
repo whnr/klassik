@@ -410,7 +410,7 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertGreaterThan(done.frame.minY, app.frame.height / 3, "The sheet is not at the medium detent")
         XCTAssertEqual(app.staticTexts["filter-total"].label, "4\u{00A0}recordings")
         // The head and the body share one inset: Back leads the head, the title follows it, and the note and the
-        // kinds start under Back; the kinds reach to Done (search.html .fsheet).
+        // kinds start under Back; the kinds reach to Done.
         let back = app.buttons["filter-back"]
         let title = app.staticTexts["Filters"]
         XCTAssertGreaterThan(title.frame.minX, back.frame.maxX, "The title does not follow Back")
@@ -2457,7 +2457,7 @@ final class SettingsScreens: ScreensTestCase {
         // Swipe Actions in Library comes before the tint in Colour, because the walk only scrolls down.
         reveal(app.buttons["swipe-actions"], in: app).tap()
         XCTAssertTrue(app.navigationBars["Swipe Actions"].waitForExistence(timeout: 10))
-        // The list shows the buttons as the row does: Play Next left of Add to Queue (tokens.html SWIPE).
+        // The list shows the buttons as the row does: Play Next left of Add to Queue.
         let playNext = app.staticTexts["Play Next"].firstMatch
         let addToQueue = app.staticTexts["Add to Queue"].firstMatch
         XCTAssertTrue(playNext.waitForExistence(timeout: 10) && addToQueue.exists, "No swipe left actions")

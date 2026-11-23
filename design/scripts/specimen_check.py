@@ -8,7 +8,7 @@
 Usage: uv run --with playwright==1.64.1 design/scripts/specimen_check.py
 (once: uv run --with playwright==1.64.1 playwright install chromium)
 It also fails when a page draws nothing, the timeline is missing or a tapped movement row does not open.
-It checks the player overlay of design/specimen/player.html: its three poses, the tab bar and the pill above it,
+It checks the player overlay of the player page: its three poses, the tab bar and the pill above it,
 a tap on the cover that opens it, and a tap on another tab that closes it.
 It cannot judge looks or Safari.
 """
@@ -107,21 +107,21 @@ def check_overlay(page, where, failures):
     if overlay.count() or page.url != url:
         failures.append(f"{where}: the underlying tab did not keep its page")
     base = url.split("/specimen/")[0] + "/specimen/"
-    for place in ("library", "chronology", "search"):
-        destination = base + f"person.html?name=Karl%20B%C3%B6hm&place={place}"
+    for tab in ("library", "chronology", "search"):
+        destination = base + f"person.html?name=Karl%20B%C3%B6hm&tab={tab}"
         page.evaluate(
-            "([place, url]) => sessionStorage.setItem('specimen.stack.' + place, JSON.stringify(url))",
-            [place, destination],
+            "([tab, url]) => sessionStorage.setItem('specimen.stack.' + tab, JSON.stringify(url))",
+            [tab, destination],
         )
         current = page.locator(".tabs a.on, .tab-search.on").get_attribute("aria-label").lower()
         open_player()
-        page.locator(f".tabbar a[aria-label='{place.title()}']").tap()
+        page.locator(f".tabbar a[aria-label='{tab.title()}']").tap()
         page.wait_for_timeout(1500)
-        if place == current:
+        if tab == current:
             if page.url != url:
-                failures.append(f"{where}: {place} reset its underlying page")
-        elif "person.html" not in page.url or f"place={place}" not in page.url:
-            failures.append(f"{where}: {place} did not restore its last page")
+                failures.append(f"{where}: {tab} reset its underlying page")
+        elif "person.html" not in page.url or f"tab={tab}" not in page.url:
+            failures.append(f"{where}: {tab} did not restore its last page")
         url = page.url
 
 
@@ -230,7 +230,7 @@ def main():
                         failures.append(f"{where}: the tab bar or the play button is hidden by the overlay")
                 elif page_path in ("index.html", "work.html") and page.locator(".edge-pill .cover-link").count():
                     check_overlay(page, where, failures)
-                # A movement row that holds something opens in place on a tap (design/specimen/player.html).
+                # A movement row that holds something opens in place on a tap.
                 rows = page.locator(".row-block.track button.row")
                 if rows.count():
                     rows.first.tap()

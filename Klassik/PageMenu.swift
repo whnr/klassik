@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The items of the ⋯ menu of a page and of the long-press menu of a row (specimen menu.html). Every menu keeps one
+/// The items of the ⋯ menu of a page and of the long-press menu of a row. Every menu keeps one
 /// order and leaves out what its page cannot do: queue, download, tags. A state changes the words of an item and
 /// the line below it, never its place.
 struct PageMenu: Equatable, Sendable {

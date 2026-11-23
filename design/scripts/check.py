@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Checks the decided design: the contrast targets in every accent and room, and the links between ADRs.
 
-The colour rules are in design/specimen/tokens.html.
+The colour rules are on the token page of the specimen.
 
 A record that replaces part of another must be answered: the old record links back, and its index row names it.
 
@@ -49,7 +49,7 @@ def colours(group, path=()):
 
 
 def pairs(room):
-    """The pairs that design/specimen/tokens.html promises, as (foreground, background, target)."""
+    """The pairs that the token page of the specimen promises, as (foreground, background, target)."""
     if room.endswith("HighContrast"):
         # Increase Contrast: AAA for text, 4.5:1 for marks, on every ground.
         text, mark, label = 7, 4.5, 7
@@ -175,6 +175,31 @@ def check_vague(root=ROOT):
     return problems
 
 
+# A specimen file named in parentheses, such as "(design/specimen/tokens.html)", and a bead ID in Markdown.
+TAG = re.compile(r"\((?:design/specimen/)?[a-z-]{3,}\.html(?:, [^)]*)?\)")
+BEAD = re.compile(r"\bsz-(?=[a-z0-9.]*\d)[a-z0-9.]+")
+TAG_SKIP = ("design/scripts/check.py", "scripts/test_design_check.py")
+
+
+def check_tags(root=ROOT):
+    """Comments name no specimen file in parentheses, and documents name no bead."""
+    files = subprocess.run(["git", "ls-files"], cwd=root, capture_output=True, text=True, check=True).stdout.split("\n")
+    problems = []
+    for name in filter(None, files):
+        if name in TAG_SKIP or name.endswith((".png", ".jpg", ".ttf", ".otf", ".json")):
+            continue
+        try:
+            text = (root / name).read_text()
+        except (OSError, UnicodeDecodeError):
+            continue
+        for number, line in enumerate(text.splitlines(), 1):
+            if TAG.search(line) and not name.endswith(".md"):
+                problems.append(f"{name}:{number}: a comment tags a specimen file")
+            if name.endswith(".md") and BEAD.search(line):
+                problems.append(f"{name}:{number}: a document names a bead")
+    return problems
+
+
 def check_chain():
     """The rule of docs/adr/README.md: each "Replaces" sentence in a header line has a pointer back and an index row."""
     adr = ROOT / "docs/adr"
@@ -196,7 +221,7 @@ def check_chain():
 
 def main():
     failures = check_contrast()
-    broken = check_links() + check_chain() + check_mentions() + check_vague()
+    broken = check_links() + check_chain() + check_mentions() + check_vague() + check_tags()
     for line in failures:
         print(f"FAIL contrast: {line}")
     for line in broken:

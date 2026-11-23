@@ -139,6 +139,20 @@ class RepoTests(unittest.TestCase):
             ],
         )
 
+    def test_specimen_tag_and_bead_fail(self):
+        root = self.repo(
+            {
+                "a.swift": b"/// A style (design/specimen/tokens.html).\n",
+                "b.md": b"Check it. (sz-abc1.2)\n",
+                "ok.md": b"Run `unix:sz-codex`. The page tokens.html loads.\n",
+                "ok.swift": b"/// A style of the token page.\n",
+            }
+        )
+        self.assertEqual(
+            design_check.check_tags(root),
+            ["a.swift:1: a comment tags a specimen file", "b.md:1: a document names a bead"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -293,7 +293,7 @@ final class ChronologyPlace {
 }
 
 extension Chronology {
-    /// The placements of chronology.html that live in its script, not in a CSS rule.
+    /// The placements of the chronology page that live in its script, not in a CSS rule.
     enum Chart {
         /// The column of decade years and its gap to the first lane.
         static let gutter: CGFloat = 44

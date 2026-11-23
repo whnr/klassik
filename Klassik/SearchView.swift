@@ -221,7 +221,7 @@ private struct FiltersButton: View {
     }
 }
 
-/// The field row of search.html: a magnifier, the text and a clear button that clears the text only.
+/// The search field row: a magnifier, the text and a clear button that clears the text only.
 /// Search pages need a field under the title. The Search tab moves `searchable` to the bottom.
 struct SearchField: View {
     @Binding var text: String

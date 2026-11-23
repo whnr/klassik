@@ -406,7 +406,7 @@ private struct WorkHeader: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// When the work was composed, as plain text (specimen work.html).
+    /// When the work was composed, as plain text.
     private var composed: some View {
         let enrichment = model.enrichment
         let text =
@@ -580,7 +580,7 @@ struct RecordingView: View {
                         }
                     }
                 } else {
-                    // The rows follow the header with no heading (specimen player.html).
+                    // The rows follow the header with no heading.
                     Section {
                         ForEach(Array(recording.songs.enumerated()), id: \.element.id) { index, song in
                             movementRow(song, at: index, page: page, title: recording.title(of: song))
@@ -607,7 +607,7 @@ struct RecordingView: View {
             }
             .onChange(of: model.isScrubbing) { _, scrubbing in spell.hold(scrubbing) }
             .onChange(of: draft != nil) { _, writing in spell.writing(writing) }
-            // specimen player.html: each second, after a quiet spell, the player brings the playing row back.
+            // Each second, after a quiet spell, the player brings the playing row back.
             .task(id: isOverlay && isPlayingThis) {
                 guard isOverlay, isPlayingThis else { return }
                 // Opening the player counts as a touch, so its header shows for one spell.
@@ -686,7 +686,7 @@ struct RecordingView: View {
         }
     }
 
-    /// The end of the player: the next queue item, or where the queue ends (specimen player.html).
+    /// The end of the player: the next queue item, or where the queue ends.
     @ViewBuilder private var tail: some View {
         let player = model.playback
         switch PlayerTail(isPlaying: isPlayingThis, upNext: player.upNext.map(\.id)) {
@@ -808,8 +808,8 @@ struct RecordingView: View {
         }
     }
 
-    /// Play and Play Album while the item does not play. While it plays, the page offers the player (specimen
-    /// player.html). The overlay shows neither.
+    /// Play and Play Album while the item does not play. While it plays, the page offers the player.
+    /// The overlay shows neither.
     @ViewBuilder private var actions: some View {
         let player = model.playback
         if !isPlayingThis {
@@ -1046,7 +1046,7 @@ private struct MovementRow: View {
     private var playing: some View {
         let player = model.playback
         return VStack(alignment: .leading, spacing: gap) {
-            // The bold title marks the playing row (specimen player.html). VoiceOver hears it too.
+            // The bold title marks the playing row. VoiceOver hears it too.
             HStack {
                 MovementTitle(title: title, style: .headline)
                     .accessibilityLabel("Now playing, \(title)")

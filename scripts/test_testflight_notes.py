@@ -52,8 +52,12 @@ class NotesTests(unittest.TestCase):
         )
         for instruction in cases:
             with self.subTest(instruction=instruction):
-                notes = f"Klassik 0.10.4\n\n1. {instruction} (sz-iq9v)"
+                notes = f"Klassik 0.10.4\n\n1. {instruction}"
                 self.assertEqual(validate(notes, "0.10.4"), notes)
+
+    def test_bead_id_fails(self):
+        with self.assertRaisesRegex(ValueError, "bead ID"):
+            validate("Klassik 0.10.4\n\n1. Play. Expect sound. (sz-abc1)", "0.10.4")
 
     def test_words_containing_development_terms_pass(self):
         notes = "Klassik 0.10.4\n\n1. Search for Circle, Branching, and Reposition. Expect matching recordings."

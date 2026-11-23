@@ -92,7 +92,7 @@ struct ChronologyView: View {
 }
 
 /// The name of the composer in focus, which opens the composer page, and the facts line. The name is
-/// a page title: `h1[class]` in specimen.css sets it over the `t-title2` class of chronology.html.
+/// a page title: `h1[class]` in specimen.css sets it over the `t-title2` class.
 private struct ChronologyHead: View {
     let chronology: Chronology
     let focus: Chronology.Composer?

@@ -986,7 +986,7 @@ final class BrowseScreens: ScreensTestCase {
             .matching(NSPredicate(format: "label BEGINSWITH %@", title + " (")).firstMatch
     }
 
-    /// The work page offers no MusicBrainz confirmation, and the date is plain text (specimen work.html).
+    /// The work page offers no MusicBrainz confirmation, and the date is plain text.
     /// Ambiguous matches are picked from the sources page, which the status list opens.
     @MainActor
     func testWorkPageHasNoConfirmButton() throws {
@@ -1434,7 +1434,7 @@ final class PlaybackScreens: ScreensTestCase {
         expectMovementPlayEdge(app)
     }
 
-    /// The recording page matches specimen player.html: the header with linked names and a facts line, then the
+    /// The recording page matches the specimen: the header with linked names and a facts line, then the
     /// rows with no heading and no settings rows. While it plays, only the overlay is the player; the page offers it.
     @MainActor
     func testRecordingPageAndPlayer() throws {
@@ -1843,7 +1843,7 @@ final class PlaybackScreens: ScreensTestCase {
     }
 
     /// The ⋯ menu of the work, recording and album pages and the long-press menu of a recording row keep the order of
-    /// specimen menu.html: queue, download, tags. The row menu has Play on top.
+    /// The specimen menu: queue, download, tags. The row menu has Play on top.
     @MainActor
     func testPageMenus() throws {
         let app = try launchAndConnect()
@@ -1924,7 +1924,7 @@ final class PlaybackScreens: ScreensTestCase {
             return false
         }
         XCTAssertTrue(downloaded, "The download did not finish")
-        // The state is the line below the item (specimen menu.html), in the label or as its own text.
+        // The state is the line below the item, in the label or as its own text.
         let line = NSPredicate(format: "label CONTAINS 'Downloaded, '")
         XCTAssertTrue(
             app.staticTexts.matching(line).firstMatch.exists || app.buttons.matching(line).firstMatch.exists,
@@ -3473,7 +3473,7 @@ class ScreensTestCase: XCTestCase {
             file: file, line: line)
     }
 
-    /// The work page against work.html: title, meta line, Play, then the Recordings heading.
+    /// The work page against the specimen: title, meta line, Play, then the Recordings heading.
     @MainActor
     func checkWorkPage(_ app: XCUIApplication) {
         // The work title is the favourite button, which hides its text from static-text queries.
@@ -3519,7 +3519,7 @@ class ScreensTestCase: XCTestCase {
             "Recording hairline")
     }
 
-    /// The composer page without a picture against person.html: Chronology, the tabs, the chips, the Works heading.
+    /// The composer page without a picture against the specimen: Chronology, the tabs, the chips, the Works heading.
     @MainActor
     func checkComposerPage(_ app: XCUIApplication) {
         let chronologyElement = app.buttons["composer-chronology"]

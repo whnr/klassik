@@ -1,7 +1,7 @@
 {
-  "sha": "d5c2e50d33d986121b58097f7385976cdee71158",
+  "sha": "d446062fccbf8d9c9bf346aff64b3c24bc82506e",
   "branch": "claude-1615",
   "path": "claude-1615",
-  "subject": "[ui: places,playback,timeline] Format the specimen tab bar",
-  "ts": 1795475811
+  "subject": "[ui: places,playback,timeline] Test that every tab is plain",
+  "ts": 1795477183
 }

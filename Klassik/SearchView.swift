@@ -272,7 +272,7 @@ struct SearchField: View {
 }
 
 /// The recent searches of the empty page, newest first, each with its text and its conditions, and Clear
-/// (search.html). A tap restores the search.
+///. A tap restores the search.
 private struct RecentList: View {
     let recent: RecentSearches
     let restore: (RecentSearch) -> Void

@@ -1,6 +1,6 @@
 # Work and composer facts in OpenSubsonic fields
 
-Checked 2026-10-31 on Navidrome 0.64.2 (linux amd64, started as in `scripts/fixture-server.sh`). Probe: `probe.py` in this folder. It writes sine tones only. Tag names come from sz-rs30.2 (DESIGN, tag contract).
+Navidrome 0.64.2 (linux amd64, started as in `scripts/fixture-server.sh`). Probe: `probe.py` in this folder. It writes sine tones only. Tag names follow the Klassik tag contract.
 
 ## Answer
 

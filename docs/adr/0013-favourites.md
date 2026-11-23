@@ -1,6 +1,6 @@
 # 0013. Favourites and the recording order
 
-Date: 2026-10-31. Decided by Flo. Replaces 0009. The offline rules are replaced by [0052](0052-favourites-stay-in-the-app.md).
+Date: 2026-10-31. Decided by Flo. Replaces the first favourites decision. The offline rules are replaced by [0052](0052-favourites-stay-in-the-app.md).
 
 ## Context
 

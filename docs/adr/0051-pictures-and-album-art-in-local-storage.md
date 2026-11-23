@@ -7,7 +7,7 @@ The music cache rules are extended by [0060](0060-early-playback-and-read-ahead.
 
 ## Context
 
-ADR 0008 counts only played tracks as the cache. Composer and performer pictures sat in a hidden URL cache of 200
+The cache counted only played tracks. Composer and performer pictures sat in a hidden URL cache of 200
 MB, and the album art came from the server each time. Flo: "pictures and date [data] count towards cache size. The
 cache size is shown per type. Like iOS storage. You can set a limit for music and pictures separately." And: "cache
 all album art (and add it to the cache bar) with a limit that's unlimited by default as well." Also: "I want all the

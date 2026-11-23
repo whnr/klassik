@@ -147,7 +147,7 @@
         const kind = composer ? "composer" : "performer";
         const { app, scroll } = K.page({ tab: "library", back: { label: "Library", href: "index.html" } });
 
-        // person.html: every P18 picture shows, cropped to fill the frame.
+        // Every P18 picture shows, cropped to fill the frame.
         const pic = facts.picture;
         const hero = el("div", { class: "hero" });
         scroll.append(hero);
@@ -180,7 +180,7 @@
           app.classList.add("has-pic");
         } else app.classList.add("no-pic");
 
-        // person.html: the Wikidata description without years, then the years; tag roles only without a description.
+        // The Wikidata description without years, then the years; tag roles only without a description.
         const years = facts.born ? (facts.died ? `${facts.born}–${facts.died}` : `born ${facts.born}`) : null;
         const desc = (facts.description || "").replace(/\s*\(\d{3,4}\s*[-–]\s*\d{0,4}\)\s*$/, "");
         const roles = new Set();

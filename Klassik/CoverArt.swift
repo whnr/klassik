@@ -98,7 +98,7 @@ import UIKit
     }
 
     /// The largest centred square of the image, at most `pixels` on a side. Album art shows square everywhere,
-    /// whatever its shape (sz-rs30.1.105.82). The short side decodes at `pixels`, so the square keeps its detail.
+    /// whatever its shape. The short side decodes at `pixels`, so the square keeps its detail.
     nonisolated static func square(_ data: Data, to pixels: Int) async -> UIImage? {
         await Task.detached(priority: .userInitiated) { () -> UIImage? in
             guard let source = CGImageSourceCreateWithData(data as CFData, nil),

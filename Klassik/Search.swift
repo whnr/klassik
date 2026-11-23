@@ -186,7 +186,7 @@ struct Search: Sendable {
         let tokens = Self.words(of: text, unique: false)
         guard !tokens.isEmpty else { return Results() }
         // A title that starts with the text comes first, then a title that holds every word, then a match on the
-        // composer or the set, then a match that needs a track title (search.html).
+        // composer or the set, then a match that needs a track title.
         var results = Results()
         var ranked: [(work: WorkIndex.Work, rank: Int)] = []
         for entry in works {

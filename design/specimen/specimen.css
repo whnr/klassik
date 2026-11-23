@@ -143,7 +143,7 @@ input {
   background: var(--color-fill-quiet);
 }
 
-/* The listener puts the timeline on the right or the left edge (player.html). Content keeps clear of it. */
+/* The listener puts the timeline on the right or the left edge. Content keeps clear of it. */
 /* The content beside the timeline has even margins; the scroll indicator does not count. Without a timeline the
    content keeps that width, centred, so the timeline causes no layout shift. */
 :root {
@@ -396,7 +396,7 @@ input {
   place-items: center;
   color: var(--color-text-tertiary);
 }
-/* The tint of what plays runs the full screen width, past the page edges (Flo 2026-11-23, sz-rs30.1.154). */
+/* The tint of what plays runs the full screen width, past the page edges. */
 .row.playing,
 .row-block.playing {
   --playing-ground: color-mix(in srgb, var(--color-tint) 12%, var(--color-background-row));
@@ -570,7 +570,7 @@ input::placeholder {
   color: var(--color-tint);
 }
 
-/* Timeline and mini player: drawn by hand (player.html). The timeline shape is in timeline.css. */
+/* Timeline and mini player: drawn by hand. The timeline shape is in timeline.css. */
 .timeline {
   position: fixed;
   z-index: 40;
@@ -726,7 +726,7 @@ input::placeholder {
   margin-left: var(--space-l);
 }
 
-/* Decided type and spacing (tokens.html): Wittgenstein 500 for page titles and section headings, SF for the rest,
+/* Decided type and spacing: Wittgenstein 500 for page titles and section headings, SF for the rest,
    one 4:3 ratio for sizes and the three spacing roles, lining proportional figures, plain lists on content pages. */
 @font-face {
   font-family: "Wittgenstein";
@@ -890,7 +890,7 @@ h1[class] {
   border-radius: var(--radius-full);
 }
 
-/* Settings and its pages keep inset grouped lists (tokens.html). K.page({ grouped: true }) marks them. */
+/* Settings and its pages keep inset grouped lists. K.page({ grouped: true }) marks them. */
 :root.grouped .app,
 :root.grouped .scroll {
   background: var(--color-background-grouped);
@@ -913,7 +913,7 @@ h1[class] {
 :root.grouped :is(.row, .row-block) + :is(.row, .row-block)::before {
   left: var(--sep-inset, var(--space-l));
 }
-/* A switch is a control, so its on state takes the tint (tokens.html). Its size is system chrome. */
+/* A switch is a control, so its on state takes the tint. Its size is system chrome. */
 .switch {
   appearance: none;
   flex: none;

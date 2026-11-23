@@ -1,6 +1,6 @@
 /* Text and the timeline over the person picture. */
 
-/* The name stays on the picture over a blur and a scrim of hall colour (tokens.html).
+/* The name stays on the picture over a blur and a scrim of hall colour.
    The blur averages a small bright patch away; picture.js measures the blurred picture under the text and sets
    the scrim just strong enough for AA.
    The text block takes the dark room's tokens, so the favourite mark and the facts line read on the scrim. */

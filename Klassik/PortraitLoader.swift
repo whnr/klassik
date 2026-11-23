@@ -11,11 +11,11 @@ struct LoadedPortrait: @unchecked Sendable {
     /// The largest face: the picture of a composer centres on it.
     var face: CGRect? { faces.first }
 
-    /// A portrait shows one person: a picture with no face or with several faces is no portrait (ADR 0019).
+    /// A portrait shows one person: a picture with no face or with several faces is no portrait.
     var isPortrait: Bool { faces.count == 1 }
 
     /// The face that the frame centres on. A composer picture centres on its largest face. A performer group or
-    /// hall has none: it fills the frame from its centre (ADR 0043).
+    /// hall has none: it fills the frame from its centre.
     func framingFace(performer: Bool) -> CGRect? { performer && !isPortrait ? nil : face }
 
     /// The brightest quarter of a region of the picture, as one colour. A region is in the unit square of the
@@ -181,7 +181,7 @@ enum PortraitLoader {
     /// Keeps the picture that a people lookup found, before any page needs it (ADR 0059). Each later lookup
     /// fetches it again, and only a valid picture replaces the kept file. When the picture of the person changed,
     /// the files of the old one go.
-    /// People pictures also load in Low Data Mode (ADR 0061). Returns false when nothing was kept.
+    /// People pictures also load in Low Data Mode. Returns false when nothing was kept.
     @MainActor @discardableResult static func keep(
         _ portrait: PersonPortrait, replacing old: PersonPortrait?, screen: PortraitSize.Screen,
         store: ImageStore, fetch: MusicBrainz.Fetch = PortraitLoader.launchNetwork

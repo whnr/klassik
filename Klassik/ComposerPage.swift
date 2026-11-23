@@ -624,7 +624,7 @@ private struct PictureCredit: View {
 }
 
 /// The whole picture with its credit, full screen. A swipe down or the system close button closes it, as for any
-/// full-screen overlay. Flo chose this over the specimen's sheet with Done (sz-rs30.1.105.73).
+/// full-screen overlay. Flo chose this over the specimen's sheet with Done.
 private struct WholePicture: View {
     /// A drag down this far, or a flick that would carry this far, closes the picture.
     static let closeDistance = 120.0

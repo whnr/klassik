@@ -88,7 +88,7 @@
     if (K.current() && ["open", "opening", "closing"].includes(state)) pose(state);
   }
 
-  // The player shows what plays: when the queue ends, it closes and leaves no end message (player.html).
+  // The player shows what plays: when the queue ends, it closes and leaves no end message.
   K.onPlay(() => {
     if (sheet && !K.current()) close();
   });

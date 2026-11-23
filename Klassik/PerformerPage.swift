@@ -91,7 +91,7 @@ struct PerformerPage: View {
             ) {
                 ForEach(albums) { AlbumCover(album: $0) }
             }
-            // person.html: the grid is a .section, which keeps the section gap above it.
+            // The grid is a .section, which keeps the section gap above it.
             .pageEdges(top: Layout.sectionTop)
             .listRowSeparator(.hidden)
         }

@@ -11,6 +11,7 @@ Exits 1 on a failed pair or a broken link.
 
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -91,6 +92,23 @@ def check_links():
     return broken
 
 
+def check_mentions():
+    """No file names an ADR number that has no record in docs/adr."""
+    have = {record.name[:4] for record in (ROOT / "docs/adr").glob("0*.md")}
+    files = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True).stdout.split("\n")
+    missing = []
+    for name in filter(None, files):
+        try:
+            text = (ROOT / name).read_text()
+        except (UnicodeDecodeError, OSError):
+            continue
+        for number in re.findall(r"\bADRs?[- ]+(0\d{3})\b|\b(0\d{3})-[a-z]+(?:-[a-z]+)*\.md\b", text):
+            for n in filter(None, number):
+                if n not in have:
+                    missing.append(f"{name}: ADR {n} does not exist")
+    return sorted(set(missing))
+
+
 def check_chain():
     """The rule of docs/adr/README.md: each "Replaces" sentence in a header line has a pointer back and an index row."""
     adr = ROOT / "docs/adr"
@@ -112,7 +130,7 @@ def check_chain():
 
 def main():
     failures = check_contrast()
-    broken = check_links() + check_chain()
+    broken = check_links() + check_chain() + check_mentions()
     for line in failures:
         print(f"FAIL contrast: {line}")
     for line in broken:

@@ -1,6 +1,6 @@
 # 0011. Composition dates from MusicBrainz and Wikidata
 
-Date: 2026-10-19. Scope by Flo; the rules below by code. The lookup order is replaced by 0012. The timeline rules are replaced by 0016. The rules that facts of persons are fetched once and paced at 1.1 seconds are replaced by [0042](0042-wikidata-pass-in-the-background.md).
+Date: 2026-10-19. Scope by Flo; the rules below by code. Later decisions changed the lookup order and the timeline rules; the code holds them. The rules that facts of persons are fetched once and paced at 1.1 seconds are replaced by [0042](0042-wikidata-pass-in-the-background.md).
 
 ## Context
 

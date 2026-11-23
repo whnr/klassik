@@ -192,7 +192,7 @@
         color: var(--color-text-secondary);
       }
 
-      /* The native sheet dims its page and keeps focus inside (search.html). */
+      /* The native sheet dims its page and keeps focus inside. */
       .fsheet {
         position: fixed;
         z-index: 61;
@@ -368,7 +368,7 @@
         const kindOf = (t) => t.slice(0, t.indexOf(":"));
 
         // A work or an album answers for some track titles: a tagged track for its work, an untagged one for its
-        // album. A match that needs a track title names that track in the row (ADR 0067).
+        // album. A match that needs a track title names that track in the row.
         const tracksOf = (songs) =>
           [...new Set(songs.map((s) => s.title).filter(Boolean))].map((title) => ({ title, words: words(title) }));
         const why = (x, tokens) => {

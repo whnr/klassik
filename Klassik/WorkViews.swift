@@ -803,7 +803,7 @@ struct RecordingView: View {
     @ViewBuilder private var actions: some View {
         let player = model.playback
         if !isPlayingThis {
-            // Play is the accent capsule; Play Album is muted beside it (sz-3hcq.2).
+            // Play is the accent capsule; Play Album is muted beside it.
             HStack(spacing: Layout.buttonRowGap) {
                 Button {
                     play(from: 0)

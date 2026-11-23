@@ -729,7 +729,7 @@ final class BrowseScreens: ScreensTestCase {
         picture.tap()
         let whole = app.descendants(matching: .any)["whole-picture"]
         XCTAssertTrue(whole.waitForExistence(timeout: 10))
-        // The credit ends in the File page link, as in the specimen sheet (person.html).
+        // The credit ends in the File page link, as in the specimen sheet.
         // Only those words are the link; the author and licence are plain text.
         let credit = app.staticTexts["whole-picture-credit"]
         XCTAssertTrue(credit.exists, "The whole picture shows no credit")
@@ -3566,7 +3566,7 @@ class ScreensTestCase: XCTestCase {
         expectGap(
             from: name, to: tabs, Layout.personHeadBottom + Layout.segmentedTop, "Name to tabs",
             upperText: Layout.pageTitle)
-        // person.html: the album grid is a .section on the plain page list, so the section gap follows the tabs.
+        // The album grid is a .section on the plain page list, so the section gap follows the tabs.
         // The placeholder fill is close to the page ground, so the element frame stands in for the ink.
         // Different title heights must not move the covers from the top of their grid row.
         let covers = app.buttons.matching(identifier: "performer-album").allElementsBoundByIndex.map(\.frame)

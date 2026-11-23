@@ -133,6 +133,15 @@ final class GaplessEngine: PlaybackEngine {
         }
     }
 
+    /// Puts the engine in the state of a load that sounds on this graph, for tests that drive the node without a
+    /// decoder.
+    func adopt(_ engine: AVAudioEngine, _ node: AVAudioPlayerNode, started: Bool) {
+        self.engine = engine
+        self.node = node
+        self.started = started
+        playing = true
+    }
+
     func replace(_ songs: [Song]) -> Bool {
         let fixed = requested + 1
         guard task != nil, songs.count >= fixed, songs.prefix(fixed).map(\.id) == self.songs.prefix(fixed).map(\.id)
@@ -604,7 +613,9 @@ final class GaplessEngine: PlaybackEngine {
     }
 
     /// Starts the node from silence, so a start inside a waveform (a seek, a resume) does not click.
-    private func start(_ node: AVAudioPlayerNode) throws {
+    /// A node that already plays keeps its level: a second start would dip it to silence.
+    func start(_ node: AVAudioPlayerNode) throws {
+        guard !node.isPlaying else { return }
         fadeIn?.cancel()
         node.volume = 0
         try node.playAudio()

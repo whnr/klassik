@@ -33,13 +33,13 @@ struct SkipFadeTests {
         let engine = AVAudioEngine()
         let node = AVAudioPlayerNode()
         engine.attach(node)
-        engine.connect(node, to: engine.mainMixerNode, format: format)
+        try engine.connectNode(node, to: engine.mainMixerNode, format: format)
         try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 4096)
         try engine.start()
         defer { engine.stop() }
         node.volume = from
         node.scheduleBuffer(wave, at: nil, options: [], completionHandler: nil)
-        node.play()
+        try node.playAudio()
         let out = try #require(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 4096))
         var samples: [Float] = []
         func advance(_ frames: Int) throws {

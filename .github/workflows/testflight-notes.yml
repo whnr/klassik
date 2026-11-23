@@ -12,5 +12,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - run: python3 -m unittest discover -s scripts -p test_testflight_notes.py
       - run: python3 scripts/testflight_notes.py --check

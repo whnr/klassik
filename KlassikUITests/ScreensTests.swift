@@ -1858,6 +1858,11 @@ final class PlaybackScreens: ScreensTestCase {
             return false
         }
         XCTAssertTrue(downloaded, "The download did not finish")
+        // The state is the line below the item (specimen menu.html), in the label or as its own text.
+        let line = NSPredicate(format: "label CONTAINS 'Downloaded, '")
+        XCTAssertTrue(
+            app.staticTexts.matching(line).firstMatch.exists || app.buttons.matching(line).firstMatch.exists,
+            "Remove Download has no line below it")
         snap(app, "05a-downloaded")
         closeMenu(app)
         back(app, times: 3)

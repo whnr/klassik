@@ -135,13 +135,11 @@ struct PageMenuItems: View {
                     Button(role: item.isDestructive ? .destructive : nil) {
                         run(item.action)
                     } label: {
-                        // A second text is the line below the title in a system menu.
-                        Label {
-                            Text(item.title)
-                            if let subtitle = item.subtitle { Text(subtitle) }
-                        } icon: {
-                            Image(systemName: item.systemImage)
-                        }
+                        // A system menu reads a plain label: the first text is the title, a second text the line
+                        // below it, the image the symbol. Inside a Label it drops the second text.
+                        Text(item.title)
+                        if let subtitle = item.subtitle { Text(subtitle) }
+                        Image(systemName: item.systemImage)
                     }
                     .disabled(item.isDisabled)
                     .accessibilityIdentifier(item.action.identifier)

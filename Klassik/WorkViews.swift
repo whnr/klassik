@@ -727,24 +727,7 @@ struct RecordingView: View {
     /// player.html `.hero`). Names with a page are links.
     private func hero(_ page: PlayerPage) -> some View {
         VStack(spacing: Layout.heroGap) {
-            // A drag from the cover or the title moves the whole player, so it takes a downward drag from the list scroll.
-            VStack(spacing: Layout.heroGap) {
-                CoverImage(
-                    song: isPlayingThis ? model.playback.coverSong : recording.songs.first,
-                    points: Layout.bigCover, playback: isPlayingThis
-                )
-                .frame(width: Layout.bigCover, height: Layout.bigCover)
-                .clipShape(.rect(cornerRadius: Layout.bigCoverCorner))
-                .accessibilityElement()
-                .accessibilityLabel("Cover")
-                .accessibilityIdentifier("hero-cover")
-                .padding(.bottom, Layout.bigCoverBottom)
-                heroTitle
-                    .accessibilityAddTraits(.isHeader)
-            }
-            .frame(maxWidth: .infinity)
-            .contentShape(.rect)
-            .closeDragged(closeDrag)
+            heading(closeDrag)
             if let composer = page.composer {
                 RoleLines(
                     lines: [Roles.Line(kind: .unlabelled, label: "", names: [composer])], alignment: .center,
@@ -768,6 +751,33 @@ struct RecordingView: View {
         }
         .multilineTextAlignment(.center)
         .frame(maxWidth: .infinity)
+    }
+
+    /// The cover and the title. In the overlay one drag zone wraps them; its UIKit pan begins only for a downward move,
+    /// so an upward drag scrolls the list. The page has no wrapper: it would change how the favourite mark takes a tap.
+    @ViewBuilder private func heading(_ drag: PlayerCloseDrag?) -> some View {
+        let content = Group {
+            CoverImage(
+                song: isPlayingThis ? model.playback.coverSong : recording.songs.first,
+                points: Layout.bigCover, playback: isPlayingThis
+            )
+            .frame(width: Layout.bigCover, height: Layout.bigCover)
+            .clipShape(.rect(cornerRadius: Layout.bigCoverCorner))
+            .accessibilityElement()
+            .accessibilityLabel("Cover")
+            .accessibilityIdentifier("hero-cover")
+            .padding(.bottom, Layout.bigCoverBottom)
+            heroTitle
+                .accessibilityAddTraits(.isHeader)
+        }
+        if let drag {
+            VStack(spacing: Layout.heroGap) { content }
+                .frame(maxWidth: .infinity)
+                .contentShape(.rect)
+                .gesture(drag.heroGesture)
+        } else {
+            content
+        }
     }
 
     /// The album line opens the album; a performer with a page opens it.
@@ -1559,12 +1569,5 @@ struct CapsuleLabel: View {
         .frame(maxWidth: .infinity, minHeight: Layout.capsuleHeight)
         .background(filled ? Palette.accentFill : Palette.fillQuiet, in: .capsule)
         .contentShape(.capsule)
-    }
-}
-
-extension View {
-    /// Gives a downward drag to the player's close gesture when there is one; every other drag scrolls the page.
-    @ViewBuilder fileprivate func closeDragged(_ drag: PlayerCloseDrag?) -> some View {
-        if let drag { gesture(drag.heroGesture) } else { self }
     }
 }

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Checks the decided design: the contrast targets in every accent and room, and the links between ADRs.
 
-The colour rules are in design/specimen/tokens.html.
+The colour rules are on the token page of the specimen.
 
 A record that replaces part of another must be answered: the old record links back, and its index row names it.
 
@@ -49,7 +49,7 @@ def colours(group, path=()):
 
 
 def pairs(room):
-    """The pairs that design/specimen/tokens.html promises, as (foreground, background, target)."""
+    """The pairs that the token page of the specimen promises, as (foreground, background, target)."""
     if room.endswith("HighContrast"):
         # Increase Contrast: AAA for text, 4.5:1 for marks, on every ground.
         text, mark, label = 7, 4.5, 7
@@ -175,6 +175,68 @@ def check_vague(root=ROOT):
     return problems
 
 
+# A specimen file named in parentheses, such as "(specimen player.html `.wash`)", and a bead ID in Markdown.
+TAG = re.compile(r"\((?:(?:specimen|see|per|from)\s+)?(?:design/specimen/)?[\w-]+\.(?:html|css|js)\b[^)]*\)", re.I)
+# Only the comment part of a line is checked, so a code string or a URL never matches.
+COMMENT = re.compile(r"(?<!:)//|#|/\*|<!--|^\s*\*")
+# The marker that opens each line of a comment, dropped when a run of lines is joined.
+MARKER = re.compile(r"^\s*(?:/{2,}|#+|/\*+|<!--|\*+(?!/))\s*")
+BEAD = re.compile(r"\bsz-(?=[a-z0-9.]*\d)[a-z0-9.]+")
+TAG_SKIP = ("design/scripts/check.py", "scripts/test_design_check.py")
+
+
+def comment_tag_lines(text):
+    """Line numbers where a specimen tag starts; a run of comment lines is one text, so a wrapped tag counts."""
+    found, run, in_block = [], [], False
+    # Each run entry is (line number, comment text of that line).
+    for number, line in enumerate(text.splitlines(), 1):
+        if in_block:
+            part = line
+        else:
+            comment = COMMENT.search(line)
+            part = line[comment.start() :] if comment else None
+        if part is None:
+            found += _run_tags(run)
+            run = []
+            continue
+        run.append((number, part))
+        opened = max(part.rfind("/*"), part.rfind("<!--"))
+        closed = max(part.rfind("*/"), part.rfind("-->"))
+        in_block = opened > closed if opened >= 0 else (in_block and closed < 0)
+    return found + _run_tags(run)
+
+
+def _run_tags(run):
+    joined, starts = "", []
+    for number, part in run:
+        starts.append((len(joined), number))
+        joined += MARKER.sub("", part) + " "
+    lines = []
+    for match in TAG.finditer(joined):
+        lines.append(max(n for at, n in starts if at <= match.start()))
+    return lines
+
+
+def check_tags(root=ROOT):
+    """Comments name no specimen file in parentheses, and documents name no bead."""
+    files = subprocess.run(["git", "ls-files"], cwd=root, capture_output=True, text=True, check=True).stdout.split("\n")
+    problems = []
+    for name in filter(None, files):
+        if name in TAG_SKIP or name.endswith((".png", ".jpg", ".ttf", ".otf", ".json")):
+            continue
+        try:
+            text = (root / name).read_text()
+        except (OSError, UnicodeDecodeError):
+            continue
+        if not name.endswith(".md"):
+            for number in comment_tag_lines(text):
+                problems.append(f"{name}:{number}: a comment tags a specimen file")
+        for number, line in enumerate(text.splitlines(), 1):
+            if name.endswith(".md") and BEAD.search(line):
+                problems.append(f"{name}:{number}: a document names a bead")
+    return problems
+
+
 def check_chain():
     """The rule of docs/adr/README.md: each "Replaces" sentence in a header line has a pointer back and an index row."""
     adr = ROOT / "docs/adr"
@@ -196,7 +258,7 @@ def check_chain():
 
 def main():
     failures = check_contrast()
-    broken = check_links() + check_chain() + check_mentions() + check_vague()
+    broken = check_links() + check_chain() + check_mentions() + check_vague() + check_tags()
     for line in failures:
         print(f"FAIL contrast: {line}")
     for line in broken:

@@ -213,7 +213,7 @@ private struct GenreChips: View {
     @ScaledMetric(relativeTo: .subheadline) private var height = Layout.chipHeight
 }
 
-/// One credit line as in the specimen: the source, then its link in the tint (person.html, `.link`).
+/// One credit line as in the specimen: the source, then its link in the tint.
 /// Increase Contrast underlines the link in its own colour.
 struct CreditRow: View {
     @Environment(\.colorSchemeContrast) private var contrast
@@ -376,7 +376,7 @@ struct PersonHero: View {
                 .padding(.bottom, spacesChronology ? Layout.pictureBottom + Layout.buttonRowTop : 0)
             } else {
                 // No picture: the name sits close under the back arrow, as a page title does. Its edge is the page
-                // edge, as `.page-head` in person.html: 20 pt without a timeline, 16 pt on the side
+                // edge, as `.page-head`: 20 pt without a timeline, 16 pt on the side
                 // away from it. The width frame keeps the list from insetting the name, as in the picture branch.
                 heading
                     .frame(width: width, alignment: .leading)
@@ -420,7 +420,7 @@ struct PersonHero: View {
                     action: { model.recordingOrder.toggleAtOnce(person: name) }, textIdentifier: "\(kind)-title",
                     ink: portrait == nil ? Palette.textPrimary.color : paper, minimumHeight: nil
                 )
-                // The portrait scrim uses the dark room's ink and favourite colours (picture.css).
+                // The portrait scrim uses the dark room's ink and favourite colours.
                 .environment(\.colorScheme, portrait == nil ? scheme : .dark)
                 .accessibilityIdentifier("favourite-\(kind)")
             } else {
@@ -505,7 +505,7 @@ struct PersonHero: View {
     private func picture(_ portrait: LoadedPortrait, framing: CGRect, frame: CGSize) -> some View {
         // The scrim comes from the picture under the text, as the frame shows it.
         let visible = PortraitFraming.visible(of: framing, in: frame)
-        // From the bottom: the text block with a margin, the blur strip, and the fade of the scrim (picture.css).
+        // From the bottom: the text block with a margin, the blur strip, and the fade of the scrim.
         let geometry = ScrimGeometry(
             frame: frame, textHeight: textHeight, textRight: textRight ?? frame.width, margin: Space.m.points)
         let under = geometry.under
@@ -594,7 +594,7 @@ struct PersonHero: View {
     }
 }
 
-/// The credit under the whole picture: author and licence, then "File page" in the tint (person.html, `.link`).
+/// The credit under the whole picture: author and licence, then "File page" in the tint.
 /// Increase Contrast underlines the link in its own colour.
 private struct PictureCredit: View {
     @Environment(\.colorSchemeContrast) private var contrast

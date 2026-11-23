@@ -214,7 +214,7 @@ struct WorkRow: View {
     }
 
     /// The one line under the title: when the work was composed, then the recordings, as
-    /// "Composed 1844, 1 recording" (person.html workRow). The track titles stay on the work page: in a list they
+    /// "Composed 1844, 1 recording". The track titles stay on the work page: in a list they
     /// repeat the title or name one movement.
     nonisolated static func detail(of work: WorkIndex.Work, composed: String?) -> String {
         let recordings = WorkIndex.Recording.count(work.recordings.count, "recording")
@@ -406,7 +406,7 @@ private struct WorkHeader: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// When the work was composed, as plain text (specimen work.html).
+    /// When the work was composed, as plain text.
     private var composed: some View {
         let enrichment = model.enrichment
         let text =
@@ -580,7 +580,7 @@ struct RecordingView: View {
                         }
                     }
                 } else {
-                    // The rows follow the header with no heading (specimen player.html).
+                    // The rows follow the header with no heading.
                     Section {
                         ForEach(Array(recording.songs.enumerated()), id: \.element.id) { index, song in
                             movementRow(song, at: index, page: page, title: recording.title(of: song))
@@ -607,7 +607,7 @@ struct RecordingView: View {
             }
             .onChange(of: model.isScrubbing) { _, scrubbing in spell.hold(scrubbing) }
             .onChange(of: draft != nil) { _, writing in spell.writing(writing) }
-            // specimen player.html: each second, after a quiet spell, the player brings the playing row back.
+            // Each second, after a quiet spell, the player brings the playing row back.
             .task(id: isOverlay && isPlayingThis) {
                 guard isOverlay, isPlayingThis else { return }
                 // Opening the player counts as a touch, so its header shows for one spell.
@@ -686,7 +686,7 @@ struct RecordingView: View {
         }
     }
 
-    /// The end of the player: the next queue item, or where the queue ends (specimen player.html).
+    /// The end of the player: the next queue item, or where the queue ends.
     @ViewBuilder private var tail: some View {
         let player = model.playback
         switch PlayerTail(isPlaying: isPlayingThis, upNext: player.upNext.map(\.id)) {
@@ -723,8 +723,7 @@ struct RecordingView: View {
     /// The player is the overlay only. The page of the playing item shows no playing row.
     private var showsPlayer: Bool { isOverlay && isPlayingThis }
 
-    /// The cover, the title, then what every track shares in centred lines, the facts and the Play buttons (specimen
-    /// player.html `.hero`). Names with a page are links.
+    /// The cover, the title, then what every track shares in centred lines, the facts and the Play buttons. Names with a page are links.
     private func hero(_ page: PlayerPage) -> some View {
         VStack(spacing: Layout.heroGap) {
             heading(closeDrag)
@@ -789,7 +788,7 @@ struct RecordingView: View {
         return model.library.index.performer(named: name) == nil ? nil : .performer(name)
     }
 
-    /// A name in a row opens its page as in the header (specimen player.html `performerRows`).
+    /// A name in a row opens its page as in the header.
     private func rowLink(_ line: Roles.Line, _ name: String) -> Page? {
         if line.kind == .other, line.label == PlayerPage.composerLabel {
             return model.library.index.composer(named: name) == nil ? nil : .composer(name)
@@ -808,8 +807,8 @@ struct RecordingView: View {
         }
     }
 
-    /// Play and Play Album while the item does not play. While it plays, the page offers the player (specimen
-    /// player.html). The overlay shows neither.
+    /// Play and Play Album while the item does not play. While it plays, the page offers the player.
+    /// The overlay shows neither.
     @ViewBuilder private var actions: some View {
         let player = model.playback
         if !isPlayingThis {
@@ -1042,11 +1041,11 @@ private struct MovementRow: View {
     }
 
     /// The playing row: its title, the names that differ, the playback bar with the note marks, the controls, the
-    /// notes and the note that the listener writes (specimen player.html `openBody`).
+    /// notes and the note that the listener writes.
     private var playing: some View {
         let player = model.playback
         return VStack(alignment: .leading, spacing: gap) {
-            // The bold title marks the playing row (specimen player.html). VoiceOver hears it too.
+            // The bold title marks the playing row. VoiceOver hears it too.
             HStack {
                 MovementTitle(title: title, style: .headline)
                     .accessibilityLabel("Now playing, \(title)")
@@ -1068,7 +1067,7 @@ private struct MovementRow: View {
     }
 }
 
-/// The controls of the playing row, centred in ink (specimen player.html `.mv-controls`). Next Work and Stop follow
+/// The controls of the playing row, centred in ink. Next Work and Stop follow
 /// Next: the specimen has neither, but the queue needs them.
 private struct PlayerControls: View {
     let player: PlaybackSession
@@ -1127,7 +1126,7 @@ private struct PlayerControls: View {
     }
 }
 
-/// The notes of a movement, earliest first. The time is a prefix in the tint (specimen player.html `.note`). A tap
+/// The notes of a movement, earliest first. The time is a prefix in the tint. A tap
 /// on the text moves to the note; a tap on its time moves there and plays.
 private struct NoteList: View {
     let notes: [ListeningNote]
@@ -1267,7 +1266,7 @@ private struct MovementTitle: View {
 }
 
 /// A button that does not dim its label while a finger is down. A row that opens must not flash its duration and its
-/// offline mark (specimen player.html `.track .row`).
+/// offline mark.
 struct StillButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -1547,7 +1546,7 @@ private struct NextItemRow: View {
     }
 }
 
-/// A capsule button face (specimen.css .capsule): filled in the accent, or muted on the quiet fill.
+/// A capsule button face: filled in the accent, or muted on the quiet fill.
 struct CapsuleLabel: View {
     let title: String
     let systemImage: String?

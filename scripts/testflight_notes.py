@@ -23,6 +23,8 @@ DEVELOPMENT_TERMS = re.compile(
     re.IGNORECASE,
 )
 
+BEAD_ID = re.compile(r"\bsz-[a-z0-9]")
+
 
 def validate(notes, version):
     if not notes.startswith(f"Klassik {version}\n"):
@@ -31,6 +33,8 @@ def validate(notes, version):
         )
     if len(notes) > 4000:
         raise ValueError(f"docs/what-to-test.md has {len(notes)} characters; TestFlight allows 4000.")
+    if BEAD_ID.search(notes):
+        raise ValueError("docs/what-to-test.md names a bead ID. Testers cannot read the ledger.")
     match = DEVELOPMENT_TERMS.search(notes)
     if match:
         raise ValueError(f"Development term in docs/what-to-test.md: {match.group()}. Use installed-app checks only.")

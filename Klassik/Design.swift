@@ -184,8 +184,7 @@ struct PageForm<Content: View>: View {
     }
 }
 
-/// The head of a sheet under the system grabber: a leading title and a plain Done in the tint
-/// (specimen.css `.sheet .sheet-head`).
+/// The head of a sheet under the system grabber: a leading title and a plain Done in the tint.
 struct SheetHead: View {
     let title: String
     let done: () -> Void
@@ -282,7 +281,7 @@ private struct PageHeading: View {
     }
 }
 
-/// Every page title has the specimen gaps above and below (specimen.css `.page-head`). A grouped list keeps the
+/// Every page title has the specimen gaps above and below. A grouped list keeps the
 /// system side insets and takes only the vertical gaps.
 private struct HeadingInsets: ViewModifier {
     let plain: Bool

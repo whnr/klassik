@@ -2,7 +2,7 @@ import Foundation
 
 /// What the position bar of the playing movement shows. While a finger drags, the bar follows the finger. After
 /// the finger lifts, the bar holds the new place until the player reports it, so the bar does not jump back to
-/// the old place while the movement starts again (specimen player.html `.mv-bar`).
+/// the old place while the movement starts again.
 struct PositionScrub {
     /// A reported position this close to the new place counts as arrived, in seconds.
     static let arrival = 1.0

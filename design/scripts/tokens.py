@@ -319,7 +319,7 @@ def swift_colours(resolver, tokens):
         *swift_enum(
             "AccentFamily",
             "String, CaseIterable, Sendable",
-            "An accent family (design/specimen/tokens.html). The raw value is the folder of its colour sets.",
+            "An accent family. The raw value is the folder of its colour sets.",
             [f'{accent} = "{upper_camel(accent)}"' for accent in accents["contexts"]],
         ),
         "",
@@ -378,7 +378,7 @@ def swift_type_styles(tokens):
         *swift_enum(
             "TypeStyle",
             "CaseIterable, Sendable",
-            "A text style (design/specimen/tokens.html). `typeStyle(_:)` sets it on a view.",
+            "A text style. `typeStyle(_:)` sets it on a view.",
             [style["name"] for style in styles],
         ),
         "",

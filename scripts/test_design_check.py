@@ -139,6 +139,63 @@ class RepoTests(unittest.TestCase):
             ],
         )
 
+    def test_specimen_tag_and_bead_fail(self):
+        root = self.repo(
+            {
+                "a.swift": b"/// A style (design/specimen/tokens.html).\n",
+                "b.md": b"Check it. (sz-abc1.2)\n",
+                "ok.md": b"Run `unix:sz-codex`. The page tokens.html loads.\n",
+                "ok.swift": b"/// A style of the token page.\n",
+                "str.swift": b'let a = "(tokens.html)"\nlet u = "https://x.test/(tokens.html)"\n',
+                "prose.swift": b"/// As work.html draws them, with css: tokens.css .a\n",
+            }
+        )
+        self.assertEqual(
+            design_check.check_tags(root),
+            ["a.swift:1: a comment tags a specimen file", "b.md:1: a document names a bead"],
+        )
+
+    def test_wrapped_specimen_tag_fails(self):
+        root = self.repo(
+            {
+                "line.swift": b"let a = 1\n/// The hero (specimen\n/// player.html `.hero`). Names link.\nlet b = 2\n",
+                "block.swift": b"/* The rows (specimen\n   player.html `rows`) */\n",
+                "star.swift": b"/**\n * The rows (specimen\n * player.html `rows`)\n */\n",
+                "page.html": b"<!-- The rows (specimen\n  player.html `rows`) -->\n",
+                "ok.swift": b"/// One note (specimen\n\nplayer.html) in code.\n",
+            }
+        )
+        self.assertEqual(
+            design_check.check_tags(root),
+            [
+                "block.swift:1: a comment tags a specimen file",
+                "line.swift:2: a comment tags a specimen file",
+                "page.html:1: a comment tags a specimen file",
+                "star.swift:2: a comment tags a specimen file",
+            ],
+        )
+
+    def test_specimen_tag_forms_fail(self):
+        forms = {
+            "bare.swift": "/// A style (tokens.html).",
+            "path.swift": "/// A style (design/specimen/tokens.html).",
+            "comma.swift": "/// A style (search.html, the sheet).",
+            "class.swift": "/// The field (search.html .narrow).",
+            "name.swift": "/// A row (person.html workRow).",
+            "ticks.swift": "/// The kind in bold (search.html `.seg button.on`).",
+            "caps.swift": "// Buttons beside the row (tokens.html SWIPE).",
+            "lead.swift": "/// The wash (specimen player.html `.wash`).",
+            "see.swift": "// Gaps above the title (see specimen.css `.page-head`).",
+            "per.swift": "# Title and Done (per specimen.js K.sheet)",
+            "from.swift": "/// The icon (from tokens.js ICON.chronology).",
+            "html.html": "// Swipe Right opens Download (tokens.html SWIPE).",
+        }
+        root = self.repo({name: (text + "\n").encode() for name, text in forms.items()})
+        self.assertEqual(
+            design_check.check_tags(root),
+            [f"{name}:1: a comment tags a specimen file" for name in sorted(forms)],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

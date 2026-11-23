@@ -359,7 +359,7 @@ extension EnvironmentValues {
 }
 
 /// The ground of the player. While its item plays, the wash lies at the top of the content and fades into the page
-/// ground over `Layout.washHeight` (specimen player.html `.wash`). Rows and grouped grounds keep their colours.
+/// ground over `Layout.washHeight`. Rows and grouped grounds keep their colours.
 struct PlayerGround: View {
     @Environment(\.playerWash) private var wash
 

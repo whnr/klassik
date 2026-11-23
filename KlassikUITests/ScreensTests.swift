@@ -431,7 +431,7 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertGreaterThan(done.frame.minY, app.frame.height / 3, "The sheet is not at the medium detent")
         XCTAssertEqual(app.staticTexts["filter-total"].label, "4\u{00A0}recordings")
         // The head and the body share one inset: Back leads the head, the title follows it, and the note and the
-        // kinds start under Back; the kinds reach to Done (search.html .fsheet).
+        // kinds start under Back; the kinds reach to Done.
         let back = app.buttons["filter-back"]
         let title = app.staticTexts["Filters"]
         XCTAssertGreaterThan(title.frame.minX, back.frame.maxX, "The title does not follow Back")
@@ -649,7 +649,7 @@ final class BrowseScreens: ScreensTestCase {
             several.tap()
             let listed = app.buttons.matching(identifier: "chronology-listed-work").firstMatch
             XCTAssertTrue(listed.waitForExistence(timeout: 10), "A row of several works lists none")
-            // The sheet head has a leading title and a plain Done on its trailing edge (specimen.js K.sheet).
+            // The sheet head has a leading title and a plain Done on its trailing edge.
             let title = app.staticTexts["sheet-title"]
             let done = app.buttons["sheet-done"]
             XCTAssertTrue(title.exists, "The sheet has no head")
@@ -1007,7 +1007,7 @@ final class BrowseScreens: ScreensTestCase {
             .matching(NSPredicate(format: "label BEGINSWITH %@", title + " (")).firstMatch
     }
 
-    /// The work page offers no MusicBrainz confirmation, and the date is plain text (specimen work.html).
+    /// The work page offers no MusicBrainz confirmation, and the date is plain text.
     /// Ambiguous matches are picked from the sources page, which the status list opens.
     @MainActor
     func testWorkPageHasNoConfirmButton() throws {
@@ -1455,7 +1455,7 @@ final class PlaybackScreens: ScreensTestCase {
         expectMovementPlayEdge(app)
     }
 
-    /// The recording page matches specimen player.html: the header with linked names and a facts line, then the
+    /// The recording page matches the specimen: the header with linked names and a facts line, then the
     /// rows with no heading and no settings rows. While it plays, only the overlay is the player; the page offers it.
     @MainActor
     func testRecordingPageAndPlayer() throws {
@@ -1763,8 +1763,7 @@ final class PlaybackScreens: ScreensTestCase {
         snap(app, "05e-play-album")
     }
 
-    /// An opened row links the names that differ from the header, as the header does (specimen player.html
-    /// `performerRows`). On an album of two composers, each row names its composer.
+    /// An opened row links the names that differ from the header, as the header does. On an album of two composers, each row names its composer.
     @MainActor
     func testMovementNamesAreLinks() throws {
         let app = try launchAndConnect()
@@ -1794,7 +1793,7 @@ final class PlaybackScreens: ScreensTestCase {
     }
 
     /// A name in the playing row of the overlay is a link too. It closes the player and opens the page in the place
-    /// below, as a header link does (specimen player.html `performerRows`).
+    /// below, as a header link does.
     @MainActor
     func testPlayingRowNamesLinkFromTheOverlay() throws {
         let app = try launchAndConnect()
@@ -1864,7 +1863,7 @@ final class PlaybackScreens: ScreensTestCase {
     }
 
     /// The ⋯ menu of the work, recording and album pages and the long-press menu of a recording row keep the order of
-    /// specimen menu.html: queue, download, tags. The row menu has Play on top.
+    /// The specimen menu: queue, download, tags. The row menu has Play on top.
     @MainActor
     func testPageMenus() throws {
         let app = try launchAndConnect()
@@ -1945,7 +1944,7 @@ final class PlaybackScreens: ScreensTestCase {
             return false
         }
         XCTAssertTrue(downloaded, "The download did not finish")
-        // The state is the line below the item (specimen menu.html), in the label or as its own text.
+        // The state is the line below the item, in the label or as its own text.
         let line = NSPredicate(format: "label CONTAINS 'Downloaded, '")
         XCTAssertTrue(
             app.staticTexts.matching(line).firstMatch.exists || app.buttons.matching(line).firstMatch.exists,
@@ -2478,7 +2477,7 @@ final class SettingsScreens: ScreensTestCase {
         // Swipe Actions in Library comes before the tint in Colour, because the walk only scrolls down.
         reveal(app.buttons["swipe-actions"], in: app).tap()
         XCTAssertTrue(app.navigationBars["Swipe Actions"].waitForExistence(timeout: 10))
-        // The list shows the buttons as the row does: Play Next left of Add to Queue (tokens.html SWIPE).
+        // The list shows the buttons as the row does: Play Next left of Add to Queue.
         let playNext = app.staticTexts["Play Next"].firstMatch
         let addToQueue = app.staticTexts["Add to Queue"].firstMatch
         XCTAssertTrue(playNext.waitForExistence(timeout: 10) && addToQueue.exists, "No swipe left actions")
@@ -3325,7 +3324,7 @@ class ScreensTestCase: XCTestCase {
     }
 
     /// The player of a new item opens at its top, so its wash keeps the full colour below the details and fades into
-    /// the page ground at `Layout.washHeight` (specimen player.html resets scrollTop when the item changes).
+    /// the page ground at `Layout.washHeight`, as the specimen does when the item changes.
     /// The wash comes after its cover loads, so the check waits for it, but for less than the quiet spell.
     @MainActor
     func expectWashFromTheTop(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
@@ -3494,7 +3493,7 @@ class ScreensTestCase: XCTestCase {
             file: file, line: line)
     }
 
-    /// The work page against work.html: title, meta line, Play, then the Recordings heading.
+    /// The work page against the specimen: title, meta line, Play, then the Recordings heading.
     @MainActor
     func checkWorkPage(_ app: XCUIApplication) {
         // The work title is the favourite button, which hides its text from static-text queries.
@@ -3540,7 +3539,7 @@ class ScreensTestCase: XCTestCase {
             "Recording hairline")
     }
 
-    /// The composer page without a picture against person.html: Chronology, the tabs, the chips, the Works heading.
+    /// The composer page without a picture against the specimen: Chronology, the tabs, the chips, the Works heading.
     @MainActor
     func checkComposerPage(_ app: XCUIApplication) {
         let chronologyElement = app.buttons["composer-chronology"]

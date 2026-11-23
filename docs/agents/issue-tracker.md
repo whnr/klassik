@@ -16,7 +16,7 @@ The ledger is private. Only the owner and authorized agents can read it. This wo
 
 ## Conventions
 
-- Scope: epic `sz-rs30.1`, label `repo:klassik`. Every new bead is a child of `sz-rs30.1` or of one of its epics.
+- Scope: label `repo:klassik`. Every new bead carries it. Documentation never names a bead ID.
 - Seat `code`. Codex workers use ledger actor `codex`; other coding agents use `code`.
 - Pass `--actor` on every write. Set `SZ_SESSION`; `sz` supplies the session reference.
 - Issue type: `--type` (epic, task, feature, bug). Never `type:*` labels.
@@ -45,7 +45,7 @@ The examples below use actor `code`. Codex workers substitute `codex`.
 
 Used by `/wayfinder`. The **map** is an epic bead with one **child** bead per ticket.
 
-- **Map**: an epic under `sz-rs30.1`. Its description holds the Notes, Decisions-so-far and Fog.
+- **Map**: an epic with label `repo:klassik`. Its description holds the Notes, Decisions-so-far and Fog.
 - **Child ticket**: a bead with `--parent <map>` and `--type task`. The question is in the description. The first line `Type: <research|prototype|grilling|task>` records the ticket type.
 - **Blocking**: a `blocks` link. A ticket is unblocked when every blocker is closed.
 - **Frontier**: `sz bd ready --label repo:klassik --json --limit 20`, filtered to the children of the map.

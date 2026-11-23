@@ -397,7 +397,7 @@ extension Place {
         return tab
     }
 
-    /// Chronology draws the specimen lifelines (specimen.js `ICON.chronology`). It is a template image, so the tab
+    /// Chronology draws the specimen lifelines. It is a template image, so the tab
     /// bar tints it as it tints a system symbol.
     var image: UIImage? {
         switch self {

@@ -92,7 +92,7 @@ struct ChronologyView: View {
 }
 
 /// The name of the composer in focus, which opens the composer page, and the facts line. The name is
-/// a page title: `h1[class]` in specimen.css sets it over the `t-title2` class of chronology.html.
+/// a page title: `h1[class]` in specimen.css sets it over the `t-title2` class.
 private struct ChronologyHead: View {
     let chronology: Chronology
     let focus: Chronology.Composer?
@@ -177,7 +177,7 @@ private struct ListedWorksSheet: View {
                 }
             }
             .environment(\.pageHeading, "")
-            // The specimen sheet head replaces the bar: a leading title and a plain Done (specimen.js `K.sheet`).
+            // The specimen sheet head replaces the bar: a leading title and a plain Done.
             .toolbar(.hidden, for: .navigationBar)
             .safeAreaInset(edge: .top, spacing: 0) {
                 SheetHead(title: listed.title, done: { dismiss() })

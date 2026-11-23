@@ -4,13 +4,18 @@
 // biome-ignore lint/correctness/noUnusedVariables: every page script and look file reads K as a global.
 const K = (() => {
   const params = new URLSearchParams(location.search);
+  // Links made before the tab key had this name still open the right tab.
+  if (params.has("place")) {
+    if (!params.has("tab")) params.set("tab", params.get("place"));
+    params.delete("place");
+  }
   // The page name lets the CSS keep inset grouped lists in Settings (the token sheet) only.
   document.documentElement.dataset.page = location.pathname.split("/").pop().replace(".html", "") || "index";
   // Variant files carry the stamp of specimen.js, so Safari loads new copies with it.
   const STAMP = document.currentScript ? new URL(document.currentScript.src).searchParams.get("v") || "" : "";
   // The player overlay shows its page in a frame over the tab; the frame has no chrome of its own.
   const embedded = params.get("embed") === "player";
-  const CARRIED = ["variant", "look", "theme", "paper", "contrast", "size", "playing", "side", "edge", "place"];
+  const CARRIED = ["variant", "look", "theme", "paper", "contrast", "size", "playing", "side", "edge", "tab"];
   const SIZES = [
     "xSmall",
     "small",
@@ -860,7 +865,7 @@ const K = (() => {
     const roots = { library: "index.html", chronology: "chronology.html", search: "search.html" };
     const item = (id, name) => {
       const link = el("a", {
-        href: href(roots[id], { place: id }),
+        href: href(roots[id], { tab: id }),
         class: tab === id ? "on" : null,
         "aria-label": name,
         "aria-current": tab === id ? "page" : null,
@@ -874,13 +879,13 @@ const K = (() => {
             store("stack." + tab, current.href);
             const destination = new URL(
               tab === id && !leavingPlayer
-                ? href(roots[id], { place: id, back: params.get("back") })
-                : store("stack." + id) || href(roots[id], { place: id, back: chrome.title || tab }),
+                ? href(roots[id], { tab: id, back: params.get("back") })
+                : store("stack." + id) || href(roots[id], { tab: id, back: chrome.title || tab }),
               location.href,
             );
             destination.searchParams.delete("overlay");
             for (const name of CARRIED) {
-              if (name === "place") continue;
+              if (name === "tab") continue;
               if (params.has(name)) destination.searchParams.set(name, params.get(name));
               else destination.searchParams.delete(name);
             }
@@ -918,8 +923,8 @@ const K = (() => {
     // Settings and its pages keep inset grouped lists; content pages use plain lists.
     document.documentElement.classList.toggle("grouped", grouped);
     const filename = location.pathname.split("/").pop();
-    if (!["index.html", "chronology.html", "search.html", ""].includes(filename)) tab = params.get("place") || tab;
-    params.set("place", tab);
+    if (!["index.html", "chronology.html", "search.html", ""].includes(filename)) tab = params.get("tab") || tab;
+    params.set("tab", tab);
     const app = el("div", { class: "app" + (plain ? " plain" : "") });
     const backLabel = embedded ? null : params.get("back") || back?.label;
     // The accessibility label keeps the destination name.
@@ -947,7 +952,7 @@ const K = (() => {
       nav.querySelector(".actions").append(
         el("a", {
           class: "settings-link",
-          href: href("settings.html", { place: "library", back: "Library" }),
+          href: href("settings.html", { tab: "library", back: "Library" }),
           "aria-label": "Settings",
           html: ICON.settings,
         }),

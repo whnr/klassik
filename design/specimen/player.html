@@ -10,6 +10,14 @@
     <script src="specimen.js?v=52"></script>
   </head>
   <body>
+    <!--
+  - A queue item is one recording of a work, or one album. Two items never join without a gap. No Shuffle before 1.0.
+  - The player is an overlay above every tab, never a page on a stack.
+  - No rule shortens a title or a name. A row opens only when it holds something.
+  - A tapped row does not move. The view scrolls back to the playing row only after a quiet spell.
+  - A note is written in the playing row, never in a modal.
+  - The timeline shows the whole work or album and never opens the player.
+-->
     <style>
       .wash {
         position: absolute;
@@ -190,7 +198,7 @@
         width: 30px;
         height: 30px;
       }
-      /* Player rows (ADR 0027): a faint play button at the end of every row; a row opens only with what differs. */
+      /* Player rows: a faint play button at the end of every row; a row opens only with what differs. */
       .round.faint {
         background: var(--color-fill-quiet);
         color: var(--color-text-secondary);
@@ -307,7 +315,7 @@
         let item =
           pageItem() || K.resolveItem(["recording", "640qawSbxRzx7BX6z3M2wM", "Symphony No. 5 in C minor, Op. 67"]);
         const playingHere = () => K.current() && K.current().id === item.id;
-        // Only the overlay is the player (ADR 0014); the same page outside it is the recording or album page.
+        // Only the overlay is the player; the same page outside it is the recording or album page.
         const asPlayer = () => K.embedded && playingHere();
 
         const { app, scroll } = K.page({
@@ -382,7 +390,7 @@
                   .filter(Boolean),
               ),
             );
-          // One line per role, the album as one more labelled line (sz-rs30.1.83.16).
+          // One line per role, the album as one more labelled line.
           const albumLine =
             item.kind === "recording" ? [{ label: "album", list: [{ name: item.album.name, album: true }] }] : [];
           const roles = K.roleBlock(shared(), {
@@ -429,7 +437,7 @@
               K.playItem(item);
               render();
             });
-            // A recording on a disc with more tracks also plays the whole disc, from a muted capsule (sz-3hcq.2).
+            // A recording on a disc with more tracks also plays the whole disc, from a muted capsule.
             const wholeAlbum =
               item.kind === "recording" && item.album.song.length > item.songs.length
                 ? el("button", {
@@ -482,14 +490,28 @@
             },
           });
 
+        const pauseButton = () =>
+          el("button", {
+            class: "round quiet",
+            "aria-label": K.P.paused ? "Resume" : "Pause",
+            html: K.P.paused ? ICON.play : ICON.pause,
+            onclick: (e) => {
+              e.stopPropagation();
+              K.togglePause();
+              render();
+            },
+          });
+
         // The row head keeps one height whether open or not, so a tapped row never moves.
         function trackRow(s, i, work) {
           const isPlaying = asPlayer() && K.P.index === i;
           // A row opens only when it holds something: performers that differ from the page, or notes.
           const opens = !isPlaying && hasContent(s, i);
           const isOpen = isPlaying || (opens && open.has(i));
-          const block = el("div", { class: "row-block track" });
-          const trail = el("span", { class: "slot" }, isPlaying ? null : faintPlay(i));
+          // On the recording page the movement that plays is tinted and its button pauses it. Only the overlay is the player.
+          const current = playingHere() && !asPlayer() && K.P.index === i;
+          const block = el("div", { class: "row-block track" + (current ? " playing" : "") });
+          const trail = el("span", { class: "slot" }, isPlaying ? null : current ? pauseButton() : faintPlay(i));
           const tap = () => {
             if (isPlaying || !opens) return;
             open.has(i) ? open.delete(i) : open.add(i);
@@ -516,7 +538,7 @@
           return block;
         }
 
-        // ADR 0014: only the performers that differ from the whole page, one line per role. Never cut.
+        // Only the performers that differ from the whole page, one line per role. Never cut.
         function performerRows(s) {
           const sharedNames = new Set(shared().map((p) => p.name));
           const sharedComposerNames = new Set(sharedComposers());
@@ -825,8 +847,7 @@
                         class: "section-head t-footnote",
                         href: href("work.html", { work: r.workRef.id, back: item.title }),
                       },
-                      // The heading stays in the text colour with one disclosure, on the page and in the overlay
-                      // (sz-rs30.1.117.6; Flo 2026-11-22).
+                      // The heading stays in the text colour with one disclosure, on the page and in the overlay.
                       el("span", { style: "color: var(--color-text-primary)" }, r.work),
                       el("span", { html: ICON.chevron }),
                     )
@@ -851,7 +872,7 @@
                           class: "row",
                           style: "--sep-inset: 0",
                           role: "button",
-                          // A tap plays the next item (Flo 2026-11-22).
+                          // A tap plays the next item.
                           onclick: () => {
                             K.P.item++;
                             K.P.index = 0;
@@ -898,7 +919,7 @@
         last = [K.current()?.id, K.P.index, K.P.paused].join("|");
         render();
 
-        // ADR 0014, confirmed by Flo for sz-rs30.1.83.8: after a quiet spell without touches, the view brings the playing row back.
+        // After a quiet spell without touches, the view brings the playing row back.
         var quiet = Date.now();
         ["touchstart", "pointerdown", "wheel"].forEach((t) => {
           scroll.addEventListener(t, () => (quiet = Date.now()), { passive: true });

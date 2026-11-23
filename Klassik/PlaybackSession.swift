@@ -105,7 +105,7 @@ final class PlaybackSession {
         willSet { savePosition() }
         didSet { defaults.set(scrobblesEnabled, forKey: Self.scrobblesKey) }
     }
-    /// Why listening data waits on the device. The Library shows it in the one server status (ADR 0058).
+    /// Why listening data waits on the device. The Library shows it in the one server status.
     private(set) var listeningTrouble: ServerTrouble?
     /// Why music stopped loading from the server. It joins the one server status and goes with the next sound
     /// (ADR 0060).
@@ -270,8 +270,8 @@ final class PlaybackSession {
 
     // MARK: Queue
 
-    /// Plays one item. On the item that already plays, it pauses or resumes, as a tap on its tinted row does
-    /// (ADR 0039). Any other item replaces the queue (ADR 0006).
+    /// Plays one item. On the item that already plays, it pauses or resumes, as a tap on its tinted row does.
+    /// Any other item replaces the queue.
     func play(_ item: QueueItem) {
         if let playing = self.item, playing.recording.id == item.recording.id {
             togglePause()
@@ -281,7 +281,7 @@ final class PlaybackSession {
     }
 
     /// Plays one item from a movement. A movement of the playing item only moves the position and keeps the
-    /// queue (ADR 0015). Any other item replaces the queue (ADR 0006).
+    /// queue. Any other item replaces the queue.
     func play(_ item: QueueItem, from movement: Int, at position: Double = 0) {
         if let playing = self.item, playing.recording.id == item.recording.id {
             start(playing, from: movement, offset: position, preserveListen: true)
@@ -578,7 +578,7 @@ final class PlaybackSession {
         }
     }
 
-    /// A server failure pauses quietly: the Library shows its cause in the one server status (ADR 0058, 0060).
+    /// A server failure pauses quietly: the Library shows its cause in the one server status (ADR 0060).
     private func playbackFailed(_ text: String?, trouble: ServerTrouble? = nil) {
         savePosition()
         _ = playback.handle(.pause)
@@ -770,7 +770,9 @@ final class PlaybackSession {
         guard current(), !store.isOffline(opening) else { return }
         let transfer = store.transfer(for: opening, client: client)
         defer { transfer.hold(false) }
-        while current() {
+        // Once the engine asked for the opening's source, it reads this shared transfer: a hold would starve the join.
+        func engineReads() -> Bool { (engine.requestedMovement ?? -1) > (movement ?? .max) }
+        while current(), !engineReads() {
             transfer.hold(buffered() < Self.competitionFloor)
             try await Task.sleep(for: Self.readAheadPoll)
         }

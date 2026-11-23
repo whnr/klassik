@@ -40,7 +40,7 @@ extension SRGB {
     }
 }
 
-/// A colour in OKLCH (ADR 0034): lightness 0 to 1, chroma, and hue in degrees.
+/// A colour in OKLCH: lightness 0 to 1, chroma, and hue in degrees.
 struct OKLCH: Equatable, Sendable {
     var lightness: Double
     var chroma: Double
@@ -108,7 +108,7 @@ extension OKLCH {
     }
 }
 
-/// The hue that a cover gives to the player (ADR 0034).
+/// The hue that a cover gives to the player.
 enum CoverHue {
     struct Pick: Equatable, Sendable {
         /// The hue of the family, in degrees.
@@ -197,7 +197,7 @@ enum CoverHue {
     }
 }
 
-/// The room that sets the limits of the player ground and the targets on it (ADR 0034).
+/// The room that sets the limits of the player ground and the targets on it.
 enum WashRoom: CaseIterable, Sendable {
     case light
     case dark
@@ -216,7 +216,7 @@ enum WashRoom: CaseIterable, Sendable {
 
     var isIncreasedContrast: Bool { self == .lightIncreasedContrast || self == .darkIncreasedContrast }
 
-    /// The lightness of the ground. Increase Contrast in the dark keeps the dark ground: ADR 0034 sets no other.
+    /// The lightness of the ground. Increase Contrast in the dark keeps the dark ground: no other is set.
     var lightness: Double {
         switch self {
         case .light: 0.935
@@ -257,9 +257,9 @@ enum WashRoom: CaseIterable, Sendable {
     }
 }
 
-/// The wash of the player while it plays, and the colours that stay readable on it (ADR 0034).
+/// The wash of the player while it plays, and the colours that stay readable on it.
 enum CoverWash {
-    /// Temporary installed-app comparison until Flo selects the cover tint strength (ADR 0064).
+    /// Temporary installed-app comparison until Flo selects the cover tint strength.
     static let strengthKey = "player.tintStrength"
     static let defaultStrength = 3.0
     static let strengthRange = 0.0...5.0
@@ -390,7 +390,7 @@ struct PlayerGround: View {
     }
 }
 
-/// Washes the player in its cover's hue while its item plays (ADR 0034).
+/// Washes the player in its cover's hue while its item plays.
 struct CoverWashModifier: ViewModifier {
     @Environment(AppModel.self) private var model
     @Environment(\.self) private var environment
@@ -474,7 +474,7 @@ struct CoverWashModifier: ViewModifier {
 }
 
 extension View {
-    /// Washes the view in its cover's hue while its item plays (ADR 0034).
+    /// Washes the view in its cover's hue while its item plays.
     func coverWash(item: UUID, song: Song?, isPlaying: Bool) -> some View {
         modifier(CoverWashModifier(item: item, song: song, isPlaying: isPlaying))
     }

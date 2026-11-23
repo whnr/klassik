@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Checks the decided design: contrast targets of ADR 0034 in every accent and room, and the links between ADRs.
+"""Checks the decided design: the contrast targets in every accent and room, and the links between ADRs.
+
+The colour rules are in design/specimen/tokens.html.
 
 A record that replaces part of another must be answered: the old record links back, and its index row names it.
 
@@ -9,6 +11,7 @@ Exits 1 on a failed pair or a broken link.
 
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -46,7 +49,7 @@ def colours(group, path=()):
 
 
 def pairs(room):
-    """The pairs that ADR 0034 promises, as (foreground, background, target)."""
+    """The pairs that design/specimen/tokens.html promises, as (foreground, background, target)."""
     if room.endswith("HighContrast"):
         # Increase Contrast: AAA for text, 4.5:1 for marks, on every ground.
         text, mark, label = 7, 4.5, 7
@@ -89,6 +92,89 @@ def check_links():
     return broken
 
 
+ADR_LIST = re.compile(
+    r"\b(?:ADRs?|records?)\s+((?:0\d{3}|(?<=ADR )\d{1,4}|(?<=ADRs )\d{1,4})"
+    r"(?:(?:,\s*|\s+and\s+|\s+or\s+|,\s*and\s+)\d{1,4})*)",
+    re.I,
+)
+ADR_FILE = re.compile(r"\b(0\d{3})-[a-z]+(?:-[a-z]+)*\b")
+ADR_DASH = re.compile(r"\bADR-(\d{1,4})\b", re.I)
+ADR_CUE = re.compile(
+    r"\b(?:see|as in|per|by|keeps?)\s+(00\d\d)\b",
+    re.I,
+)
+BARE = re.compile(r"\b(0\d{3})\b")
+LINK = re.compile(r"\[[^\]]*\]\([^)]*\)")
+
+
+def mentioned(text, in_adr):
+    """The ADR numbers that `text` names. Only an ADR context counts, so years and build numbers stay out.
+
+    Context: a number after "ADR", "ADRs" or "records", an ADR file name or "ADR-" prefix,
+    or a number after a cue word such as "see".
+    Inside docs/adr every four-digit number with a leading zero counts. Links are checked by check_links.
+    """
+    found = set()
+    for match in ADR_LIST.finditer(text):
+        found.update(n.zfill(4) for n in re.findall(r"\d+", match.group(1)))
+    found.update(ADR_FILE.findall(text))
+    found.update(n.zfill(4) for n in ADR_DASH.findall(text))
+    found.update(ADR_CUE.findall(text))
+    if in_adr:
+        body = "\n".join(line for line in text.splitlines() if not re.match(r"#\s+0\d{3}\.", line))
+        found.update(BARE.findall(LINK.sub("", body)))
+    return found
+
+
+def check_mentions(root=ROOT):
+    """No file names an ADR number that has no record in docs/adr. A tracked file that cannot be read fails."""
+    have = {record.name[:4] for record in (root / "docs/adr").glob("0*.md")}
+    if not have:
+        return ["docs/adr: no ADR records found"]
+    files = subprocess.run(["git", "ls-files"], cwd=root, capture_output=True, text=True, check=True).stdout.split("\n")
+    problems = []
+    for name in filter(None, files):
+        try:
+            data = (root / name).read_bytes()
+        except OSError as error:
+            problems.append(f"{name}: cannot be read ({error.strerror or error})")
+            continue
+        try:
+            text = data.decode()
+        except UnicodeDecodeError:
+            continue
+        in_adr = name.startswith("docs/adr/") and name.endswith(".md") and name != "docs/adr/README.md"
+        for n in mentioned(text, in_adr):
+            if n not in have:
+                problems.append(f"{name}: ADR {n} does not exist")
+    return sorted(set(problems))
+
+
+VAGUE = re.compile(
+    r"\b(?:earlier|former|previous|prior|deleted|retired|removed)\s+(?:ADRs?|decision records?|records?)\b"
+    r"|\b(?:the|an?|existing)\s+ADRs?\s+(?:on|about|records?|says?|requires?|states?|sets?)\b",
+    re.I,
+)
+VAGUE_SKIP = ("docs/adr/README.md", "design/scripts/check.py", "scripts/test_design_check.py")
+
+
+def check_vague(root=ROOT):
+    """No file points to an ADR without naming it. State the rule, or link the record that holds it."""
+    files = subprocess.run(["git", "ls-files"], cwd=root, capture_output=True, text=True, check=True).stdout.split("\n")
+    problems = []
+    for name in filter(None, files):
+        if name in VAGUE_SKIP or name.endswith((".json", ".png", ".jpg", ".ttf", ".otf")):
+            continue
+        try:
+            text = (root / name).read_text()
+        except (OSError, UnicodeDecodeError):
+            continue
+        for number, line in enumerate(text.splitlines(), 1):
+            if VAGUE.search(line):
+                problems.append(f"{name}:{number}: points to an ADR without naming it")
+    return problems
+
+
 def check_chain():
     """The rule of docs/adr/README.md: each "Replaces" sentence in a header line has a pointer back and an index row."""
     adr = ROOT / "docs/adr"
@@ -110,7 +196,7 @@ def check_chain():
 
 def main():
     failures = check_contrast()
-    broken = check_links() + check_chain()
+    broken = check_links() + check_chain() + check_mentions() + check_vague()
     for line in failures:
         print(f"FAIL contrast: {line}")
     for line in broken:

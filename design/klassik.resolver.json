@@ -18,7 +18,7 @@
       "default": "light"
     },
     "accent": {
-      "description": "The accent family, an in-app switch (ADR 0034). Each family file holds the colours of all four themes.",
+      "description": "The accent family, an in-app switch (design/specimen/tokens.html). Each family file holds the colours of all four themes.",
       "contexts": {
         "claret": [{ "$ref": "accent-claret.tokens.json" }],
         "green": [{ "$ref": "accent-green.tokens.json" }],

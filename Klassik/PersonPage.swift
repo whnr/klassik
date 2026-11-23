@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// The plain list of a person page. The composer and the performer page share it, so they differ only where their
-/// content differs (ADR 0017, 0030). A grouped list adds its own top margin and section gaps, which person.html does
+/// content differs. A grouped list adds its own top margin and section gaps, which person.html does
 /// not have.
 struct PersonPageList<Content: View>: View {
     @ViewBuilder let content: (GeometryProxy) -> Content

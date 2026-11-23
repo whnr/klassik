@@ -5,7 +5,7 @@ import Testing
 
 /// The start threshold and its inputs follow the formula and the table of ADR 0060.
 struct StartThresholdTests {
-    /// The rows of the ADR table, for a long track: encoded bitrate, throughput, target seconds.
+    /// The rows of the table in ADR 0060, for a long track: encoded bitrate, throughput, target seconds.
     @Test(arguments: [
         (320_000.0, 1_280_000.0, 0.25),
         (1_000_000.0, 2_000_000.0, 0.5),

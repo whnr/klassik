@@ -10,8 +10,11 @@
     <script src="specimen.js?v=52"></script>
   </head>
   <body>
+    <!--
+  A download is a recording or an album that the listener asked for. The cache never drops it.
+-->
     <script>
-      // The Local Storage page of Settings (ADR 0051): one bar for the four stores, then a limit for each cache.
+      // The Local Storage page of Settings (ADR 0051): one bar for the four stores, then a limit and a clear button for the music cache. Pictures and Album Art only show their size.
       K.start(() => {
         const { el, href, form } = K;
         const { scroll } = K.page({
@@ -38,8 +41,6 @@
             el("span", { class: "main" }, store.name),
             el("span", { class: "trail" }, gb(store.size)),
           );
-        const cache = (heading, value, clear, foot) =>
-          form.group(heading, [form.stepper("Limit", value), form.button(clear, { destructive: true })], foot);
         scroll.append(
           el("div", { class: "page-head" }, el("h1", { class: "t-largeTitle" }, "Local Storage")),
           form.group(
@@ -62,30 +63,15 @@
             ],
             `Klassik uses ${gb(total)}. 41.3 GB free on this iPhone.`,
           ),
-          cache(
+          form.group(
             "Music",
-            "2 GB",
-            "Clear Music",
+            [form.stepper("Limit", "2 GB"), form.button("Clear Music", { destructive: true })],
             "Every track that plays stays here. When the cache is full, the tracks played longest ago go first.",
-          ),
-          cache(
-            "Pictures",
-            "No Limit",
-            "Clear Pictures",
-            "Composer and performer pictures from Wikimedia Commons. When the limit is full, the pictures shown " +
-              "longest ago go first.",
-          ),
-          cache(
-            "Album Art",
-            "No Limit",
-            "Clear Album Art",
-            "Klassik keeps the art of albums that pass the classical filter, so that it shows without the server. It waits " +
-              "for a connection that is not in Low Data Mode.",
           ),
           form.group(
             "Downloads",
             [row("Symphony No. 3 in E-flat major", "512 MB"), row("Piano Sonata No. 32 in C minor", "330 MB")],
-            "A download stays until you remove it. The cache limits do not count it. Signing out removes it.",
+            "A download stays until you remove it. The music limit does not count it. Signing out removes it.",
           ),
         );
       });

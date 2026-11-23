@@ -2,7 +2,7 @@ import Foundation
 
 /// Decides which part of the library is classical. The listener edits its classical rules; they stay on the device.
 /// A track matches if any classical rule matches; a classical rule matches if all of its checks match. "Condition"
-/// belongs to search only (ADR 0020).
+/// belongs to search only.
 struct ClassicalFilter: Codable, Equatable, Sendable {
     /// One test in a classical rule, such as "Genre contains Classical".
     struct Check: Codable, Equatable, Identifiable, Sendable {

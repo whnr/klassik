@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Names, one line per role, behind a small-cap label (ADR 0031). A row aligns them on the leading edge. The page
+/// Names, one line per role, behind a small-cap label. A row aligns them on the leading edge. The page
 /// header centres them.
 struct RoleLines: View {
     let lines: [Roles.Line]
@@ -77,7 +77,7 @@ struct RoleLines: View {
 }
 
 /// Names in a line of text, each name that has a page as a link. Increase Contrast underlines a link in its own
-/// colour (ADR 0034).
+/// colour.
 enum LinkedNames {
     static func text(
         _ text: String, names: [String], link: (String) -> Page?, tint: Color, underline: Bool

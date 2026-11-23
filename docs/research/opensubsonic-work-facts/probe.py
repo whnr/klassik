@@ -1,4 +1,4 @@
-"""Writes probe files with sz-rs30.2 style tags and weak tags, for a throwaway Navidrome.
+"""Writes probe files with the Klassik tag contract and weak tags, for a throwaway Navidrome.
 
 Usage: python3 probe.py <music-dir>
 Audio is a generated sine tone. Every date has a distinct value, so the answer shows which tag reached which field.

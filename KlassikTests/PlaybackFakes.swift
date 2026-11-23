@@ -94,6 +94,7 @@ final class FakeEngine: PlaybackEngine {
     private var songs: [String] = []
     /// The last track that the load asked for. A test moves it on, as the real engine does near a join.
     var requested = 0
+    var requestedMovement: Int? { isRunning ? requested : nil }
     /// What `position(from:)` answers. A load sets it to the place that it starts at.
     var playing: (movement: Int, elapsed: Double)?
     /// The exact length of scheduled movements.

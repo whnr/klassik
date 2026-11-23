@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The Search place (ADR 0025, 0029, 0057): one field at the top under the back arrow, no large title, and the
+/// The Search place: one field at the top under the back arrow, no large title, and the
 /// results in sections under it. Only the results scroll. Filters beside the field opens the conditions in a sheet;
 /// the results stay live above it.
 /// The field is drawn here, not by `searchable`: in a `UISearchTab` the system moves that field to the bottom of
@@ -36,9 +36,9 @@ struct SearchView: View {
         // While a search runs, the page keeps the last results; an empty result is no match only when it is current.
         let settled = !typed || live.isShowing(text)
         PageList {
-            // A search of conditions only shows results; the recent list belongs to an empty search (ADR 0029).
+            // A search of conditions only shows results; the recent list belongs to an empty search.
             if !typed && conditions.isEmpty {
-                // Klassik shows no suggestions: it knows no content that the listener does not (ADR 0029).
+                // Klassik shows no suggestions: it knows no content that the listener does not.
                 if !recent.entries.isEmpty {
                     RecentList(recent: recent) { entry in
                         text = entry.text
@@ -84,7 +84,7 @@ struct SearchView: View {
                     symbol: "xmark", icon: Layout.searchResetIcon, label: "Clear search and filters",
                     identifier: "search-reset", isEnabled: !text.isEmpty || !conditions.isEmpty
                 ) {
-                    // The x pill ends the session: the next search is a new entry (ADR 0029).
+                    // The x pill ends the session: the next search is a new entry.
                     commit()
                     recent.endSession()
                     text = ""
@@ -116,7 +116,7 @@ struct SearchView: View {
         }
         .onAppear(perform: start)
         .onChange(of: navigator.searchStarts, start)
-        // Opening a result and leaving the page commit the search of the session (ADR 0029).
+        // Opening a result and leaving the page commit the search of the session.
         .onChange(of: navigator.pages(in: .search).count) { before, after in
             showsFilters = false
             if after > before { commit() }
@@ -140,13 +140,13 @@ struct SearchView: View {
         var version: Int
     }
 
-    /// The recordings that the text found. The sheet counts only these (ADR 0029).
+    /// The recordings that the text found. The sheet counts only these.
     private func pool(of found: Search.Results?) -> Search.Pool {
         model.library.searchFilters.pool(of: found)
     }
 
     /// A tab or a link opens Search empty, with the keyboard up, as the system Search tab does. The root appears
-    /// again after Back from a result; that arrival is no new start, so the search stays (ADR 0029).
+    /// again after Back from a result; that arrival is no new start, so the search stays.
     private func start() {
         guard navigator.searchStarts != started else { return }
         started = navigator.searchStarts
@@ -191,7 +191,7 @@ private struct RoundButton: View {
     }
 }
 
-/// Filters, with a badge that counts the conditions while the sheet is closed (ADR 0025).
+/// Filters, with a badge that counts the conditions while the sheet is closed.
 private struct FiltersButton: View {
     let conditions: Int
     let isOpen: Bool
@@ -272,7 +272,7 @@ struct SearchField: View {
 }
 
 /// The recent searches of the empty page, newest first, each with its text and its conditions, and Clear
-/// (search.html). A tap restores the search.
+///. A tap restores the search.
 private struct RecentList: View {
     let recent: RecentSearches
     let restore: (RecentSearch) -> Void
@@ -335,7 +335,7 @@ private struct RecentList: View {
     }
 }
 
-/// Composers, performers, works, then albums, each in its own section (ADR 0067). A recording shows only inside its
+/// Composers, performers, works, then albums, each in its own section. A recording shows only inside its
 /// work, so Albums holds only albums.
 private struct SearchResults: View {
     @Environment(AppModel.self) private var model
@@ -357,7 +357,8 @@ private struct SearchResults: View {
                         let recordings = matching[work.id].map { "\($0) of \(total) match" } ?? total
                         lines(
                             title: work.title, isFavourite: model.recordingOrder.isFavourite(work),
-                            detail: "\(work.composer), \(recordings)", track: results.workTracks[work.id])
+                            detail: "\(work.composer), \(recordings)", track: results.workTracks[work.id],
+                            nickname: results.workNicknames[work.id])
                     }
                     .playingRow(playing?.work.id == work.id)
                     .accessibilityIdentifier("search-work")
@@ -410,7 +411,10 @@ private struct SearchResults: View {
     }
 
     /// `track` is the track title that found the result when its own words do not match (search.html `.why`).
-    private func lines(title: String, isFavourite: Bool, detail: String, track: String? = nil) -> some View {
+    /// `nickname` is the nickname that found a work whose title does not match.
+    private func lines(
+        title: String, isFavourite: Bool, detail: String, track: String? = nil, nickname: String? = nil
+    ) -> some View {
         VStack(alignment: .leading, spacing: gap) {
             MarkedTitle(title: title, isFavourite: isFavourite)
                 .ink()
@@ -421,6 +425,11 @@ private struct SearchResults: View {
             }
             if let track {
                 Text("Track: \(track)")
+                    .typeStyle(.subheadline)
+                    .foregroundStyle(Palette.textSecondary)
+            }
+            if let nickname {
+                Text("Nickname: \(nickname)")
                     .typeStyle(.subheadline)
                     .foregroundStyle(Palette.textSecondary)
             }

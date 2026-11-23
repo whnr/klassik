@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The conditions of a search in a modal sheet at the medium detent (ADR 0067).
+/// The conditions of a search in a modal sheet at the medium detent.
 /// Each scope has a narrowing field; each term shows what a tap does.
 struct FilterSheet: View {
     @Environment(AppModel.self) private var model
@@ -12,7 +12,7 @@ struct FilterSheet: View {
     let pool: Search.Pool
     /// True when the search has a text, so the heading shows the recordings that remain.
     let hasText: Bool
-    /// Done keeps the search as a recent search (ADR 0029).
+    /// Done keeps the search as a recent search.
     let done: () -> Void
     let back: () -> Void
     @State private var scope: Search.Scope = .composers
@@ -141,7 +141,7 @@ struct FilterSheet: View {
             + " term to it with \u{201C}or\u{201D}."
     }
 
-    /// A pick clears the narrowing field, so the next term can be typed at once (ADR 0029).
+    /// A pick clears the narrowing field, so the next term can be typed at once.
     private func pick(_ choice: Search.Choice) {
         narrowing = ""
         switch choice.effect {

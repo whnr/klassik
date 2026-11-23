@@ -1,7 +1,5 @@
 # Listener data in Navidrome through OpenSubsonic
 
-Bead: sz-rs30.1.74.3. Checked 2026-10-31 on Navidrome 0.64.2 (linux amd64, started with `scripts/fixture-server.sh`). Probe: `probe.py` in this folder. It needs a fresh server and uses the fixture admin user from that script. A second user, `other`, comes from Navidrome's admin API. That is test setup only.
-
 ## Answer
 
 Every kind of listener data is stored per user. No other user sees it, except a public playlist and the now-playing list.

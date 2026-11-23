@@ -2,7 +2,7 @@ import Testing
 
 @testable import Klassik
 
-/// The geometry of the timeline and what a touch on it does (ADR 0014, 0035).
+/// The geometry of the timeline and what a touch on it does.
 struct TimelineBarTests {
     /// Three movements of 10, 20 and 10 seconds on a bar of 84 points with gaps of 2: 80 points of segments.
     private let bar = TimelineBar(durations: [10, 20, 10], height: 84, gap: 2)

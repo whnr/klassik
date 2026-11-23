@@ -1,6 +1,6 @@
 # Work and composer facts in OpenSubsonic fields
 
-Bead: sz-rs30.1.74.1. Checked 2026-10-31 on Navidrome 0.64.2 (linux amd64, started as in `scripts/fixture-server.sh`). Probe: `probe.py` in this folder. It writes sine tones only. Tag names come from sz-rs30.2 (DESIGN, tag contract).
+Navidrome 0.64.2 (linux amd64, started as in `scripts/fixture-server.sh`). Probe: `probe.py` in this folder. It writes sine tones only. Tag names follow the Klassik tag contract.
 
 ## Answer
 
@@ -25,11 +25,11 @@ One date path comes near: `TDOR` (ORIGINALDATE). It reaches `AlbumID3.originalRe
 | COMM / COMMENT | `Child.comment` (free text) |
 | TIT3 | appended to `Child.title`, as "Title (subtitle 1881)" |
 
-`year` rule. Source: Navidrome `model/metadata/map_mediafile.go`, `mapDates`. Proven with 12 probe files. If TDOR is set, TDRL is empty and TDRC is not older than TDOR, then `year` is the TDOR year and `releaseDate` is the TDRC value. Else `year` is the TDRC year. The sz-rs30.2 contract writes TDRC and TDRL and no TDOR. So `year` is the recording year, as the recordings list needs.
+`year` rule. Source: Navidrome `model/metadata/map_mediafile.go`, `mapDates`. Proven with 12 probe files. If TDOR is set, TDRL is empty and TDRC is not older than TDOR, then `year` is the TDOR year and `releaseDate` is the TDRC value. Else `year` is the TDRC year. Flo's tagging contract writes TDRC and TDRL and no TDOR. So `year` is the recording year, as the recordings list needs.
 
 ## Tag to field table (proven)
 
-| Tag (sz-rs30.2) | OpenSubsonic field | Note |
+| Tag | OpenSubsonic field | Note |
 | --- | --- | --- |
 | WORK (TIT1, TXXX:WORK) | `Child.works[].name` | Spec: Work |
 | MusicBrainz Work Id | `Child.works[].musicBrainzId` | Only with a WORK tag |
@@ -53,7 +53,7 @@ The spec page does not list the `role` values. Navidrome sent `composer`, `condu
 - Composer name and ID: `contributors[role=composer]`, `displayComposer`. The composer `ArtistID3` has `id`, `name`, `sortName`, `musicBrainzId` (empty in the probe), `roles`.
 - Composer life dates: no field. `getArtistInfo2` returned a `biography` text. Navidrome fetched it from an outside agent. It is prose, and it depends on the server setup. Not a stable source.
 - Movements of a work: `movements[].number` and `count`.
-- Era hint: `genres[]`. The sz-rs30.2 contract writes the period as the third genre. That is Flo's convention, not a standard. Other libraries have no period.
+- Era hint: `genres[]`. Flo's tagging contract writes the period as the third genre. That is Flo's convention, not a standard. Other libraries have no period.
 - Year hint without a work date: `year` and `AlbumID3.releaseDate`. They are upper bounds for a work date, not the date.
 
 ## What reaches the client without these tags (proven)
@@ -70,7 +70,7 @@ A weak library still gets a composer name. The app must then read the work and t
 ## Unproven
 
 - The composer MBID tag (`MusicBrainz Composer Id`) reaching `ArtistID3.musicBrainzId`: read in `mappings.yaml`, not run.
-- M4A atoms: not run here. sz-rs30.2 DESIGN records a probe on 0.64.2.
+- M4A atoms: not run here. Flo's tagging contract records a probe on 0.64.2.
 - Servers other than Navidrome 0.64.2.
 - Why sort tags do not become `sortName`: observed, cause not read in the source.
 - Navidrome custom tags (`ND_TAGS`): not tested. They are not standard.

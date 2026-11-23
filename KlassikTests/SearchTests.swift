@@ -83,7 +83,7 @@ struct SearchTests {
     ]
 
     /// A track title finds its work under Works, and the result names that track. The album of a tagged track is
-    /// no result, and no recording shows apart from its work (ADR 0067).
+    /// no result, and no recording shows apart from its work.
     @Test func aTrackTitleFindsItsWorkAndSaysWhich() throws {
         let results = Search(index: WorkIndex(songs: Self.elise)).results(for: "elise")
         #expect(results.works.map(\.title) == ["Waltz for Elise", "Bagatelle in A minor, WoO 59"])
@@ -136,7 +136,7 @@ struct SearchTests {
         #expect(Self.search.results(for: "symphony cello").isEmpty)
     }
 
-    /// No catalogue prefixes and no aliases (ADR 0025): the words match as they are written.
+    /// No catalogue prefixes and no aliases: the words match as they are written.
     @Test func knowsNoCataloguePrefixesOrAliases() {
         #expect(Self.search.results(for: "op 95").works.count == 1)
         #expect(Self.search.results(for: "op95").isEmpty)
@@ -178,6 +178,8 @@ struct SearchTests {
         let found = Search(index: index).results(for: "eroica").works
         #expect(found.map(\.title) == [work])
         #expect(Search(index: index).results(for: "eroica").workTracks.isEmpty)
+        #expect(Search(index: index).results(for: "eroica").workNicknames[try #require(found.first).id] == "Eroica")
+        #expect(Search(index: index).results(for: "symphonie").workNicknames.isEmpty, "A plain title match")
         #expect(try #require(found.first).nicknames == ["Eroica"])
     }
 
@@ -208,7 +210,7 @@ struct SearchTests {
         #expect(Self.search.results(for: "  ,. ").isEmpty)
     }
 
-    /// One count for each role, the biggest first, in prose (ADR 0031).
+    /// One count for each role, the biggest first, in prose.
     @Test func countsEachRoleOfAPerson() throws {
         let kubelik = try #require(Self.search.results(for: "rafael").people.first)
         #expect(kubelik.composes)

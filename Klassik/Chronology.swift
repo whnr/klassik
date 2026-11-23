@@ -2,7 +2,7 @@ import CoreGraphics
 import Foundation
 import Observation
 
-/// The Chronology place (ADR 0016, 0022, 0026): every composer with life dates as a line in birth order, and one
+/// The Chronology place: every composer with life dates as a line in birth order, and one
 /// composer among their contemporaries. Inputs are the work index and the person facts. Views draw its output.
 struct Chronology: Sendable {
     /// A period of music history, drawn as a band in the overview.
@@ -21,7 +21,7 @@ struct Chronology: Sendable {
         Period(name: "Modern", start: 1910, end: 2030),
     ]
 
-    /// The years before and after the active years of the focus composer (ADR 0026).
+    /// The years before and after the active years of the focus composer.
     static let buffer = 10
 
     struct Work: Identifiable, Sendable {
@@ -31,7 +31,7 @@ struct Chronology: Sendable {
         var id: String { work.id }
     }
 
-    /// A composer with life dates from Wikidata. A composer without a birth year stays off the chart (ADR 0026).
+    /// A composer with life dates from Wikidata. A composer without a birth year stays off the chart.
     struct Composer: Identifiable, Equatable, Sendable {
         var name: String
         var born: Int
@@ -47,13 +47,13 @@ struct Chronology: Sendable {
         /// The last year of the line: the death, else the current year.
         func end(now: Int) -> Int { max(died ?? now, born) }
 
-        /// From the work period start to the death. Without a work period start, the whole life (ADR 0026).
+        /// From the work period start to the death. Without a work period start, the whole life.
         func activeYears(now: Int) -> ClosedRange<Int> {
             min(activeFrom ?? born, end(now: now))...end(now: now)
         }
 
         /// The active years with the buffer before and after. Without a work period start, the whole life with
-        /// no buffer (ADR 0016, 0026).
+        /// no buffer.
         func window(now: Int) -> ClosedRange<Int> {
             let active = activeYears(now: now)
             guard activeFrom != nil else { return active }
@@ -104,7 +104,7 @@ struct Chronology: Sendable {
         composers.first { $0.name == name }
     }
 
-    /// Composers whose active years overlap the window of the focus composer. Work dates do not decide (ADR 0026).
+    /// Composers whose active years overlap the window of the focus composer. Work dates do not decide.
     func contemporaries(of focus: Composer) -> [Composer] {
         let window = focus.window(now: now)
         return composers.filter { $0 != focus && $0.activeYears(now: now).overlaps(window) }
@@ -123,7 +123,7 @@ struct Chronology: Sendable {
         return (first.born - 10)...(last + 5)
     }
 
-    /// Where the Chronology opens (ADR 0016): on the composer of what plays, else where the listener left it,
+    /// Where the Chronology opens: on the composer of what plays, else where the listener left it,
     /// else on the overview. A composer that has left the chart falls back to the overview.
     func opening(playing: WorkIndex.Work?, left: Position?) -> Position {
         if let name = playing?.composer, composer(named: name) != nil {
@@ -182,14 +182,14 @@ struct Chronology: Sendable {
 
         var opensList: Bool { from == nil || works.count != 1 }
 
-        /// Undated works always have a count and open a list (ADR 0016).
+        /// Undated works always have a count and open a list.
         var title: String {
             opensList ? "\(works.count) \(works.count == 1 ? "work" : "works")" : works[0].title
         }
     }
 
     /// The rows of the focus composer: one per year while they fit; else one row stands for the span of years that
-    /// share its place, with a count (ADR 0016). Undated works are one row at the end. A row sits at the middle of
+    /// share its place, with a count. Undated works are one row at the end. A row sits at the middle of
     /// its years, at least one row below the row before it, and never below the last year of the life.
     func rows(of focus: Composer, scale: Scale) -> [Row] {
         var rows: [Row] = []
@@ -218,7 +218,7 @@ struct Chronology: Sendable {
         return rows
     }
 
-    /// The line of a composer at the composer level: dim before the work period start, bright from it (ADR 0016).
+    /// The line of a composer at the composer level: dim before the work period start, bright from it.
     /// Without a work period start the line has no shading.
     struct Segment: Equatable, Sendable {
         var from: Int
@@ -234,7 +234,7 @@ struct Chronology: Sendable {
         return [Segment(from: composer.born, to: active, dim: true), Segment(from: active, to: end, dim: false)]
     }
 
-    /// The lane under a point of a sideways scrub: the chart width maps onto the lines in order (ADR 0022).
+    /// The lane under a point of a sideways scrub: the chart width maps onto the lines in order.
     static func lane(at x: CGFloat, width: CGFloat, count: Int) -> Int? {
         guard count > 0, width > 0 else { return nil }
         return min(count - 1, max(0, Int((x / width * CGFloat(count)).rounded(.down))))
@@ -247,7 +247,7 @@ final class ChronologyPlace {
     static let storageKey = "chronology.position"
 
     private(set) var left: Chronology.Position?
-    /// The playing work that the place last opened on. A new work opens it again on its composer (ADR 0016).
+    /// The playing work that the place last opened on. A new work opens it again on its composer.
     private var openedOn: String?
     private let defaults: UserDefaults
 
@@ -258,7 +258,7 @@ final class ChronologyPlace {
         }
     }
 
-    /// The composer that the listener last opened, for its mark in the overview (ADR 0022).
+    /// The composer that the listener last opened, for its mark in the overview.
     var lastOpened: String? { left?.composer }
 
     /// The place opens: on the composer of a newly playing work, else where the listener left it.

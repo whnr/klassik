@@ -7,11 +7,15 @@ Such a commit is covered by the newest ancestor with a green run, if every chang
 ignored or a version line. Any other change fails closed.
 A merge commit that adds nothing to the PR head it merges is covered by the green run of that head
 (see merged_head). Its own run on main skips the build.
+A pull request run opens the Release launch check only for a release title, so the green head run may never
+have opened a Release build. Then a merge is covered only if the Release launch passed on the head run or on
+the run of the merge commit itself (see `launched`).
 The ignore list here must match `pull_request.paths-ignore` and `push.paths-ignore` in test.yml.
 
 Usage: GH_TOKEN=... GITHUB_REPOSITORY=owner/repo python3 scripts/green_test_gate.py [merged] <sha>
 Prints the covering SHA. Exits 1 and prints the reason when none covers the commit, or when a run
-cannot be read. With `merged`, only the green PR head of a merge commit covers it.
+cannot be read. With `merged`, only the green PR head of a merge commit covers it. That mode is the plan of
+a main run, which opens the Release launch itself, so it does not ask for it.
 """
 
 import json
@@ -23,6 +27,7 @@ import sys
 IGNORED = ["**.md", "LICENSE", "docs/**"]
 # A run is green only if these jobs passed. A main run that a PR head covers skips build, so it proves nothing.
 REQUIRED_JOBS = ("build", "test")
+RELEASE_JOB = "release-launch"
 DEPTH = 50  # Docs-only pushes in a row are few; a longer chain needs a real Test run.
 VERSION_FILE = "project.yml"
 # CURRENT_PROJECT_VERSION is replaced by the TestFlight run number at archive time.
@@ -76,9 +81,10 @@ def version_only(diff):
     return True
 
 
-def covering(commits, changed, green, version_diff, merged=lambda sha: None):
+def covering(commits, changed, green, version_diff, merged=lambda sha: None, launched=lambda sha, head: False):
     """The first of `commits` (newest first) with a green run, if each commit before it changed only ignored
-    paths and version lines. A commit is also covered by the green run of the PR head that `merged(sha)` gives.
+    paths and version lines. A commit is also covered by the green run of the PR head that `merged(sha)` gives,
+    if `launched(sha, head)` says that a Release build opened on the head run or on the run of `sha`.
 
     `changed(sha)` gives the paths that the commit changed, `green(sha)` tells if Test passed on it, and
     `version_diff(sha)` gives the commit's patch of project.yml.
@@ -87,7 +93,7 @@ def covering(commits, changed, green, version_diff, merged=lambda sha: None):
     for sha in commits:
         if green(sha):
             return sha, None
-        if (head := merged(sha)) and green(head):
+        if (head := merged(sha)) and green(head) and launched(sha, head):
             return head, None
         covered = [path for path in changed(sha) if not is_ignored(path)]
         if covered == [VERSION_FILE] and version_only(version_diff(sha)):
@@ -146,22 +152,26 @@ def merged_head(commit, cwd=None):
     return second if ancestor.returncode == 0 else None
 
 
-def proves(workflow_run, jobs):
-    """True if a Test run of the API passed and its jobs in REQUIRED_JOBS passed. Missing fields raise."""
+def proves(workflow_run, jobs, required=REQUIRED_JOBS):
+    """True if a Test run of the API passed and its jobs in `required` passed. Missing fields raise."""
     if workflow_run["conclusion"] != "success":
         return False
     results = {job["name"]: job["conclusion"] for job in jobs}
-    return all(results.get(name) == "success" for name in REQUIRED_JOBS)
+    return all(results.get(name) == "success" for name in required)
 
 
 def api(query):
     return json.loads(run("gh", "api", query))
 
 
-def green_on(repo, commit, read=api):
+def green_on(repo, commit, read=api, required=REQUIRED_JOBS):
     runs = read(f"repos/{repo}/actions/workflows/test.yml/runs?head_sha={commit}&status=success&per_page=100")
     return any(
-        proves(workflow_run, read(f"repos/{repo}/actions/runs/{workflow_run['id']}/jobs?per_page=100")["jobs"])
+        proves(
+            workflow_run,
+            read(f"repos/{repo}/actions/runs/{workflow_run['id']}/jobs?per_page=100")["jobs"],
+            required,
+        )
         for workflow_run in runs["workflow_runs"]
     )
 
@@ -174,12 +184,18 @@ def main(args, read=api):
     def green(commit):
         return green_on(repo, commit, read)
 
+    def launched(commit, head):
+        # A merge run of main always plans the Release launch, so a green one proves it; a PR head run only
+        # does for a release title, which can come after its last push.
+        with_release = REQUIRED_JOBS + (RELEASE_JOB,)
+        return green_on(repo, head, read, with_release) or green_on(repo, commit, read, (RELEASE_JOB,))
+
     try:
         if only_merged:
             head = merged_head(sha)
             found, reason = (head, None) if head and green(head) else (None, f"{sha} is no merge of a green PR head")
         else:
-            found, reason = covering(commits_from(sha), changed, green, version_diff, merged_head)
+            found, reason = covering(commits_from(sha), changed, green, version_diff, merged_head, launched)
     except (subprocess.CalledProcessError, LookupError, TypeError, ValueError) as error:
         found, reason = None, f"cannot read the history or the Test runs: {error!r}"
     if found is None:

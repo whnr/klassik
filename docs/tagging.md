@@ -22,7 +22,7 @@ A nickname, such as "Eroica", is part of the work. Navidrome has no tag of its o
 - Klassik finds a nickname in quotes in the part that all TITLE tags of one recording share. A single track counts up to its first colon.
 - The quotes can be `"…"`, `“…”`, `„…“`, `«…»`, `»…«` or `‘…’`.
 - Quotes in a movement name, after the shared part, do not count. `Sonata: II. "Marcia funebre"` gives no nickname.
-- Search finds the work by its nicknames as it does by its title.
+- Search finds the work by its nicknames as it does by its title. A row found only by a nickname shows `Nickname: …`.
 - A WORK tag that holds the nickname, such as `Symphonie Nr. 3 Es-Dur „Eroica“, Op. 55`, needs none of this.
 
 ## Search

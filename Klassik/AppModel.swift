@@ -12,14 +12,14 @@ final class AppModel {
     private(set) var lastErrorDate: Date?
     private(set) var isChecking = false
     /// True while a finger scrubs the timeline or the position bar. The rows of the player stay still until it
-    /// lifts (ADR 0027).
+    /// lifts.
     var isScrubbing = false
 
     let library: Library
     private(set) var recordingOrder: RecordingOrder
     /// Listening notes share the device file with the favourites (ADR 0013).
     private(set) var notes: ListeningNotes
-    /// Recent searches share the device file too; they never reach the server (ADR 0029).
+    /// Recent searches share the device file too; they never reach the server.
     private(set) var recentSearches: RecentSearches
     let tracks: TrackStore
     let covers = CoverArt.Cache()
@@ -305,13 +305,6 @@ final class AppModel {
             await sweep.finish()
             sweepPeople()
         }
-    }
-
-    /// Album Art Clear. The next library sync and every page that opens fetch the covers again.
-    func clearAlbumArt() {
-        albumArt.clear()
-        albumCovers.clear()
-        covers.clear()
     }
 
     func check() async {

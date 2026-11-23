@@ -175,7 +175,7 @@ struct WorkIndex: Sendable {
         var recording: Recording
         /// The works in the order of their first track. Tracks without a WORK tag name none.
         var parts: [Part]
-        /// ADR 0024: only when a work has two movements on consecutive tracks.
+        /// Only when a work has two movements on consecutive tracks.
         var showsWorkHeadings: Bool
 
         var title: String { work.title }
@@ -438,7 +438,7 @@ extension Song {
 }
 
 extension WorkIndex.Recording {
-    /// The quiet facts in prose (ADR 0031): "Recorded in 1972 on Dvořák Symphonies. 42 minutes, 4 movements."
+    /// The quiet facts in prose: "Recorded in 1972 on Dvořák Symphonies. 42 minutes, 4 movements."
     /// The album goes out where the page already names it.
     func facts(includingAlbum: Bool = true) -> String {
         var sentences: [String] = []
@@ -465,7 +465,7 @@ extension WorkIndex.Recording {
         return minutes % 60 == 0 ? hours : "\(hours) \(count(minutes % 60, "minute"))"
     }
 
-    /// A number never wraps away from its word (ADR 0030).
+    /// A number never wraps away from its word.
     static func count(_ number: Int, _ noun: String) -> String {
         "\(number)\u{00A0}\(noun)\(number == 1 ? "" : "s")"
     }

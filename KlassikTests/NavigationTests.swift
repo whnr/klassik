@@ -32,7 +32,7 @@ struct NavigatorTests {
         #expect(navigator.backTarget(for: .library) == nil)
     }
 
-    /// A tab or a link opens Search empty; back from a result keeps the search (ADR 0029).
+    /// A tab or a link opens Search empty; back from a result keeps the search.
     @Test func aTabOrALinkStartsSearchAfresh() {
         let navigator = Navigator<String>()
         navigator.selectTab(.search)

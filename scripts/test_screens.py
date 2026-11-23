@@ -600,17 +600,25 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(
             {e["group"]: e["required"] for e in matrix["include"]}, {"places-search": "true", "browse-pages": "true"}
         )
-        _, matrix = screen_report.plan("pull_request", "", "[ui: playback]", "Release Klassik 0.15.0")
-        required = {e["group"]: e["required"] for e in matrix["include"]}
-        self.assertEqual(len(required), len(screen_report.UI_GROUPS))
-        self.assertEqual(
-            {g for g, r in required.items() if r == "true"},
-            {"playback-queue", "playback-overlay", "playback-controls"},
-        )
 
-    def test_release_title_nightly_and_dispatch_walks_only_report(self):
+    def test_feature_release_requests_every_area_and_blocks(self):
+        for title in ("Release Klassik 0.15.0", "[sz-123] Release Klassik 0.15.0", "Release Klassik 1.0"):
+            for message in ("", "[ui: playback]"):
+                with self.subTest(title=title, message=message):
+                    _, matrix = screen_report.plan("pull_request", "", message, title)
+                    required = {e["group"]: e["required"] for e in matrix["include"]}
+                    self.assertEqual(len(required), len(screen_report.UI_GROUPS))
+                    self.assertEqual(set(required.values()), {"true"})
+
+    def test_patch_release_blocks_only_requested_areas(self):
+        _, matrix = screen_report.plan(
+            "pull_request", "", "[ui: browse]", "Release Klassik 0.16.1", project=self.project('"0.16.1"')
+        )
+        required = {e["group"]: e["required"] for e in matrix["include"]}
+        self.assertEqual(required, {"places-search": "true", "browse-pages": "true"})
+
+    def test_nightly_and_dispatch_walks_only_report(self):
         for args in (
-            ("pull_request", "", "", "Release Klassik 0.15.0"),
             ("schedule", "", ""),
             ("workflow_dispatch", "all", ""),
         ):

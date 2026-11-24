@@ -2129,9 +2129,14 @@ final class PlaybackScreens: ScreensTestCase {
         composer(app, "Ludwig").tap()
         let fifth = app.buttons.matching(identifier: "work").firstMatch
         XCTAssertTrue(fifth.waitForExistence(timeout: 10))
-        fifth.swipeLeft()
         let add = app.buttons["Add to Queue"].firstMatch
-        XCTAssertTrue(add.waitForExistence(timeout: 10))
+        // On a slow runner a swipe can arrive as a tap and open the work: leave it and swipe again.
+        for _ in 0..<3 where !add.exists {
+            if app.buttons["BackButton"].exists, !fifth.exists { back(app) }
+            if fifth.waitForExistence(timeout: 10) { fifth.swipeLeft() }
+            _ = add.waitForExistence(timeout: 10)
+        }
+        XCTAssertTrue(add.exists, "The row swipe did not show Add to Queue")
         add.tap()
 
         miniPlayer.buttons["mini-player-cover"].tap()

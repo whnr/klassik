@@ -42,6 +42,8 @@ final class GaplessEngine: PlaybackEngine {
     private var task: Task<Void, Never>?
     private var watcher: Task<Void, Never>?
     private var activation: Task<Void, Never>?
+    /// The fade-in of the node that just started. A new start or a discard replaces it.
+    private var fadeIn: Task<Void, Never>?
     /// Completion handlers of an earlier load must not reach the session.
     private var generation = 0
     /// Whether the session wants sound. A load that finishes after a pause must stay silent.
@@ -134,13 +136,22 @@ final class GaplessEngine: PlaybackEngine {
                 try await Self.activateSession()
                 try check(generation)
                 guard playing else { return }
-                try node.playAudio()
+                try start(node)
                 pausedAt = nil
             } catch {
                 guard generation == self.generation, !Task.isCancelled else { return }
                 onEvent?(.failed(error.localizedDescription))
             }
         }
+    }
+
+    /// Puts the engine in the state of a load that sounds on this graph, for tests that drive the node without a
+    /// decoder.
+    func adopt(_ engine: AVAudioEngine, _ node: AVAudioPlayerNode, started: Bool) {
+        self.engine = engine
+        self.node = node
+        self.started = started
+        playing = true
     }
 
     func replace(_ songs: [Song]) -> Bool {
@@ -166,7 +177,9 @@ final class GaplessEngine: PlaybackEngine {
         pump?.cancel()
         pump = nil
         pumped = 0
-        engine?.stop()
+        fadeIn?.cancel()
+        fadeIn = nil
+        retire(engine, node)
         engine = nil
         node = nil
         gain = nil
@@ -641,10 +654,36 @@ final class GaplessEngine: PlaybackEngine {
         started = true
         starved = false
         if playing, let node, !node.isPlaying {
-            try node.playAudio()
+            try start(node)
             pausedAt = nil
         }
         report()
+    }
+
+    /// Starts the node from silence, so a start inside a waveform (a seek, a resume) does not click.
+    /// A node that already plays keeps its level: a second start would dip it to silence.
+    func start(_ node: AVAudioPlayerNode) throws {
+        guard !node.isPlaying else { return }
+        fadeIn?.cancel()
+        node.volume = 0
+        try node.playAudio()
+        fadeIn = Task {
+            await SkipFade.run(rising: true) { node.volume = $0 }
+            if !Task.isCancelled { node.volume = 1 }
+        }
+    }
+
+    /// Stops a replaced engine after its sound faded out, so a skip does not cut the wave. The replaced load is
+    /// already invalid, so nothing of it reaches the session. A silent engine stops at once.
+    private func retire(_ engine: AVAudioEngine?, _ node: AVAudioPlayerNode?) {
+        guard let engine else { return }
+        guard let node, playing, started, !starved, node.isPlaying else { return engine.stop() }
+        // A skip during a fade-in starts the fade-out from the level that the node has reached.
+        let level = node.volume
+        Task {
+            await SkipFade.run(rising: false) { node.volume = level * $0 }
+            engine.stop()
+        }
     }
 
     /// Watches for a node that runs out of audio before the bytes arrive, and reports the wait.

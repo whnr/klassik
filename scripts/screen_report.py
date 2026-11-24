@@ -340,10 +340,32 @@ INFRASTRUCTURE = re.compile(
     r"|connection (?:was )?(?:interrupted|invalid)"
     r"|failed to (?:launch|boot|terminate|connect)|unable to (?:boot|launch|connect)"
     r"|test runner (?:hung|failed|exited|crashed)"
+    r"|Application '[^']+' does not have a process ID"
     r"|CoreSimulator|simulator (?:device )?(?:failed|crashed|disconnected)|Mach error"
     r"|(?:testmanagerd|XCTRunner) .*crashed",
     re.IGNORECASE,
 )
+
+
+# Failures that count as a runner error, not a failed test: the simulator or runner broke while the app was idle, and
+# no check inside the app failed. Each has a reason for the report. Every pattern here must also match INFRASTRUCTURE,
+# so the failed test is retried. A failed check in the app never belongs here.
+RUNNER_ERRORS = (
+    (re.compile(r"Failed to terminate \S+", re.IGNORECASE), "the simulator could not terminate the app"),
+    (
+        re.compile(r"Application '[^']+' does not have a process ID", re.IGNORECASE),
+        "the runner lost the app process, on a starved simulator",
+    ),
+)
+
+
+def runner_error_reason(messages):
+    """The named reason when a message is a known runner error, else None."""
+    for message in messages:
+        for pattern, reason in RUNNER_ERRORS:
+            if pattern.search(message):
+                return reason
+    return None
 
 
 def failed_cases(tests):
@@ -493,7 +515,16 @@ def retry_report(log):
         outcome = "recovered" if runs[-1][0] == "passed" else "failed"
         cells = [name, str(len(runs)), outcome, f"line {first[1]}: {detail}"]
         lines.append("| " + " | ".join(cell.replace("|", "\\|") for cell in cells) + " |")
-    flaky = [name for name, runs in failed.items() if runs[-1][0] == "passed"]
+    recovered = {name: runs for name, runs in failed.items() if runs[-1][0] == "passed"}
+    reasons = {}
+    for name, runs in recovered.items():
+        reason = runner_error_reason(next(run for run in runs if run[0] == "failed")[2])
+        if reason:
+            reasons[name] = reason
+    flaky = [name for name in recovered if name not in reasons]
+    if reasons:
+        lines += ["", "**Runner error, retried** (not a failed test; the retry passed). A reviewer does not block on these:"]
+        lines += [f"- `{name}`: {reason}" for name, reason in reasons.items()]
     if flaky:
         lines += [
             "",

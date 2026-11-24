@@ -394,7 +394,7 @@ final class AppModel {
         return saved.info
     }
 
-    /// Delete Listening Data in Settings (ADR 0013). The favourite works, the order of favourite recordings, the
+    /// Delete Listening Data in Settings (ADR 0013). The favourite works, the
     /// listening notes, the recent searches and the changes that wait of this server and user go. Server stars
     /// stay, and a read shows them.
     func deleteListeningData() throws {
@@ -410,7 +410,7 @@ final class AppModel {
         albumCovers.attach(credentials)
         playback.server = client
         let file = listener.attach(credentials)
-        // Each UI walk must start with the same local favourites and order.
+        // Each UI walk must start with the same local favourites.
         if ProcessInfo.processInfo.arguments.contains("-resetServer") { try? file.delete() }
         openListenerFile()
     }

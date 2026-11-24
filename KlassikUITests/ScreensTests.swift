@@ -1159,11 +1159,11 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(eventually(timeout: 12) { position.exists && position.isHittable })
         // The fixture page is short, so its end is the follow target. The top puts the hero above the playing row.
         let rowY = { position.exists ? position.frame.midY : CGFloat.infinity }
-        // Short slow drags below the cover touch the page without the pull that closes the player, as a system
-        // sheet closes. A drag that starts on the cover or the title moves the player instead.
-        let facts = overlay.staticTexts["hero-facts"].firstMatch
-        XCTAssertTrue(facts.waitForExistence(timeout: 10), "No facts line to start the drag on")
-        let from = facts.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        // Short slow drags below the hero touch the page without the pull that closes the player, as a system
+        // sheet closes. A drag that starts in the hero moves the player instead.
+        let row = overlay.descendants(matching: .any)["movement"].firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 10), "No row to start the drag on")
+        let from = rowTopInset(of: row)
         let to = from.withOffset(CGVector(dx: 0, dy: 0.1 * app.frame.height))
         for _ in 0..<2 { from.press(forDuration: 0.05, thenDragTo: to, withVelocity: .slow, thenHoldForDuration: 0.2) }
         let still = Date()
@@ -1311,6 +1311,32 @@ final class PlaybackScreens: ScreensTestCase {
         // drags fail the check.
         for _ in 0..<3 where app.buttons["player-handle"].exists {
             cover.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(
+                forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)),
+                withVelocity: .default, thenHoldForDuration: 0)
+            _ = app.buttons["player-handle"].waitForNonExistence(timeout: 4)
+        }
+        expectPlayerClosed(app)
+        XCTAssertTrue(app.buttons["show-player"].waitForExistence(timeout: 10))
+    }
+
+    /// A drag down that starts on the performer names closes the player like a drag from the cover. The names are links,
+    /// so the drag starts on them.
+    @MainActor
+    func testSubtitleDragClosesThePlayer() throws {
+        let app = try launchAndConnect()
+        openRecording(app)
+        playPaused(app)
+        openPlayer(app)
+        // The page below the player has the same ids and comes first in the tree, so the lookup stays inside the player.
+        let player = app.descendants(matching: .any)["player-overlay"].firstMatch
+        let cover = player.descendants(matching: .any)["hero-cover"].firstMatch
+        let names = player.descendants(matching: .any)["hero-roles"].firstMatch
+        XCTAssertTrue(cover.waitForExistence(timeout: 10))
+        XCTAssertTrue(eventually(timeout: 12) { names.exists && names.isHittable }, "The names are not on screen")
+        XCTAssertGreaterThan(names.frame.minY, cover.frame.maxY, "The names are not below the cover")
+        // A drag that the recognizer misses at its start is lost, so a lost drag repeats; three lost drags fail the check.
+        for _ in 0..<3 where app.buttons["player-handle"].exists {
+            names.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(
                 forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)),
                 withVelocity: .default, thenHoldForDuration: 0)
             _ = app.buttons["player-handle"].waitForNonExistence(timeout: 4)

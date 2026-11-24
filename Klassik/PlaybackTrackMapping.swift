@@ -19,16 +19,12 @@ extension ServerTrouble {
     /// The quiet status of a playback failure, or nil when the device failed (ADR 0060). A policy that forbids the
     /// network shows as no answer.
     init?(playback error: any Error) {
-        if error is URLError || (error as? TrackStore.Failure) == .offline {
+        if (error as? TrackStore.Failure) == .offline {
             self = .unreachable
-        } else if let failure = error as? TrackTransfer.Failure {
-            switch failure {
-            case .timedOut, .truncated: self = .unreachable
-            case .http: self = .refused
-            default: return nil
-            }
         } else if error is SubsonicError {
             self = .refused
+        } else if let failure = TransferFailureMapper().serverFailure(for: error) {
+            self.init(engine: failure)
         } else {
             return nil
         }

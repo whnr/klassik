@@ -80,7 +80,8 @@ public final class GaplessEngine: PlaybackEngine {
     private var cancelled = CancelFlag()
     private var worker: DispatchQueue?
     private let deliverCompletion: CompletionDelivery
-    private let failureMapper: any PlaybackFailureMapper
+    /// Internal so that the app's tests can check which mapper the app passes.
+    let failureMapper: any PlaybackFailureMapper
     /// False builds a signal path without the gain node, for a host that applies no ReplayGain.
     private let gainNode: Bool
     private let rendered: (@Sendable (AVReadOnlyAudioPCMBuffer) -> Void)?

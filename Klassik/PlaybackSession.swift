@@ -203,7 +203,8 @@ final class PlaybackSession {
     private var engineBase = 0
     /// The tracks that the engine plays, from the first one of its load.
     private var engineSongs: [Song] = []
-    private let engine: any PlaybackEngine
+    /// Internal so that the tests can check the engine that the app builds.
+    let engine: any PlaybackEngine
     private let store: TrackStore
     private let defaults: UserDefaults
     /// Replaces the leveling setting as the source of the volume change. Nil keeps the setting.

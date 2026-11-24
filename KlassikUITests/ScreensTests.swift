@@ -1248,6 +1248,62 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(app.buttons["show-player"].waitForExistence(timeout: 10))
     }
 
+    /// A drag that starts on a row at the top of the list and pulls past the top closes the player. The hero
+    /// takes drags that start on the cover, so this path starts below it.
+    @MainActor
+    func testPullPastTopFromARowClosesThePlayer() throws {
+        let app = try launchAndConnect()
+        openRecording(app)
+        playPaused(app)
+        openPlayer(app)
+        // The page below the player has the same cover and rows, and its elements come first in the tree. A drag
+        // aimed at them lands on the player's cover, so every lookup stays inside the player.
+        let player = app.descendants(matching: .any)["player-overlay"].firstMatch
+        let cover = player.descendants(matching: .any)["hero-cover"].firstMatch
+        let row = player.descendants(matching: .any)["movement"].firstMatch
+        XCTAssertTrue(cover.waitForExistence(timeout: 10))
+        XCTAssertTrue(eventually(timeout: 12) { row.exists && row.isHittable }, "No row to start the drag on")
+        XCTAssertGreaterThan(row.frame.minY, cover.frame.maxY, "The row is not below the cover")
+        // The player opens with the page scrolled to its playing row, and only a pull that starts at the top closes
+        // it. Short slow drags down bring the page to the top. Each one pulls less than the 60 points that close the
+        // player, so none of them closes it. The page is at the top when a drag no longer moves the cover.
+        let handle = app.buttons["player-handle"]
+        var atTop = false
+        for _ in 0..<12 where !atTop {
+            let before = cover.frame.minY
+            let from = rowTopInset(of: row)
+            from.press(
+                forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: 90)), withVelocity: .slow,
+                thenHoldForDuration: 0.2)
+            var last = CGFloat.infinity
+            XCTAssertTrue(
+                eventually(timeout: 8) {
+                    defer { last = cover.frame.minY }
+                    return abs(cover.frame.minY - last) < 1
+                }, "The page did not settle")
+            atTop = abs(cover.frame.minY - before) < 1
+        }
+        XCTAssertTrue(atTop, "The page did not reach its top")
+        XCTAssertTrue(handle.exists, "A short drag closed the player")
+        XCTAssertGreaterThan(row.frame.minY, cover.frame.maxY, "The row is not below the cover")
+        snap(app, "05e-pull-from-row")
+        rowTopInset(of: row).press(
+            forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.95)),
+            withVelocity: .default, thenHoldForDuration: 0.3)
+        let closed = app.buttons["player-handle"].waitForNonExistence(timeout: 10)
+        snap(app, "05f-pull-from-row-after")
+        XCTAssertTrue(closed, "A pull past the top from a row did not close the player")
+        XCTAssertTrue(app.buttons["show-player"].waitForExistence(timeout: 10))
+    }
+
+    /// The top inset of the playing row, above its title and right of centre. The touch area of the position bar
+    /// reaches over the whole title line, and a drag there scrubs the position and never scrolls the page. The
+    /// inset holds no control, so a drag from here goes to the page scroll.
+    @MainActor
+    func rowTopInset(of row: XCUIElement) -> XCUICoordinate {
+        row.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0)).withOffset(CGVector(dx: 0, dy: -8))
+    }
+
     /// A drag down from the cover of the player moves the whole player, and a fling closes it.
     @MainActor
     func testHeadingDragClosesThePlayer() throws {
@@ -1257,9 +1313,15 @@ final class PlaybackScreens: ScreensTestCase {
         openPlayer(app)
         let cover = app.descendants(matching: .any)["hero-cover"].firstMatch
         XCTAssertTrue(cover.waitForExistence(timeout: 10))
-        cover.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(
-            forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)),
-            withVelocity: .fast, thenHoldForDuration: 0)
+        // A pull of more than 120 points closes the player, so the drag is long and does not rely on a fling
+        // estimate. A drag that the recognizer misses at its start is lost, so a lost drag repeats; three lost
+        // drags fail the check.
+        for _ in 0..<3 where app.buttons["player-handle"].exists {
+            cover.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(
+                forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)),
+                withVelocity: .default, thenHoldForDuration: 0)
+            _ = app.buttons["player-handle"].waitForNonExistence(timeout: 4)
+        }
         expectPlayerClosed(app)
         XCTAssertTrue(app.buttons["show-player"].waitForExistence(timeout: 10))
     }

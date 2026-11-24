@@ -83,6 +83,10 @@ final class GaplessEngine: PlaybackEngine {
     /// depend on runner load.
     private let manualRendering: Bool
     private var pump: Task<Void, Never>?
+    /// An offline engine has no output device to play back to, so it reports data as consumed.
+    private var completionType: AVAudioPlayerNodeCompletionCallbackType {
+        manualRendering ? .dataConsumed : .dataPlayedBack
+    }
     /// The frames that the pump rendered. An offline node has no valid render time, so this is its position.
     private var pumped: Int64 = 0
 
@@ -377,7 +381,7 @@ final class GaplessEngine: PlaybackEngine {
         node.scheduleSegment(
             file, startingFrame: range.lowerBound, frameCount: AVAudioFrameCount(range.count),
             at: AVAudioTime(sampleTime: placed.lowerBound, atRate: sampleRate),
-            completionCallbackType: .dataPlayedBack, completionHandler: ended(position, generation: generation))
+            completionCallbackType: completionType, completionHandler: ended(position, generation: generation))
         try sound()
         return true
     }
@@ -600,7 +604,7 @@ final class GaplessEngine: PlaybackEngine {
         scheduledEnd = placed.upperBound
         node.scheduleBuffer(
             buffer, at: AVAudioTime(sampleTime: placed.lowerBound, atRate: sampleRate), options: [],
-            completionCallbackType: .dataPlayedBack,
+            completionCallbackType: completionType,
             completionHandler: last ? ended(position, generation: generation) : nil)
     }
 

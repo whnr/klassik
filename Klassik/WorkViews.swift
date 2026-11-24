@@ -544,6 +544,7 @@ struct RecordingView: View {
     @State private var places: [NotePlace?] = []
     /// True while a drag that began with the rows at the top runs. Only such a drag closes the player.
     @State private var dragFromTop = false
+    @State private var diagLog = "" // DIAG-TEMP
 
     private var isPlayingThis: Bool { model.playback.recording?.id == recording.id }
 
@@ -607,10 +608,12 @@ struct RecordingView: View {
                 // pull ask for about 120 points of finger travel, the travel that closes the player at its handle.
                 let pull = -(context.geometry.contentOffset.y + context.geometry.contentInsets.top)
                 if phase == .interacting, old != .interacting { dragFromTop = pull >= -1 }
+                if isOverlay { diagLog += "\(old)>\(phase) pull=\(Int(pull)) top=\(dragFromTop);" } // DIAG-TEMP
                 if isOverlay, dragFromTop, old == .interacting, phase != .interacting, pull > 60 {
                     navigator.closePlayer()
                 }
             }
+            .overlay(alignment: .bottom) { if isOverlay { Text(diagLog).font(.system(size: 1)).opacity(0.02).accessibilityIdentifier("diag-log") } } // DIAG-TEMP
             .onChange(of: model.isScrubbing) { _, scrubbing in spell.hold(scrubbing) }
             .onChange(of: draft != nil) { _, writing in spell.writing(writing) }
             // Each second, after a quiet spell, the player brings the playing row back.

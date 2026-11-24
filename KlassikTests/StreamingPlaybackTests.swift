@@ -624,7 +624,7 @@ struct StreamingPlaybackTests {
         }
         let events = Events()
         let output = RenderedAudio()
-        let engine = GaplessEngine(rendered: { output.record($0) })
+        let engine = GaplessEngine(rendered: { output.record($0) }, manualRendering: true)
         engine.onEvent = { event in
             if case .movementEnded(let index) = event { events.log.append("end \(index)") }
             if case .failed(let text) = event { events.log.append("failed \(text)") }

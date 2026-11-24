@@ -2218,7 +2218,9 @@ final class PlaybackScreens: ScreensTestCase {
     func testFavouriteRecordingLongPressDrag() throws {
         let app = try launchAndConnect()
         composer(app, "Ludwig van Beethoven").tap()
-        app.buttons.matching(identifier: "work").firstMatch.tap()
+        let firstWork = app.buttons.matching(identifier: "work").firstMatch
+        XCTAssertTrue(firstWork.waitForExistence(timeout: 10))
+        firstWork.tap()
         let rows = app.buttons.matching(identifier: "recording")
         XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 10))
 
@@ -2288,7 +2290,9 @@ final class PlaybackScreens: ScreensTestCase {
     func testRecordingThatIsNoFavouriteReorders() throws {
         let app = try launchAndConnect()
         composer(app, "Ludwig van Beethoven").tap()
-        app.buttons.matching(identifier: "work").firstMatch.tap()
+        let firstWork = app.buttons.matching(identifier: "work").firstMatch
+        XCTAssertTrue(firstWork.waitForExistence(timeout: 10))
+        firstWork.tap()
         let rows = app.buttons.matching(identifier: "recording")
         XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 10))
 

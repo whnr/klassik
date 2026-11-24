@@ -79,15 +79,21 @@ final class GaplessEngine: PlaybackEngine {
     private var worker: DispatchQueue?
     private let deliverCompletion: CompletionDelivery
     private let rendered: (@Sendable (AVReadOnlyAudioPCMBuffer) -> Void)?
+    /// Tests only. The engine renders offline and only audio that is already on the node, so the output does not
+    /// depend on runner load.
+    private let manualRendering: Bool
+    private var pump: Task<Void, Never>?
 
     init(
         deliverCompletion: @escaping CompletionDelivery = { completion in
             Task { @MainActor in completion() }
         },
-        rendered: (@Sendable (AVReadOnlyAudioPCMBuffer) -> Void)? = nil
+        rendered: (@Sendable (AVReadOnlyAudioPCMBuffer) -> Void)? = nil,
+        manualRendering: Bool = false
     ) {
         self.deliverCompletion = deliverCompletion
         self.rendered = rendered
+        self.manualRendering = manualRendering
     }
 
     func load(_ songs: [Song], from movement: Int, offset: Double, file: @escaping PlaybackFileSource) {
@@ -151,6 +157,8 @@ final class GaplessEngine: PlaybackEngine {
         engineNotifications = nil
         activation?.cancel()
         activation = nil
+        pump?.cancel()
+        pump = nil
         engine?.stop()
         engine = nil
         node = nil
@@ -299,6 +307,9 @@ final class GaplessEngine: PlaybackEngine {
         sampleRate = stable.sampleRate
         try engine.connectNode(node, to: gain, format: stable)
         try engine.connectNode(gain, to: engine.mainMixerNode, format: stable)
+        if manualRendering {
+            try engine.enableManualRenderingMode(.offline, format: stable, maximumFrameCount: 1_024)
+        }
         if let rendered {
             try gain.installAudioTap(
                 onBus: 0, bufferSize: AVAudioFrameCount(stable.sampleRate * Self.chunkSeconds), format: stable
@@ -307,7 +318,28 @@ final class GaplessEngine: PlaybackEngine {
         try await Self.activateSession()
         try check(generation)
         try engine.start()
+        if manualRendering { startPump(engine, node: node, generation: generation) }
         return true
+    }
+
+    /// Renders the audio that waits on the node and never more, so a slow decoder cannot put silence in the output.
+    private func startPump(_ engine: AVAudioEngine, node: AVAudioPlayerNode, generation: Int) {
+        guard let buffer = AVAudioPCMBuffer(
+            pcmFormat: engine.manualRenderingFormat, frameCapacity: engine.manualRenderingMaximumFrameCount)
+        else { return }
+        pump = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self, generation == self.generation else { return }
+                let waiting = self.scheduledEnd - (self.playedSamples() ?? 0)
+                guard node.isPlaying, waiting > 0 else {
+                    try? await Task.sleep(for: .milliseconds(1))
+                    continue
+                }
+                let frames = AVAudioFrameCount(min(waiting, Int64(buffer.frameCapacity)))
+                guard (try? engine.renderOffline(frames, to: buffer)) != nil else { return }
+                await Task.yield()
+            }
+        }
     }
 
     private func scheduleFile(_ url: URL, position: Int, offset: Double, generation: Int) async throws -> Bool {

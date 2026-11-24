@@ -540,7 +540,7 @@ struct StreamingPlaybackTests {
                 _ = Self.feed(bytes, into: transfer)
             })
         let output = RenderedAudio()
-        let engine = GaplessEngine(rendered: { output.record($0) })
+        let engine = GaplessEngine(rendered: { output.record($0) }, manualRendering: true)
         let player = PlaybackSession(engine: engine, store: store, defaults: defaults)
         player.server = InMemoryServer()
         player.leveling = .off
@@ -570,7 +570,9 @@ struct StreamingPlaybackTests {
             return GaplessTests.alignment(rendered, at: start + join + 256, referenceAt: join + 256)
         }
         print("rendered \(suffix) recording joins: start=\(start), frames=\(rendered.count), shifts=\(shifts)")
-        #expect(shifts == [0, 0])
+        #expect(
+            shifts == [0, 0],
+            "shifts=\(shifts) start=\(start) frames=\(rendered.count) joins=\(GaplessTests.movementSamples)")
     }
 
     /// The output timeline stays at the first rate while subsequent files differ. Each converted track ends on its

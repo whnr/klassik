@@ -510,7 +510,7 @@ input::placeholder {
   color: var(--color-on-accent, #fff);
 }
 
-/* Tab bar: iOS 26 floats it as a capsule, with Search on its own. */
+/* Tab bar: iOS 26 floats it as one capsule with three equal tabs. */
 .tabbar {
   position: fixed;
   z-index: 30;
@@ -535,8 +535,7 @@ input::placeholder {
   border-radius: var(--radius-full);
   padding: var(--space-xs);
 }
-.tabs a,
-.tab-search {
+.tabs a {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -551,8 +550,7 @@ input::placeholder {
   color: var(--color-tint);
   background: var(--color-fill-quiet);
 }
-.tabs svg,
-.tab-search svg {
+.tabs svg {
   width: 22px;
   height: 22px;
 }
@@ -560,14 +558,6 @@ input::placeholder {
 .tabs .t-caption2 {
   font-size: 10px;
   line-height: 12px;
-}
-.tab-search {
-  flex: none;
-  width: 56px;
-  border-radius: var(--radius-full);
-}
-.tab-search.on {
-  color: var(--color-tint);
 }
 
 /* Timeline and mini player: drawn by hand. The timeline shape is in timeline.css. */

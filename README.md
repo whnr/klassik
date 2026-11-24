@@ -38,7 +38,7 @@ uv run --script scripts/playback_lab.py build --movement1 one.flac --movement2 t
 uv run --script scripts/playback_lab.py serve --music lab-library
 ```
 
-`build` writes one album, `Playback Lab`, with one work per folder and two movements each: FLAC 24/96, 16/44.1 and 24/192, ALAC 24/96 and 16/44.1, AAC 256, MP3 with and without LAME header, WAV, AIFF, Opus, and a work that changes from 96 kHz to 44.1 kHz. ReplayGain tags are on FLAC 24/96 and the MP3 with header. WAV and AIFF carry their tags in an ID3 chunk; check that Navidrome shows the work for them.
+`build` writes one album, `Playback Lab`, with one work per folder and two movements each: FLAC 24/96, 16/44.1 and 24/192, ALAC 24/96 and 16/44.1, AAC 256, MP3 with and without LAME header, WAV, AIFF, Opus, and a work that changes from 96 kHz to 44.1 kHz. ReplayGain tags are on FLAC 24/96 and the MP3 with header. WAV and AIFF carry the same tags as the other cases in an ID3 chunk. `build` writes that chunk for WAV itself, because ffmpeg does not. Check in Navidrome that the WAV and AIFF works each show two movements.
 
 `serve` downloads Navidrome 0.64.2 once (checksum verified), binds to this machine's home network address only and prints the URL, user `lab` and a generated password. Run it on the home Wi-Fi and stop it with Ctrl-C when the test is done. `--address` overrides the bind address.
 

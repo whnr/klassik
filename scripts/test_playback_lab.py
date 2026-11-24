@@ -9,6 +9,8 @@ import unittest
 from unittest import mock
 
 import playback_lab as lab
+from mutagen.aiff import AIFF
+from mutagen.wave import WAVE
 
 SRC = (pathlib.Path("/src/one.flac"), pathlib.Path("/src/two.flac"))
 OUT = pathlib.Path("/out")
@@ -180,6 +182,21 @@ class EndToEndTests(unittest.TestCase):
         result = subprocess.run(["ffmpeg", "-hide_banner", "-i", str(path)], capture_output=True, text=True)
         return result.stderr
 
+    def assertTagsRead(self, path, number, movement, title):
+        """WAV and AIFF tags, read back from their ID3 chunk with mutagen."""
+        audio = (WAVE if path.suffix == ".wav" else AIFF)(path)
+        tags = audio.tags
+        self.assertIsNotNone(tags, f"{path.name} has no ID3 chunk")
+        self.assertEqual(str(tags["TXXX:work"]), title, path.name)
+        self.assertEqual(str(tags["TALB"]), lab.ALBUM, path.name)
+        self.assertEqual(str(tags["TPE2"]), lab.ARTIST, path.name)
+        self.assertEqual(str(tags["TCOM"]), lab.COMPOSER, path.name)
+        self.assertEqual(str(tags["TIT2"]), lab.MOVEMENTS[movement - 1], path.name)
+        self.assertEqual(str(tags["TRCK"]), str(movement), path.name)
+        self.assertEqual(str(tags["TPOS"]), str(number), path.name)
+        self.assertEqual(str(tags["TXXX:movement"]), str(movement), path.name)
+        self.assertEqual(str(tags["TXXX:movementtotal"]), str(len(lab.MOVEMENTS)), path.name)
+
     def test_builds_every_case(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp = pathlib.Path(tmp)
@@ -197,9 +214,9 @@ class EndToEndTests(unittest.TestCase):
                 info = self.info(f)
                 data = f.read_bytes()
                 self.assertRegex(info, AUDIO[number][movement - 1], f.name)
-                # ffmpeg's WAV muxer writes no ID3 chunk, so WAV files carry no WORK; Navidrome groups them by album.
-                if number != 9:
-                    self.assertRegex(info, rf"work\s*:\s*{re.escape(case.title)}", f.name)
+                self.assertRegex(info, rf"work\s*:\s*{re.escape(case.title)}", f.name)
+                if number in (9, 10):
+                    self.assertTagsRead(f, number, movement, case.title)
                 if number == 6:
                     self.assertIn(b"elst", data, "AAC needs the encoder delay edit list")
                 if number == 7:

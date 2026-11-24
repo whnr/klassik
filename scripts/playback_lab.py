@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.12"
-# dependencies = []
+# dependencies = ["mutagen>=1.47"]
 # ///
 """Builds the Klassik Playback Lab library and serves it with Navidrome.
 
@@ -30,6 +30,9 @@ import tarfile
 import time
 import urllib.error
 import urllib.request
+
+from mutagen.id3 import TALB, TCOM, TCON, TDRC, TIT2, TPE1, TPE2, TPOS, TRCK, TXXX
+from mutagen.wave import WAVE
 
 NAVIDROME_VERSION = "0.64.2"
 PORT = 4533
@@ -97,11 +100,26 @@ CASES = (
 
 @dataclasses.dataclass(frozen=True)
 class Job:
-    """One file to encode."""
+    """One file to encode, and the tags it must carry."""
 
     source: pathlib.Path
     target: pathlib.Path
     args: tuple[str, ...]
+    tags: dict[str, str]
+
+
+# The ID3 frames ffmpeg writes for the other formats. Tags without a frame go in a TXXX frame, as ffmpeg does.
+ID3_FRAMES = {
+    "title": TIT2,
+    "album": TALB,
+    "album_artist": TPE2,
+    "artist": TPE1,
+    "composer": TCOM,
+    "genre": TCON,
+    "date": TDRC,
+    "disc": TPOS,
+    "track": TRCK,
+}
 
 
 def metadata(case: Case, number: int, movement: int) -> dict[str, str]:
@@ -165,8 +183,20 @@ def plan(movements: tuple[pathlib.Path, pathlib.Path], out: pathlib.Path) -> lis
         for movement, source in enumerate(movements, start=1):
             name = f"{movement:02d} {MOVEMENTS[movement - 1]}.{case.ext}"
             target = folder / name
-            jobs.append(Job(source, target, tuple(ffmpeg_args(case, number, movement, source, target))))
+            args = tuple(ffmpeg_args(case, number, movement, source, target))
+            jobs.append(Job(source, target, args, metadata(case, number, movement)))
     return jobs
+
+
+def write_wav_tags(path: pathlib.Path, tags: dict[str, str]) -> None:
+    """ffmpeg's WAV muxer writes no ID3 chunk, so the lab adds one with the tags of the other cases."""
+    audio = WAVE(path)
+    if audio.tags is None:
+        audio.add_tags()
+    for key, value in tags.items():
+        frame = ID3_FRAMES.get(key)
+        audio.tags.add(frame(encoding=3, text=value) if frame else TXXX(encoding=3, desc=key, text=value))
+    audio.save(v2_version=4)
 
 
 def build(movements: tuple[pathlib.Path, pathlib.Path], out: pathlib.Path) -> int:
@@ -181,6 +211,8 @@ def build(movements: tuple[pathlib.Path, pathlib.Path], out: pathlib.Path) -> in
         result = subprocess.run(job.args, capture_output=True, text=True)
         if result.returncode != 0:
             sys.exit(f"ffmpeg failed for {job.target.name}:\n{result.stderr.strip()}")
+        if job.target.suffix == ".wav":
+            write_wav_tags(job.target, job.tags)
         print(job.target.relative_to(out))
     print(f"{len(jobs)} files, {len(CASES)} test cases in {out / ALBUM}")
     return len(jobs)

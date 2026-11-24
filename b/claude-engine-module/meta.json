@@ -1,7 +1,7 @@
 {
-  "sha": "267641d082a5391cc7cceb6ecfd645a1694e7419",
+  "sha": "778382583558ee3e5891c90195b3c3992fa6f726",
   "branch": "claude-engine-module",
   "path": "claude-engine-module",
-  "subject": "[sz-rs30.1.162.5] Test the failure mapper wiring; fix script",
-  "ts": 1795559154
+  "subject": "[sz-rs30.1.162.5] Compare engine events by case",
+  "ts": 1795559161
 }

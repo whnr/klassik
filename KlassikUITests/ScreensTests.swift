@@ -1257,6 +1257,32 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(app.buttons["show-player"].waitForExistence(timeout: 10))
     }
 
+    /// A drag down that starts on the performer names closes the player like a drag from the cover. The names are links,
+    /// so the drag starts on them.
+    @MainActor
+    func testSubtitleDragClosesThePlayer() throws {
+        let app = try launchAndConnect()
+        openRecording(app)
+        playPaused(app)
+        openPlayer(app)
+        // The page below the player has the same ids and comes first in the tree, so the lookup stays inside the player.
+        let player = app.descendants(matching: .any)["player-overlay"].firstMatch
+        let cover = player.descendants(matching: .any)["hero-cover"].firstMatch
+        let names = player.descendants(matching: .any)["hero-roles"].firstMatch
+        XCTAssertTrue(cover.waitForExistence(timeout: 10))
+        XCTAssertTrue(eventually(timeout: 12) { names.exists && names.isHittable }, "The names are not on screen")
+        XCTAssertGreaterThan(names.frame.minY, cover.frame.maxY, "The names are not below the cover")
+        // A drag that the recognizer misses at its start is lost, so a lost drag repeats; three lost drags fail the check.
+        for _ in 0..<3 where app.buttons["player-handle"].exists {
+            names.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(
+                forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)),
+                withVelocity: .default, thenHoldForDuration: 0)
+            _ = app.buttons["player-handle"].waitForNonExistence(timeout: 4)
+        }
+        expectPlayerClosed(app)
+        XCTAssertTrue(app.buttons["show-player"].waitForExistence(timeout: 10))
+    }
+
     /// A short drag down from the cover only pulls the player. It springs back to its place.
     @MainActor
     func testShortHeadingDragSpringsBack() throws {

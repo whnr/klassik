@@ -29,6 +29,19 @@ scripts/test.sh          # generate the project, build, run the unit tests
 open Klassik.xcodeproj
 ```
 
+## Playback Lab library
+
+`scripts/playback_lab.py` builds the test library of the Klassik Playback Lab and serves it. It needs [uv](https://docs.astral.sh/uv/) and ffmpeg, on Linux or macOS. Give it two FLAC 24/96 files of your own. They are movement 1 and movement 2 of the join; the repository holds no audio.
+
+```sh
+uv run --script scripts/playback_lab.py build --movement1 one.flac --movement2 two.flac --out lab-library
+uv run --script scripts/playback_lab.py serve --music lab-library
+```
+
+`build` writes one album, `Playback Lab`, with one work per folder and two movements each: FLAC 24/96, 16/44.1 and 24/192, ALAC 24/96 and 16/44.1, AAC 256, MP3 with and without LAME header, WAV, AIFF, Opus, and a work that changes from 96 kHz to 44.1 kHz. ReplayGain tags are on FLAC 24/96 and the MP3 with header. WAV and AIFF carry their tags in an ID3 chunk; check that Navidrome shows the work for them.
+
+`serve` downloads Navidrome 0.64.2 once (checksum verified), binds to this machine's home network address only and prints the URL, user `lab` and a generated password. Run it on the home Wi-Fi and stop it with Ctrl-C when the test is done. `--address` overrides the bind address.
+
 ## License
 
 Apache License 2.0. See [LICENSE](LICENSE).

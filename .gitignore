@@ -7,3 +7,5 @@ DerivedData/
 __pycache__/
 .DS_Store
 .scratch/
+lab-library/
+lab-server/

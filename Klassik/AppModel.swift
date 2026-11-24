@@ -128,6 +128,7 @@ final class AppModel {
                 self.keepAlbumArt()
                 Self.start(self.sweep, over: self.library.index)
                 self.synchronizeAfterReconnect()
+                await self.checkForChanges()
             }
         }
         // No build reads the URL cache folder of the pictures, so its space goes back to the device.
@@ -314,6 +315,19 @@ final class AppModel {
     /// The covers follow the classical filter: an album that it keeps out gets no cover fetch.
     private func planCovers() {
         albumCovers.plan(classical: library.classical, library: library.songs)
+    }
+
+    /// Foreground and reconnect: asks the server whether the library changed, and syncs only if it did.
+    /// It runs quietly: a failed check leaves the server status to say so.
+    func checkForChanges() async {
+        guard let client else { return }
+        let before = library.syncedAt
+        await Self.checkForChanges(library: library, client: client)
+        if library.syncedAt != before { keepAlbumArt() }
+    }
+
+    static func checkForChanges(library: Library, client: SubsonicClient) async {
+        await library.syncIfChanged(with: client)
     }
 
     /// Pull to refresh: the full sync of ADR 0059 reads the library again and refreshes every cover.

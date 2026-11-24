@@ -27,7 +27,8 @@ struct ServerConnectionView: View {
             } footer: {
                 if model.serverReached == false {
                     Text(
-                        "Klassik keeps playing from the library on this iPhone. Changes wait until the server answers.")
+                        "Klassik keeps playing from the library on this iPhone. Changes wait until the server answers."
+                    )
                 }
             }
 
@@ -87,7 +88,7 @@ struct ServerConnectionView: View {
     /// The address without its scheme, as the listener typed it.
     static func address(_ url: URL) -> String {
         let text = url.absoluteString
-        guard let scheme = ["https://", "http://"].first { text.hasPrefix($0) } else { return text }
+        guard let scheme = ["https://", "http://"].first(where: { text.hasPrefix($0) }) else { return text }
         return String(text.dropFirst(scheme.count))
     }
 }

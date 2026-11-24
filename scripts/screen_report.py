@@ -523,7 +523,10 @@ def retry_report(log):
             reasons[name] = reason
     flaky = [name for name in recovered if name not in reasons]
     if reasons:
-        lines += ["", "**Runner error, retried** (not a failed test; the retry passed). A reviewer does not block on these:"]
+        lines += [
+            "",
+            "**Runner error, retried** (not a failed test; the retry passed). A reviewer does not block on these:",
+        ]
         lines += [f"- `{name}`: {reason}" for name, reason in reasons.items()]
     if flaky:
         lines += [

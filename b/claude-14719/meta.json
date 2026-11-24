@@ -1,7 +1,7 @@
 {
-  "sha": "7a1fcf90b79c7e2916758e8d032d6ffeab1b248f",
+  "sha": "58b920c06d2544666bcfcdd388ee6f4122d44a64",
   "branch": "claude-14719",
   "path": "claude-14719",
-  "subject": "[sz-rs30.1.147.19] Fix Server Connection rows",
-  "ts": 1795502672
+  "subject": "[sz-rs30.1.147.19] Run Server Connection tests on main",
+  "ts": 1795504506
 }

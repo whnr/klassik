@@ -1,7 +1,7 @@
 {
-  "sha": "d15d4048744a32b760f97cf0aaf169ef16cf1e14",
+  "sha": "c25a627fbf1e5611603e1808e0687485f0cc4d91",
   "branch": "claude-1612",
   "path": "claude-1612",
-  "subject": "Start the quiet-spell drag on a row",
-  "ts": 1795522211
+  "subject": "Reuse the row inset helper of main",
+  "ts": 1795523482
 }

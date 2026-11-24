@@ -3,6 +3,7 @@ import Testing
 
 @testable import Klassik
 
+@MainActor
 struct ServerConnectionTests {
     let url = URL(string: "https://music.example.org")!
     let otherURL = URL(string: "https://other.example.org")!

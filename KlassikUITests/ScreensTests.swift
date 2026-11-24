@@ -1259,7 +1259,7 @@ final class PlaybackScreens: ScreensTestCase {
         var atTop = false
         for _ in 0..<12 where !atTop {
             let before = cover.frame.minY
-            let from = titleLine(of: row)
+            let from = rowTopInset(of: row)
             from.press(
                 forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: 90)), withVelocity: .slow,
                 thenHoldForDuration: 0.2)
@@ -1275,7 +1275,7 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(handle.exists, "A short drag closed the player")
         XCTAssertGreaterThan(row.frame.minY, cover.frame.maxY, "The row is not below the cover")
         snap(app, "05e-pull-from-row")
-        titleLine(of: row).press(
+        rowTopInset(of: row).press(
             forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.95)),
             withVelocity: .default, thenHoldForDuration: 0.3)
         let closed = app.buttons["player-handle"].waitForNonExistence(timeout: 10)
@@ -1284,11 +1284,12 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(app.buttons["show-player"].waitForExistence(timeout: 10))
     }
 
-    /// The right end of the playing row's title, near its top edge. The touch area of the position bar reaches up
-    /// to the lower part of the title line, and a drag there scrubs the position and never scrolls the page.
+    /// The top inset of the playing row, above its title and right of centre. The touch area of the position bar
+    /// reaches over the whole title line, and a drag there scrubs the position and never scrolls the page. The
+    /// inset holds no control, so a drag from here goes to the page scroll.
     @MainActor
-    func titleLine(of row: XCUIElement) -> XCUICoordinate {
-        row.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0)).withOffset(CGVector(dx: 0, dy: 4))
+    func rowTopInset(of row: XCUIElement) -> XCUICoordinate {
+        row.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0)).withOffset(CGVector(dx: 0, dy: -8))
     }
 
     /// A drag down from the cover of the player moves the whole player, and a fling closes it.

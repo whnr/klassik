@@ -1,7 +1,7 @@
 {
-  "sha": "ef2e460d9d74bbbbb6be204f8c721c6f6d71dc81",
+  "sha": "cf552b485d60c26811bbd74aa2131f70c37de440",
   "branch": "claude-lab-script",
   "path": "claude-lab-script",
-  "subject": "[sz-rs30.1.162.4] Fail clearly on missing ffmpeg",
-  "ts": 1795554968
+  "subject": "[sz-rs30.1.162.4] Match ffmpeg's decoder name in test",
+  "ts": 1795555132
 }

@@ -207,5 +207,6 @@ class EndToEndTests(unittest.TestCase):
                 if number == 8:
                     self.assertFalse(b"Xing" in data or b"Info" in data, "MP3 has a header it should not have")
 
+
 if __name__ == "__main__":
     unittest.main()

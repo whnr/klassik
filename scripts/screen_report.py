@@ -249,8 +249,11 @@ def release_walk(title, project=""):
 
 
 def release_launch(event, title=""):
-    """The Release launch check runs everywhere except on a pull request that is no release."""
-    return event != "pull_request" or RELEASE_TITLE.match(title) is not None
+    """The Release launch check runs on nightly and manual runs and on a pull request that is a release. A push to
+    main does not run it: the release PR head run proves it for the TestFlight gate (scripts/green_test_gate.py)."""
+    if event == "pull_request":
+        return RELEASE_TITLE.match(title) is not None
+    return event in ("schedule", "workflow_dispatch")
 
 
 def plan(event, dispatch_input, message, title="", ref="refs/heads/main", project=""):

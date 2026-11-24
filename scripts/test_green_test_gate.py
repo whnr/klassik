@@ -31,8 +31,28 @@ def no_version_diff(sha):
 
 
 class CoveringTests(unittest.TestCase):
-    def find(self, commits, changes, green):
-        return green_test_gate.covering(commits, lambda sha: changes[sha], lambda sha: sha in green, no_version_diff)
+    def find(self, commits, changes, green, released=None):
+        # Every green commit has a Release launch unless a test says otherwise.
+        released = set(green) if released is None else released
+        return green_test_gate.covering(
+            commits,
+            lambda sha: changes[sha],
+            lambda sha: sha in green,
+            no_version_diff,
+            launched=lambda sha, head: sha in released,
+        )
+
+    def test_a_green_commit_without_a_release_launch_is_refused(self):
+        # A main push runs no Release launch, so its green build and tests alone must not ship.
+        sha, reason = self.find(["c"], {"c": ["a.swift"]}, {"c"}, released=set())
+        self.assertIsNone(sha)
+        self.assertIn("no green Test run for c", reason)
+
+    def test_a_docs_commit_is_covered_only_by_a_released_ancestor(self):
+        changes = {"c": ["README.md"], "a": ["a.swift"]}
+        self.assertEqual(self.find(["c", "a"], changes, {"a", "c"}, released={"a"}), ("a", None))
+        sha, _ = self.find(["c", "a"], changes, {"a", "c"}, released=set())
+        self.assertIsNone(sha)
 
     def test_the_commit_itself_is_green(self):
         self.assertEqual(self.find(["c", "b"], {"c": ["a.swift"]}, {"c"}), ("c", None))
@@ -77,7 +97,9 @@ class CoveringTests(unittest.TestCase):
         self.assertEqual(green_test_gate.parse_paths("docs/x.md\nREADME.md\n"), ["docs/x.md", "README.md"])
         self.assertEqual(green_test_gate.parse_paths(""), [])
         changes = {"c": green_test_gate.parse_paths("docs/x.md\n"), "a": []}
-        found = green_test_gate.covering(["c", "a"], changes.get, lambda s: s == "a", no_version_diff)
+        found = green_test_gate.covering(
+            ["c", "a"], changes.get, lambda s: s == "a", no_version_diff, launched=lambda s, h: True
+        )
         self.assertEqual(found, ("a", None))
 
 
@@ -129,6 +151,7 @@ class History:
             lambda sha: green_test_gate.changed(sha, cwd=self.tmp),
             lambda sha: sha in green,
             lambda sha: green_test_gate.version_diff(sha, cwd=self.tmp),
+            launched=lambda sha, head: True,
         )
 
 
@@ -328,6 +351,21 @@ class MergedHeadTests(unittest.TestCase):
                 self.assertIsNone(found)
                 self.assertIn(f"no green Test run for {sha}", reason)
 
+    def test_covering_refuses_a_green_merge_run_without_a_release_build(self):
+        # The plan of a main push skips the build of a green merge, but the TestFlight gate must still find a
+        # Release launch on the head or on the commit itself.
+        sha = merge(self.repo, "feature")
+        found, reason = green_test_gate.covering(
+            green_test_gate.commits_from(sha, cwd=self.repo.tmp),
+            lambda commit: green_test_gate.changed(commit, cwd=self.repo.tmp),
+            lambda commit: commit in (self.head, sha),
+            no_version_diff,
+            self.merged,
+            lambda commit, head: False,
+        )
+        self.assertIsNone(found)
+        self.assertIn(f"no green Test run for {sha}", reason)
+
     def test_covering_refuses_a_merge_whose_head_is_not_green(self):
         sha = merge(self.repo, "feature")
         found, reason = green_test_gate.covering(
@@ -443,10 +481,18 @@ class MainTests(unittest.TestCase):
         read = self.api({self.merge: ("skipped", None), self.head: ("success", None)})
         self.assertEqual(self.main(["merged", self.merge], read), (0, self.head))
 
-    def test_a_merge_with_its_own_green_build_takes_itself(self):
-        read = self.api({self.merge: ("success", None)})
+    def test_a_merge_with_its_own_green_build_and_release_launch_takes_itself(self):
+        read = self.api({self.merge: ("success", "success")})
         self.assertEqual(self.main([self.merge], read), (0, self.merge))
         self.assertEqual(self.main(["merged", self.merge], read), (1, f"{self.merge} is no merge of a green PR head"))
+
+    def test_a_merge_with_its_own_green_build_but_no_release_launch_blocks(self):
+        # A main push runs no Release launch, so its own green build does not ship without one.
+        for release in (None, "skipped", "failure"):
+            with self.subTest(release=release):
+                code, out = self.main([self.merge], self.api({self.merge: ("success", release)}))
+                self.assertEqual(code, 1)
+                self.assertIn(f"no green Test run for {self.merge}", out)
 
     def test_a_missing_run_blocks(self):
         skipped = {self.merge: ("skipped", None), self.head: ("skipped", None)}

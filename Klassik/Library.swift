@@ -36,7 +36,7 @@ final class Library {
     /// The last successful check of the server's change marker, or the last sync.
     private(set) var checkedAt: Date?
     private(set) var isSyncing = false
-    @ObservationIgnored private var isChecking = false
+    @ObservationIgnored private(set) var isChecking = false
     /// Tracks received so far in the running sync.
     private(set) var received = 0
     private(set) var syncError: String?
@@ -145,6 +145,11 @@ final class Library {
     var unchangedCheck: Date? {
         guard let syncedAt, let checkedAt, checkedAt > syncedAt else { return nil }
         return checkedAt
+    }
+
+    /// The Diagnostics row for a check that found no change. A suspended app can show a day-old check, so it carries the date.
+    var unchangedCheckRow: String? {
+        unchangedCheck.map { "Checked \($0.formatted(date: .abbreviated, time: .standard)), no changes" }
     }
 
     /// The line under the Library page.

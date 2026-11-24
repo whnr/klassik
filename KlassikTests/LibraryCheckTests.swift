@@ -12,6 +12,12 @@ private final class CheckServerProtocol: URLProtocol {
     private static let lock = NSLock()
     private nonisolated(unsafe) static var calls: [String: Int] = [:]
 
+    private nonisolated(unsafe) static var markerCalls: [String: Int] = [:]
+
+    static func markerRequests(from host: String) -> Int {
+        lock.withLock { markerCalls[host, default: 0] }
+    }
+
     static func songRequests(from host: String) -> Int {
         lock.withLock { calls[host, default: 0] }
     }
@@ -24,6 +30,10 @@ private final class CheckServerProtocol: URLProtocol {
         if host.hasPrefix("down") {
             client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet))
             return
+        }
+        if path == "getIndexes" {
+            Self.lock.withLock { Self.markerCalls[host, default: 0] += 1 }
+            if host.hasPrefix("slow") { Thread.sleep(forTimeInterval: 0.5) }
         }
         if path == "search3" { Self.lock.withLock { Self.calls[host, default: 0] += 1 } }
         let body: String
@@ -122,5 +132,53 @@ struct LibraryCheckTests {
         #expect(library.syncedAt == changedAt)
         #expect(library.unchangedCheck != nil)
         #expect(CheckServerProtocol.songRequests(from: host) == 1)
+    }
+
+    private func waitUntil(_ condition: () -> Bool) async {
+        for _ in 0..<400 where !condition() { try? await Task.sleep(for: .milliseconds(5)) }
+    }
+
+    @Test func aCheckDuringACheckDoesNothing() async throws {
+        let library = try makeLibrary()
+        let host = "slow-\(UUID().uuidString.prefix(8)).test"
+        await library.sync(with: client(host))
+        let before = CheckServerProtocol.markerRequests(from: host)
+
+        let first = Task { await library.syncIfChanged(with: client(host)) }
+        await waitUntil { library.isChecking }
+        #expect(library.isChecking)
+        await library.syncIfChanged(with: client(host))
+        await first.value
+
+        #expect(CheckServerProtocol.markerRequests(from: host) - before == 1)
+    }
+
+    @Test func aCheckDuringASyncDoesNothing() async throws {
+        let library = try makeLibrary()
+        let host = "slow-\(UUID().uuidString.prefix(8)).test"
+        await library.sync(with: client(host))
+        let before = CheckServerProtocol.markerRequests(from: host)
+
+        let running = Task { await library.sync(with: client(host)) }
+        await waitUntil { library.isSyncing }
+        #expect(library.isSyncing)
+        await library.syncIfChanged(with: client(host))
+        await running.value
+
+        #expect(CheckServerProtocol.markerRequests(from: host) - before == 1)
+    }
+
+    @Test func theDiagnosticsRowShowsDateAndTimeOnlyForAnUnchangedCheck() async throws {
+        let library = try makeLibrary()
+        let host = "same-\(UUID().uuidString.prefix(8)).test"
+        #expect(library.unchangedCheckRow == nil)
+        await library.sync(with: client(host))
+        #expect(library.unchangedCheckRow == nil)
+
+        await library.syncIfChanged(with: client(host))
+
+        let checked = try #require(library.checkedAt)
+        let expected = "Checked \(checked.formatted(date: .abbreviated, time: .standard)), no changes"
+        #expect(library.unchangedCheckRow == expected)
     }
 }

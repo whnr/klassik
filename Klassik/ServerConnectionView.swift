@@ -8,6 +8,7 @@ struct ServerConnectionView: View {
 
     var body: some View {
         let library = model.library
+        let server = model.credentials.map { Self.address($0.url) } ?? ""
         PageForm {
             if let credentials = model.credentials {
                 Section("Account") {
@@ -33,18 +34,27 @@ struct ServerConnectionView: View {
             }
 
             Section {
-                LabeledContent("Server", value: serverName)
+                LabeledContent("Server", value: Self.name(of: model.serverInfo))
                     .ink()
                     .accessibilityIdentifier("server-name")
-                LabeledContent("Classical Tracks", value: library.classical.count.formatted())
-                    .ink()
-                    .accessibilityIdentifier("server-classical-tracks")
-                LabeledContent("Classical Albums", value: library.classicalAlbumCount.formatted())
-                    .ink()
-                    .accessibilityIdentifier("server-classical-albums")
-                LabeledContent("Tracks Outside Filter", value: library.otherTrackCount.formatted())
-                    .ink()
-                    .accessibilityIdentifier("server-other-tracks")
+                LabeledContent(
+                    "Classical Tracks",
+                    value: Self.countText(library.classical.count, syncedAt: library.syncedAt)
+                )
+                .ink()
+                .accessibilityIdentifier("server-classical-tracks")
+                LabeledContent(
+                    "Classical Albums",
+                    value: Self.countText(library.classicalAlbumCount, syncedAt: library.syncedAt)
+                )
+                .ink()
+                .accessibilityIdentifier("server-classical-albums")
+                LabeledContent(
+                    "Tracks Outside Filter",
+                    value: Self.countText(library.otherTrackCount, syncedAt: library.syncedAt)
+                )
+                .ink()
+                .accessibilityIdentifier("server-other-tracks")
                 LabeledContent("Last Sync", value: lastSync)
                     .ink()
                     .accessibilityIdentifier("server-last-sync")
@@ -59,8 +69,8 @@ struct ServerConnectionView: View {
             Section {
                 Button("Sign Out", role: .destructive) { confirmsSignOut = true }
                     .accessibilityIdentifier("sign-out")
-                    .confirmationDialog("Sign Out?", isPresented: $confirmsSignOut, titleVisibility: .visible) {
-                        Button("Sign Out", role: .destructive) { model.signOut() }
+                    .confirmationDialog("Sign Out", isPresented: $confirmsSignOut, titleVisibility: .visible) {
+                        Button("Sign Out of \(server)", role: .destructive) { model.signOut() }
                     } message: {
                         Text(
                             "Downloads and the music cache leave this iPhone. Favourite works, listening notes and the changes that wait stay for this server and user."
@@ -73,16 +83,24 @@ struct ServerConnectionView: View {
         .task { await model.check() }
     }
 
-    private var serverName: String {
-        guard let info = model.serverInfo else { return "Unknown" }
-        let name = [info.type, info.serverVersion].compactMap(\.self).joined(separator: " ")
-        return name.isEmpty ? "Unknown" : name
-    }
-
     private var lastSync: String {
         let library = model.library
         guard let syncedAt = library.syncedAt else { return library.isSyncing ? "Syncing…" : "Not synced" }
         return syncedAt.formatted(date: .abbreviated, time: .shortened)
+    }
+
+    /// A track or album count. Before the first sync no count is known, so the row shows no number, not zero.
+    static func countText(_ count: Int, syncedAt: Date?) -> String {
+        syncedAt == nil ? "—" : count.formatted()
+    }
+
+    /// The server as the specimen names it: "Navidrome 0.64.2". The build number in brackets stays out of the row.
+    static func name(of info: ServerInfo?) -> String {
+        guard let info else { return "Unknown" }
+        let type = info.type.map { String($0.prefix(1)).uppercased() + String($0.dropFirst()) }
+        let version = info.serverVersion?.components(separatedBy: " (").first
+        let name = [type, version].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " ")
+        return name.isEmpty ? "Unknown" : name
     }
 
     /// The address without its scheme, as the listener typed it.

@@ -45,7 +45,6 @@ final class AppModel {
     @ObservationIgnored private var reconnectSync: Task<Void, Never>?
     private let store: CredentialStore
     private let defaults: UserDefaults
-    private static let serverInfoKey = "server.info"
     private let listener: ListenerData
 
     /// Downloads load through the system's background session, so they continue while Klassik is suspended.
@@ -92,7 +91,7 @@ final class AppModel {
         // UI tests start from the connect screen.
         if ProcessInfo.processInfo.arguments.contains("-resetServer") {
             store.clear()
-            defaults.removeObject(forKey: Self.serverInfoKey)
+            SavedServerAnswer(defaults: defaults).clear()
             library.clear()
             tracks.clearAll()
             albumArt.clear()
@@ -374,24 +373,12 @@ final class AppModel {
         return serverReached ? "Connected" : "Not reachable"
     }
 
-    private struct SavedServerInfo: Codable {
-        var url: URL
-        var info: ServerInfo
-    }
-
     private func saveServerInfo() {
-        guard let info = serverInfo, let url = credentials?.url,
-            let data = try? JSONEncoder().encode(SavedServerInfo(url: url, info: info))
-        else { return defaults.removeObject(forKey: Self.serverInfoKey) }
-        defaults.set(data, forKey: Self.serverInfoKey)
+        SavedServerAnswer(defaults: defaults).save(serverInfo, for: credentials?.url)
     }
 
-    /// The saved answer counts only for the server that gave it.
     private func savedServerInfo() -> ServerInfo? {
-        guard let url = credentials?.url, let data = defaults.data(forKey: Self.serverInfoKey),
-            let saved = try? JSONDecoder().decode(SavedServerInfo.self, from: data), saved.url == url
-        else { return nil }
-        return saved.info
+        SavedServerAnswer(defaults: defaults).load(for: credentials?.url)
     }
 
     /// Delete Listening Data in Settings (ADR 0013). The favourite works, the order of favourite recordings, the

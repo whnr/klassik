@@ -19,7 +19,7 @@ The specimen is the design reference of Klassik: what is decided, in light, dark
 - `chronology.html`: one composer among the contemporaries, and the overview (`?level=overview`).
 - `search.html`: Search and its Filters sheet.
 - `person.html`: a composer or performer page. `?name=<artist name>`.
-- `settings.html`, `lookup.html`, `storage.html`, `rules.html`, `swipe.html`: Settings and its pages.
+- `settings.html`, `lookup.html`, `storage.html`, `server.html`, `rules.html`, `swipe.html`: Settings and its pages.
 - `tokens.html`: the token sheet: every colour in the four themes, contrast, type scale, spacing, radius, size and motion.
 - `menu.html`: the page menu, one page per variant, drawn open. `?for=recording`, `album`, `work` or `player`; `?state=none`, `downloading`, `downloaded` or `offline`.
 

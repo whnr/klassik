@@ -41,6 +41,11 @@ final class AppModel {
     private let store: CredentialStore
     private let listener: ListenerData
 
+    /// Downloads load through the system's background session, so they continue while Klassik is suspended.
+    static let backgroundLoad: TrackStore.BackgroundLoad = { song, client in
+        try await BackgroundDownloads.shared.load(song.id, from: client.streamURL(songID: song.id))
+    }
+
     var client: SubsonicClient? { credentials.map { SubsonicClient(credentials: $0) } }
 
     init(
@@ -54,9 +59,12 @@ final class AppModel {
         notes = ListeningNotes(store: nil)
         recentSearches = RecentSearches(store: nil)
         #if DEBUG
-            tracks = SlowMusic.isOn ? TrackStore(transport: SlowMusic.transport) : TrackStore()
+            tracks =
+                SlowMusic.isOn
+                ? TrackStore(transport: SlowMusic.transport, background: Self.backgroundLoad)
+                : TrackStore(background: Self.backgroundLoad)
         #else
-            tracks = TrackStore()
+            tracks = TrackStore(background: Self.backgroundLoad)
         #endif
         albumCovers = AlbumCovers(store: ImageStore.albumArt)
         playback = PlaybackSession(engine: GaplessEngine(), store: tracks)
@@ -247,6 +255,7 @@ final class AppModel {
 
     func start() async {
         guard let credentials, let client else { return }
+        tracks.resumeDownloads(client: client)
         await library.load(for: credentials)
         sweepPeople()
         // The UI walk requires a fresh player on each reset launch.

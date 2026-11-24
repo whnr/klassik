@@ -1,7 +1,7 @@
 {
-  "sha": "707ac56d9a539d58dade5a2fa7acd8f027f1b830",
+  "sha": "e88f00a1c16d4783cc3db6b2ec9f1d0fe7e72889",
   "branch": "claude-14719",
   "path": "claude-14719",
-  "subject": "[sz-rs30.1.147.19] Request settings and playback walks",
-  "ts": 1795510166
+  "subject": "[sz-rs30.1.147.19] Unwrap heading screenshot; retry PID loss",
+  "ts": 1795515225
 }

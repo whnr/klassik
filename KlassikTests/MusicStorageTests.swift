@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Klassik
+@testable import KlassikEngine
 
 /// Automatic music stays inside the Music limit (ADR 0060). Old files go first, then speculative transfers, and
 /// current playback stops last. A track larger than the limit plays from a rolling window. Explicit downloads

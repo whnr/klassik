@@ -178,7 +178,7 @@ jobs:
         run: scripts/start-simulator.sh
       - id: xcode
         env:
-          SOURCES_HASH: ${{ hashFiles('project.yml', 'Klassik/**', 'KlassikTests/**', 'KlassikUITests/**') }}
+          SOURCES_HASH: ${{ hashFiles('project.yml', 'Klassik/**', 'KlassikEngine/**', 'KlassikTests/**', 'KlassikUITests/**') }}
         run: |
           echo "version=$(xcodebuild -version | tr -s '\n ' '--')" >> "$GITHUB_OUTPUT"
           echo "sources=$SOURCES_HASH" >> "$GITHUB_OUTPUT"

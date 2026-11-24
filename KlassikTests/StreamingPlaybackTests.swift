@@ -3,6 +3,7 @@ import Synchronization
 import Testing
 
 @testable import Klassik
+@testable import KlassikEngine
 
 /// The production decoder path of ADR 0060 against the fixture server: sound before the file is complete, the same
 /// samples as a complete file, and exact joins. Bytes arrive in small chunks, so the decoder waits as on a slow line.
@@ -273,7 +274,7 @@ struct StreamingPlaybackTests {
             "render.\(suffix)", length: data.count, url: client.streamURL(songID: song.id), validator: validator)
         let first = FirstSound()
         let engine = GaplessEngine(rendered: { first.record($0) })
-        let bitrate = AudioBitrate.initial(song)
+        let bitrate = AudioBitrate.initial(song.playbackTrack)
         let chunk = 32 * 1024
         let interval = Double(chunk) * 8 / (bitrate * 2)
         let started = ContinuousClock.now
@@ -293,7 +294,7 @@ struct StreamingPlaybackTests {
             transfer.cancel()
             try? FileManager.default.removeItem(at: root)
         }
-        engine.load([song], from: 0, offset: 0) { _ in .stream(transfer) }
+        engine.load([song.playbackTrack], from: 0, offset: 0) { _ in .stream(transfer) }
         for _ in 0..<1000 where first.instant == nil { try await Task.sleep(for: .milliseconds(10)) }
         let rendered = try #require(first.instant, "The engine must render audible samples from partial bytes")
         let snapshot = transfer.snapshot
@@ -374,9 +375,12 @@ struct StreamingPlaybackTests {
     }
 
     /// Plays local files through the real engine until the last one ends or the engine fails.
-    @MainActor private func render(_ files: [URL], output: RenderedAudio) async throws -> [String] {
+    @MainActor private func render(
+        _ files: [URL], output: RenderedAudio, gainNode: Bool = true, decibels: Float = 0
+    ) async throws -> [String] {
         let events = Events()
-        let engine = GaplessEngine(rendered: { output.record($0) })
+        let engine = GaplessEngine(rendered: { output.record($0) }, gainNode: gainNode)
+        engine.setGain(decibels)
         engine.onEvent = { event in
             switch event {
             case .movementEnded(let index): events.log.append("end \(index)")
@@ -387,7 +391,7 @@ struct StreamingPlaybackTests {
         }
         defer { engine.discard() }
         let songs = files.indices.map { Song(id: String($0), title: "Tone", duration: 1, suffix: "wav") }
-        engine.load(songs, from: 0, offset: 0) { .file(files[Int($0.id)!]) }
+        engine.load(songs.map(\.playbackTrack), from: 0, offset: 0) { .file(files[Int($0.id)!]) }
         let last = "end \(files.count - 1)"
         for _ in 0..<500 where !events.log.contains(last) && !events.log.contains(where: { $0.hasPrefix("failed") }) {
             try await Task.sleep(for: .milliseconds(10))
@@ -395,6 +399,19 @@ struct StreamingPlaybackTests {
         // The tap delivers whole blocks, so its last block can arrive after the end event.
         try await Task.sleep(for: .milliseconds(600))
         return events.log
+    }
+
+    /// A host that builds the engine without a gain node plays at the file's level, whatever gain the session sets.
+    @MainActor @Test func anEngineWithoutAGainNodeIgnoresTheGain() async throws {
+        let count = 22_050
+        let file = try wav("level.wav", rate: 44_100, channels: [Self.tone(count, rate: 44_100)])
+        defer { try? FileManager.default.removeItem(at: root) }
+        let plain = RenderedAudio()
+        _ = try await render([file], output: plain, gainNode: false, decibels: -20)
+        let leveled = RenderedAudio()
+        _ = try await render([file], output: leveled, decibels: -20)
+        #expect(plain.channel(0).map { abs($0) }.max() ?? 0 > 0.2, "Without the node the tone keeps its level")
+        #expect(leveled.channel(0).map { abs($0) }.max() ?? 1 < 0.05, "With the node the gain lowers it")
     }
 
     /// A mono opener never downmixes the stereo recording after it: the node keeps two channels (ADR 0060).
@@ -634,7 +651,7 @@ struct StreamingPlaybackTests {
             engine.discard()
             try? FileManager.default.removeItem(at: root)
         }
-        engine.load(songs, from: 0, offset: 0) { .file(files[$0.id]!) }
+        engine.load(songs.map(\.playbackTrack), from: 0, offset: 0) { .file(files[$0.id]!) }
         for _ in 0..<500 where !events.log.contains("end 2") && !events.log.contains(where: { $0.hasPrefix("failed") })
         {
             try await Task.sleep(for: .milliseconds(10))
@@ -712,7 +729,7 @@ struct StreamingPlaybackTests {
             if case .movementEnded(let index) = event { events.log.append("end \(index)") }
             if case .failed(let text) = event { events.log.append("failed \(text)") }
         }
-        engine.load([song], from: 0, offset: 0) { _ in .stream(transfer) }
+        engine.load([song.playbackTrack], from: 0, offset: 0) { _ in .stream(transfer) }
         defer { engine.discard() }
         try await Task.sleep(for: .milliseconds(200))
         engine.pause()
@@ -774,7 +791,7 @@ struct StreamingPlaybackTests {
             }
         }
         let streams = transfers
-        engine.load(songs, from: 0, offset: 0) { song in .stream(streams[song.id]!) }
+        engine.load(songs.map(\.playbackTrack), from: 0, offset: 0) { song in .stream(streams[song.id]!) }
         defer { engine.discard() }
         for _ in 0..<300 where !events.log.contains("end 2") { try await Task.sleep(for: .milliseconds(100)) }
         for feeder in feeders { feeder.cancel() }

@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Klassik
+@testable import KlassikEngine
 
 /// The read-ahead set follows the queue and the data mode of ADR 0060.
 struct ReadAheadTests {

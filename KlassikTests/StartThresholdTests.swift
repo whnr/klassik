@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Klassik
+@testable import KlassikEngine
 
 /// The start threshold and its inputs follow the formula and the table of ADR 0060.
 struct StartThresholdTests {
@@ -79,21 +80,21 @@ struct StartThresholdTests {
     // MARK: Bitrate
 
     @Test func lossyFormatsStartFromAFloor() {
-        #expect(AudioBitrate.initial(Song(id: "a", title: "a", suffix: "mp3")) == 320_000)
-        #expect(AudioBitrate.initial(Song(id: "a", title: "a", suffix: "m4a")) == 512_000)
-        #expect(AudioBitrate.initial(Song(id: "a", title: "a", suffix: "mp3", bitRate: 400)) == 400_000)
+        #expect(AudioBitrate.initial(Song(id: "a", title: "a", suffix: "mp3").playbackTrack) == 320_000)
+        #expect(AudioBitrate.initial(Song(id: "a", title: "a", suffix: "m4a").playbackTrack) == 512_000)
+        #expect(AudioBitrate.initial(Song(id: "a", title: "a", suffix: "mp3", bitRate: 400).playbackTrack) == 400_000)
     }
 
     @Test func losslessFormatsStartFromThePCMRate() {
         let song = Song(id: "a", title: "a", suffix: "flac", samplingRate: 96_000, bitDepth: 24, channelCount: 2)
-        #expect(AudioBitrate.initial(song) == 96_000 * 2 * 24)
-        #expect(AudioBitrate.initial(Song(id: "a", title: "a", suffix: "flac")) == 44_100 * 2 * 16)
+        #expect(AudioBitrate.initial(song.playbackTrack) == 96_000 * 2 * 24)
+        #expect(AudioBitrate.initial(Song(id: "a", title: "a", suffix: "flac").playbackTrack) == 44_100 * 2 * 16)
     }
 
     @Test func theObservedRateReplacesTheFloor() {
         let song = Song(id: "a", title: "a", suffix: "flac", bitRate: 900)
-        #expect(AudioBitrate.current(song, observed: 1_100_000) == 1_100_000)
-        #expect(AudioBitrate.current(song, observed: 700_000) == 900_000)
-        #expect(AudioBitrate.current(song, observed: nil) == AudioBitrate.initial(song))
+        #expect(AudioBitrate.current(song.playbackTrack, observed: 1_100_000) == 1_100_000)
+        #expect(AudioBitrate.current(song.playbackTrack, observed: 700_000) == 900_000)
+        #expect(AudioBitrate.current(song.playbackTrack, observed: nil) == AudioBitrate.initial(song.playbackTrack))
     }
 }

@@ -3,6 +3,7 @@ import Synchronization
 import Testing
 
 @testable import Klassik
+@testable import KlassikEngine
 
 /// The session with the real engine, against the fixture server. Held completions stand in for the audio thread.
 @Suite(.serialized, .enabled(if: ProcessInfo.processInfo.environment["KLASSIK_SERVER_URL"] != nil))

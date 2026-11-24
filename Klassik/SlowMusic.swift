@@ -1,5 +1,6 @@
 #if DEBUG
     import Foundation
+    import KlassikEngine
 
     /// The UI walk takes a slow connection with `-slowMusic`: each track arrives far below its bitrate, so the
     /// player shows the slow-connection line (ADR 0060).

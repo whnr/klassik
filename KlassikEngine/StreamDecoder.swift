@@ -19,7 +19,7 @@ final class StreamDecoder: PCMSource, @unchecked Sendable {
     /// Each wait for bytes ends with an error after this time, so that a dead connection does not hang playback.
     static let readTimeout = Duration.seconds(30)
 
-    static func canStartEarly(_ song: Song) -> Bool {
+    static func canStartEarly(_ song: PlaybackTrack) -> Bool {
         earlyFormats.contains(song.suffix?.lowercased() ?? "")
     }
 

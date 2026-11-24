@@ -1,10 +1,12 @@
 import Foundation
 
 /// Removes block observers when their player or engine goes away.
-final class PlaybackNotifications {
+public final class PlaybackNotifications {
     private var tokens: [NSObjectProtocol] = []
 
-    func observe(
+    public init() {}
+
+    public func observe(
         _ name: Notification.Name, object: AnyObject? = nil,
         using handler: @escaping @Sendable (Notification) -> Void
     ) {

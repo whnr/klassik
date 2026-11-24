@@ -2,19 +2,19 @@ import Foundation
 
 /// The gapless data that an MP3 encoder writes into the Xing or Info frame and its LAME extension.
 /// LAME and ffmpeg both write it. ffmpeg writes "Lavc" where LAME writes "LAME".
-struct MP3GaplessInfo: Equatable, Sendable {
-    var frameCount: Int
-    var samplesPerFrame: Int
-    var encoderDelay: Int
-    var padding: Int
+public struct MP3GaplessInfo: Equatable, Sendable {
+    public var frameCount: Int
+    public var samplesPerFrame: Int
+    public var encoderDelay: Int
+    public var padding: Int
 
     /// The samples of the recording, without encoder delay and padding.
-    var validSamples: Int { frameCount * samplesPerFrame - encoderDelay - padding }
+    public var validSamples: Int { frameCount * samplesPerFrame - encoderDelay - padding }
 
     /// The frames of a decoded file that belong to the recording.
     /// iOS applies this header to some files and then decodes only the recording. For other files its decoders
     /// return every frame and remove only their own decoder delay, so the recording starts after the encoder delay.
-    func playableRange(decodedLength: Int64) -> Range<Int64> {
+    public func playableRange(decodedLength: Int64) -> Range<Int64> {
         let valid = Int64(validSamples)
         guard decodedLength > valid else { return 0..<decodedLength }
         let start = min(Int64(encoderDelay), decodedLength)
@@ -23,7 +23,7 @@ struct MP3GaplessInfo: Equatable, Sendable {
 
     /// Reads the header from the start of an MP3 file. Embedded cover art makes the ID3v2 tag before the
     /// header large, so `data` must reach 8 KiB past the end of that tag.
-    static func parse(_ data: Data) -> MP3GaplessInfo? {
+    public static func parse(_ data: Data) -> MP3GaplessInfo? {
         let tag = id3Size([UInt8](data.prefix(10)))
         return parse(afterTag: [UInt8](data.dropFirst(tag).prefix(headerSearch)))
     }

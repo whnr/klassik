@@ -1,7 +1,7 @@
 import Foundation
 
 /// Shares one limit across encoded files. Reservations include open files after their directory entries disappear.
-final class AudioStorageBudget: @unchecked Sendable {
+public final class AudioStorageBudget: @unchecked Sendable {
     private struct Entry {
         var url: URL
         var bytes: Int64
@@ -14,18 +14,18 @@ final class AudioStorageBudget: @unchecked Sendable {
     private var files: [URL: Int64] = [:]
     private var maximum: Int64
 
-    init(limit: Int64) { maximum = max(0, limit) }
+    public init(limit: Int64) { maximum = max(0, limit) }
 
-    var limit: Int64 {
+    public var limit: Int64 {
         get { lock.withLock { maximum } }
         set { lock.withLock { maximum = max(0, newValue) } }
     }
 
-    var storedBytes: Int64 { lock.withLock { total() } }
-    var availableBytes: Int64 { lock.withLock { max(0, maximum - total()) } }
+    public var storedBytes: Int64 { lock.withLock { total() } }
+    public var availableBytes: Int64 { lock.withLock { max(0, maximum - total()) } }
 
     /// Reconciles complete files and abandoned partial files. Active reservations count their own bytes.
-    func synchronize(_ sizes: [URL: Int64]) {
+    public func synchronize(_ sizes: [URL: Int64]) {
         lock.withLock {
             let managed = Set(entries.values.map(\.url))
             files = sizes.filter { !managed.contains($0.key) }

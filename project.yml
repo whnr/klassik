@@ -15,6 +15,7 @@ targets:
     sources: [Klassik]
     dependencies:
       - target: TaskRegistry
+      - target: KlassikEngine
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: de.whnr.klassik
@@ -45,14 +46,22 @@ targets:
       base:
         # Swift 6 checks handler isolation only at a boundary to Swift 5 code, as at the Objective-C API.
         SWIFT_VERSION: "5.0"
+  # The playback engine, apart from the app, so that another app can link it. It knows no server model: the app maps
+  # its songs to `PlaybackTrack`.
+  KlassikEngine:
+    type: library.static
+    platform: iOS
+    sources: [KlassikEngine]
   KlassikTests:
     type: bundle.unit-test
     platform: iOS
     sources: [KlassikTests]
     dependencies:
       - target: Klassik
-      # The app links the library. A second copy in the tests would give the fake another protocol.
+      # The app links the libraries. A second copy in the tests would give the fake another protocol.
       - target: TaskRegistry
+        link: false
+      - target: KlassikEngine
         link: false
     settings:
       base:

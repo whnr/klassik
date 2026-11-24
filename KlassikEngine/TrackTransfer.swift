@@ -3,8 +3,8 @@ import Foundation
 /// The bytes of one track while they arrive from the server (ADR 0060). Playback, read-ahead and a download share
 /// one transfer, so the same bytes never load twice. A decoder reads on its own worker queue and waits there for
 /// missing bytes. The main actor and the render thread never wait.
-final class TrackTransfer: NSObject, @unchecked Sendable {
-    enum Failure: Error, Equatable {
+public final class TrackTransfer: NSObject, @unchecked Sendable {
+    public enum Failure: Error, Equatable {
         case timedOut
         case cancelled
         /// The connection ended before the declared length arrived.
@@ -18,7 +18,7 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
     }
 
     /// How the store keeps a track, decided when the response head gives its length (ADR 0060).
-    enum Sizing: Equatable, Sendable {
+    public enum Sizing: Equatable, Sendable {
         /// The whole file, inside the shared Music limit.
         case whole
         /// A rolling window of this many bytes, for a track larger than the limit. It never becomes a cache file.
@@ -26,15 +26,15 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
         case refuse
     }
 
-    struct Snapshot: Equatable, Sendable {
-        var available: Int64
-        var expected: Int64?
-        var complete: Bool
+    public struct Snapshot: Equatable, Sendable {
+        public var available: Int64
+        public var expected: Int64?
+        public var complete: Bool
     }
 
     /// A read further than this past the arrived bytes asks the server for a range, if the server allows it.
     static let rangeLead: Int64 = 1 << 20
-    static let rangeChunk: Int64 = 1 << 19
+    public static let rangeChunk: Int64 = 1 << 19
     static let keptChunks = 4
     /// A range request that failed without a refusal waits this long before the reader asks again.
     static let rangeRetry = 0.5
@@ -43,12 +43,12 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
 
     /// Delivers one range response to `receiver` and returns the action that cancels it. Production uses one
     /// URLSession for each transfer, so the ranges of a seek share a connection. A test paces the bytes itself.
-    typealias RangeLoader = @Sendable (URLRequest, RangeReceiver) -> @Sendable () -> Void
+    public typealias RangeLoader = @Sendable (URLRequest, RangeReceiver) -> @Sendable () -> Void
 
-    let songID: String
+    public let songID: String
     /// Where the bytes arrive. The file moves to `target` once it is complete; open readers keep working.
-    let partial: URL
-    let target: URL
+    public let partial: URL
+    public let target: URL
     /// The stream address for range requests. Nil turns them off.
     private let url: URL?
 
@@ -94,7 +94,7 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
     /// It must not wait for this transfer.
     private let pressure: (@Sendable (TrackTransfer) -> Void)?
 
-    init(
+    public init(
         songID: String, partial: URL, target: URL, url: URL?, capacity: Int64? = nil,
         budget: AudioStorageBudget? = nil, sizing: (@Sendable (Int64?) -> Sizing)? = nil,
         pressure: (@Sendable (TrackTransfer) -> Void)? = nil, rangeChunk: Int64 = TrackTransfer.rangeChunk,
@@ -127,7 +127,7 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
     // MARK: Network
 
     /// Starts the sequential request. A constrained network may carry it, because a Play request needs it.
-    func start() {
+    public func start() {
         guard let url else { return }
         let configuration = URLSessionConfiguration.default
         configuration.allowsConstrainedNetworkAccess = true
@@ -152,7 +152,7 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
     }
 
     /// Stops the transfer and removes its partial bytes.
-    func cancel() {
+    public func cancel() {
         condition.lock()
         let session = self.session
         condition.unlock()
@@ -161,7 +161,7 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
     }
 
     /// A new network path starts a new throughput measurement.
-    func restartMeasurement() {
+    public func restartMeasurement() {
         condition.lock()
         meter.start(at: Self.now)
         condition.unlock()
@@ -170,7 +170,7 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
     // MARK: Delivery
 
     /// The response head. `validator` is the ETag or Last-Modified value; a range must carry the same one.
-    func begin(length: Int64?, validator: String?) {
+    public func begin(length: Int64?, validator: String?) {
         condition.lock()
         expected = length.flatMap { $0 >= 0 ? $0 : nil }
         self.validator = validator
@@ -200,7 +200,7 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
     }
 
     /// An explicit download takes over the bytes. It fails when a rolling window already discarded some of them.
-    func promote() -> Bool {
+    public func promote() -> Bool {
         condition.withLock {
             guard failure == nil, let storage else { return false }
             if complete && !published { return false }
@@ -212,7 +212,7 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
     }
 
     /// Suspends or resumes the network request, without effect on bytes that already arrived.
-    func hold(_ value: Bool) {
+    public func hold(_ value: Bool) {
         condition.lock()
         defer { condition.unlock() }
         guard held != value else { return }
@@ -221,10 +221,10 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
         if value { dataTask?.suspend() } else { dataTask?.resume() }
     }
 
-    var isHeld: Bool { condition.withLock { held } }
+    public var isHeld: Bool { condition.withLock { held } }
 
     /// Finite writes wait on the transport queue. Main-actor and render callbacks must never append there.
-    func append(_ data: Data) {
+    public func append(_ data: Data) {
         condition.lock()
         if let expected, Int64(data.count) > expected - available {
             condition.unlock()
@@ -274,7 +274,7 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
     }
 
     /// Receiving the resource end does not restore discarded bytes. Only a whole file can publish to its target.
-    func finish(_ failed: Failure?) {
+    public func finish(_ failed: Failure?) {
         condition.lock()
         guard !complete, failure == nil else { return condition.unlock() }
         var outcome = failed
@@ -319,7 +319,7 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
     }
 
     /// Calls `handler` once, when the transfer ends. A transfer that already ended calls it at once.
-    func whenFinished(_ handler: @escaping @Sendable (Result<URL, Failure>) -> Void) {
+    public func whenFinished(_ handler: @escaping @Sendable (Result<URL, Failure>) -> Void) {
         condition.lock()
         if complete || failure != nil {
             let result = completionResult()
@@ -331,7 +331,7 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
     }
 
     /// Waits for the end of the transfer.
-    func finished() async throws -> URL {
+    public func finished() async throws -> URL {
         let id = UUID()
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
@@ -360,13 +360,13 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
         }
     }
 
-    var snapshot: Snapshot {
+    public var snapshot: Snapshot {
         condition.lock()
         defer { condition.unlock() }
         return Snapshot(available: available, expected: expected, complete: complete)
     }
 
-    var hasCompleteFile: Bool { condition.withLock { published } }
+    public var hasCompleteFile: Bool { condition.withLock { published } }
 
     /// Call with the transfer lock held. A received rolling resource still lacks discarded file bytes.
     private func completionResult() -> Result<URL, Failure> {
@@ -375,7 +375,7 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
     }
 
     /// The delivered rate in bits per second, or nil before the first window of this path.
-    var throughput: Double? {
+    public var throughput: Double? {
         condition.lock()
         defer { condition.unlock() }
         return complete ? nil : meter.bitsPerSecond(at: Self.now)
@@ -383,7 +383,7 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
 
     /// True while bytes arrive slower than `bitrate`. A transfer that delivered nothing for `stallWindow` is not
     /// slow: a server that stops answering never shows as a slow connection (ADR 0060).
-    func isSlow(below bitrate: Double) -> Bool {
+    public func isSlow(below bitrate: Double) -> Bool {
         condition.withLock {
             let now = Self.now
             guard !complete, meter.delivered(within: Self.stallWindow, at: now),
@@ -407,7 +407,7 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
 
     /// The bytes that the stored file can still grow by: the rest of a whole file, or the unfilled part of a
     /// rolling window. Nil when the length is unknown.
-    var storageNeed: Int64? {
+    public var storageNeed: Int64? {
         condition.withLock {
             guard let storage else { return nil }
             if let capacity { return max(capacity - storage.storedBytes, 0) }
@@ -653,7 +653,7 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
 
     /// One range response. It checks the response head before any byte reaches the transfer, so an ignored range
     /// never collects a whole resource in memory.
-    final class RangeReceiver: NSObject, URLSessionDataDelegate, @unchecked Sendable {
+    public final class RangeReceiver: NSObject, URLSessionDataDelegate, @unchecked Sendable {
         let start: Int64
         private weak var transfer: TrackTransfer?
 
@@ -670,17 +670,17 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
 
         func end(failed: Bool) { transfer?.rangeEnded(start, failed: failed) }
 
-        func urlSession(
+        public func urlSession(
             _ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse
         ) async -> URLSession.ResponseDisposition {
             head(response) ? .allow : .cancel
         }
 
-        func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        public func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
             if !receive(data) { dataTask.cancel() }
         }
 
-        func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: (any Error)?) {
+        public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: (any Error)?) {
             end(failed: error != nil)
         }
     }
@@ -706,7 +706,7 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
         return formatter.date(from: value) != nil
     }
 
-    static func validator(of response: HTTPURLResponse) -> String? {
+    public static func validator(of response: HTTPURLResponse) -> String? {
         if let tag = response.value(forHTTPHeaderField: "ETag"), isSafeValidator(tag) { return tag }
         guard let modified = response.value(forHTTPHeaderField: "Last-Modified"),
             let date = response.value(forHTTPHeaderField: "Date")
@@ -727,7 +727,7 @@ final class TrackTransfer: NSObject, @unchecked Sendable {
 
 extension TrackTransfer.Failure: LocalizedError {
     /// Storage failures are the listener's to fix, so they name Local Storage (ADR 0060).
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .storage: "The device could not store this track. Free some space and play again."
         case .exceedsStorage: "This track is larger than the Music limit. Raise the limit in Local Storage."
@@ -743,7 +743,7 @@ extension TrackTransfer.Failure: LocalizedError {
 }
 
 extension TrackTransfer {
-    func urlSession(
+    public func urlSession(
         _ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse
     ) async -> URLSession.ResponseDisposition {
         guard let http = response as? HTTPURLResponse else { return .allow }
@@ -760,11 +760,11 @@ extension TrackTransfer {
 }
 
 extension TrackTransfer: URLSessionDataDelegate {
-    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+    public func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
         append(data)
     }
 
-    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: (any Error)?) {
+    public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: (any Error)?) {
         session.finishTasksAndInvalidate()
         finish(error == nil ? nil : .truncated)
     }

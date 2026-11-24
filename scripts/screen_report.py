@@ -340,6 +340,9 @@ INFRASTRUCTURE = re.compile(
     r"|connection (?:was )?(?:interrupted|invalid)"
     r"|failed to (?:launch|boot|terminate|connect)|unable to (?:boot|launch|connect)"
     r"|test runner (?:hung|failed|exited|crashed)"
+    # The runner got no PID for an app it just launched, on a CPU-starved simulator. The app is healthy then: its main
+    # thread idles in the run loop while the runner waits in launch. A crash during a test reports a different message.
+    r"|Application '[^']+' does not have a process ID"
     r"|CoreSimulator|simulator (?:device )?(?:failed|crashed|disconnected)|Mach error"
     r"|(?:testmanagerd|XCTRunner) .*crashed",
     re.IGNORECASE,

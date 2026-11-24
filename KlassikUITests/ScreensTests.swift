@@ -1280,7 +1280,8 @@ final class PlaybackScreens: ScreensTestCase {
         let logs = app.staticTexts.matching(identifier: "diag-log").allElementsBoundByIndex  // DIAG-TEMP
         let from0 = titleLine(of: row).screenPoint  // DIAG-TEMP
         // DIAG-TEMP
-        let rows = app.descendants(matching: .any).matching(identifier: "movement").allElementsBoundByIndex  // DIAG-TEMP
+        let all = app.descendants(matching: .any)  // DIAG-TEMP
+        let rows = all.matching(identifier: "movement").allElementsBoundByIndex  // DIAG-TEMP
         let ov = app.descendants(matching: .any)["player-overlay"].firstMatch.frame  // DIAG-TEMP
         let rs = rows.map { "\($0.frame.minY)/\($0.isHittable)" }.joined(separator: ",")  // DIAG-TEMP
         let lg = logs.map(\.label).joined(separator: "|")  // DIAG-TEMP

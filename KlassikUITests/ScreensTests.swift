@@ -1274,8 +1274,10 @@ final class PlaybackScreens: ScreensTestCase {
         snap(app, "05e-pull-from-row")
         titleLine(of: row).press(
             forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.95)),
-            withVelocity: .fast, thenHoldForDuration: 0)
-        expectPlayerClosed(app)
+            withVelocity: .default, thenHoldForDuration: 0.3)
+        let closed = app.buttons["player-handle"].waitForNonExistence(timeout: 10)
+        if !closed { snap(app, "05f-pull-from-row-open") }
+        XCTAssertTrue(closed, "A pull past the top from a row did not close the player")
         XCTAssertTrue(app.buttons["show-player"].waitForExistence(timeout: 10))
     }
 

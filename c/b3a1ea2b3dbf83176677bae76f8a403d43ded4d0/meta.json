@@ -1,7 +1,0 @@
-{
-  "sha": "b3a1ea2b3dbf83176677bae76f8a403d43ded4d0",
-  "branch": "claude-1617",
-  "path": "claude-1617",
-  "subject": "Check for server changes on foreground and reconnect",
-  "ts": 1795496934
-}

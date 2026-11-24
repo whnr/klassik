@@ -10,12 +10,12 @@ struct RawTagsView: View {
             Section {
                 Text(work.groupingReason)
                     .ink()
-                LabeledContent("Work key", value: work.id)
+                LabeledContent("Work key (derived)", value: work.id)
                     .ink()
                 LabeledContent("Album ID", value: recording.songs.first?.albumId ?? "None")
                     .ink()
             } header: {
-                Text("Grouping")
+                Text("Grouping (derived by Klassik)")
             } footer: {
                 Text("A recording holds the tracks of one work on one album, in disc and track order.")
             }
@@ -23,7 +23,7 @@ struct RawTagsView: View {
             ForEach(recording.songs) { song in
                 Section(song.title) {
                     if work.id.hasPrefix("album|") {
-                        LabeledContent("Own work key", value: WorkIndex.workKey(song))
+                        LabeledContent("Own work key (derived)", value: WorkIndex.workKey(song))
                             .ink()
                     }
                     ForEach(Array(song.tagRows.enumerated()), id: \.offset) { _, row in
@@ -50,11 +50,12 @@ extension WorkIndex.Work {
 }
 
 extension Song {
-    /// Every field that Klassik reads, with the server's value. Empty fields do not show.
+    /// Every field that Klassik reads, with the server's value as sent. Empty fields do not show, except the three
+    /// fields of a movement: they stay together, and an absent one is an empty row.
     var tagRows: [(name: String, value: String)] {
         var rows: [(name: String, value: String)] = []
-        func add(_ name: String, _ value: String?) {
-            if let value, !value.isEmpty { rows.append((name, value)) }
+        func add(_ name: String, _ value: String?, keepEmpty: Bool = false) {
+            if let value, !value.isEmpty { rows.append((name, value)) } else if keepEmpty { rows.append((name, "")) }
         }
         add("Title", title)
         add("Disc", discNumber.map(String.init))
@@ -62,11 +63,12 @@ extension Song {
         add("Album", album)
         add("Artist", artist)
         add("Year", year.map(String.init))
-        add("Genres", allGenres.joined(separator: ", "))
+        add("Genre", genre)
+        for genre in genres ?? [] { add("Genres", genre.name) }
         add("Composer", displayComposer)
         for contributor in contributors ?? [] {
             let role = [contributor.role, contributor.subRole].compactMap(\.self).joined(separator: "/")
-            add(role.capitalized, contributor.artist.name)
+            add(role, contributor.artist.name)
         }
         for work in works ?? [] {
             add("Work", work.name)
@@ -74,14 +76,14 @@ extension Song {
         }
         for grouping in groupings ?? [] { add("Grouping", grouping) }
         for movement in movements ?? [] {
-            let number = movement.number.map(String.init) ?? "-"
-            let count = movement.count.map(String.init) ?? "-"
-            add("Movement", "\(movement.name) (\(number) of \(count))")
+            add("Movement name", movement.name, keepEmpty: true)
+            add("Movement number", movement.number.map(String.init), keepEmpty: true)
+            add("Movement count", movement.count.map(String.init), keepEmpty: true)
         }
-        add("Format", suffix)
+        add("Suffix", suffix)
         if let gain = replayGain {
-            add("Track gain", gain.trackGain.map { "\($0) dB" })
-            add("Album gain", gain.albumGain.map { "\($0) dB" })
+            add("Track gain (dB)", gain.trackGain.map { String($0) })
+            add("Album gain (dB)", gain.albumGain.map { String($0) })
         }
         add("Starred", starred)
         add("ID", id)

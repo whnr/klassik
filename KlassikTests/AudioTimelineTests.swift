@@ -1,6 +1,7 @@
 import Testing
 
 @testable import Klassik
+@testable import KlassikEngine
 
 struct AudioTimelineTests {
     @Test func starvationDoesNotMoveTheAudioCursorOrLength() {

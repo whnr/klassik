@@ -1,6 +1,7 @@
 import Testing
 
 @testable import Klassik
+@testable import KlassikEngine
 
 struct SeekTests {
     /// The playable range of an MP3 starts after the encoder delay; a seek counts from there.

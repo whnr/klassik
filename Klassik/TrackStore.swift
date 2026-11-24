@@ -1,4 +1,5 @@
 import Foundation
+import KlassikEngine
 import Observation
 
 /// Keeps track files on the device in two places. The cache holds what played and drops the oldest files when it
@@ -178,7 +179,7 @@ final class TrackStore {
     func source(for song: Song, client: any ServerPort) async throws -> PlaybackSource {
         if let local = localFile(song) { return .file(local) }
         guard networkAllowed else { throw Failure.offline }
-        if transport != nil, StreamDecoder.canStartEarly(song) { return .stream(transfer(for: song, client: client)) }
+        if transport != nil, song.playbackTrack.canStartEarly { return .stream(transfer(for: song, client: client)) }
         return try await .file(file(for: song, client: client))
     }
 
@@ -215,7 +216,7 @@ final class TrackStore {
         if let running = transfers[song.id] { return running }
         let name = Self.fileName(song)
         let limit = cacheLimit
-        let early = StreamDecoder.canStartEarly(song)
+        let early = song.playbackTrack.canStartEarly
         let window = min(Self.rollingWindow, limit / 2)
         let transfer = TrackTransfer(
             songID: song.id, partial: cacheFolder.appending(path: name + ".\(UUID().uuidString).partial"),

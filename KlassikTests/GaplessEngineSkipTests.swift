@@ -2,6 +2,7 @@ import AVFoundation
 import Testing
 
 @testable import Klassik
+@testable import KlassikEngine
 
 /// The engine ramps a skip: a discard of a sounding engine stops it after the fade-out, and a start fades in.
 /// The graph is real and renders offline, so the tests see the node volume and the engine state.

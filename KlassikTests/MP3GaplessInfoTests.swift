@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Klassik
+@testable import KlassikEngine
 
 struct MP3GaplessInfoTests {
     /// The start of a mono 64 kbit/s file as ffmpeg writes it: ID3v2 tag, then the Info frame.

@@ -3,6 +3,7 @@ import Synchronization
 import Testing
 
 @testable import Klassik
+@testable import KlassikEngine
 
 /// The ADR 0060 measurements against the fixture server: first sound and starvation across throughput ratios, a
 /// seek inside a stream that is still arriving, and the ReplayGain change at a recording boundary.
@@ -113,7 +114,7 @@ struct EarlyPlaybackMeasurementTests {
         let (data, validator) = try await StreamingPlaybackTests.resource(of: song, from: client)
         #expect(data.count >= 100_000_000)
         // The fixture is constant 320 kbit/s, the same as the MP3 estimate before packet timing.
-        let bitrate = AudioBitrate.initial(song)
+        let bitrate = AudioBitrate.initial(song.playbackTrack)
         let duration = Double(data.count) * 8 / bitrate
         defer { try? FileManager.default.removeItem(at: root) }
         for ratio in [4.0, 2.0, 1.0, 0.75, 0.5] {
@@ -135,7 +136,7 @@ struct EarlyPlaybackMeasurementTests {
             StartThreshold.seconds(bitrate: bitrate, throughput: bitrate * ratio, remaining: duration))
         let requested = ContinuousClock.now
         let feeder = Self.pace(data, into: transfer, bitrate: bitrate, ratio: ratio, latency: .milliseconds(150))
-        engine.load([song], from: 0, offset: 0) { _ in .stream(transfer) }
+        engine.load([song.playbackTrack], from: 0, offset: 0) { _ in .stream(transfer) }
         func cleanUp() async {
             engine.discard()
             feeder.cancel()
@@ -242,7 +243,7 @@ struct EarlyPlaybackMeasurementTests {
             try? FileManager.default.removeItem(at: root)
         }
         let seconds = 1.0
-        engine.load(played, from: 0, offset: seconds) { .stream(streams[$0.id]!) }
+        engine.load(played.map(\.playbackTrack), from: 0, offset: seconds) { .stream(streams[$0.id]!) }
         for _ in 0..<300 where !timeline.ended.contains(1) && timeline.failures.isEmpty {
             try await Task.sleep(for: .milliseconds(100))
         }

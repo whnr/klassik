@@ -1,4 +1,5 @@
 import AVFoundation
+import KlassikEngine
 import MediaPlayer
 import Observation
 import UIKit
@@ -202,15 +203,22 @@ final class PlaybackSession {
     private var engineBase = 0
     /// The tracks that the engine plays, from the first one of its load.
     private var engineSongs: [Song] = []
-    private let engine: any PlaybackEngine
+    /// Internal so that the tests can check the engine that the app builds.
+    let engine: any PlaybackEngine
     private let store: TrackStore
     private let defaults: UserDefaults
+    /// Replaces the leveling setting as the source of the volume change. Nil keeps the setting.
+    private let gainStage: (any GainStage)?
     private static let levelingKey = "player.volumeLeveling"
 
-    init(engine: any PlaybackEngine, store: TrackStore, defaults: UserDefaults = .standard) {
+    init(
+        engine: any PlaybackEngine, store: TrackStore, defaults: UserDefaults = .standard,
+        gainStage: (any GainStage)? = nil
+    ) {
         self.engine = engine
         self.store = store
         self.defaults = defaults
+        self.gainStage = gainStage
         scrobblesEnabled = defaults.object(forKey: Self.scrobblesKey) as? Bool ?? true
         leveling = defaults.string(forKey: Self.levelingKey).flatMap(VolumeLeveling.init) ?? .album
         engine.onEvent = { [weak self] event in self?.engineEvent(event) }
@@ -341,7 +349,7 @@ final class PlaybackSession {
         savePosition()
         if let item {
             let songs = Array(engineSongs.prefix(engineBase)) + ([item] + upNext).flatMap { $0.recording.songs }
-            if engine.replace(songs) {
+            if engine.replace(songs.map(\.playbackTrack)) {
                 engineSongs = songs
             } else if playback.shouldPlay {
                 rebuild()
@@ -482,7 +490,7 @@ final class PlaybackSession {
         case .configurationChanged: handle(.configurationChanged)
         case .problem(let text): error = text
         case .failed(let text): playbackFailed(text)
-        case .serverFailed(let trouble): playbackFailed(nil, trouble: trouble)
+        case .serverFailed(let failure): playbackFailed(nil, trouble: ServerTrouble(engine: failure))
         }
     }
 
@@ -563,8 +571,11 @@ final class PlaybackSession {
         let songs = ([item] + upNext).flatMap { $0.recording.songs }
         engineSongs = songs
         soundRequested = .now
-        engine.load(songs, from: checkpoint.movement, offset: checkpoint.elapsed) { song in
-            try await store.source(for: song, client: server)
+        engine.load(songs.map(\.playbackTrack), from: checkpoint.movement, offset: checkpoint.elapsed) {
+            [weak self] track in
+            // A queue edit changes the songs after the load, so the song comes from the current list.
+            guard let song = self?.engineSongs.first(where: { $0.id == track.id }) else { throw CancellationError() }
+            return try await store.source(for: song, client: server)
         }
         positionTask = Task { [weak self] in
             while !Task.isCancelled {
@@ -650,7 +661,7 @@ final class PlaybackSession {
     /// Album gains are the same for each movement, so a change at the movement boundary is not audible.
     private func applyGain() {
         guard let recording, let movement, recording.songs.indices.contains(movement) else { return engine.setGain(0) }
-        engine.setGain(leveling.gain(for: recording.songs[movement]))
+        engine.setGain((gainStage ?? leveling).gain(for: recording.songs[movement].playbackTrack))
     }
 
     // MARK: Waiting and read-ahead

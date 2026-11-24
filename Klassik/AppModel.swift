@@ -1,4 +1,5 @@
 import Foundation
+import KlassikEngine
 import Observation
 
 @MainActor @Observable
@@ -74,7 +75,7 @@ final class AppModel {
             tracks = TrackStore(background: Self.backgroundLoad)
         #endif
         albumCovers = AlbumCovers(store: ImageStore.albumArt)
-        playback = PlaybackSession(engine: GaplessEngine(), store: tracks)
+        playback = PlaybackSession(engine: GaplessEngine(failureMapper: AppFailureMapper()), store: tracks)
         enrichment = Enrichment.forLaunch()
         people = PersonFactsStore.forLaunch()
         let connection = ConnectionMonitor()

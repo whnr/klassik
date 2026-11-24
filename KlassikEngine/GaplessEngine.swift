@@ -4,8 +4,8 @@ import AVFoundation
 /// A complete file plays as a segment. A track that is still arriving plays from decoded buffers, as soon as the
 /// start threshold allows (ADR 0060). Both cut MP3 encoder delay and padding in decoded sample coordinates.
 @MainActor
-final class GaplessEngine: PlaybackEngine {
-    typealias CompletionDelivery = @Sendable (@escaping @MainActor @Sendable () -> Void) -> Void
+public final class GaplessEngine: PlaybackEngine {
+    public typealias CompletionDelivery = @Sendable (@escaping @MainActor @Sendable () -> Void) -> Void
 
     /// Each decoded buffer holds this much audio.
     nonisolated static let chunkSeconds = 0.25
@@ -15,8 +15,8 @@ final class GaplessEngine: PlaybackEngine {
     nonisolated static let decodedPeak = aheadSeconds - chunkSeconds
     static let watchInterval = Duration.milliseconds(100)
 
-    var onEvent: (@MainActor (PlaybackEngineEvent) -> Void)?
-    var isRunning: Bool { engine?.isRunning == true && node != nil }
+    public var onEvent: (@MainActor (PlaybackEngineEvent) -> Void)?
+    public var isRunning: Bool { engine?.isRunning == true && node != nil }
     /// Decoded audio on the node ahead of the render position. It stays below `decodedPeak`.
     var decodedSeconds: Double? {
         guard started, let played = playedSamples() else { return nil }
@@ -24,14 +24,14 @@ final class GaplessEngine: PlaybackEngine {
     }
     /// Playable audio ahead of the render position (ADR 0060): decoded audio, the buffer that waits off the node,
     /// and the arrived bytes after the decoder's place in the file.
-    var bufferedSeconds: Double? {
+    public var bufferedSeconds: Double? {
         guard let decoded = decodedSeconds else { return nil }
         guard let stream else { return decoded }
         let encoded = Double(stream.transfer.bufferedBytes(from: consumed)) * 8 / stream.bitrate
         return decoded + Double(heldFrames) / sampleRate + encoded
     }
 
-    var requestedMovement: Int? { task == nil ? nil : requested }
+    public var requestedMovement: Int? { task == nil ? nil : requested }
 
     private var engine: AVAudioEngine?
     private var node: AVAudioPlayerNode?
@@ -70,7 +70,7 @@ final class GaplessEngine: PlaybackEngine {
     /// The decoded frames that wait off the node, so that the last buffer of a track carries its end callback.
     private var heldFrames: AVAudioFrameCount = 0
     /// The tracks of this load. A queue edit replaces the ones that the load has not asked for yet.
-    private var songs: [Song] = []
+    private var songs: [PlaybackTrack] = []
     /// The last track that this load asked a source for.
     private var requested = -1
     /// A converted track whose resampler continues into the next track of its source format.
@@ -80,6 +80,10 @@ final class GaplessEngine: PlaybackEngine {
     private var cancelled = CancelFlag()
     private var worker: DispatchQueue?
     private let deliverCompletion: CompletionDelivery
+    /// Internal so that the app's tests can check which mapper the app passes.
+    let failureMapper: any PlaybackFailureMapper
+    /// False builds a signal path without the gain node, for a host that applies no ReplayGain.
+    private let gainNode: Bool
     private let rendered: (@Sendable (AVReadOnlyAudioPCMBuffer) -> Void)?
     /// Tests only. The engine renders offline and only audio that is already on the node, so the output does not
     /// depend on runner load.
@@ -92,19 +96,23 @@ final class GaplessEngine: PlaybackEngine {
     /// The frames that the pump rendered. An offline node has no valid render time, so this is its position.
     private var pumped: Int64 = 0
 
-    init(
+    public init(
         deliverCompletion: @escaping CompletionDelivery = { completion in
             Task { @MainActor in completion() }
         },
         rendered: (@Sendable (AVReadOnlyAudioPCMBuffer) -> Void)? = nil,
-        manualRendering: Bool = false
+        manualRendering: Bool = false,
+        failureMapper: any PlaybackFailureMapper = TransferFailureMapper(),
+        gainNode: Bool = true
     ) {
         self.deliverCompletion = deliverCompletion
+        self.failureMapper = failureMapper
+        self.gainNode = gainNode
         self.rendered = rendered
         self.manualRendering = manualRendering
     }
 
-    func load(_ songs: [Song], from movement: Int, offset: Double, file: @escaping PlaybackFileSource) {
+    public func load(_ songs: [PlaybackTrack], from movement: Int, offset: Double, file: @escaping PlaybackFileSource) {
         discard()
         self.songs = songs
         // The track at the load's start is fixed before the scheduler asks for it.
@@ -118,14 +126,14 @@ final class GaplessEngine: PlaybackEngine {
         }
     }
 
-    func pause() {
+    public func pause() {
         pausedAt = playedSamples()
         node?.pause()
         playing = false
         report()
     }
 
-    func resume() throws {
+    public func resume() throws {
         playing = true
         // Before the first sound and during a refill, the scheduler starts the node when enough audio waits.
         guard started && !starved, let node else { return report() }
@@ -154,7 +162,7 @@ final class GaplessEngine: PlaybackEngine {
         playing = true
     }
 
-    func replace(_ songs: [Song]) -> Bool {
+    public func replace(_ songs: [PlaybackTrack]) -> Bool {
         let fixed = requested + 1
         guard task != nil, songs.count >= fixed, songs.prefix(fixed).map(\.id) == self.songs.prefix(fixed).map(\.id)
         else { return false }
@@ -162,7 +170,7 @@ final class GaplessEngine: PlaybackEngine {
         return true
     }
 
-    func discard() {
+    public func discard() {
         // Invalidate callbacks before stopping: node teardown also calls completion handlers.
         generation += 1
         cancelled.set()
@@ -201,19 +209,19 @@ final class GaplessEngine: PlaybackEngine {
         playing = false
     }
 
-    func setGain(_ decibels: Float) {
+    public func setGain(_ decibels: Float) {
         self.decibels = decibels
         gain?.globalGain = decibels
     }
 
-    func position(from movement: Int) -> (movement: Int, elapsed: Double)? {
+    public func position(from movement: Int) -> (movement: Int, elapsed: Double)? {
         guard let sample = playedSamples(), let found = timeline.position(at: sample, from: movement) else {
             return nil
         }
         return (found.movement, Double(found.frame) / sampleRate)
     }
 
-    func duration(of movement: Int) -> Double? {
+    public func duration(of movement: Int) -> Double? {
         timeline.length(movement).map { Double($0) / sampleRate }
     }
 
@@ -239,13 +247,13 @@ final class GaplessEngine: PlaybackEngine {
         guard generation == self.generation, !Task.isCancelled else { return }
         let engine = AVAudioEngine()
         let node = AVAudioPlayerNode()
-        let gain = AVAudioUnitEQ(numberOfBands: 0)
+        let gain = gainNode ? AVAudioUnitEQ(numberOfBands: 0) : nil
         engine.attach(node)
-        engine.attach(gain)
+        if let gain { engine.attach(gain) }
         self.engine = engine
         self.node = node
         self.gain = gain
-        gain.globalGain = decibels
+        gain?.globalGain = decibels
         let observers = PlaybackNotifications()
         observers.observe(.AVAudioEngineConfigurationChange, object: engine) { [weak self] _ in
             // The engine posts from an internal queue; teardown must run after that callback returns.
@@ -293,8 +301,8 @@ final class GaplessEngine: PlaybackEngine {
             }
         } catch {
             guard generation == self.generation, !Task.isCancelled else { return }
-            if let trouble = ServerTrouble(playback: error) {
-                onEvent?(.serverFailed(trouble))
+            if let failure = failureMapper.serverFailure(for: error) {
+                onEvent?(.serverFailed(failure))
             } else {
                 onEvent?(.failed(error.localizedDescription))
             }
@@ -318,7 +326,7 @@ final class GaplessEngine: PlaybackEngine {
     /// The first track sets the node's rate. The node keeps at least two channels, so a mono opener never downmixes
     /// the stereo recordings after it. Later tracks of another format convert their PCM before they reach this graph.
     private func connect(_ incoming: AVAudioFormat, position: Int, generation: Int) async throws -> Bool {
-        guard let engine, let node, let gain else { return false }
+        guard let engine, let node else { return false }
         if format != nil { return true }
         let stable =
             incoming.channelCount >= 2
@@ -326,13 +334,15 @@ final class GaplessEngine: PlaybackEngine {
         guard let stable else { throw PCMConversion.Failure.format }
         format = stable
         sampleRate = stable.sampleRate
-        try engine.connectNode(node, to: gain, format: stable)
-        try engine.connectNode(gain, to: engine.mainMixerNode, format: stable)
+        // The last node before the mixer: the gain node, or the player when the host builds no gain node.
+        let last: AVAudioNode = gain ?? node
+        if let gain { try engine.connectNode(node, to: gain, format: stable) }
+        try engine.connectNode(last, to: engine.mainMixerNode, format: stable)
         if manualRendering {
             try engine.enableManualRenderingMode(.offline, format: stable, maximumFrameCount: 1_024)
         }
         if let rendered {
-            try gain.installAudioTap(
+            try last.installAudioTap(
                 onBus: 0, bufferSize: AVAudioFrameCount(stable.sampleRate * Self.chunkSeconds), format: stable
             ) { buffer, _ in rendered(buffer) }
         }
@@ -449,7 +459,7 @@ final class GaplessEngine: PlaybackEngine {
 
     /// Decodes a track while it arrives, and keeps at most `aheadSeconds` of it on the node.
     private func scheduleStream(
-        _ transfer: TrackTransfer, song: Song, position: Int, offset: Double, generation: Int
+        _ transfer: TrackTransfer, song: PlaybackTrack, position: Int, offset: Double, generation: Int
     ) async throws -> Bool {
         stream = (transfer, AudioBitrate.initial(song))
         consumed = 0

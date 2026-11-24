@@ -4,6 +4,7 @@ import Testing
 import UIKit
 
 @testable import Klassik
+@testable import KlassikEngine
 
 /// A seek event with a fixed position.
 private final class PositionEvent: MPChangePlaybackPositionCommandEvent {
@@ -29,7 +30,8 @@ struct PlaybackSessionTests {
     }
 
     private func makeSession(
-        _ requests: Requests = Requests(), server: (any ServerPort)? = InMemoryServer()
+        _ requests: Requests = Requests(), server: (any ServerPort)? = InMemoryServer(),
+        gainStage: (any GainStage)? = nil
     ) throws -> (session: PlaybackSession, engine: FakeEngine) {
         let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
         let store = TrackStore(
@@ -42,7 +44,7 @@ struct PlaybackSessionTests {
                 return file
             })
         let engine = FakeEngine()
-        let session = PlaybackSession(engine: engine, store: store, defaults: defaults)
+        let session = PlaybackSession(engine: engine, store: store, defaults: defaults, gainStage: gainStage)
         session.server = server
         return (session, engine)
     }
@@ -683,6 +685,13 @@ struct PlaybackSessionTests {
         #expect(engine.loads.last == load("a", movements: 2, from: 1, at: 3))
     }
 
+    @Test func aGainStageReplacesTheLeveling() throws {
+        let (session, engine) = try makeSession(gainStage: NoGainStage())
+        session.leveling = .track
+        session.play(item("a", movements: 2, gains: [-3, -6]))
+        #expect(engine.gain == 0)
+    }
+
     @Test func gainFollowsTheMovementAndTheLeveling() throws {
         let (session, engine) = try makeSession()
         session.leveling = .track
@@ -700,7 +709,7 @@ struct PlaybackSessionTests {
         let queued = item("a", movements: 2)
         session.play(queued)
         let file = try #require(engine.file)
-        _ = try await file(queued.recording.songs[1])
+        _ = try await file(queued.recording.songs[1].playbackTrack)
         #expect(requests.urls == [InMemoryServer().streamURL(songID: "a-1")])
         try? FileManager.default.removeItem(at: root)
     }

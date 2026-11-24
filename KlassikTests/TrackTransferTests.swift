@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Klassik
+@testable import KlassikEngine
 
 /// The shared byte store of ADR 0060: readers wait for bytes, never read zeros, and a complete file moves to the
 /// cache in one step.

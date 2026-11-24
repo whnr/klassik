@@ -2,6 +2,7 @@ import AVFoundation
 import Testing
 
 @testable import Klassik
+@testable import KlassikEngine
 
 /// A skip stops one waveform and starts another in the middle of a cycle. The tests render the ramp of
 /// `SkipFade` offline, with the same gain steps and step time as the engine, and look for jumps between samples.

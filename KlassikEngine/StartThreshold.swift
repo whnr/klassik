@@ -73,7 +73,7 @@ enum AudioBitrate {
 
     /// The estimate before packet timing: a floor for lossy formats, the PCM rate for lossless ones.
     /// A larger declared rate wins.
-    static func initial(_ song: Song) -> Double {
+    static func initial(_ song: PlaybackTrack) -> Double {
         let declared = Double(song.bitRate ?? 0) * 1000
         let floor: Double
         switch song.suffix?.lowercased() {
@@ -89,7 +89,7 @@ enum AudioBitrate {
     }
 
     /// The estimate after decoding: the greater of the declared rate and the rate that the decoder consumed.
-    static func current(_ song: Song, observed: Double?) -> Double {
+    static func current(_ song: PlaybackTrack, observed: Double?) -> Double {
         guard let observed, observed > 0 else { return initial(song) }
         return max(Double(song.bitRate ?? 0) * 1000, observed)
     }

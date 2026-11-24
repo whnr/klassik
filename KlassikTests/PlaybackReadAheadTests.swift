@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Klassik
+@testable import KlassikEngine
 
 /// The session prepares the tracks of ADR 0060 and shows the slow-connection line at its events.
 @Suite(.serialized)

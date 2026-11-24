@@ -2,6 +2,7 @@ import AVFoundation
 import Testing
 
 @testable import Klassik
+@testable import KlassikEngine
 
 struct PCMConversionTests {
     @Test func fractionalFramesAccumulateAcrossTheQueue() {

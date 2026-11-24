@@ -25,7 +25,8 @@ Rules for coding agents in this repository.
 
 - `project.yml` defines the project. XcodeGen generates `Klassik.xcodeproj`; do not commit it.
 - `scripts/test.sh` generates the project and runs the unit tests on an iPhone simulator.
-- `scripts/lint.sh` checks the Swift layout against `.swift-format` (Swift 6.2 `swift format`). Run it before you push. `swift format --in-place --recursive Klassik KlassikTests KlassikUITests TaskRegistry` fixes most findings.
+- `KlassikEngine/` is the playback engine, a static library target that the app links. It knows no server model: the app maps `Song` to `PlaybackTrack`, and names its own failures through `PlaybackFailureMapper`. Engine code never imports app types. Tests reach its internals with `@testable import KlassikEngine`.
+- `scripts/lint.sh` checks the Swift layout against `.swift-format` (Swift 6.2 `swift format`). Run it before you push. `swift format --in-place --recursive Klassik KlassikTests KlassikUITests TaskRegistry KlassikEngine` fixes most findings.
 - `design/scripts/lint.sh` checks the design and all Python, HTML, CSS and JavaScript: format, lint, tokens, contrast, ADR links and the specimen pages. It needs uv and Node. Run it before you push a change to `design/`, `docs/adr/` or a Python script.
 - `Klassik/Layout.swift` holds every inset, gap, corner, fixed size and text role of the views. Each value cites its specimen CSS rule. `scripts/layout_tokens.py --check` proves the citations. `scripts/layout_lint.py` refuses a literal layout number in `Klassik/`; an exception goes into `scripts/layout_literals.txt` with its reason. A specimen change that moves a value changes `Layout.swift` in the same PR. The `layout` job of `test.yml` runs both, and `design/scripts/lint.sh` runs the citation check.
 - `.github/workflows/preview.yml` publishes the specimen of every push. It comments the preview links on a PR only when the PR diff touches `design/specimen/`.

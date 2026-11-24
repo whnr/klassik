@@ -4,6 +4,7 @@ import AudioToolbox
 import XCTest
 
 @testable import Klassik
+@testable import KlassikEngine
 
 /// Measures how iOS decodes the attacca fixture work as Navidrome streams it, and whether the engine joins
 /// its movements without a gap. The screens workflow runs it against the fixture server and keeps the report.

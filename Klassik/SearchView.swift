@@ -3,8 +3,8 @@ import SwiftUI
 /// The Search place: one field at the top under the back arrow, no large title, and the
 /// results in sections under it. Only the results scroll. Filters beside the field opens the conditions in a sheet;
 /// the results stay live above it.
-/// The field is drawn here, not by `searchable`: in a `UISearchTab` the system moves that field to the bottom of
-/// the screen, onto the keyboard.
+/// The field is drawn here, not by `searchable`: the system would move that field to the bottom of the screen,
+/// onto the keyboard.
 struct SearchView: View {
     @Environment(AppModel.self) private var model
     @Environment(AppNavigator.self) private var navigator

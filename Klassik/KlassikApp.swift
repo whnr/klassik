@@ -1,8 +1,28 @@
 import SwiftUI
 import TipKit
 
+/// The system starts Klassik again for a finished background transfer. It then needs the session at launch, and
+/// the handler it passes is called when the session has delivered its events.
+final class KlassikAppDelegate: NSObject, UIApplicationDelegate {
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+    ) -> Bool {
+        _ = BackgroundDownloads.shared
+        return true
+    }
+
+    func application(
+        _ application: UIApplication, handleEventsForBackgroundURLSession identifier: String,
+        completionHandler: @escaping () -> Void
+    ) {
+        BackgroundDownloads.shared.attach(completion: completionHandler)
+    }
+}
+
 @main
 struct KlassikApp: App {
+    @UIApplicationDelegateAdaptor(KlassikAppDelegate.self) private var delegate
     @State private var model: AppModel
 
     init() {
@@ -82,6 +102,7 @@ struct RootView: View {
             if phase == .active {
                 Task { await model.playback.synchronizeListeningData() }
                 Task { await model.recordingOrder.refresh() }
+                Task { await model.checkForChanges() }
             }
             if phase == .background {
                 Task { await model.playback.saveQueue() }

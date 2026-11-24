@@ -39,6 +39,10 @@ PAGES = (
     "lookup.html?state=running",
     "lookup.html?state=slowDown",
     "storage.html",
+    "server.html",
+    "server.html?state=offline",
+    "server.html?state=signedout",
+    "server.html?confirm=signout",
     "menu.html",
     "menu.html?for=recording&state=downloading",
     "menu.html?for=work",
@@ -102,7 +106,7 @@ def check_overlay(page, where, failures):
     if overlay.count() or page.url != url:
         failures.append(f"{where}: sliding down did not restore the underlying page")
     open_player()
-    page.locator(".tabs a.on, .tab-search.on").tap()
+    page.locator(".tabs a.on").tap()
     page.wait_for_timeout(900)
     if overlay.count() or page.url != url:
         failures.append(f"{where}: the underlying tab did not keep its page")
@@ -113,7 +117,7 @@ def check_overlay(page, where, failures):
             "([tab, url]) => sessionStorage.setItem('specimen.stack.' + tab, JSON.stringify(url))",
             [tab, destination],
         )
-        current = page.locator(".tabs a.on, .tab-search.on").get_attribute("aria-label").lower()
+        current = page.locator(".tabs a.on").get_attribute("aria-label").lower()
         open_player()
         page.locator(f".tabbar a[aria-label='{tab.title()}']").tap()
         page.wait_for_timeout(1500)

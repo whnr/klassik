@@ -19,6 +19,14 @@ final class TrackStore {
     typealias Fetch = @MainActor (Song, any ServerPort) async throws -> URL
     /// Delivers the bytes of a transfer. Production starts its URLSession request; a test feeds bytes itself.
     typealias Transport = @MainActor (Song, any ServerPort, TrackTransfer) -> Void
+    /// Loads one track of a download in a session that keeps running while the app is suspended.
+    typealias BackgroundLoad = @MainActor (Song, any ServerPort) async throws -> URL
+
+    /// A download that was asked for and did not end. It survives a relaunch, so the menu stays truthful.
+    private struct Pending: Codable {
+        var recording: WorkIndex.Recording
+        var title: String
+    }
 
     /// The limit counts whole gigabytes, in the same decimal unit that the screen uses for every size.
     static let gigabyte: Int64 = 1_000_000_000
@@ -59,6 +67,10 @@ final class TrackStore {
     private let cacheFolder: URL
     private let downloadFolder: URL
     private let manifestURL: URL
+    private let pendingURL: URL
+    @ObservationIgnored private var pending: [Pending] = []
+    /// Nil in tests that need no background session: downloads then load through `load`.
+    private let background: BackgroundLoad?
     private let defaults: UserDefaults
     private var tasks: [String: Task<Void, Never>] = [:]
     private let load: Fetch
@@ -84,8 +96,10 @@ final class TrackStore {
     init(
         cacheFolder: URL = .cachesDirectory.appending(path: "tracks"),
         downloadFolder: URL = .applicationSupportDirectory.appending(path: "downloads"),
-        defaults: UserDefaults = .standard, fetch: Fetch? = nil, transport: Transport? = nil
+        defaults: UserDefaults = .standard, fetch: Fetch? = nil, transport: Transport? = nil,
+        background: BackgroundLoad? = nil
     ) {
+        self.background = background
         load = fetch ?? Self.stream
         if let transport {
             self.transport = transport
@@ -97,6 +111,7 @@ final class TrackStore {
         self.cacheFolder = cacheFolder
         self.downloadFolder = downloadFolder
         self.manifestURL = downloadFolder.deletingLastPathComponent().appending(path: "downloads.json")
+        self.pendingURL = downloadFolder.deletingLastPathComponent().appending(path: "pending-downloads.json")
         self.defaults = defaults
         let limit = defaults.object(forKey: Self.limitKey) as? Int64 ?? Self.defaultLimit
         cacheLimit = limit
@@ -107,6 +122,38 @@ final class TrackStore {
             try? FileManager.default.removeItem(at: file.url)
         }
         rescan()
+        pending = (try? JSONDecoder().decode([Pending].self, from: Data(contentsOf: pendingURL))) ?? []
+        // The menu shows a download that the last run did not finish as running, until `resumeDownloads` starts it.
+        for item in pending where !isDownloaded(item.recording) { progress[item.recording.id] = 0 }
+    }
+
+    /// Starts the downloads that an earlier run left unfinished.
+    func resumeDownloads(client: any ServerPort) {
+        for item in pending where tasks[item.recording.id] == nil {
+            if isDownloaded(item.recording) {
+                forget(item.recording.id)
+            } else {
+                download(item.recording, title: item.title, client: client)
+            }
+        }
+    }
+
+    private func remember(_ item: Pending) {
+        pending.removeAll { $0.recording.id == item.recording.id }
+        pending.append(item)
+        savePending()
+    }
+
+    private func forget(_ id: String) {
+        guard pending.contains(where: { $0.recording.id == id }) else { return }
+        pending.removeAll { $0.recording.id == id }
+        savePending()
+    }
+
+    private func savePending() {
+        try? FileManager.default.createDirectory(
+            at: pendingURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        if let data = try? JSONEncoder().encode(pending) { try? data.write(to: pendingURL, options: .atomic) }
     }
 
     func isOffline(_ song: Song) -> Bool { offline.contains(song.id) }
@@ -278,6 +325,7 @@ final class TrackStore {
         failures[recording.id] = nil
         progress[recording.id] = 0
         downloadTracks[recording.id] = Set(recording.songs.map(\.id))
+        remember(Pending(recording: recording, title: title))
         let generation = generation
         tasks[recording.id] = Task {
             do {
@@ -287,7 +335,11 @@ final class TrackStore {
                     let target = downloadFolder.appending(path: Self.fileName(song))
                     if !FileManager.default.fileExists(atPath: target.path()) {
                         let cached = cacheFolder.appending(path: Self.fileName(song))
-                        if transport != nil, !FileManager.default.fileExists(atPath: cached.path()) {
+                        // With a background session, only a transfer that runs already is shared: a new one would
+                        // stop when the app is suspended.
+                        if transport != nil, background == nil || transfers[song.id] != nil,
+                            !FileManager.default.fileExists(atPath: cached.path())
+                        {
                             // The download reuses the bytes that playback or read-ahead already loads. A wrapped
                             // rolling window lacks discarded bytes, so that track then loads whole below.
                             let shared = transfer(for: song, client: client)
@@ -328,6 +380,7 @@ final class TrackStore {
                 if !(error is CancellationError) { failures[recording.id] = error.localizedDescription }
             }
             guard generation == self.generation else { return }
+            forget(recording.id)
             progress[recording.id] = nil
             tasks[recording.id] = nil
             downloadTracks[recording.id] = nil
@@ -340,10 +393,10 @@ final class TrackStore {
 
     /// The download stops at once for the listener. Its task releases the files in the background.
     func cancelDownload(_ id: String) {
-        guard let task = tasks[id] else { return }
-        task.cancel()
         restarts[id] = nil
         progress[id] = nil
+        forget(id)
+        tasks[id]?.cancel()
     }
 
     /// Removes a download. A track that another download also holds stays.
@@ -375,6 +428,8 @@ final class TrackStore {
         tasks = [:]
         restarts = [:]
         progress = [:]
+        pending = []
+        try? FileManager.default.removeItem(at: pendingURL)
         for task in fetches.values { task.cancel() }
         fetches = [:]
         downloads = []
@@ -412,7 +467,12 @@ final class TrackStore {
     }
 
     private func fetch(_ song: Song, to target: URL, client: any ServerPort) async throws {
-        let temporary = try await load(song, client)
+        let temporary: URL
+        if let background {
+            temporary = try await background(song, client)
+        } else {
+            temporary = try await load(song, client)
+        }
         defer { try? FileManager.default.removeItem(at: temporary) }
         try Task.checkCancellation()
         try FileManager.default.createDirectory(

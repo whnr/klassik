@@ -24,6 +24,7 @@ final class LibrarySyncTests: XCTestCase {
         XCTAssertEqual(library.albumCount, 11)
         XCTAssertEqual(library.classical.count, 26, "Jazz, FLAC and decoder probes remain outside the classical filter")
         XCTAssertEqual(library.classicalAlbumCount, 7)
+        XCTAssertEqual(library.otherTrackCount, 7)
         let finale = try XCTUnwrap(
             library.songs.first { $0.movements?.first?.number == 3 && $0.album == "Mendelssohn: Violin Concerto" })
         XCTAssertEqual(finale.works?.first?.name, "Violin Concerto in E minor, Op. 64")

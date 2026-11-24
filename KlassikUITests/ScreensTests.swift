@@ -221,13 +221,13 @@ final class PlacesScreens: ScreensTestCase {
         try expectTabsAfterTheSearchKeyboard(playing: false)
     }
 
-    /// The mini player narrows the bar, so the Search circle has less room.
+    /// The mini player narrows the bar, so the three tabs have less room.
     @MainActor
     func testTabsStayAfterTheSearchKeyboardWhilePlaying() throws {
         try expectTabsAfterTheSearchKeyboard(playing: true)
     }
 
-    /// A composer filter on the Search page, then two taps on Library: the Search circle must stay in the bar.
+    /// A composer filter on the Search page, then two taps on Library: the three tabs must stay in the bar.
     @MainActor
     func testSearchTabStaysAfterAFilterAndTwoLibraryTaps() throws {
         let app = try launchAndConnect(openComposers: false)
@@ -235,9 +235,9 @@ final class PlacesScreens: ScreensTestCase {
         app.buttons["library-composers"].tap()
         _ = pausedPlayerInLibrary(app)
         openPlace(app, "Library")
-        let search = tab(app, "Search")
-        XCTAssertTrue(search.waitForExistence(timeout: 10))
-        let searchFrame = search.frame
+        let names = ["Library", "Chronology", "Search"]
+        XCTAssertTrue(tab(app, "Search").waitForExistence(timeout: 10))
+        let frames = names.map { tab(app, $0).frame }
         openPlace(app, "Search")
         let field = app.textFields["search-field"]
         XCTAssertTrue(field.waitForExistence(timeout: 10))
@@ -254,8 +254,11 @@ final class PlacesScreens: ScreensTestCase {
         tab(app, "Library").tap()
         XCTAssertTrue(app.buttons["library-composers"].waitForExistence(timeout: 10))
         XCTAssertTrue(
-            eventually(timeout: 5) { search.exists && search.isHittable && search.frame == searchFrame },
-            "The Search circle is gone or moved: \(search.frame) instead of \(searchFrame)")
+            eventually(timeout: 5) { names.map { tab(app, $0) }.allSatisfy { $0.exists && $0.isHittable } },
+            "A tab is gone")
+        XCTAssertTrue(
+            eventually(timeout: 5) { names.map { tab(app, $0).frame } == frames },
+            "The tabs moved: \(names.map { tab(app, $0).frame }) instead of \(frames)")
         snap(app, "02t-search-tab-after-filter-and-two-taps")
     }
 
@@ -274,26 +277,28 @@ final class PlacesScreens: ScreensTestCase {
             XCTAssertTrue(app.buttons["library-composers"].waitForExistence(timeout: 10))
         }
         libraryRoot()
-        let search = tab(app, "Search")
-        XCTAssertTrue(search.waitForExistence(timeout: 10))
-        let searchFrame = search.frame
+        let names = ["Library", "Chronology", "Search"]
+        XCTAssertTrue(tab(app, "Search").waitForExistence(timeout: 10))
+        let frames = names.map { tab(app, $0).frame }
+        // The whole bar, labels included, must look as it did at the start.
+        let barArea = frames.reduce(CGRect.null) { $0.union($1) }
         let baseline = try XCTUnwrap(ScreenPixels(app))
         func expectTabs(_ step: String) {
-            for name in ["Library", "Chronology", "Search"] {
+            for name in names {
                 let item = tab(app, name)
                 XCTAssertTrue(item.waitForExistence(timeout: 5), "\(step): no tab \(name)")
                 XCTAssertTrue(item.isHittable, "\(step): tab \(name) is not hittable")
             }
-            XCTAssertEqual(search.frame, searchFrame, "\(step): the Search tab moved")
-            // A tab can keep its element while UIKit draws nothing, so the Search circle must look as it did before.
+            XCTAssertEqual(names.map { tab(app, $0).frame }, frames, "\(step): a tab moved")
+            // A tab can keep its element while UIKit draws nothing or cuts a label, so the bar must look as before.
             var share = 1.0
             for _ in 0..<6 {
-                if let now = ScreenPixels(app) { share = now.differingShare(in: searchFrame, from: baseline) }
+                if let now = ScreenPixels(app) { share = now.differingShare(in: barArea, from: baseline) }
                 if share < 0.05 { break }
                 Thread.sleep(forTimeInterval: 0.5)
             }
             if share >= 0.05 { add(XCTAttachment(string: app.tabBars["tab-row"].debugDescription)) }
-            XCTAssertLessThan(share, 0.05, "\(step): the Search circle changed")
+            XCTAssertLessThan(share, 0.05, "\(step): the tab bar changed")
         }
         let field = app.textFields["search-field"]
         let recent = app.buttons.matching(identifier: "search-recent")
@@ -1236,6 +1241,62 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(app.buttons["show-player"].waitForExistence(timeout: 10))
     }
 
+    /// A drag that starts on a row at the top of the list and pulls past the top closes the player. The hero
+    /// takes drags that start on the cover, so this path starts below it.
+    @MainActor
+    func testPullPastTopFromARowClosesThePlayer() throws {
+        let app = try launchAndConnect()
+        openRecording(app)
+        playPaused(app)
+        openPlayer(app)
+        // The page below the player has the same cover and rows, and its elements come first in the tree. A drag
+        // aimed at them lands on the player's cover, so every lookup stays inside the player.
+        let player = app.descendants(matching: .any)["player-overlay"].firstMatch
+        let cover = player.descendants(matching: .any)["hero-cover"].firstMatch
+        let row = player.descendants(matching: .any)["movement"].firstMatch
+        XCTAssertTrue(cover.waitForExistence(timeout: 10))
+        XCTAssertTrue(eventually(timeout: 12) { row.exists && row.isHittable }, "No row to start the drag on")
+        XCTAssertGreaterThan(row.frame.minY, cover.frame.maxY, "The row is not below the cover")
+        // The player opens with the page scrolled to its playing row, and only a pull that starts at the top closes
+        // it. Short slow drags down bring the page to the top. Each one pulls less than the 60 points that close the
+        // player, so none of them closes it. The page is at the top when a drag no longer moves the cover.
+        let handle = app.buttons["player-handle"]
+        var atTop = false
+        for _ in 0..<12 where !atTop {
+            let before = cover.frame.minY
+            let from = rowTopInset(of: row)
+            from.press(
+                forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: 90)), withVelocity: .slow,
+                thenHoldForDuration: 0.2)
+            var last = CGFloat.infinity
+            XCTAssertTrue(
+                eventually(timeout: 8) {
+                    defer { last = cover.frame.minY }
+                    return abs(cover.frame.minY - last) < 1
+                }, "The page did not settle")
+            atTop = abs(cover.frame.minY - before) < 1
+        }
+        XCTAssertTrue(atTop, "The page did not reach its top")
+        XCTAssertTrue(handle.exists, "A short drag closed the player")
+        XCTAssertGreaterThan(row.frame.minY, cover.frame.maxY, "The row is not below the cover")
+        snap(app, "05e-pull-from-row")
+        rowTopInset(of: row).press(
+            forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.95)),
+            withVelocity: .default, thenHoldForDuration: 0.3)
+        let closed = app.buttons["player-handle"].waitForNonExistence(timeout: 10)
+        snap(app, "05f-pull-from-row-after")
+        XCTAssertTrue(closed, "A pull past the top from a row did not close the player")
+        XCTAssertTrue(app.buttons["show-player"].waitForExistence(timeout: 10))
+    }
+
+    /// The top inset of the playing row, above its title and right of centre. The touch area of the position bar
+    /// reaches over the whole title line, and a drag there scrubs the position and never scrolls the page. The
+    /// inset holds no control, so a drag from here goes to the page scroll.
+    @MainActor
+    func rowTopInset(of row: XCUIElement) -> XCUICoordinate {
+        row.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0)).withOffset(CGVector(dx: 0, dy: -8))
+    }
+
     /// A drag down from the cover of the player moves the whole player, and a fling closes it.
     @MainActor
     func testHeadingDragClosesThePlayer() throws {
@@ -1245,9 +1306,15 @@ final class PlaybackScreens: ScreensTestCase {
         openPlayer(app)
         let cover = app.descendants(matching: .any)["hero-cover"].firstMatch
         XCTAssertTrue(cover.waitForExistence(timeout: 10))
-        cover.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(
-            forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)),
-            withVelocity: .fast, thenHoldForDuration: 0)
+        // A pull of more than 120 points closes the player, so the drag is long and does not rely on a fling
+        // estimate. A drag that the recognizer misses at its start is lost, so a lost drag repeats; three lost
+        // drags fail the check.
+        for _ in 0..<3 where app.buttons["player-handle"].exists {
+            cover.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(
+                forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)),
+                withVelocity: .default, thenHoldForDuration: 0)
+            _ = app.buttons["player-handle"].waitForNonExistence(timeout: 4)
+        }
         expectPlayerClosed(app)
         XCTAssertTrue(app.buttons["show-player"].waitForExistence(timeout: 10))
     }
@@ -1508,8 +1575,20 @@ final class PlaybackScreens: ScreensTestCase {
         let overlay = app.descendants(matching: .any)["player-overlay"].firstMatch
         XCTAssertTrue(reveal(overlay.sliders["position"], in: app).exists, "The player has no playing row")
         XCTAssertFalse(overlay.buttons["show-player"].exists, "The player offers itself")
-        XCTAssertFalse(overlay.buttons["page-menu"].exists, "The player has the page menu")
         snap(app, "05j-player-playing")
+        // specimen menu.html, Player: Download and Tags and Grouping of what plays, no queue items.
+        let menu = overlay.buttons["page-menu"].firstMatch
+        XCTAssertTrue(menu.waitForExistence(timeout: 5), "The player has no menu")
+        menu.tap()
+        let download = menuItem(app, "Download")
+        _ = download.waitForExistence(timeout: 5)
+        snap(app, "05o-player-menu")
+        XCTAssertTrue(download.exists, "The player menu has no Download")
+        XCTAssertTrue(menuItem(app, "Tags and Grouping").exists, "The player menu has no Tags and Grouping")
+        XCTAssertFalse(menuItem(app, "Play Next").exists, "The player menu has Play Next")
+        XCTAssertFalse(menuItem(app, "Add to Queue").exists, "The player menu has Add to Queue")
+        expectOrder(app, ["Download", "Tags and Grouping"], "player menu")
+        closeMenu(app)
     }
 
     /// A listening note is written in the playing row, never in a modal. It stays open while the bar scrubs, "End here"
@@ -1570,6 +1649,10 @@ final class PlaybackScreens: ScreensTestCase {
         }
         XCTAssertEqual(app.buttons.matching(identifier: "note-text").count, 3)
         reveal(position, in: app)
+        // The last save closes the keyboard, and the page moves while it goes. A tap on a coordinate of the bar
+        // that lands mid-move misses the lane and scrubs to the middle of the movement.
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 10), "The keyboard stayed open")
+        XCTAssertTrue(waitUntilStill(position), "The position bar kept moving: \(position.frame)")
         // Each lane above the first adds the pitch of one lane (Layout.noteDotTop).
         let pitch: CGFloat = 9
         XCTAssertEqual(barDrop(), bare + 2 * pitch, accuracy: 0.5, "The bar has no room for the third lane")
@@ -1880,9 +1963,12 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertEqual(menuItem(app, "Play Next").label, "Play Next", "The work menu names the top recording")
         snap(app, "05k-work-menu")
         closeMenu(app)
+        // A press while the work menu still fades out opens nothing, so the row waits for the menu to be gone.
+        XCTAssertTrue(eventually(timeout: 5) { !queue.exists }, "The work menu stays open")
 
         let row = app.buttons.matching(identifier: "recording").firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 10))
+        XCTAssertTrue(eventually(timeout: 5) { row.isHittable }, "The recording row is not ready for a press")
         row.press(forDuration: 1.2)
         let rowTags = menuItem(app, "Tags and Grouping")
         XCTAssertTrue(rowTags.waitForExistence(timeout: 5), "The row menu has no Tags and Grouping")
@@ -2308,7 +2394,6 @@ final class TimelineScreens: ScreensTestCase {
         XCTAssertLessThan(frame.maxY, app.frame.maxY, "The playback controls have no bottom clearance")
         XCTAssertEqual(bar.frame.maxY, frame.minY, accuracy: 1, "The timeline does not run into the pill")
         XCTAssertEqual(frame.midY, tab(app, "Search").frame.midY, accuracy: 2, "The controls are not in the tab row")
-        // Search stands apart in its own circle, so the capsule height comes from a tab inside the capsule.
         XCTAssertEqual(
             frame.height, tab(app, "Chronology").frame.height + 8, accuracy: 1,
             "The pill does not match the native capsule height")
@@ -2382,6 +2467,8 @@ final class TimelineScreens: ScreensTestCase {
         expectMovementPlayEdge(app, side: .left)
 
         let place = bar.value as? String ?? ""
+        // The check above scrolls the page. A swipe that starts while the page still moves is no edge swipe.
+        XCTAssertTrue(waitUntilStill(app.buttons["Play from here"].firstMatch), "The page kept moving")
         swipeFromLeftEdge(app)
         XCTAssertTrue(
             app.buttons.matching(identifier: "recording").firstMatch.waitForExistence(timeout: 10),
@@ -2442,6 +2529,34 @@ final class SettingsScreens: ScreensTestCase {
         snap(app, "08f-local-storage")
     }
 
+    /// Server Connection shows its rows from what the device knows, and Sign Out asks first.
+    @MainActor
+    func testServerConnection() throws {
+        let app = try launchAndConnect()
+        openSettings(app)
+        reveal(app.buttons["server-connection"], in: app).tap()
+        XCTAssertTrue(app.navigationBars["Server Connection"].waitForExistence(timeout: 10))
+        snap(app, "08m-server-connection")
+        let rows = [
+            "server-address", "server-username", "server-state", "server-name", "server-classical-tracks",
+            "server-classical-albums", "server-other-tracks", "server-last-sync",
+        ]
+        for identifier in rows {
+            XCTAssertTrue(reveal(row(app, identifier), in: app).exists, "No \(identifier) row")
+        }
+        let signOut = reveal(app.buttons["sign-out"], in: app)
+        XCTAssertTrue(signOut.isHittable)
+        snap(app, "08n-server-connection-bottom")
+        signOut.tap()
+        let confirm = app.buttons.matching(
+            NSPredicate(format: "label == %@ AND identifier != %@", "Sign Out", "sign-out")
+        ).firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5), "No confirmation")
+        snap(app, "08o-server-connection-sign-out")
+        confirm.tap()
+        XCTAssertTrue(app.buttons["connect"].waitForExistence(timeout: 10), "Sign Out did not show the sign-in page")
+    }
+
     @MainActor
     func testSettings() throws {
         let app = try launchAndConnect()
@@ -2461,7 +2576,7 @@ final class SettingsScreens: ScreensTestCase {
         let order = [
             "timeline-side", "replaygain", "scrobbles", "classical-rules", "partial-works", "swipe-actions",
             "local-storage", "delete-listening-data", "accent", "player-tint-strength",
-            "technical-details", "musicbrainz", "diagnostics", "licences",
+            "technical-details", "musicbrainz", "diagnostics", "server-connection", "licences",
         ]
         reveal(row(app, order[0]), in: app)
         for (above, below) in zip(order, order.dropFirst()) {
@@ -3153,10 +3268,10 @@ class ScreensTestCase: XCTestCase {
             XCTAssertLessThanOrEqual(left.maxX, right.minX, "The visible tab frames overlap")
             XCTAssertGreaterThanOrEqual(right.midX - left.midX, 64, "The tab slots crowd their labels")
         }
-        // Search stands apart in its own circle: the capsule edge and the gap make its step wider than a capsule step.
-        // In one capsule all steps are equal. The mini player narrows the bar, so the margin stays small.
-        XCTAssertGreaterThan(
-            tabs[2].midX - tabs[1].midX, tabs[1].midX - tabs[0].midX + 8, "Search is not apart from the other tabs")
+        // One capsule holds the three tabs, so both steps are equal.
+        XCTAssertEqual(
+            tabs[2].midX - tabs[1].midX, tabs[1].midX - tabs[0].midX, accuracy: 2,
+            "Search is apart from the other tabs")
         let cover = app.buttons["mini-player-cover"].frame
         // The button includes the edge padding; its inward edge is the square cover's inward edge.
         let distance = side == .right ? app.frame.maxX - cover.minX : cover.maxX - app.frame.minX
@@ -3676,6 +3791,19 @@ class ScreensTestCase: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.2))
         }
         return condition()
+    }
+
+    /// True when the frame of the element stays the same for three samples 0.2 s apart.
+    @MainActor
+    func waitUntilStill(_ element: XCUIElement, timeout: TimeInterval = 10) -> Bool {
+        var last = element.frame
+        var same = 0
+        return eventually(timeout: timeout) {
+            let now = element.frame
+            same = now == last ? same + 1 : 0
+            last = now
+            return same >= 3
+        }
     }
 
     @MainActor

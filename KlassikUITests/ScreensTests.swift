@@ -1147,6 +1147,13 @@ final class PlaybackScreens: ScreensTestCase {
         snap(app, "07s-slow-connection")
     }
 
+    /// The top inset of a row, above its title and right of centre. The touch area of the position bar reaches over the
+    /// whole title line of the playing row, and a drag there scrubs the position and never scrolls the page.
+    @MainActor
+    func rowTopInset(of row: XCUIElement) -> XCUICoordinate {
+        row.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0)).withOffset(CGVector(dx: 0, dy: -8))
+    }
+
     /// The quiet spell returns to the playing row after the listener scrolls away.
     @MainActor
     func testPlayerFollowsAfterQuietSpell() throws {
@@ -1159,11 +1166,11 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(eventually(timeout: 12) { position.exists && position.isHittable })
         // The fixture page is short, so its end is the follow target. The top puts the hero above the playing row.
         let rowY = { position.exists ? position.frame.midY : CGFloat.infinity }
-        // Short slow drags below the cover touch the page without the pull that closes the player, as a system
-        // sheet closes. A drag that starts on the cover or the title moves the player instead.
-        let facts = overlay.staticTexts["hero-facts"].firstMatch
-        XCTAssertTrue(facts.waitForExistence(timeout: 10), "No facts line to start the drag on")
-        let from = facts.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        // Short slow drags below the hero touch the page without the pull that closes the player, as a system
+        // sheet closes. A drag that starts in the hero moves the player instead.
+        let row = overlay.descendants(matching: .any)["movement"].firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 10), "No row to start the drag on")
+        let from = rowTopInset(of: row)
         let to = from.withOffset(CGVector(dx: 0, dy: 0.1 * app.frame.height))
         for _ in 0..<2 { from.press(forDuration: 0.05, thenDragTo: to, withVelocity: .slow, thenHoldForDuration: 0.2) }
         let still = Date()

@@ -324,9 +324,9 @@ final class GaplessEngine: PlaybackEngine {
 
     /// Renders the audio that waits on the node and never more, so a slow decoder cannot put silence in the output.
     private func startPump(_ engine: AVAudioEngine, node: AVAudioPlayerNode, generation: Int) {
-        guard let buffer = AVAudioPCMBuffer(
-            pcmFormat: engine.manualRenderingFormat, frameCapacity: engine.manualRenderingMaximumFrameCount)
-        else { return }
+        let format = engine.manualRenderingFormat
+        let capacity = engine.manualRenderingMaximumFrameCount
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: capacity) else { return }
         pump = Task { [weak self] in
             while !Task.isCancelled {
                 guard let self, generation == self.generation else { return }

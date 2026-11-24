@@ -559,9 +559,13 @@ struct StreamingPlaybackTests {
         for _ in 0..<1500 where !player.queueEnded && player.error == nil {
             try await Task.sleep(for: .milliseconds(10))
         }
-        #expect(player.error == nil)
-        #expect(player.queueEnded)
         let rendered = output.samples
+        #expect(player.error == nil, "error=\(String(describing: player.error))")
+        #expect(
+            player.queueEnded,
+            "rendered=\(rendered.count) of \(GaplessTests.movementSamples.reduce(0, +)) loading=\(player.isLoading) "
+                + "paused=\(player.isPaused) movement=\(String(describing: player.movement))"
+        )
         let firstAudible = try #require(rendered.firstIndex { abs($0) > 0.01 })
         let start = firstAudible + GaplessTests.alignment(rendered, at: firstAudible + 2048, referenceAt: 2048)
         var join = 0

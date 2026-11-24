@@ -2251,7 +2251,8 @@ final class PlaybackScreens: ScreensTestCase {
         app.buttons["favourite-recording"].tap()
         snap(app, "05c-recording-favourite")
         back(app)
-        XCTAssertTrue(rows.firstMatch.label.contains("Anna Probe"))
+        // Both are favourites now, so the newer one comes first.
+        XCTAssertTrue(rows.firstMatch.label.contains("Carl Fixture"))
         // A long press that moves does not reorder: there is no drag of a recording row.
         XCTAssertFalse(app.buttons["Edit"].exists, "A work page has no Edit mode")
         let source = rows.element(boundBy: 1).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
@@ -2260,7 +2261,7 @@ final class PlaybackScreens: ScreensTestCase {
         if app.buttons["favourite-action"].firstMatch.exists {
             app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
         }
-        XCTAssertTrue(rows.firstMatch.label.contains("Anna Probe"), "A drag changed the order")
+        XCTAssertTrue(rows.firstMatch.label.contains("Carl Fixture"), "A drag changed the order")
         snap(app, "05d-drag-keeps-order")
         app.buttons["play-work"].tap()
         XCTAssertTrue(app.buttons["recording-slot"].waitForExistence(timeout: 10))

@@ -2405,6 +2405,8 @@ final class TimelineScreens: ScreensTestCase {
         expectMovementPlayEdge(app, side: .left)
 
         let place = bar.value as? String ?? ""
+        // The check above scrolls the page. A swipe that starts while the page still moves is no edge swipe.
+        XCTAssertTrue(waitUntilStill(app.buttons["Play from here"].firstMatch), "The page kept moving")
         swipeFromLeftEdge(app)
         XCTAssertTrue(
             app.buttons.matching(identifier: "recording").firstMatch.waitForExistence(timeout: 10),

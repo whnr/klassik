@@ -332,9 +332,16 @@ final class GaplessEngine: PlaybackEngine {
         let capacity = engine.manualRenderingMaximumFrameCount
         guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: capacity) else { return }
         pump = Task { [weak self] in
+            var tailed = false
             while !Task.isCancelled {
                 guard let self, generation == self.generation else { return }
-                let waiting = self.scheduledEnd - (self.playedSamples() ?? 0)
+                var waiting = self.scheduledEnd - (self.playedSamples() ?? 0)
+                // The node reports the end of its last buffer on the render pass after it. One silent block
+                // follows the final audio.
+                if waiting <= 0, !self.decoding, !tailed, node.isPlaying {
+                    tailed = true
+                    waiting = Int64(buffer.frameCapacity)
+                }
                 guard node.isPlaying, waiting > 0 else {
                     try? await Task.sleep(for: .milliseconds(1))
                     continue

@@ -120,11 +120,7 @@ fi
 xcodebuild_tests() {
   local bundle=$1 result=$2 append=$3
   shift 3
-  local status=0 watcher=
-  if [ "$bundle" = screens ]; then
-    scripts/hang-sample.sh "$out/$bundle.log" "$out" &
-    watcher=$!
-  fi
+  local status=0
   TEST_RUNNER_KLASSIK_SERVER_URL=http://localhost:4533 \
   TEST_RUNNER_KLASSIK_USERNAME=fixture \
   TEST_RUNNER_KLASSIK_PASSWORD=fixture \
@@ -135,7 +131,6 @@ xcodebuild_tests() {
     "$@" \
     -resultBundlePath "$result" \
     | tee ${append:+"$append"} "$out/$bundle.log" | $formatter || status=$?
-  [ -z "$watcher" ] || kill "$watcher" 2> /dev/null || true
   return "$status"
 }
 

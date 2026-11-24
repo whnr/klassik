@@ -96,6 +96,7 @@
 
   function tagsSection(item) {
     const s = item.songs[0];
+    const m = s.movements?.[0];
     const rows = [
       ["Title", s.title],
       ["Work", s.works?.[0]?.name],
@@ -104,7 +105,11 @@
       ["Album", s.album],
       ["Year", s.year],
       ["Genre", s.genre],
-    ].filter(([, v]) => v);
+      ["Movement name", m?.name ?? "", true],
+      ["Movement number", m?.number ?? "", true],
+      ["Movement count", m?.count ?? "", true],
+      ["Work key (derived)", item.id],
+    ].filter(([, v, keepEmpty]) => v || keepEmpty);
     // The app shows each tag as the server sends it: a movement is three rows (name, number, count), an absent value
     // is an empty row, and rows the app derives are marked "(derived)".
     const body = el(

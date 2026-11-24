@@ -1280,18 +1280,15 @@ final class PlaybackScreens: ScreensTestCase {
             withVelocity: .default, thenHoldForDuration: 0.3)
         let closed = app.buttons["player-handle"].waitForNonExistence(timeout: 10)
         if !closed { snap(app, "05f-pull-from-row-open") }
-        let logs = app.staticTexts.matching(identifier: "diag-log").allElementsBoundByIndex  // DIAG-TEMP
-        let lg = logs.map(\.label).joined(separator: "|")  // DIAG-TEMP
-        let at = "\(titleLine(of: row).screenPoint) row=\(row.frame)"  // DIAG-TEMP
-        XCTAssertTrue(closed, "A pull from a row did not close the player DIAG[\(at) \(lg)]")  // DIAG-TEMP
+        XCTAssertTrue(closed, "A pull past the top from a row did not close the player")
         XCTAssertTrue(app.buttons["show-player"].waitForExistence(timeout: 10))
     }
 
-    /// The empty right end of the playing row's title line. The playback bar and its slider lie below the line, so
-    /// a drag from here starts on the row and on no control.
+    /// The right end of the playing row's title, near its top edge. The touch area of the position bar reaches up
+    /// to the lower part of the title line, and a drag there scrubs the position and never scrolls the page.
     @MainActor
     func titleLine(of row: XCUIElement) -> XCUICoordinate {
-        row.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0)).withOffset(CGVector(dx: 0, dy: 15))
+        row.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0)).withOffset(CGVector(dx: 0, dy: 4))
     }
 
     /// A drag down from the cover of the player moves the whole player, and a fling closes it.

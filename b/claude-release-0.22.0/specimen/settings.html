@@ -52,8 +52,8 @@
               link("Local Storage", "storage.html"),
               button("Delete Listening Data", { destructive: true }),
             ],
-            "A composer page lists a work with no complete recording under Partial works. Favourite works, the " +
-              "order of favourite recordings, listening notes, recent searches and the changes that wait stay on " +
+            "A composer page lists a work with no complete recording under Partial works. Favourite works, " +
+              "listening notes, recent searches and the changes that wait stay on " +
               "this iPhone, for this server and user. Sign-out keeps them.",
           ),
           group(
@@ -78,6 +78,7 @@
               ...(technical
                 ? [link("MusicBrainz", "lookup.html", "3 to confirm"), link("Diagnostics", null, "2 waiting")]
                 : []),
+              link("Server Connection", "server.html", "Connected"),
               link("Licences"),
             ],
             "Shows the lookups and diagnostics with the changes that wait.",

@@ -9,7 +9,7 @@ final class PlayerOverlayLayout {
     var bottom: CGFloat = 0
 }
 
-/// The drag that closes the player. The handle and the heading of the player (cover and title) take it, so the player
+/// The drag that closes the player. The handle and the heading of the player (cover, title, subtitle and names) take it, so the player
 /// follows the finger and shows the page below, as the works sheet of Chronology does. Rows below the heading scroll.
 @MainActor struct PlayerCloseDrag {
     /// How far the finger has pulled the player down. It returns to zero when the finger lifts.

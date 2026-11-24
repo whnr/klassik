@@ -1244,8 +1244,11 @@ final class PlaybackScreens: ScreensTestCase {
         openRecording(app)
         playPaused(app)
         openPlayer(app)
-        let cover = app.descendants(matching: .any)["hero-cover"].firstMatch
-        let row = app.descendants(matching: .any)["movement"].firstMatch
+        // The page below the player has the same cover and rows, and its elements come first in the tree. A drag
+        // aimed at them lands on the player's cover, so every lookup stays inside the player.
+        let player = app.descendants(matching: .any)["player-overlay"].firstMatch
+        let cover = player.descendants(matching: .any)["hero-cover"].firstMatch
+        let row = player.descendants(matching: .any)["movement"].firstMatch
         XCTAssertTrue(cover.waitForExistence(timeout: 10))
         XCTAssertTrue(eventually(timeout: 12) { row.exists && row.isHittable }, "No row to start the drag on")
         XCTAssertGreaterThan(row.frame.minY, cover.frame.maxY, "The row is not below the cover")
@@ -1277,16 +1280,7 @@ final class PlaybackScreens: ScreensTestCase {
             withVelocity: .default, thenHoldForDuration: 0.3)
         let closed = app.buttons["player-handle"].waitForNonExistence(timeout: 10)
         if !closed { snap(app, "05f-pull-from-row-open") }
-        let logs = app.staticTexts.matching(identifier: "diag-log").allElementsBoundByIndex  // DIAG-TEMP
-        let from0 = titleLine(of: row).screenPoint  // DIAG-TEMP
-        // DIAG-TEMP
-        let all = app.descendants(matching: .any)  // DIAG-TEMP
-        let rows = all.matching(identifier: "movement").allElementsBoundByIndex  // DIAG-TEMP
-        let ov = app.descendants(matching: .any)["player-overlay"].firstMatch.frame  // DIAG-TEMP
-        let rs = rows.map { "\($0.frame.minY)/\($0.isHittable)" }.joined(separator: ",")  // DIAG-TEMP
-        let lg = logs.map(\.label).joined(separator: "|")  // DIAG-TEMP
-        let diag = "ov=\(ov) rows=\(rs) \(lg) row=\(row.frame) pt=\(from0)"  // DIAG-TEMP
-        XCTAssertTrue(closed, "A pull past the top from a row did not close the player DIAG[\(diag)]")  // DIAG-TEMP
+        XCTAssertTrue(closed, "A pull past the top from a row did not close the player")
         XCTAssertTrue(app.buttons["show-player"].waitForExistence(timeout: 10))
     }
 

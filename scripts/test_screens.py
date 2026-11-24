@@ -370,6 +370,57 @@ class RetryReportTests(unittest.TestCase):
         self.assertIn("-[Tests testPlay] | 2 | recovered | line 3:", text)
         self.assertIn("XCTAssertTrue failed", text)
 
+    def test_named_runner_errors_have_reasons_and_are_retried(self):
+        for message, reason in (
+            ("Failed to terminate de.whnr.klassik", "could not terminate"),
+            ("Application 'de.whnr.klassik' does not have a process ID", "lost the app process"),
+        ):
+            self.assertTrue(screen_report.infrastructure_failure([message]))
+            self.assertIn(reason, screen_report.runner_error_reason([message]))
+        self.assertIsNone(screen_report.runner_error_reason(["XCTAssertTrue failed"]))
+        self.assertIsNone(screen_report.runner_error_reason(["Application 'de.whnr.klassik' crashed"]))
+
+    def test_recovered_runner_error_is_not_a_failed_test(self):
+        text = screen_report.retry_report(
+            "Test Case '-[Tests testPlay]' started.\n"
+            "Tests.swift:9: error: -[Tests testPlay] : Failed to terminate de.whnr.klassik\n"
+            "Test Case '-[Tests testPlay]' failed (1.0 seconds).\n"
+            "Test Case '-[Tests testPlay]' started.\n"
+            "Test Case '-[Tests testPlay]' passed (1.0 seconds).\n"
+        )
+        self.assertIn("**Runner error, retried**", text)
+        self.assertIn("could not terminate the app", text)
+        self.assertNotIn("**Flaky**", text)
+
+    def test_recovered_check_failure_stays_flaky(self):
+        text = screen_report.retry_report(
+            "Test Case '-[Tests testPlay]' started.\n"
+            "Tests.swift:9: error: -[Tests testPlay] : XCTAssertTrue failed\n"
+            "Test Case '-[Tests testPlay]' failed (1.0 seconds).\n"
+            "Test Case '-[Tests testPlay]' passed (1.0 seconds).\n"
+        )
+        self.assertIn("**Flaky**", text)
+        self.assertNotIn("Runner error", text)
+
+    def test_assertion_with_runner_error_in_one_attempt_stays_flaky(self):
+        text = screen_report.retry_report(
+            "Test Case '-[Tests testPlay]' started.\n"
+            "Tests.swift:9: error: -[Tests testPlay] : XCTAssertTrue failed\n"
+            "Tests.swift:9: error: -[Tests testPlay] : Failed to terminate de.whnr.klassik\n"
+            "Test Case '-[Tests testPlay]' failed (1.0 seconds).\n"
+            "Test Case '-[Tests testPlay]' passed (1.0 seconds).\n"
+        )
+        self.assertIn("**Flaky**", text)
+        self.assertNotIn("Runner error", text)
+        self.assertIsNone(
+            screen_report.runner_error_reason(["XCTAssertTrue failed", "Failed to terminate de.whnr.klassik"])
+        )
+
+    def test_manual_rerun_is_flagged(self):
+        log = "Test Case '-[Tests testPlay]' failed (1.0 seconds).\n"
+        self.assertIn("Manual rerun: run attempt 2", screen_report.retry_report(log, 2))
+        self.assertNotIn("Manual rerun", screen_report.retry_report(log))
+
     def test_exhausted_xctest_reports_failure(self):
         text = screen_report.retry_report("Test Case '-[Tests testPlay]' failed (1.0 seconds).\n" * 2)
         self.assertIn("-[Tests testPlay] | 2 | failed | line 1:", text)

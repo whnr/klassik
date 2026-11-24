@@ -10,6 +10,16 @@ import Testing
 struct FailureMapperTests {
     @MainActor private final class Recorder {
         var events: [PlaybackEngineEvent] = []
+
+        /// The events that end a load. The engine also reports its waiting state.
+        var ends: [PlaybackEngineEvent] {
+            events.filter {
+                switch $0 {
+                case .serverFailed, .failed: true
+                default: false
+                }
+            }
+        }
     }
 
     @Test func theAppMapperNamesTheAppErrors() {
@@ -45,9 +55,9 @@ struct FailureMapperTests {
         engine.load([song.playbackTrack], from: 0, offset: 0) { _ in throw TrackStore.Failure.offline }
         try engine.resume()
         defer { engine.discard() }
-        for _ in 0..<200 where recorder.events.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
-        #expect(recorder.events.count == 1)
-        guard case .serverFailed(let failure)? = recorder.events.first else {
+        for _ in 0..<200 where recorder.ends.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(recorder.ends.count == 1)
+        guard case .serverFailed(let failure)? = recorder.ends.first else {
             Issue.record("Expected a server failure, got \(recorder.events)")
             return
         }
@@ -62,9 +72,9 @@ struct FailureMapperTests {
         engine.load([song.playbackTrack], from: 0, offset: 0) { _ in throw TrackStore.Failure.offline }
         try engine.resume()
         defer { engine.discard() }
-        for _ in 0..<200 where recorder.events.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
-        #expect(recorder.events.count == 1)
-        guard case .failed(let text)? = recorder.events.first else {
+        for _ in 0..<200 where recorder.ends.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(recorder.ends.count == 1)
+        guard case .failed(let text)? = recorder.ends.first else {
             Issue.record("Expected a failure text, got \(recorder.events)")
             return
         }

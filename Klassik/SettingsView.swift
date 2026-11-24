@@ -117,6 +117,15 @@ struct SettingsView: View {
                     }
                     .accessibilityIdentifier("diagnostics")
                 }
+                NavigationLink(value: Page.serverConnection) {
+                    LabeledContent {
+                        Text(model.connectionState)
+                            .foregroundStyle(Palette.textSecondary)
+                    } label: {
+                        InkLabel("Server Connection", systemImage: "server.rack")
+                    }
+                }
+                .accessibilityIdentifier("server-connection")
                 NavigationLink(value: Page.licences) {
                     InkLabel("Licences", systemImage: "doc.text")
                 }

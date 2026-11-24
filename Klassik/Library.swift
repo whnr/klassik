@@ -87,6 +87,8 @@ final class Library {
 
     var albumCount: Int { Set(songs.map(\.albumKey)).count }
     var classicalAlbumCount: Int { Set(classical.map(\.albumKey)).count }
+    /// The tracks that the classical filter keeps out.
+    var otherTrackCount: Int { max(0, songs.count - classical.count) }
 
     private var owner: (server: URL, username: String)?
     private let cacheURL: URL

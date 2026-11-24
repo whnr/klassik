@@ -1,7 +1,7 @@
 {
-  "sha": "e88f00a1c16d4783cc3db6b2ec9f1d0fe7e72889",
+  "sha": "e3794bec97e45e00081010620cbff83387e3ddee",
   "branch": "claude-14719",
   "path": "claude-14719",
-  "subject": "[sz-rs30.1.147.19] Unwrap heading screenshot; retry PID loss",
-  "ts": 1795515225
+  "subject": "[sz-rs30.1.147.19] Merge origin/main into claude-14719",
+  "ts": 1795538908
 }

@@ -5,8 +5,9 @@ import SwiftUI
 /// the line below it, never its place.
 struct PageMenu: Equatable, Sendable {
     /// What the page or the row shows. A work has several recordings, so it has no download and no tags.
+    /// The player menu holds the download and the tags of what plays: the playing item needs no queue items.
     enum Kind: Sendable {
-        case recording, album, work
+        case recording, album, work, player
     }
 
     /// Where the download of a recording or an album is.
@@ -55,12 +56,16 @@ struct PageMenu: Equatable, Sendable {
     ///   - needsServer: True when the server is out of reach. Download then is dimmed and says why.
     ///   - play: Only the long-press menu of a row has it, on top. A page has its own Play button.
     init(kind: Kind, download: Download, needsServer: Bool, play: Item? = nil) {
-        var queue = [
-            Item(action: .playNext, title: "Play Next", systemImage: "text.line.first.and.arrowtriangle.forward"),
-            Item(action: .addToQueue, title: "Add to Queue", systemImage: "text.line.last.and.arrowtriangle.forward"),
-        ]
-        if let play { queue.insert(play, at: 0) }
-        sections = [queue]
+        sections = []
+        if kind != .player {
+            var queue = [
+                Item(action: .playNext, title: "Play Next", systemImage: "text.line.first.and.arrowtriangle.forward"),
+                Item(
+                    action: .addToQueue, title: "Add to Queue", systemImage: "text.line.last.and.arrowtriangle.forward"),
+            ]
+            if let play { queue.insert(play, at: 0) }
+            sections.append(queue)
+        }
         guard kind != .work else { return }
         sections.append([Self.item(for: download, needsServer: needsServer)])
         sections.append([Item(action: .tags, title: "Tags and Grouping", systemImage: "tag")])
@@ -184,7 +189,7 @@ struct PageMenuTarget {
     }
 }
 
-/// The ⋯ button at the top right of a recording, album or work page.
+/// The ⋯ button at the top right of a recording, album or work page and of the player.
 struct PageMenuButton: View {
     @Environment(AppModel.self) private var model
     @Environment(AppNavigator.self) private var navigator

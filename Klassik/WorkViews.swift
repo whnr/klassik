@@ -29,7 +29,7 @@ private struct ItemActions: ViewModifier {
                 ForEach(SwipeSettings.actions(model.swipes.leading)) { button(for: $0) }
             }
             .contextMenu {
-                let target = PageMenuTarget(kind: kind, item: item)
+                let target = PageMenuTarget(kind: kind, item: item, album: album)
                 let player = model.playback
                 let isPlaying = player.recording?.id == item.recording.id
                 let play = PageMenu.play(isPlaying: isPlaying, isPaused: player.isPaused)
@@ -39,6 +39,12 @@ private struct ItemActions: ViewModifier {
                 // Rows have no fermata of their own to tap, so the favourite stays in their menu.
                 if hasFavourite { Section { favouriteButton } }
             }
+    }
+
+    /// The album of an album row: its menu says how many recordings of it are downloaded.
+    private var album: WorkIndex.Album? {
+        guard kind == .album else { return nil }
+        return item.recording.albumKey.flatMap { model.library.album($0) }
     }
 
     /// Only recordings and albums download and show tags; a work row queues its top recording.

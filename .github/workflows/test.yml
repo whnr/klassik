@@ -5,8 +5,9 @@ name: Test
 # Main pushes run no walk. Nightly runs and feature release pull requests walk every group.
 # The Release launch check runs on main, nightly and release pull requests, not on other pull requests.
 # A merge to main that adds nothing to its green PR head skips the build: TestFlight accepts that PR run.
-# A failed walk test blocks the run only in an area that the head commit of the pull request requested; the plan job
-# marks each walk group as required or not. Other walks, the nightly walk and manual walks report only.
+# A failed walk test blocks the run in an area that the pull request requested: the head commit's [ui: ...] line, or
+# every area of a release title that walks everything. The plan job marks each walk group as required or not.
+# The nightly walk and manual walks report only.
 # The measure job (nightly, or by hand with `measure`) runs the slow throughput measurement and the wall-clock limits.
 # A push that changes only documentation starts no run. TestFlight accepts such a commit through
 # scripts/green_test_gate.py, which keeps the same ignore list.
@@ -115,7 +116,11 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
+      # The notes test runs the stale-notes check, which reads the newest release tag.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
       # A pinned static build: the Ubuntu mirror can take ten minutes for ffmpeg's packages.
       # BtbN prunes old builds; when this one is gone the step warns and falls back to apt.
       - name: Install ffmpeg

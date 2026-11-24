@@ -207,6 +207,77 @@ struct TrackStoreTests {
         #expect(second.isOffline(song("a")))
     }
 
+    /// A store whose foreground fetch always fails and whose background load writes 10 bytes.
+    func makeBackgroundStore(_ defaults: UserDefaults, loads: Requests, hold: Bool = false) -> TrackStore {
+        TrackStore(
+            cacheFolder: root.appending(path: "cache"), downloadFolder: root.appending(path: "support/downloads"),
+            defaults: defaults, fetch: { _, _ in throw SubsonicError.http(status: 500) },
+            background: { song, _ in
+                loads.ids.append(song.id)
+                while hold, !Task.isCancelled { try await Task.sleep(for: .milliseconds(10)) }
+                let file = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+                try Data(count: 10).write(to: file)
+                return file
+            })
+    }
+
+    @Test func downloadLoadsThroughTheBackgroundSession() async throws {
+        let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
+        let loads = Requests()
+        let store = makeBackgroundStore(defaults, loads: loads)
+        let recording = recording("r1", ["a", "b"])
+        store.download(recording, title: "Work", client: client)
+        await settle(store)
+        #expect(loads.ids == ["a", "b"])
+        #expect(store.isDownloaded(recording))
+        #expect(store.failures.isEmpty)
+    }
+
+    @Test func unfinishedDownloadShowsAsRunningAfterARelaunchAndFinishes() async throws {
+        let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
+        let first = makeBackgroundStore(defaults, loads: Requests(), hold: true)
+        let recording = recording("r1", ["a"])
+        first.download(recording, title: "Work", client: client)
+        #expect(first.progress["r1"] == 0)
+        // The system ends the process while the session keeps the transfer.
+        let loads = Requests()
+        let second = makeBackgroundStore(defaults, loads: loads)
+        #expect(second.progress["r1"] == 0)
+        #expect(!second.isDownloaded(recording))
+        second.resumeDownloads(client: client)
+        await settle(second)
+        #expect(second.isDownloaded(recording))
+        #expect(second.progress.isEmpty)
+        #expect(loads.ids == ["a"])
+        first.cancelDownload("r1")
+        // A finished download is not asked for again by a third launch.
+        let third = makeBackgroundStore(defaults, loads: Requests())
+        #expect(third.progress.isEmpty)
+    }
+
+    @Test func cancelledDownloadDoesNotComeBackAfterARelaunch() async throws {
+        let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
+        let store = makeBackgroundStore(defaults, loads: Requests(), hold: true)
+        store.download(recording("r1", ["a"]), title: "Work", client: client)
+        store.cancelDownload("r1")
+        await settle(store)
+        let second = makeBackgroundStore(defaults, loads: Requests())
+        #expect(second.progress.isEmpty)
+    }
+
+    @Test func cancelBeforeResumeClearsTheRestoredDownload() async throws {
+        let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
+        let first = makeBackgroundStore(defaults, loads: Requests(), hold: true)
+        first.download(recording("r1", ["a"]), title: "Work", client: client)
+        let second = makeBackgroundStore(defaults, loads: Requests())
+        #expect(second.progress["r1"] == 0)
+        second.cancelDownload("r1")
+        #expect(second.progress.isEmpty)
+        let third = makeBackgroundStore(defaults, loads: Requests())
+        #expect(third.progress.isEmpty)
+        first.cancelDownload("r1")
+    }
+
     @Test func downloadMovesCachedTracksInsteadOfFetchingThemAgain() async throws {
         try write("a", in: "cache", bytes: 40)
         let requests = Requests()

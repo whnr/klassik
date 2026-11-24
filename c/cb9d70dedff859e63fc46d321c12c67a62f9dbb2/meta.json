@@ -1,0 +1,7 @@
+{
+  "sha": "cb9d70dedff859e63fc46d321c12c67a62f9dbb2",
+  "branch": "claude-1618",
+  "path": "claude-1618",
+  "subject": "Fix lint in the offline pump",
+  "ts": 1795499538
+}

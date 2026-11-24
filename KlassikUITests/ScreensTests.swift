@@ -1587,6 +1587,10 @@ final class PlaybackScreens: ScreensTestCase {
         }
         XCTAssertEqual(app.buttons.matching(identifier: "note-text").count, 3)
         reveal(position, in: app)
+        // The last save closes the keyboard, and the page moves while it goes. A tap on a coordinate of the bar
+        // that lands mid-move misses the lane and scrubs to the middle of the movement.
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 10), "The keyboard stayed open")
+        XCTAssertTrue(waitUntilStill(position), "The position bar kept moving: \(position.frame)")
         // Each lane above the first adds the pitch of one lane (Layout.noteDotTop).
         let pitch: CGFloat = 9
         XCTAssertEqual(barDrop(), bare + 2 * pitch, accuracy: 0.5, "The bar has no room for the third lane")
@@ -3695,6 +3699,19 @@ class ScreensTestCase: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.2))
         }
         return condition()
+    }
+
+    /// True when the frame of the element stays the same for three samples 0.2 s apart.
+    @MainActor
+    func waitUntilStill(_ element: XCUIElement, timeout: TimeInterval = 10) -> Bool {
+        var last = element.frame
+        var same = 0
+        return eventually(timeout: timeout) {
+            let now = element.frame
+            same = now == last ? same + 1 : 0
+            last = now
+            return same >= 3
+        }
     }
 
     @MainActor

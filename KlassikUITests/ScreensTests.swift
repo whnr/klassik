@@ -221,13 +221,13 @@ final class PlacesScreens: ScreensTestCase {
         try expectTabsAfterTheSearchKeyboard(playing: false)
     }
 
-    /// The mini player narrows the bar, so the Search circle has less room.
+    /// The mini player narrows the bar, so the three tabs have less room.
     @MainActor
     func testTabsStayAfterTheSearchKeyboardWhilePlaying() throws {
         try expectTabsAfterTheSearchKeyboard(playing: true)
     }
 
-    /// A composer filter on the Search page, then two taps on Library: the Search circle must stay in the bar.
+    /// A composer filter on the Search page, then two taps on Library: the three tabs must stay in the bar.
     @MainActor
     func testSearchTabStaysAfterAFilterAndTwoLibraryTaps() throws {
         let app = try launchAndConnect(openComposers: false)
@@ -235,9 +235,9 @@ final class PlacesScreens: ScreensTestCase {
         app.buttons["library-composers"].tap()
         _ = pausedPlayerInLibrary(app)
         openPlace(app, "Library")
-        let search = tab(app, "Search")
-        XCTAssertTrue(search.waitForExistence(timeout: 10))
-        let searchFrame = search.frame
+        let names = ["Library", "Chronology", "Search"]
+        XCTAssertTrue(tab(app, "Search").waitForExistence(timeout: 10))
+        let frames = names.map { tab(app, $0).frame }
         openPlace(app, "Search")
         let field = app.textFields["search-field"]
         XCTAssertTrue(field.waitForExistence(timeout: 10))
@@ -254,8 +254,11 @@ final class PlacesScreens: ScreensTestCase {
         tab(app, "Library").tap()
         XCTAssertTrue(app.buttons["library-composers"].waitForExistence(timeout: 10))
         XCTAssertTrue(
-            eventually(timeout: 5) { search.exists && search.isHittable && search.frame == searchFrame },
-            "The Search circle is gone or moved: \(search.frame) instead of \(searchFrame)")
+            eventually(timeout: 5) { names.map { tab(app, $0) }.allSatisfy { $0.exists && $0.isHittable } },
+            "A tab is gone")
+        XCTAssertTrue(
+            eventually(timeout: 5) { names.map { tab(app, $0).frame } == frames },
+            "The tabs moved: \(names.map { tab(app, $0).frame }) instead of \(frames)")
         snap(app, "02t-search-tab-after-filter-and-two-taps")
     }
 
@@ -274,26 +277,28 @@ final class PlacesScreens: ScreensTestCase {
             XCTAssertTrue(app.buttons["library-composers"].waitForExistence(timeout: 10))
         }
         libraryRoot()
-        let search = tab(app, "Search")
-        XCTAssertTrue(search.waitForExistence(timeout: 10))
-        let searchFrame = search.frame
+        let names = ["Library", "Chronology", "Search"]
+        XCTAssertTrue(tab(app, "Search").waitForExistence(timeout: 10))
+        let frames = names.map { tab(app, $0).frame }
+        // The whole bar, labels included, must look as it did at the start.
+        let barArea = frames.reduce(CGRect.null) { $0.union($1) }
         let baseline = try XCTUnwrap(ScreenPixels(app))
         func expectTabs(_ step: String) {
-            for name in ["Library", "Chronology", "Search"] {
+            for name in names {
                 let item = tab(app, name)
                 XCTAssertTrue(item.waitForExistence(timeout: 5), "\(step): no tab \(name)")
                 XCTAssertTrue(item.isHittable, "\(step): tab \(name) is not hittable")
             }
-            XCTAssertEqual(search.frame, searchFrame, "\(step): the Search tab moved")
-            // A tab can keep its element while UIKit draws nothing, so the Search circle must look as it did before.
+            XCTAssertEqual(names.map { tab(app, $0).frame }, frames, "\(step): a tab moved")
+            // A tab can keep its element while UIKit draws nothing or cuts a label, so the bar must look as before.
             var share = 1.0
             for _ in 0..<6 {
-                if let now = ScreenPixels(app) { share = now.differingShare(in: searchFrame, from: baseline) }
+                if let now = ScreenPixels(app) { share = now.differingShare(in: barArea, from: baseline) }
                 if share < 0.05 { break }
                 Thread.sleep(forTimeInterval: 0.5)
             }
             if share >= 0.05 { add(XCTAttachment(string: app.tabBars["tab-row"].debugDescription)) }
-            XCTAssertLessThan(share, 0.05, "\(step): the Search circle changed")
+            XCTAssertLessThan(share, 0.05, "\(step): the tab bar changed")
         }
         let field = app.textFields["search-field"]
         let recent = app.buttons.matching(identifier: "search-recent")
@@ -1582,6 +1587,10 @@ final class PlaybackScreens: ScreensTestCase {
         }
         XCTAssertEqual(app.buttons.matching(identifier: "note-text").count, 3)
         reveal(position, in: app)
+        // The last save closes the keyboard, and the page moves while it goes. A tap on a coordinate of the bar
+        // that lands mid-move misses the lane and scrubs to the middle of the movement.
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 10), "The keyboard stayed open")
+        XCTAssertTrue(waitUntilStill(position), "The position bar kept moving: \(position.frame)")
         // Each lane above the first adds the pitch of one lane (Layout.noteDotTop).
         let pitch: CGFloat = 9
         XCTAssertEqual(barDrop(), bare + 2 * pitch, accuracy: 0.5, "The bar has no room for the third lane")
@@ -2323,7 +2332,6 @@ final class TimelineScreens: ScreensTestCase {
         XCTAssertLessThan(frame.maxY, app.frame.maxY, "The playback controls have no bottom clearance")
         XCTAssertEqual(bar.frame.maxY, frame.minY, accuracy: 1, "The timeline does not run into the pill")
         XCTAssertEqual(frame.midY, tab(app, "Search").frame.midY, accuracy: 2, "The controls are not in the tab row")
-        // Search stands apart in its own circle, so the capsule height comes from a tab inside the capsule.
         XCTAssertEqual(
             frame.height, tab(app, "Chronology").frame.height + 8, accuracy: 1,
             "The pill does not match the native capsule height")
@@ -2397,6 +2405,8 @@ final class TimelineScreens: ScreensTestCase {
         expectMovementPlayEdge(app, side: .left)
 
         let place = bar.value as? String ?? ""
+        // The check above scrolls the page. A swipe that starts while the page still moves is no edge swipe.
+        XCTAssertTrue(waitUntilStill(app.buttons["Play from here"].firstMatch), "The page kept moving")
         swipeFromLeftEdge(app)
         XCTAssertTrue(
             app.buttons.matching(identifier: "recording").firstMatch.waitForExistence(timeout: 10),
@@ -3196,10 +3206,10 @@ class ScreensTestCase: XCTestCase {
             XCTAssertLessThanOrEqual(left.maxX, right.minX, "The visible tab frames overlap")
             XCTAssertGreaterThanOrEqual(right.midX - left.midX, 64, "The tab slots crowd their labels")
         }
-        // Search stands apart in its own circle: the capsule edge and the gap make its step wider than a capsule step.
-        // In one capsule all steps are equal. The mini player narrows the bar, so the margin stays small.
-        XCTAssertGreaterThan(
-            tabs[2].midX - tabs[1].midX, tabs[1].midX - tabs[0].midX + 8, "Search is not apart from the other tabs")
+        // One capsule holds the three tabs, so both steps are equal.
+        XCTAssertEqual(
+            tabs[2].midX - tabs[1].midX, tabs[1].midX - tabs[0].midX, accuracy: 2,
+            "Search is apart from the other tabs")
         let cover = app.buttons["mini-player-cover"].frame
         // The button includes the edge padding; its inward edge is the square cover's inward edge.
         let distance = side == .right ? app.frame.maxX - cover.minX : cover.maxX - app.frame.minX
@@ -3719,6 +3729,19 @@ class ScreensTestCase: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.2))
         }
         return condition()
+    }
+
+    /// True when the frame of the element stays the same for three samples 0.2 s apart.
+    @MainActor
+    func waitUntilStill(_ element: XCUIElement, timeout: TimeInterval = 10) -> Bool {
+        var last = element.frame
+        var same = 0
+        return eventually(timeout: timeout) {
+            let now = element.frame
+            same = now == last ? same + 1 : 0
+            last = now
+            return same >= 3
+        }
     }
 
     @MainActor

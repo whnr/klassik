@@ -137,7 +137,7 @@ private struct SystemPlaces: UIViewControllerRepresentable {
         init(navigator: AppNavigator) { self.navigator = navigator }
 
         func tabBarController(_ controller: UITabBarController, shouldSelectTab tab: UITab) -> Bool {
-            // The search tab keeps the identifier that UIKit gives it, so the position names the place.
+            // The position in the tab list names the place.
             guard let index = controller.tabs.firstIndex(where: { $0 === tab }) else { return false }
             let place = Place.allCases[index]
             let dismissesCurrent = navigator.isPlayerOpen && navigator.selection == place
@@ -165,7 +165,7 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
     /// The pass after the first remeasure: the bar has its final, narrow frame then, and the labels must fit it.
     private var remeasuresAtFinalFrame = false
     /// The frame that the last layout pass gave the bar. UIKit's container can lay the bar out again at the full
-    /// width without a new pass of this controller, which puts the Search circle under the mini player.
+    /// width without a new pass of this controller, which puts the tabs under the mini player.
     private var barFrame: CGRect?
     private var barFrameObservations: [NSKeyValueObservation] = []
     private var barRepairs = 0
@@ -340,7 +340,7 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
             tabBar.layoutIfNeeded()
             tabBar.frame = frame
             // The container of the bar can still lay out after this pass and give the bar the full screen width,
-            // which puts the Search tab under the mini player. The next pass puts the bar back beside it and
+            // which puts the tabs under the mini player. The next pass puts the bar back beside it and
             // measures the labels at that narrow width.
             Task { @MainActor [weak self] in
                 self?.remeasuresAtFinalFrame = true
@@ -379,17 +379,10 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
 }
 
 extension Place {
-    /// Search is a `UISearchTab` that activates search. iOS 27 draws only such a tab apart from the other tabs, in
-    /// its own circle at the trailing end of the bar; without the flag the tab stays in the capsule.
+    /// Every place is a plain `UITab`: a `UISearchTab` would draw Search apart in its own circle, and the three
+    /// tabs must share one capsule. The Search page draws its own field.
     @MainActor func tab(_ host: UIViewController) -> UITab {
-        let tab: UITab
-        if self == .search {
-            let search = UISearchTab { _ in host }
-            search.automaticallyActivatesSearch = true
-            tab = search
-        } else {
-            tab = UITab(title: title, image: image, identifier: rawValue) { _ in host }
-        }
+        let tab = UITab(title: title, image: image, identifier: rawValue) { _ in host }
         // UITab declares no accessibility identifier. In a Release build a protocol cast of the tab is a forced
         // cast that stops the app at launch. A run-time check of the setter is safe in every build.
         let identifier = #selector(setter: UIAccessibilityIdentification.accessibilityIdentifier)

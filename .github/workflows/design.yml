@@ -49,9 +49,15 @@ jobs:
         if: steps.browser.outputs.cache-hit != 'true'
         timeout-minutes: 4
         run: uv run --no-project --with playwright==$PLAYWRIGHT_VERSION playwright install chromium
+      # A mirror file can stall for minutes. apt then waits on one connection and the step passes its limit. A short
+      # network timeout with retries makes apt reconnect by itself. Killing apt from outside leaves its lock behind,
+      # so no outer retry wraps it.
       - name: Install Chromium system libraries
-        timeout-minutes: 4
-        run: uv run --no-project --with playwright==$PLAYWRIGHT_VERSION playwright install-deps chromium
+        timeout-minutes: 8
+        run: |
+          printf '%s\n' 'Acquire::Retries "5";' 'Acquire::http::Timeout "15";' |
+            sudo tee /etc/apt/apt.conf.d/80-ci-retries >/dev/null
+          uv run --no-project --with playwright==$PLAYWRIGHT_VERSION playwright install-deps chromium
       - run: design/scripts/lint.sh
       # A pull-request run checks out a merge commit; the revision of the specimen is the head the author pushed.
       - name: Package the validated specimen

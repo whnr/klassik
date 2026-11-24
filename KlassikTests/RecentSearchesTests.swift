@@ -104,7 +104,7 @@ struct RecentSearchesTests {
         let store = store()
         try FileManager.default.createDirectory(
             at: store.url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try Data(#"{"favouriteWorks":[],"recordingOrder":{}}"#.utf8).write(to: store.url)
+        try Data(#"{"favouriteWorks":[]}"#.utf8).write(to: store.url)
         #expect(try store.load().recentSearches.isEmpty)
     }
 

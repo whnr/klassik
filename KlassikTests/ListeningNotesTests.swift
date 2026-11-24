@@ -110,7 +110,7 @@ struct ListeningNotesTests {
         let device = store(root)
         try FileManager.default.createDirectory(
             at: device.url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try Data(#"{"favouriteWorks":["w"],"recordingOrder":{}}"#.utf8).write(to: device.url)
+        try Data(#"{"favouriteWorks":["w"]}"#.utf8).write(to: device.url)
         let data = try device.load()
         #expect(data.favouriteWorks == ["w"])
         #expect(data.notes.isEmpty)

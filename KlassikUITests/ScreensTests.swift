@@ -2139,9 +2139,14 @@ final class PlaybackScreens: ScreensTestCase {
         composer(app, "Ludwig").tap()
         let fifth = app.buttons.matching(identifier: "work").firstMatch
         XCTAssertTrue(fifth.waitForExistence(timeout: 10))
-        fifth.swipeLeft()
         let add = app.buttons["Add to Queue"].firstMatch
-        XCTAssertTrue(add.waitForExistence(timeout: 10))
+        // On a slow runner a swipe can arrive as a tap and open the work: leave it and swipe again.
+        for _ in 0..<3 where !add.exists {
+            if app.buttons["BackButton"].exists, !fifth.exists { back(app) }
+            if fifth.waitForExistence(timeout: 10) { fifth.swipeLeft() }
+            _ = add.waitForExistence(timeout: 10)
+        }
+        XCTAssertTrue(add.exists, "The row swipe did not show Add to Queue")
         add.tap()
 
         miniPlayer.buttons["mini-player-cover"].tap()
@@ -2287,21 +2292,18 @@ final class PlaybackScreens: ScreensTestCase {
         app.buttons["favourite-recording"].tap()
         snap(app, "05c-recording-favourite")
         back(app)
-        XCTAssertTrue(rows.firstMatch.label.contains("Anna Probe"))
-        app.buttons["Edit"].tap()
-        // A simulated drag on the reorder handle does not always lift the row, so the drag can repeat.
-        let origin = app.coordinate(withNormalizedOffset: .zero)
-        for _ in 0..<3 where !rows.firstMatch.label.contains("Carl Fixture") {
-            let source = origin.withOffset(
-                CGVector(dx: app.frame.width - 30, dy: rows.element(boundBy: 1).frame.midY))
-            let target = origin.withOffset(
-                CGVector(dx: app.frame.width - 30, dy: rows.element(boundBy: 0).frame.minY))
-            source.press(forDuration: 1.0, thenDragTo: target)
-            _ = eventually(timeout: 3) { rows.firstMatch.label.contains("Carl Fixture") }
+        // Both are favourites now, so the newer one comes first.
+        XCTAssertTrue(rows.firstMatch.label.contains("Carl Fixture"))
+        // A long press that moves does not reorder: there is no drag of a recording row.
+        XCTAssertFalse(app.buttons["Edit"].exists, "A work page has no Edit mode")
+        let source = rows.element(boundBy: 1).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let target = rows.element(boundBy: 0).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.1))
+        source.press(forDuration: 0.6, thenDragTo: target, withVelocity: .slow, thenHoldForDuration: 0.5)
+        if app.buttons["favourite-action"].firstMatch.exists {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
         }
-        app.buttons["Done"].tap()
-        XCTAssertTrue(eventually(timeout: 10) { rows.firstMatch.label.contains("Carl Fixture") })
-        snap(app, "05d-recordings-reordered")
+        XCTAssertTrue(rows.firstMatch.label.contains("Carl Fixture"), "A drag changed the order")
+        snap(app, "05d-drag-keeps-order")
         app.buttons["play-work"].tap()
         XCTAssertTrue(app.buttons["recording-slot"].waitForExistence(timeout: 10))
         XCTAssertTrue(rows.firstMatch.buttons["recording-slot"].exists)
@@ -2318,78 +2320,6 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(app.buttons.matching(identifier: "work").firstMatch.waitForExistence(timeout: 10))
         snap(app, "06e-favourite-in-composer-works")
     }
-
-    /// A long press lifts a favourite row and a drag drops it elsewhere with no Edit mode. A still long press on
-    /// the same row keeps the context menu. The new order stays on the device across a relaunch (ADR 0013).
-    @MainActor
-    func testFavouriteRecordingLongPressDrag() throws {
-        let app = try launchAndConnect()
-        composer(app, "Ludwig van Beethoven").tap()
-        app.buttons.matching(identifier: "work").firstMatch.tap()
-        let rows = app.buttons.matching(identifier: "recording")
-        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 10))
-
-        // Server stars survive UI test launches, so each recording is set to a favourite, not toggled.
-        for name in ["Carl Fixture", "Anna Probe"] {
-            rows.matching(NSPredicate(format: "label CONTAINS %@", name)).firstMatch.tap()
-            let mark = app.buttons["favourite-recording"]
-            XCTAssertTrue(mark.waitForExistence(timeout: 10))
-            if mark.value as? String != "Favourite" {
-                mark.tap()
-                XCTAssertTrue(eventually(timeout: 10) { mark.value as? String == "Favourite" })
-            }
-            back(app)
-        }
-        let first = rows.element(boundBy: 0).label
-        let second = rows.element(boundBy: 1).label
-        XCTAssertNotEqual(first, second)
-
-        // A still press shows the menu, so a lift must need movement.
-        rows.element(boundBy: 0).press(forDuration: 1.2)
-        let unfavourite = menuFavourite(app)
-        XCTAssertTrue(unfavourite.exists, "A still long press did not open the menu")
-        XCTAssertEqual(unfavourite.label, "Unfavourite")
-        snap(app, "05e-still-press-menu")
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
-        XCTAssertTrue(eventually(timeout: 5) { !unfavourite.exists }, "The menu did not close")
-        XCTAssertEqual(rows.element(boundBy: 0).label, first, "A still press changed the order")
-
-        // Press the second row for 0.6 s and drag it above the first. The drag call blocks the test until the
-        // finger lifts and XCUIScreen is main-actor only, so no screenshot can show the row mid-drag.
-        for _ in 0..<3 where !rows.element(boundBy: 0).label.contains(second) {
-            let source = rows.element(boundBy: 1).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-            let target = rows.element(boundBy: 0).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.1))
-            source.press(forDuration: 0.6, thenDragTo: target, withVelocity: .slow, thenHoldForDuration: 0.5)
-            _ = eventually(timeout: 3) { rows.element(boundBy: 0).label.contains(second) }
-        }
-        XCTAssertTrue(
-            eventually(timeout: 10) {
-                rows.element(boundBy: 0).label.contains(second) && rows.element(boundBy: 1).label.contains(first)
-            }, "The long-press drag did not move the favourite")
-        snap(app, "05g-recording-dropped")
-
-        // The order lives in the device file. A launch without -resetServer keeps it and the login.
-        app.terminate()
-        app.launchArguments = []
-        app.launch()
-        let connect = app.buttons["connect"]
-        if connect.waitForExistence(timeout: 5) { connect.tap() }
-        let composers = app.buttons["library-composers"]
-        XCTAssertTrue(composers.waitForExistence(timeout: 30))
-        composers.tap()
-        XCTAssertTrue(composer(app, "Ludwig van Beethoven").waitForExistence(timeout: 30))
-        composer(app, "Ludwig van Beethoven").tap()
-        let work = app.buttons.matching(identifier: "work").firstMatch
-        XCTAssertTrue(work.waitForExistence(timeout: 10))
-        work.tap()
-        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 10))
-        XCTAssertTrue(
-            eventually(timeout: 10) { rows.element(boundBy: 0).label.contains(second) },
-            "The dragged order did not survive a relaunch")
-        snap(app, "05h-recording-order-after-relaunch")
-        app.terminate()
-    }
-
 }
 
 /// The timeline on the screen edge and the mini player in the tab row.

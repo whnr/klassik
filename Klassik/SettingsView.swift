@@ -60,7 +60,7 @@ struct SettingsView: View {
                 SectionHeading("Library")
             } footer: {
                 Text(
-                    "A composer page lists a work with no complete recording under Partial works. Favourite works, the order of favourite recordings, listening notes, recent searches and the changes that wait stay on this iPhone, for this server and user. Sign-out keeps them."
+                    "A composer page lists a work with no complete recording under Partial works. Favourite works, listening notes, recent searches and the changes that wait stay on this iPhone, for this server and user. Sign-out keeps them."
                 )
             }
 
@@ -188,7 +188,7 @@ private struct DeleteListeningDataButton: View {
                 }
             } message: {
                 Text(
-                    "This removes the favourite works, the order of favourite recordings, the listening notes, the recent searches and the changes that wait of this server and user from this iPhone. You cannot undo this."
+                    "This removes the favourite works, the listening notes, the recent searches and the changes that wait of this server and user from this iPhone. You cannot undo this."
                 )
             }
     }

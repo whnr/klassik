@@ -16,7 +16,7 @@ struct ListenerDataTests {
     }
 
     private let data = DeviceStore.Data(
-        favouriteWorks: ["work"], recordingOrder: ["work": ["album"]],
+        favouriteWorks: ["work"],
         notes: ["recording": [ListeningNote(movement: 0, at: 12, text: "Horns")]],
         recentSearches: [RecentSearch(id: UUID(), text: "Dvořák", conditions: [])])
 

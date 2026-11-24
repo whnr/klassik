@@ -1,7 +1,7 @@
 {
-  "sha": "21c03e577cb35cebfd9ce6100ff39821013c30e4",
+  "sha": "2c6a6a998569b9017cfdf3108ada18d6c5750813",
   "branch": "claude-838k",
   "path": "claude-838k",
-  "subject": "Drop the hang sampler",
-  "ts": 1795527577
+  "subject": "Rerun the playback walk",
+  "ts": 1795530383
 }

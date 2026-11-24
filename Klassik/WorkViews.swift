@@ -290,12 +290,11 @@ struct WorkView: View {
                     .playingRow(isPlaying)
                     .itemActions(QueueItem(work: work, recording: recording), downloads: true, favourite: true)
                     .accessibilityIdentifier("recording")
-                    .moveDisabled(!row.isFavourite)
                     .modifier(RecordingDrag(row: row, work: work))
                     .itemSeparator(first: row.id == recordings.first?.id, last: row.id == recordings.last?.id)
                 }
-                .onMove { model.recordingOrder.moveFavourites(of: work, from: $0, to: $1) }
-                Text("Favourite recordings come first, in your order. Then the newest.")
+                .onMove { model.recordingOrder.move(of: work, from: $0, to: $1) }
+                Text("Favourites come first, then the newest. Hold a recording and drag it to set your own order.")
                     .typeStyle(Layout.footnote)
                     .foregroundStyle(Palette.textSecondary)
                     .listRowSeparator(.hidden)
@@ -306,7 +305,7 @@ struct WorkView: View {
         .navigationBarTitleDisplayMode(.inline)
         .environment(\.pageHeading, "")
         .toolbar {
-            if recordings.filter(\.isFavourite).count > 1 {
+            if recordings.count > 1 {
                 ToolbarItem(placement: .topBarTrailing) { EditButton() }
             }
             // The menu queues the recording that Play plays: the top of the list.
@@ -326,8 +325,8 @@ struct WorkView: View {
     }
 }
 
-/// A long press lifts a favourite recording and a drag reorders it, with no Edit mode (ADR 0013). A row that is no
-/// favourite does not lift, but it takes a drop. The system keeps the context menu on a press that does not move.
+/// A long press lifts any recording, favourite or not, and a drag reorders it, with no Edit mode (ADR 0013). The
+/// system keeps the context menu on a press that does not move.
 private struct RecordingDrag: ViewModifier {
     @Environment(AppModel.self) private var model
     let row: RecordingOrder.Row
@@ -345,17 +344,11 @@ private struct RecordingDrag: ViewModifier {
             .dropDestination(for: Payload.self) { items, _ in
                 guard let dragged = items.first else { return false }
                 withoutAnimation {
-                    model.recordingOrder.moveFavourite(dragged.id, of: work, onto: row.id)
+                    model.recordingOrder.move(dragged.id, of: work, onto: row.id)
                 }
                 return true
             }
-            .applyIf(row.isFavourite) { $0.draggable(Payload(id: row.id)) }
-    }
-}
-
-extension View {
-    @ViewBuilder fileprivate func applyIf<Result: View>(_ condition: Bool, _ transform: (Self) -> Result) -> some View {
-        if condition { transform(self) } else { self }
+            .draggable(Payload(id: row.id))
     }
 }
 

@@ -114,7 +114,9 @@ final class RecordingOrder {
 
     func rows(of work: WorkIndex.Work) -> [Row] {
         let live = library.index.work(work.id) ?? work
-        let order = data.recordingOrder[work.id] ?? []
+        let position = Dictionary(
+            (data.recordingOrder[work.id] ?? []).enumerated().map { ($0.element, $0.offset) },
+            uniquingKeysWith: { first, _ in first })
         return live.recordings.map { recording in
             var reason: String?
             let isFavourite = library.isFavourite(recording)
@@ -134,6 +136,13 @@ final class RecordingOrder {
             }
             return Row(recording: recording, reason: reason, isFavourite: isFavourite)
         }.sorted { left, right in
+            // A row the listener placed stands where the listener put it, ahead of rows that no order names.
+            switch (position[left.id], position[right.id]) {
+            case (let x?, let y?): return x < y
+            case (_?, nil): return true
+            case (nil, _?): return false
+            case (nil, nil): break
+            }
             func tier(_ row: Row) -> Int {
                 if row.isFavourite { return 0 }
                 if row.reason?.hasPrefix("Favourite performer:") == true { return 1 }
@@ -142,11 +151,6 @@ final class RecordingOrder {
             let a = tier(left)
             let b = tier(right)
             if a != b { return a < b }
-            if a == 0 {
-                let x = order.firstIndex(of: left.id) ?? .max
-                let y = order.firstIndex(of: right.id) ?? .max
-                if x != y { return x < y }
-            }
             let x = left.recording.year ?? Int.min
             let y = right.recording.year ?? Int.min
             if x != y { return x > y }
@@ -155,6 +159,18 @@ final class RecordingOrder {
     }
 
     func reference(of work: WorkIndex.Work) -> WorkIndex.Recording? { rows(of: work).first?.recording }
+
+    /// True once the listener has placed a row that is no favourite. The stored order then names the whole list.
+    /// Until then it names the favourites only, and the other tiers keep their server-derived order.
+    private func isPlaced(_ work: WorkIndex.Work) -> Bool {
+        let named = Set(data.recordingOrder[work.id] ?? [])
+        return rows(of: work).contains { !$0.isFavourite && named.contains($0.id) }
+    }
+
+    private func orderToKeep(of work: WorkIndex.Work, placed: Bool) -> [String] {
+        let rows = rows(of: work)
+        return (placed ? rows : rows.filter(\.isFavourite)).map(\.id)
+    }
 
     func toggle(_ work: WorkIndex.Work) {
         var changed = data
@@ -179,9 +195,12 @@ final class RecordingOrder {
         let ids = live.songs.map(\.id)
         guard !ids.isEmpty else { return nil }
         let isSet = !library.isFavourite(live)
-        var order = rows(of: work).filter(\.isFavourite).map(\.id)
-        order.removeAll { $0 == live.id }
-        if isSet { order.append(live.id) }
+        let placed = isPlaced(work)
+        let favourites = Set(rows(of: work).filter(\.isFavourite).map(\.id))
+        var order = orderToKeep(of: work, placed: placed)
+        // A listener who placed rows keeps an unstarred row where it stands.
+        if isSet || !placed { order.removeAll { $0 == live.id } }
+        if isSet { order.insert(live.id, at: order.firstIndex { !favourites.contains($0) } ?? order.count) }
         var changed = data
         changed.recordingOrder[work.id] = order
         let change = DeviceStore.FavouriteChange(songs: ids, isSet: isSet)
@@ -239,9 +258,9 @@ final class RecordingOrder {
         return { [self] in await synchronize() }
     }
 
-    /// Only favourites move. Other rows keep the server-derived priority.
-    func moveFavourites(of work: WorkIndex.Work, from source: IndexSet, to destination: Int) {
-        var ids = rows(of: work).filter(\.isFavourite).map(\.id)
+    /// Any row moves, favourite or not. The device keeps the whole list at once and never waits for the server.
+    func move(of work: WorkIndex.Work, from source: IndexSet, to destination: Int) {
+        var ids = rows(of: work).map(\.id)
         guard source.allSatisfy({ ids.indices.contains($0) }), destination >= 0, destination <= ids.count else {
             return
         }
@@ -253,14 +272,12 @@ final class RecordingOrder {
         save(changed)
     }
 
-    /// A dragged favourite takes the place of the row it drops on. A drop on a row that is no favourite puts it last
-    /// among the favourites, because the other tiers keep their server-derived order.
-    func moveFavourite(_ id: String, of work: WorkIndex.Work, onto target: String) {
-        let ids = rows(of: work).filter(\.isFavourite).map(\.id)
-        guard let from = ids.firstIndex(of: id), id != target else { return }
-        let to = ids.firstIndex(of: target) ?? ids.count - 1
-        // `moveFavourites` takes an insertion point: after the target when the row moves down.
-        moveFavourites(of: work, from: [from], to: to > from ? to + 1 : to)
+    /// A dragged row takes the place of the row it drops on.
+    func move(_ id: String, of work: WorkIndex.Work, onto target: String) {
+        let ids = rows(of: work).map(\.id)
+        guard let from = ids.firstIndex(of: id), let to = ids.firstIndex(of: target), from != to else { return }
+        // `move(of:from:to:)` takes an insertion point: after the target when the row moves down.
+        move(of: work, from: [from], to: to > from ? to + 1 : to)
     }
 
     /// Sends the changes that wait, then reads all stars. The server is right, except for a change that still waits.
@@ -332,6 +349,8 @@ final class RecordingOrder {
         do {
             let stars = try await server.getStarred()
             refreshError = nil
+            // The stars decide whether a row is a favourite, so read this before they change.
+            let placedWorks = library.index.composers.flatMap(\.works).map { ($0, isPlaced($0)) }
             artists = stars.artist ?? []
             var songs = Set((stars.song ?? []).map(\.id))
             var albums = Set((stars.album ?? []).map(\.id))
@@ -353,8 +372,8 @@ final class RecordingOrder {
             var changed = data
             changed.favouriteAlbums = albums
             changed.favouriteArtists = artists
-            for work in library.index.composers.flatMap(\.works) {
-                changed.recordingOrder[work.id] = rows(of: work).filter(\.isFavourite).map(\.id)
+            for (work, placed) in placedWorks {
+                changed.recordingOrder[work.id] = orderToKeep(of: work, placed: placed)
             }
             if loadError == nil { save(changed, quietly: true) }
         } catch { refreshError = error.localizedDescription }

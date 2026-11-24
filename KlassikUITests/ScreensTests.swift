@@ -2283,6 +2283,66 @@ final class PlaybackScreens: ScreensTestCase {
         app.terminate()
     }
 
+    /// A long press lifts a recording that is no favourite, and a drag moves it. The order stays after a relaunch.
+    @MainActor
+    func testRecordingThatIsNoFavouriteReorders() throws {
+        let app = try launchAndConnect()
+        composer(app, "Ludwig van Beethoven").tap()
+        app.buttons.matching(identifier: "work").firstMatch.tap()
+        let rows = app.buttons.matching(identifier: "recording")
+        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 10))
+
+        // Server stars survive UI test launches. Clear both, so that no row is a favourite.
+        for name in ["Carl Fixture", "Anna Probe"] {
+            rows.matching(NSPredicate(format: "label CONTAINS %@", name)).firstMatch.tap()
+            let mark = app.buttons["favourite-recording"]
+            XCTAssertTrue(mark.waitForExistence(timeout: 10))
+            if mark.value as? String == "Favourite" {
+                mark.tap()
+                XCTAssertTrue(eventually(timeout: 10) { mark.value as? String == "Not a favourite" })
+            }
+            back(app)
+        }
+        let first = rows.element(boundBy: 0).label
+        let second = rows.element(boundBy: 1).label
+        XCTAssertNotEqual(first, second)
+        XCTAssertTrue(first.contains("Carl Fixture"), "The newest recording is not first")
+        XCTAssertTrue(second.contains("Anna Probe"), "The second recording is not Anna Probe")
+
+        for _ in 0..<3 where !rows.element(boundBy: 0).label.contains("Anna Probe") {
+            let source = rows.element(boundBy: 1).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            let target = rows.element(boundBy: 0).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.1))
+            source.press(forDuration: 0.6, thenDragTo: target, withVelocity: .slow, thenHoldForDuration: 0.5)
+            _ = eventually(timeout: 3) { rows.element(boundBy: 0).label.contains("Anna Probe") }
+        }
+        XCTAssertTrue(
+            eventually(timeout: 10) {
+                rows.element(boundBy: 0).label.contains("Anna Probe")
+                    && rows.element(boundBy: 1).label.contains("Carl Fixture")
+            }, "The long-press drag did not move a recording that is no favourite")
+        snap(app, "05i-recording-moved-without-favourite")
+
+        app.terminate()
+        app.launchArguments = []
+        app.launch()
+        let connect = app.buttons["connect"]
+        if connect.waitForExistence(timeout: 5) { connect.tap() }
+        let composers = app.buttons["library-composers"]
+        XCTAssertTrue(composers.waitForExistence(timeout: 30))
+        composers.tap()
+        XCTAssertTrue(composer(app, "Ludwig van Beethoven").waitForExistence(timeout: 30))
+        composer(app, "Ludwig van Beethoven").tap()
+        let work = app.buttons.matching(identifier: "work").firstMatch
+        XCTAssertTrue(work.waitForExistence(timeout: 10))
+        work.tap()
+        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(
+            eventually(timeout: 10) { rows.element(boundBy: 0).label.contains("Anna Probe") },
+            "The dragged order did not survive a relaunch")
+        snap(app, "05j-moved-order-after-relaunch")
+        app.terminate()
+    }
+
 }
 
 /// The timeline on the screen edge and the mini player in the tab row.

@@ -1,7 +1,7 @@
 {
-  "sha": "5226c65f78e49b46fe0fcbc7d8918ff23eb577d3",
+  "sha": "8fba5d472617d48fdcbe3189afac3a3291cf571a",
   "branch": "claude-15411",
   "path": "claude-15411",
-  "subject": "[sz-rs30.1.154.11] Start the pull test above the position bar",
-  "ts": 1795504350
+  "subject": "[sz-rs30.1.154.11] Start the pull test in the row inset",
+  "ts": 1795507791
 }

@@ -898,16 +898,15 @@ const K = (() => {
       });
       return link;
     };
+    // iOS draws the search tab apart from the capsule, in its own circle, with no name under the glass.
+    const search = item("search", "Search");
+    search.className = "tab-search glass" + (tab === "search" ? " on" : "");
+    search.innerHTML = ICON.search;
     return el(
       "nav",
       { class: "tabbar" },
-      el(
-        "div",
-        { class: "tabs glass" },
-        item("library", "Library"),
-        item("chronology", "Chronology"),
-        item("search", "Search"),
-      ),
+      el("div", { class: "tabs glass" }, item("library", "Library"), item("chronology", "Chronology")),
+      search,
     );
   }
 

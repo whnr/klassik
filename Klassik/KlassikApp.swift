@@ -102,6 +102,7 @@ struct RootView: View {
             if phase == .active {
                 Task { await model.playback.synchronizeListeningData() }
                 Task { await model.recordingOrder.refresh() }
+                Task { await model.checkForChanges() }
             }
             if phase == .background {
                 Task { await model.playback.saveQueue() }

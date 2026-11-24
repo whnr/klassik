@@ -52,6 +52,10 @@ struct DiagnosticsView: View {
                         .ink()
                     LabeledContent("Last sync", value: syncedAt.formatted(date: .abbreviated, time: .standard))
                         .ink()
+                    if let row = library.unchangedCheckRow {
+                        LabeledContent("Last change check", value: row)
+                            .ink()
+                    }
                 } else {
                     LabeledContent("Tracks", value: library.isSyncing ? "Syncing…" : "Not synced")
                         .ink()

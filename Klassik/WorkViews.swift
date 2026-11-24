@@ -616,6 +616,12 @@ struct RecordingView: View {
             .onScrollGeometryChange(for: Int.self, of: { Int($0.contentOffset.y) }) { _, y in  // DIAG-TEMP
                 diagLog += "\(isOverlay ? "O" : "P")y=\(y);"  // DIAG-TEMP
             }  // DIAG-TEMP
+            .simultaneousGesture(  // DIAG-TEMP
+                DragGesture(minimumDistance: 0).onChanged { v in  // DIAG-TEMP
+                    let t = "\(isOverlay ? "O" : "P")touch\(Int(v.startLocation.y));"  // DIAG-TEMP
+                    if !diagLog.hasSuffix(t) { diagLog += t }  // DIAG-TEMP
+                }.onEnded { _ in diagLog += "\(isOverlay ? "O" : "P")up;" }  // DIAG-TEMP
+            )  // DIAG-TEMP
             .overlay(alignment: .bottom) {  // DIAG-TEMP
                 Text(diagLog).font(.caption2).opacity(0.02).accessibilityIdentifier("diag-log")  // DIAG-TEMP
             }  // DIAG-TEMP

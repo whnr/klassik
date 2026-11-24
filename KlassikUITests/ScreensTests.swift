@@ -1280,7 +1280,11 @@ final class PlaybackScreens: ScreensTestCase {
         let logs = app.staticTexts.matching(identifier: "diag-log").allElementsBoundByIndex  // DIAG-TEMP
         let from0 = titleLine(of: row).screenPoint  // DIAG-TEMP
         // DIAG-TEMP
-        let diag = logs.map(\.label).joined(separator: "|") + " row=\(row.frame) pt=\(from0)"
+        let rows = app.descendants(matching: .any).matching(identifier: "movement").allElementsBoundByIndex  // DIAG-TEMP
+        let ov = app.descendants(matching: .any)["player-overlay"].firstMatch.frame  // DIAG-TEMP
+        let rs = rows.map { "\($0.frame.minY)/\($0.isHittable)" }.joined(separator: ",")  // DIAG-TEMP
+        let lg = logs.map(\.label).joined(separator: "|")  // DIAG-TEMP
+        let diag = "ov=\(ov) rows=\(rs) \(lg) row=\(row.frame) pt=\(from0)"  // DIAG-TEMP
         XCTAssertTrue(closed, "A pull past the top from a row did not close the player DIAG[\(diag)]")  // DIAG-TEMP
         XCTAssertTrue(app.buttons["show-player"].waitForExistence(timeout: 10))
     }

@@ -147,20 +147,23 @@ class ServerTests(unittest.TestCase):
             lab.navidrome_asset("Windows", "AMD64")
 
 
-# ffmpeg -i output for the first movement of each case: codec, rate and sample format per movement.
+# ffmpeg -i audio line per movement. The codec may carry a decoder name in brackets, which differs by ffmpeg build.
 AUDIO = {
-    1: (r"Audio: flac, 96000 Hz, stereo, s32 \(24 bit\)",) * 2,
-    2: (r"Audio: flac, 44100 Hz, stereo, s16\b",) * 2,
-    3: (r"Audio: flac, 192000 Hz, stereo, s32 \(24 bit\)",) * 2,
-    4: (r"Audio: alac .*, 96000 Hz, stereo, s32p \(24 bit\)",) * 2,
-    5: (r"Audio: alac .*, 44100 Hz, stereo, s16p",) * 2,
-    6: (r"Audio: aac .*, 44100 Hz",) * 2,
-    7: (r"Audio: mp3, 44100 Hz",) * 2,
-    8: (r"Audio: mp3, 44100 Hz",) * 2,
-    9: (r"Audio: pcm_s24le .*, 96000 Hz, stereo, s32 \(24 bit\)",) * 2,
-    10: (r"Audio: pcm_s24be, 96000 Hz, .*s32 \(24 bit\)",) * 2,
-    11: (r"Audio: opus, 48000 Hz",) * 2,
-    12: (r"Audio: flac, 96000 Hz, stereo, s32 \(24 bit\)", r"Audio: flac, 44100 Hz, stereo, s32 \(24 bit\)"),
+    1: (r"Audio: flac[^\n]*, 96000 Hz, stereo, s32 \(24 bit\)",) * 2,
+    2: (r"Audio: flac[^\n]*, 44100 Hz, stereo, s16\b",) * 2,
+    3: (r"Audio: flac[^\n]*, 192000 Hz, stereo, s32 \(24 bit\)",) * 2,
+    4: (r"Audio: alac[^\n]*, 96000 Hz, stereo, s32p \(24 bit\)",) * 2,
+    5: (r"Audio: alac[^\n]*, 44100 Hz, stereo, s16p",) * 2,
+    6: (r"Audio: aac[^\n]*, 44100 Hz",) * 2,
+    7: (r"Audio: mp3[^\n]*, 44100 Hz",) * 2,
+    8: (r"Audio: mp3[^\n]*, 44100 Hz",) * 2,
+    9: (r"Audio: pcm_s24le[^\n]*, 96000 Hz, stereo, s32 \(24 bit\)",) * 2,
+    10: (r"Audio: pcm_s24be[^\n]*, 96000 Hz[^\n]*s32 \(24 bit\)",) * 2,
+    11: (r"Audio: opus[^\n]*, 48000 Hz",) * 2,
+    12: (
+        r"Audio: flac[^\n]*, 96000 Hz, stereo, s32 \(24 bit\)",
+        r"Audio: flac[^\n]*, 44100 Hz, stereo, s32 \(24 bit\)",
+    ),
 }
 
 

@@ -49,9 +49,18 @@ jobs:
         if: steps.browser.outputs.cache-hit != 'true'
         timeout-minutes: 4
         run: uv run --no-project --with playwright==$PLAYWRIGHT_VERSION playwright install chromium
+      # The apt index download stalls on single mirror files for 30 seconds each, and the whole step then passes
+      # 4 minutes. A fresh attempt starts with a new connection, so three bounded attempts replace one long wait.
       - name: Install Chromium system libraries
-        timeout-minutes: 4
-        run: uv run --no-project --with playwright==$PLAYWRIGHT_VERSION playwright install-deps chromium
+        timeout-minutes: 8
+        run: |
+          for attempt in 1 2 3; do
+            if timeout 150 uv run --no-project --with playwright==$PLAYWRIGHT_VERSION playwright install-deps chromium; then
+              exit 0
+            fi
+            echo "install-deps attempt $attempt failed"
+          done
+          exit 1
       - run: design/scripts/lint.sh
       # A pull-request run checks out a merge commit; the revision of the specimen is the head the author pushed.
       - name: Package the validated specimen

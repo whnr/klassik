@@ -1,7 +1,7 @@
 {
-  "sha": "b18f7dc31e2a68f09fc28f96972aab4768fd4a00",
+  "sha": "2a8e039851ea7bb9ddc17ec325bae6d813081e23",
   "branch": "claude-15411",
   "path": "claude-15411",
-  "subject": "[sz-rs30.1.154.11] Temporary pull diagnostics in the message",
-  "ts": 1795486998
+  "subject": "[sz-rs30.1.154.11] Log scroll offsets for the pull test",
+  "ts": 1795489625
 }

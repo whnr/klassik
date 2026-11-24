@@ -7,9 +7,10 @@ Such a commit is covered by the newest ancestor with a green run, if every chang
 ignored or a version line. Any other change fails closed.
 A merge commit that adds nothing to the PR head it merges is covered by the green run of that head
 (see merged_head). Its own run on main skips the build.
-A pull request run opens the Release launch check only for a release title, so the green head run may never
-have opened a Release build. Then a merge is covered only if the Release launch passed on the head run or on
-the run of the merge commit itself (see `launched`).
+A main push runs no Release launch check, and a pull request run opens it only for a release title. So a commit
+is covered only by a run that passed the Release launch check: its own run, or, for a merge, the green PR head
+run or the run of the merge commit itself (see `launched`). A plain merge still skips its build, because
+`merged` needs only build and unit tests on the head.
 The ignore list here must match `pull_request.paths-ignore` and `push.paths-ignore` in test.yml.
 
 Usage: GH_TOKEN=... GITHUB_REPOSITORY=owner/repo python3 scripts/green_test_gate.py [merged] <sha>
@@ -87,11 +88,12 @@ def covering(commits, changed, green, version_diff, merged=lambda sha: None, lau
     if `launched(sha, head)` says that a Release build opened on the head run or on the run of `sha`.
 
     `changed(sha)` gives the paths that the commit changed, `green(sha)` tells if Test passed on it, and
-    `version_diff(sha)` gives the commit's patch of project.yml.
+    `version_diff(sha)` gives the commit's patch of project.yml. `launched(sha, head)` tells if a Release build
+    opened on the run of `head` or of `sha`; a commit that is green needs it on its own run.
     Returns (sha, None), or (None, reason).
     """
     for sha in commits:
-        if green(sha):
+        if green(sha) and launched(sha, sha):
             return sha, None
         if (head := merged(sha)) and green(head) and launched(sha, head):
             return head, None
@@ -185,8 +187,9 @@ def main(args, read=api):
         return green_on(repo, commit, read)
 
     def launched(commit, head):
-        # A merge run of main always plans the Release launch, so a green one proves it; a PR head run only
-        # does for a release title, which can come after its last push.
+        # A main push no longer runs the Release launch check, so the proof is a release PR head run, or a
+        # manual or nightly run of the commit itself. A PR head run opens it only for a release title, which can
+        # come after its last push.
         with_release = REQUIRED_JOBS + (RELEASE_JOB,)
         return green_on(repo, head, read, with_release) or green_on(repo, commit, read, (RELEASE_JOB,))
 

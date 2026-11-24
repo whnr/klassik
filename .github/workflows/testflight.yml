@@ -46,8 +46,8 @@ jobs:
         if: steps.age.outputs.upload == 'true'
         run: python3 scripts/testflight_notes.py --check
       # The commit, the PR head that a merge commit adds nothing to, or the newest earlier commit before a run of
-      # documentation-only and version-only changes, needs a green test run.
-      # The UI walk is not required.
+      # documentation-only and version-only changes, needs a green test run that passed the Release launch check.
+      # A main push runs no Release launch, so that check comes from the release PR head run. The UI walk is not required.
       - name: Require a green test run
         if: steps.age.outputs.upload == 'true'
         env:

@@ -762,9 +762,12 @@ class PlanTests(unittest.TestCase):
             )
         self.assertIn("ui=all\n", result.stdout)
 
-    def test_release_launch_runs_except_on_pull_requests_that_are_no_release(self):
-        for event in ("push", "schedule", "workflow_dispatch"):
+    def test_release_launch_runs_on_nightly_manual_and_release_pull_requests_only(self):
+        for event in ("schedule", "workflow_dispatch"):
             self.assertTrue(screen_report.release_launch(event))
+        # A main push runs no Release launch: the release PR head run proves it for TestFlight.
+        self.assertFalse(screen_report.release_launch("push"))
+        self.assertFalse(screen_report.release_launch("push", "Release Klassik 0.22.0"))
         self.assertTrue(screen_report.release_launch("pull_request", "Release Klassik 0.21.0"))
         self.assertTrue(screen_report.release_launch("pull_request", "[sz-1] Release Klassik 0.21.1"))
         self.assertFalse(screen_report.release_launch("pull_request", "Fix the Release Klassik 0.21.0 notes"))
@@ -772,7 +775,7 @@ class PlanTests(unittest.TestCase):
 
     def test_plan_command_prints_the_release_launch_flag(self):
         script = str(pathlib.Path(screen_report.__file__))
-        for args, flag in ((["pull_request", "", "Fix"], "false"), (["push", ""], "true")):
+        for args, flag in ((["pull_request", "", "Fix"], "false"), (["push", ""], "false"), (["schedule", ""], "true")):
             result = subprocess.run(
                 [sys.executable, script, "plan", *args], input="", capture_output=True, text=True, check=True
             )

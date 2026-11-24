@@ -3,7 +3,8 @@ name: Test
 # One build runs unit tests and supplies the requested UI shards.
 # A pull request walks the areas that the commit message of its head requests, so interim pushes skip the walk.
 # Main pushes run no walk. Nightly runs and feature release pull requests walk every group.
-# The Release launch check runs on main, nightly and release pull requests, not on other pull requests.
+# The Release launch check runs on nightly and manual runs and on release pull requests. A main push does not run it:
+# the TestFlight gate takes the release PR head run, which proves it (scripts/green_test_gate.py).
 # A merge to main that adds nothing to its green PR head skips the build: TestFlight accepts that PR run.
 # A failed walk test blocks the run in an area that the pull request requested: the head commit's [ui: ...] line, or
 # every area of a release title that walks everything. The plan job marks each walk group as required or not.

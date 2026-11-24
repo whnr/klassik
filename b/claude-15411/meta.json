@@ -1,7 +1,7 @@
 {
-  "sha": "87e89c92561d9e78b6123257dfdb685877909cd7",
+  "sha": "5226c65f78e49b46fe0fcbc7d8918ff23eb577d3",
   "branch": "claude-15411",
   "path": "claude-15411",
-  "subject": "[sz-rs30.1.154.11] Log the pull on the player list",
-  "ts": 1795501356
+  "subject": "[sz-rs30.1.154.11] Start the pull test above the position bar",
+  "ts": 1795504350
 }

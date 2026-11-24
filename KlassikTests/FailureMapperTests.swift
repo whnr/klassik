@@ -46,7 +46,12 @@ struct FailureMapperTests {
         try engine.resume()
         defer { engine.discard() }
         for _ in 0..<200 where recorder.events.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
-        #expect(recorder.events == [.serverFailed(.unreachable)])
+        #expect(recorder.events.count == 1)
+        guard case .serverFailed(let failure)? = recorder.events.first else {
+            Issue.record("Expected a server failure, got \(recorder.events)")
+            return
+        }
+        #expect(failure == .unreachable)
     }
 
     @Test func theDefaultMapperShowsOfflineAsAFailureText() async throws {
@@ -58,6 +63,11 @@ struct FailureMapperTests {
         try engine.resume()
         defer { engine.discard() }
         for _ in 0..<200 where recorder.events.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
-        #expect(recorder.events == [.failed(TrackStore.Failure.offline.localizedDescription)])
+        #expect(recorder.events.count == 1)
+        guard case .failed(let text)? = recorder.events.first else {
+            Issue.record("Expected a failure text, got \(recorder.events)")
+            return
+        }
+        #expect(text == TrackStore.Failure.offline.localizedDescription)
     }
 }

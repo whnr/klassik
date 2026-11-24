@@ -2111,6 +2111,9 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(app.navigationBars["Tags"].waitForExistence(timeout: 10))
         XCTAssertTrue(
             app.staticTexts["Work key (derived)"].waitForExistence(timeout: 5), "The derived work key is not marked")
+        // The Tags sheet is a lazy list: a row exists only near the screen. Scroll to a movement row first, so the
+        // negative check below cannot pass on a list with no rows.
+        XCTAssertTrue(reveal(app.staticTexts["Movement name"].firstMatch, in: app).exists, "The Tags show no movement")
         let builtText = NSPredicate(format: "label MATCHES '.*\\\\(\\\\d+ of \\\\d+\\\\).*'")
         let built = app.staticTexts.matching(builtText).firstMatch
         XCTAssertFalse(built.exists, "A movement shows a built string")

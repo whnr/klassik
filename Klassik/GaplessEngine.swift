@@ -83,6 +83,8 @@ final class GaplessEngine: PlaybackEngine {
     /// depend on runner load.
     private let manualRendering: Bool
     private var pump: Task<Void, Never>?
+    /// The frames that the pump rendered. An offline node has no valid render time, so this is its position.
+    private var pumped: Int64 = 0
 
     init(
         deliverCompletion: @escaping CompletionDelivery = { completion in
@@ -159,6 +161,7 @@ final class GaplessEngine: PlaybackEngine {
         activation = nil
         pump?.cancel()
         pump = nil
+        pumped = 0
         engine?.stop()
         engine = nil
         node = nil
@@ -205,6 +208,7 @@ final class GaplessEngine: PlaybackEngine {
 
     private func playedSamples() -> Int64? {
         if let pausedAt { return pausedAt }
+        if manualRendering { return engine == nil ? nil : pumped }
         guard engine?.isRunning == true, let node, let time = node.lastRenderTime,
             let playerTime = node.playerTime(forNodeTime: time)
         else {
@@ -337,6 +341,7 @@ final class GaplessEngine: PlaybackEngine {
                 }
                 let frames = AVAudioFrameCount(min(waiting, Int64(buffer.frameCapacity)))
                 guard (try? engine.renderOffline(frames, to: buffer)) != nil else { return }
+                self.pumped += Int64(frames)
                 await Task.yield()
             }
         }

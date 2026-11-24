@@ -1147,13 +1147,6 @@ final class PlaybackScreens: ScreensTestCase {
         snap(app, "07s-slow-connection")
     }
 
-    /// The top inset of a row, above its title and right of centre. The touch area of the position bar reaches over the
-    /// whole title line of the playing row, and a drag there scrubs the position and never scrolls the page.
-    @MainActor
-    func rowTopInset(of row: XCUIElement) -> XCUICoordinate {
-        row.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0)).withOffset(CGVector(dx: 0, dy: -8))
-    }
-
     /// The quiet spell returns to the playing row after the listener scrolls away.
     @MainActor
     func testPlayerFollowsAfterQuietSpell() throws {

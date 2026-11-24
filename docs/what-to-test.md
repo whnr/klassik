@@ -1,10 +1,11 @@
-Klassik 0.21.0
+Klassik 0.22.0
 
-- New ⋯ page menu on work, recording and album pages: queue, download state, cancel download, tags. Row long-press matches.
-- Drag the player down from its heading or cover to close it; swiping up still scrolls.
-- The playing row is tinted full width; its round button pauses and resumes.
-- The favourite mark on a recording taps reliably.
-- Search shows "Nickname: Eroica" as the reason a work matched.
-- The Search tab stays after a composer filter and two taps on Library.
-- Local Storage shows picture and album art sizes only.
-- Person headings lose the black background again.
+- Downloads keep running in the background and still show as downloading after a restart.
+- Drag the player down from the subtitle and performer names too.
+- Skips and seeks no longer click.
+- New Server Connection page in Advanced settings: server, track counts, last sync.
+- Search is the third button of one plain tab bar, without flicker.
+- Klassik checks the library for server changes at each launch and shows the last check.
+- The Tags view shows the file's own tags; movement name, number and count are separate rows.
+- The player has a ⋯ menu with Download and Tags.
+- Recordings no longer drag to reorder.

@@ -229,3 +229,59 @@ Use generated tones and attacca glides through fixture Navidrome 0.64.2. Keep co
 - Measure stored bytes, peak PCM memory, duplicate requests, eviction, oversized tracks, Clear Music, disk failures and sign-out cleanup.
 - Verify no routine spinner or availability mark remains. Check the delayed slow line appears and disappears at the stated events.
 - Retain timing and sample reports without credentials or authenticated URLs. TestFlight listening confirms the automated boundary measurements.
+
+## Amendment: native-rate playback without app resampling
+
+Status: Proposed. Flo reviews it. It is not Accepted until he says so.
+Source: Flo's decisions of 2026-11-23, recorded on bead sz-u8f4.
+If Accepted, it replaces two rules in "Gapless scheduling continues across boundaries" above:
+"Keep the engine alive across recording boundaries ... without rebuilding the graph"
+and "Convert differing sample rates and channel layouts into one stable output format before scheduling."
+Flo asked for the engine to play each file at its own format. This amendment keeps every other rule of this record.
+
+### Context
+
+The engine converts every track to the sample rate of the first track and carries exact frame counts through that conversion.
+The app never asks iOS for the rate of the file.
+A USB DAC therefore stays at the iOS default rate, and the mixer resamples the audio.
+Flo wants the original recording at its own resolution, with no processing that the app adds.
+
+### Decision
+
+1. The app never resamples. Each track plays at its own sample rate and channel count.
+2. Only iOS converts. It does so only when the output cannot run at that rate or channel count.
+   Examples are the built-in speaker, AirPods, Bluetooth and a DAC that lacks the rate.
+3. A change of sample rate or channel count between consecutive tracks gives a short gap.
+   This also holds inside an album. Flo accepts the gap.
+4. A join at the same rate and channel count inside one work's recording stays gapless.
+   The gapless rules of this record continue to apply to it.
+5. The app does not claim bit-perfect playback. It reports what it did.
+   The player can show one quality line. The setting for it is off by default.
+   Commas separate its fields. The line shows the source rate, the output rate that iOS reports and the route name, but never an output bit depth.
+6. Ogg/Opus is not playable. The app shows it as unsupported.
+
+### Rejected alternative
+
+Resample every track in the app to one engine rate, and keep the graph and the joins as they are.
+Gapless joins would then survive a rate change, and the engine would stay simpler.
+Flo rejected it because the app would then alter the samples of every track at another rate.
+That conflicts with playback at the native resolution and with the rule that the app reports only what it did.
+The cost of the chosen way is a short gap at a rate or channel change, which Flo accepted.
+
+### Consequences
+
+- The engine format follows the track. A format change stops scheduling at the boundary.
+  The session reloads from the next track after the last sample of the previous track plays.
+- The resampling code and its frame accounting go away. Tests that expect one-pass resampled joins or one mixed-rate timeline change with this record.
+- A rate change inside a continuous work now has a gap. This is the price of decision 1 and 2.
+- The measurement list above keeps its same-format join requirement. The mixed-rate and channel-layout items change to expect a gap.
+
+### Open
+
+Flo's comments do not settle these points:
+
+- Whether iOS offers an output bit depth. The comments say none was found; Apple's documentation is not yet checked.
+- Whether iOS switches the DAC rate with the screen off. A test must answer this.
+- Whether ReplayGain at 0 dB leaves samples unchanged. A fixture decides.
+  If it does not, the ReplayGain stage leaves the chain when leveling is off.
+- Gapless behavior of AAC and ALAC, as in the open items above.

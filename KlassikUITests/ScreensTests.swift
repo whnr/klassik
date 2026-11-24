@@ -1277,7 +1277,9 @@ final class PlaybackScreens: ScreensTestCase {
             withVelocity: .default, thenHoldForDuration: 0.3)
         let closed = app.buttons["player-handle"].waitForNonExistence(timeout: 10)
         if !closed { snap(app, "05f-pull-from-row-open") }
-        let diag = app.staticTexts["diag-log"].firstMatch.label  // DIAG-TEMP
+        let logs = app.staticTexts.matching(identifier: "diag-log").allElementsBoundByIndex  // DIAG-TEMP
+        let from0 = titleLine(of: row).screenPoint  // DIAG-TEMP
+        let diag = logs.map(\.label).joined(separator: "|") + " row=\(row.frame) cover=\(cover.frame) pt=\(from0)"  // DIAG-TEMP
         XCTAssertTrue(closed, "A pull past the top from a row did not close the player DIAG[\(diag)]")  // DIAG-TEMP
         XCTAssertTrue(app.buttons["show-player"].waitForExistence(timeout: 10))
     }

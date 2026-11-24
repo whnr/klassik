@@ -608,15 +608,16 @@ struct RecordingView: View {
                 // pull ask for about 120 points of finger travel, the travel that closes the player at its handle.
                 let pull = -(context.geometry.contentOffset.y + context.geometry.contentInsets.top)
                 if phase == .interacting, old != .interacting { dragFromTop = pull >= -1 }
-                if isOverlay { diagLog += "\(old)>\(phase) pull=\(Int(pull)) top=\(dragFromTop);" }  // DIAG-TEMP
+                diagLog += "\(isOverlay ? "O" : "P")\(old)>\(phase) pull=\(Int(pull)) top=\(dragFromTop);"  // DIAG-TEMP
                 if isOverlay, dragFromTop, old == .interacting, phase != .interacting, pull > 60 {
                     navigator.closePlayer()
                 }
             }
+            .onScrollGeometryChange(for: Int.self) { Int($0.contentOffset.y) } action: { _, y in  // DIAG-TEMP
+                diagLog += "\(isOverlay ? "O" : "P")y=\(y);"  // DIAG-TEMP
+            }  // DIAG-TEMP
             .overlay(alignment: .bottom) {  // DIAG-TEMP
-                if isOverlay {  // DIAG-TEMP
-                    Text(diagLog).font(.caption2).opacity(0.02).accessibilityIdentifier("diag-log")  // DIAG-TEMP
-                }  // DIAG-TEMP
+                Text(diagLog).font(.caption2).opacity(0.02).accessibilityIdentifier("diag-log")  // DIAG-TEMP
             }  // DIAG-TEMP
             .onChange(of: model.isScrubbing) { _, scrubbing in spell.hold(scrubbing) }
             .onChange(of: draft != nil) { _, writing in spell.writing(writing) }

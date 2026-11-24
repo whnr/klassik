@@ -94,7 +94,7 @@ UI_GROUPS = {
 SHARDS = {
     "playback-queue": {
         "playback": {
-            "testFavouriteRecordingOrder",
+            "testFavouriteRecordingOrderIgnoresDrag",
             "testOverlayLeavesThroughChronology",
             "testQueue",
             "testRecording",

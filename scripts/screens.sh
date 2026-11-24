@@ -210,6 +210,9 @@ run_tests() {
   if grep -q '^\*\*Flaky' "$out/$bundle-retries.txt"; then
     echo "::warning::Flaky test in $bundle: it failed on a simulator or runner failure and passed on the retry. File a bead."
   fi
+  if grep -q '^\*\*Runner error, retried' "$out/$bundle-retries.txt"; then
+    echo "::notice::Runner error in $bundle, retried: the simulator or runner failed, not a test. Not a failed test."
+  fi
   return "$status"
 }
 

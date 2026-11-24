@@ -105,6 +105,8 @@
       ["Year", s.year],
       ["Genre", s.genre],
     ].filter(([, v]) => v);
+    // The app shows each tag as the server sends it: a movement is three rows (name, number, count), an absent value
+    // is an empty row, and rows the app derives are marked "(derived)".
     const body = el(
       "div",
       { class: "list" },

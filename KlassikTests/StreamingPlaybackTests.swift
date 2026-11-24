@@ -540,7 +540,7 @@ struct StreamingPlaybackTests {
                 _ = Self.feed(bytes, into: transfer)
             })
         let output = RenderedAudio()
-        let engine = GaplessEngine(rendered: { output.record($0) })
+        let engine = GaplessEngine(rendered: { output.record($0) }, manualRendering: true)
         let player = PlaybackSession(engine: engine, store: store, defaults: defaults)
         player.server = InMemoryServer()
         player.leveling = .off
@@ -559,9 +559,11 @@ struct StreamingPlaybackTests {
         for _ in 0..<1500 where !player.queueEnded && player.error == nil {
             try await Task.sleep(for: .milliseconds(10))
         }
-        #expect(player.error == nil)
-        #expect(player.queueEnded)
         let rendered = output.samples
+        #expect(player.error == nil, "error=\(String(describing: player.error))")
+        let expected = GaplessTests.movementSamples.reduce(0, +)
+        let state = "rendered=\(rendered.count) of \(expected) loading=\(player.isLoading)"
+        #expect(player.queueEnded, Comment(rawValue: state))
         let firstAudible = try #require(rendered.firstIndex { abs($0) > 0.01 })
         let start = firstAudible + GaplessTests.alignment(rendered, at: firstAudible + 2048, referenceAt: 2048)
         var join = 0
@@ -570,7 +572,9 @@ struct StreamingPlaybackTests {
             return GaplessTests.alignment(rendered, at: start + join + 256, referenceAt: join + 256)
         }
         print("rendered \(suffix) recording joins: start=\(start), frames=\(rendered.count), shifts=\(shifts)")
-        #expect(shifts == [0, 0])
+        #expect(
+            shifts == [0, 0],
+            "shifts=\(shifts) start=\(start) frames=\(rendered.count) joins=\(GaplessTests.movementSamples)")
     }
 
     /// The output timeline stays at the first rate while subsequent files differ. Each converted track ends on its

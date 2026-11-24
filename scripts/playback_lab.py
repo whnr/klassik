@@ -16,16 +16,19 @@ macOS. The source files stay outside the repository: it holds no copyrighted aud
 import argparse
 import dataclasses
 import hashlib
+import ipaddress
 import json
 import os
 import pathlib
 import platform
 import secrets
+import shutil
 import socket
 import subprocess
 import sys
 import tarfile
 import time
+import urllib.error
 import urllib.request
 
 NAVIDROME_VERSION = "0.64.2"
@@ -167,6 +170,8 @@ def plan(movements: tuple[pathlib.Path, pathlib.Path], out: pathlib.Path) -> lis
 
 
 def build(movements: tuple[pathlib.Path, pathlib.Path], out: pathlib.Path) -> int:
+    if shutil.which("ffmpeg") is None:
+        sys.exit("ffmpeg not found on PATH. Install it (Linux: apt install ffmpeg; macOS: brew install ffmpeg).")
     for path in movements:
         if not path.is_file():
             sys.exit(f"Source file not found: {path}")
@@ -186,9 +191,17 @@ def lan_address() -> str:
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
         try:
             probe.connect(("192.0.2.1", 9))
-            return probe.getsockname()[0]
+            addr = probe.getsockname()[0]
         except OSError:
             sys.exit("No network address found. Join the home Wi-Fi or pass --address.")
+    return home_address(addr)
+
+
+def home_address(addr: str) -> str:
+    """A detected address must be private: on a public one the server would be on the internet."""
+    if not ipaddress.ip_address(addr).is_private:
+        sys.exit(f"{addr} is not a private address. Join the home Wi-Fi, or pass --address with a private one.")
+    return addr
 
 
 def navidrome_asset(system: str, machine: str) -> str:
@@ -224,10 +237,9 @@ def serve(music: pathlib.Path, work: pathlib.Path, address: str) -> None:
     work.mkdir(parents=True, exist_ok=True)
     binary = fetch_navidrome(work)
     secret = work / "password.txt"
-    if not secret.exists():
-        secret.touch(mode=0o600)
-        secret.write_text(secrets.token_urlsafe(12))
-    password = secret.read_text().strip()
+    # The password file is written only after the admin exists, so a failed first run is retried as a first run.
+    first_run = not secret.exists()
+    password = secrets.token_urlsafe(12) if first_run else secret.read_text().strip()
     env = {
         **os.environ,
         "ND_MUSICFOLDER": str(music),
@@ -243,12 +255,18 @@ def serve(music: pathlib.Path, work: pathlib.Path, address: str) -> None:
     server = subprocess.Popen([str(binary)], env=env)
     base = f"http://{address}:{PORT}"
     try:
+        up = False
         for _ in range(60):
+            if server.poll() is not None:
+                break
             try:
                 urllib.request.urlopen(f"{base}/ping", timeout=2)
+                up = True
                 break
             except OSError:
                 time.sleep(1)
+        if not up:
+            sys.exit(f"Navidrome did not start on {base}. Its messages are above; check that port {PORT} is free.")
         # The first call creates the admin; later runs get a refusal, which is fine.
         request = urllib.request.Request(
             f"{base}/auth/createAdmin",
@@ -257,8 +275,14 @@ def serve(music: pathlib.Path, work: pathlib.Path, address: str) -> None:
         )
         try:
             urllib.request.urlopen(request, timeout=10)
-        except OSError:
-            pass
+        except urllib.error.HTTPError as error:
+            if first_run:
+                sys.exit(f"Navidrome did not create the admin user: HTTP {error.code}.")
+        except OSError as error:
+            sys.exit(f"Navidrome did not create the admin user: {error}")
+        if first_run:
+            secret.touch(mode=0o600)
+            secret.write_text(password)
         print(f"\nNavidrome {NAVIDROME_VERSION} on {base}\nUser: {USER}\nPassword: {password}\nStop with Ctrl-C.")
         server.wait()
     except KeyboardInterrupt:

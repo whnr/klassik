@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from unittest import mock
 
 import playback_lab as lab
 
@@ -103,6 +104,37 @@ class ArgumentTests(unittest.TestCase):
         self.assertIn("replaygain_track_gain", lab.metadata(lab.CASES[0], 1, 1))
 
 
+class BuildTests(unittest.TestCase):
+    def test_missing_ffmpeg_exits_before_writing_anything(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = pathlib.Path(tmp) / "out"
+            with mock.patch.object(lab.shutil, "which", return_value=None):
+                with self.assertRaises(SystemExit) as caught:
+                    lab.build(SRC, out)
+            message = str(caught.exception.code)
+            self.assertIn("ffmpeg not found", message)
+            self.assertNotIn("\n", message)
+            self.assertFalse(out.exists())
+
+    def test_missing_source_exits_before_writing_anything(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = pathlib.Path(tmp) / "out"
+            with mock.patch.object(lab.shutil, "which", return_value="/usr/bin/ffmpeg"):
+                with self.assertRaises(SystemExit) as caught:
+                    lab.build(SRC, out)
+            self.assertEqual(str(caught.exception.code), "Source file not found: /src/one.flac")
+            self.assertFalse(out.exists())
+
+
+class AddressTests(unittest.TestCase):
+    def test_home_address_is_accepted(self):
+        self.assertEqual(lab.home_address("192.168.1.20"), "192.168.1.20")
+
+    def test_public_address_is_refused(self):
+        with self.assertRaises(SystemExit):
+            lab.home_address("8.8.8.8")
+
+
 class ServerTests(unittest.TestCase):
     def test_asset_names(self):
         self.assertEqual(
@@ -113,6 +145,23 @@ class ServerTests(unittest.TestCase):
         )
         with self.assertRaises(SystemExit):
             lab.navidrome_asset("Windows", "AMD64")
+
+
+# ffmpeg -i output for the first movement of each case: codec, rate and sample format per movement.
+AUDIO = {
+    1: (r"Audio: flac, 96000 Hz, stereo, s32 \(24 bit\)",) * 2,
+    2: (r"Audio: flac, 44100 Hz, stereo, s16\b",) * 2,
+    3: (r"Audio: flac, 192000 Hz, stereo, s32 \(24 bit\)",) * 2,
+    4: (r"Audio: alac .*, 96000 Hz, stereo, s32p \(24 bit\)",) * 2,
+    5: (r"Audio: alac .*, 44100 Hz, stereo, s16p",) * 2,
+    6: (r"Audio: aac .*, 44100 Hz",) * 2,
+    7: (r"Audio: mp3, 44100 Hz",) * 2,
+    8: (r"Audio: mp3, 44100 Hz",) * 2,
+    9: (r"Audio: pcm_s24le .*, 96000 Hz, stereo, s32 \(24 bit\)",) * 2,
+    10: (r"Audio: pcm_s24be, 96000 Hz, .*s32 \(24 bit\)",) * 2,
+    11: (r"Audio: opus, 48000 Hz",) * 2,
+    12: (r"Audio: flac, 96000 Hz, stereo, s32 \(24 bit\)", r"Audio: flac, 44100 Hz, stereo, s32 \(24 bit\)"),
+}
 
 
 @unittest.skipUnless(shutil.which("ffmpeg"), "needs ffmpeg")
@@ -138,21 +187,22 @@ class EndToEndTests(unittest.TestCase):
             self.assertEqual(count, 2 * len(lab.CASES))
             files = sorted(f for f in (tmp / "out" / lab.ALBUM).rglob("*") if f.is_file())
             self.assertEqual(len(files), count)
-            expected = {
-                "01": "Audio: flac, 96000 Hz",
-                "02": "Audio: flac, 44100 Hz",
-                "03": "Audio: flac, 192000 Hz",
-                "11": "Audio: opus",
-            }
             for f in files:
-                prefix = f.parent.name[:2]
-                if prefix in expected:
-                    self.assertIn(expected[prefix], self.info(f))
-                if prefix == "12":
-                    self.assertIn("96000 Hz" if f.name.startswith("01") else "44100 Hz", self.info(f))
-            first = next(f for f in files if f.parent.name.startswith("01 "))
-            self.assertRegex(self.info(first), r"(?i)work\s*: FLAC 24/96")
-
+                number = int(f.parent.name[:2])
+                movement = int(f.name[:2])
+                case = lab.CASES[number - 1]
+                info = self.info(f)
+                data = f.read_bytes()
+                self.assertRegex(info, AUDIO[number][movement - 1], f.name)
+                # ffmpeg's WAV muxer writes no ID3 chunk, so WAV files carry no WORK; Navidrome groups them by album.
+                if number != 9:
+                    self.assertRegex(info, rf"work\s*:\s*{re.escape(case.title)}", f.name)
+                if number == 6:
+                    self.assertIn(b"elst", data, "AAC needs the encoder delay edit list")
+                if number == 7:
+                    self.assertTrue(b"Xing" in data or b"Info" in data, "LAME header missing")
+                if number == 8:
+                    self.assertFalse(b"Xing" in data or b"Info" in data, "MP3 has a header it should not have")
 
 if __name__ == "__main__":
     unittest.main()

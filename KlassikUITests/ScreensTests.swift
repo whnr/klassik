@@ -1716,7 +1716,7 @@ final class PlaybackScreens: ScreensTestCase {
             } else {
                 snap(app, "04f-work-play-left")
             }
-            app.terminate()
+            stop(app)
         }
     }
 
@@ -2271,7 +2271,7 @@ final class PlaybackScreens: ScreensTestCase {
         snap(app, "05g-recording-dropped")
 
         // The order lives in the device file. A launch without -resetServer keeps it and the login.
-        app.terminate()
+        stop(app)
         app.launchArguments = []
         app.launch()
         let connect = app.buttons["connect"]
@@ -2289,7 +2289,7 @@ final class PlaybackScreens: ScreensTestCase {
             eventually(timeout: 10) { rows.element(boundBy: 0).label.contains(second) },
             "The dragged order did not survive a relaunch")
         snap(app, "05h-recording-order-after-relaunch")
-        app.terminate()
+        stop(app)
     }
 
 }
@@ -2385,7 +2385,7 @@ final class TimelineScreens: ScreensTestCase {
                 side == "right" ? bar.frame.maxX : bar.frame.minX, side == "right" ? app.frame.maxX : 0,
                 accuracy: 1, "The timeline is not on the \(side) edge")
             snap(app, side == "right" ? "15j-scrub-label-right" : "15k-scrub-label-left")
-            app.terminate()
+            stop(app)
         }
     }
 
@@ -2789,6 +2789,26 @@ class ScreensTestCase: XCTestCase {
         continueAfterFailure = false
     }
 
+    /// The app that `launchAndConnect` started. Every test leaves it stopped, so the next launch has nothing to kill.
+    private var launched: XCUIApplication?
+
+    override func tearDownWithError() throws {
+        if let launched { MainActor.assumeIsolated { stop(launched) } }
+        launched = nil
+        try super.tearDownWithError()
+    }
+
+    /// Stops the app from the background. A kill of the foreground app, while the simulator still renders a menu
+    /// or a drag, can run past the 70 s limit of XCTest and fail with "Failed to terminate"; a backgrounded app has
+    /// no frames to finish. Never weaken this to a bare `terminate()`.
+    @MainActor
+    func stop(_ app: XCUIApplication) {
+        guard app.state != .notRunning else { return }
+        if app.state == .runningForeground { XCUIDevice.shared.press(.home) }
+        _ = app.wait(for: .runningBackground, timeout: 10)
+        app.terminate()
+    }
+
     /// MusicBrainz answers for the fixture works, shaped like real ones, by the keys of `Enrichment.stubKey`.
     /// Bach, Brahms and the nocturnes get no answer, as if MusicBrainz had no match.
     static let musicBrainz: String = {
@@ -2947,6 +2967,7 @@ class ScreensTestCase: XCTestCase {
             "KLASSIK_MUSICBRAINZ_STUB": Self.musicBrainz,
             "KLASSIK_PERSON_STUB": Self.people,
         ]
+        launched = app
         app.launch()
 
         let connect = app.buttons["connect"]

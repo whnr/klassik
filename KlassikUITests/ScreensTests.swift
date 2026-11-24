@@ -2457,6 +2457,34 @@ final class SettingsScreens: ScreensTestCase {
         snap(app, "08f-local-storage")
     }
 
+    /// Server Connection shows its rows from what the device knows, and Sign Out asks first.
+    @MainActor
+    func testServerConnection() throws {
+        let app = try launchAndConnect()
+        openSettings(app)
+        reveal(app.buttons["server-connection"], in: app).tap()
+        XCTAssertTrue(app.navigationBars["Server Connection"].waitForExistence(timeout: 10))
+        snap(app, "08m-server-connection")
+        let rows = [
+            "server-address", "server-username", "server-state", "server-name", "server-classical-tracks",
+            "server-classical-albums", "server-other-tracks", "server-last-sync",
+        ]
+        for identifier in rows {
+            XCTAssertTrue(reveal(row(app, identifier), in: app).exists, "No \(identifier) row")
+        }
+        let signOut = reveal(app.buttons["sign-out"], in: app)
+        XCTAssertTrue(signOut.isHittable)
+        snap(app, "08n-server-connection-bottom")
+        signOut.tap()
+        let confirm = app.buttons.matching(
+            NSPredicate(format: "label == %@ AND identifier != %@", "Sign Out", "sign-out")
+        ).firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5), "No confirmation")
+        snap(app, "08o-server-connection-sign-out")
+        confirm.tap()
+        XCTAssertTrue(app.buttons["connect"].waitForExistence(timeout: 10), "Sign Out did not show the sign-in page")
+    }
+
     @MainActor
     func testSettings() throws {
         let app = try launchAndConnect()
@@ -2476,7 +2504,7 @@ final class SettingsScreens: ScreensTestCase {
         let order = [
             "timeline-side", "replaygain", "scrobbles", "classical-rules", "partial-works", "swipe-actions",
             "local-storage", "delete-listening-data", "accent", "player-tint-strength",
-            "technical-details", "musicbrainz", "diagnostics", "licences",
+            "technical-details", "musicbrainz", "diagnostics", "server-connection", "licences",
         ]
         reveal(row(app, order[0]), in: app)
         for (above, below) in zip(order, order.dropFirst()) {

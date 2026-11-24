@@ -6,7 +6,12 @@ final class AppModel {
     private(set) var credentials: ServerCredentials? {
         didSet { updateServer() }
     }
-    private(set) var serverInfo: ServerInfo?
+    /// The last answer of the server, kept on the device so the Server Connection page shows it at launch.
+    private(set) var serverInfo: ServerInfo? {
+        didSet { saveServerInfo() }
+    }
+    /// Whether the last check reached the server. Nil until the first check ends.
+    private(set) var serverReached: Bool?
     private(set) var lastCheck: Date?
     private(set) var lastError: String?
     private(set) var lastErrorDate: Date?
@@ -39,6 +44,8 @@ final class AppModel {
     @ObservationIgnored private var reconnect: ConnectionMonitor?
     @ObservationIgnored private var reconnectSync: Task<Void, Never>?
     private let store: CredentialStore
+    private let defaults: UserDefaults
+    private static let serverInfoKey = "server.info"
     private let listener: ListenerData
 
     /// Downloads load through the system's background session, so they continue while Klassik is suspended.
@@ -50,9 +57,10 @@ final class AppModel {
 
     init(
         store: CredentialStore = CredentialStore(), library: Library = Library(),
-        listener: ListenerData = ListenerData()
+        listener: ListenerData = ListenerData(), defaults: UserDefaults = .standard
     ) {
         self.store = store
+        self.defaults = defaults
         self.listener = listener
         self.library = library
         recordingOrder = RecordingOrder(library: library)
@@ -84,6 +92,7 @@ final class AppModel {
         // UI tests start from the connect screen.
         if ProcessInfo.processInfo.arguments.contains("-resetServer") {
             store.clear()
+            defaults.removeObject(forKey: Self.serverInfoKey)
             library.clear()
             tracks.clearAll()
             albumArt.clear()
@@ -95,6 +104,7 @@ final class AppModel {
             chronology.clear()
         }
         credentials = store.load()
+        serverInfo = savedServerInfo()
         updateServer()
         dataModes = DataModeMonitor { [weak self] mode, pathChanged in
             guard let self else { return }
@@ -236,6 +246,7 @@ final class AppModel {
             let info = try await SubsonicClient(credentials: candidate).ping()
             credentials = candidate
             serverInfo = info
+            serverReached = true
             lastCheck = .now
             do { try store.save(candidate) } catch { record(error) }
             return nil
@@ -322,8 +333,10 @@ final class AppModel {
         defer { isChecking = false }
         do {
             serverInfo = try await SubsonicClient(credentials: credentials).ping()
+            serverReached = true
             lastCheck = .now
         } catch {
+            serverReached = false
             record(error)
         }
     }
@@ -337,7 +350,34 @@ final class AppModel {
         library.clear()
         credentials = nil
         serverInfo = nil
+        serverReached = nil
         lastCheck = nil
+    }
+
+    /// The one word of the connection, for Settings and the Server Connection page. Empty before the first check.
+    var connectionState: String {
+        guard let serverReached else { return isChecking ? "Checking…" : "" }
+        return serverReached ? "Connected" : "Not reachable"
+    }
+
+    private struct SavedServerInfo: Codable {
+        var url: URL
+        var info: ServerInfo
+    }
+
+    private func saveServerInfo() {
+        guard let info = serverInfo, let url = credentials?.url,
+            let data = try? JSONEncoder().encode(SavedServerInfo(url: url, info: info))
+        else { return defaults.removeObject(forKey: Self.serverInfoKey) }
+        defaults.set(data, forKey: Self.serverInfoKey)
+    }
+
+    /// The saved answer counts only for the server that gave it.
+    private func savedServerInfo() -> ServerInfo? {
+        guard let url = credentials?.url, let data = defaults.data(forKey: Self.serverInfoKey),
+            let saved = try? JSONDecoder().decode(SavedServerInfo.self, from: data), saved.url == url
+        else { return nil }
+        return saved.info
     }
 
     /// Delete Listening Data in Settings (ADR 0013). The favourite works, the order of favourite recordings, the

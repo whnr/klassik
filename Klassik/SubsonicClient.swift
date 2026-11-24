@@ -29,7 +29,7 @@ struct ServerCredentials: Equatable, Sendable {
 }
 
 /// What the server reports about itself.
-struct ServerInfo: Equatable, Sendable {
+struct ServerInfo: Equatable, Sendable, Codable {
     var apiVersion: String
     var type: String?
     var serverVersion: String?

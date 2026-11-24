@@ -14,6 +14,7 @@
       // The Server Connection page of Settings, under Advanced settings.
       // ?state=signedout shows the signed-out page. ?state=offline shows a server that does not answer.
       // ?confirm=signout draws the sign-out confirmation open.
+      // The signed-out page stands in for the sign-in screen of the app: its rows draw the fields, not the typing.
       K.start(() => {
         const { el, href, form } = K;
         const state = K.params.get("state") || "signedin";
@@ -35,25 +36,31 @@
             value("Server", "Navidrome 0.64.2"),
             value("Classical Tracks", "18,204"),
             value("Classical Albums", "1,412"),
+            value("Tracks Outside Filter", "6,931"),
             value("Last Sync", offline ? "Yesterday, 21:40" : "Just now"),
-            value("Local Storage", "2.76 GB"),
           ],
-          "Counts cover what passes the classical rules. Signing in again starts a full sync.",
+          "Classical counts follow the classical rules. Tracks Outside Filter are on the server but fail the rules.",
         );
         const confirmSignOut = () => {
-          const close = K.sheet(
+          const confirm = button("Sign Out of music.example.org", { destructive: true });
+          const cancel = button("Cancel");
+          let close;
+          cancel.addEventListener("click", () => close());
+          confirm.addEventListener("click", () => {
+            location.href = href("server.html", { state: "signedout" });
+          });
+          close = K.sheet(
             "Sign Out",
             el(
               "div",
               {},
               group(
                 null,
-                [button("Sign Out of music.example.org", { destructive: true }), button("Cancel")],
+                [confirm, cancel],
                 "Downloads and the music cache leave this iPhone. Favourite works, listening notes and the changes that wait stay for this server and user.",
               ),
             ),
           );
-          return close;
         };
         scroll.append(
           el("div", { class: "page-head" }, el("h1", { class: "t-largeTitle" }, "Server Connection")),
@@ -72,7 +79,11 @@
               : null,
           ),
           ...(signedOut ? [] : [stats]),
-          group(null, [signedOut ? button("Sign In", { disabled: false }) : button("Sign Out", { destructive: true })]),
+          group(
+            null,
+            [signedOut ? button("Sign In") : button("Sign Out", { destructive: true })],
+            signedOut ? "Signing in starts a full sync." : null,
+          ),
         );
         const buttons = scroll.querySelectorAll(".form-button");
         if (!signedOut) buttons[buttons.length - 1].addEventListener("click", confirmSignOut);

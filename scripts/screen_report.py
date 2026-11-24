@@ -360,12 +360,15 @@ RUNNER_ERRORS = (
 
 
 def runner_error_reason(messages):
-    """The named reason when a message is a known runner error, else None."""
+    """The named reason when every message is a known runner error, else None. One other failure message, such as an
+    assertion before the teardown error, makes the attempt a failed test."""
+    reasons = []
     for message in messages:
-        for pattern, reason in RUNNER_ERRORS:
-            if pattern.search(message):
-                return reason
-    return None
+        found = next((reason for pattern, reason in RUNNER_ERRORS if pattern.search(message)), None)
+        if not found:
+            return None
+        reasons.append(found)
+    return reasons[0] if reasons else None
 
 
 def failed_cases(tests):
@@ -483,8 +486,9 @@ def unfinished_tests(expected, bundles):
     return [key for key in expected if results.get(key) not in FINISHED]
 
 
-def retry_report(log):
-    """Read completion records before xcbeautify hides failed attempts."""
+def retry_report(log, run_attempt=1):
+    """Read completion records before xcbeautify hides failed attempts. A manual job rerun (run_attempt above 1)
+    counts as a retry, so the report says so."""
     attempts, issues = {}, {}
     active = None
     for number, line in enumerate(log.splitlines(), 1):
@@ -503,6 +507,8 @@ def retry_report(log):
             if name == active:
                 active = None
     lines = ["### Failed-test attempts", ""]
+    if run_attempt > 1:
+        lines += [f"**Manual rerun: run attempt {run_attempt}.** A manual rerun counts as a retry.", ""]
     failed = {name: runs for name, runs in attempts.items() if any(run[0] == "failed" for run in runs)}
     if not attempts:
         return "\n".join(lines + ["No completed test attempts recorded. Inspect the raw log and result bundle.", ""])
@@ -626,7 +632,8 @@ def read_lines(path):
 def main(args):
     command = args[0]
     if command == "retries":
-        print(retry_report(pathlib.Path(args[1]).read_text()))
+        attempt = os.environ.get("GITHUB_RUN_ATTEMPT", "1")
+        print(retry_report(pathlib.Path(args[1]).read_text(), int(attempt) if attempt.isdigit() else 1))
         return
     if command in ("retry-plan", "assertion-failures", "expected-tests", "unrun", "unfinished"):
         # Exit 0 whatever the answer, and 2 on any error: a traceback exits 1, which a caller could read as "none".

@@ -2109,6 +2109,11 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [albumFavourite], timeout: 5), .completed, "The album is not a favourite")
         pageMenuItem(app, "Tags and Grouping").tap()
         XCTAssertTrue(app.navigationBars["Tags"].waitForExistence(timeout: 10))
+        XCTAssertTrue(
+            app.staticTexts["Work key (derived)"].waitForExistence(timeout: 5), "The derived work key is not marked")
+        let builtText = NSPredicate(format: "label MATCHES '.*\\\\(\\\\d+ of \\\\d+\\\\).*'")
+        let built = app.staticTexts.matching(builtText).firstMatch
+        XCTAssertFalse(built.exists, "A movement shows a built string")
         snap(app, "06c-tags")
         // One tap on a cover pushes one album: two steps back reach the performer (sz-rs30.1.105.85).
         back(app, times: 2)

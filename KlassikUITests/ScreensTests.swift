@@ -1940,6 +1940,8 @@ final class PlaybackScreens: ScreensTestCase {
         let work = app.buttons.matching(identifier: "album-work").firstMatch
         XCTAssertTrue(reveal(work, in: app).isHittable)
         XCTAssertFalse(work.images["album-work-disclosure"].exists, "The system link has a second chevron")
+        // The heading is text, so it draws no accent colour; a control tint on the link would.
+        XCTAssertNil(try accentInk(of: work, in: app), "The album work heading is not in text colour")
         snap(app, "05f-album-work")
         startPlaying(app)
         pause(app)
@@ -2579,8 +2581,9 @@ final class SettingsScreens: ScreensTestCase {
         XCTAssertTrue(signOut.isHittable)
         snap(app, "08n-server-connection-bottom")
         signOut.tap()
+        XCTAssertTrue(app.staticTexts["Sign Out"].waitForExistence(timeout: 5), "No confirmation title")
         let confirm = app.buttons.matching(
-            NSPredicate(format: "label == %@ AND identifier != %@", "Sign Out", "sign-out")
+            NSPredicate(format: "label BEGINSWITH %@ AND identifier != %@", "Sign Out of ", "sign-out")
         ).firstMatch
         XCTAssertTrue(confirm.waitForExistence(timeout: 5), "No confirmation")
         snap(app, "08o-server-connection-sign-out")
@@ -2880,6 +2883,15 @@ class ScreensTestCase: XCTestCase {
         try super.setUpWithError()
         // A failed launch must stop before later queries use an invalid app process.
         continueAfterFailure = false
+    }
+
+    /// The accent ink in the drawn frame of an element. Text and hairlines are grey, so a result means that the
+    /// element draws a colour: a control tint, for one.
+    @MainActor
+    func accentInk(of element: XCUIElement, in app: XCUIApplication) throws -> (red: Int, green: Int, blue: Int)? {
+        let frame = element.frame.offsetBy(dx: -app.frame.minX, dy: -app.frame.minY)
+        // A missing screenshot must fail the test, not read as "no accent ink".
+        return try XCTUnwrap(ScreenPixels(app), "No screenshot to read the heading colour from").accentInk(in: frame)
     }
 
     /// MusicBrainz answers for the fixture works, shaped like real ones, by the keys of `Enrichment.stubKey`.

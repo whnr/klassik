@@ -212,6 +212,11 @@ class RetryReportTests(unittest.TestCase):
         self.assertEqual(sum(c.startswith("test-without-building") for c in commands), 1)
         self.assertNotIn("Flaky", (out / "unit-retries.txt").read_text())
 
+    def test_launch_without_process_id_is_infrastructure(self):
+        message = "Application 'de.whnr.klassik' does not have a process ID"
+        self.assertTrue(screen_report.infrastructure_failure([message]))
+        self.assertFalse(screen_report.infrastructure_failure(["Application 'de.whnr.klassik' crashed"]))
+
     def test_runner_crash_retries_only_the_failed_test_and_reports_it_flaky(self):
         tests = case_tree("Failed", ["Test runner crashed: lost connection to the test host"])
         run, out, commands = self.run_screens(tests)

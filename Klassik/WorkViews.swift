@@ -613,7 +613,7 @@ struct RecordingView: View {
                     navigator.closePlayer()
                 }
             }
-            .onScrollGeometryChange(for: Int.self) { Int($0.contentOffset.y) } action: { _, y in  // DIAG-TEMP
+            .onScrollGeometryChange(for: Int.self, of: { Int($0.contentOffset.y) }) { _, y in  // DIAG-TEMP
                 diagLog += "\(isOverlay ? "O" : "P")y=\(y);"  // DIAG-TEMP
             }  // DIAG-TEMP
             .overlay(alignment: .bottom) {  // DIAG-TEMP

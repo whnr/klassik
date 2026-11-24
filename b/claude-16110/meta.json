@@ -1,7 +1,7 @@
 {
-  "sha": "999d8a5dc4f89e289f8f7319181008610599df82",
+  "sha": "90b4295fa7e3d321951f18c98a445996b1103502",
   "branch": "claude-16110",
   "path": "claude-16110",
-  "subject": "[sz-rs30.1.161.10] Merge main into claude-16110",
-  "ts": 1795540269
+  "subject": "Retry the queue swipe when it opens the work",
+  "ts": 1795545710
 }

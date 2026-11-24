@@ -40,6 +40,11 @@ uv run --script scripts/playback_lab.py serve --music lab-library
 
 `build` writes one album, `Playback Lab`, with one work per folder and two movements each: FLAC 24/96, 16/44.1 and 24/192, ALAC 24/96 and 16/44.1, AAC 256, MP3 with and without LAME header, WAV, AIFF, Opus, and a work that changes from 96 kHz to 44.1 kHz. ReplayGain tags are on FLAC 24/96 and the MP3 with header. WAV and AIFF carry the same tags as the other cases in an ID3 chunk. `build` writes that chunk for WAV itself, because ffmpeg does not. Check in Navidrome that the WAV and AIFF works each show two movements.
 
+## Playback Lab app
+
+`KlassikLab` is a second app on `KlassikEngine`: bundle id `de.whnr.klassik.lab`, name Playback Lab. It connects to the server of the Lab library, lists the works of the `Playback Lab` album as test cases, and plays them with the real engine. It shows the source format, the output rate that iOS reports and the join status in one line. A switch turns ReplayGain off, which builds the engine without its gain stage. A throttle makes the link slow or drops it for four seconds in every fourteen. It keeps no audio and no downloads; each play streams again.
+
+
 `serve` downloads Navidrome 0.64.2 once (checksum verified), binds to this machine's home network address only and prints the URL, user `lab` and a generated password. Run it on the home Wi-Fi and stop it with Ctrl-C when the test is done. `--address` overrides the bind address.
 
 ## License

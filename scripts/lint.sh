@@ -3,4 +3,4 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-swift format lint --strict --recursive --parallel Klassik KlassikTests KlassikUITests TaskRegistry KlassikEngine
+swift format lint --strict --recursive --parallel Klassik KlassikTests KlassikUITests TaskRegistry KlassikEngine KlassikLab KlassikLabTests

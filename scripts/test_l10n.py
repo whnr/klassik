@@ -102,7 +102,7 @@ class SwiftTests(unittest.TestCase):
         self.assertEqual(self.keys('.accessibilityLabel("Close")\n.navigationTitle("Title")'), ["Close", "Title"])
 
     def test_escapes_decode(self):
-        self.assertEqual(self.keys('L("A\\u{00A0}B \\"q\\"")'), ["A B \"q\""])
+        self.assertEqual(self.keys('L("A\\u{00A0}B \\"q\\"")'), ['A\u00a0B "q"'])
 
     def test_a_dispatch_queue_label_is_no_key(self):
         self.assertEqual(self.keys('DispatchQueue(label: "de.whnr.queue")'), [])

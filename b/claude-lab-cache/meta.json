@@ -1,7 +1,7 @@
 {
-  "sha": "903c03fb7f272ba7e67afcd1cbba9bccdb8f57a6",
+  "sha": "e02a96389bf6504acb5f2223ab6be2c673eda6f1",
   "branch": "claude-lab-cache",
   "path": "claude-lab-cache",
-  "subject": "[sz-rs30.1.162.9] Keep Lab audio until a case switch",
-  "ts": 1795605875
+  "subject": "[sz-rs30.1.162.9] Fix Lab test actor isolation",
+  "ts": 1795607338
 }

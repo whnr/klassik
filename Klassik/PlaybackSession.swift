@@ -487,6 +487,10 @@ final class PlaybackSession {
         case .scheduled(let scheduled):
             refreshSegments()
             if scheduled == movement.map({ $0 + engineBase }) { updateNowPlaying() }
+        case .formatChanged:
+            // `finished` already moved the checkpoint to the movement that needs the new format. A paused session
+            // drops the engine, so that Resume builds the graph for that movement.
+            if playback.shouldPlay { rebuild() } else { discardEngine() }
         case .configurationChanged: handle(.configurationChanged)
         case .problem(let text): error = text
         case .failed(let text): playbackFailed(text)

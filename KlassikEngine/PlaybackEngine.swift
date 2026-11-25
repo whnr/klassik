@@ -9,6 +9,9 @@ public enum PlaybackEngineEvent: Sendable {
     case waiting(PlaybackWait?)
     /// The engine scheduled a movement, so its exact length is known.
     case scheduled(Int)
+    /// The movement before this one played out, and this one has another sample rate or channel count than the graph.
+    /// The engine never converts it (sz-u8f4). The host reloads from this movement, which gives a short gap.
+    case formatChanged(Int)
     /// The audio hardware changed and the engine stopped.
     case configurationChanged
     /// Playback goes on, but something is wrong.
@@ -60,4 +63,21 @@ public protocol PlaybackEngine: AnyObject {
     func position(from movement: Int) -> (movement: Int, elapsed: Double)?
     /// The exact length of a scheduled movement, in seconds.
     func duration(of movement: Int) -> Double?
+}
+
+/// The sample rate and channel count at the output end of an engine's graph.
+public struct PlaybackOutputFormats: Sendable, Equatable {
+    /// The format that the mixer feeds the output node.
+    public var mixerRate: Double
+    public var mixerChannels: Int
+    /// The format of the output hardware, as the output node reports it.
+    public var hardwareRate: Double
+    public var hardwareChannels: Int
+
+    public init(mixerRate: Double, mixerChannels: Int, hardwareRate: Double, hardwareChannels: Int) {
+        self.mixerRate = mixerRate
+        self.mixerChannels = mixerChannels
+        self.hardwareRate = hardwareRate
+        self.hardwareChannels = hardwareChannels
+    }
 }

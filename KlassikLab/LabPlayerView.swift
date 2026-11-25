@@ -31,6 +31,12 @@ struct LabPlayerView: View {
                         Text(note).font(.footnote).foregroundStyle(.secondary)
                     }
                 }
+                // Everything iOS reports about the output, updated on each route change.
+                Section("Routing and output") {
+                    Text(player.routeLines.joined(separator: "\n"))
+                        .font(.footnote.monospaced())
+                        .textSelection(.enabled)
+                }
                 Section("Playback") {
                     HStack {
                         Button {

@@ -26,7 +26,7 @@ struct DownloadFailureTests {
         let url = URL(string: "https://music.example/rest/stream?u=flo&t=SECRETTOKEN&s=SALT123&id=a")!
         let error = URLError(
             .timedOut,
-            userInfo: [NSURLErrorFailingURLErrorKey: url, NSURLErrorFailingURLStringErrorKey: url.absoluteString])
+            userInfo: [NSURLErrorFailingURLErrorKey: url, "NSErrorFailingURLStringKey": url.absoluteString])
         let text = DownloadFailure.logText(for: error, song: "a")
         for secret in ["SECRETTOKEN", "SALT123", "u=flo", "?"] {
             #expect(!text.contains(secret), "log holds \(secret)")

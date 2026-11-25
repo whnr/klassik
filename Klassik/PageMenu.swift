@@ -201,12 +201,28 @@ struct PageMenuButton: View {
     @Environment(AppModel.self) private var model
     @Environment(AppNavigator.self) private var navigator
     let target: PageMenuTarget
+    /// The player draws the button as a flat disc on its own ground. A page bar keeps the system button.
+    var flat = false
 
     var body: some View {
         Menu {
             PageMenuItems(menu: target.menu(model)) { target.run($0, model: model, navigator: navigator) }
         } label: {
-            Label("More", systemImage: "ellipsis")
+            if flat {
+                // The size and the hit shape sit inside the label: a frame outside a Menu leaves the press area at
+                // the size of the symbol.
+                Image(systemName: "ellipsis")
+                    .typeStyle(.body)
+                    .foregroundStyle(Palette.textPrimary)
+                    .frame(width: Layout.roundButton, height: Layout.roundButton)
+                    .background(Palette.backgroundElevated, in: .circle)
+                    .overlay(Circle().strokeBorder(Palette.separator))
+                    .frame(width: Measure.hitTarget, height: Measure.hitTarget)
+                    .contentShape(.rect)
+                    .accessibilityLabel("More")
+            } else {
+                Label("More", systemImage: "ellipsis")
+            }
         }
         .accessibilityIdentifier("page-menu")
     }

@@ -70,6 +70,17 @@ public final class GaplessEngine: PlaybackEngine {
     /// The sample rate of the audio on the engine's graph. It is the rate of the file, never a converted rate.
     public var sourceSampleRate: Double? { format?.sampleRate }
     public var sourceChannelCount: Int? { format.map { Int($0.channelCount) } }
+    /// What the output end of the graph runs at: the format that the mixer feeds the output node, and the format of
+    /// the output hardware. Nil before the first track connects. A host reads it to show where the system converts.
+    public var outputFormats: PlaybackOutputFormats? {
+        guard let engine, format != nil else { return nil }
+        let output = engine.outputNode
+        let mixer = output.inputFormat(forBus: 0)
+        let hardware = output.outputFormat(forBus: 0)
+        return PlaybackOutputFormats(
+            mixerRate: mixer.sampleRate, mixerChannels: Int(mixer.channelCount),
+            hardwareRate: hardware.sampleRate, hardwareChannels: Int(hardware.channelCount))
+    }
     /// A paused node reports no player time, so the position is kept here.
     private(set) var pausedAt: Int64?
     /// The end of the scheduled audio on the node timeline.
@@ -134,16 +145,8 @@ public final class GaplessEngine: PlaybackEngine {
         self.manualRendering = manualRendering
     }
 
-    private var diagStart = ContinuousClock.now  // DIAG
-    private func diag(_ text: String) {  // DIAG
-        guard manualRendering else { return }  // DIAG
-        print("DIAG \(diagStart.duration(to: .now)) pumped \(pumped) end \(scheduledEnd) \(text)")  // DIAG
-    }  // DIAG
-
     public func load(_ songs: [PlaybackTrack], from movement: Int, offset: Double, file: @escaping PlaybackFileSource) {
         discard()
-        diagStart = .now  // DIAG
-        diag("load from \(movement) offset \(offset)")  // DIAG
         self.songs = songs
         // The track at the load's start is fixed before the scheduler asks for it.
         requested = movement
@@ -217,7 +220,6 @@ public final class GaplessEngine: PlaybackEngine {
     }
 
     public func discard() {
-        diag("discard")  // DIAG
         // Invalidate callbacks before stopping: node teardown also calls completion handlers.
         generation += 1
         cancelled.set()
@@ -617,14 +619,8 @@ public final class GaplessEngine: PlaybackEngine {
         _ buffer: AVAudioPCMBuffer, position: Int, audioStart: Int64, last: Bool, generation: Int
     ) {
         guard let node else { return }
-        let before = scheduledEnd  // DIAG
         let placed = timeline.append(
             position, audio: audioStart..<(audioStart + Int64(buffer.frameLength)), rendered: playedSamples() ?? 0)
-        if last || audioStart == 0 || placed.lowerBound != before {  // DIAG
-            let size = buffer.frameLength  // DIAG
-            let at = placed.lowerBound  // DIAG
-            diag("enqueue m\(position) audio \(audioStart) n \(size) at \(at) prev \(before) last \(last)")  // DIAG
-        }  // DIAG
         scheduledEnd = placed.upperBound
         node.scheduleBuffer(
             buffer, at: AVAudioTime(sampleTime: placed.lowerBound, atRate: sampleRate), options: [],
@@ -677,7 +673,6 @@ public final class GaplessEngine: PlaybackEngine {
     /// Starts the node from silence, so a start inside a waveform (a seek, a resume) does not click.
     /// A node that still plays only ramps up again, when a fade-out silenced it: a second start would dip it.
     func start(_ node: AVAudioPlayerNode) throws {
-        diag("start, playing \(node.isPlaying) silenced \(silenced)")  // DIAG
         guard !node.isPlaying else {
             if silenced { rampUp(from: nil) }
             return
@@ -690,7 +685,6 @@ public final class GaplessEngine: PlaybackEngine {
         halting?.cancel()
         halting = nil
         silenced = false
-        diag("ramp up from \(String(describing: level))")  // DIAG
         fade?.ramp(from: level, to: 1, frames: fadeFrames)
     }
 
@@ -702,7 +696,6 @@ public final class GaplessEngine: PlaybackEngine {
     ) {
         halting?.cancel()
         guard let fade else { return body() }
-        diag("halt frames \(frames) delay \(delay) extra \(extra)")  // DIAG
         silenced = true
         let wait = Double(frames) / sampleRate + extra
         if delay <= 0 { fade.ramp(to: 0, frames: frames) }
@@ -711,7 +704,6 @@ public final class GaplessEngine: PlaybackEngine {
             if delay > 0 {
                 try? await Task.sleep(for: .seconds(delay))
                 guard !Task.isCancelled else { return }
-                diag("delayed ramp to 0 runs")  // DIAG
                 fade.ramp(to: 0, frames: frames)
             }
             try? await Task.sleep(for: .seconds(wait))
@@ -755,7 +747,6 @@ public final class GaplessEngine: PlaybackEngine {
             if playing, started, !starved, decoding, let node, node.isPlaying, remaining <= lead {
                 // A pause keeps the next sample in place on the timeline until the refill is ready.
                 starved = true
-                diag("starved, remaining \(remaining) lead \(lead) decoding \(decoding)")  // DIAG
                 let generation = generation
                 // The ramp ends with the audio, and the node stops one watch tick after the audio, so the end of
                 // the movement is reported before the stop.
@@ -766,7 +757,6 @@ public final class GaplessEngine: PlaybackEngine {
                 ) { [weak self] in
                     guard let self, generation == self.generation, self.starved else { return }
                     self.pausedAt = self.playedSamples()
-                    self.diag("starve pause")  // DIAG
                     node.pause()
                 }
             }
@@ -790,7 +780,6 @@ public final class GaplessEngine: PlaybackEngine {
     private func finished(_ position: Int, generation: Int) {
         guard generation == self.generation, engine?.isRunning == true else { return }
         lastEnded = position
-        diag("ended m\(position)")  // DIAG
         onEvent?(.movementEnded(position))
         reportFormatBreak()
     }

@@ -16,6 +16,10 @@ final class LabPlayer {
     /// The sample rate and channel count that the engine's graph runs at: the rate of the file that plays.
     private(set) var engineRate = 0.0
     private(set) var engineChannels = 0
+    /// What iOS reports about the output route, read live.
+    private(set) var route = LabRoute()
+    private(set) var graph = LabRoute.Graph(sourceRate: 0, sourceChannels: 0, outputs: nil)
+    private(set) var routeChange: String?
     private(set) var join = "not played yet"
     private(set) var note: String?
 
@@ -37,6 +41,8 @@ final class LabPlayer {
     }
 
     private let client: LabClient
+    /// Removes its observers when the player goes away.
+    private let routeNotifications = PlaybackNotifications()
     private var engine: GaplessEngine?
     private var feeders: [LabFeeder] = []
     private var ticker: Task<Void, Never>?
@@ -54,6 +60,29 @@ final class LabPlayer {
         self.client = client
         selected = cases.first
         Self.wipe()
+        route = LabRoute.read()
+        routeNotifications.observe(AVAudioSession.routeChangeNotification) { [weak self] note in
+            let raw = note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt
+            Task { @MainActor in self?.routeChanged(raw) }
+        }
+    }
+
+    /// The lines of the routing section.
+    var routeLines: [String] { LabRoute.lines(route: route, graph: graph, change: routeChange) }
+
+    private func routeChanged(_ raw: UInt?) {
+        routeChange = LabRoute.reason(raw)
+        refreshRoute()
+    }
+
+    private func refreshRoute() {
+        route = LabRoute.read()
+        outputRate = route.sampleRate
+        graph = LabRoute.Graph(
+            sourceRate: engine?.sourceSampleRate ?? 0, sourceChannels: engine?.sourceChannelCount ?? 0,
+            outputs: engine?.outputFormats)
+        engineRate = graph.sourceRate
+        engineChannels = graph.sourceChannels
     }
 
     /// The line that the screen always shows: source format, the rate of the engine's graph, the rate that iOS
@@ -62,11 +91,11 @@ final class LabPlayer {
     var qualityLine: String {
         Self.qualityLine(
             source: selected?.sourceLine ?? "no case", engineRate: engineRate, engineChannels: engineChannels,
-            outputRate: outputRate, join: join)
+            outputRate: outputRate, output: route.outputName, join: join)
     }
 
     nonisolated static func qualityLine(
-        source: String, engineRate: Double, engineChannels: Int, outputRate: Double, join: String
+        source: String, engineRate: Double, engineChannels: Int, outputRate: Double, output: String, join: String
     ) -> String {
         var fields = ["Source \(source)"]
         if engineRate > 0 {
@@ -76,11 +105,11 @@ final class LabPlayer {
         if outputRate <= 0 {
             fields.append("iOS output unknown")
         } else if engineRate > 0, outputRate == engineRate {
-            fields.append("iOS output \(kilohertz(outputRate)) kHz, native")
+            fields.append("iOS output \(kilohertz(outputRate)) kHz on \(output), native")
         } else if engineRate > 0 {
-            fields.append("iOS output \(kilohertz(outputRate)) kHz, iOS converts")
+            fields.append("iOS output \(kilohertz(outputRate)) kHz on \(output), iOS converts")
         } else {
-            fields.append("iOS output \(kilohertz(outputRate)) kHz")
+            fields.append("iOS output \(kilohertz(outputRate)) kHz on \(output)")
         }
         fields.append("join \(join)")
         return fields.joined(separator: ", ")
@@ -257,9 +286,7 @@ final class LabPlayer {
     }
 
     private func tick() {
-        outputRate = AVAudioSession.sharedInstance().sampleRate
-        engineRate = engine?.sourceSampleRate ?? 0
-        engineChannels = engine?.sourceChannelCount ?? 0
+        refreshRoute()
         guard let engine, let selected, let place = engine.position(from: 0) else { return }
         movement = place.movement
         elapsed = place.elapsed

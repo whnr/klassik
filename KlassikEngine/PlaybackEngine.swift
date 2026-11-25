@@ -64,3 +64,20 @@ public protocol PlaybackEngine: AnyObject {
     /// The exact length of a scheduled movement, in seconds.
     func duration(of movement: Int) -> Double?
 }
+
+/// The sample rate and channel count at the output end of an engine's graph.
+public struct PlaybackOutputFormats: Sendable, Equatable {
+    /// The format that the mixer feeds the output node.
+    public var mixerRate: Double
+    public var mixerChannels: Int
+    /// The format of the output hardware, as the output node reports it.
+    public var hardwareRate: Double
+    public var hardwareChannels: Int
+
+    public init(mixerRate: Double, mixerChannels: Int, hardwareRate: Double, hardwareChannels: Int) {
+        self.mixerRate = mixerRate
+        self.mixerChannels = mixerChannels
+        self.hardwareRate = hardwareRate
+        self.hardwareChannels = hardwareChannels
+    }
+}

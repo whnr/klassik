@@ -129,7 +129,14 @@ private struct SystemPlaces: UIViewControllerRepresentable {
         controller.reservedWidth = reservedWidth
         controller.side = side
         controller.tabBar.tintColor = UIColor(named: Palette.tint.assetName(in: accent))
-        for tab in controller.tabs { tab.title = Place(rawValue: tab.identifier)?.title ?? tab.title }
+        // The bar does not redraw a changed title, so a new language makes new tabs around the same pages.
+        if controller.tabs.map(\.title) != Place.allCases.map(\.title) {
+            let hosts = controller.tabs.compactMap(\.viewController)
+            if hosts.count == Place.allCases.count {
+                controller.setTabs(zip(Place.allCases, hosts).map { $0.tab($1) }, animated: false)
+                controller.selectedIndex = selected
+            }
+        }
         controller.view.setNeedsLayout()
     }
 

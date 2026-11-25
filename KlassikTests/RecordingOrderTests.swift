@@ -267,6 +267,45 @@ struct RecordingOrderTests {
         #expect(reconnected.reference(of: work)?.id == rows[0].id)
     }
 
+    /// Two lists, each in the order of the tiers. The reference recording comes from the complete list.
+    @Test func partialRecordingsFormTheirOwnListAndNeverLeadThePlay() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        func part(_ album: String, year: Int, starred: Bool = false) -> Song {
+            var partial = song(album, year: year, starred: starred)
+            partial.movements = [Song.Movement(name: "II", number: 2, count: 4)]
+            return partial
+        }
+        let songs = [
+            song("whole-old", year: 1980), song("whole-new", year: 2020),
+            part("part-fav", year: 1950, starred: true), part("part-new", year: 2010),
+        ]
+        let library = try await library(songs, root: root)
+        let work = try #require(library.index.composers.first?.works.first)
+        let order = RecordingOrder(library: library, store: store(root))
+        let lists = order.lists(of: work, separatingPartial: true)
+        #expect(lists.recordings.map(\.recording.album) == ["whole-new", "whole-old"])
+        #expect(lists.partial.map(\.recording.album) == ["part-fav", "part-new"])
+        #expect(lists.partial.first?.recording.completeness == "1 of 4 movements")
+        #expect(order.reference(of: work, separatingPartial: true)?.album == "whole-new")
+        let single = order.lists(of: work, separatingPartial: false)
+        #expect(single.partial.isEmpty)
+        #expect(single.recordings.map(\.recording.album) == ["part-fav", "whole-new", "part-new", "whole-old"])
+        #expect(order.reference(of: work, separatingPartial: false)?.album == "part-fav")
+    }
+
+    @Test func aWorkWithOnlyPartialRecordingsPlaysTheTopPartialOne() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        var only = song("only", year: 2000)
+        only.movements = [Song.Movement(name: "II", number: 2, count: 4)]
+        let library = try await library([only], root: root)
+        let work = try #require(library.index.composers.first?.works.first)
+        let order = RecordingOrder(library: library, store: store(root))
+        #expect(order.lists(of: work, separatingPartial: true).recordings.isEmpty)
+        #expect(order.reference(of: work, separatingPartial: true)?.album == "only")
+    }
+
     @Test func togglesAllTracksAndKeepsOtherFavouritesAndQueueCopiesCurrent() async throws {
         let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }

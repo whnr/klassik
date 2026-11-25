@@ -72,7 +72,9 @@ struct ComposerPage: View {
 
     @ViewBuilder private func worksTab(_ catalogue: ComposerWorks) -> some View {
         let genres = catalogue.genres
-        let parts = catalogue.parts(filter: chips, separatingPartial: separatesPartial)
+        let parts = catalogue.parts(
+            filter: chips, favourites: Set(model.recordingOrder.favouriteWorks.map(\.id)),
+            separatingPartial: separatesPartial)
         if !genres.isEmpty {
             GenreChips(genres: genres, selection: $chips)
                 .listRowInsets(EdgeInsets(top: Layout.chipsTop, leading: 0, bottom: 0, trailing: 0))

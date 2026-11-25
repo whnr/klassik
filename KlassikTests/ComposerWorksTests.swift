@@ -90,6 +90,53 @@ struct ComposerWorksTests {
         #expect(works.parts(filter: ["Orchestral"], separatingPartial: true).map(\.title) == ["Works"])
     }
 
+    @Test func favouriteWorksLeadAndPartialFavouritesStayPartial() throws {
+        let works = try Self.chopin([
+            Self.song("a", work: "Ballade", genres: ["Piano"]),
+            Self.song("b", work: "Concerto", genres: ["Piano"]),
+            Self.song("c", work: "Waltz", genres: ["Piano"]),
+            Self.song("d", work: "Etude", genres: ["Piano"]),
+            Self.song("e", work: "Sonata", genres: ["Piano"], movement: (3, 4)),
+            Self.song("f", work: "Fantasy", genres: ["Piano"], movement: (1, 4)),
+        ])
+        let id = { (title: String) in works.works.first { $0.title == title }!.id }
+        let favourites: Set<String> = [id("Waltz"), id("Concerto"), id("Sonata")]
+        let parts = works.parts(favourites: favourites, separatingPartial: true)
+        #expect(parts.map(\.title) == ["Favourite works", "Works", "Partial works"])
+        #expect(parts[0].rows.map(\.title) == ["Concerto", "Waltz"])
+        #expect(parts[1].rows.map(\.title) == ["Ballade", "Etude"])
+        #expect(parts[2].rows.map(\.title) == ["Fantasy", "Sonata"])
+    }
+
+    @Test func withTheSettingOffEveryFavouriteLeads() throws {
+        let works = try Self.chopin([
+            Self.song("a", work: "Ballade", genres: ["Piano"]),
+            Self.song("b", work: "Sonata", genres: ["Piano"], movement: (3, 4)),
+        ])
+        let favourites = Set(works.works.filter { $0.title == "Sonata" }.map(\.id))
+        let parts = works.parts(favourites: favourites, separatingPartial: false)
+        #expect(parts.map(\.title) == ["Favourite works", "Works"])
+        #expect(parts[0].rows.map(\.title) == ["Sonata"])
+        #expect(parts[1].rows.map(\.title) == ["Ballade"])
+    }
+
+    @Test func noFavouritesAddNoSection() throws {
+        let works = try Self.chopin([Self.song("a", work: "Ballade", genres: ["Piano"])])
+        #expect(works.parts(favourites: [], separatingPartial: true).map(\.title) == ["Works"])
+    }
+
+    @Test func aFavouriteLeavesItsSetAndTheChipsStillApply() throws {
+        let works = try Self.chopin([
+            Self.song("a", work: "Etude No. 1", genres: ["Piano"], grouping: "Etudes"),
+            Self.song("b", work: "Etude No. 2", genres: ["Piano"], grouping: "Etudes"),
+            Self.song("c", work: "Song", genres: ["Vocal"]),
+        ])
+        let favourites = Set(works.works.map(\.id))
+        let parts = works.parts(filter: ["Piano"], favourites: favourites, separatingPartial: true)
+        #expect(parts.map(\.title) == ["Favourite works"])
+        #expect(parts[0].rows.map(\.title) == ["Etude No. 1", "Etude No. 2"])
+    }
+
     @Test func aSetStaysTogetherInWorks() throws {
         let works = try Self.chopin([
             Self.song("a", work: "Etude No. 1", genres: ["Piano"], grouping: "Etudes"),

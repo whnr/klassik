@@ -235,7 +235,15 @@ struct WorkView: View {
     @Environment(AppModel.self) private var model
     let work: WorkIndex.Work
 
-    private var recordings: [RecordingOrder.Row] { model.recordingOrder.rows(of: work) }
+    @AppStorage(ComposerWorks.separatesPartialKey) private var separatesPartial = true
+
+    private var lists: (recordings: [RecordingOrder.Row], partial: [RecordingOrder.Row]) {
+        model.recordingOrder.lists(of: work, separatingPartial: separatesPartial)
+    }
+
+    private var reference: WorkIndex.Recording? {
+        model.recordingOrder.reference(of: work, separatingPartial: separatesPartial)
+    }
 
     var body: some View {
         PageList {
@@ -252,7 +260,7 @@ struct WorkView: View {
             WorkHeader(work: work)
                 .listRowSeparator(.hidden)
                 .pageEdges(bottom: Layout.headBottom)
-            if let recording = model.recordingOrder.reference(of: work) {
+            if let recording = reference {
                 let player = model.playback
                 // While any recording of the work plays, the pill pauses it. Else it plays the top of the list.
                 let playsThisWork = player.item?.work.id == work.id
@@ -275,29 +283,12 @@ struct WorkView: View {
                 .pageEdges(top: Layout.buttonRowTop)
             }
 
-            Section {
-                CountedHeading("Recordings", count: work.recordings.count)
-                ForEach(recordings) { row in
-                    let recording = row.recording
-                    let isPlaying = plays(recording)
-                    NavigationLink(value: Page.recording(work: work.id, recording: recording.id)) {
-                        RecordingRow(
-                            recording: recording, isFavourite: row.isFavourite, reason: row.reason,
-                            isPlaying: isPlaying)
-                    }
-                    // The row draws its own trailing control on the top edge (specimen `.row.top`).
-                    .navigationLinkIndicatorVisibility(.hidden)
-                    // Tint identifies the playing recording while the listener browses.
-                    .playingRow(isPlaying)
-                    .itemActions(QueueItem(work: work, recording: recording), downloads: true, favourite: true)
-                    .accessibilityIdentifier("recording")
-                    .itemSeparator(first: row.id == recordings.first?.id, last: row.id == recordings.last?.id)
-                }
-                Text("Favourite recordings come first. Then the newest.")
-                    .typeStyle(Layout.footnote)
-                    .foregroundStyle(Palette.textSecondary)
-                    .listRowSeparator(.hidden)
-                    .pageEdges(top: Layout.workFootTop + Layout.footTop)
+            let lists = lists
+            if !lists.recordings.isEmpty || lists.partial.isEmpty {
+                recordingsSection("Recordings", rows: lists.recordings, footnote: lists.partial.isEmpty)
+            }
+            if !lists.partial.isEmpty {
+                recordingsSection("Partial recordings", rows: lists.partial, footnote: true)
             }
         }
         .navigationTitle(work.title)
@@ -305,19 +296,54 @@ struct WorkView: View {
         .environment(\.pageHeading, "")
         .toolbar {
             // The menu queues the recording that Play plays: the top of the list.
-            if let recording = model.recordingOrder.reference(of: work) {
+            if let recording = reference {
                 ToolbarItem(placement: .topBarTrailing) {
                     PageMenuButton(
                         target: PageMenuTarget(kind: .work, item: QueueItem(work: work, recording: recording)))
                 }
             }
         }
-        .onAppear { model.sweep.prefer(performers: recordings.flatMap(\.recording.performerNames)) }
+        .onAppear {
+            let lists = lists
+            model.sweep.prefer(performers: (lists.recordings + lists.partial).flatMap(\.recording.performerNames))
+        }
     }
 
     private func plays(_ recording: WorkIndex.Recording) -> Bool {
         guard let item = model.playback.item else { return false }
         return item.work.id == work.id && item.recording.id == recording.id
+    }
+
+    /// The footnote closes the last list only, so it appears once.
+    @ViewBuilder private func recordingsSection(_ title: String, rows: [RecordingOrder.Row], footnote: Bool)
+        -> some View
+    {
+        Section {
+            CountedHeading(title, count: rows.count)
+            ForEach(rows) { row in
+                let recording = row.recording
+                let isPlaying = plays(recording)
+                NavigationLink(value: Page.recording(work: work.id, recording: recording.id)) {
+                    RecordingRow(
+                        recording: recording, isFavourite: row.isFavourite, reason: row.reason,
+                        isPlaying: isPlaying)
+                }
+                // The row draws its own trailing control on the top edge (specimen `.row.top`).
+                .navigationLinkIndicatorVisibility(.hidden)
+                // Tint identifies the playing recording while the listener browses.
+                .playingRow(isPlaying)
+                .itemActions(QueueItem(work: work, recording: recording), downloads: true, favourite: true)
+                .accessibilityIdentifier("recording")
+                .itemSeparator(first: row.id == rows.first?.id, last: row.id == rows.last?.id)
+            }
+            if footnote {
+                Text("Favourite recordings come first. Then the newest.")
+                    .typeStyle(Layout.footnote)
+                    .foregroundStyle(Palette.textSecondary)
+                    .listRowSeparator(.hidden)
+                    .pageEdges(top: Layout.workFootTop + Layout.footTop)
+            }
+        }
     }
 }
 

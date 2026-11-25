@@ -32,6 +32,11 @@ struct ComposerWorks: Sendable {
     /// The user default that lists partial works apart. Flo's setting is on by default.
     static let separatesPartialKey = "composerWorks.separatePartial"
 
+    /// Reads the setting where no view holds it. Missing means on.
+    static var separatesPartial: Bool {
+        UserDefaults.standard.object(forKey: separatesPartialKey) as? Bool ?? true
+    }
+
     let works: [WorkIndex.Work]
 
     init(_ composer: WorkIndex.Composer) {
@@ -63,9 +68,16 @@ struct ComposerWorks: Sendable {
     /// only the works that do. Sets stay in Works because their completeness is unknown.
     /// `partial` nil keeps every row, true keeps only partial works, false keeps the rest and every set.
     func rows(filter chips: Set<String> = [], partial: Bool? = nil) -> [Row] {
-        let shown = works.filter { work in
+        rows(of: matching(chips), partial: partial)
+    }
+
+    private func matching(_ chips: Set<String>) -> [WorkIndex.Work] {
+        works.filter { work in
             chips.isEmpty || !Self.genres(of: work).isDisjoint(with: chips)
         }
+    }
+
+    private func rows(of shown: [WorkIndex.Work], partial: Bool?) -> [Row] {
         var rows: [Row] = []
         var sets: [String: [WorkIndex.Work]] = [:]
         for work in shown {
@@ -105,16 +117,24 @@ struct ComposerWorks: Sendable {
         let name: String
     }
 
-    /// The sections of the Works tab. With `separatingPartial`, works that no recording holds whole follow under
-    /// "Partial works". An empty section does not show, unless no work shows at all.
-    func parts(filter chips: Set<String> = [], separatingPartial: Bool) -> [Part] {
-        guard separatingPartial else { return [Part(title: "Works", rows: rows(filter: chips))] }
-        let parts = [
-            Part(title: "Works", rows: rows(filter: chips, partial: false)),
-            Part(title: "Partial works", rows: rows(filter: chips, partial: true)),
-        ]
-        let shown = parts.filter { !$0.rows.isEmpty }
-        return shown.isEmpty ? [parts[0]] : shown
+    /// The sections of the Works tab. "Favourite works" lead with the favourite works, each a row of its own,
+    /// A to Z. With `separatingPartial`, a favourite work that no recording holds whole stays in "Partial works", and
+    /// "Works" holds the other complete works. Without it, every favourite work leads. An empty section does not
+    /// show, unless no work shows at all.
+    func parts(filter chips: Set<String> = [], favourites: Set<String> = [], separatingPartial: Bool) -> [Part] {
+        let shown = matching(chips)
+        let promoted = shown.filter { favourites.contains($0.id) && !(separatingPartial && Self.isPartial($0)) }
+        let ids = Set(promoted.map(\.id))
+        let rest = shown.filter { !ids.contains($0.id) }
+        var parts = [Part(title: "Favourite works", rows: rows(of: promoted, partial: nil))]
+        if separatingPartial {
+            parts.append(Part(title: "Works", rows: rows(of: rest, partial: false)))
+            parts.append(Part(title: "Partial works", rows: rows(of: rest, partial: true)))
+        } else {
+            parts.append(Part(title: "Works", rows: rows(of: rest, partial: nil)))
+        }
+        let visible = parts.filter { !$0.rows.isEmpty }
+        return visible.isEmpty ? [parts[1]] : visible
     }
 
     static func sorted(_ works: [WorkIndex.Work]) -> [WorkIndex.Work] {

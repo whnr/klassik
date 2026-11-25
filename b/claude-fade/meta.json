@@ -1,7 +1,7 @@
 {
-  "sha": "76dfee1dacfe4429bbf733cb13cd1a2d324a5693",
+  "sha": "fb6588240c738fa09cb36bf4c0e3fe876c2f8f86",
   "branch": "claude-fade",
   "path": "claude-fade",
-  "subject": "[sz-rs30.1.162.7] End the stall fade with the audio",
-  "ts": 1795581099
+  "subject": "[sz-rs30.1.162.7] Read the fade unit without a deprecated call",
+  "ts": 1795585159
 }

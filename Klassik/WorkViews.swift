@@ -77,7 +77,8 @@ private struct ItemActions: ViewModifier {
             Button("Cancel Download", systemImage: "xmark") { tracks.cancelDownload(item.recording.id) }
         } else {
             // A plain glyph, as the queue actions have: a circled glyph draws as a ring inside the pill.
-            Button("Download", systemImage: "arrow.down") {
+            let title = tracks.failures[item.recording.id] == nil ? "Download" : "Download Again"
+            Button(title, systemImage: "arrow.down") {
                 if let client = model.client {
                     tracks.download(item.recording, title: item.work.title, client: client)
                 }

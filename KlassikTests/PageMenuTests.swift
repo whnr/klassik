@@ -100,6 +100,25 @@ struct PageMenuTests {
                 == .downloaded(bytes: 9))
     }
 
+    @Test func failedDownloadOffersANewTryInsteadOfTheDownloadItem() throws {
+        let one = recording(sizes: [100])
+        let state = PageMenu.download(
+            of: one, parts: [], downloads: [], progress: [:], failures: ["r1": "Server said 500"])
+        #expect(state == .failed(reason: "Server said 500"))
+        let item = try item(PageMenu(kind: .recording, download: state, needsServer: false), .download)
+        #expect(item.title == "Download Again")
+        #expect(item.subtitle == "Failed: Server said 500")
+        #expect(!item.isDisabled)
+        // A running retry and a stored download win over the old failure.
+        #expect(
+            PageMenu.download(of: one, parts: [], downloads: [], progress: ["r1": 0], failures: ["r1": "x"])
+                == .downloading(share: 0))
+        #expect(
+            PageMenu.download(
+                of: one, parts: [], downloads: [stored("r1", bytes: 9)], progress: [:], failures: ["r1": "x"])
+                == .downloaded(bytes: 9))
+    }
+
     @Test func albumIsPartlyDownloadedOnlyWithSomeOfSeveralRecordings() {
         let album = recording(sizes: [1], id: "album|a")
         let parts = ["p1", "p2", "p3"]

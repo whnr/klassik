@@ -233,6 +233,25 @@ struct TrackStoreTests {
         #expect(store.failures.isEmpty)
     }
 
+    @Test func failedBackgroundLoadLeavesAFailedStateNotTheDownloadButton() async throws {
+        let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
+        let store = TrackStore(
+            cacheFolder: root.appending(path: "cache"), downloadFolder: root.appending(path: "support/downloads"),
+            defaults: defaults, fetch: { _, _ in throw SubsonicError.http(status: 500) },
+            background: { _, _ in throw URLError(.networkConnectionLost) })
+        let recording = recording("r1", ["a"])
+        store.download(recording, title: "Work", client: client)
+        await settle(store)
+        #expect(!store.isDownloaded(recording))
+        #expect(store.progress["r1"] == nil)
+        let state = PageMenu.download(
+            of: recording, parts: [], downloads: store.downloads, progress: store.progress, failures: store.failures)
+        guard case .failed = state else {
+            Issue.record("A failed download shows \(state), not a failed state")
+            return
+        }
+    }
+
     @Test func unfinishedDownloadShowsAsRunningAfterARelaunchAndFinishes() async throws {
         let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
         let first = makeBackgroundStore(defaults, loads: Requests(), hold: true)

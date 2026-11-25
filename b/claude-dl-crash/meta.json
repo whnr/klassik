@@ -1,7 +1,7 @@
 {
-  "sha": "9611d0ca80bbcc5ac59a41dc9003327f0d6316ab",
+  "sha": "3739bad30deb184d9da910f3bb9c94c51d424ec6",
   "branch": "claude-dl-crash",
   "path": "claude-dl-crash",
-  "subject": "[sz-rs30.1.165.1] Show a failed download instead of the Download button",
-  "ts": 1795575878
+  "subject": "[sz-rs30.1.165.1] Keep a listener cancel out of failures",
+  "ts": 1795577402
 }

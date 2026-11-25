@@ -26,8 +26,9 @@ struct M4AGaplessInfoTests {
     }
 
     static func smpb(_ text: String) -> [UInt8] {
-        let item = box("mean", be(0) + Array("com.apple.iTunes".utf8)) + box("name", be(0) + Array("iTunSMPB".utf8))
-            + box("data", be(1, 0) + Array(text.utf8))
+        let mean = box("mean", be(0) + Array("com.apple.iTunes".utf8))
+        let name = box("name", be(0) + Array("iTunSMPB".utf8))
+        let item = mean + name + box("data", be(1, 0) + Array(text.utf8))
         return box("udta", box("meta", be(0) + box("ilst", box("----", item))))
     }
 

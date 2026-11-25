@@ -63,7 +63,8 @@ public struct M4AGaplessInfo: Equatable, Sendable {
     /// `body` is the content of the moov box.
     public static func parse(moov body: [UInt8]) -> M4AGaplessInfo? {
         let moov = Box(type: "moov", body: body[...])
-        guard let track = moov.children.first(where: { $0.type == "trak" && $0.find(["mdia", "minf", "smhd"]) != nil }),
+        let isAudio: (Box) -> Bool = { $0.type == "trak" && $0.find(["mdia", "minf", "smhd"]) != nil }
+        guard let track = moov.children.first(where: isAudio),
             let mdhd = track.find(["mdia", "mdhd"]),
             let stts = track.find(["mdia", "minf", "stbl", "stts"]),
             let mediaScale = timescale(mdhd.body),

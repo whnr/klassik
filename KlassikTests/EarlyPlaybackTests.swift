@@ -27,7 +27,13 @@ final class EarlyPlaybackTests: XCTestCase {
         }
         let songs = try await client.album(id: XCTUnwrap(album).id).songs
         let song = try XCTUnwrap(songs.first)
-        let (data, _) = try await URLSession.shared.data(from: client.streamURL(songID: song.id))
+        // The resource is hundreds of MB. A fresh session never reuses the keep-alive connection of the lookups above,
+        // and a download to disk never buffers the body in memory; the decoder reads the mapped file.
+        let session = URLSession(configuration: .ephemeral)
+        defer { session.invalidateAndCancel() }
+        let (downloaded, _) = try await session.download(from: client.streamURL(songID: song.id))
+        defer { try? FileManager.default.removeItem(at: downloaded) }
+        let data = try Data(contentsOf: downloaded, options: .alwaysMapped)
         XCTAssertGreaterThanOrEqual(data.count, 100_000_000, "The gate needs a genuine large encoded resource")
         // Only a stall on the runner adds time, so the fastest of a few probes measures the decoder.
         // The first probe supplies the checks on bytes and PCM.

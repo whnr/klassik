@@ -134,16 +134,8 @@ public final class GaplessEngine: PlaybackEngine {
         self.manualRendering = manualRendering
     }
 
-    private var diagLogged: Set<Int> = []  // DIAG
-    private var diagWaiting = false  // DIAG
-    private var diagStart = ContinuousClock.now  // DIAG
-    private func diag(_ text: String) {  // DIAG
-        print("DIAG \(diagStart.duration(to: .now)) \(text)")  // DIAG
-    }  // DIAG
-
     public func load(_ songs: [PlaybackTrack], from movement: Int, offset: Double, file: @escaping PlaybackFileSource) {
         discard()
-        diagStart = .now  // DIAG
         self.songs = songs
         // The track at the load's start is fixed before the scheduler asks for it.
         requested = movement
@@ -383,15 +375,22 @@ public final class GaplessEngine: PlaybackEngine {
 
     /// Opens the next track while this one still decodes, once this one has filled its lookahead. The open of a
     /// recording can take longer than the audio that waits on the node, and a dry node is a gap in a continuous join.
-    /// The same `mayRequest` rule applies, so only the audible track's successor ever opens.
+    /// The same `mayRequest` rule applies, so only the audible track's successor ever opens. `decoded` counts the
+    /// frames that the decoder produced and the frames that the arrived bytes still hold: a decoder reads a whole
+    /// chunk, so it can wait for bytes that the lookahead does not need yet.
     private func openNext(after position: Int, decoded: Int64, ahead: Int64) {
         let next = position + 1
         guard decoded >= ahead, opening?.position != next, mayRequest(next, from: firstIndex),
             let opener, songs.indices.contains(next)
         else { return }
         let song = songs[next]
-        diag("opening movement \(next)")  // DIAG
         opening = (next, song.id, Task { try await opener(song) })
+    }
+
+    /// The frames that the bytes after the decoder's place hold, at the bitrate of the stream.
+    private func arrivedFrames(_ transfer: TrackTransfer, rate: Double) -> Int64 {
+        guard let stream, stream.bitrate > 0 else { return 0 }
+        return Int64(Double(transfer.bufferedBytes(from: consumed)) * 8 / stream.bitrate * rate)
     }
 
     private func audibleMovement() -> Int {
@@ -420,9 +419,7 @@ public final class GaplessEngine: PlaybackEngine {
             return format.sampleRate == incoming.sampleRate && format.channelCount == incoming.channelCount
                 ? .ready : .other
         }
-        diag("connect begins \(incoming.sampleRate) Hz \(incoming.channelCount) ch")  // DIAG
         activatedSampleRate = try await Self.activateSession(preferredRate: incoming.sampleRate)
-        diag("activated, session rate \(activatedSampleRate ?? 0)")  // DIAG
         try check(generation)
         format = incoming
         sampleRate = incoming.sampleRate
@@ -449,7 +446,6 @@ public final class GaplessEngine: PlaybackEngine {
             ) { buffer, _ in rendered(buffer) }
         }
         try engine.start()
-        diag("engine started")  // DIAG
         if manualRendering { startPump(engine, node: node, generation: generation) }
         return .ready
     }
@@ -574,22 +570,13 @@ public final class GaplessEngine: PlaybackEngine {
         var held: AVAudioPCMBuffer?
         var heldStart = emitted
         reading: while true {
-            if !diagLogged.contains(position) && emitted - origin >= ahead / 2 {  // DIAG
-                diagLogged.insert(position)  // DIAG
-                let held = scheduledEnd - (playedSamples() ?? 0)  // DIAG
-                let may = mayRequest(position + 1, from: firstIndex)  // DIAG
-                diag("movement \(position) decoded \(emitted - origin) of \(ahead), holds \(held), may \(may)")  // DIAG
-            }  // DIAG
-            openNext(after: position, decoded: emitted - origin, ahead: ahead)
+            openNext(after: position, decoded: emitted - origin + arrivedFrames(transfer, rate: rate), ahead: ahead)
             if scheduledEnd - (playedSamples() ?? 0) >= ahead {
-                if !diagWaiting { diag("m\(position) node full, decoded \(emitted - origin)") }  // DIAG
-                diagWaiting = true  // DIAG
                 try startIfReady(transfer, remaining: Double(fullLength - emitted) / rate)
                 try await Task.sleep(for: Self.watchInterval)
                 try check(generation)
                 continue
             }
-            diagWaiting = false  // DIAG
             let decoded = try await work { try Decoded(decoder, reader: reader) }
             try check(generation)
             stream = (transfer, AudioBitrate.current(song, observed: decoded.bitrate))
@@ -603,9 +590,6 @@ public final class GaplessEngine: PlaybackEngine {
                 heldStart = emitted
                 emitted += Int64(buffer.frameLength)
                 heldFrames = buffer.frameLength
-                if emitted - origin <= 8 * Int64(buffer.frameLength) {  // DIAG
-                    diag("m\(position) buffer, decoded \(emitted - origin), ahead \(ahead)")  // DIAG
-                }  // DIAG
                 try startIfReady(transfer, remaining: Double(fullLength - emitted) / rate)
             case .end:
                 guard let held else { throw StreamDecoder.Failure.status(kAudioFileEndOfFileError) }

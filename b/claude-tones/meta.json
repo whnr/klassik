@@ -1,7 +1,7 @@
 {
-  "sha": "f6a5a10a6ade12c91e0bc6a84f6c7dc693a3b3b4",
+  "sha": "cc6d4aeaf5e09bbd6e5b027459190e13763a8d39",
   "branch": "claude-tones",
   "path": "claude-tones",
-  "subject": "[sz-rs30.1.162.13] Add Wave 440 Hz and Wave Chord Lab cases",
-  "ts": 1795649830
+  "subject": "[sz-rs30.1.162.13] Match ffmpeg's channel wording for tone WAVs",
+  "ts": 1795649861
 }

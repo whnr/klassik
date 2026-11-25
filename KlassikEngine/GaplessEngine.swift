@@ -622,7 +622,8 @@ public final class GaplessEngine: PlaybackEngine {
             position, audio: audioStart..<(audioStart + Int64(buffer.frameLength)), rendered: playedSamples() ?? 0)
         if last || audioStart == 0 || placed.lowerBound != before {  // DIAG
             let size = buffer.frameLength  // DIAG
-            diag("enqueue m\(position) audio \(audioStart) n \(size) at \(placed.lowerBound) prev \(before) \(last)")  // DIAG
+            let at = placed.lowerBound  // DIAG
+            diag("enqueue m\(position) audio \(audioStart) n \(size) at \(at) prev \(before) last \(last)")  // DIAG
         }  // DIAG
         scheduledEnd = placed.upperBound
         node.scheduleBuffer(

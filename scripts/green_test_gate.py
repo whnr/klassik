@@ -16,7 +16,7 @@ The ignore list here must match `pull_request.paths-ignore` and `push.paths-igno
 Usage: GH_TOKEN=... GITHUB_REPOSITORY=owner/repo python3 scripts/green_test_gate.py [merged] <sha>
 Prints the covering SHA. Exits 1 and prints the reason when none covers the commit, or when a run
 cannot be read. With `merged`, only the green PR head of a merge commit covers it. That mode is the plan of
-a main run, which opens the Release launch itself, so it does not ask for it.
+a main run, which runs no Release launch, so it does not ask for it.
 """
 
 import json
@@ -82,6 +82,12 @@ def version_only(diff):
     return True
 
 
+def missing_launch(sha, run_sha):
+    return (
+        f"no green Test run for {sha} with a Release launch: the green run of {run_sha} has no passing Release launch"
+    )
+
+
 def covering(commits, changed, green, version_diff, merged=lambda sha: None, launched=lambda sha, head: False):
     """The first of `commits` (newest first) with a green run, if each commit before it changed only ignored
     paths and version lines. A commit is also covered by the green run of the PR head that `merged(sha)` gives,
@@ -90,18 +96,25 @@ def covering(commits, changed, green, version_diff, merged=lambda sha: None, lau
     `changed(sha)` gives the paths that the commit changed, `green(sha)` tells if Test passed on it, and
     `version_diff(sha)` gives the commit's patch of project.yml. `launched(sha, head)` tells if a Release build
     opened on the run of `head` or of `sha`; a commit that is green needs it on its own run.
-    Returns (sha, None), or (None, reason).
+    Returns (sha, None), or (None, reason). A reason that follows a green run without a Release launch says so.
     """
+    unlaunched = None
     for sha in commits:
-        if green(sha) and launched(sha, sha):
-            return sha, None
-        if (head := merged(sha)) and green(head) and launched(sha, head):
-            return head, None
+        head = merged(sha)
+        for run_sha in (sha, head):
+            if run_sha and green(run_sha):
+                if launched(sha, run_sha):
+                    return run_sha, None
+                unlaunched = unlaunched or (sha, run_sha)
         covered = [path for path in changed(sha) if not is_ignored(path)]
         if covered == [VERSION_FILE] and version_only(version_diff(sha)):
             continue
         if covered:
+            if unlaunched:
+                return None, missing_launch(*unlaunched)
             return None, f"no green Test run for {sha}, and it changes files that Test covers: {', '.join(covered)}"
+    if unlaunched:
+        return None, missing_launch(*unlaunched)
     return None, f"no green Test run in the last {len(commits)} commits"
 
 

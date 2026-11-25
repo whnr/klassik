@@ -48,6 +48,18 @@ class CoveringTests(unittest.TestCase):
         self.assertIsNone(sha)
         self.assertIn("no green Test run for c", reason)
 
+    def test_the_refusal_names_the_missing_release_launch(self):
+        sha, reason = self.find(["c"], {"c": ["a.swift"]}, {"c"}, released=set())
+        self.assertIsNone(sha)
+        self.assertEqual(
+            reason,
+            "no green Test run for c with a Release launch: the green run of c has no passing Release launch",
+        )
+
+    def test_a_refusal_without_any_green_run_does_not_name_a_release_launch(self):
+        _, reason = self.find(["c"], {"c": ["a.swift"]}, set())
+        self.assertNotIn("Release launch", reason)
+
     def test_a_docs_commit_is_covered_only_by_a_released_ancestor(self):
         changes = {"c": ["README.md"], "a": ["a.swift"]}
         self.assertEqual(self.find(["c", "a"], changes, {"a", "c"}, released={"a"}), ("a", None))

@@ -201,8 +201,8 @@ AUDIO = {
         r"Audio: flac[^\n]*, 96000 Hz, stereo, s32 \(24 bit\)",
         r"Audio: flac[^\n]*, 44100 Hz, stereo, s32 \(24 bit\)",
     ),
-    13: (r"Audio: pcm_s24le[^\n]*, 96000 Hz, 2 channels, s32 \(24 bit\)",) * 2,
-    14: (r"Audio: pcm_s24le[^\n]*, 96000 Hz, 2 channels, s32 \(24 bit\)",) * 2,
+    13: (r"Audio: pcm_s24le[^\n]*, 96000 Hz, (?:stereo|2 channels), s32 \(24 bit\)",) * 2,
+    14: (r"Audio: pcm_s24le[^\n]*, 96000 Hz, (?:stereo|2 channels), s32 \(24 bit\)",) * 2,
 }
 
 

@@ -30,9 +30,9 @@ import subprocess
 import sys
 import tarfile
 import time
-import wave
 import urllib.error
 import urllib.request
+import wave
 
 from mutagen.id3 import TALB, TCOM, TCON, TDRC, TIT2, TPE1, TPE2, TPOS, TRCK, TXXX
 from mutagen.mp4 import MP4

@@ -20,6 +20,32 @@ def option(args, name):
     return args[args.index(name) + 1]
 
 
+class PasswordTests(unittest.TestCase):
+    def test_a_first_run_or_a_same_value_changes_nothing(self):
+        self.assertFalse(lab.password_change("fixed", None))
+        self.assertFalse(lab.password_change("fixed", "fixed"))
+        self.assertFalse(lab.password_change(None, "stored"))
+
+    def test_a_different_flag_replaces_the_stored_password(self):
+        self.assertTrue(lab.password_change("new", "old"))
+
+    def test_the_change_signs_in_with_the_stored_password_and_sets_the_new_one(self):
+        with mock.patch.object(lab, "post_json", return_value={"id": "u1", "token": "t", "name": "lab"}) as post:
+            lab.change_password("http://h:1", "old", "new")
+        login, update = post.call_args_list
+        self.assertEqual(login.args[1], {"username": "lab", "password": "old"})
+        self.assertTrue(update.args[0].endswith("/api/user/u1"))
+        self.assertEqual(update.args[1]["password"], "new")
+        self.assertEqual(update.args[1]["currentPassword"], "old")
+        self.assertEqual(update.args[2], {"X-ND-Authorization": "Bearer t"})
+        self.assertEqual(update.kwargs["method"], "PUT")
+
+    def test_a_refusal_stops_the_run(self):
+        with mock.patch.object(lab, "post_json", side_effect=OSError("HTTP 403")):
+            with self.assertRaises(SystemExit):
+                lab.change_password("http://h:1", "old", "new")
+
+
 class PlanTests(unittest.TestCase):
     def test_every_case_has_two_movements_in_its_own_folder(self):
         jobs = lab.plan(SRC, OUT)

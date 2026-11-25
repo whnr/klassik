@@ -1,0 +1,51 @@
+name: Lab
+
+# The Playback Lab app: one build of its scheme and its logic tests, with no walk and no fixture server.
+# It is apart from Test, so a Lab change never changes the green-test gate of a Klassik release.
+# KlassikEngine is in the paths, because the Lab links the engine.
+on:
+  push:
+    branches: [main]
+    paths: ["KlassikLab/**", "KlassikLabTests/**", "KlassikEngine/**", "project.yml", ".github/workflows/lab.yml"]
+  pull_request:
+    paths: ["KlassikLab/**", "KlassikLabTests/**", "KlassikEngine/**", "project.yml", ".github/workflows/lab.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: lab-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lab:
+    runs-on: xcode-27
+    timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v7
+      - name: Remove unavailable runner simulators
+        run: xcrun simctl delete unavailable
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        run: xcodegen generate
+      - name: Build and run the Lab tests
+        run: |
+          set -o pipefail
+          udid=$(scripts/simulator.sh)
+          mkdir -p "$RUNNER_TEMP/lab"
+          xcodebuild test \
+            -project Klassik.xcodeproj -scheme KlassikLab \
+            -destination "platform=iOS Simulator,id=$udid,arch=arm64" \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGN_IDENTITY=- COMPILER_INDEX_STORE_ENABLE=NO ENABLE_PREVIEWS=NO ENABLE_DEBUG_DYLIB=NO \
+            2>&1 | tee "$RUNNER_TEMP/lab/build.log"
+      # Warning-only, as in Test: the count shows in the summary and never fails the job.
+      - name: Count build warnings
+        if: always()
+        run: python3 scripts/screen_report.py warnings "$RUNNER_TEMP/lab/build.log" | tee -a "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: lab-build-log
+          path: ${{ runner.temp }}/lab/build.log

@@ -2024,6 +2024,47 @@ final class PlaybackScreens: ScreensTestCase {
         closeMenu(app)
     }
 
+    /// The ⋯ menu of the player opens in every scroll state: at the top, scrolled down and after a bounce. The
+    /// button must be hittable and its press must open the menu, never close the player or reach a row below.
+    @MainActor
+    func testPlayerMenuWorksWhenScrolled() throws {
+        let app = try launchAndConnect()
+        openRecording(app)
+        playPaused(app)
+        openPlayer(app)
+        let player = app.descendants(matching: .any)["player-overlay"].firstMatch
+        let menu = player.buttons["page-menu"].firstMatch
+        XCTAssertTrue(menu.waitForExistence(timeout: 10), "The player has no menu")
+        let download = NSPredicate(format: "label BEGINSWITH 'Download' OR label BEGINSWITH 'Remove Download'")
+        func openAndClose(_ state: String) {
+            XCTAssertTrue(eventually(timeout: 5) { menu.isHittable }, "The menu is not hittable \(state)")
+            menu.tap()
+            let item = app.buttons.matching(download).firstMatch
+            XCTAssertTrue(item.waitForExistence(timeout: 5), "The menu did not open \(state)")
+            XCTAssertTrue(
+                app.buttons["player-handle"].exists, "The press on the menu closed the player \(state)")
+            closeMenu(app)
+            XCTAssertTrue(eventually(timeout: 5) { !item.exists }, "The menu stays open \(state)")
+        }
+        openAndClose("at the start")
+        snap(app, "05o-player-menu")
+        let row = player.descendants(matching: .any)["movement"].firstMatch
+        XCTAssertTrue(eventually(timeout: 12) { row.exists && row.isHittable }, "No row to scroll with")
+        for round in 1...3 {
+            let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.8))
+            from.press(
+                forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3)),
+                withVelocity: .fast, thenHoldForDuration: 0)
+            // The press follows at once, while the list still decelerates.
+            openAndClose("right after scroll \(round)")
+        }
+        let top = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4))
+        top.press(
+            forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)),
+            withVelocity: .slow, thenHoldForDuration: 0)
+        openAndClose("after a short pull")
+    }
+
     /// The favourite item of an open row menu, found by its identifier or its label. It is the last item, so on a low
     /// row it can sit under the tab bar: a test reads it and never drags the menu, because a lift selects an item.
     @MainActor

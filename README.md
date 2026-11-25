@@ -42,6 +42,10 @@ uv run --script scripts/playback_lab.py serve --music lab-library
 
 `serve` downloads Navidrome 0.64.2 once (checksum verified), binds to this machine's home network address only and prints the URL, user `lab` and a generated password. Run it on the home Wi-Fi and stop it with Ctrl-C when the test is done. `--address` overrides the bind address.
 
+## Playback Lab app
+
+`KlassikLab` is a second app on `KlassikEngine`: bundle id `de.whnr.klassik.lab`, name Playback Lab. It connects to the server of the Lab library, lists the works of the `Playback Lab` album as test cases, and plays them with the real engine. It shows the source format, the output rate that iOS reports and the join status in one line. A switch turns ReplayGain off, which builds the engine without its gain stage. A throttle makes the link slow or drops it for four seconds in every fourteen. It keeps no audio and no downloads; each play streams again.
+
 ## License
 
 Apache License 2.0. See [LICENSE](LICENSE).

@@ -18,6 +18,8 @@ struct PageMenu: Equatable, Sendable {
         case partly(downloaded: Int, of: Int)
         case downloading(share: Double)
         case downloaded(bytes: Int64)
+        /// The last try ended with an error, whose text is `reason`. The menu offers a new try.
+        case failed(reason: String)
     }
 
     enum Action: String, Sendable {
@@ -90,6 +92,10 @@ struct PageMenu: Equatable, Sendable {
                 action: .cancelDownload, title: "Cancel Download",
                 subtitle: needsServer ? "Downloading, waits for the server" : "Downloading, \(percent)\u{00A0}%",
                 systemImage: "xmark.circle")
+        case .failed(let reason):
+            return Item(
+                action: .download, title: "Download Again", subtitle: "Failed: \(reason)",
+                systemImage: "arrow.clockwise.circle", isDisabled: needsServer)
         case .notDownloaded, .partly:
             let line: String?
             if needsServer {
@@ -115,10 +121,11 @@ struct PageMenu: Equatable, Sendable {
     /// - Parameter parts: The recordings of an album, by ID. Empty for a recording.
     static func download(
         of recording: WorkIndex.Recording, parts: [String], downloads: [TrackStore.Download],
-        progress: [String: Double]
+        progress: [String: Double], failures: [String: String] = [:]
     ) -> Download {
         if let stored = downloads.first(where: { $0.id == recording.id }) { return .downloaded(bytes: stored.bytes) }
         if let share = progress[recording.id] { return .downloading(share: share) }
+        if let reason = failures[recording.id] { return .failed(reason: reason) }
         let stored = Set(downloads.map(\.id))
         let done = parts.filter(stored.contains).count
         if parts.count > 1, done > 0 { return .partly(downloaded: done, of: parts.count) }
@@ -166,7 +173,7 @@ struct PageMenuTarget {
         let needsServer = model.client == nil || !tracks.networkAllowed || model.serverTrouble == .unreachable
         let download = PageMenu.download(
             of: item.recording, parts: album?.parts.map(\.recordingID) ?? [], downloads: tracks.downloads,
-            progress: tracks.progress)
+            progress: tracks.progress, failures: tracks.failures)
         return PageMenu(kind: kind, download: download, needsServer: needsServer, play: play)
     }
 
@@ -194,12 +201,28 @@ struct PageMenuButton: View {
     @Environment(AppModel.self) private var model
     @Environment(AppNavigator.self) private var navigator
     let target: PageMenuTarget
+    /// The player draws the button as a flat disc on its own ground. A page bar keeps the system button.
+    var flat = false
 
     var body: some View {
         Menu {
             PageMenuItems(menu: target.menu(model)) { target.run($0, model: model, navigator: navigator) }
         } label: {
-            Label("More", systemImage: "ellipsis")
+            if flat {
+                // The size and the hit shape sit inside the label: a frame outside a Menu leaves the press area at
+                // the size of the symbol.
+                Image(systemName: "ellipsis")
+                    .typeStyle(.body)
+                    .foregroundStyle(Palette.textPrimary)
+                    .frame(width: Layout.roundButton, height: Layout.roundButton)
+                    .background(Palette.backgroundElevated, in: .circle)
+                    .overlay(Circle().strokeBorder(Palette.separator))
+                    .frame(width: Measure.hitTarget, height: Measure.hitTarget)
+                    .contentShape(.rect)
+                    .accessibilityLabel("More")
+            } else {
+                Label("More", systemImage: "ellipsis")
+            }
         }
         .accessibilityIdentifier("page-menu")
     }

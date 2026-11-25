@@ -186,6 +186,7 @@ private struct PlayerOverlay: View {
         .padding(.bottom, layout.bottom)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background { PlayerGround() }
+        .background(alignment: .top) { PlayerGroundAbove() }
         .coverWash(
             item: item.id,
             song: model.playback.item?.id == item.id ? model.playback.coverSong : item.recording.songs.first,

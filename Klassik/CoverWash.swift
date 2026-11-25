@@ -358,14 +358,6 @@ extension EnvironmentValues {
     @Entry var washOwner: UUID?
 }
 
-extension View {
-    /// Repeats `colour` above the view, one view height tall. The player moves down with the finger, and the area
-    /// that this reveals above its top edge then shows the ground of the player, not the page below.
-    fileprivate func groundAbove(_ colour: Color) -> some View {
-        background(alignment: .top) { colour.alignmentGuide(.top) { $0[.bottom] } }
-    }
-}
-
 /// The ground of the player. While its item plays, the wash lies at the top of the content and fades into the page
 /// ground over `Layout.washHeight`. Rows and grouped grounds keep their colours.
 struct PlayerGround: View {
@@ -374,9 +366,9 @@ struct PlayerGround: View {
     var body: some View {
         ZStack(alignment: .top) {
             // The ground below both branches keeps the player opaque while one branch fades into the other.
-            Rectangle().fill(Palette.backgroundGrouped).groundAbove(Palette.backgroundGrouped.color)
+            Rectangle().fill(Palette.backgroundGrouped)
             if let wash {
-                Rectangle().fill(Palette.backgroundPage).groundAbove(Palette.backgroundPage.color)
+                Rectangle().fill(Palette.backgroundPage)
                 LinearGradient(
                     stops: [
                         .init(color: Color(wash.colour), location: 0),
@@ -385,10 +377,6 @@ struct PlayerGround: View {
                     ], startPoint: .top, endPoint: .bottom
                 )
                 .frame(height: Layout.washHeight)
-                // The solid wash continues above the gradient, so a pull of the player shows no bare edge.
-                .background(alignment: .top) {
-                    Color(wash.colour).containerRelativeFrame(.vertical).alignmentGuide(.top) { $0[.bottom] }
-                }
                 .offset(y: -max(wash.scroll.offset, 0))
                 .transition(.opacity)
             } else {
@@ -396,10 +384,27 @@ struct PlayerGround: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .clipped()
         .ignoresSafeArea()
-        // The ground above the top edge is drawing only: it takes no touch and joins no layout or accessibility frame.
-        .allowsHitTesting(false)
         .accessibilityHidden(true)
+    }
+}
+
+/// The ground that a pulled player reveals above its top edge. It is a background: it draws outside the player's
+/// frame and takes no part in the layout, so the player keeps its size and place.
+struct PlayerGroundAbove: View {
+    @Environment(\.playerWash) private var wash
+
+    /// More than any pull the player can take.
+    private static let reach: CGFloat = 1200
+
+    var body: some View {
+        Rectangle()
+            .fill(wash.map { Color($0.colour) } ?? Palette.backgroundGrouped.color)
+            .frame(height: Self.reach)
+            .frame(height: 0, alignment: .bottom)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
     }
 }
 

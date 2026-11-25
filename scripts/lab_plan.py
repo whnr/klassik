@@ -10,7 +10,6 @@ A Lab run counts as green only when its `lab` job passed. A run whose job was sk
 Usage: GH_TOKEN=... GITHUB_REPOSITORY=owner/repo python3 scripts/lab_plan.py plan <base> <head>
 """
 
-import json
 import os
 import sys
 

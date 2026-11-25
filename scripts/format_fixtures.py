@@ -22,6 +22,9 @@ LENGTHS = (22051, 18017)
 FORMATS = {
     "aac": ("m4a", ["-c:a", "aac", "-b:a", "128k"]),
     "alac": ("m4a", ["-c:a", "alac", "-sample_fmt", "s16p"]),
+    # The moov box first, as a server that optimizes M4A files for streaming sends it.
+    "aac-fast": ("m4a", ["-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart"]),
+    "alac-fast": ("m4a", ["-c:a", "alac", "-sample_fmt", "s16p", "-movflags", "+faststart"]),
     "wav": ("wav", ["-c:a", "pcm_s16le"]),
     "aiff": ("aiff", ["-c:a", "pcm_s16be"]),
     "flac": ("flac", ["-c:a", "flac", "-sample_fmt", "s16"]),

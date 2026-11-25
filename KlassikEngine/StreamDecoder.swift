@@ -14,8 +14,10 @@ final class StreamDecoder: PCMSource, @unchecked Sendable {
         case prematureEnd(expected: Int64, actual: Int64)
     }
 
-    /// Formats whose decoders produced sound from the first bytes on iOS 27 (EarlyPlaybackTests).
-    static let earlyFormats: Set<String> = ["mp3", "flac"]
+    /// Formats that decode while their bytes arrive. MP3 and FLAC passed the gate of ADR 0060 on iOS 27
+    /// (EarlyPlaybackTests). M4A (AAC and ALAC), WAV and AIFF read through the same callbacks; an M4A file with its
+    /// moov box last needs one range request for that box (`Header.m4a`).
+    static let earlyFormats: Set<String> = ["mp3", "flac", "m4a", "wav", "aiff", "aif"]
     /// Each wait for bytes ends with an error after this time, so that a dead connection does not hang playback.
     static let readTimeout = Duration.seconds(30)
 
@@ -26,7 +28,8 @@ final class StreamDecoder: PCMSource, @unchecked Sendable {
     /// The decoded format: the same standard format that AVAudioFile gives a complete file.
     let format: AVAudioFormat
     /// The decoded frames that belong to the recording, when the file declares them: MP3 without encoder delay and
-    /// padding, FLAC from STREAMINFO. Nil means that the end of the file ends the track.
+    /// padding, FLAC from STREAMINFO, M4A from its gapless data, WAV and AIFF from their header. Nil means that the
+    /// end of the file ends the track.
     let playable: Range<Int64>?
     var sampleRate: Double { format.sampleRate }
     /// The end of the latest read: the decoder's place in the file. Arrived bytes after it are buffered audio.
@@ -49,7 +52,7 @@ final class StreamDecoder: PCMSource, @unchecked Sendable {
         let context = Context(transfer: transfer, length: length, cancelled: cancelled)
         let header = try Self.header(suffix: suffix, context: context)
         var opened: AudioFileID?
-        let type = suffix == "flac" ? kAudioFileFLACType : kAudioFileMP3Type
+        let type = Self.fileType(suffix)
         let status = AudioFileOpenWithCallbacks(
             Unmanaged.passUnretained(context).toOpaque(),
             { context, position, requested, destination, actual in
@@ -175,10 +178,14 @@ final class StreamDecoder: PCMSource, @unchecked Sendable {
     private enum Header {
         case mp3(MP3GaplessInfo)
         case flac(totalSamples: Int64)
+        /// An M4A file, with the gapless data of its moov box when it has any.
+        case m4a(M4AGaplessInfo?)
+        /// A file whose header counts its frames: WAV and AIFF.
+        case counted
 
         /// The decoded frames that belong to the recording. `decodedLength` is the decoder's own frame count, which
         /// AVAudioFile also reports for a complete file, so both paths cut the same frames.
-        func playable(decodedLength: Int64?) -> Range<Int64> {
+        func playable(decodedLength: Int64?) -> Range<Int64>? {
             switch self {
             case .mp3(let info):
                 // Without a count, assume a decoder that removes only its own delay: that length exceeds the recording.
@@ -186,6 +193,12 @@ final class StreamDecoder: PCMSource, @unchecked Sendable {
                     decodedLength: decodedLength ?? Int64(info.frameCount * info.samplesPerFrame))
             case .flac(let totalSamples):
                 return 0..<totalSamples
+            case .m4a(let info):
+                // The complete-file path cuts by the same rule, so both paths keep one timeline.
+                guard let decodedLength else { return nil }
+                return info?.playableRange(decodedLength: decodedLength) ?? 0..<decodedLength
+            case .counted:
+                return decodedLength.map { 0..<$0 }
             }
         }
     }
@@ -201,8 +214,23 @@ final class StreamDecoder: PCMSource, @unchecked Sendable {
         case "flac":
             let head = try context.bytes(at: 0, count: 42)
             return FLACStreamInfo.parse(head).map { Header.flac(totalSamples: $0.totalSamples) }
+        case "m4a":
+            let body = try M4AGaplessInfo.moovBody(length: context.length) { offset, count in
+                try context.bytes(at: offset, count: count)
+            }
+            return .m4a(body.flatMap { M4AGaplessInfo.parse(moov: $0) })
         default:
-            return nil
+            return .counted
+        }
+    }
+
+    private static func fileType(_ suffix: String) -> AudioFileTypeID {
+        switch suffix {
+        case "flac": kAudioFileFLACType
+        case "m4a": kAudioFileM4AType
+        case "wav": kAudioFileWAVEType
+        case "aiff", "aif": kAudioFileAIFFType
+        default: kAudioFileMP3Type
         }
     }
 

@@ -390,16 +390,12 @@ struct PlayerGround: View {
     }
 }
 
-/// The ground that a pulled player reveals above its top edge. It is a background: it draws outside the player's
-/// frame and takes no part in the layout, so the player keeps its size and place.
+/// The ground that a pulled player reveals above its top edge. It sits behind the player and does not move with the
+/// pull, so the strip the player leaves is never empty.
 struct PlayerGroundAbove: View {
-    @Environment(\.playerWash) private var wash
-
     var body: some View {
-        Rectangle()
-            .fill(wash.map { Color($0.colour) } ?? Palette.backgroundGrouped.color)
-            .containerRelativeFrame(.vertical)
-            .frame(height: 0, alignment: .bottom)
+        Palette.backgroundGrouped.color
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .allowsHitTesting(false)
             .accessibilityHidden(true)
     }

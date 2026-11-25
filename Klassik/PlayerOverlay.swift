@@ -99,6 +99,9 @@ struct PlayerOverlayLayer: View {
     var body: some View {
         ZStack {
             if navigator.isPlayerOpen, let item = model.playback.item ?? lastItem {
+                // Outside the overlay's offset view, so a pull never moves it and the overlay's frame stays as it is.
+                PlayerGroundAbove()
+                    .transition(reduceMotion ? .opacity : .move(edge: .bottom))
                 PlayerOverlay(item: item)
                     .transition(reduceMotion ? .opacity : .move(edge: .bottom))
             }
@@ -189,7 +192,6 @@ private struct PlayerOverlay: View {
         .padding(.bottom, layout.bottom)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background { PlayerGround() }
-        .background(alignment: .top) { PlayerGroundAbove() }
         .coverWash(
             item: item.id,
             song: model.playback.item?.id == item.id ? model.playback.coverSong : item.recording.songs.first,

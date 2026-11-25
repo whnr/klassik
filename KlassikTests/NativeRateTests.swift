@@ -65,7 +65,8 @@ struct NativeRateTests {
 
     func wav(_ name: String, rate: Double, channels: Int, count: Int) throws -> URL {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        let format = try #require(AVAudioFormat(standardFormatWithSampleRate: rate, channels: AVAudioChannelCount(channels)))
+        let format = try #require(
+            AVAudioFormat(standardFormatWithSampleRate: rate, channels: AVAudioChannelCount(channels)))
         let buffer = try #require(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: UInt32(count)))
         buffer.frameLength = buffer.frameCapacity
         for channel in 0..<channels {
@@ -101,9 +102,10 @@ struct NativeRateTests {
         let tracks = files.indices.map { PlaybackTrack(id: String($0), duration: 1, suffix: "wav") }
         engine.load(tracks, from: start, offset: 0) { .file(files[Int($0.id)!]) }
         let last = "end \(files.count - 1)"
-        for _ in 0..<1000
-        where !events.log.contains(last) && !events.log.contains(where: { $0.hasPrefix("failed") || $0.hasPrefix("format") })
-        {
+        func stopped() -> Bool {
+            events.log.contains(last) || events.log.contains { $0.hasPrefix("failed") || $0.hasPrefix("format") }
+        }
+        for _ in 0..<1000 where !stopped() {
             try await Task.sleep(for: .milliseconds(10))
         }
         // The tap delivers whole blocks, so its last block can arrive after the end event.
@@ -125,7 +127,8 @@ struct NativeRateTests {
         let output = rendered(tap, channel: channel)
         // The last tap block is partial and can still wait. Everything before it is exact.
         let compared = min(output.count, expected.count)
-        #expect(compared >= expected.count - Int(rate * 0.3), "The output holds \(compared) of \(expected.count) frames")
+        let wanted = expected.count - Int(rate * 0.3)
+        #expect(compared >= wanted, "The output holds \(compared) of \(expected.count) frames")
         #expect(Array(output.prefix(compared)) == Array(expected.prefix(compared)))
     }
 

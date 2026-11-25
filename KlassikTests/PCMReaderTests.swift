@@ -41,7 +41,8 @@ struct PCMReaderTests {
         let small = try read(chunk: 127)
         #expect(small == (try read(chunk: 4096)))
         for channel in 0..<channels {
-            #expect(small[channel] == Array(UnsafeBufferPointer(start: whole.floatChannelData![channel], count: length)))
+            let expected = Array(UnsafeBufferPointer(start: whole.floatChannelData![channel], count: length))
+            #expect(small[channel] == expected)
         }
     }
 

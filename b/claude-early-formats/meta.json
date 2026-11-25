@@ -1,7 +1,7 @@
 {
-  "sha": "a423946e4b8507de0256056066745e796578fdc3",
+  "sha": "47e314b257ff642b8764c6fa17e7f617637b1c57",
   "branch": "claude-early-formats",
   "path": "claude-early-formats",
-  "subject": "[sz-v7af] Fix early-format tests for tail reads",
-  "ts": 1795590397
+  "subject": "[sz-v7af] Log the reads of the M4A reader",
+  "ts": 1795591186
 }

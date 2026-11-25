@@ -186,15 +186,25 @@ struct SubsonicClient: Sendable {
     static let apiVersion = "1.16.1"
 
     let credentials: ServerCredentials
-    var session: URLSession = .shared
+    /// A call that gets no bytes for this long fails. The shared session waits 60 s, and a stalled connection to a
+    /// local server then holds the start-up reads past the point where the listener sees the library.
+    static let requestTimeout: TimeInterval = 8
+    static let apiSession: URLSession = {
+        let configuration = URLSessionConfiguration.default
+        configuration.timeoutIntervalForRequest = requestTimeout
+        return URLSession(configuration: configuration)
+    }()
+
+    var session: URLSession = apiSession
 
     func ping() async throws -> ServerInfo {
-        let response = try await get("ping")
+        let response = try await retried { try await get("ping") }
         var info = ServerInfo(
             apiVersion: response.version, type: response.type,
             serverVersion: response.serverVersion, openSubsonic: response.openSubsonic ?? false)
         if info.openSubsonic {
-            info.extensions = try await get("getOpenSubsonicExtensions").openSubsonicExtensions?.map(\.name) ?? []
+            let extensions = try await retried { try await get("getOpenSubsonicExtensions") }
+            info.extensions = extensions.openSubsonicExtensions?.map(\.name) ?? []
         }
         return info
     }
@@ -213,16 +223,18 @@ struct SubsonicClient: Sendable {
 
     /// One page of all tracks. OpenSubsonic servers return the whole library for an empty query.
     func songs(offset: Int, count: Int) async throws -> [Song] {
-        try await get(
-            "search3",
-            [
-                URLQueryItem(name: "query", value: ""),
-                URLQueryItem(name: "artistCount", value: "0"),
-                URLQueryItem(name: "albumCount", value: "0"),
-                URLQueryItem(name: "songCount", value: String(count)),
-                URLQueryItem(name: "songOffset", value: String(offset)),
-            ]
-        ).searchResult3?.song ?? []
+        try await retried {
+            try await get(
+                "search3",
+                [
+                    URLQueryItem(name: "query", value: ""),
+                    URLQueryItem(name: "artistCount", value: "0"),
+                    URLQueryItem(name: "albumCount", value: "0"),
+                    URLQueryItem(name: "songCount", value: String(count)),
+                    URLQueryItem(name: "songOffset", value: String(offset)),
+                ]
+            )
+        }.searchResult3?.song ?? []
     }
 
     func album(id: String) async throws -> Album {
@@ -235,7 +247,7 @@ struct SubsonicClient: Sendable {
     /// Changes when the server scans new or changed files. The classic `getIndexes` date alone can miss a change
     /// to an existing artist, so the scan date joins it where the server reports one.
     func changeMarker() async throws -> String {
-        let indexes = try await get("getIndexes").indexes?.lastModified
+        let indexes = try await retried { try await get("getIndexes") }.indexes?.lastModified
         let scan = try? await get("getScanStatus").scanStatus?.lastScan
         return "\(indexes.map(String.init) ?? "-")|\(scan ?? "-")"
     }
@@ -299,6 +311,16 @@ struct SubsonicClient: Sendable {
     /// `format=raw` preserves the original gapless header.
     func streamURL(songID: String) -> URL {
         url("stream", [URLQueryItem(name: "id", value: songID), URLQueryItem(name: "format", value: "raw")])
+    }
+
+    /// Runs a read once more when the first try timed out or lost its connection. Only reads may use it: a repeated
+    /// write could apply twice.
+    func retried(_ read: () async throws -> SubsonicResponse) async throws -> SubsonicResponse {
+        do {
+            return try await read()
+        } catch let error as URLError where error.code == .timedOut || error.code == .networkConnectionLost {
+            return try await read()
+        }
     }
 
     func get(_ endpoint: String, _ query: [URLQueryItem] = []) async throws -> SubsonicResponse {

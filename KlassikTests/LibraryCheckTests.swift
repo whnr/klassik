@@ -182,3 +182,49 @@ struct LibraryCheckTests {
         #expect(library.unchangedCheckRow == expected)
     }
 }
+
+/// Fails the first call of a host with a time-out, then answers.
+private final class StallOnceProtocol: URLProtocol {
+    private static let lock = NSLock()
+    private nonisolated(unsafe) static var failed: Set<String> = []
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        let host = request.url?.host ?? ""
+        if Self.lock.withLock({ Self.failed.insert(host).inserted }) {
+            client?.urlProtocol(self, didFailWithError: URLError(.timedOut))
+            return
+        }
+        let json = #"{"subsonic-response":{"status":"ok","version":"1.16.1"}}"#
+        let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data(json.utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() {}
+}
+
+#if !canImport(FoundationNetworking)
+    extension StallOnceProtocol: @unchecked Sendable {}
+#endif
+
+struct StalledReadTests {
+    private func client(_ host: String) -> SubsonicClient {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [StallOnceProtocol.self]
+        return SubsonicClient(
+            credentials: ServerCredentials(url: URL(string: "https://\(host)")!, username: "joe", password: "x"),
+            session: URLSession(configuration: configuration))
+    }
+
+    @Test func aReadThatTimesOutRunsOnceMore() async throws {
+        let info = try await client("stall-\(UUID().uuidString.prefix(8)).test").ping()
+        #expect(info.apiVersion == "1.16.1")
+    }
+
+    @Test func aTimedOutWriteIsNotRepeated() async throws {
+        let client = client("write-\(UUID().uuidString.prefix(8)).test")
+        await #expect(throws: URLError.self) { _ = try await client.get("scrobble") }
+    }
+}

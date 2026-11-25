@@ -73,7 +73,7 @@ struct GaplessEngineSkipTests {
         player.adopt(engine, node, started: true, fade: fade)
         try player.start(node)
         #expect(node.isPlaying)
-        #expect(fade.last == .init(from: 0, target: 1, frames: Self.rate * 3 / 10))
+        #expect(fade.last == .init(from: 0, target: 1, frames: Self.rate * 3 / 10, onSignal: true))
         player.discard()
     }
 
@@ -225,8 +225,8 @@ struct GaplessEngineSkipTests {
         #expect(fade.last == .init(from: nil, target: 0, frames: Self.rate / 20))
         #expect(await Self.eventually { probe.oldEngineRunning != nil })
         #expect(probe.oldEngineRunning == false)
-        // The fade-out and the stop margin take 80 ms, and the gap adds 50 ms.
-        #expect(ContinuousClock.now - start >= .milliseconds(125))
+        // The fade-out takes 50 ms and the gap adds 50 ms. The stop margin is not silence.
+        #expect(ContinuousClock.now - start >= .milliseconds(95))
         player.discard()
     }
 
@@ -395,9 +395,24 @@ struct GaplessEngineSkipTests {
             outCurve: .equalPower, inCurve: .smootherstep, outSeconds: 0.05, inSeconds: 0.1)
         player.adopt(engine, node, started: true, fade: fade)
         try player.start(node)
-        #expect(fade.last == .init(from: 0, target: 1, frames: Self.rate / 10, curve: .smootherstep))
+        #expect(fade.last == .init(from: 0, target: 1, frames: Self.rate / 10, curve: .smootherstep, onSignal: true))
         player.pause()
         #expect(fade.last == .init(from: nil, target: 0, frames: Self.rate / 20, curve: .equalPower))
+        player.discard()
+    }
+
+    /// A start after a seek asks for the chosen fade-in curve and length in every mode that starts a new graph, and
+    /// the ramp waits for the first sound of the node.
+    @Test(arguments: FadeCurve.allCases, [SeekMode.today, .silence(seconds: 0.1)])
+    func aStartAfterASeekFadesInWithTheChosenCurve(curve: FadeCurve, mode: SeekMode) throws {
+        let (engine, node) = try Self.graph()
+        defer { engine.stop() }
+        let fade = FadeControl()
+        let player = GaplessEngine(manualRendering: true)
+        player.fadeOptions = FadeOptions(inCurve: curve, outSeconds: 0.15, inSeconds: 0.2, seek: mode)
+        player.adopt(engine, node, started: true, fade: fade)
+        try player.start(node)
+        #expect(fade.last == .init(from: 0, target: 1, frames: Self.rate / 5, curve: curve, onSignal: true))
         player.discard()
     }
 }

@@ -764,7 +764,8 @@ public final class GaplessEngine: PlaybackEngine {
         halting?.cancel()
         halting = nil
         silenced = false
-        fade?.ramp(from: level, to: 1, frames: inFrames, curve: fadeOptions.inCurve)
+        // A start from silence waits for the first sound: the node can begin to play after the ramp was asked for.
+        fade?.ramp(from: level, to: 1, frames: inFrames, curve: fadeOptions.inCurve, onSignal: level == 0)
     }
 
     /// The new graph sounds: it fades in while the old one fades out, both with equal-power curves over the length
@@ -774,7 +775,7 @@ public final class GaplessEngine: PlaybackEngine {
         halting?.cancel()
         halting = nil
         silenced = false
-        fade?.ramp(from: 0, to: 1, frames: outFrames, curve: .equalPower)
+        fade?.ramp(from: 0, to: 1, frames: outFrames, curve: .equalPower, onSignal: true)
         retire(old.engine, old.fade, sounding: true, rate: old.rate, curve: .equalPower)
     }
 

@@ -75,10 +75,11 @@ public struct FadeOptions: Sendable, Equatable {
     static let stopMargin = 0.03
 
     /// The seconds that a load waits before it builds the new graph, when the old sound needs `stopWait` seconds to
-    /// fade out and stop. Only the silence mode waits: the new sound then starts after the old one stopped and
-    /// `gap` more seconds passed. A load over a silent graph never waits.
+    /// fade out and stop. Only the silence mode waits: the new sound starts `gap` seconds after the fade-out ends.
+    /// The stop margin only keeps the old node alive, so it is silence that the set gap must not count twice.
+    /// A load over a silent graph never waits.
     func newSoundDelay(stopWait: Double) -> Double {
         guard case .silence = seek, stopWait > 0 else { return 0 }
-        return stopWait + seek.gap
+        return max(stopWait - Self.stopMargin, 0) + seek.gap
     }
 }

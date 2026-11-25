@@ -2,24 +2,27 @@ import AVFoundation
 import os
 
 /// A gain ramp that runs on the samples. Stopping or starting a node inside a waveform jumps the output between
-/// the wave's value and zero in one sample. A raised-cosine ramp over the set length turns that jump into small
-/// steps. The ramp changes the gain once for each frame, so its shape does not depend on the render block size or
-/// on the main thread. Gapless joins on one node never use it, because they do not stop the node.
+/// the wave's value and zero in one sample. A ramp over the set length turns that jump into small steps; its
+/// curve is a `FadeCurve`, the raised cosine by default. The ramp changes the gain once for each frame, so its shape
+/// does not depend on the render block size or on the main thread. Gapless joins on one node never use it, because
+/// they do not stop the node.
 struct FadeRamp: Sendable {
     private(set) var gain: Float = 1
     private var origin: Float = 1
     private var target: Float = 1
     private var length = 0
     private var done = 0
+    private var curve = FadeCurve.raisedCosine
 
     /// True while the gain still moves, or sits off unity.
     var isIdle: Bool { done >= length && gain == 1 }
 
     /// Starts a ramp over `frames` frames, from `from` or else from the gain that the ramp has now.
-    /// A length of 0 jumps to the target.
-    mutating func start(from: Float? = nil, to target: Float, frames: Int) {
+    /// A length of 0 jumps to the target. A ramp that falls follows the fall of the curve, a ramp that rises its rise.
+    mutating func start(from: Float? = nil, to target: Float, frames: Int, curve: FadeCurve = .raisedCosine) {
         origin = from ?? gain
         self.target = target
+        self.curve = curve
         length = max(frames, 0)
         done = 0
         gain = length == 0 ? target : origin
@@ -33,7 +36,8 @@ struct FadeRamp: Sendable {
             gain = target
         } else {
             let progress = Double(done) / Double(length)
-            gain = origin + (target - origin) * Float(0.5 - 0.5 * cos(Double.pi * progress))
+            let shape = target >= origin ? curve.rise(progress) : 1 - curve.fall(progress)
+            gain = origin + (target - origin) * Float(shape)
         }
         return gain
     }
@@ -52,6 +56,7 @@ final class FadeControl: @unchecked Sendable {
         var from: Float?
         var target: Float
         var frames: Int
+        var curve = FadeCurve.raisedCosine
     }
 
     private struct State {
@@ -66,8 +71,8 @@ final class FadeControl: @unchecked Sendable {
     /// The newest request, for tests and for the engine's own checks.
     var last: Command? { state.withLock { $0.last } }
 
-    func ramp(from: Float? = nil, to target: Float, frames: Int) {
-        let command = Command(from: from, target: target, frames: frames)
+    func ramp(from: Float? = nil, to target: Float, frames: Int, curve: FadeCurve = .raisedCosine) {
+        let command = Command(from: from, target: target, frames: frames, curve: curve)
         state.withLock {
             $0.pending = command
             $0.last = command
@@ -80,7 +85,7 @@ final class FadeControl: @unchecked Sendable {
             defer { state.pending = nil }
             return state.pending
         }) ?? nil {
-            ramp.start(from: command.from, to: command.target, frames: command.frames)
+            ramp.start(from: command.from, to: command.target, frames: command.frames, curve: command.curve)
         }
         guard !ramp.isIdle else { return }
         let buffers = UnsafeMutableAudioBufferListPointer(list)

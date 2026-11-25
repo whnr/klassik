@@ -35,11 +35,9 @@ final class LabPlayer {
     var replayGain = true {
         didSet { if oldValue != replayGain { restart() } }
     }
-    /// The fade at skip, seek, pause, resume and the underrun stop. A change reaches the running engine at once.
-    nonisolated static let fadeRange: ClosedRange<Double> = 0...300
-    nonisolated static let defaultFade = 100.0
-    var fadeMilliseconds = LabPlayer.defaultFade {
-        didSet { engine?.fadeSeconds = Self.fadeSeconds(milliseconds: fadeMilliseconds) }
+    /// The fades at skip, seek, pause, resume and the underrun stop. A change reaches the running engine at once.
+    var fade = LabFadeSettings() {
+        didSet { engine?.fadeOptions = fade.options }
     }
     var throttle = LabThrottle() {
         didSet { if oldValue != throttle { restart() } }
@@ -146,10 +144,11 @@ final class LabPlayer {
         }
     }
 
-    /// Moves to a place in the movement that sounds.
+    /// Moves to a place in the movement that sounds. The engine that plays stays, so that the seek mode can keep
+    /// the old position until the new one is ready.
     func seek(to fraction: Double) {
         guard canPlay, movementLength > 0 else { return }
-        start(movement: movement, offset: min(max(fraction, 0), 1) * movementLength)
+        start(movement: movement, offset: min(max(fraction, 0), 1) * movementLength, keepingEngine: true)
     }
 
     func stop() {
@@ -181,11 +180,6 @@ final class LabPlayer {
         }
     }
 
-    /// The slider value as the engine's length, clamped to the range of the slider.
-    nonisolated static func fadeSeconds(milliseconds: Double) -> Double {
-        min(max(milliseconds, fadeRange.lowerBound), fadeRange.upperBound) / 1000
-    }
-
     enum SwitchAction: Equatable { case none, restart, discard }
 
     /// A paused engine cannot take a switch, so it is discarded and Play builds it again.
@@ -195,17 +189,21 @@ final class LabPlayer {
     }
 
     private func teardown() {
-        ticker?.cancel()
-        ticker = nil
+        stopWork()
         engine?.discard()
         engine = nil
+    }
+
+    private func stopWork() {
+        ticker?.cancel()
+        ticker = nil
         for feeder in feeders { feeder.cancel() }
         feeders = []
     }
 
-    private func start(movement: Int, offset: Double, join opening: String? = nil) {
+    private func start(movement: Int, offset: Double, join opening: String? = nil, keepingEngine: Bool = false) {
         guard let selected, canPlay else { return }
-        teardown()
+        if keepingEngine, engine != nil { stopWork() } else { teardown() }
         resumePlace = nil
         ended = []
         note = nil
@@ -213,14 +211,11 @@ final class LabPlayer {
         // The join tells about the load that plays now. A restart in the middle of a work keeps no earlier join.
         join = opening ?? Self.joinWaiting(movement: movement, count: selected.songs.count)
         try? FileManager.default.createDirectory(at: Self.folder, withIntermediateDirectories: true)
-        let engine = GaplessEngine(
-            gainNode: replayGain, fadeSeconds: Self.fadeSeconds(milliseconds: fadeMilliseconds))
-        engine.onEvent = { [weak self] event in self?.handle(event) }
-        self.engine = engine
+        let active = engine ?? makeEngine()
         self.movement = movement
         elapsed = offset
         let throttle = throttle
-        engine.load(selected.tracks, from: movement, offset: offset) { [weak self] track in
+        active.load(selected.tracks, from: movement, offset: offset) { [weak self] track in
             guard let self else { throw CancellationError() }
             return try await self.source(for: track, throttle: throttle)
         }
@@ -232,6 +227,14 @@ final class LabPlayer {
                 try? await Task.sleep(for: .milliseconds(200))
             }
         }
+    }
+
+    private func makeEngine() -> GaplessEngine {
+        let engine = GaplessEngine(gainNode: replayGain)
+        engine.fadeOptions = fade.options
+        engine.onEvent = { [weak self] event in self?.handle(event) }
+        self.engine = engine
+        return engine
     }
 
     /// Streams a track through the throttle. A format that cannot start early plays from the whole file.

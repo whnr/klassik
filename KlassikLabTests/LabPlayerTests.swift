@@ -18,13 +18,40 @@ struct LabPlayerTests {
         #expect(LabPlayer.switchAction(isPlaying: true, hasEngine: false) == .none)
     }
 
-    @Test func theFadeSliderRunsFromZeroTo300AndStartsAt100() {
-        #expect(LabPlayer.fadeRange == 0...300)
-        #expect(LabPlayer.defaultFade == 100)
-        #expect(LabPlayer.fadeSeconds(milliseconds: 100) == 0.1)
-        #expect(LabPlayer.fadeSeconds(milliseconds: 0) == 0)
-        #expect(LabPlayer.fadeSeconds(milliseconds: 300) == 0.3)
-        #expect(LabPlayer.fadeSeconds(milliseconds: 900) == 0.3)
+    @Test func theFadeSlidersRunFromZeroTo300AndStartAt100() {
+        #expect(LabFadeSettings.durationRange == 0...300)
+        #expect(LabFadeSettings.defaultDuration == 100)
+        #expect(LabFadeSettings.seconds(100, in: LabFadeSettings.durationRange) == 0.1)
+        #expect(LabFadeSettings.seconds(0, in: LabFadeSettings.durationRange) == 0)
+        #expect(LabFadeSettings.seconds(300, in: LabFadeSettings.durationRange) == 0.3)
+        #expect(LabFadeSettings.seconds(900, in: LabFadeSettings.durationRange) == 0.3)
+    }
+
+    @Test func theLabStartsWithTheOptionsOfTheApp() {
+        #expect(LabFadeSettings().options == FadeOptions())
+    }
+
+    @Test func eachLabSettingReachesTheEngineOptions() {
+        var settings = LabFadeSettings()
+        settings.outCurve = .equalPower
+        settings.inCurve = .decibelLinear
+        settings.outMilliseconds = 40
+        settings.inMilliseconds = 250
+        #expect(
+            settings.options
+                == FadeOptions(outCurve: .equalPower, inCurve: .decibelLinear, outSeconds: 0.04, inSeconds: 0.25))
+    }
+
+    @Test func theSeekPickerGivesEachSeekMode() {
+        var settings = LabFadeSettings()
+        settings.silenceMilliseconds = 70
+        #expect(settings.options.seek == .today)
+        settings.seek = .silence
+        #expect(settings.options.seek == .silence(seconds: 0.07))
+        settings.silenceMilliseconds = 400
+        #expect(settings.options.seek == .silence(seconds: 0.1))
+        settings.seek = .crossfade
+        #expect(settings.options.seek == .crossfade)
     }
 
     @Test func theJoinNamesGaplessAndGapAtTheEndOfAMovement() {
@@ -74,7 +101,7 @@ struct LabPlayerTests {
         try FileManager.default.createDirectory(at: LabPlayer.folder, withIntermediateDirectories: true)
         try Data([1]).write(to: file)
         player.stop()
-        player.fadeMilliseconds = 50
+        player.fade.outMilliseconds = 50
         player.replayGain.toggle()
         #expect(FileManager.default.fileExists(atPath: file.path))
         player.selected = cases[1]

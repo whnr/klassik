@@ -83,7 +83,9 @@ def version_only(diff):
 
 
 def missing_launch(sha, run_sha):
-    return f"no green Test run for {sha} with a Release launch: the green run of {run_sha} has no passing Release launch"
+    return (
+        f"no green Test run for {sha} with a Release launch: the green run of {run_sha} has no passing Release launch"
+    )
 
 
 def covering(commits, changed, green, version_diff, merged=lambda sha: None, launched=lambda sha, head: False):

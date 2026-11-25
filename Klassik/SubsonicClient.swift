@@ -186,24 +186,20 @@ struct SubsonicClient: Sendable {
     static let apiVersion = "1.16.1"
 
     let credentials: ServerCredentials
-    /// A call that gets no bytes for this long fails. The shared session waits 60 s, and a stalled connection to a
-    /// local server then holds the start-up reads past the point where the listener sees the library.
-    static let requestTimeout: TimeInterval = 8
-    static let apiSession: URLSession = {
-        let configuration = URLSessionConfiguration.default
-        configuration.timeoutIntervalForRequest = requestTimeout
-        return URLSession(configuration: configuration)
-    }()
+    /// The start-up reads (ping, change marker) fail after this long, because a stalled connection to a local
+    /// server otherwise holds them past the point where the listener sees the library. Song pages and writes keep
+    /// the session's own timeout: a large library or a slow server needs longer than this to answer.
+    static let quickReadTimeout: TimeInterval = 8
 
-    var session: URLSession = apiSession
+    var session: URLSession = .shared
 
     func ping() async throws -> ServerInfo {
-        let response = try await retried { try await get("ping") }
+        let response = try await retried { try await get("ping", timeout: Self.quickReadTimeout) }
         var info = ServerInfo(
             apiVersion: response.version, type: response.type,
             serverVersion: response.serverVersion, openSubsonic: response.openSubsonic ?? false)
         if info.openSubsonic {
-            let extensions = try await retried { try await get("getOpenSubsonicExtensions") }
+            let extensions = try await retried { try await get("getOpenSubsonicExtensions", timeout: Self.quickReadTimeout) }
             info.extensions = extensions.openSubsonicExtensions?.map(\.name) ?? []
         }
         return info
@@ -223,7 +219,7 @@ struct SubsonicClient: Sendable {
 
     /// One page of all tracks. OpenSubsonic servers return the whole library for an empty query.
     func songs(offset: Int, count: Int) async throws -> [Song] {
-        try await retried {
+        try await retried(onTimeout: false) {
             try await get(
                 "search3",
                 [
@@ -247,7 +243,7 @@ struct SubsonicClient: Sendable {
     /// Changes when the server scans new or changed files. The classic `getIndexes` date alone can miss a change
     /// to an existing artist, so the scan date joins it where the server reports one.
     func changeMarker() async throws -> String {
-        let indexes = try await retried { try await get("getIndexes") }.indexes?.lastModified
+        let indexes = try await retried { try await get("getIndexes", timeout: Self.quickReadTimeout) }.indexes?.lastModified
         let scan = try? await get("getScanStatus").scanStatus?.lastScan
         return "\(indexes.map(String.init) ?? "-")|\(scan ?? "-")"
     }
@@ -313,18 +309,27 @@ struct SubsonicClient: Sendable {
         url("stream", [URLQueryItem(name: "id", value: songID), URLQueryItem(name: "format", value: "raw")])
     }
 
-    /// Runs a read once more when the first try timed out or lost its connection. Only reads may use it: a repeated
-    /// write could apply twice.
-    func retried(_ read: () async throws -> SubsonicResponse) async throws -> SubsonicResponse {
+    /// Runs a read once more when the first try lost its connection, or timed out when `onTimeout` is set. Only
+    /// reads may use it: a repeated write could apply twice. A slow query keeps running on the server after the
+    /// client gives up, so a long read is not repeated after a timeout.
+    func retried(onTimeout: Bool = true, _ read: () async throws -> SubsonicResponse) async throws
+        -> SubsonicResponse
+    {
         do {
             return try await read()
-        } catch let error as URLError where error.code == .timedOut || error.code == .networkConnectionLost {
+        } catch let error as URLError
+            where error.code == .networkConnectionLost || (onTimeout && error.code == .timedOut)
+        {
             return try await read()
         }
     }
 
-    func get(_ endpoint: String, _ query: [URLQueryItem] = []) async throws -> SubsonicResponse {
-        let (data, response) = try await session.data(from: url(endpoint, query))
+    func get(_ endpoint: String, _ query: [URLQueryItem] = [], timeout: TimeInterval? = nil) async throws
+        -> SubsonicResponse
+    {
+        var request = URLRequest(url: url(endpoint, query))
+        if let timeout { request.timeoutInterval = timeout }
+        let (data, response) = try await session.data(for: request)
         if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
             throw SubsonicError.http(status: http.statusCode)
         }

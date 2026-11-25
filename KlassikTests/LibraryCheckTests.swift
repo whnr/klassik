@@ -187,11 +187,15 @@ struct LibraryCheckTests {
 private final class StallOnceProtocol: URLProtocol {
     private static let lock = NSLock()
     private nonisolated(unsafe) static var failed: Set<String> = []
+    private nonisolated(unsafe) static var seen: [String: [TimeInterval]] = [:]
+
+    static func timeouts(_ host: String) -> [TimeInterval] { lock.withLock { seen[host] ?? [] } }
 
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
         let host = request.url?.host ?? ""
+        Self.lock.withLock { Self.seen[host, default: []].append(request.timeoutInterval) }
         if Self.lock.withLock({ Self.failed.insert(host).inserted }) {
             client?.urlProtocol(self, didFailWithError: URLError(.timedOut))
             return
@@ -223,8 +227,17 @@ struct StalledReadTests {
         #expect(info.apiVersion == "1.16.1")
     }
 
+    @Test func startUpReadsUseTheShortTimeoutAndWritesDoNot() async throws {
+        let host = "limits-\(UUID().uuidString.prefix(8)).test"
+        let client = client(host)
+        _ = try await client.ping()
+        #expect(StallOnceProtocol.timeouts(host).allSatisfy { $0 == SubsonicClient.quickReadTimeout })
+        try await client.star(["s1"])
+        #expect(StallOnceProtocol.timeouts(host).last == URLRequest(url: URL(string: "https://x.test")!).timeoutInterval)
+    }
+
     @Test func aTimedOutWriteIsNotRepeated() async throws {
         let client = client("write-\(UUID().uuidString.prefix(8)).test")
-        await #expect(throws: URLError.self) { _ = try await client.get("scrobble") }
+        await #expect(throws: URLError.self) { try await client.scrobble(id: "s1", time: Date()) }
     }
 }

@@ -134,8 +134,16 @@ public final class GaplessEngine: PlaybackEngine {
         self.manualRendering = manualRendering
     }
 
+    private var diagStart = ContinuousClock.now  // DIAG
+    private func diag(_ text: String) {  // DIAG
+        guard manualRendering else { return }  // DIAG
+        print("DIAG \(diagStart.duration(to: .now)) pumped \(pumped) end \(scheduledEnd) \(text)")  // DIAG
+    }  // DIAG
+
     public func load(_ songs: [PlaybackTrack], from movement: Int, offset: Double, file: @escaping PlaybackFileSource) {
         discard()
+        diagStart = .now  // DIAG
+        diag("load from \(movement) offset \(offset)")  // DIAG
         self.songs = songs
         // The track at the load's start is fixed before the scheduler asks for it.
         requested = movement
@@ -209,6 +217,7 @@ public final class GaplessEngine: PlaybackEngine {
     }
 
     public func discard() {
+        diag("discard")  // DIAG
         // Invalidate callbacks before stopping: node teardown also calls completion handlers.
         generation += 1
         cancelled.set()
@@ -608,8 +617,13 @@ public final class GaplessEngine: PlaybackEngine {
         _ buffer: AVAudioPCMBuffer, position: Int, audioStart: Int64, last: Bool, generation: Int
     ) {
         guard let node else { return }
+        let before = scheduledEnd  // DIAG
         let placed = timeline.append(
             position, audio: audioStart..<(audioStart + Int64(buffer.frameLength)), rendered: playedSamples() ?? 0)
+        if last || audioStart == 0 || placed.lowerBound != before {  // DIAG
+            let size = buffer.frameLength  // DIAG
+            diag("enqueue m\(position) audio \(audioStart) n \(size) at \(placed.lowerBound) prev \(before) \(last)")  // DIAG
+        }  // DIAG
         scheduledEnd = placed.upperBound
         node.scheduleBuffer(
             buffer, at: AVAudioTime(sampleTime: placed.lowerBound, atRate: sampleRate), options: [],
@@ -662,6 +676,7 @@ public final class GaplessEngine: PlaybackEngine {
     /// Starts the node from silence, so a start inside a waveform (a seek, a resume) does not click.
     /// A node that still plays only ramps up again, when a fade-out silenced it: a second start would dip it.
     func start(_ node: AVAudioPlayerNode) throws {
+        diag("start, playing \(node.isPlaying) silenced \(silenced)")  // DIAG
         guard !node.isPlaying else {
             if silenced { rampUp(from: nil) }
             return
@@ -736,6 +751,7 @@ public final class GaplessEngine: PlaybackEngine {
             if playing, started, !starved, decoding, let node, node.isPlaying, remaining <= lead {
                 // A pause keeps the next sample in place on the timeline until the refill is ready.
                 starved = true
+                diag("starved, remaining \(remaining) lead \(lead) decoding \(decoding)")  // DIAG
                 let generation = generation
                 // The ramp ends with the audio, and the node stops one watch tick after the audio, so the end of
                 // the movement is reported before the stop.
@@ -746,6 +762,7 @@ public final class GaplessEngine: PlaybackEngine {
                 ) { [weak self] in
                     guard let self, generation == self.generation, self.starved else { return }
                     self.pausedAt = self.playedSamples()
+                    self.diag("starve pause")  // DIAG
                     node.pause()
                 }
             }
@@ -769,6 +786,7 @@ public final class GaplessEngine: PlaybackEngine {
     private func finished(_ position: Int, generation: Int) {
         guard generation == self.generation, engine?.isRunning == true else { return }
         lastEnded = position
+        diag("ended m\(position)")  // DIAG
         onEvent?(.movementEnded(position))
         reportFormatBreak()
     }

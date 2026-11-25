@@ -1,7 +1,7 @@
 {
-  "sha": "2077397ab7eebfacca7d5e40f3650d9a883dcb11",
+  "sha": "65417707e3a8e4b0b7f8557fae72cbe66795282d",
   "branch": "claude-native-rate",
   "path": "claude-native-rate",
-  "subject": "[sz-u8f4] DIAG: shorten a log line",
-  "ts": 1795605685
+  "subject": "[sz-u8f4] DIAG: log fade ramps",
+  "ts": 1795607321
 }

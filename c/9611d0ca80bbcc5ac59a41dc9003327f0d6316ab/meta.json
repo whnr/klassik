@@ -1,7 +1,0 @@
-{
-  "sha": "9611d0ca80bbcc5ac59a41dc9003327f0d6316ab",
-  "branch": "claude-dl-crash",
-  "path": "claude-dl-crash",
-  "subject": "[sz-rs30.1.165.1] Show a failed download instead of the Download button",
-  "ts": 1795575878
-}

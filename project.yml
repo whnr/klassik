@@ -114,7 +114,10 @@ targets:
     # The walk measures the screens against the same layout tokens as the app. `Tokens.swift` reads the palette
     # overrides and the accent pick, so their files come along.
     sources:
-      [KlassikUITests, Klassik/Tokens.swift, Klassik/Layout.swift, Klassik/PaletteOverrides.swift, Klassik/Accent.swift]
+      [
+        KlassikUITests, Klassik/Tokens.swift, Klassik/Layout.swift, Klassik/PaletteOverrides.swift,
+        Klassik/Accent.swift, Klassik/Localization.swift,
+      ]
     dependencies:
       - target: Klassik
     settings:

@@ -415,6 +415,8 @@ public final class GaplessEngine: PlaybackEngine {
             opening?.task.cancel()
             opening = nil
             guard generation == self.generation, !Task.isCancelled else { return }
+            // A load that fails leaves no new graph to cross over to, so the parked one must not keep playing.
+            retireOutgoing()
             if let failure = failureMapper.serverFailure(for: error) {
                 onEvent?(.serverFailed(failure))
             } else {

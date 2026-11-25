@@ -806,4 +806,60 @@ struct StreamingPlaybackTests {
         }
         try? FileManager.default.removeItem(at: root)
     }
+
+    /// The next recording opens while the current one still decodes. A slow open then finishes before the join
+    /// and cannot run the node dry. The tail of movement 1 is withheld, so only an early open passes.
+    @MainActor @Test func theNextRecordingOpensBeforeTheCurrentOneEnds() async throws {
+        let (client, songs) = try await Self.album("Glide", named: "Glide in FLAC")
+        var transfers: [String: TrackTransfer] = [:]
+        var tail: (data: Data, offset: Int)?
+        var feeders: [Task<Void, Never>] = []
+        for (index, song) in songs.enumerated() {
+            let data = try await Self.bytes(of: song, from: client)
+            let transfer = self.transfer("early\(index).flac", length: data.count)
+            transfers[song.id] = transfer
+            if index == 0 {
+                // Four fifths hold more audio than the lookahead of the engine.
+                let held = data.count * 4 / 5
+                transfer.append(data.prefix(held))
+                tail = (data, held)
+            } else {
+                feeders.append(Self.feed(data, into: transfer))
+            }
+        }
+        let events = Events()
+        let engine = GaplessEngine()
+        engine.onEvent = { event in
+            switch event {
+            case .movementEnded(let movement): events.log.append("end \(movement)")
+            case .failed(let text), .problem(let text): events.log.append("failed \(text)")
+            case .serverFailed(let trouble): events.log.append("failed server \(trouble)")
+            default: break
+            }
+        }
+        let streams = transfers
+        let opens = OpenLog()
+        engine.load(songs.map(\.playbackTrack), from: 0, offset: 0) { song in
+            opens.ids.append(song.id)
+            // A recording that opens slowly, as under load.
+            if song.id != songs[0].id { try await Task.sleep(for: .milliseconds(300)) }
+            return .stream(streams[song.id]!)
+        }
+        defer {
+            engine.discard()
+            for feeder in feeders { feeder.cancel() }
+            try? FileManager.default.removeItem(at: root)
+        }
+        for _ in 0..<100 where !opens.ids.contains(songs[1].id) { try await Task.sleep(for: .milliseconds(50)) }
+        #expect(opens.ids == [songs[0].id, songs[1].id], "Movement 2 opened late: \(opens.ids)")
+        let rest = try #require(tail)
+        feeders.append(Self.feed(rest.data, from: rest.offset, into: transfers[songs[0].id]!))
+        for _ in 0..<300 where !events.log.contains("end 2") { try await Task.sleep(for: .milliseconds(100)) }
+        #expect(events.log.filter { $0.hasPrefix("end") } == ["end 0", "end 1", "end 2"], "\(events.log)")
+        #expect(!events.log.contains { $0.hasPrefix("failed") }, "\(events.log)")
+    }
+
+    @MainActor final class OpenLog {
+        var ids: [String] = []
+    }
 }

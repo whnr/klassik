@@ -163,12 +163,14 @@ private struct PlayerOverlay: View {
                 // specimen menu.html, Player: the menu of what plays has the download and the tags, no queue items.
                 PageMenuButton(
                     target: PageMenuTarget(
-                        kind: .player, item: item, album: item.recording.albumKey.flatMap { model.library.album($0) })
+                        kind: .player, item: item, album: item.recording.albumKey.flatMap { model.library.album($0) }),
+                    flat: true
                 )
-                .labelStyle(.iconOnly)
-                .frame(width: Measure.hitTarget, height: Measure.hitTarget)
                 .padding(.trailing, menuEdge)
             }
+            // The rows of the page draw past the edge of their list (scrollClipDisabled). The bar stays above
+            // them, so a scrolled or bouncing row never covers the menu or takes its press.
+            .zIndex(1)
             ZStack {
                 // When an item ends, its content leaves upwards and the next item rises in its place.
                 RecordingView(
@@ -181,6 +183,7 @@ private struct PlayerOverlay: View {
                 .transition(reduceMotion ? .opacity : Self.rise)
             }
             .animation(Motion.rise.animation(reduceMotion: reduceMotion), value: item.id)
+            .clipped()
         }
         .padding(.top, layout.top)
         .padding(.bottom, layout.bottom)

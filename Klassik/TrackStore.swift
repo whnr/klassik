@@ -43,6 +43,7 @@ final class TrackStore {
     private(set) var downloadBytes: Int64 = 0
     /// Share of a running download, by recording ID.
     private(set) var progress: [String: Double] = [:]
+    /// The error text of a download that ended, by recording ID, until the next try. The menu shows it.
     private(set) var failures: [String: String] = [:]
     var networkAllowed = true
     enum Failure: LocalizedError {
@@ -378,7 +379,10 @@ final class TrackStore {
                 for song in recording.songs where !kept.contains(song.id) {
                     removeFiles(of: song.id, in: downloadFolder)
                 }
-                if !(error is CancellationError) { failures[recording.id] = error.localizedDescription }
+                // URLSession ends a cancelled wait with URLError.cancelled, not CancellationError.
+                let cancelled =
+                    Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled
+                if !cancelled { failures[recording.id] = error.localizedDescription }
             }
             guard generation == self.generation else { return }
             forget(recording.id)
@@ -429,6 +433,7 @@ final class TrackStore {
         tasks = [:]
         restarts = [:]
         progress = [:]
+        failures = [:]
         pending = []
         try? FileManager.default.removeItem(at: pendingURL)
         for task in fetches.values { task.cancel() }

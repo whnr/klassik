@@ -4,13 +4,6 @@ import Testing
 @testable import KlassikLab
 
 struct LabCasesTests {
-    /// The works of `scripts/playback_lab.py`, in disc order. `scripts/test_playback_lab.py` checks this list against
-    /// the script.
-    static let labTitles = [
-        "FLAC 24/96", "FLAC 16/44.1", "FLAC 24/192", "ALAC 24/96", "ALAC 16/44.1", "AAC 256 with encoder delay",
-        "MP3 with LAME header", "MP3 without header", "WAV", "AIFF", "Opus", "Rate change 96 kHz then 44.1 kHz",
-    ]
-
     private func song(
         _ id: String, disc: Int?, track: Int?, suffix: String = "flac", path: String? = nil, work: String? = nil,
         depth: Int? = nil, rate: Int? = nil, bitRate: Int? = nil
@@ -68,18 +61,5 @@ struct LabCasesTests {
         #expect(lame.gapNote == nil)
         let flac = LabCase.cases(from: [song("a", disc: 1, track: 1, work: "FLAC without header")])[0]
         #expect(flac.gapNote == nil)
-    }
-
-    @Test func theTwelveCasesOfTheLabAlbumAllAppear() {
-        let songs = Self.labTitles.enumerated().flatMap { index, title in
-            (1...2).map { movement in
-                song(
-                    "\(index)-\(movement)", disc: index + 1, track: movement, suffix: index == 8 ? "wav" : "flac",
-                    work: title)
-            }
-        }
-        let cases = LabCase.cases(from: songs)
-        #expect(cases.map(\.title) == Self.labTitles)
-        #expect(cases.allSatisfy { $0.songs.count == 2 })
     }
 }

@@ -32,7 +32,6 @@ import urllib.error
 import urllib.request
 
 from mutagen.id3 import TALB, TCOM, TCON, TDRC, TIT2, TPE1, TPE2, TPOS, TRCK, TXXX
-from mutagen.mp4 import MP4, MP4FreeForm
 from mutagen.wave import WAVE
 
 NAVIDROME_VERSION = "0.64.2"
@@ -167,6 +166,9 @@ def ffmpeg_args(case: Case, number: int, movement: int, source: pathlib.Path, ta
         else:
             codec += ["-ar", rate]
     args += codec
+    if case.ext == "m4a":
+        # Without this the mp4 muxer drops tags it has no atom for, including WORK and MOVEMENT.
+        args += ["-movflags", "+use_metadata_tags"]
     for key, value in metadata(case, number, movement).items():
         args += ["-metadata", f"{key}={value}"]
     args.append(str(target))
@@ -197,42 +199,6 @@ def write_wav_tags(path: pathlib.Path, tags: dict[str, str]) -> None:
     audio.save(v2_version=4)
 
 
-# The MP4 atoms for the tags. ffmpeg writes only title, album and the numbers, and with `+use_metadata_tags` it
-# writes none of the atoms that Navidrome reads, so the lab writes them itself. Other tags go in a freeform atom.
-MP4_ATOMS = {
-    "title": "\xa9nam",
-    "album": "\xa9alb",
-    "album_artist": "aART",
-    "artist": "\xa9ART",
-    "composer": "\xa9wrt",
-    "genre": "\xa9gen",
-    "date": "\xa9day",
-    "work": "\xa9wrk",
-    "movementname": "\xa9mvn",
-}
-
-
-def write_m4a_tags(path: pathlib.Path, tags: dict[str, str]) -> None:
-    audio = MP4(path)
-    audio.delete()
-    audio.tags = None
-    audio.add_tags()
-    for key, value in tags.items():
-        if key == "disc":
-            audio.tags["disk"] = [(int(value), 0)]
-        elif key == "track":
-            audio.tags["trkn"] = [(int(value), int(tags["movementtotal"]))]
-        elif key == "movement":
-            audio.tags["\xa9mvi"] = [int(value)]
-        elif key == "movementtotal":
-            audio.tags["\xa9mvc"] = [int(value)]
-        elif key in MP4_ATOMS:
-            audio.tags[MP4_ATOMS[key]] = [value]
-        else:
-            audio.tags[f"----:com.apple.iTunes:{key}"] = [MP4FreeForm(value.encode())]
-    audio.save()
-
-
 def build(movements: tuple[pathlib.Path, pathlib.Path], out: pathlib.Path) -> int:
     if shutil.which("ffmpeg") is None:
         sys.exit("ffmpeg not found on PATH. Install it (Linux: apt install ffmpeg; macOS: brew install ffmpeg).")
@@ -247,8 +213,6 @@ def build(movements: tuple[pathlib.Path, pathlib.Path], out: pathlib.Path) -> in
             sys.exit(f"ffmpeg failed for {job.target.name}:\n{result.stderr.strip()}")
         if job.target.suffix == ".wav":
             write_wav_tags(job.target, job.tags)
-        if job.target.suffix == ".m4a":
-            write_m4a_tags(job.target, job.tags)
         print(job.target.relative_to(out))
     print(f"{len(jobs)} files, {len(CASES)} test cases in {out / ALBUM}")
     return len(jobs)

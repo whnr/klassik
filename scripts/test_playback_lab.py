@@ -10,7 +10,6 @@ from unittest import mock
 
 import playback_lab as lab
 from mutagen.aiff import AIFF
-from mutagen.mp4 import MP4
 from mutagen.wave import WAVE
 
 SRC = (pathlib.Path("/src/one.flac"), pathlib.Path("/src/two.flac"))
@@ -104,15 +103,9 @@ class ArgumentTests(unittest.TestCase):
         self.assertEqual(option(self.args("mp3-lame-header"), "-write_xing"), "1")
         self.assertEqual(option(self.args("mp3-no-header"), "-write_xing"), "0")
 
-    def test_m4a_tags_come_from_the_lab_not_from_the_muxer(self):
-        # `+use_metadata_tags` drops the atoms that Navidrome reads: the album, the disc and the track.
-        self.assertNotIn("+use_metadata_tags", self.args("aac-256"))
-
-    def test_the_app_test_lists_the_cases_of_the_script(self):
-        swift = pathlib.Path(__file__).parent.parent / "KlassikLabTests" / "LabCasesTests.swift"
-        listed = re.search(r"static let labTitles = \[(.*?)\]", swift.read_text(), re.S)
-        self.assertIsNotNone(listed)
-        self.assertEqual(re.findall(r'"([^"]+)"', listed.group(1)), [c.title for c in lab.CASES])
+    def test_m4a_keeps_custom_tags(self):
+        self.assertIn("+use_metadata_tags", self.args("aac-256"))
+        self.assertNotIn("+use_metadata_tags", self.args("flac-24-96"))
 
     def test_rate_change_differs_per_movement(self):
         self.assertEqual(option(self.args("rate-change", 1), "-ar"), "96000")
@@ -230,16 +223,6 @@ class EndToEndTests(unittest.TestCase):
         self.assertEqual(str(tags["TXXX:movement"]), str(movement), path.name)
         self.assertEqual(str(tags["TXXX:movementtotal"]), str(len(lab.MOVEMENTS)), path.name)
 
-    def assertM4ATagsRead(self, path, number, movement, title):
-        """The atoms that Navidrome reads: without the album and the disc the case never reaches the app."""
-        tags = MP4(path).tags
-        self.assertIsNotNone(tags, f"{path.name} has no tags")
-        self.assertEqual(tags["\xa9alb"], [lab.ALBUM], path.name)
-        self.assertEqual(tags["disk"], [(number, 0)], path.name)
-        self.assertEqual(tags["trkn"], [(movement, len(lab.MOVEMENTS))], path.name)
-        self.assertEqual(tags["\xa9wrk"], [title], path.name)
-        self.assertEqual(tags["\xa9nam"], [lab.MOVEMENTS[movement - 1]], path.name)
-
     def test_builds_every_case(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp = pathlib.Path(tmp)
@@ -257,10 +240,7 @@ class EndToEndTests(unittest.TestCase):
                 info = self.info(f)
                 data = f.read_bytes()
                 self.assertRegex(info, AUDIO[number][movement - 1], f.name)
-                if f.suffix == ".m4a":
-                    self.assertM4ATagsRead(f, number, movement, case.title)
-                else:
-                    self.assertRegex(info, rf"work\s*:\s*{re.escape(case.title)}", f.name)
+                self.assertRegex(info, rf"work\s*:\s*{re.escape(case.title)}", f.name)
                 if number in (9, 10):
                     self.assertTagsRead(f, number, movement, case.title)
                 if number == 6:

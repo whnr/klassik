@@ -3863,8 +3863,7 @@ final class LanguageScreens: ScreensTestCase {
     /// A section heading by its text.
     @MainActor
     func heading(_ app: XCUIApplication, _ text: String) -> XCUIElement {
-        let headings = app.staticTexts.matching(identifier: "section-heading")
-        return headings.matching(NSPredicate(format: "label BEGINSWITH %@", text)).firstMatch
+        app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", text)).firstMatch
     }
 
     /// The picker in Settings changes the language of the open page at once, and of the tabs.

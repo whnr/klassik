@@ -161,7 +161,9 @@ final class Localization: @unchecked Sendable {
     }
 }
 
-/// A string of the catalog in the app language, for text that a view does not draw from a literal.
+/// A string of the catalog in the app language, for text that a view does not draw from a literal. The short upper
+/// case name keeps the many call sites readable, as `NSLocalizedString` does.
+// swift-format-ignore: AlwaysUseLowerCamelCase
 func L(_ key: String.LocalizationValue) -> String {
     Localization.shared.string(key)
 }

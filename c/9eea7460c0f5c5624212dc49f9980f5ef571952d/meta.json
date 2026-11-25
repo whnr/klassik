@@ -1,0 +1,7 @@
+{
+  "sha": "9eea7460c0f5c5624212dc49f9980f5ef571952d",
+  "branch": "claude-ci-decouple",
+  "path": "claude-ci-decouple",
+  "subject": "Fix lint of the Lab plan scripts",
+  "ts": 1795614906
+}

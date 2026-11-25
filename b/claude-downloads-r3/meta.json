@@ -1,7 +1,7 @@
 {
-  "sha": "12839fb2c9ba3548b122368c97c8e9f29d91ec32",
+  "sha": "881622342ace2adacb3b5a03232cfeb9a579bd48",
   "branch": "claude-downloads-r3",
   "path": "claude-downloads-r3",
-  "subject": "[sz-rs30.1.165.1] Keep the login out of the download log",
-  "ts": 1795631249
+  "subject": "Use the literal key for the failing URL string",
+  "ts": 1795634624
 }

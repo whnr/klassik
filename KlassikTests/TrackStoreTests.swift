@@ -372,6 +372,27 @@ struct TrackStoreTests {
         #expect(store.failures.isEmpty)
     }
 
+    @Test func cancelOfARunningForegroundLoadIsNotAFailure() async throws {
+        let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
+        let requests = Requests()
+        // URLSession ends a cancelled wait with URLError.cancelled, whatever the task state.
+        let store = TrackStore(
+            cacheFolder: root.appending(path: "cache"), downloadFolder: root.appending(path: "support/downloads"),
+            defaults: defaults,
+            fetch: { song, _ in
+                requests.ids.append(song.id)
+                while !Task.isCancelled { try await Task.sleep(for: .milliseconds(10)) }
+                throw URLError(.cancelled)
+            })
+        store.download(recording("r1", ["a"]), title: "Work", client: client)
+        for _ in 0..<500 where requests.ids.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(requests.ids == ["a"])
+        store.cancelDownload("r1")
+        await settle(store)
+        #expect(store.failures.isEmpty)
+        #expect(store.downloads.isEmpty)
+    }
+
     @Test func cancelShowsAtOnceAndADownloadCanStartAgain() async throws {
         let store = try makeStore()
         let recording = recording("r1", ["a", "b"])

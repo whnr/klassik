@@ -379,7 +379,10 @@ final class TrackStore {
                 for song in recording.songs where !kept.contains(song.id) {
                     removeFiles(of: song.id, in: downloadFolder)
                 }
-                if !(error is CancellationError) { failures[recording.id] = error.localizedDescription }
+                // URLSession ends a cancelled wait with URLError.cancelled, not CancellationError.
+                let cancelled =
+                    Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled
+                if !cancelled { failures[recording.id] = error.localizedDescription }
             }
             guard generation == self.generation else { return }
             forget(recording.id)

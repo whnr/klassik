@@ -1,7 +1,7 @@
 {
-  "sha": "11a4516b875641f56abff394ba6197f2436cfca2",
+  "sha": "451a9a162c1fa103b9ee0a2058b83749a757854e",
   "branch": "claude-join-dry",
   "path": "claude-join-dry",
-  "subject": "Open the next recording while one decodes",
-  "ts": 1795570781
+  "subject": "Escape the file source of the load task",
+  "ts": 1795571372
 }

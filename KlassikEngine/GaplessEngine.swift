@@ -255,6 +255,12 @@ public final class GaplessEngine: PlaybackEngine {
         return (found.movement, Double(found.frame) / sampleRate)
     }
 
+    /// True once the engine placed audio of the movement on the node timeline. The audio of a movement that
+    /// follows a played one already waits on the node when this is true at the end of its predecessor.
+    public func hasScheduled(movement: Int) -> Bool {
+        timeline.spans.contains { $0.movement == movement }
+    }
+
     public func duration(of movement: Int) -> Double? {
         timeline.length(movement).map { Double($0) / sampleRate }
     }

@@ -1,0 +1,7 @@
+{
+  "sha": "733aa69400bc6d675eacdb72e3c1a3bd5792353a",
+  "branch": "claude-ci-decouple",
+  "path": "claude-ci-decouple",
+  "subject": "Decouple Lab and Test CI",
+  "ts": 1795613149
+}

@@ -205,6 +205,9 @@ jobs:
         run: |
           scripts/screens.sh "$RUNNER_TEMP/build-report"
           tar czf "$RUNNER_TEMP/test-products.tgz" -C build/DerivedData/Build Products
+      - name: Navidrome log
+        if: failure()
+        run: tail -50 "$RUNNER_TEMP/fixture/navidrome.log"
       - uses: actions/upload-artifact@v7
         with:
           name: test-products

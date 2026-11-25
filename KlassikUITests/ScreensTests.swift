@@ -3884,11 +3884,14 @@ final class LanguageScreens: ScreensTestCase {
         XCTAssertTrue(german.waitForExistence(timeout: 5), "The picker offers no German")
         german.tap()
         XCTAssertTrue(app.navigationBars["Einstellungen"].waitForExistence(timeout: 10), "The title stays English")
+        snap(app, "20b-settings-de")
         let library = tab(app, "Library")
-        XCTAssertTrue(eventually(timeout: 5) { library.label == "Bibliothek" }, "The tab stays English")
+        let labels = app.tabBars.buttons.allElementsBoundByIndex.map(\.label)
+        XCTAssertTrue(
+            eventually(timeout: 5) { library.label == "Bibliothek" },
+            "The tab stays English: \(library.exists) \(library.label) \(labels)")
         XCTAssertTrue(eventually(timeout: 5) { self.heading(app, "Wiedergabe").exists }, "A heading stays English")
         XCTAssertTrue(reveal(app.buttons["app-language"], in: app).label.contains("Deutsch"))
-        snap(app, "20b-settings-de")
         expectInside(app, "Settings in German")
         // The pick stays when the page closes and opens again.
         back(app)

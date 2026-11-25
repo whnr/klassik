@@ -1,7 +1,7 @@
 {
-  "sha": "dabeefbd3b75978862c54b5978c58e4dd1c18000",
+  "sha": "2f5ec46c5656708c1e61f95c0888f33cbd4e9afb",
   "branch": "claude-player-bg",
   "path": "claude-player-bg",
-  "subject": "[sz-rs30.1.165.2] Walk the player area",
-  "ts": 1795572497
+  "subject": "[sz-rs30.1.165.2] Keep the player ground out of touches",
+  "ts": 1795575774
 }

@@ -728,16 +728,23 @@ public final class GaplessEngine: PlaybackEngine {
     }
 
     /// Ramps the sound to silence over `frames`, then runs `body`. A start or a discard cancels the wait.
-    /// `hold` is how long the node keeps playing silence after the ramp starts. It defaults to the ramp and the
-    /// output latency of the device.
-    private func halt(frames: Int, hold: Double? = nil, then body: @escaping @MainActor () -> Void) {
+    /// `delay` holds the ramp back so that it ends with the scheduled audio, and `extra` keeps the node up after
+    /// the ramp for the output latency of the device.
+    private func halt(
+        frames: Int, delay: Double = 0, extra: Double = 0.03, then body: @escaping @MainActor () -> Void
+    ) {
         halting?.cancel()
         guard let fade else { return body() }
         silenced = true
-        fade.ramp(to: 0, frames: frames)
-        // The render thread runs the ramp. The margin covers the output latency of the device.
-        let wait = hold ?? (Double(frames) / sampleRate + 0.03)
+        let wait = Double(frames) / sampleRate + extra
+        if delay <= 0 { fade.ramp(to: 0, frames: frames) }
+        // The render thread runs the ramp, so the sleeps only place it in time.
         halting = Task {
+            if delay > 0 {
+                try? await Task.sleep(for: .seconds(delay))
+                guard !Task.isCancelled else { return }
+                fade.ramp(to: 0, frames: frames)
+            }
             try? await Task.sleep(for: .seconds(wait))
             guard !Task.isCancelled else { return }
             halting = nil
@@ -780,10 +787,13 @@ public final class GaplessEngine: PlaybackEngine {
                 // A pause keeps the next sample in place on the timeline until the refill is ready.
                 starved = true
                 let generation = generation
-                // The node stops only after the last scheduled sample played back, so the end of the movement is
-                // reported before the wait begins.
-                let hold = Double(max(remaining, Int64(fadeFrames))) / sampleRate + Self.watchInterval / .seconds(1)
-                halt(frames: Int(min(Int64(fadeFrames), max(remaining, 0))), hold: hold) { [weak self] in
+                // The ramp ends with the audio, and the node stops one watch tick after the audio, so the end of
+                // the movement is reported before the stop.
+                let frames = Int(min(Int64(fadeFrames), max(remaining, 0)))
+                halt(
+                    frames: frames, delay: Double(max(remaining, 0) - Int64(frames)) / sampleRate,
+                    extra: Self.watchInterval / .seconds(1)
+                ) { [weak self] in
                     guard let self, generation == self.generation, self.starved else { return }
                     self.pausedAt = self.playedSamples()
                     node.pause()

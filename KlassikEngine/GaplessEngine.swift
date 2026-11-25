@@ -2,7 +2,7 @@ import AVFoundation
 
 /// Plays the queued recordings back to back, without gaps, on one node timeline.
 /// A complete file plays as a segment. A track that is still arriving plays from decoded buffers, as soon as the
-/// start threshold allows (ADR 0060). Both cut MP3 encoder delay and padding in decoded sample coordinates.
+/// start threshold allows (ADR 0060). Both cut MP3 and M4A encoder delay and padding in decoded sample coordinates.
 @MainActor
 public final class GaplessEngine: PlaybackEngine {
     public typealias CompletionDelivery = @Sendable (@escaping @MainActor @Sendable () -> Void) -> Void
@@ -893,11 +893,18 @@ public final class GaplessEngine: PlaybackEngine {
         return (range.lowerBound + skip)..<range.upperBound
     }
 
-    private static func playableRange(of file: AVAudioFile) -> Range<Int64> {
-        guard file.url.pathExtension.lowercased() == "mp3",
+    /// The frames of a decoded file that belong to the recording: the gapless data of an MP3 or an M4A file, else
+    /// every frame. The container tells an M4A file, because a stored track may carry no extension.
+    nonisolated static func playableRange(of file: AVAudioFile) -> Range<Int64> {
+        if file.url.pathExtension.lowercased() == "mp3",
             let data = try? Data(contentsOf: file.url, options: .mappedIfSafe),
             let header = MP3GaplessInfo.parse(data)
-        else { return 0..<file.length }
-        return header.playableRange(decodedLength: file.length)
+        {
+            return header.playableRange(decodedLength: file.length)
+        }
+        if let info = M4AGaplessInfo.parse(fileAt: file.url) {
+            return info.playableRange(decodedLength: file.length)
+        }
+        return 0..<file.length
     }
 }

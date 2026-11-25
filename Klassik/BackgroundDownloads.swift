@@ -156,7 +156,11 @@ final class BackgroundDownloads: NSObject, URLSessionDownloadDelegate, @unchecke
         try? FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
         let target = staging.appending(path: id)
         try? FileManager.default.removeItem(at: target)
-        try? FileManager.default.moveItem(at: location, to: target)
+        do {
+            try FileManager.default.moveItem(at: location, to: target)
+        } catch {
+            DownloadFailure.record(error, song: id)
+        }
     }
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: (any Error)?) {

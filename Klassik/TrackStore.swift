@@ -329,6 +329,8 @@ final class TrackStore {
         downloadTracks[recording.id] = Set(recording.songs.map(\.id))
         remember(Pending(recording: recording, title: title))
         let generation = generation
+        // Once the system session fails for this download, the remaining tracks skip it.
+        let session = BackgroundSessionState()
         tasks[recording.id] = Task {
             do {
                 var bytes: Int64 = 0
@@ -355,7 +357,7 @@ final class TrackStore {
                                     at: downloadFolder, withIntermediateDirectories: true)
                                 try FileManager.default.moveItem(at: cached, to: target)
                             } else {
-                                try await fetch(song, to: target, client: client)
+                                try await fetch(song, to: target, client: client, session: session)
                             }
                         }
                     }
@@ -382,7 +384,10 @@ final class TrackStore {
                 // URLSession ends a cancelled wait with URLError.cancelled, not CancellationError.
                 let cancelled =
                     Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled
-                if !cancelled { failures[recording.id] = error.localizedDescription }
+                if !cancelled {
+                    DownloadFailure.record(error, song: recording.id)
+                    failures[recording.id] = DownloadFailure.text(for: error)
+                }
             }
             guard generation == self.generation else { return }
             forget(recording.id)
@@ -472,10 +477,22 @@ final class TrackStore {
         rescan()
     }
 
-    private func fetch(_ song: Song, to target: URL, client: any ServerPort) async throws {
+    private func fetch(
+        _ song: Song, to target: URL, client: any ServerPort, session: BackgroundSessionState = .init()
+    ) async throws {
         let temporary: URL
-        if let background {
-            temporary = try await background(song, client)
+        if let background, !session.failed {
+            do {
+                temporary = try await background(song, client)
+            } catch {
+                // The system session ends a transfer at once on some devices and servers, while the app's own
+                // session loads the same URL. A server answer and a cancel are no session fault.
+                let cancelled = Task.isCancelled || error is CancellationError
+                if cancelled || error is SubsonicError || (error as? URLError)?.code == .cancelled { throw error }
+                DownloadFailure.record(error, song: song.id)
+                session.failed = true
+                temporary = try await load(song, client)
+            }
         } else {
             temporary = try await load(song, client)
         }
@@ -538,4 +555,10 @@ final class TrackStore {
     }
 
     private static func fileName(_ song: Song) -> String { "\(song.id).\(song.suffix ?? "mp3")" }
+}
+
+/// Whether the system background session failed for one download. The rest of that download loads in the app's own
+/// session, so each track does not wait for a transfer that fails again.
+final class BackgroundSessionState {
+    var failed = false
 }

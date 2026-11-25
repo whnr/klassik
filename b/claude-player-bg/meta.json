@@ -1,7 +1,7 @@
 {
-  "sha": "2f5ec46c5656708c1e61f95c0888f33cbd4e9afb",
+  "sha": "b2b348bb2f30e05f85ad8e532f5bb9a6f9b378e5",
   "branch": "claude-player-bg",
   "path": "claude-player-bg",
-  "subject": "[sz-rs30.1.165.2] Keep the player ground out of touches",
-  "ts": 1795575774
+  "subject": "[sz-rs30.1.165.2] Draw the pulled-in ground as a layer",
+  "ts": 1795578908
 }

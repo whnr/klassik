@@ -444,7 +444,17 @@ public final class GaplessEngine: PlaybackEngine {
                     continue
                 }
                 let frames = AVAudioFrameCount(min(waiting, Int64(buffer.frameCapacity)))
-                guard (try? engine.renderOffline(frames, to: buffer)) != nil else { return }
+                // A render that is not a success would stop the pump with no sign, and the test would see only a
+                // timeout.
+                let status: AVAudioEngineManualRenderingStatus
+                do { status = try engine.renderOffline(frames, to: buffer) } catch {
+                    self.onEvent?(.failed(error.localizedDescription))
+                    return
+                }
+                guard status == .success else {
+                    self.onEvent?(.failed("Offline render ended with status \(status.rawValue)"))
+                    return
+                }
                 self.pumped += Int64(frames)
                 await Task.yield()
             }

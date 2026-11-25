@@ -1,11 +1,8 @@
-Klassik 0.22.0
+Klassik 0.23.0
 
-- Downloads keep running in the background and still show as downloading after a restart.
-- Drag the player down from the subtitle and performer names too.
-- Skips and seeks no longer click.
-- New Server Connection page in Advanced settings: server, track counts, last sync.
-- Search is the third button of one plain tab bar, without flicker.
-- Klassik checks the library for server changes at each launch and shows the last check.
-- The Tags view shows the file's own tags; movement name, number and count are separate rows.
-- The player has a ⋯ menu with Download and Tags.
-- Recordings no longer drag to reorder.
+- Skips, seeks, pause and stalls fade on the audio itself over 100 ms, so they no longer click.
+- A failed download shows "Download Again" with the reason.
+- The area above the closing player now has its own background; the cover no longer floats.
+- The player's ⋯ menu is a flat disc that works in every scroll state.
+- M4A, ALAC, WAV and AIFF tracks start sooner and join more gaplessly.
+- The next movement opens earlier, so joins stay gapless on slow connections.

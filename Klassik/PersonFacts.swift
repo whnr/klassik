@@ -98,8 +98,8 @@ struct PersonFacts: Codable, Equatable, Identifiable, Sendable {
     var years: String? {
         switch (born, died) {
         case (let born?, let died?): "\(born)–\(died)"
-        case (let born?, nil): L("born \(born)")
-        case (nil, let died?): L("died \(died)")
+        case (let born?, nil): L("born \(String(born))")
+        case (nil, let died?): L("died \(String(died))")
         case (nil, nil): nil
         }
     }

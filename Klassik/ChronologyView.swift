@@ -127,7 +127,7 @@ private struct ChronologyHead: View {
             return "\(count), \(years.lowerBound + 10)–\(years.upperBound - 5)"
         }
         let life = Chronology.life(born: focus.born, died: focus.died)
-        let active = focus.activeFrom.map { L("active from \($0)") }
+        let active = focus.activeFrom.map { L("active from \(String($0))") }
         return [life, WorkIndex.Recording.count(focus.works.count, "work"), active].compactMap(\.self)
             .joined(separator: ", ")
     }

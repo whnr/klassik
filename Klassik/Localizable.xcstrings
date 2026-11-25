@@ -3571,12 +3571,12 @@
         }
       }
     },
-    "active from %lld": {
+    "active from %@": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "aktiv ab %lld"
+            "value": "aktiv ab %@"
           }
         }
       }
@@ -3621,12 +3621,12 @@
         }
       }
     },
-    "born %lld": {
+    "born %@": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "geboren %lld"
+            "value": "geboren %@"
           }
         }
       }
@@ -3651,12 +3651,12 @@
         }
       }
     },
-    "died %lld": {
+    "died %@": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "gestorben %lld"
+            "value": "gestorben %@"
           }
         }
       }

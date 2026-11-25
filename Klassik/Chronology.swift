@@ -26,7 +26,7 @@ struct Chronology: Sendable {
 
     /// "1685–1750", or "born 1950" for a composer who lives.
     static func life(born: Int, died: Int?) -> String {
-        died.map { "\(born)–\($0)" } ?? L("born \(born)")
+        died.map { "\(born)–\($0)" } ?? L("born \(String(born))")
     }
 
     /// The conventional boundaries of music history, as the specimen draws them.

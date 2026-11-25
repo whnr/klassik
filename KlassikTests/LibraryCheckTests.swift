@@ -241,4 +241,19 @@ struct StalledReadTests {
         let client = client("write-\(UUID().uuidString.prefix(8)).test")
         await #expect(throws: URLError.self) { try await client.scrobble(id: "s1", time: Date()) }
     }
+
+    @Test func changeMarkerRequestsAllUseTheShortTimeout() async throws {
+        let host = "marker-\(UUID().uuidString.prefix(8)).test"
+        _ = try await client(host).changeMarker()
+        let timeouts = StallOnceProtocol.timeouts(host)
+        #expect(!timeouts.isEmpty)
+        #expect(timeouts.allSatisfy { $0 == SubsonicClient.quickReadTimeout })
+    }
+
+    @Test func aTimedOutSongPageIsNotRepeated() async throws {
+        let host = "songs-\(UUID().uuidString.prefix(8)).test"
+        let client = client(host)
+        await #expect(throws: URLError.self) { try await client.songs(offset: 0, count: 500) }
+        #expect(StallOnceProtocol.timeouts(host).count == 1)
+    }
 }

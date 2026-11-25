@@ -247,7 +247,7 @@ struct SubsonicClient: Sendable {
     func changeMarker() async throws -> String {
         let indexes = try await retried { try await get("getIndexes", timeout: Self.quickReadTimeout) }
             .indexes?.lastModified
-        let scan = try? await get("getScanStatus").scanStatus?.lastScan
+        let scan = try? await get("getScanStatus", timeout: Self.quickReadTimeout).scanStatus?.lastScan
         return "\(indexes.map(String.init) ?? "-")|\(scan ?? "-")"
     }
 

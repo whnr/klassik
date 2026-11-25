@@ -31,8 +31,8 @@ import time
 import urllib.error
 import urllib.request
 
-from mutagen.mp4 import MP4, MP4FreeForm
 from mutagen.id3 import TALB, TCOM, TCON, TDRC, TIT2, TPE1, TPE2, TPOS, TRCK, TXXX
+from mutagen.mp4 import MP4, MP4FreeForm
 from mutagen.wave import WAVE
 
 NAVIDROME_VERSION = "0.64.2"

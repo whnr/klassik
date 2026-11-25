@@ -71,6 +71,7 @@ struct LabPlayerTests {
         try Data([1]).write(to: file)
         let player = LabPlayer(client: LabClient(credentials: credentials), cases: cases)
         #expect(!FileManager.default.fileExists(atPath: file.path))
+        try FileManager.default.createDirectory(at: LabPlayer.folder, withIntermediateDirectories: true)
         try Data([1]).write(to: file)
         player.stop()
         player.fadeMilliseconds = 50

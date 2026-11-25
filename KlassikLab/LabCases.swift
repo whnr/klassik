@@ -25,7 +25,7 @@ struct LabCase: Identifiable, Hashable, Sendable {
         guard songs.first?.suffix?.lowercased() == "mp3", title.lowercased().contains("without header") else {
             return nil
         }
-        return "This MP3 has no gapless header. A small gap at the join is expected."
+        return "This MP3 has no gapless header: the file carries no delay and padding data. A gap at the join is expected."
     }
 
     /// The source format of the case, such as "FLAC 24-bit 96 kHz". A rate change inside the case shows both rates.

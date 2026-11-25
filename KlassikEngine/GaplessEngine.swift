@@ -910,11 +910,10 @@ public final class GaplessEngine: PlaybackEngine {
     }
 
     /// The frames of a decoded file that belong to the recording: the gapless data of an MP3 or an M4A file, else
-    /// every frame.
+    /// every frame. The container tells an M4A file, because a stored track may carry no extension.
     nonisolated static func playableRange(of file: AVAudioFile) -> Range<Int64> {
-        // The content tells an MP3 file, as it tells an M4A file: a stored track may carry no extension, and iOS
-        // then does not apply the header, so the encoder delay and padding would sound as a gap.
-        if let data = try? Data(contentsOf: file.url, options: .mappedIfSafe), MP3GaplessInfo.looksLikeMP3(data),
+        if file.url.pathExtension.lowercased() == "mp3",
+            let data = try? Data(contentsOf: file.url, options: .mappedIfSafe),
             let header = MP3GaplessInfo.parse(data)
         {
             return header.playableRange(decodedLength: file.length)

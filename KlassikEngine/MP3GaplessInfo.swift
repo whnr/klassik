@@ -28,13 +28,6 @@ public struct MP3GaplessInfo: Equatable, Sendable {
         return parse(afterTag: [UInt8](data.dropFirst(tag).prefix(headerSearch)))
     }
 
-    /// True when the bytes start like an MP3 file: an ID3v2 tag, or an MPEG audio layer III frame header.
-    public static func looksLikeMP3(_ data: Data) -> Bool {
-        let head = [UInt8](data.prefix(10))
-        if id3Size(head) > 0 { return true }
-        return head.count >= 4 && firstFrame(Array(head.prefix(4))) == 0
-    }
-
     /// How far past the ID3v2 tag the first frame and its header may lie.
     static let headerSearch = 8192
 

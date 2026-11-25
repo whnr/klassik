@@ -382,7 +382,10 @@ final class TrackStore {
                 // URLSession ends a cancelled wait with URLError.cancelled, not CancellationError.
                 let cancelled =
                     Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled
-                if !cancelled { failures[recording.id] = error.localizedDescription }
+                if !cancelled {
+                    DownloadFailure.record(error, song: recording.id)
+                    failures[recording.id] = DownloadFailure.text(for: error)
+                }
             }
             guard generation == self.generation else { return }
             forget(recording.id)
@@ -475,7 +478,16 @@ final class TrackStore {
     private func fetch(_ song: Song, to target: URL, client: any ServerPort) async throws {
         let temporary: URL
         if let background {
-            temporary = try await background(song, client)
+            do {
+                temporary = try await background(song, client)
+            } catch {
+                // The system session ends a transfer at once on some devices and servers, while the app's own
+                // session loads the same URL. A server answer and a cancel are no session fault.
+                let cancelled = Task.isCancelled || error is CancellationError
+                if cancelled || error is SubsonicError || (error as? URLError)?.code == .cancelled { throw error }
+                DownloadFailure.record(error, song: song.id)
+                temporary = try await load(song, client)
+            }
         } else {
             temporary = try await load(song, client)
         }

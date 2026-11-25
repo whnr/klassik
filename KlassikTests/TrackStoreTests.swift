@@ -252,6 +252,36 @@ struct TrackStoreTests {
         }
     }
 
+    @Test func downloadFallsBackToTheForegroundSessionWhenTheBackgroundSessionFails() async throws {
+        let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
+        let store = TrackStore(
+            cacheFolder: root.appending(path: "cache"), downloadFolder: root.appending(path: "support/downloads"),
+            defaults: defaults,
+            fetch: { _, _ in
+                let file = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+                try Data(count: 10).write(to: file)
+                return file
+            },
+            background: { _, _ in throw URLError(.cannotParseResponse) })
+        let recording = recording("r1", ["a"])
+        store.download(recording, title: "Work", client: client)
+        await settle(store)
+        #expect(store.isDownloaded(recording))
+        #expect(store.failures.isEmpty)
+    }
+
+    @Test func failureTextGivesTheCodeAndAShortName() async throws {
+        let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
+        let store = TrackStore(
+            cacheFolder: root.appending(path: "cache"), downloadFolder: root.appending(path: "support/downloads"),
+            defaults: defaults, fetch: { _, _ in throw URLError(.timedOut) },
+            background: { _, _ in throw URLError(.networkConnectionLost) })
+        let recording = recording("r1", ["a"])
+        store.download(recording, title: "Work", client: client)
+        await settle(store)
+        #expect(store.failures["r1"] == "-1001 timed out")
+    }
+
     @Test func unfinishedDownloadShowsAsRunningAfterARelaunchAndFinishes() async throws {
         let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
         let first = makeBackgroundStore(defaults, loads: Requests(), hold: true)

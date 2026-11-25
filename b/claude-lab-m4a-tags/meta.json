@@ -1,7 +1,7 @@
 {
-  "sha": "0e33c308ce0d1aaac22df4aa8794b9b13331fa86",
+  "sha": "835b82f12c8c04a3f8d8bdb563189eebdc193bb7",
   "branch": "claude-lab-m4a-tags",
   "path": "claude-lab-m4a-tags",
-  "subject": "Write m4a tags as iTunes atoms in the lab",
-  "ts": 1795610681
+  "subject": "Keep the m4a date out of the release date",
+  "ts": 1795610925
 }

@@ -273,7 +273,7 @@ struct StreamingPlaybackTests {
         let transfer = self.transfer(
             "render.\(suffix)", length: data.count, url: client.streamURL(songID: song.id), validator: validator)
         let first = FirstSound()
-        let engine = GaplessEngine(rendered: { first.record($0) })
+        let engine = GaplessEngine(rendered: { first.record($0) }, fadeSeconds: 0)
         let bitrate = AudioBitrate.initial(song.playbackTrack)
         let chunk = 32 * 1024
         let interval = Double(chunk) * 8 / (bitrate * 2)
@@ -379,7 +379,7 @@ struct StreamingPlaybackTests {
         _ files: [URL], output: RenderedAudio, gainNode: Bool = true, decibels: Float = 0
     ) async throws -> [String] {
         let events = Events()
-        let engine = GaplessEngine(rendered: { output.record($0) }, gainNode: gainNode)
+        let engine = GaplessEngine(rendered: { output.record($0) }, gainNode: gainNode, fadeSeconds: 0)
         engine.setGain(decibels)
         engine.onEvent = { event in
             switch event {
@@ -557,7 +557,7 @@ struct StreamingPlaybackTests {
                 _ = Self.feed(bytes, into: transfer)
             })
         let output = RenderedAudio()
-        let engine = GaplessEngine(rendered: { output.record($0) }, manualRendering: true)
+        let engine = GaplessEngine(rendered: { output.record($0) }, manualRendering: true, fadeSeconds: 0)
         let player = PlaybackSession(engine: engine, store: store, defaults: defaults)
         player.server = InMemoryServer()
         player.leveling = .off
@@ -641,7 +641,7 @@ struct StreamingPlaybackTests {
         }
         let events = Events()
         let output = RenderedAudio()
-        let engine = GaplessEngine(rendered: { output.record($0) }, manualRendering: true)
+        let engine = GaplessEngine(rendered: { output.record($0) }, manualRendering: true, fadeSeconds: 0)
         engine.onEvent = { event in
             if case .movementEnded(let index) = event { events.log.append("end \(index)") }
             if case .failed(let text) = event { events.log.append("failed \(text)") }

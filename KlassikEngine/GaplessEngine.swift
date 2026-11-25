@@ -60,7 +60,7 @@ public final class GaplessEngine: PlaybackEngine {
     private var sampleRate = 44_100.0
     private var format: AVAudioFormat?
     /// A paused node reports no player time, so the position is kept here.
-    private var pausedAt: Int64?
+    private(set) var pausedAt: Int64?
     /// The end of the scheduled audio on the node timeline.
     private var scheduledEnd: Int64 = 0
     /// True once the first sound of this load was allowed.
@@ -728,13 +728,15 @@ public final class GaplessEngine: PlaybackEngine {
     }
 
     /// Ramps the sound to silence over `frames`, then runs `body`. A start or a discard cancels the wait.
-    private func halt(frames: Int, then body: @escaping @MainActor () -> Void) {
+    /// `hold` is how long the node keeps playing silence after the ramp starts. It defaults to the ramp and the
+    /// output latency of the device.
+    private func halt(frames: Int, hold: Double? = nil, then body: @escaping @MainActor () -> Void) {
         halting?.cancel()
         guard let fade else { return body() }
         silenced = true
         fade.ramp(to: 0, frames: frames)
         // The render thread runs the ramp. The margin covers the output latency of the device.
-        let wait = Double(frames) / sampleRate + 0.03
+        let wait = hold ?? (Double(frames) / sampleRate + 0.03)
         halting = Task {
             try? await Task.sleep(for: .seconds(wait))
             guard !Task.isCancelled else { return }
@@ -778,7 +780,10 @@ public final class GaplessEngine: PlaybackEngine {
                 // A pause keeps the next sample in place on the timeline until the refill is ready.
                 starved = true
                 let generation = generation
-                halt(frames: Int(min(Int64(fadeFrames), max(remaining, 0)))) { [weak self] in
+                // The node stops only after the last scheduled sample played back, so the end of the movement is
+                // reported before the wait begins.
+                let hold = Double(max(remaining, Int64(fadeFrames))) / sampleRate + Self.watchInterval / .seconds(1)
+                halt(frames: Int(min(Int64(fadeFrames), max(remaining, 0))), hold: hold) { [weak self] in
                     guard let self, generation == self.generation, self.starved else { return }
                     self.pausedAt = self.playedSamples()
                     node.pause()

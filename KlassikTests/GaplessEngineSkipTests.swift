@@ -94,13 +94,14 @@ struct GaplessEngineSkipTests {
         let (engine, node) = try Self.graph()
         defer { engine.stop() }
         let fade = FadeControl()
-        let player = GaplessEngine(fadeSeconds: 0.05)
+        // An offline node keeps no play state, so the engine's own stop point shows the pause.
+        let player = GaplessEngine(manualRendering: true, fadeSeconds: 0.05)
         player.adopt(engine, node, started: true, fade: fade)
         try player.start(node)
         player.pause()
         #expect(fade.last == .init(from: nil, target: 0, frames: Self.rate / 20))
-        #expect(node.isPlaying)
-        #expect(await Self.eventually { !node.isPlaying })
+        #expect(player.pausedAt == nil)
+        #expect(await Self.eventually { player.pausedAt != nil })
         player.discard()
     }
 
@@ -108,14 +109,14 @@ struct GaplessEngineSkipTests {
         let (engine, node) = try Self.graph()
         defer { engine.stop() }
         let fade = FadeControl()
-        let player = GaplessEngine(fadeSeconds: 0.05)
+        let player = GaplessEngine(manualRendering: true, fadeSeconds: 0.05)
         player.adopt(engine, node, started: true, fade: fade)
         try player.start(node)
         player.pause()
         try player.start(node)
         #expect(fade.last == .init(from: nil, target: 1, frames: Self.rate / 20))
         try? await Task.sleep(for: .milliseconds(150))
-        #expect(node.isPlaying)
+        #expect(player.pausedAt == nil)
         player.discard()
     }
 
@@ -129,8 +130,8 @@ struct GaplessEngineSkipTests {
         try player.start(node)
         player.checkStarvation()
         #expect(fade.last == .init(from: nil, target: 0, frames: 1000))
-        #expect(node.isPlaying)
-        #expect(await Self.eventually { !node.isPlaying })
+        #expect(player.pausedAt == nil)
+        #expect(await Self.eventually { player.pausedAt != nil })
         player.discard()
     }
 

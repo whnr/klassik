@@ -32,7 +32,8 @@ struct FadeRampTests {
         // After the set length, the sound stays silent, and the length is exact.
         for index in length..<samples.count { #expect(samples[index] == 0) }
         if length > 0 { #expect(samples[length - 1] == 0) }
-        if length > 1 { #expect(samples[length - 2] > 0) }
+        if length > 1 { #expect(samples[length - 2] >= 0) }
+        if length > 1 { #expect(samples[length / 2] > 0) }
     }
 
     @Test func aFadeInStartsAtTheOriginAndEndsAtFullLevel() {

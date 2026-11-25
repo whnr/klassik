@@ -67,8 +67,11 @@ struct FormatGaplessTests {
         let join = FormatFixtures.lengths[0]
         let start = FormatFixtures.alignment(joined, at: 2048, referenceAt: 2048)
         let across = FormatFixtures.alignment(joined, at: join + 256, referenceAt: join + 256)
-        #expect(start == 0, "\(name) start shift \(start)")
-        #expect(across == 0, "\(name) join shift \(across)")
+        let tail = FormatFixtures.alignment(first.samples, at: join - 4096, referenceAt: join - 4096)
+        let head = FormatFixtures.alignment(second.samples, at: 2048, referenceAt: join + 2048)
+        let detail = "\(name): start \(start), first tail \(tail), second head \(head), join \(across)"
+        #expect(start == 0, Comment(rawValue: detail))
+        #expect(across == 0, Comment(rawValue: detail))
     }
 
     /// Lossless formats keep every sample: no frame is lost, doubled or changed beyond 16-bit rounding.

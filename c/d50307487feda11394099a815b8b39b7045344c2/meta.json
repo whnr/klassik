@@ -1,0 +1,7 @@
+{
+  "sha": "d50307487feda11394099a815b8b39b7045344c2",
+  "branch": "claude-formats",
+  "path": "claude-formats",
+  "subject": "Wrap long lines for the Swift lint",
+  "ts": 1795584826
+}

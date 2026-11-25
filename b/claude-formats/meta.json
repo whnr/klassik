@@ -1,7 +1,7 @@
 {
-  "sha": "74ef78d6555b73a60ff3b6297185e86a83dde37f",
+  "sha": "d50307487feda11394099a815b8b39b7045344c2",
   "branch": "claude-formats",
   "path": "claude-formats",
-  "subject": "Trim AAC and ALAC priming and remainder for gapless joins",
-  "ts": 1795584670
+  "subject": "Wrap long lines for the Swift lint",
+  "ts": 1795584826
 }

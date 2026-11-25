@@ -233,6 +233,25 @@ struct TrackStoreTests {
         #expect(store.failures.isEmpty)
     }
 
+    @Test func failedBackgroundLoadLeavesAFailedStateNotTheDownloadButton() async throws {
+        let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
+        let store = TrackStore(
+            cacheFolder: root.appending(path: "cache"), downloadFolder: root.appending(path: "support/downloads"),
+            defaults: defaults, fetch: { _, _ in throw SubsonicError.http(status: 500) },
+            background: { _, _ in throw URLError(.networkConnectionLost) })
+        let recording = recording("r1", ["a"])
+        store.download(recording, title: "Work", client: client)
+        await settle(store)
+        #expect(!store.isDownloaded(recording))
+        #expect(store.progress["r1"] == nil)
+        let state = PageMenu.download(
+            of: recording, parts: [], downloads: store.downloads, progress: store.progress, failures: store.failures)
+        guard case .failed = state else {
+            Issue.record("A failed download shows \(state), not a failed state")
+            return
+        }
+    }
+
     @Test func unfinishedDownloadShowsAsRunningAfterARelaunchAndFinishes() async throws {
         let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
         let first = makeBackgroundStore(defaults, loads: Requests(), hold: true)
@@ -351,6 +370,27 @@ struct TrackStoreTests {
         #expect(store.downloads.isEmpty)
         #expect(store.offline.isEmpty)
         #expect(store.failures.isEmpty)
+    }
+
+    @Test func cancelOfARunningForegroundLoadIsNotAFailure() async throws {
+        let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
+        let requests = Requests()
+        // URLSession ends a cancelled wait with URLError.cancelled, whatever the task state.
+        let store = TrackStore(
+            cacheFolder: root.appending(path: "cache"), downloadFolder: root.appending(path: "support/downloads"),
+            defaults: defaults,
+            fetch: { song, _ in
+                requests.ids.append(song.id)
+                while !Task.isCancelled { try await Task.sleep(for: .milliseconds(10)) }
+                throw URLError(.cancelled)
+            })
+        store.download(recording("r1", ["a"]), title: "Work", client: client)
+        for _ in 0..<500 where requests.ids.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(requests.ids == ["a"])
+        store.cancelDownload("r1")
+        await settle(store)
+        #expect(store.failures.isEmpty)
+        #expect(store.downloads.isEmpty)
     }
 
     @Test func cancelShowsAtOnceAndADownloadCanStartAgain() async throws {

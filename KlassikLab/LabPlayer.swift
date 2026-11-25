@@ -25,7 +25,7 @@ final class LabPlayer {
     }
     /// The fade at skip, seek, pause, resume and the underrun stop. A change reaches the running engine at once.
     nonisolated static let fadeRange: ClosedRange<Double> = 0...300
-    static let defaultFade = 100.0
+    nonisolated static let defaultFade = 100.0
     var fadeMilliseconds = LabPlayer.defaultFade {
         didSet { engine?.fadeSeconds = Self.fadeSeconds(milliseconds: fadeMilliseconds) }
     }

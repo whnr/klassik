@@ -191,7 +191,11 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
         withObservationTracking {
             for tab in tabs { if let place = Place(rawValue: tab.identifier) { tab.title = place.title } }
             // The bar keeps the title that its item drew first, so the items take the new name too.
-            for (item, place) in zip(tabBar.items ?? [], Place.allCases) { item.title = place.title }
+            for (item, place) in zip(tabBar.items ?? [], Place.allCases) {
+                item.title = place.title
+                // VoiceOver reads the label that the button first made, unless the item sets it.
+                item.accessibilityLabel = place.title
+            }
             tabBar.setNeedsLayout()
         } onChange: { [weak self] in
             Task { @MainActor in self?.renameTabs() }

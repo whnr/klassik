@@ -233,6 +233,8 @@ class EndToEndTests(unittest.TestCase):
         self.assertEqual(tags["\xa9nam"], [lab.MOVEMENTS[movement - 1]], path.name)
         self.assertEqual(tags["trkn"], [(movement, 0)], path.name)
         self.assertEqual(tags["disk"], [(number, 0)], path.name)
+        self.assertNotIn("\xa9day", tags, "a release date splits the m4a files into their own album")
+        self.assertEqual(tags["----:com.apple.iTunes:date"], [b"2026"], path.name)
         self.assertEqual(tags["----:com.apple.iTunes:work"], [title.encode()], path.name)
         self.assertEqual(tags["----:com.apple.iTunes:movement"], [str(movement).encode()], path.name)
 

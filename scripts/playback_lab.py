@@ -189,12 +189,14 @@ def plan(movements: tuple[pathlib.Path, pathlib.Path], out: pathlib.Path) -> lis
 
 
 # The tags that ffmpeg writes as iTunes atoms. "+use_metadata_tags" would write all of them as QuickTime keys,
-# which Navidrome does not read: the files then show as unknown album and artist.
-M4A_ATOMS = frozenset(("title", "album", "album_artist", "artist", "composer", "genre", "date", "disc", "track"))
+# which Navidrome does not read: the files then show as unknown album and artist. "date" stays out: the ©day atom
+# is a release date to Navidrome, and the other formats are not. The album id includes it, so the m4a files would
+# split off as a second album.
+M4A_ATOMS = frozenset(("title", "album", "album_artist", "artist", "composer", "genre", "disc", "track"))
 
 
 def write_m4a_tags(path: pathlib.Path, tags: dict[str, str]) -> None:
-    """Adds the tags without an iTunes atom (WORK, MOVEMENT) as free-form atoms."""
+    """Adds the tags without an iTunes atom (DATE, WORK, MOVEMENT) as free-form atoms."""
     audio = MP4(path)
     for key, value in tags.items():
         if key not in M4A_ATOMS:

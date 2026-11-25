@@ -13,6 +13,9 @@ It holds inside one work's recording. The Playback Lab (`scripts/playback_lab.py
 | WAV, AIFF | yes | none needed | full file first, played whole |
 | Opus, Ogg Vorbis | no | pre-skip in OpusHead | not playable on iOS in Ogg; out of scope |
 
+The system decoder already cuts an M4A file at its edit list. An ffmpeg edit list has millisecond resolution, so a track
+loses at most 44 frames at its end (about one millisecond).
+
 `M4AGaplessInfo` reads `iTunSMPB` first. Without it, the first edit's media time is the priming, and the packet
 durations give the end. An edit list has the resolution of the movie time scale, so a shorter list ends the
 recording only when it is shorter by more than that resolution. A decoder that already trims the file keeps

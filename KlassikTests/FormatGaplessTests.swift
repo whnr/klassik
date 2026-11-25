@@ -21,6 +21,10 @@ enum FormatFixtures {
         ("aac", "m4a"), ("alac", "m4a"), ("wav", "wav"), ("aiff", "aiff"), ("flac", "flac"), ("mp3", "mp3"),
     ]
 
+    /// The most frames that a track may lose at its end. The system decoder cuts an ffmpeg AAC file at its edit
+    /// list, which has the resolution of the one-millisecond movie time scale.
+    static func tailResolution(_ name: String) -> Int { name == "aac" ? 45 : 0 }
+
     static func url(_ name: String, _ ext: String) throws -> URL {
         try #require(Bundle(for: BundleToken.self).url(forResource: name, withExtension: ext))
     }
@@ -55,8 +59,12 @@ struct FormatGaplessTests {
     func tracksHoldExactlyTheirSamples(name: String, ext: String) throws {
         let first = try FormatFixtures.recording("\(name)-1", ext)
         let second = try FormatFixtures.recording("\(name)-2", ext)
-        #expect(first.samples.count == FormatFixtures.lengths[0], "\(name) first: range \(first.range)")
-        #expect(second.samples.count == FormatFixtures.lengths[1], "\(name) second: range \(second.range)")
+        for (track, expected) in zip([first, second], FormatFixtures.lengths) {
+            let missing = expected - track.samples.count
+            #expect(
+                missing >= 0 && missing <= FormatFixtures.tailResolution(name),
+                Comment(rawValue: "\(name): range \(track.range), expected \(expected)"))
+        }
     }
 
     @Test(arguments: FormatFixtures.formats)
@@ -71,7 +79,8 @@ struct FormatGaplessTests {
         let head = FormatFixtures.alignment(second.samples, at: 2048, referenceAt: join + 2048)
         let detail = "\(name): start \(start), first tail \(tail), second head \(head), join \(across)"
         #expect(start == 0, Comment(rawValue: detail))
-        #expect(across == 0, Comment(rawValue: detail))
+        #expect(tail == 0 && head == 0, Comment(rawValue: detail))
+        if FormatFixtures.tailResolution(name) == 0 { #expect(across == 0, Comment(rawValue: detail)) }
     }
 
     /// Lossless formats keep every sample: no frame is lost, doubled or changed beyond 16-bit rounding.

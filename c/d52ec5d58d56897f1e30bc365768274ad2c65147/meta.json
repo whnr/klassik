@@ -1,0 +1,7 @@
+{
+  "sha": "d52ec5d58d56897f1e30bc365768274ad2c65147",
+  "branch": "claude-ci-decouple",
+  "path": "claude-ci-decouple",
+  "subject": "Keep one xcodebuild test step in Lab",
+  "ts": 1795616747
+}

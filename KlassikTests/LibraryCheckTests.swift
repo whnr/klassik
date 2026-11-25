@@ -182,3 +182,78 @@ struct LibraryCheckTests {
         #expect(library.unchangedCheckRow == expected)
     }
 }
+
+/// Fails the first call of a host with a time-out, then answers.
+private final class StallOnceProtocol: URLProtocol {
+    private static let lock = NSLock()
+    private nonisolated(unsafe) static var failed: Set<String> = []
+    private nonisolated(unsafe) static var seen: [String: [TimeInterval]] = [:]
+
+    static func timeouts(_ host: String) -> [TimeInterval] { lock.withLock { seen[host] ?? [] } }
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        let host = request.url?.host ?? ""
+        Self.lock.withLock { Self.seen[host, default: []].append(request.timeoutInterval) }
+        if Self.lock.withLock({ Self.failed.insert(host).inserted }) {
+            client?.urlProtocol(self, didFailWithError: URLError(.timedOut))
+            return
+        }
+        let json = #"{"subsonic-response":{"status":"ok","version":"1.16.1"}}"#
+        let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data(json.utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() {}
+}
+
+#if !canImport(FoundationNetworking)
+    extension StallOnceProtocol: @unchecked Sendable {}
+#endif
+
+struct StalledReadTests {
+    private func client(_ host: String) -> SubsonicClient {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [StallOnceProtocol.self]
+        return SubsonicClient(
+            credentials: ServerCredentials(url: URL(string: "https://\(host)")!, username: "joe", password: "x"),
+            session: URLSession(configuration: configuration))
+    }
+
+    @Test func aReadThatTimesOutRunsOnceMore() async throws {
+        let info = try await client("stall-\(UUID().uuidString.prefix(8)).test").ping()
+        #expect(info.apiVersion == "1.16.1")
+    }
+
+    @Test func startUpReadsUseTheShortTimeoutAndWritesDoNot() async throws {
+        let host = "limits-\(UUID().uuidString.prefix(8)).test"
+        let client = client(host)
+        _ = try await client.ping()
+        #expect(StallOnceProtocol.timeouts(host).allSatisfy { $0 == SubsonicClient.quickReadTimeout })
+        try await client.star(["s1"])
+        let defaultTimeout = URLRequest(url: URL(string: "https://x.test")!).timeoutInterval
+        #expect(StallOnceProtocol.timeouts(host).last == defaultTimeout)
+    }
+
+    @Test func aTimedOutWriteIsNotRepeated() async throws {
+        let client = client("write-\(UUID().uuidString.prefix(8)).test")
+        await #expect(throws: URLError.self) { try await client.scrobble(id: "s1", time: Date()) }
+    }
+
+    @Test func changeMarkerRequestsAllUseTheShortTimeout() async throws {
+        let host = "marker-\(UUID().uuidString.prefix(8)).test"
+        _ = try await client(host).changeMarker()
+        let timeouts = StallOnceProtocol.timeouts(host)
+        #expect(!timeouts.isEmpty)
+        #expect(timeouts.allSatisfy { $0 == SubsonicClient.quickReadTimeout })
+    }
+
+    @Test func aTimedOutSongPageIsNotRepeated() async throws {
+        let host = "songs-\(UUID().uuidString.prefix(8)).test"
+        let client = client(host)
+        await #expect(throws: URLError.self) { try await client.songs(offset: 0, count: 500) }
+        #expect(StallOnceProtocol.timeouts(host).count == 1)
+    }
+}

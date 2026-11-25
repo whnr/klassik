@@ -102,7 +102,9 @@ struct EarlyFormatTests {
         #expect(ExtAudioFileRead(decoder, &frames, buffer.mutableAudioBufferList) == noErr)
         print("\(name): \(data.count) bytes, reads \(probe.reads)")
         let furthest = probe.reads.map { $0.upperBound }.max() ?? 0
-        #expect(furthest <= Int64(data.count * 6 / 10) || name == "aac" || name == "alac", "reads \(probe.reads)")
+        if furthest > Int64(data.count * 6 / 10) {
+            Issue.record("\(name): \(data.count) bytes, furthest \(furthest), reads \(probe.reads)")
+        }
     }
 
     private final class ReadLog {

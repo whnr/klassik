@@ -4,8 +4,9 @@ import Testing
 @testable import Klassik
 @testable import KlassikEngine
 
-/// The engine ramps a skip: a discard of a sounding engine stops it after the fade-out, and a start fades in.
-/// The graph is real and renders offline, so the tests see the node volume and the engine state.
+/// The engine ramps a skip, a pause and an underrun on the samples: a discard of a sounding engine stops it after
+/// the fade-out, and a start fades in. The graph is real and renders offline. The tests read the ramp that the
+/// engine asks the fade stage for, and the engine state.
 @Suite(.serialized)
 @MainActor
 struct GaplessEngineSkipTests {
@@ -29,17 +30,19 @@ struct GaplessEngineSkipTests {
         return condition()
     }
 
-    @Test func aDiscardOfASoundingEngineStopsItAfterTheRamp() async throws {
+    private static let rate = 44_100
+
+    @Test func aDiscardOfASoundingEngineFadesOutThenStopsIt() async throws {
         let (engine, node) = try Self.graph()
         defer { engine.stop() }
-        let player = GaplessEngine()
-        player.adopt(engine, node, started: true)
+        let fade = FadeControl()
+        let player = GaplessEngine(fadeSeconds: 0.05)
+        player.adopt(engine, node, started: true, fade: fade)
         try player.start(node)
-        #expect(await Self.eventually { node.volume == 1 })
         player.discard()
+        #expect(fade.last == .init(from: nil, target: 0, frames: Self.rate / 20))
         #expect(engine.isRunning)
         #expect(await Self.eventually { !engine.isRunning })
-        #expect(node.volume < 1)
     }
 
     /// A paused node is the same case: `pause()` waits for a render thread that an offline graph does not run.
@@ -47,7 +50,7 @@ struct GaplessEngineSkipTests {
         let (engine, node) = try Self.graph()
         defer { engine.stop() }
         let player = GaplessEngine()
-        player.adopt(engine, node, started: true)
+        player.adopt(engine, node, started: true, fade: FadeControl())
         #expect(!node.isPlaying)
         player.discard()
         #expect(!engine.isRunning)
@@ -57,43 +60,92 @@ struct GaplessEngineSkipTests {
         let (engine, node) = try Self.graph()
         defer { engine.stop() }
         let player = GaplessEngine()
-        player.adopt(engine, node, started: false)
+        player.adopt(engine, node, started: false, fade: FadeControl())
         player.discard()
         #expect(!engine.isRunning)
     }
 
-    @Test func aStartFadesInFromSilence() async throws {
+    @Test func aStartFadesInFromSilenceOverTheSetLength() throws {
         let (engine, node) = try Self.graph()
         defer { engine.stop() }
-        let player = GaplessEngine()
-        player.adopt(engine, node, started: true)
+        let fade = FadeControl()
+        let player = GaplessEngine(fadeSeconds: 0.3)
+        player.adopt(engine, node, started: true, fade: fade)
         try player.start(node)
         #expect(node.isPlaying)
-        #expect(node.volume == 0)
-        #expect(await Self.eventually { node.volume == 1 })
+        #expect(fade.last == .init(from: 0, target: 1, frames: Self.rate * 3 / 10))
         player.discard()
     }
 
-    @Test func aSecondStartOfAPlayingNodeKeepsItsLevel() async throws {
+    @Test func aSecondStartOfAPlayingNodeAsksForNoRamp() throws {
         let (engine, node) = try Self.graph()
         defer { engine.stop() }
+        let fade = FadeControl()
         let player = GaplessEngine()
-        player.adopt(engine, node, started: true)
+        player.adopt(engine, node, started: true, fade: fade)
         try player.start(node)
-        #expect(await Self.eventually { node.volume == 1 })
+        let first = fade.last
         try player.start(node)
-        #expect(node.volume == 1)
+        #expect(fade.last == first)
         player.discard()
     }
 
-    @Test func aDiscardDuringTheFadeInStopsTheEngineWithoutRaisingTheLevel() async throws {
+    @Test func aPauseFadesOutBeforeTheNodeStops() async throws {
         let (engine, node) = try Self.graph()
         defer { engine.stop() }
-        let player = GaplessEngine()
-        player.adopt(engine, node, started: true)
+        let fade = FadeControl()
+        // An offline node keeps no play state, so the engine's own stop point shows the pause.
+        let player = GaplessEngine(manualRendering: true, fadeSeconds: 0.05)
+        player.adopt(engine, node, started: true, fade: fade)
         try player.start(node)
+        player.pause()
+        #expect(fade.last == .init(from: nil, target: 0, frames: Self.rate / 20))
+        #expect(player.pausedAt == nil)
+        #expect(await Self.eventually { player.pausedAt != nil })
         player.discard()
-        #expect(await Self.eventually { !engine.isRunning })
-        #expect(node.volume == 0)
+    }
+
+    @Test func aResumeDuringThePauseFadeRampsUpAgainAndKeepsPlaying() async throws {
+        let (engine, node) = try Self.graph()
+        defer { engine.stop() }
+        let fade = FadeControl()
+        let player = GaplessEngine(manualRendering: true, fadeSeconds: 0.05)
+        player.adopt(engine, node, started: true, fade: fade)
+        try player.start(node)
+        player.pause()
+        try player.start(node)
+        #expect(fade.last == .init(from: nil, target: 1, frames: Self.rate / 20))
+        try? await Task.sleep(for: .milliseconds(150))
+        #expect(player.pausedAt == nil)
+        player.discard()
+    }
+
+    @Test func aStarvationStopFadesOutOverTheAudioThatIsLeft() async throws {
+        let (engine, node) = try Self.graph()
+        defer { engine.stop() }
+        let fade = FadeControl()
+        // The offline engine reports its pumped frames as the position, which is 0 here: 1000 frames are left.
+        let player = GaplessEngine(manualRendering: true, fadeSeconds: 0.1)
+        player.adopt(engine, node, started: true, fade: fade, scheduledEnd: 1000, decoding: true)
+        try player.start(node)
+        player.checkStarvation()
+        #expect(fade.last == .init(from: nil, target: 0, frames: 1000))
+        #expect(player.pausedAt == nil)
+        #expect(await Self.eventually { player.pausedAt != nil })
+        player.discard()
+    }
+
+    @Test func aNodeWithPlentyOfAudioLeftIsNotStopped() throws {
+        let (engine, node) = try Self.graph()
+        defer { engine.stop() }
+        let fade = FadeControl()
+        let player = GaplessEngine(manualRendering: true, fadeSeconds: 0.1)
+        player.adopt(engine, node, started: true, fade: fade, scheduledEnd: Int64(Self.rate * 5), decoding: true)
+        try player.start(node)
+        let first = fade.last
+        player.checkStarvation()
+        #expect(fade.last == first)
+        #expect(node.isPlaying)
+        player.discard()
     }
 }

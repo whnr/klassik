@@ -263,7 +263,44 @@ def fetch_navidrome(work: pathlib.Path) -> pathlib.Path:
     return binary
 
 
-def serve(music: pathlib.Path, work: pathlib.Path, address: str) -> None:
+def password_change(flag: str | None, stored: str | None) -> bool:
+    """True when a later run must set the lab user's password: the flag always wins over the stored one."""
+    return flag is not None and stored is not None and flag != stored
+
+
+def post_json(url: str, body: dict[str, object], headers: dict[str, str] | None = None, method: str = "POST") -> dict:
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(body).encode(),
+        headers={"Content-Type": "application/json", **(headers or {})},
+        method=method,
+    )
+    with urllib.request.urlopen(request, timeout=10) as response:
+        return json.loads(response.read() or b"{}")
+
+
+def change_password(base: str, current: str, new: str) -> None:
+    """Sets the lab user's password through the server's own user API, signed in with the stored password."""
+    try:
+        login = post_json(f"{base}/auth/login", {"username": USER, "password": current})
+        post_json(
+            f"{base}/api/user/{login['id']}",
+            {
+                "id": login["id"],
+                "userName": USER,
+                "name": login.get("name", USER),
+                "isAdmin": True,
+                "password": new,
+                "currentPassword": current,
+            },
+            {"X-ND-Authorization": f"Bearer {login['token']}"},
+            method="PUT",
+        )
+    except (OSError, KeyError) as error:
+        sys.exit(f"Navidrome did not accept the new password: {error}. Delete the work folder to start again.")
+
+
+def serve(music: pathlib.Path, work: pathlib.Path, address: str, fixed: str | None = None) -> None:
     if not (music / ALBUM).is_dir():
         sys.exit(f"No lab library in {music}. Run build first.")
     work.mkdir(parents=True, exist_ok=True)
@@ -271,7 +308,8 @@ def serve(music: pathlib.Path, work: pathlib.Path, address: str) -> None:
     secret = work / "password.txt"
     # The password file is written only after the admin exists, so a failed first run is retried as a first run.
     first_run = not secret.exists()
-    password = secrets.token_urlsafe(12) if first_run else secret.read_text().strip()
+    stored = None if first_run else secret.read_text().strip()
+    password = fixed or stored or secrets.token_urlsafe(12)
     env = {
         **os.environ,
         "ND_MUSICFOLDER": str(music),
@@ -312,7 +350,9 @@ def serve(music: pathlib.Path, work: pathlib.Path, address: str) -> None:
                 sys.exit(f"Navidrome did not create the admin user: HTTP {error.code}.")
         except OSError as error:
             sys.exit(f"Navidrome did not create the admin user: {error}")
-        if first_run:
+        if password_change(fixed, stored):
+            change_password(base, stored, password)
+        if first_run or password_change(fixed, stored):
             secret.touch(mode=0o600)
             secret.write_text(password)
         print(f"\nNavidrome {NAVIDROME_VERSION} on {base}\nUser: {USER}\nPassword: {password}\nStop with Ctrl-C.")
@@ -333,12 +373,13 @@ def main() -> None:
     s = commands.add_parser("serve", help="run Navidrome on the library, on the home network only")
     s.add_argument("--music", type=pathlib.Path, default=pathlib.Path("lab-library"))
     s.add_argument("--work", type=pathlib.Path, default=pathlib.Path("lab-server"), help="Navidrome binary and data")
+    s.add_argument("--password", help="fixed password of user lab; replaces the stored one on a later run")
     s.add_argument("--address", help="address to bind; default is this machine's home network address")
     options = parser.parse_args()
     if options.command == "build":
         build((options.movement1, options.movement2), options.out)
     else:
-        serve(options.music.resolve(), options.work.resolve(), options.address or lan_address())
+        serve(options.music.resolve(), options.work.resolve(), options.address or lan_address(), options.password)
 
 
 if __name__ == "__main__":

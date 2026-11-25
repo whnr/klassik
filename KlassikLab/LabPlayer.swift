@@ -23,6 +23,12 @@ final class LabPlayer {
     var replayGain = true {
         didSet { if oldValue != replayGain { restart() } }
     }
+    /// The fade at skip, seek, pause, resume and the underrun stop. A change reaches the running engine at once.
+    nonisolated static let fadeRange: ClosedRange<Double> = 0...300
+    nonisolated static let defaultFade = 100.0
+    var fadeMilliseconds = LabPlayer.defaultFade {
+        didSet { engine?.fadeSeconds = Self.fadeSeconds(milliseconds: fadeMilliseconds) }
+    }
     var throttle = LabThrottle() {
         didSet { if oldValue != throttle { restart() } }
     }
@@ -108,6 +114,11 @@ final class LabPlayer {
         }
     }
 
+    /// The slider value as the engine's length, clamped to the range of the slider.
+    nonisolated static func fadeSeconds(milliseconds: Double) -> Double {
+        min(max(milliseconds, fadeRange.lowerBound), fadeRange.upperBound) / 1000
+    }
+
     enum SwitchAction: Equatable { case none, restart, discard }
 
     /// A paused engine cannot take a switch, so it is discarded and Play builds it again.
@@ -136,7 +147,8 @@ final class LabPlayer {
         // The join tells about the load that plays now. A restart in the middle of a work keeps no earlier join.
         join = "not played yet"
         try? FileManager.default.createDirectory(at: Self.folder, withIntermediateDirectories: true)
-        let engine = GaplessEngine(gainNode: replayGain)
+        let engine = GaplessEngine(
+            gainNode: replayGain, fadeSeconds: Self.fadeSeconds(milliseconds: fadeMilliseconds))
         engine.onEvent = { [weak self] event in self?.handle(event) }
         self.engine = engine
         self.movement = movement

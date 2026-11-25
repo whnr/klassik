@@ -1,7 +1,0 @@
-{
-  "sha": "74ef78d6555b73a60ff3b6297185e86a83dde37f",
-  "branch": "claude-formats",
-  "path": "claude-formats",
-  "subject": "Trim AAC and ALAC priming and remainder for gapless joins",
-  "ts": 1795584670
-}

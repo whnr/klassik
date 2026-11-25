@@ -1,7 +1,0 @@
-{
-  "sha": "c667ee8b43fe5dfc9ce3a31f6333c95403e45aac",
-  "branch": "claude-flac-join",
-  "path": "claude-flac-join",
-  "subject": "Let audio during a stall end the stall",
-  "ts": 1795611150
-}

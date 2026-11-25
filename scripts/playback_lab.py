@@ -32,6 +32,7 @@ import urllib.error
 import urllib.request
 
 from mutagen.id3 import TALB, TCOM, TCON, TDRC, TIT2, TPE1, TPE2, TPOS, TRCK, TXXX
+from mutagen.mp4 import MP4
 from mutagen.wave import WAVE
 
 NAVIDROME_VERSION = "0.64.2"
@@ -166,11 +167,10 @@ def ffmpeg_args(case: Case, number: int, movement: int, source: pathlib.Path, ta
         else:
             codec += ["-ar", rate]
     args += codec
-    if case.ext == "m4a":
-        # Without this the mp4 muxer drops tags it has no atom for, including WORK and MOVEMENT.
-        args += ["-movflags", "+use_metadata_tags"]
     for key, value in metadata(case, number, movement).items():
-        args += ["-metadata", f"{key}={value}"]
+        # The mp4 muxer drops tags without an atom. write_m4a_tags adds them after the encode.
+        if case.ext != "m4a" or key in M4A_ATOMS:
+            args += ["-metadata", f"{key}={value}"]
     args.append(str(target))
     return args
 
@@ -186,6 +186,22 @@ def plan(movements: tuple[pathlib.Path, pathlib.Path], out: pathlib.Path) -> lis
             args = tuple(ffmpeg_args(case, number, movement, source, target))
             jobs.append(Job(source, target, args, metadata(case, number, movement)))
     return jobs
+
+
+# The tags that ffmpeg writes as iTunes atoms. "+use_metadata_tags" would write all of them as QuickTime keys,
+# which Navidrome does not read: the files then show as unknown album and artist. "date" stays out: the ©day atom
+# is a release date to Navidrome, and the other formats are not. The album id includes it, so the m4a files would
+# split off as a second album.
+M4A_ATOMS = frozenset(("title", "album", "album_artist", "artist", "composer", "genre", "disc", "track"))
+
+
+def write_m4a_tags(path: pathlib.Path, tags: dict[str, str]) -> None:
+    """Adds the tags without an iTunes atom (DATE, WORK, MOVEMENT) as free-form atoms."""
+    audio = MP4(path)
+    for key, value in tags.items():
+        if key not in M4A_ATOMS:
+            audio[f"----:com.apple.iTunes:{key}"] = [value.encode()]
+    audio.save()
 
 
 def write_wav_tags(path: pathlib.Path, tags: dict[str, str]) -> None:
@@ -213,6 +229,8 @@ def build(movements: tuple[pathlib.Path, pathlib.Path], out: pathlib.Path) -> in
             sys.exit(f"ffmpeg failed for {job.target.name}:\n{result.stderr.strip()}")
         if job.target.suffix == ".wav":
             write_wav_tags(job.target, job.tags)
+        if job.target.suffix == ".m4a":
+            write_m4a_tags(job.target, job.tags)
         print(job.target.relative_to(out))
     print(f"{len(jobs)} files, {len(CASES)} test cases in {out / ALBUM}")
     return len(jobs)

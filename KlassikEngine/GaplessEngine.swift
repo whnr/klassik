@@ -255,6 +255,12 @@ public final class GaplessEngine: PlaybackEngine {
         return (found.movement, Double(found.frame) / sampleRate)
     }
 
+    /// True once the engine placed audio of the movement on the node timeline. The audio of a movement that
+    /// follows a played one already waits on the node when this is true at the end of its predecessor.
+    public func hasScheduled(movement: Int) -> Bool {
+        timeline.spans.contains { $0.movement == movement }
+    }
+
     public func duration(of movement: Int) -> Double? {
         timeline.length(movement).map { Double($0) / sampleRate }
     }
@@ -700,7 +706,7 @@ public final class GaplessEngine: PlaybackEngine {
         }
     }
 
-    private func enqueue(
+    func enqueue(
         _ buffer: AVAudioPCMBuffer, position: Int, audioStart: Int64, last: Bool, generation: Int
     ) {
         guard let node else { return }
@@ -711,6 +717,18 @@ public final class GaplessEngine: PlaybackEngine {
             buffer, at: AVAudioTime(sampleTime: placed.lowerBound, atRate: sampleRate), options: [],
             completionCallbackType: completionType,
             completionHandler: last ? ended(position, generation: generation) : nil)
+        if starved, playing, pausedAt == nil { endStall() }
+    }
+
+    /// Audio that arrives before the node paused ends the stall. A node that still plays sounds that audio at once,
+    /// so the fade-out of the stall must not mute it, and the pause must not cut it. Without the start threshold, a
+    /// stall that ends again fades out again.
+    private func endStall() {
+        starved = false
+        halting?.cancel()
+        halting = nil
+        if silenced { rampUp(from: nil) }
+        report()
     }
 
     private func ended(

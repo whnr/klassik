@@ -135,6 +135,27 @@ struct GaplessEngineSkipTests {
         player.discard()
     }
 
+    /// The fade-out of a stall ends at the audio that is left. Audio that arrives before the node pauses plays at once,
+    /// so it must neither stay muted nor be cut by the pause.
+    @Test func audioThatArrivesDuringAStarvationStopPlaysAndKeepsTheNodeRunning() async throws {
+        let (engine, node) = try Self.graph()
+        defer { engine.stop() }
+        let fade = FadeControl()
+        let player = GaplessEngine(manualRendering: true, fadeSeconds: 0.1)
+        player.adopt(engine, node, started: true, fade: fade, scheduledEnd: 1000, decoding: true)
+        try player.start(node)
+        player.checkStarvation()
+        #expect(fade.last == .init(from: nil, target: 0, frames: 1000))
+        let format = try #require(AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 2))
+        let buffer = try #require(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 1024))
+        buffer.frameLength = 1024
+        player.enqueue(buffer, position: 0, audioStart: 0, last: false, generation: 0)
+        #expect(fade.last == .init(from: nil, target: 1, frames: Self.rate / 10))
+        try? await Task.sleep(for: .milliseconds(300))
+        #expect(player.pausedAt == nil)
+        player.discard()
+    }
+
     @Test func aNodeWithPlentyOfAudioLeftIsNotStopped() throws {
         let (engine, node) = try Self.graph()
         defer { engine.stop() }

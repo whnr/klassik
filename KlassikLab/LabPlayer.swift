@@ -17,7 +17,12 @@ final class LabPlayer {
     private(set) var note: String?
 
     var selected: LabCase? {
-        didSet { if oldValue?.id != selected?.id { stop() } }
+        didSet {
+            guard oldValue?.id != selected?.id else { return }
+            stop()
+            // A case switch is the only event that drops the audio files.
+            Self.wipe()
+        }
     }
     /// Off builds the engine without its gain node, so the stage is absent from the signal path.
     var replayGain = true {
@@ -42,8 +47,9 @@ final class LabPlayer {
     /// Where Play starts after a switch discarded the paused engine.
     private var resumePlace: (movement: Int, offset: Double)?
 
-    /// Audio files live here only while they play. The Lab keeps no audio cache.
-    private static var folder: URL { URL.temporaryDirectory.appending(path: "lab-audio") }
+    /// Audio files stay here from their first download until a case switch or the next start. Stop, seek, pause,
+    /// throttle, gain and output changes keep them, so that a test repeats without a refetch.
+    static var folder: URL { URL.temporaryDirectory.appending(path: "lab-audio") }
 
     init(client: LabClient, cases: [LabCase]) {
         self.client = client
@@ -95,9 +101,11 @@ final class LabPlayer {
         movement = 0
         elapsed = 0
         movementLength = 0
-        join = "not played yet"
+        join = Self.notPlayed
         note = nil
     }
+
+    nonisolated static let notPlayed = "not played yet"
 
     private var lastIndex: Int { (selected?.songs.count ?? 1) - 1 }
 
@@ -134,7 +142,6 @@ final class LabPlayer {
         engine = nil
         for feeder in feeders { feeder.cancel() }
         feeders = []
-        Self.wipe()
     }
 
     private func start(movement: Int, offset: Double) {
@@ -145,7 +152,7 @@ final class LabPlayer {
         note = nil
         gainMovement = nil
         // The join tells about the load that plays now. A restart in the middle of a work keeps no earlier join.
-        join = "not played yet"
+        join = Self.joinWaiting(movement: movement, count: selected.songs.count)
         try? FileManager.default.createDirectory(at: Self.folder, withIntermediateDirectories: true)
         let engine = GaplessEngine(
             gainNode: replayGain, fadeSeconds: Self.fadeSeconds(milliseconds: fadeMilliseconds))
@@ -170,10 +177,11 @@ final class LabPlayer {
 
     /// Streams a track through the throttle. A format that cannot start early plays from the whole file.
     private func source(for track: PlaybackTrack, throttle: LabThrottle) async throws -> PlaybackSource {
-        let name = UUID().uuidString
+        let target = Self.cached(track)
+        if FileManager.default.fileExists(atPath: target.path) { return .file(target) }
         let transfer = TrackTransfer(
-            songID: track.id, partial: Self.folder.appending(path: name + ".partial"),
-            target: Self.folder.appending(path: name), url: nil)
+            songID: track.id, partial: Self.folder.appending(path: UUID().uuidString + ".partial"),
+            target: target, url: nil)
         let feeder = LabFeeder(transfer: transfer, throttle: throttle)
         feeders.append(feeder)
         feeder.start(client.streamRequest(songID: track.id))
@@ -185,7 +193,12 @@ final class LabPlayer {
         switch event {
         case .movementEnded(let index):
             ended.insert(index)
-            guard index == lastIndex else { return }
+            guard index == lastIndex else {
+                // The next movement either waits on the node by now, or the node ran dry.
+                join = Self.joinAfterEnd(
+                    of: index, nextScheduled: engine?.hasScheduled(movement: index + 1) ?? false)
+                return
+            }
             isPlaying = false
             status = "Ended"
         case .loading: break
@@ -196,13 +209,7 @@ final class LabPlayer {
                 return
             }
             status = wait.slow ? "Waiting for bytes: link slower than the file" : "Waiting for bytes"
-        case .scheduled(let index):
-            guard index > 0 else { return }
-            let number = "movement \(index + 1)"
-            join =
-                ended.contains(index - 1)
-                ? "gap: \(number) scheduled after movement \(index) ended"
-                : "gapless: \(number) scheduled before movement \(index) ended"
+        case .scheduled: break
         case .configurationChanged:
             // The output changed, for example a headset: the engine stopped and the load starts again here.
             if isPlaying { start(movement: movement, offset: elapsed) }
@@ -210,9 +217,12 @@ final class LabPlayer {
         case .failed(let message):
             isPlaying = false
             status = "Failed: \(message)"
+            join = Self.joinFailure(next: nextToSchedule, reason: message)
         case .serverFailed(let failure):
             isPlaying = false
-            status = failure == .unreachable ? "Server did not answer" : "Server refused the request"
+            let reason = failure == .unreachable ? "Server did not answer" : "Server refused the request"
+            status = reason
+            join = Self.joinFailure(next: nextToSchedule, reason: reason)
         }
     }
 
@@ -229,6 +239,37 @@ final class LabPlayer {
             gainMovement = place.movement
             engine.setGain(VolumeLeveling.track.gain(for: selected.tracks[place.movement]))
         }
+    }
+
+    /// The movement that the engine loads when it fails, unless it is the first one. A failure of a later movement
+    /// belongs to that movement.
+    private var nextToSchedule: Int? {
+        guard let requested = engine?.requestedMovement, requested > 0 else { return nil }
+        return requested
+    }
+
+    /// The join line while a movement plays and the next one has not ended the earlier one yet.
+    nonisolated static func joinWaiting(movement: Int, count: Int) -> String {
+        movement + 1 < count ? "waiting for the end of movement \(movement + 1)" : notPlayed
+    }
+
+    /// The join at the end of a movement: gapless when the next one already waited on the node.
+    nonisolated static func joinAfterEnd(of index: Int, nextScheduled: Bool) -> String {
+        let next = "movement \(index + 2)"
+        return nextScheduled
+            ? "gapless: \(next) was scheduled before movement \(index + 1) ended"
+            : "gap: \(next) was not scheduled when movement \(index + 1) ended"
+    }
+
+    /// A failure that stops the load before the next movement plays. It names that movement.
+    nonisolated static func joinFailure(next: Int?, reason: String) -> String {
+        guard let next else { return "load failed: \(reason)" }
+        return "movement \(next + 1) failed: \(reason)"
+    }
+
+    static func cached(_ track: PlaybackTrack) -> URL {
+        let suffix = (track.suffix ?? "").lowercased().filter { $0.isLetter || $0.isNumber }
+        return folder.appending(path: suffix.isEmpty ? track.id : "\(track.id).\(suffix)")
     }
 
     private static func wipe() {

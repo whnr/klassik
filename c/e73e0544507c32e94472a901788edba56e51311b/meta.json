@@ -1,0 +1,7 @@
+{
+  "sha": "e73e0544507c32e94472a901788edba56e51311b",
+  "branch": "claude-by08",
+  "path": "claude-by08",
+  "subject": "Keep the timeout lines within the lint limit [ui: settings,playback]",
+  "ts": 1795642822
+}

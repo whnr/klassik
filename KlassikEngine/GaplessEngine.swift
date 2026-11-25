@@ -128,6 +128,9 @@ public final class GaplessEngine: PlaybackEngine {
     /// Tests only. The engine renders offline and only audio that is already on the node, so the output does not
     /// depend on runner load.
     private let manualRendering: Bool
+    /// An offline render drains the node at once, so any wait of the decoder looks like a stall. A test that compares
+    /// the output sample for sample turns the watch off, so that runner load cannot pause the node.
+    private let watchesStarvation: Bool
     private var pump: Task<Void, Never>?
     /// An offline engine has no output device to play back to, so it reports data as consumed.
     private var completionType: AVAudioPlayerNodeCompletionCallbackType {
@@ -144,8 +147,10 @@ public final class GaplessEngine: PlaybackEngine {
         manualRendering: Bool = false,
         failureMapper: any PlaybackFailureMapper = TransferFailureMapper(),
         gainNode: Bool = true,
-        fadeSeconds: Double = 0.1
+        fadeSeconds: Double = 0.1,
+        watchesStarvation: Bool = true
     ) {
+        self.watchesStarvation = watchesStarvation
         fadeOptions = FadeOptions(outSeconds: fadeSeconds, inSeconds: fadeSeconds)
         self.deliverCompletion = deliverCompletion
         self.failureMapper = failureMapper
@@ -830,6 +835,7 @@ public final class GaplessEngine: PlaybackEngine {
 
     /// Watches for a node that runs out of audio before the bytes arrive, and reports the wait.
     private func watch(_ generation: Int) {
+        guard watchesStarvation else { return }
         watcher = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: Self.watchInterval)

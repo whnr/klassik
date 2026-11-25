@@ -169,4 +169,235 @@ struct GaplessEngineSkipTests {
         #expect(node.isPlaying)
         player.discard()
     }
+
+    /// What the source closure of a load saw when the new load asked for its first track.
+    @MainActor private final class Probe {
+        var oldEngineRunning: Bool?
+    }
+
+    private static func sounding(_ options: FadeOptions) throws -> (
+        player: GaplessEngine, old: AVAudioEngine, fade: FadeControl
+    ) {
+        let (engine, node) = try graph()
+        let fade = FadeControl()
+        let player = GaplessEngine(manualRendering: true)
+        player.fadeOptions = options
+        player.adopt(engine, node, started: true, fade: fade)
+        try player.start(node)
+        return (player, engine, fade)
+    }
+
+    private static func load(_ player: GaplessEngine, old: AVAudioEngine, probe: Probe) {
+        player.load([PlaybackTrack(id: "a")], from: 0, offset: 0) { _ in
+            probe.oldEngineRunning = old.isRunning
+            // The open lasts until the load is replaced or discarded.
+            try await Task.sleep(for: .seconds(60))
+            throw CancellationError()
+        }
+    }
+
+    private struct SourceFailure: Error {}
+
+    private static let fiftyMilliseconds = FadeOptions(outSeconds: 0.05, inSeconds: 0.05)
+
+    /// The today mode asks for the new track while the old sound still fades out, so the two can overlap.
+    @Test func aLoadInTheTodayModeFadesTheOldSoundOutAndAsksForTheNewTrackAtOnce() async throws {
+        let (player, old, fade) = try Self.sounding(Self.fiftyMilliseconds)
+        defer { old.stop() }
+        let probe = Probe()
+        Self.load(player, old: old, probe: probe)
+        #expect(fade.last == .init(from: nil, target: 0, frames: Self.rate / 20))
+        #expect(await Self.eventually { probe.oldEngineRunning != nil })
+        #expect(probe.oldEngineRunning == true)
+        #expect(await Self.eventually { !old.isRunning })
+        player.discard()
+    }
+
+    /// The silence mode builds the new graph only after the old engine stopped and the gap passed.
+    @Test func aLoadInTheSilenceModeWaitsUntilTheOldSoundStoppedAndTheGapPassed() async throws {
+        var options = Self.fiftyMilliseconds
+        options.seek = .silence(seconds: 0.05)
+        let (player, old, fade) = try Self.sounding(options)
+        defer { old.stop() }
+        let probe = Probe()
+        let start = ContinuousClock.now
+        Self.load(player, old: old, probe: probe)
+        #expect(fade.last == .init(from: nil, target: 0, frames: Self.rate / 20))
+        #expect(await Self.eventually { probe.oldEngineRunning != nil })
+        #expect(probe.oldEngineRunning == false)
+        // The fade-out and the stop margin take 80 ms, and the gap adds 50 ms.
+        #expect(ContinuousClock.now - start >= .milliseconds(125))
+        player.discard()
+    }
+
+    @Test func aLoadInTheSilenceModeOverASilentEngineDoesNotWait() async throws {
+        var options = Self.fiftyMilliseconds
+        options.seek = .silence(seconds: 0.3)
+        let (engine, node) = try Self.graph()
+        defer { engine.stop() }
+        let player = GaplessEngine(manualRendering: true)
+        player.fadeOptions = options
+        player.adopt(engine, node, started: false, fade: FadeControl())
+        let probe = Probe()
+        let start = ContinuousClock.now
+        Self.load(player, old: engine, probe: probe)
+        #expect(await Self.eventually { probe.oldEngineRunning != nil })
+        #expect(ContinuousClock.now - start < .milliseconds(250))
+        player.discard()
+    }
+
+    /// The crossfade mode leaves the old sound alone until the new graph sounds, then both ramp with equal power
+    /// over the length of the fade-out.
+    @Test func aLoadInTheCrossfadeModeKeepsTheOldSoundUntilTheNewOneIsReady() async throws {
+        var options = Self.fiftyMilliseconds
+        options.seek = .crossfade
+        let (player, old, fade) = try Self.sounding(options)
+        defer { old.stop() }
+        let before = fade.last
+        let probe = Probe()
+        Self.load(player, old: old, probe: probe)
+        #expect(await Self.eventually { probe.oldEngineRunning != nil })
+        try? await Task.sleep(for: .milliseconds(200))
+        #expect(probe.oldEngineRunning == true)
+        #expect(old.isRunning)
+        #expect(fade.last == before)
+
+        // The new graph is ready.
+        let (engine, node) = try Self.graph()
+        defer { engine.stop() }
+        let incoming = FadeControl()
+        player.adopt(engine, node, started: false, fade: incoming)
+        try player.start(node)
+        #expect(fade.last == .init(from: nil, target: 0, frames: Self.rate / 20, curve: .equalPower))
+        #expect(incoming.last == .init(from: 0, target: 1, frames: Self.rate / 20, curve: .equalPower))
+        #expect(await Self.eventually { !old.isRunning })
+        player.discard()
+    }
+
+    @Test func aDiscardDuringTheWaitForTheNewSoundFadesTheOldSoundOutAndStopsIt() async throws {
+        var options = Self.fiftyMilliseconds
+        options.seek = .crossfade
+        options.outCurve = .smootherstep
+        let (player, old, fade) = try Self.sounding(options)
+        defer { old.stop() }
+        Self.load(player, old: old, probe: Probe())
+        #expect(old.isRunning)
+        player.discard()
+        #expect(fade.last == .init(from: nil, target: 0, frames: Self.rate / 20, curve: .smootherstep))
+        #expect(await Self.eventually { !old.isRunning })
+    }
+
+    @Test func aPauseDuringTheWaitForTheNewSoundFadesTheOldSoundOut() async throws {
+        var options = Self.fiftyMilliseconds
+        options.seek = .crossfade
+        let (player, old, fade) = try Self.sounding(options)
+        defer { old.stop() }
+        Self.load(player, old: old, probe: Probe())
+        player.pause()
+        #expect(fade.last == .init(from: nil, target: 0, frames: Self.rate / 20))
+        #expect(await Self.eventually { !old.isRunning })
+        player.discard()
+    }
+
+    @Test func aFailedLoadInTheCrossfadeModeStopsTheOldSound() async throws {
+        var options = Self.fiftyMilliseconds
+        options.seek = .crossfade
+        let (player, old, fade) = try Self.sounding(options)
+        defer { old.stop() }
+        var failed = false
+        player.onEvent = { event in
+            if case .failed = event { failed = true }
+        }
+        player.load([PlaybackTrack(id: "a")], from: 0, offset: 0) { _ in throw SourceFailure() }
+        #expect(await Self.eventually { failed })
+        #expect(fade.last == .init(from: nil, target: 0, frames: Self.rate / 20))
+        #expect(await Self.eventually { !old.isRunning })
+        player.discard()
+    }
+
+    /// A second seek before the new graph sounds keeps the first old graph, stops the silent graph at once, and
+    /// the first old graph still crossfades with the graph that finally sounds.
+    @Test func aSecondLoadDuringTheCrossfadeWaitKeepsTheFirstOldSound() async throws {
+        var options = Self.fiftyMilliseconds
+        options.seek = .crossfade
+        let (player, old, fade) = try Self.sounding(options)
+        defer { old.stop() }
+        Self.load(player, old: old, probe: Probe())
+
+        let (silent, silentNode) = try Self.graph()
+        defer { silent.stop() }
+        player.adopt(silent, silentNode, started: false, fade: FadeControl())
+        Self.load(player, old: old, probe: Probe())
+        #expect(!silent.isRunning)
+        try? await Task.sleep(for: .milliseconds(200))
+        #expect(old.isRunning)
+
+        let (engine, node) = try Self.graph()
+        defer { engine.stop() }
+        let incoming = FadeControl()
+        player.adopt(engine, node, started: false, fade: incoming)
+        try player.start(node)
+        #expect(fade.last == .init(from: nil, target: 0, frames: Self.rate / 20, curve: .equalPower))
+        #expect(incoming.last == .init(from: 0, target: 1, frames: Self.rate / 20, curve: .equalPower))
+        #expect(await Self.eventually { !old.isRunning })
+        player.discard()
+    }
+
+    /// A second seek while the crossfade ramp runs parks the sounding graph. The first old graph retires on its own
+    /// timer, and the parked graph crossfades with the next one.
+    @Test func aSecondLoadDuringTheCrossfadeRampParksTheNewSoundAndRetiresTheFirstOneOnItsOwn() async throws {
+        var options = Self.fiftyMilliseconds
+        options.seek = .crossfade
+        let (player, first, _) = try Self.sounding(options)
+        defer { first.stop() }
+        Self.load(player, old: first, probe: Probe())
+
+        let (second, secondNode) = try Self.graph()
+        defer { second.stop() }
+        let secondFade = FadeControl()
+        player.adopt(second, secondNode, started: true, fade: secondFade)
+        try player.start(secondNode)
+        #expect(first.isRunning)
+        Self.load(player, old: second, probe: Probe())
+
+        #expect(await Self.eventually { !first.isRunning })
+        try? await Task.sleep(for: .milliseconds(200))
+        #expect(second.isRunning)
+
+        let (third, thirdNode) = try Self.graph()
+        defer { third.stop() }
+        player.adopt(third, thirdNode, started: false, fade: FadeControl())
+        try player.start(thirdNode)
+        #expect(secondFade.last == .init(from: nil, target: 0, frames: Self.rate / 20, curve: .equalPower))
+        #expect(await Self.eventually { !second.isRunning })
+        player.discard()
+    }
+
+    @Test func aLoadInTheCrossfadeModeOverASilentEngineStopsItAtOnce() throws {
+        var options = Self.fiftyMilliseconds
+        options.seek = .crossfade
+        let (engine, node) = try Self.graph()
+        defer { engine.stop() }
+        let player = GaplessEngine(manualRendering: true)
+        player.fadeOptions = options
+        player.adopt(engine, node, started: false, fade: FadeControl())
+        Self.load(player, old: engine, probe: Probe())
+        #expect(!engine.isRunning)
+        player.discard()
+    }
+
+    @Test func theFadeOutAndFadeInUseTheirOwnCurvesAndLengths() throws {
+        let (engine, node) = try Self.graph()
+        defer { engine.stop() }
+        let fade = FadeControl()
+        let player = GaplessEngine(manualRendering: true)
+        player.fadeOptions = FadeOptions(
+            outCurve: .equalPower, inCurve: .smootherstep, outSeconds: 0.05, inSeconds: 0.1)
+        player.adopt(engine, node, started: true, fade: fade)
+        try player.start(node)
+        #expect(fade.last == .init(from: 0, target: 1, frames: Self.rate / 10, curve: .smootherstep))
+        player.pause()
+        #expect(fade.last == .init(from: nil, target: 0, frames: Self.rate / 20, curve: .equalPower))
+        player.discard()
+    }
 }

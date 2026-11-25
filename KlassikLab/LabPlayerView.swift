@@ -1,3 +1,4 @@
+import KlassikEngine
 import SwiftUI
 
 /// The whole Lab screen: case, quality line, transport, ReplayGain, network.
@@ -76,14 +77,50 @@ struct LabPlayerView: View {
                     Text("Off builds the engine without its gain stage.")
                 }
                 Section {
-                    Slider(value: $player.fadeMilliseconds, in: LabPlayer.fadeRange, step: 10)
-                    Text("Fade \(Int(player.fadeMilliseconds)) ms")
+                    Picker("Curve", selection: $player.fade.outCurve) {
+                        ForEach(FadeCurve.allCases) { Text($0.title).tag($0) }
+                    }
+                    Slider(value: $player.fade.outMilliseconds, in: LabFadeSettings.durationRange, step: 10)
+                    Text("Length \(Int(player.fade.outMilliseconds)) ms")
                         .font(.footnote.monospacedDigit())
                         .foregroundStyle(.secondary)
                 } header: {
-                    Text("Settings")
+                    Text("Fade out")
                 } footer: {
-                    Text("Fade at skip, seek, pause, resume and a stall. 0 turns it off.")
+                    Text("At pause, a stall, a seek and a skip. 0 turns it off.")
+                }
+                Section {
+                    Picker("Curve", selection: $player.fade.inCurve) {
+                        ForEach(FadeCurve.allCases) { Text($0.title).tag($0) }
+                    }
+                    Slider(value: $player.fade.inMilliseconds, in: LabFadeSettings.durationRange, step: 10)
+                    Text("Length \(Int(player.fade.inMilliseconds)) ms")
+                        .font(.footnote.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                } header: {
+                    Text("Fade in")
+                } footer: {
+                    Text("At the first sound, resume and the end of a stall. 0 turns it off.")
+                }
+                Section {
+                    Picker("Mode", selection: $player.fade.seek) {
+                        ForEach(LabFadeSettings.Seek.allCases) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    if player.fade.seek == .silence {
+                        Slider(value: $player.fade.silenceMilliseconds, in: LabFadeSettings.silenceRange, step: 10)
+                        Text("Silence \(Int(player.fade.silenceMilliseconds)) ms")
+                            .font(.footnote.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
+                } header: {
+                    Text("Seek and skip")
+                } footer: {
+                    Text(
+                        "Today: fade out and load at the same time; the two can overlap. "
+                            + "Silence: fade out, wait, then fade in; never overlapping. "
+                            + "Crossfade: the old place plays until the new one is ready, then both cross over "
+                            + "with equal power for the fade-out length.")
                 }
                 Section("Network") {
                     Picker("Throttle", selection: $player.throttle.mode) {

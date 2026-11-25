@@ -50,8 +50,17 @@ public final class GaplessEngine: PlaybackEngine {
     private var halting: Task<Void, Never>?
     /// True from the start of a fade-out until a start ramps the sound up again.
     private var silenced = false
-    /// The length of every fade, in seconds. A change takes effect at the next fade, also on a running engine.
-    public var fadeSeconds: Double
+    /// The curves, lengths and seek mode of the fades. A change takes effect at the next fade, also on a running
+    /// engine.
+    public var fadeOptions: FadeOptions
+    /// The graph of the old position, which keeps playing after a load in crossfade mode until the new graph can sound.
+    private var outgoing: Outgoing?
+
+    private struct Outgoing {
+        let engine: AVAudioEngine
+        let fade: FadeControl
+        let rate: Double
+    }
     /// Completion handlers of an earlier load must not reach the session.
     private var generation = 0
     /// Whether the session wants sound. A load that finishes after a pause must stay silent.
@@ -137,7 +146,7 @@ public final class GaplessEngine: PlaybackEngine {
         gainNode: Bool = true,
         fadeSeconds: Double = 0.1
     ) {
-        self.fadeSeconds = fadeSeconds
+        fadeOptions = FadeOptions(outSeconds: fadeSeconds, inSeconds: fadeSeconds)
         self.deliverCompletion = deliverCompletion
         self.failureMapper = failureMapper
         self.gainNode = gainNode
@@ -146,7 +155,20 @@ public final class GaplessEngine: PlaybackEngine {
     }
 
     public func load(_ songs: [PlaybackTrack], from movement: Int, offset: Double, file: @escaping PlaybackFileSource) {
-        discard()
+        let sounding = isSounding
+        // A graph that sounds stays up for a crossfade. A graph that is still silent has nothing to cross over from,
+        // so an older graph that waits for the same crossfade stays instead.
+        var parked: Outgoing?
+        if fadeOptions.seek == .crossfade, sounding, !silenced, let engine, let fade {
+            parked = Outgoing(engine: engine, fade: fade, rate: sampleRate)
+            self.engine = nil
+        } else if fadeOptions.seek == .crossfade, !sounding {
+            parked = outgoing
+            outgoing = nil
+        }
+        let stopWait = reset()
+        outgoing = parked
+        let delay = fadeOptions.newSoundDelay(stopWait: stopWait)
         self.songs = songs
         // The track at the load's start is fixed before the scheduler asks for it.
         requested = movement
@@ -155,12 +177,18 @@ public final class GaplessEngine: PlaybackEngine {
         cancelled = CancelFlag()
         worker = DispatchQueue(label: "de.whnr.klassik.decoder", qos: .default)
         task = Task {
+            // The new graph does not exist before this wait ends, so its sound cannot meet the fading one.
+            if delay > 0 {
+                try? await Task.sleep(for: .seconds(delay))
+                guard generation == self.generation, !Task.isCancelled else { return }
+            }
             await schedule(from: movement, offset: offset, file: file, generation: generation)
         }
     }
 
     public func pause() {
         playing = false
+        retireOutgoing()
         guard let node, node.isPlaying else {
             pausedAt = playedSamples()
             node?.pause()
@@ -168,7 +196,7 @@ public final class GaplessEngine: PlaybackEngine {
         }
         // The node keeps playing until the fade-out ends, so the stop lands on silence.
         let generation = generation
-        halt(frames: fadeFrames) { [weak self] in
+        halt(frames: outFrames) { [weak self] in
             guard let self, generation == self.generation, !self.playing else { return }
             self.pausedAt = self.playedSamples()
             node.pause()
@@ -220,6 +248,13 @@ public final class GaplessEngine: PlaybackEngine {
     }
 
     public func discard() {
+        reset()
+    }
+
+    /// Drops the load and its graph. Returns the seconds that the old sound needs to fade out and stop, or 0 when
+    /// it stops at once.
+    @discardableResult
+    private func reset() -> Double {
         // Invalidate callbacks before stopping: node teardown also calls completion handlers.
         generation += 1
         cancelled.set()
@@ -236,7 +271,9 @@ public final class GaplessEngine: PlaybackEngine {
         pumped = 0
         halting?.cancel()
         halting = nil
-        retire(engine, node, fade)
+        retireOutgoing()
+        let stopWait = retire(
+            engine, fade, sounding: isSounding, rate: sampleRate, curve: fadeOptions.outCurve)
         fade = nil
         silenced = false
         engine = nil
@@ -262,6 +299,7 @@ public final class GaplessEngine: PlaybackEngine {
         opener = nil
         reported = nil
         playing = false
+        return stopWait
     }
 
     public func setGain(_ decibels: Float) {
@@ -377,6 +415,8 @@ public final class GaplessEngine: PlaybackEngine {
             opening?.task.cancel()
             opening = nil
             guard generation == self.generation, !Task.isCancelled else { return }
+            // A load that fails leaves no new graph to cross over to, so the parked one must not keep playing.
+            retireOutgoing()
             if let failure = failureMapper.serverFailure(for: error) {
                 onEvent?(.serverFailed(failure))
             } else {
@@ -695,8 +735,14 @@ public final class GaplessEngine: PlaybackEngine {
         report()
     }
 
-    /// The length of a fade in frames.
-    private var fadeFrames: Int { Int((fadeSeconds * sampleRate).rounded()) }
+    private var outFrames: Int { Int((fadeOptions.outSeconds * sampleRate).rounded()) }
+    private var inFrames: Int { Int((fadeOptions.inSeconds * sampleRate).rounded()) }
+
+    /// True while the graph makes sound that a fade-out has to cover.
+    private var isSounding: Bool {
+        guard let node else { return false }
+        return started && !starved && node.isPlaying
+    }
 
     /// Starts the node from silence, so a start inside a waveform (a seek, a resume) does not click.
     /// A node that still plays only ramps up again, when a fade-out silenced it: a second start would dip it.
@@ -705,7 +751,7 @@ public final class GaplessEngine: PlaybackEngine {
             if silenced { rampUp(from: nil) }
             return
         }
-        rampUp(from: 0)
+        if let old = outgoing { crossfade(from: old) } else { rampUp(from: 0) }
         try node.playAudio()
     }
 
@@ -713,7 +759,25 @@ public final class GaplessEngine: PlaybackEngine {
         halting?.cancel()
         halting = nil
         silenced = false
-        fade?.ramp(from: level, to: 1, frames: fadeFrames)
+        fade?.ramp(from: level, to: 1, frames: inFrames, curve: fadeOptions.inCurve)
+    }
+
+    /// The new graph sounds: it fades in while the old one fades out, both with equal-power curves over the length
+    /// of the fade-out.
+    private func crossfade(from old: Outgoing) {
+        outgoing = nil
+        halting?.cancel()
+        halting = nil
+        silenced = false
+        fade?.ramp(from: 0, to: 1, frames: outFrames, curve: .equalPower)
+        retire(old.engine, old.fade, sounding: true, rate: old.rate, curve: .equalPower)
+    }
+
+    /// Fades the parked graph out and stops it. A load that never gets ready must not leave it playing.
+    private func retireOutgoing() {
+        guard let old = outgoing else { return }
+        outgoing = nil
+        retire(old.engine, old.fade, sounding: true, rate: old.rate, curve: fadeOptions.outCurve)
     }
 
     /// Ramps the sound to silence over `frames`, then runs `body`. A start or a discard cancels the wait.
@@ -726,13 +790,13 @@ public final class GaplessEngine: PlaybackEngine {
         guard let fade else { return body() }
         silenced = true
         let wait = Double(frames) / sampleRate + extra
-        if delay <= 0 { fade.ramp(to: 0, frames: frames) }
+        if delay <= 0 { fade.ramp(to: 0, frames: frames, curve: fadeOptions.outCurve) }
         // The render thread runs the ramp, so the sleeps only place it in time.
         halting = Task {
             if delay > 0 {
                 try? await Task.sleep(for: .seconds(delay))
                 guard !Task.isCancelled else { return }
-                fade.ramp(to: 0, frames: frames)
+                fade.ramp(to: 0, frames: frames, curve: self.fadeOptions.outCurve)
             }
             try? await Task.sleep(for: .seconds(wait))
             guard !Task.isCancelled else { return }
@@ -742,18 +806,26 @@ public final class GaplessEngine: PlaybackEngine {
     }
 
     /// Stops a replaced engine after its sound faded out, so a skip does not cut the wave. The replaced load is
-    /// already invalid, so nothing of it reaches the session. A silent engine stops at once.
-    private func retire(_ engine: AVAudioEngine?, _ node: AVAudioPlayerNode?, _ fade: FadeControl?) {
-        guard let engine else { return }
-        guard let node, let fade, started, !starved, node.isPlaying else { return engine.stop() }
+    /// already invalid, so nothing of it reaches the session. A silent engine stops at once. Returns the seconds
+    /// until the engine stops, or 0 when it stopped at once.
+    @discardableResult
+    private func retire(
+        _ engine: AVAudioEngine?, _ fade: FadeControl?, sounding: Bool, rate: Double, curve: FadeCurve
+    ) -> Double {
+        guard let engine else { return 0 }
+        guard sounding, let fade else {
+            engine.stop()
+            return 0
+        }
         // A skip during another fade starts the fade-out from the level that the ramp has reached.
-        let frames = fadeFrames
-        fade.ramp(to: 0, frames: frames)
-        let wait = Double(frames) / sampleRate + 0.03
+        let frames = Int((fadeOptions.outSeconds * rate).rounded())
+        fade.ramp(to: 0, frames: frames, curve: curve)
+        let wait = Double(frames) / rate + FadeOptions.stopMargin
         Task {
             try? await Task.sleep(for: .seconds(wait))
             engine.stop()
         }
+        return wait
     }
 
     /// Watches for a node that runs out of audio before the bytes arrive, and reports the wait.
@@ -770,7 +842,7 @@ public final class GaplessEngine: PlaybackEngine {
     func checkStarvation() {
         if let played = playedSamples() {
             // The fade must end before the audio does, so the check looks one fade and one watch tick ahead.
-            let lead = Int64(fadeFrames) + Int64(sampleRate * (Self.watchInterval / .seconds(1)))
+            let lead = Int64(outFrames) + Int64(sampleRate * (Self.watchInterval / .seconds(1)))
             let remaining = scheduledEnd - played
             if playing, started, !starved, decoding, let node, node.isPlaying, remaining <= lead {
                 // A pause keeps the next sample in place on the timeline until the refill is ready.
@@ -778,7 +850,7 @@ public final class GaplessEngine: PlaybackEngine {
                 let generation = generation
                 // The ramp ends with the audio, and the node stops one watch tick after the audio, so the end of
                 // the movement is reported before the stop.
-                let frames = Int(min(Int64(fadeFrames), max(remaining, 0)))
+                let frames = Int(min(Int64(outFrames), max(remaining, 0)))
                 halt(
                     frames: frames, delay: Double(max(remaining, 0) - Int64(frames)) / sampleRate,
                     extra: Self.watchInterval / .seconds(1)

@@ -21,4 +21,17 @@ struct DownloadFailureTests {
     @Test func theTextIsShortEnoughForOneLine() {
         #expect(DownloadFailure.text(for: URLError(.serverCertificateUntrusted)).count <= 30)
     }
+
+    @Test func theLogLineHoldsNoLoginDetails() {
+        let url = URL(string: "https://music.example/rest/stream?u=flo&t=SECRETTOKEN&s=SALT123&id=a")!
+        let error = URLError(
+            .timedOut,
+            userInfo: [NSURLErrorFailingURLErrorKey: url, NSURLErrorFailingURLStringErrorKey: url.absoluteString])
+        let text = DownloadFailure.logText(for: error, song: "a")
+        for secret in ["SECRETTOKEN", "SALT123", "u=flo", "?"] {
+            #expect(!text.contains(secret), "log holds \(secret)")
+        }
+        #expect(text.contains("-1001"))
+        #expect(text.contains("music.example"))
+    }
 }

@@ -22,8 +22,19 @@ enum DownloadFailure {
         return "\(ns.code) \(names[ns.code] ?? "network error")"
     }
 
-    /// Writes the full error to the app log, which a person reads with the device console.
+    /// The log line of a failed download. It never holds the error's userInfo: a URL error carries the stream URL,
+    /// whose query is the user, token and salt of the login.
+    static func logText(for error: any Error, song: String) -> String {
+        let ns = error as NSError
+        var text = "download of \(song) failed: \(ns.domain) \(ns.code) \(ns.localizedDescription)"
+        if let url = ns.userInfo[NSURLErrorFailingURLErrorKey] as? URL {
+            text += " at \(url.host() ?? "") \(url.path())"
+        }
+        return text
+    }
+
+    /// Writes the error to the app log, which a person reads with the device console.
     static func record(_ error: any Error, song: String) {
-        log.error("download of \(song, privacy: .public) failed: \(String(describing: error), privacy: .public)")
+        log.error("\(logText(for: error, song: song), privacy: .public)")
     }
 }

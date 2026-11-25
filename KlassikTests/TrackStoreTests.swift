@@ -270,6 +270,64 @@ struct TrackStoreTests {
         #expect(store.failures.isEmpty)
     }
 
+    @Test func downloadSkipsTheFailedBackgroundSessionForTheRestOfTheAlbum() async throws {
+        let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
+        let loads = Requests()
+        let store = TrackStore(
+            cacheFolder: root.appending(path: "cache"), downloadFolder: root.appending(path: "support/downloads"),
+            defaults: defaults,
+            fetch: { _, _ in
+                let file = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+                try Data(count: 10).write(to: file)
+                return file
+            },
+            background: { song, _ in
+                loads.ids.append(song.id)
+                throw URLError(.cannotParseResponse)
+            })
+        let recording = recording("r1", ["a", "b", "c"])
+        store.download(recording, title: "Work", client: client)
+        await settle(store)
+        #expect(store.isDownloaded(recording))
+        #expect(loads.ids == ["a"])
+    }
+
+    @Test func aServerAnswerFromTheBackgroundSessionDoesNotFallBack() async throws {
+        let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
+        let loads = Requests()
+        let store = TrackStore(
+            cacheFolder: root.appending(path: "cache"), downloadFolder: root.appending(path: "support/downloads"),
+            defaults: defaults,
+            fetch: { song, _ in
+                loads.ids.append(song.id)
+                throw URLError(.timedOut)
+            },
+            background: { _, _ in throw SubsonicError.http(status: 404) })
+        let recording = recording("r1", ["a"])
+        store.download(recording, title: "Work", client: client)
+        await settle(store)
+        #expect(loads.ids.isEmpty)
+        #expect(store.failures["r1"] == "HTTP 404")
+    }
+
+    @Test func aCancelFromTheBackgroundSessionDoesNotFallBack() async throws {
+        let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
+        let loads = Requests()
+        let store = TrackStore(
+            cacheFolder: root.appending(path: "cache"), downloadFolder: root.appending(path: "support/downloads"),
+            defaults: defaults,
+            fetch: { song, _ in
+                loads.ids.append(song.id)
+                throw URLError(.timedOut)
+            },
+            background: { _, _ in throw URLError(.cancelled) })
+        let recording = recording("r1", ["a"])
+        store.download(recording, title: "Work", client: client)
+        await settle(store)
+        #expect(loads.ids.isEmpty)
+        #expect(store.failures["r1"] == nil)
+    }
+
     @Test func failureTextGivesTheCodeAndAShortName() async throws {
         let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
         let store = TrackStore(

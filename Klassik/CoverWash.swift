@@ -390,6 +390,17 @@ struct PlayerGround: View {
     }
 }
 
+/// The ground that a pulled player reveals above its top edge. It sits behind the player and does not move with the
+/// pull, so the strip the player leaves is never empty.
+struct PlayerGroundAbove: View {
+    var body: some View {
+        Palette.backgroundGrouped.color
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+}
+
 /// Washes the player in its cover's hue while its item plays.
 struct CoverWashModifier: ViewModifier {
     @Environment(AppModel.self) private var model

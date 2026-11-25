@@ -397,6 +397,8 @@ struct PlayerGround: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .ignoresSafeArea()
+        // The ground above the top edge is drawing only: it takes no touch and joins no layout or accessibility frame.
+        .allowsHitTesting(false)
         .accessibilityHidden(true)
     }
 }

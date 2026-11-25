@@ -233,7 +233,8 @@ struct StalledReadTests {
         _ = try await client.ping()
         #expect(StallOnceProtocol.timeouts(host).allSatisfy { $0 == SubsonicClient.quickReadTimeout })
         try await client.star(["s1"])
-        #expect(StallOnceProtocol.timeouts(host).last == URLRequest(url: URL(string: "https://x.test")!).timeoutInterval)
+        let defaultTimeout = URLRequest(url: URL(string: "https://x.test")!).timeoutInterval
+        #expect(StallOnceProtocol.timeouts(host).last == defaultTimeout)
     }
 
     @Test func aTimedOutWriteIsNotRepeated() async throws {

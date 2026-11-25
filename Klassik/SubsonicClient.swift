@@ -199,7 +199,9 @@ struct SubsonicClient: Sendable {
             apiVersion: response.version, type: response.type,
             serverVersion: response.serverVersion, openSubsonic: response.openSubsonic ?? false)
         if info.openSubsonic {
-            let extensions = try await retried { try await get("getOpenSubsonicExtensions", timeout: Self.quickReadTimeout) }
+            let extensions = try await retried {
+                try await get("getOpenSubsonicExtensions", timeout: Self.quickReadTimeout)
+            }
             info.extensions = extensions.openSubsonicExtensions?.map(\.name) ?? []
         }
         return info
@@ -243,7 +245,8 @@ struct SubsonicClient: Sendable {
     /// Changes when the server scans new or changed files. The classic `getIndexes` date alone can miss a change
     /// to an existing artist, so the scan date joins it where the server reports one.
     func changeMarker() async throws -> String {
-        let indexes = try await retried { try await get("getIndexes", timeout: Self.quickReadTimeout) }.indexes?.lastModified
+        let indexes = try await retried { try await get("getIndexes", timeout: Self.quickReadTimeout) }
+            .indexes?.lastModified
         let scan = try? await get("getScanStatus").scanStatus?.lastScan
         return "\(indexes.map(String.init) ?? "-")|\(scan ?? "-")"
     }

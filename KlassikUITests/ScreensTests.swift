@@ -3851,12 +3851,15 @@ final class LanguageScreens: ScreensTestCase {
     /// No text leaves the screen sideways. A wrapped text stays inside; a text that does not wrap would leave.
     @MainActor
     func expectInside(_ app: XCUIApplication, _ screen: String) {
+        // The timeline moves the page sideways by half its width while music plays.
+        let slack = Measure.timeline
         let width = app.frame
         for text in app.staticTexts.allElementsBoundByIndex.prefix(120) where text.exists {
             let frame = text.frame
             guard !frame.isEmpty, frame.minX.isFinite, frame.maxX.isFinite else { continue }
-            XCTAssertGreaterThanOrEqual(frame.minX, width.minX - 1, "\(screen): \"\(text.label)\" leaves the left edge")
-            XCTAssertLessThanOrEqual(frame.maxX, width.maxX + 1, "\(screen): \"\(text.label)\" leaves the right edge")
+            let name = "\(screen): \"\(text.label)\""
+            XCTAssertGreaterThanOrEqual(frame.minX, width.minX - slack, "\(name) leaves the left edge")
+            XCTAssertLessThanOrEqual(frame.maxX, width.maxX + slack, "\(name) leaves the right edge")
         }
     }
 

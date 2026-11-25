@@ -190,6 +190,9 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
     func renameTabs() {
         withObservationTracking {
             for tab in tabs { if let place = Place(rawValue: tab.identifier) { tab.title = place.title } }
+            // The bar keeps the title that its item drew first, so the items take the new name too.
+            for (item, place) in zip(tabBar.items ?? [], Place.allCases) { item.title = place.title }
+            tabBar.setNeedsLayout()
         } onChange: { [weak self] in
             Task { @MainActor in self?.renameTabs() }
         }

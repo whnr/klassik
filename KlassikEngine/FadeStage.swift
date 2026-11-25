@@ -143,7 +143,7 @@ final class FadeAudioUnit: AUAudioUnit {
     static func make() -> (stage: AVAudioUnitEffect, control: FadeControl)? {
         _ = registered
         let stage = AVAudioUnitEffect(audioComponentDescription: description)
-        guard let unit = stage.auAudioUnit as? FadeAudioUnit else { return nil }
-        return (stage, unit.control)
+        guard let control = stage.withAUAudioUnit({ ($0 as? FadeAudioUnit)?.control }) else { return nil }
+        return (stage, control)
     }
 }

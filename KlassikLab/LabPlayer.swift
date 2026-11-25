@@ -13,6 +13,9 @@ final class LabPlayer {
     private(set) var movementLength = 0.0
     /// The sample rate that iOS reports for the output.
     private(set) var outputRate = 0.0
+    /// The sample rate and channel count that the engine's graph runs at: the rate of the file that plays.
+    private(set) var engineRate = 0.0
+    private(set) var engineChannels = 0
     private(set) var join = "not played yet"
     private(set) var note: String?
 
@@ -38,6 +41,8 @@ final class LabPlayer {
     private var feeders: [LabFeeder] = []
     private var ticker: Task<Void, Never>?
     private var ended: Set<Int> = []
+    /// The movement that the current load started at. Its first schedule is no join.
+    private var loadStart = 0
     private var gainMovement: Int?
     /// Where Play starts after a switch discarded the paused engine.
     private var resumePlace: (movement: Int, offset: Double)?
@@ -51,11 +56,38 @@ final class LabPlayer {
         Self.wipe()
     }
 
-    /// The line that the screen always shows: source format, output rate, join.
+    /// The line that the screen always shows: source format, the rate of the engine's graph, the rate that iOS
+    /// reports for the output, and the join. Commas separate the fields. It claims no bit-perfect playback and
+    /// names no output bit depth, because iOS reports none.
     var qualityLine: String {
-        let source = selected?.sourceLine ?? "no case"
-        let output = outputRate > 0 ? "\(LabCase.kilohertz(Int(outputRate))) kHz" : "unknown"
-        return "Source \(source) · iOS output \(output) · join \(join)"
+        Self.qualityLine(
+            source: selected?.sourceLine ?? "no case", engineRate: engineRate, engineChannels: engineChannels,
+            outputRate: outputRate, join: join)
+    }
+
+    nonisolated static func qualityLine(
+        source: String, engineRate: Double, engineChannels: Int, outputRate: Double, join: String
+    ) -> String {
+        var fields = ["Source \(source)"]
+        if engineRate > 0 {
+            let channels = engineChannels == 1 ? "mono" : engineChannels == 2 ? "stereo" : "\(engineChannels) channels"
+            fields.append("engine \(kilohertz(engineRate)) kHz \(channels)")
+        }
+        if outputRate <= 0 {
+            fields.append("iOS output unknown")
+        } else if engineRate > 0, outputRate == engineRate {
+            fields.append("iOS output \(kilohertz(outputRate)) kHz, native")
+        } else if engineRate > 0 {
+            fields.append("iOS output \(kilohertz(outputRate)) kHz, iOS converts")
+        } else {
+            fields.append("iOS output \(kilohertz(outputRate)) kHz")
+        }
+        fields.append("join \(join)")
+        return fields.joined(separator: ", ")
+    }
+
+    nonisolated private static func kilohertz(_ hertz: Double) -> String {
+        LabCase.kilohertz(Int(hertz.rounded()))
     }
 
     var canPlay: Bool { selected != nil && selected?.unsupportedReason == nil }
@@ -137,7 +169,7 @@ final class LabPlayer {
         Self.wipe()
     }
 
-    private func start(movement: Int, offset: Double) {
+    private func start(movement: Int, offset: Double, join opening: String = "not played yet") {
         guard let selected, canPlay else { return }
         teardown()
         resumePlace = nil
@@ -145,7 +177,8 @@ final class LabPlayer {
         note = nil
         gainMovement = nil
         // The join tells about the load that plays now. A restart in the middle of a work keeps no earlier join.
-        join = "not played yet"
+        join = opening
+        loadStart = movement
         try? FileManager.default.createDirectory(at: Self.folder, withIntermediateDirectories: true)
         let engine = GaplessEngine(
             gainNode: replayGain, fadeSeconds: Self.fadeSeconds(milliseconds: fadeMilliseconds))
@@ -197,12 +230,19 @@ final class LabPlayer {
             }
             status = wait.slow ? "Waiting for bytes: link slower than the file" : "Waiting for bytes"
         case .scheduled(let index):
-            guard index > 0 else { return }
+            guard index > loadStart else { return }
             let number = "movement \(index + 1)"
             join =
                 ended.contains(index - 1)
                 ? "gap: \(number) scheduled after movement \(index) ended"
                 : "gapless: \(number) scheduled before movement \(index) ended"
+        case .formatChanged(let index):
+            // The movement before it played out. The next one has another rate or channel count, so the engine
+            // starts again at it. The app never converts, and the short gap is the price.
+            guard isPlaying else { return }
+            start(
+                movement: index, offset: 0,
+                join: "gap, movement \(index + 1) has another sample rate or channel count")
         case .configurationChanged:
             // The output changed, for example a headset: the engine stopped and the load starts again here.
             if isPlaying { start(movement: movement, offset: elapsed) }
@@ -218,6 +258,8 @@ final class LabPlayer {
 
     private func tick() {
         outputRate = AVAudioSession.sharedInstance().sampleRate
+        engineRate = engine?.sourceSampleRate ?? 0
+        engineChannels = engine?.sourceChannelCount ?? 0
         guard let engine, let selected, let place = engine.position(from: 0) else { return }
         movement = place.movement
         elapsed = place.elapsed

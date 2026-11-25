@@ -1,7 +1,0 @@
-{
-  "sha": "2dfa0c505b1e1a646c172a83ebcf53d71648c450",
-  "branch": "claude-engine-module",
-  "path": "claude-engine-module",
-  "subject": "[sz-rs30.1.162.5] Move the playback engine into a module",
-  "ts": 1795554316
-}

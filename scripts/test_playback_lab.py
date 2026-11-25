@@ -10,6 +10,7 @@ from unittest import mock
 
 import playback_lab as lab
 from mutagen.aiff import AIFF
+from mutagen.mp4 import MP4
 from mutagen.wave import WAVE
 
 SRC = (pathlib.Path("/src/one.flac"), pathlib.Path("/src/two.flac"))
@@ -103,9 +104,11 @@ class ArgumentTests(unittest.TestCase):
         self.assertEqual(option(self.args("mp3-lame-header"), "-write_xing"), "1")
         self.assertEqual(option(self.args("mp3-no-header"), "-write_xing"), "0")
 
-    def test_m4a_keeps_custom_tags(self):
-        self.assertIn("+use_metadata_tags", self.args("aac-256"))
-        self.assertNotIn("+use_metadata_tags", self.args("flac-24-96"))
+    def test_m4a_writes_iTunes_atoms_and_leaves_the_rest_to_mutagen(self):
+        args = self.args("aac-256")
+        self.assertNotIn("+use_metadata_tags", args)
+        self.assertIn("album=Playback Lab", args)
+        self.assertNotIn("work=AAC 256 with encoder delay", args)
 
     def test_rate_change_differs_per_movement(self):
         self.assertEqual(option(self.args("rate-change", 1), "-ar"), "96000")
@@ -223,6 +226,18 @@ class EndToEndTests(unittest.TestCase):
         self.assertEqual(str(tags["TXXX:movement"]), str(movement), path.name)
         self.assertEqual(str(tags["TXXX:movementtotal"]), str(len(lab.MOVEMENTS)), path.name)
 
+    def assertM4aTagsRead(self, path, number, movement, title):
+        tags = MP4(path).tags
+        self.assertEqual(tags["\xa9alb"], [lab.ALBUM], path.name)
+        self.assertEqual(tags["aART"], [lab.ARTIST], path.name)
+        self.assertEqual(tags["\xa9nam"], [lab.MOVEMENTS[movement - 1]], path.name)
+        self.assertEqual(tags["trkn"], [(movement, 0)], path.name)
+        self.assertEqual(tags["disk"], [(number, 0)], path.name)
+        self.assertNotIn("\xa9day", tags, "a release date splits the m4a files into their own album")
+        self.assertEqual(tags["----:com.apple.iTunes:date"], [b"2026"], path.name)
+        self.assertEqual(tags["----:com.apple.iTunes:work"], [title.encode()], path.name)
+        self.assertEqual(tags["----:com.apple.iTunes:movement"], [str(movement).encode()], path.name)
+
     def test_builds_every_case(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp = pathlib.Path(tmp)
@@ -243,6 +258,8 @@ class EndToEndTests(unittest.TestCase):
                 self.assertRegex(info, rf"work\s*:\s*{re.escape(case.title)}", f.name)
                 if number in (9, 10):
                     self.assertTagsRead(f, number, movement, case.title)
+                if f.suffix == ".m4a":
+                    self.assertM4aTagsRead(f, number, movement, case.title)
                 if number == 6:
                     self.assertIn(b"elst", data, "AAC needs the encoder delay edit list")
                 if number == 7:

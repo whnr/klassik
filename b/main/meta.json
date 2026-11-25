@@ -1,7 +1,7 @@
 {
-  "sha": "a73965528d6e0312e50306da11a8905c5f77c2be",
+  "sha": "58d37cc513271697a3ff046878953aa7af323893",
   "branch": "main",
   "path": "main",
-  "subject": "Fix m4a tags in the Playback Lab library (#218)",
-  "ts": 1795612071
+  "subject": "Merge pull request #219 from whnr/claude-flac-join",
+  "ts": 1795612733
 }

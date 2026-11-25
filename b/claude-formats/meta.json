@@ -1,7 +1,7 @@
 {
-  "sha": "89a47425df363ba45d40f0dbda8352a9c6e47773",
+  "sha": "43ea25c14fd4588662cb0175b48eeda1992ae72f",
   "branch": "claude-formats",
   "path": "claude-formats",
-  "subject": "Report the alignment of each track edge in the format tests",
-  "ts": 1795586038
+  "subject": "Allow the edit-list resolution in the AAC format tests",
+  "ts": 1795587016
 }

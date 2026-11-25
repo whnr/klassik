@@ -10,7 +10,7 @@ public enum PlaybackEngineEvent: Sendable {
     /// The engine scheduled a movement, so its exact length is known.
     case scheduled(Int)
     /// The movement before this one played out, and this one has another sample rate or channel count than the graph.
-    /// The engine never converts it (ADR 0060). The host reloads from this movement, which gives a short gap.
+    /// The engine never converts it (sz-u8f4). The host reloads from this movement, which gives a short gap.
     case formatChanged(Int)
     /// The audio hardware changed and the engine stopped.
     case configurationChanged

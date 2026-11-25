@@ -27,6 +27,9 @@ struct LabPlayerView: View {
                     if let reason = player.selected?.unsupportedReason {
                         Text(reason).foregroundStyle(.orange)
                     }
+                    if let note = player.selected?.gapNote {
+                        Text(note).font(.footnote).foregroundStyle(.secondary)
+                    }
                 }
                 // Everything iOS reports about the output, updated on each route change.
                 Section("Routing and output") {

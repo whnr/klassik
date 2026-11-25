@@ -276,6 +276,12 @@ public final class GaplessEngine: PlaybackEngine {
         return (found.movement, Double(found.frame) / sampleRate)
     }
 
+    /// True once the engine placed audio of the movement on the node timeline. The audio of a movement that
+    /// follows a played one already waits on the node when this is true at the end of its predecessor.
+    public func hasScheduled(movement: Int) -> Bool {
+        timeline.spans.contains { $0.movement == movement }
+    }
+
     public func duration(of movement: Int) -> Double? {
         timeline.length(movement).map { Double($0) / sampleRate }
     }
@@ -423,7 +429,7 @@ public final class GaplessEngine: PlaybackEngine {
 
     /// The first track sets the graph: its own sample rate and channel count, never converted by the app. The
     /// session is asked for that rate before the graph connects, so that the output node reads the rate that the
-    /// hardware runs at (ADR 0060).
+    /// hardware runs at (sz-u8f4).
     private func connect(_ incoming: AVAudioFormat, generation: Int) async throws -> Link {
         guard let engine, let node else { return .gone }
         if let format {
@@ -498,7 +504,17 @@ public final class GaplessEngine: PlaybackEngine {
                     continue
                 }
                 let frames = AVAudioFrameCount(min(waiting, Int64(buffer.frameCapacity)))
-                guard (try? engine.renderOffline(frames, to: buffer)) != nil else { return }
+                // A render that is not a success would stop the pump with no sign, and the test would see only a
+                // timeout.
+                let status: AVAudioEngineManualRenderingStatus
+                do { status = try engine.renderOffline(frames, to: buffer) } catch {
+                    self.onEvent?(.failed(error.localizedDescription))
+                    return
+                }
+                guard status == .success else {
+                    self.onEvent?(.failed("Offline render ended with status \(status.rawValue)"))
+                    return
+                }
                 self.pumped += Int64(frames)
                 await Task.yield()
             }
@@ -615,7 +631,7 @@ public final class GaplessEngine: PlaybackEngine {
         return true
     }
 
-    private func enqueue(
+    func enqueue(
         _ buffer: AVAudioPCMBuffer, position: Int, audioStart: Int64, last: Bool, generation: Int
     ) {
         guard let node else { return }
@@ -626,6 +642,18 @@ public final class GaplessEngine: PlaybackEngine {
             buffer, at: AVAudioTime(sampleTime: placed.lowerBound, atRate: sampleRate), options: [],
             completionCallbackType: completionType,
             completionHandler: last ? ended(position, generation: generation) : nil)
+        if starved, playing, pausedAt == nil { endStall() }
+    }
+
+    /// Audio that arrives before the node paused ends the stall. A node that still plays sounds that audio at once,
+    /// so the fade-out of the stall must not mute it, and the pause must not cut it. Without the start threshold, a
+    /// stall that ends again fades out again.
+    private func endStall() {
+        starved = false
+        halting?.cancel()
+        halting = nil
+        if silenced { rampUp(from: nil) }
+        report()
     }
 
     private func ended(

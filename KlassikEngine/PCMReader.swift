@@ -1,7 +1,7 @@
 import AVFoundation
 
 /// Reads the decoded PCM of one track up to its declared frame count. It never converts: the samples keep the
-/// rate and channel count of the file (ADR 0060). Only the system converts, when the output cannot run at that rate.
+/// rate and channel count of the file (sz-u8f4). Only the system converts, when the output cannot run at that rate.
 final class PCMReader: @unchecked Sendable {
     typealias Read = (AVAudioFrameCount) throws -> AVAudioPCMBuffer?
 

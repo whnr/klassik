@@ -4,7 +4,7 @@ import Testing
 
 @testable import KlassikEngine
 
-/// Native-rate playback (ADR 0060): each track plays at its own sample rate and channel count, and the engine
+/// Native-rate playback (sz-u8f4): each track plays at its own sample rate and channel count, and the engine
 /// never converts. The tracks are local WAV files and the engine renders offline, so the output does not depend on
 /// a server or on runner load.
 @Suite(.serialized)
@@ -84,7 +84,7 @@ struct NativeRateTests {
     /// Loads `files` from `start` and waits until the last one ends, or the engine reports a format change or a
     /// failure. A host would reload at a format change. This helper stops there.
     @MainActor private func play(
-        _ files: [URL], from start: Int = 0, gainNode: Bool = false
+        _ files: [URL], from start: Int = 0, gainNode: Bool = false, streamed: Bool = false
     ) async throws -> Played {
         let tap = Tap()
         let events = Events()
@@ -100,7 +100,21 @@ struct NativeRateTests {
         }
         defer { engine.discard() }
         let tracks = files.indices.map { PlaybackTrack(id: String($0), duration: 1, suffix: "wav") }
-        engine.load(tracks, from: start, offset: 0) { .file(files[Int($0.id)!]) }
+        var transfers: [String: TrackTransfer] = [:]
+        if streamed {
+            for (index, file) in files.enumerated() {
+                let data = try Data(contentsOf: file)
+                let transfer = TrackTransfer(
+                    songID: "stream\(index)", partial: root.appending(path: "stream\(index).partial"),
+                    target: root.appending(path: "stream\(index).wav"), url: nil)
+                transfer.begin(length: Int64(data.count), validator: nil)
+                transfer.append(data)
+                transfer.finish(nil)
+                transfers[String(index)] = transfer
+            }
+        }
+        let streams = transfers
+        engine.load(tracks, from: start, offset: 0) { streamed ? .stream(streams[$0.id]!) : .file(files[Int($0.id)!]) }
         let last = "end \(files.count - 1)"
         func stopped() -> Bool {
             events.log.contains(last) || events.log.contains { $0.hasPrefix("failed") || $0.hasPrefix("format") }
@@ -178,6 +192,23 @@ struct NativeRateTests {
         #expect(second.log == ["end 1"])
         #expect(second.rate == 96_000)
         #expect(second.tap.rate == 96_000)
+        expectExact(second.tap, channel: 0, Self.signal(96_000), rate: 96_000)
+    }
+
+    /// The app streams its tracks, and the streaming path has its own copy of the format check.
+    @MainActor @Test func aRateChangeEndsAStreamingLoadAndTheReloadKeepsTheNewRate() async throws {
+        defer { try? FileManager.default.removeItem(at: root) }
+        let files = [
+            try wav("first.wav", rate: 44_100, channels: 2, count: 44_100),
+            try wav("second.wav", rate: 96_000, channels: 2, count: 96_000),
+        ]
+        let first = try await play(files, streamed: true)
+        #expect(first.log == ["end 0", "format 1"])
+        #expect(first.rate == 44_100)
+        expectExact(first.tap, channel: 0, Self.signal(44_100), rate: 44_100)
+        let second = try await play(files, from: 1, streamed: true)
+        #expect(second.log == ["end 1"])
+        #expect(second.rate == 96_000)
         expectExact(second.tap, channel: 0, Self.signal(96_000), rate: 96_000)
     }
 

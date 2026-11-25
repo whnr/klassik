@@ -58,7 +58,7 @@ struct ChronologyView: View {
                 .accessibilityIdentifier("chronology-level")
             }
         }
-        .pageTitle("Chronology")
+        .pageTitle(L("Chronology"))
         .sheet(item: $listed) { listed in
             ListedWorksSheet(listed: listed) { work in
                 self.listed = nil
@@ -112,7 +112,6 @@ private struct ChronologyHead: View {
                 Text("All composers")
                     .typeStyle(Layout.pageTitle)
                     .foregroundStyle(Palette.textPrimary)
-                    .lineLimit(1)
                     .accessibilityAddTraits(.isHeader)
             }
             Text(line)
@@ -127,8 +126,8 @@ private struct ChronologyHead: View {
             let count = WorkIndex.Recording.count(chronology.composers.count, "composer")
             return "\(count), \(years.lowerBound + 10)–\(years.upperBound - 5)"
         }
-        let life = focus.died.map { "\(focus.born)–\($0)" } ?? "born \(focus.born)"
-        let active = focus.activeFrom.map { "active from \($0)" }
+        let life = Chronology.life(born: focus.born, died: focus.died)
+        let active = focus.activeFrom.map { L("active from \($0)") }
         return [life, WorkIndex.Recording.count(focus.works.count, "work"), active].compactMap(\.self)
             .joined(separator: ", ")
     }
@@ -344,7 +343,7 @@ private struct ChronologyChart: View {
                 let labelWidth = max(0, size.width - Layout.bandLabelLeading)
                 marks.append(
                     Mark(
-                        id: "bandl:" + period.name, kind: .label(period.name),
+                        id: "bandl:" + period.name, kind: .label(period.title),
                         center: CGPoint(
                             x: Layout.bandLabelLeading + labelWidth / 2,
                             y: top + Chart.bandLabelTop + rowLine / 2),
@@ -422,7 +421,7 @@ private struct ChronologyChart: View {
                 shape
                     .accessibilityElement()
                     .accessibilityLabel(composer)
-                    .accessibilityValue(lane.died.map { "\(lane.born)–\($0)" } ?? "born \(lane.born)")
+                    .accessibilityValue(Chronology.life(born: lane.born, died: lane.died))
                     .accessibilityAddTraits(.isButton)
                     .accessibilityAction { move(Chronology.Position(level: .composer, composer: composer)) }
                     .accessibilityIdentifier("chronology-line")

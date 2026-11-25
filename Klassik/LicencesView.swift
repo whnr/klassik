@@ -14,6 +14,6 @@ struct LicencesView: View {
                 }
             }
         }
-        .pageTitle("Licences")
+        .pageTitle(L("Licences"))
     }
 }

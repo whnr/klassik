@@ -35,14 +35,14 @@ struct WorkSourcesView: View {
                 Text("Missing or wrong data? Fix it in MusicBrainz, then look up again.")
             }
         }
-        .pageTitle("Dates and Sources")
+        .pageTitle(L("Dates and Sources"))
     }
 
     @ViewBuilder private func link(_ link: Enrichment.Link, facts: WorkFacts?) -> some View {
         let enrichment = model.enrichment
         switch link {
         case .tagged(let id), .found(let id):
-            LabeledContent("Work", value: facts?.title ?? (enrichment.isRunning ? "Looking up…" : "Not found"))
+            LabeledContent("Work", value: facts?.title ?? (enrichment.isRunning ? L("Looking up…") : L("Not found")))
                 .ink()
                 .accessibilityIdentifier("musicbrainz-work")
             Button("Open in MusicBrainz", systemImage: "arrow.up.forward.square") {

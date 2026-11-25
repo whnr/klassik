@@ -127,6 +127,11 @@ final class PersonFactsStore {
     }
 
     /// True when a lookup for the tag has finished, with or without a match.
+    /// True when the saved facts of the item hold texts of other languages than the app asks for now.
+    func hasStaleTexts(_ qid: String) -> Bool {
+        cache.people[qid]?.needsTexts(for: service.textLanguages()) ?? false
+    }
+
     func hasResolved(performer tag: String) -> Bool {
         guard let qid = cache.performers[tag] else { return false }
         return qid.isEmpty || cache.people[qid] != nil
@@ -138,7 +143,12 @@ final class PersonFactsStore {
     /// The result is false for a failed request only: a tag that needs no lookup counts as done.
     @discardableResult
     func resolve(performer tag: String) async -> Bool {
-        guard !loading.contains(tag), !hasResolved(performer: tag) else { return true }
+        guard !loading.contains(tag) else { return true }
+        if hasResolved(performer: tag) {
+            // The old texts stay on the page until the new ones arrive.
+            guard let qid = qid(ofPerformer: tag), hasStaleTexts(qid) else { return true }
+            return await refresh(qid)
+        }
         loading.insert(tag)
         defer { loading.remove(tag) }
         do {
@@ -260,7 +270,7 @@ final class PersonFactsStore {
     @discardableResult
     func lookUp(composer tag: String, again: Bool = false) async -> Bool {
         if !again, case .person(let qid)? = cache.composers[tag] {
-            return cache.people[qid] != nil ? true : await refresh(qid)
+            return cache.people[qid] != nil && !hasStaleTexts(qid) ? true : await refresh(qid)
         }
         guard again || cache.composers[tag] == nil, !cache.chosen.contains(tag) else { return true }
         // `resolve` asks again only when the saved inputs differ from the new ones.
@@ -270,6 +280,23 @@ final class PersonFactsStore {
 
     func reopen(performer tag: String) {
         cache.performers[tag] = nil
+    }
+
+    /// Marks each person whose texts have other languages than the app asks for as unchecked, so that the next pass
+    /// loads their facts again. The old texts stay on the pages until then.
+    func invalidateTexts() {
+        for key in Array(cache.checked.keys) {
+            let qid: String?
+            if key.hasPrefix("composer:") {
+                qid = self.qid(ofComposer: String(key.dropFirst("composer:".count)))
+            } else {
+                qid = self.qid(ofPerformer: String(key.dropFirst("performer:".count)))
+            }
+            guard let qid, hasStaleTexts(qid) else { continue }
+            cache.checked[key] = nil
+            cache.due[key] = nil
+        }
+        save()
     }
 
     /// Records that the background pass settled a person, and when the person falls due again.
@@ -346,7 +373,10 @@ final class PersonFactsStore {
 
     /// True when the facts of the item are on the device after the call. False: Wikidata has no such item.
     private func load(_ qid: String) async throws -> Bool {
-        if cache.people[qid] != nil { return true }
+        if cache.people[qid] != nil {
+            if hasStaleTexts(qid) { _ = await refresh(qid) }
+            return true
+        }
         guard let facts = try await service.facts(qid: qid) else { return false }
         cache.people[qid] = facts
         return true
@@ -354,7 +384,7 @@ final class PersonFactsStore {
 
     private func lacksFacts(_ tag: String) -> Bool {
         guard case .person(let qid)? = cache.composers[tag] else { return false }
-        return cache.people[qid] == nil
+        return cache.people[qid] == nil || hasStaleTexts(qid)
     }
 
     /// Keeps the listener's decision against later lookups. A decision made while the works had no

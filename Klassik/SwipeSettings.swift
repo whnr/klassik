@@ -12,10 +12,10 @@ enum SwipeAction: String, CaseIterable, Identifiable, Codable, Sendable {
 
     var title: String {
         switch self {
-        case .playNext: "Play Next"
-        case .addToQueue: "Add to Queue"
-        case .download: "Download"
-        case .favourite: "Favourite"
+        case .playNext: L("Play Next")
+        case .addToQueue: L("Add to Queue")
+        case .download: L("Download")
+        case .favourite: L("Favourite")
         }
     }
 }

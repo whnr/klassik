@@ -44,9 +44,9 @@ enum SubsonicError: LocalizedError, Equatable {
 
     var errorDescription: String? {
         switch self {
-        case .server(let code, let message): "\(message) (Subsonic error \(code))"
-        case .http(let status): "The server answered with HTTP \(status)."
-        case .notSubsonic: "The server did not answer like a Subsonic server."
+        case .server(let code, let message): L("\(message) (Subsonic error \(code))")
+        case .http(let status): L("The server answered with HTTP \(status).")
+        case .notSubsonic: L("The server did not answer like a Subsonic server.")
         }
     }
 }
@@ -331,7 +331,7 @@ struct SubsonicClient: Sendable {
             throw SubsonicError.notSubsonic
         }
         if let error = response.error {
-            throw SubsonicError.server(code: error.code, message: error.message ?? "Unknown error")
+            throw SubsonicError.server(code: error.code, message: error.message ?? L("Unknown error"))
         }
         return response
     }

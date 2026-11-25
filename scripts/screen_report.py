@@ -84,7 +84,7 @@ UI_GROUPS = {
     "playback-controls": "playback",
     "places-search": "places,browse",
     "browse-pages": "browse",
-    "settings-timeline": "settings,timeline",
+    "settings-timeline": "settings,timeline,language",
 }
 
 

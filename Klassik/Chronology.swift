@@ -7,9 +7,26 @@ import Observation
 struct Chronology: Sendable {
     /// A period of music history, drawn as a band in the overview.
     struct Period: Equatable, Sendable {
+        /// The English name, which identifies the band.
         var name: String
         var start: Int
         var end: Int
+
+        var title: String {
+            switch name {
+            case "Renaissance": L("Renaissance")
+            case "Baroque": L("Baroque")
+            case "Classical": L("Classical")
+            case "Romantic": L("Romantic")
+            case "Modern": L("Modern")
+            default: name
+            }
+        }
+    }
+
+    /// "1685–1750", or "born 1950" for a composer who lives.
+    static func life(born: Int, died: Int?) -> String {
+        died.map { "\(born)–\($0)" } ?? L("born \(born)")
     }
 
     /// The conventional boundaries of music history, as the specimen draws them.
@@ -173,7 +190,7 @@ struct Chronology: Sendable {
 
         /// "1829", "1829–32" in one century, "1898–1901" across two, or "No date".
         var years: String {
-            guard let from, let to else { return "No date" }
+            guard let from, let to else { return L("No date") }
             if from == to { return String(from) }
             let start = String(from)
             let end = String(to)
@@ -184,7 +201,7 @@ struct Chronology: Sendable {
 
         /// Undated works always have a count and open a list.
         var title: String {
-            opensList ? "\(works.count) \(works.count == 1 ? "work" : "works")" : works[0].title
+            opensList ? WorkIndex.Recording.counted(works.count, "work") : works[0].title
         }
     }
 

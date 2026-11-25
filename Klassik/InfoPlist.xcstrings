@@ -1,0 +1,16 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "NSLocalNetworkUsageDescription": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klassik verbindet sich im lokalen Netzwerk mit deinem Musikserver."
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

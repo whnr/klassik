@@ -149,18 +149,18 @@ final class Library {
 
     /// The Diagnostics row for a check that found no change. A suspended app can show a day-old check, so it carries the date.
     var unchangedCheckRow: String? {
-        unchangedCheck.map { "Checked \($0.formatted(date: .abbreviated, time: .standard)), no changes" }
+        unchangedCheck.map { L("Checked \($0.localized(date: .abbreviated, time: .standard)), no changes") }
     }
 
     /// The line under the Library page.
     var statusText: String? {
         if let syncError { return syncError }
-        if isSyncing { return "Syncing… \(received) tracks" }
-        guard let syncedAt else { return "Not synced." }
+        if isSyncing { return L("Syncing… \(received) tracks") }
+        guard let syncedAt else { return L("Not synced.") }
         if let unchangedCheck {
-            return "Checked \(unchangedCheck.formatted(.relative(presentation: .named))), no changes."
+            return L("Checked \(unchangedCheck.localizedRelative()), no changes.")
         }
-        return "Synced \(syncedAt.formatted(.relative(presentation: .named)))."
+        return L("Synced \(syncedAt.localizedRelative()).")
     }
 
     func sync(with client: SubsonicClient) async {

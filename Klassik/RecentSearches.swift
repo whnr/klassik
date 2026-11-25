@@ -12,10 +12,10 @@ struct RecentSearch: Codable, Equatable, Identifiable, Sendable {
             /// The name of the kind, as a recent search reads it: "Composer Antonín Dvořák".
             var label: String {
                 switch self {
-                case .genre: "Genre"
-                case .composer: "Composer"
-                case .conductor: "Conductor"
-                case .performer: "Performer"
+                case .genre: L("Genre")
+                case .composer: L("Composer")
+                case .conductor: L("Conductor")
+                case .performer: L("Performer")
                 }
             }
         }

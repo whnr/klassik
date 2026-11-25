@@ -442,12 +442,12 @@ extension WorkIndex.Recording {
     /// The album goes out where the page already names it.
     func facts(includingAlbum: Bool = true) -> String {
         var sentences: [String] = []
-        let place = includingAlbum && !album.isEmpty ? "on \(album)" : nil
-        switch (year, place) {
-        case (let year?, let place?): sentences.append("Recorded in \(year) \(place).")
-        case (let year?, nil): sentences.append("Recorded in \(year).")
-        case (nil, let place?): sentences.append("Recorded \(place).")
-        case (nil, nil): break
+        let named = includingAlbum && !album.isEmpty
+        switch (year, named) {
+        case (let year?, true): sentences.append(L("Recorded in \(String(year)) on \(album)."))
+        case (let year?, false): sentences.append(L("Recorded in \(String(year))."))
+        case (nil, true): sentences.append(L("Recorded on \(album)."))
+        case (nil, false): break
         }
         var measures: [String] = []
         if let minutes = Self.duration(songs.compactMap(\.duration).reduce(0, +)) { measures.append(minutes) }
@@ -462,12 +462,27 @@ extension WorkIndex.Recording {
         let minutes = max(1, Int((Double(seconds) / 60).rounded()))
         guard minutes >= 60 else { return count(minutes, "minute") }
         let hours = count(minutes / 60, "hour")
-        return minutes % 60 == 0 ? hours : "\(hours) \(count(minutes % 60, "minute"))"
+        return minutes % 60 == 0 ? hours : L("\(hours) \(count(minutes % 60, "minute"))")
+    }
+
+    /// A number and its noun, such as "3 movements", in the app language.
+    static func counted(_ number: Int, _ noun: String) -> String {
+        switch noun {
+        case "work": L("\(number) works")
+        case "composer": L("\(number) composers")
+        case "recording": L("\(number) recordings")
+        case "track": L("\(number) tracks")
+        case "movement": L("\(number) movements")
+        case "minute": L("\(number) minutes")
+        case "hour": L("\(number) hours")
+        case "condition": L("\(number) conditions")
+        default: "\(number) \(noun)\(number == 1 ? "" : "s")"
+        }
     }
 
     /// A number never wraps away from its word.
     static func count(_ number: Int, _ noun: String) -> String {
-        "\(number)\u{00A0}\(noun)\(number == 1 ? "" : "s")"
+        counted(number, noun).replacing(" ", with: "\u{00A0}", maxReplacements: 1)
     }
 }
 

@@ -3838,3 +3838,146 @@ extension XCUIElement {
         return XCTWaiter.wait(for: [selected], timeout: timeout) == .completed
     }
 }
+
+/// The app in English and in German on four screens: Settings, the Library and Search, a work page and the player
+/// (sz-odf9). The rest of the walk stays English. The last test doubles every German text, as a pseudo-language
+/// does, to find text that a screen cuts off or lets leave its edge.
+final class LanguageScreens: ScreensTestCase {
+    /// The launch arguments that set the app language, as the picker in Settings does.
+    static let german = ["-settings.language", "de"]
+    /// German with every text twice as long. Long words and accents meet every screen.
+    static let doubled = german + ["-NSDoubleLocalizedStrings", "YES"]
+
+    /// No text leaves the screen sideways. A wrapped text stays inside; a text that does not wrap would leave.
+    @MainActor
+    func expectInside(_ app: XCUIApplication, _ screen: String) {
+        let width = app.frame
+        for text in app.staticTexts.allElementsBoundByIndex.prefix(120) where text.exists {
+            let frame = text.frame
+            guard !frame.isEmpty, frame.minX.isFinite, frame.maxX.isFinite else { continue }
+            XCTAssertGreaterThanOrEqual(frame.minX, width.minX - 1, "\(screen): \"\(text.label)\" leaves the left edge")
+            XCTAssertLessThanOrEqual(frame.maxX, width.maxX + 1, "\(screen): \"\(text.label)\" leaves the right edge")
+        }
+    }
+
+    /// A section heading by its text.
+    @MainActor
+    func heading(_ app: XCUIApplication, _ text: String) -> XCUIElement {
+        let headings = app.staticTexts.matching(identifier: "section-heading")
+        return headings.matching(NSPredicate(format: "label BEGINSWITH %@", text)).firstMatch
+    }
+
+    /// The picker in Settings changes the language of the open page at once, and of the tabs.
+    @MainActor
+    func testPickerSwitchesTheLanguage() throws {
+        let app = try launchAndConnect()
+        openSettings(app)
+        let picker = reveal(app.buttons["app-language"], in: app)
+        XCTAssertTrue(picker.label.contains("Device Language"), "The language picker reads \(picker.label)")
+        XCTAssertTrue(reveal(app.buttons["text-fallback"], in: app).label.contains("English"))
+        XCTAssertTrue(heading(app, "Playback").exists)
+        snap(app, "20a-settings-en")
+        picker.tap()
+        let german = app.buttons["Deutsch"].firstMatch
+        XCTAssertTrue(german.waitForExistence(timeout: 5), "The picker offers no German")
+        german.tap()
+        XCTAssertTrue(app.navigationBars["Einstellungen"].waitForExistence(timeout: 10), "The title stays English")
+        let library = tab(app, "Library")
+        XCTAssertTrue(eventually(timeout: 5) { library.label == "Bibliothek" }, "The tab stays English")
+        XCTAssertTrue(eventually(timeout: 5) { self.heading(app, "Wiedergabe").exists }, "A heading stays English")
+        XCTAssertTrue(reveal(app.buttons["app-language"], in: app).label.contains("Deutsch"))
+        snap(app, "20b-settings-de")
+        expectInside(app, "Settings in German")
+        // The pick stays when the page closes and opens again.
+        back(app)
+        XCTAssertTrue(app.buttons["library-settings"].waitForExistence(timeout: 10))
+        app.buttons["library-settings"].tap()
+        XCTAssertTrue(app.navigationBars["Einstellungen"].waitForExistence(timeout: 10))
+    }
+
+    /// Library, Search, a work page and the player in German.
+    @MainActor
+    func testGermanScreens() throws {
+        let app = try launchAndConnect(openComposers: false, arguments: Self.german)
+        XCTAssertEqual(tab(app, "Library").label, "Bibliothek")
+        let composers = app.buttons["library-composers"]
+        XCTAssertTrue(composers.label.contains("Komponisten"), composers.label)
+        snap(app, "21a-library-de")
+        expectInside(app, "Library")
+
+        openPlace(app, "Search")
+        let field = app.textFields["search-field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        XCTAssertEqual(field.placeholderValue, "Werk oder Name")
+        XCTAssertTrue(app.staticTexts["search-hint"].label.contains("Werknummer"), app.staticTexts["search-hint"].label)
+        field.tap()
+        field.typeText("chopin")
+        XCTAssertTrue(app.buttons.matching(identifier: "search-work").firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(heading(app, "Werke (").waitForExistence(timeout: 5), "The result heading stays English")
+        snap(app, "21b-search-de")
+        expectInside(app, "Search")
+        field.typeText("\n")
+        _ = app.keyboards.firstMatch.waitForNonExistence(timeout: 5)
+
+        openPlace(app, "Library")
+        app.buttons["library-composers"].tap()
+        XCTAssertTrue(composer(app, "Felix Mendelssohn").waitForExistence(timeout: 30))
+        composer(app, "Felix Mendelssohn").tap()
+        XCTAssertTrue(app.buttons["Info"].waitForExistence(timeout: 10), "The About tab stays English")
+        let work = app.buttons.matching(identifier: "work").firstMatch
+        XCTAssertTrue(work.waitForExistence(timeout: 10))
+        work.tap()
+        let play = app.buttons["play-work"]
+        XCTAssertTrue(play.waitForExistence(timeout: 10))
+        XCTAssertEqual(play.label, "Beste Aufnahme abspielen")
+        XCTAssertTrue(heading(app, "Aufnahmen").waitForExistence(timeout: 5), "The Recordings heading stays English")
+        snap(app, "21c-work-de")
+        expectInside(app, "Work")
+
+        let recording = app.buttons.matching(identifier: "recording").firstMatch
+        XCTAssertTrue(recording.waitForExistence(timeout: 10))
+        recording.tap()
+        XCTAssertTrue(app.buttons["play-recording"].waitForExistence(timeout: 10))
+        XCTAssertEqual(app.buttons["play-recording"].label, "Abspielen")
+        startPlaying(app)
+        let pill = app.buttons["mini-player-pause"]
+        XCTAssertTrue(pill.waitForExistence(timeout: 10))
+        pill.tap()
+        XCTAssertTrue(eventually(timeout: 10) { pill.label == "Fortsetzen" }, "The mini player reads \(pill.label)")
+        openPlayer(app)
+        let next = app.buttons["Weiter"].firstMatch
+        XCTAssertTrue(next.waitForExistence(timeout: 10), "The player controls stay English")
+        snap(app, "21d-player-de")
+        expectInside(app, "Player")
+    }
+
+    /// German at twice its length on the same screens. Nothing may leave the screen sideways.
+    @MainActor
+    func testDoubledGermanStaysInside() throws {
+        let app = try launchAndConnect(openComposers: false, arguments: Self.doubled)
+        expectInside(app, "Library, doubled")
+        snap(app, "22a-library-doubled")
+        app.buttons["library-settings"].tap()
+        XCTAssertTrue(app.staticTexts["page-heading"].waitForExistence(timeout: 10))
+        for _ in 0..<3 {
+            expectInside(app, "Settings, doubled")
+            app.swipeUp()
+        }
+        snap(app, "22b-settings-doubled")
+        back(app)
+        openPlace(app, "Search")
+        XCTAssertTrue(app.staticTexts["search-hint"].waitForExistence(timeout: 10))
+        expectInside(app, "Search, doubled")
+        snap(app, "22c-search-doubled")
+        openPlace(app, "Library")
+        app.buttons["library-composers"].tap()
+        XCTAssertTrue(composer(app, "Felix Mendelssohn").waitForExistence(timeout: 30))
+        composer(app, "Felix Mendelssohn").tap()
+        let work = app.buttons.matching(identifier: "work").firstMatch
+        XCTAssertTrue(work.waitForExistence(timeout: 10))
+        work.tap()
+        XCTAssertTrue(app.buttons["play-work"].waitForExistence(timeout: 10))
+        expectInside(app, "Work, doubled")
+        snap(app, "22d-work-doubled")
+    }
+}

@@ -13,13 +13,32 @@ struct SettingsView: View {
     @AppStorage(Self.technicalDetailsKey) private var showsTechnicalDetails = false
     @State private var deleteError: String?
 
-    private var tintLabel: String { "\(tintStrength.formatted())×" }
+    private var tintLabel: String { "\(tintStrength.localized())×" }
 
     var body: some View {
         @Bindable var player = model.playback
         // A menu picker keeps the tint that it got when it was made. A new identity for each family remakes it.
         let family = AccentChoice.shared.family
         GroupedPageList {
+            Section {
+                Picker("App Language", selection: languageSetting) {
+                    ForEach(LanguageSetting.allCases) { Text($0.title).tag($0) }
+                }
+                .accessibilityIdentifier("app-language")
+                .id(family)
+                Picker("Fallback Language", selection: fallbackSetting) {
+                    ForEach(TextFallback.allCases) { Text($0.title).tag($0) }
+                }
+                .accessibilityIdentifier("text-fallback")
+                .id(family)
+            } header: {
+                SectionHeading("Language")
+            } footer: {
+                Text(
+                    "Klassik follows the language of your iPhone until you pick one. Descriptions and biographies come from Wikidata and Wikipedia in the app language. Where they have none, Klassik shows the fallback language, or nothing when it is off. Composer names, work titles and tags stay as your music tags them."
+                )
+            }
+
             Section {
                 Picker("Timeline", selection: $timelineSide) {
                     ForEach(TimelineSide.allCases) { Text($0.title).tag($0) }
@@ -137,7 +156,7 @@ struct SettingsView: View {
                 Text("Shows the lookups and diagnostics with the changes that wait.")
             }
         }
-        .pageTitle("Settings")
+        .pageTitle(L("Settings"))
         // A failure of the device file is the one listening data notice.
         .alert(
             "Listening Data",
@@ -149,6 +168,14 @@ struct SettingsView: View {
         }
     }
 
+    private var languageSetting: Binding<LanguageSetting> {
+        Binding(get: { Localization.shared.setting }, set: { Localization.shared.select($0) })
+    }
+
+    private var fallbackSetting: Binding<TextFallback> {
+        Binding(get: { Localization.shared.fallbackSetting }, set: { Localization.shared.select(fallback: $0) })
+    }
+
     private var accent: Binding<AccentFamily> {
         Binding(get: { AccentChoice.shared.family }, set: { AccentChoice.shared.family = $0 })
     }
@@ -156,18 +183,18 @@ struct SettingsView: View {
     /// The favourite changes that wait for the server. Diagnostics lists them.
     private var waitingChanges: String {
         let count = model.recordingOrder.pendingChanges.count
-        return count == 0 ? "" : "\(count) waiting"
+        return count == 0 ? "" : L("\(count) waiting")
     }
 
     /// Progress while the lookup runs, else the works that wait for the listener.
     private var lookupState: String {
         let enrichment = model.enrichment
-        if let progress = enrichment.progress { return "\(progress.done) of \(progress.total)" }
+        if let progress = enrichment.progress { return L("\(progress.done) of \(progress.total)") }
         let toConfirm = enrichment.summary(of: model.library.index).toConfirm.count
-        if toConfirm > 0 { return "\(toConfirm) to confirm" }
+        if toConfirm > 0 { return L("\(toConfirm) to confirm") }
         switch model.sweep.state {
-        case .running(let done, let total): return "People \(done) of \(total)"
-        case .paused: return "Paused"
+        case .running(let done, let total): return L("People \(done) of \(total)")
+        case .paused: return L("Paused")
         case .idle, .upToDate: return ""
         }
     }
@@ -230,6 +257,6 @@ struct AlbumsView: View {
         .overlay {
             if albums.isEmpty { ContentUnavailableView("No Albums", systemImage: "square.stack") }
         }
-        .pageTitle(classical ? "Classical Albums" : "Other Albums")
+        .pageTitle(classical ? L("Classical Albums") : L("Other Albums"))
     }
 }

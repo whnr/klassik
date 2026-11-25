@@ -186,7 +186,7 @@ private struct RoundButton: View {
         .buttonStyle(FlatPress())
         // The x pill stays in place when there is nothing to clear, so the field never changes width.
         .disabled(!isEnabled)
-        .accessibilityLabel(label)
+        .accessibilityLabel(LocalizedStringKey(label))
         .accessibilityIdentifier(identifier)
     }
 }
@@ -205,7 +205,7 @@ private struct FiltersButton: View {
         )
         .overlay(alignment: .topTrailing) {
             if conditions > 0 {
-                Text(conditions.formatted())
+                Text(conditions.localized())
                     .typeStyle(.caption1)
                     .fontWeight(.semibold)
                     .monospacedDigit()
@@ -227,7 +227,7 @@ struct SearchField: View {
     @Binding var text: String
     var focused: FocusState<Bool>.Binding
     var submit: () -> Void = {}
-    var prompt = "Work or name"
+    var prompt: LocalizedStringKey = "Work or name"
     var identifier = "search-field"
     @ScaledMetric(relativeTo: .body) private var height = Layout.searchFieldHeight
     @ScaledMetric(relativeTo: .body) private var icon = Layout.searchFieldIcon
@@ -354,7 +354,7 @@ private struct SearchResults: View {
                 ForEach(results.works) { work in
                     NavigationLink(value: Page.work(work.id)) {
                         let total = WorkIndex.Recording.count(work.recordings.count, "recording")
-                        let recordings = matching[work.id].map { "\($0) of \(total) match" } ?? total
+                        let recordings = matching[work.id].map { L("\($0) of \(total) match") } ?? total
                         lines(
                             title: work.title, isFavourite: model.recordingOrder.isFavourite(work),
                             detail: "\(work.composer), \(recordings)", track: results.workTracks[work.id],

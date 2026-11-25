@@ -19,7 +19,7 @@ struct PlacesView: View {
             side: side,
             reservedWidth: playing ? MiniPlayer.width(height: rowHeight, edgeInset: pillInset) + Space.s.points : 0,
             playerOpen: navigator.isPlayerOpen,
-            accent: AccentChoice.shared.family,
+            accent: AccentChoice.shared.family, language: Localization.shared.language,
             onLayout: { tabBarFrame = $0 }
         )
         .ignoresSafeArea(.container)
@@ -64,13 +64,14 @@ struct PlacesView: View {
     }
 }
 
-/// A hosting controller starts its own environment, so the root of each host reads the accent pick itself.
-/// The read observes the pick, so every control under it takes a new family at once.
+/// A hosting controller starts its own environment, so the root of each host reads the accent pick and the app
+/// language itself. The read observes the pick, so every control under it takes a new family or language at once.
 private struct AccentRoot: ViewModifier {
     func body(content: Content) -> some View {
         content
             .tint(Palette.tint)
             .environment(\.accentFamily, AccentChoice.shared.family)
+            .environment(\.locale, Localization.shared.locale)
     }
 }
 
@@ -85,6 +86,8 @@ private struct SystemPlaces: UIViewControllerRepresentable {
     let playerOpen: Bool
     /// A new pick updates the controller, so the tab bar takes the new tint.
     let accent: AccentFamily
+    /// A new language updates the controller, so the tabs take their new names.
+    let language: AppLanguage
     let onLayout: @MainActor (CGRect) -> Void
 
     func makeUIViewController(context: Context) -> PlacesController {
@@ -126,6 +129,7 @@ private struct SystemPlaces: UIViewControllerRepresentable {
         controller.reservedWidth = reservedWidth
         controller.side = side
         controller.tabBar.tintColor = UIColor(named: Palette.tint.assetName(in: accent))
+        for tab in controller.tabs { tab.title = Place(rawValue: tab.identifier)?.title ?? tab.title }
         controller.view.setNeedsLayout()
     }
 

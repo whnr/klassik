@@ -31,6 +31,8 @@ final class RecordingOrder {
         var recording: WorkIndex.Recording
         var reason: String?
         var isFavourite: Bool
+        /// True when the reason names a favourite performer. The order of the rows reads this, not the text.
+        var byPerformer = false
         var id: String { recording.id }
     }
 
@@ -116,6 +118,7 @@ final class RecordingOrder {
         let live = library.index.work(work.id) ?? work
         return live.recordings.map { recording in
             var reason: String?
+            var byPerformer = false
             let isFavourite = library.isFavourite(recording)
             if !isFavourite {
                 let names = recording.performerNames.filter { name in artists.contains { $0.name == name } }
@@ -126,16 +129,17 @@ final class RecordingOrder {
                     .map(\.artist.id)
                 let performer = artists.first { ids.contains($0.id) }?.name ?? names.first
                 if let performer {
-                    reason = "Favourite performer: \(performer)"
+                    reason = L("Favourite performer: \(performer)")
+                    byPerformer = true
                 } else if recording.songs.contains(where: { $0.albumId.map(albums.contains) == true }) {
-                    reason = "Favourite album: \(recording.album)"
+                    reason = L("Favourite album: \(recording.album)")
                 }
             }
-            return Row(recording: recording, reason: reason, isFavourite: isFavourite)
+            return Row(recording: recording, reason: reason, isFavourite: isFavourite, byPerformer: byPerformer)
         }.sorted { left, right in
             func tier(_ row: Row) -> Int {
                 if row.isFavourite { return 0 }
-                if row.reason?.hasPrefix("Favourite performer:") == true { return 1 }
+                if row.byPerformer { return 1 }
                 return row.reason == nil ? 3 : 2
             }
             let a = tier(left)

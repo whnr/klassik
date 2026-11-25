@@ -47,12 +47,12 @@ struct ClassicalRulesView: View {
                     .disabled(library.filter == ClassicalFilter())
             }
         }
-        .pageTitle("Classical Rules")
+        .pageTitle(L("Classical Rules"))
     }
 
     /// A result row value: "412 of 550 on server".
     nonisolated static func share(_ part: Int, of whole: Int) -> String {
-        "\(part.formatted()) of \(whole.formatted()) on server"
+        L("\(part.localized()) of \(whole.localized()) on server")
     }
 }
 
@@ -86,7 +86,7 @@ private struct ResultSection: View {
                     .accessibilityIdentifier("classical-tracks")
                 NavigationLink(value: Page.albums(classical: false)) {
                     LabeledContent(
-                        "Other Albums", value: (library.albumCount - library.classicalAlbumCount).formatted()
+                        "Other Albums", value: (library.albumCount - library.classicalAlbumCount).localized()
                     )
                     .ink()
                 }

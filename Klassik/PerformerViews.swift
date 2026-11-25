@@ -40,7 +40,6 @@ struct PageTabs<Tab: Hashable>: View {
                         .typeStyle(style.label)
                         .fontWeight(style.boldSelection && tab == selection ? .semibold : nil)
                         .foregroundStyle(Palette.textPrimary)
-                        .lineLimit(1)
                         .frame(maxWidth: .infinity, minHeight: style.height * scale)
                         .contentShape(Rectangle())
                 }

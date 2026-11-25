@@ -58,6 +58,16 @@ Rules for coding agents in this repository.
 - Repository secrets: `APPLE_TEAM_ID`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` (the text of the `.p8` key). Bundle ID: `de.whnr.klassik`.
 - macOS runner time is expensive. Push batches, not single commits. Read CI results through the GitHub REST API. Do not poll in a tight loop.
 
+## Localization
+
+- The app speaks English and German ([0072](docs/adr/0072-app-language-and-fetched-texts.md)). `Klassik/Localizable.xcstrings` and `Klassik/InfoPlist.xcstrings` hold every text. English is the source language.
+- A view takes text from a literal (`Text("Library")`, `Button("Done")`) or from `L("...")`. Both read a key of the catalog. A custom component takes the key as a `String` and draws it with `LocalizedStringKey`. A plural is one key with plural variations, such as `%lld works`.
+- A number, a date, a duration, a byte count and a list go through `localized()`, `localizedRelative()`, `localizedByteCount()`, `localizedTime(_:)` and `localizedList()`. They follow the app language, not the device.
+- Composer names, work titles and tags stay as tagged. A role label that the app words (`conductor`) goes through `Roles.displayLabel`.
+- A text never truncates: no `lineLimit`, `minimumScaleFactor` or `truncationMode` for a catalog text. A line for a tag or a number goes into `scripts/truncation_allowed.txt` with its reason.
+- `python3 scripts/l10n_check.py` checks all of this. The `localization` job of `test.yml` runs it. `--table` prints the German texts for a review.
+- `LanguageScreens` walks Settings, Library, Search, a work page and the player in German, and once with doubled texts (`-NSDoubleLocalizedStrings YES`). Every other walk stays English.
+
 ## Releases and TestFlight
 
 - Fix PRs never change the app version.

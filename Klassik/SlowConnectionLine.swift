@@ -5,8 +5,8 @@ import KlassikEngine
 /// It shows after one second without sound, and only when the throughput is below the needed bitrate.
 struct SlowConnectionLine: Equatable {
     static let delay = Duration.seconds(1)
-    static let startText = String(localized: "Slow connection. Playback will start shortly.")
-    static let resumeText = String(localized: "Slow connection. Playback will continue shortly.")
+    static var startText: String { L("Slow connection. Playback will start shortly.") }
+    static var resumeText: String { L("Slow connection. Playback will continue shortly.") }
 
     private var wait: PlaybackWait?
     private var since: ContinuousClock.Instant?

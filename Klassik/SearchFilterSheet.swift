@@ -135,10 +135,11 @@ struct FilterSheet: View {
     }
 
     private var note: String {
-        if conditions.isEmpty { return "Pick a term to start a condition." }
-        if joining != nil { return "A tap adds the term with \u{201C}or\u{201D} to the marked condition." }
-        return "A tap adds a new condition with \u{201C}and\u{201D}. \u{201C}or +\u{201D} on a condition adds the next"
-            + " term to it with \u{201C}or\u{201D}."
+        if conditions.isEmpty { return L("Pick a term to start a condition.") }
+        if joining != nil { return L("A tap adds the term with \u{201C}or\u{201D} to the marked condition.") }
+        return L(
+            "A tap adds a new condition with \u{201C}and\u{201D}. \u{201C}or +\u{201D} on a condition adds the next term to it with \u{201C}or\u{201D}."
+        )
     }
 
     /// A pick clears the narrowing field, so the next term can be typed at once.
@@ -212,7 +213,7 @@ private struct ConditionRow: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            Text(count.formatted())
+            Text(count.localized())
                 .typeStyle(.subheadline)
                 .monospacedDigit()
                 .foregroundStyle(Palette.textPrimary)
@@ -283,7 +284,7 @@ private struct TermRow: View {
     }
 
     private var effect: Text {
-        let count = choice.count.formatted()
+        let count = choice.count.localized()
         switch choice.effect {
         case .start: return Text(count)
         case .and: return Text("and \(count)")
@@ -309,7 +310,7 @@ private struct NarrowField: View {
                 .frame(width: icon, height: icon)
                 .foregroundStyle(Palette.textSecondary)
                 .accessibilityHidden(true)
-            TextField("Find in \(scope.title.lowercased())", text: $text)
+            TextField(scope.findPrompt, text: $text)
                 .typeStyle(.body)
                 .foregroundStyle(Palette.textPrimary)
                 .focused(focused)

@@ -22,7 +22,10 @@ extension WorkIndex {
                 if !found.contains(where: { $0.label == line.label }) { found.append((line.kind, line.label)) }
             }
         }
-        return found.sorted { $0.kind < $1.kind }.map { $0.label.prefix(1).uppercased() + $0.label.dropFirst() }
+        return found.sorted { $0.kind < $1.kind }.map {
+            let label = Roles.displayLabel($0.label)
+            return label.prefix(1).uppercased() + label.dropFirst()
+        }
     }
 }
 
@@ -51,7 +54,7 @@ struct PerformerPage: View {
             .listRowInsets(EdgeInsets())
             .listRowSeparator(.hidden)
             BackTipRow()
-            PageTabs(tabs: [Tab.albums, .about], title: { $0 == .albums ? "Albums" : "About" }, selection: $tab)
+            PageTabs(tabs: [Tab.albums, .about], title: { $0 == .albums ? L("Albums") : L("About") }, selection: $tab)
                 .pageEdges(top: Layout.segmentedTop)
                 .listRowSeparator(.hidden)
                 .accessibilityIdentifier("performer-tabs")
@@ -62,7 +65,7 @@ struct PerformerPage: View {
         }
         .navigationTitle(performer.name)
         .navigationBarTitleDisplayMode(.inline)
-        .task { await people.resolve(performer: performer.name) }
+        .task(id: Localization.shared.textLanguages.key) { await people.resolve(performer: performer.name) }
         // A person page puts all its covers in front of the cover queue (ADR 0059).
         .onAppear { model.albumCovers.prefer(albums.compactMap(\.tracks.first)) }
     }
@@ -71,7 +74,7 @@ struct PerformerPage: View {
     nonisolated static func line(facts: PersonFacts?, roles: [String]) -> String? {
         guard let facts else { return nil }
         if facts.description?.isEmpty == false { return facts.descriptionLine }
-        let line = [roles.formatted(.list(type: .and, width: .narrow)), facts.years].compactMap { $0 }
+        let line = [roles.localizedList(width: .narrow), facts.years].compactMap { $0 }
             .filter { !$0.isEmpty }.joined(separator: ", ")
         return line.isEmpty ? nil : line
     }
@@ -102,7 +105,7 @@ struct PerformerPage: View {
             LabeledContent("Name in your tags", value: performer.name)
                 .ink()
                 .itemSeparator(first: true, last: false)
-            LabeledContent("Recordings", value: performer.entries.count.formatted())
+            LabeledContent("Recordings", value: performer.entries.count.localized())
                 .ink()
                 .itemSeparator(first: false, last: true)
         }

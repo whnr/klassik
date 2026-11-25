@@ -12,8 +12,8 @@ enum TimelineSide: String, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .right: "Right"
-        case .left: "Left"
+        case .right: L("Right")
+        case .left: L("Left")
         }
     }
 }

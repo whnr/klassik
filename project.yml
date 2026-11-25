@@ -1,6 +1,7 @@
 name: Klassik
 options:
   bundleIdPrefix: de.whnr
+  developmentLanguage: en
   deploymentTarget:
     iOS: "27.0"
 settings:
@@ -28,6 +29,9 @@ targets:
       path: Klassik/Info.plist
       properties:
         CFBundleDisplayName: Klassik
+        CFBundleDevelopmentRegion: en
+        # The app speaks these languages. The String Catalogs (Klassik/Localizable.xcstrings, InfoPlist.xcstrings) hold them.
+        CFBundleLocalizations: [en, de]
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}

@@ -32,14 +32,14 @@ enum Roles {
         var names: [String]
         var id: String { "\(kind.rawValue)|\(label)" }
 
-        func rows(locale: Locale = .current) -> [Row] {
+        func rows(locale: Locale = Localization.shared.locale) -> [Row] {
             if names.contains(where: { $0.contains(",") }) {
                 return names.map { Row(label: label, text: $0) }
             }
             return [Row(label: label, text: Self.list(names, locale: locale))]
         }
 
-        static func list(_ names: [String], locale: Locale = .current) -> String {
+        static func list(_ names: [String], locale: Locale = Localization.shared.locale) -> String {
             let formatter = ListFormatter()
             formatter.locale = locale
             return formatter.string(from: names) ?? names.joined(separator: " ")
@@ -86,8 +86,13 @@ enum Roles {
         let remaining = names.count - 3
         let shown = Array(names.prefix(3))
         guard remaining > 0 else { return Line.list(shown) }
-        let count = remaining == 1 ? String(localized: "1 other") : String(localized: "\(remaining) others")
+        let count = remaining == 1 ? L("1 other") : L("\(remaining) others")
         return Line.list(shown + [count])
+    }
+
+    /// The words of a role label in the app language. A label that is a tag, such as an instrument, stays as tagged.
+    static func displayLabel(_ label: String) -> String {
+        Localization.shared.string(String.LocalizationValue(label))
     }
 
     // MARK: - Reading the tags

@@ -78,29 +78,29 @@ struct ServerConnectionView: View {
                     }
             }
         }
-        .pageTitle("Server Connection")
+        .pageTitle(L("Server Connection"))
         // The check updates the connection line and the server version. The page does not wait for it.
         .task { await model.check() }
     }
 
     private var lastSync: String {
         let library = model.library
-        guard let syncedAt = library.syncedAt else { return library.isSyncing ? "Syncing…" : "Not synced" }
-        return syncedAt.formatted(date: .abbreviated, time: .shortened)
+        guard let syncedAt = library.syncedAt else { return library.isSyncing ? L("Syncing…") : L("Not synced") }
+        return syncedAt.localized(date: .abbreviated, time: .shortened)
     }
 
     /// A track or album count. Before the first sync no count is known, so the row shows no number, not zero.
     static func countText(_ count: Int, syncedAt: Date?) -> String {
-        syncedAt == nil ? "—" : count.formatted()
+        syncedAt == nil ? "—" : count.localized()
     }
 
     /// The server as the specimen names it: "Navidrome 0.64.2". The build number in brackets stays out of the row.
     static func name(of info: ServerInfo?) -> String {
-        guard let info else { return "Unknown" }
+        guard let info else { return L("Unknown") }
         let type = info.type.map { String($0.prefix(1)).uppercased() + String($0.dropFirst()) }
         let version = info.serverVersion?.components(separatedBy: " (").first
         let name = [type, version].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " ")
-        return name.isEmpty ? "Unknown" : name
+        return name.isEmpty ? L("Unknown") : name
     }
 
     /// The address without its scheme, as the listener typed it.

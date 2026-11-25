@@ -44,3 +44,4 @@ A human reviews every record. An agent writes a qualifying record as Proposed an
 | [0052](0052-favourites-stay-in-the-app.md)              | Favourites stay in the app                                                       | 2026-11-18 |
 | [0059](0059-covers-and-pictures-before-pages.md)        | Fetch covers and pictures before pages need them                                 | 2026-11-18 |
 | [0060](0060-early-playback-and-read-ahead.md)           | Start playback early and read ahead quietly (partly replaces 0005; extends 0051) | 2026-11-18 |
+| [0072](0072-app-language-and-fetched-texts.md)          | App language, fetched texts and the fallback language (Proposed)                 | 2026-11-25 |

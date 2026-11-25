@@ -9,9 +9,9 @@ enum Place: String, CaseIterable, Hashable, Sendable {
 
     var title: String {
         switch self {
-        case .library: "Library"
-        case .chronology: "Chronology"
-        case .search: "Search"
+        case .library: L("Library")
+        case .chronology: L("Chronology")
+        case .search: L("Search")
         }
     }
 }

@@ -32,7 +32,9 @@ def needs_lab(paths, project_diff):
 
 def diff_between(base, head, cwd=None):
     paths = gate.parse_paths(gate.git("diff", "--name-only", "--no-renames", base, head, cwd=cwd))
-    patch = gate.git("diff", "-U0", "--no-color", "--no-ext-diff", "--no-renames", base, head, "--", gate.VERSION_FILE, cwd=cwd)
+    patch = gate.git(
+        "diff", "-U0", "--no-color", "--no-ext-diff", "--no-renames", base, head, "--", gate.VERSION_FILE, cwd=cwd
+    )
     return paths, patch
 
 

@@ -26,7 +26,12 @@ class NeedsLabTests(unittest.TestCase):
         self.assertTrue(lab_plan.needs_lab(["project.yml"], ""))
 
     def test_lab_and_engine_paths_need_the_build(self):
-        for path in ("KlassikLab/LabModel.swift", "KlassikLabTests/X.swift", "KlassikEngine/GaplessEngine.swift", ".github/workflows/lab.yml"):
+        for path in (
+            "KlassikLab/LabModel.swift",
+            "KlassikLabTests/X.swift",
+            "KlassikEngine/GaplessEngine.swift",
+            ".github/workflows/lab.yml",
+        ):
             self.assertTrue(lab_plan.needs_lab([path, "project.yml"], BUMP), path)
 
     def test_app_paths_need_no_lab_build(self):

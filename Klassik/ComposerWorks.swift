@@ -126,7 +126,7 @@ struct ComposerWorks: Sendable {
         let promoted = shown.filter { favourites.contains($0.id) && !(separatingPartial && Self.isPartial($0)) }
         let ids = Set(promoted.map(\.id))
         let rest = shown.filter { !ids.contains($0.id) }
-        var parts = [Part(title: "Favourite works", rows: rows(of: promoted, partial: nil))]
+        var parts = [Part(title: "Favourite works", rows: Self.sorted(promoted).map(Row.work))]
         if separatingPartial {
             parts.append(Part(title: "Works", rows: rows(of: rest, partial: false)))
             parts.append(Part(title: "Partial works", rows: rows(of: rest, partial: true)))

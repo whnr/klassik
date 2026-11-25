@@ -178,8 +178,8 @@ final class StreamDecoder: PCMSource, @unchecked Sendable {
     private enum Header {
         case mp3(MP3GaplessInfo)
         case flac(totalSamples: Int64)
-        /// An M4A file, with the gapless data of its moov box when it has any.
-        case m4a(M4AGaplessInfo?)
+        /// An M4A file, with the gapless data of its moov box when it has any, and the frames its packets declare.
+        case m4a(M4AGaplessInfo?, declared: Int64?)
         /// A file whose header counts its frames: WAV and AIFF.
         case counted
 
@@ -193,10 +193,11 @@ final class StreamDecoder: PCMSource, @unchecked Sendable {
                     decodedLength: decodedLength ?? Int64(info.frameCount * info.samplesPerFrame))
             case .flac(let totalSamples):
                 return 0..<totalSamples
-            case .m4a(let info):
+            case .m4a(let info, let declared):
                 // The complete-file path cuts by the same rule, so both paths keep one timeline.
                 guard let decodedLength else { return nil }
-                return info?.playableRange(decodedLength: decodedLength) ?? 0..<decodedLength
+                if let info { return info.playableRange(decodedLength: decodedLength) }
+                return 0..<min(decodedLength, declared ?? decodedLength)
             case .counted:
                 return decodedLength.map { 0..<$0 }
             }
@@ -218,7 +219,8 @@ final class StreamDecoder: PCMSource, @unchecked Sendable {
             let body = try M4AGaplessInfo.moovBody(length: context.length) { offset, count in
                 try context.bytes(at: offset, count: count)
             }
-            return .m4a(body.flatMap { M4AGaplessInfo.parse(moov: $0) })
+            let info = body.flatMap { M4AGaplessInfo.parse(moov: $0) }
+            return .m4a(info, declared: body.flatMap { M4AGaplessInfo.declaredFrames(moov: $0) })
         default:
             return .counted
         }

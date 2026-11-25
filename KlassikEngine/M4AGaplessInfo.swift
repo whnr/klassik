@@ -21,6 +21,8 @@ public struct M4AGaplessInfo: Equatable, Sendable {
     /// and some return every packet, so the length of the decoded file tells which frames to cut.
     public func playableRange(decodedLength: Int64) -> Range<Int64> {
         guard decodedLength > valid else { return 0..<decodedLength }
+        // A decoder that rounds the last packet up returns more frames than the packets declare.
+        if decodedLength > total { return priming..<(priming + valid) }
         // The decoder removed the priming and kept the remainder.
         if decodedLength == total - priming { return 0..<valid }
         guard decodedLength == total else { return 0..<decodedLength }
@@ -70,6 +72,13 @@ public struct M4AGaplessInfo: Equatable, Sendable {
             offset += size
         }
         return nil
+    }
+
+    /// The frames that the packets of the first audio track declare, with or without trim data.
+    static func declaredFrames(moov body: [UInt8]) -> Int64? {
+        let moov = Box(type: "moov", body: body[...])
+        let track = moov.children.first { $0.type == "trak" && $0.find(["mdia", "minf", "smhd"]) != nil }
+        return track?.find(["mdia", "minf", "stbl", "stts"]).flatMap { frames($0.body) }
     }
 
     /// `body` is the content of the moov box.

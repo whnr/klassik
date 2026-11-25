@@ -1,7 +1,7 @@
 {
-  "sha": "7c915691618c133897d490f10bbc9e3a8982e462",
+  "sha": "3134b3d6e8ee217e7e4db5f088fcd1479e3ff820",
   "branch": "claude-native-rate",
   "path": "claude-native-rate",
-  "subject": "[sz-u8f4] Count arrived bytes toward the next open",
-  "ts": 1795603749
+  "subject": "[sz-u8f4] DIAG: log joins of the offline render",
+  "ts": 1795605678
 }

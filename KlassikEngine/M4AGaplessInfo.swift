@@ -21,6 +21,8 @@ public struct M4AGaplessInfo: Equatable, Sendable {
     /// and some return every packet, so the length of the decoded file tells which frames to cut.
     public func playableRange(decodedLength: Int64) -> Range<Int64> {
         guard decodedLength > valid else { return 0..<decodedLength }
+        // A decoder that rounds the last packet up returns more frames than the packets declare.
+        if decodedLength > total { return priming..<(priming + valid) }
         // The decoder removed the priming and kept the remainder.
         if decodedLength == total - priming { return 0..<valid }
         guard decodedLength == total else { return 0..<decodedLength }
@@ -32,32 +34,51 @@ public struct M4AGaplessInfo: Equatable, Sendable {
 
     /// Reads the data from the file at `url`, or nil when it is no MP4 file or declares no trim.
     public static func parse(fileAt url: URL) -> M4AGaplessInfo? {
-        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        guard let handle = try? FileHandle(forReadingFrom: url), let end = try? handle.seekToEnd() else { return nil }
         defer { try? handle.close() }
-        var offset: UInt64 = 0
+        let body = try? moovBody(length: Int64(end)) { offset, count in
+            try handle.seek(toOffset: UInt64(offset))
+            return [UInt8](try handle.read(upToCount: count) ?? Data())
+        }
+        return body.flatMap { parse(moov: $0) }
+    }
+
+    /// The content of the moov box of a file of `length` bytes, or nil when it is no MP4 file, has no moov box, or
+    /// the box exceeds `moovLimit`. It walks the top-level boxes with one 16-byte read each and skips mdat, so a
+    /// reader that fetches over the network asks for the head of the file and, when the moov box is last, for its
+    /// tail only. `read` returns fewer bytes only at the end of the file.
+    static func moovBody(length: Int64, read: (_ offset: Int64, _ count: Int) throws -> [UInt8]) rethrows -> [UInt8]? {
+        var offset: Int64 = 0
         var first = true
-        while let head = try? handle.read(upToCount: 16), head.count >= 8 {
-            let bytes = [UInt8](head)
+        while offset + 8 <= length {
+            let bytes = try read(offset, 16)
+            guard bytes.count >= 8 else { return nil }
             let type = String(decoding: bytes[4..<8], as: UTF8.self)
             if first, type != "ftyp" { return nil }
             first = false
-            var size = UInt64(uint32(bytes, 0))
-            var headerSize: UInt64 = 8
-            if size == 1, bytes.count >= 16 {
-                size = UInt64(uint32(bytes, 8)) << 32 | UInt64(uint32(bytes, 12))
+            var size = Int64(uint32(bytes, 0))
+            var headerSize: Int64 = 8
+            if size == 1 {
+                guard bytes.count >= 16 else { return nil }
+                size = Int64(truncatingIfNeeded: UInt64(uint32(bytes, 8)) << 32 | UInt64(uint32(bytes, 12)))
                 headerSize = 16
             }
-            guard size >= headerSize else { return nil }
+            guard size >= headerSize, size <= length - offset else { return nil }
             if type == "moov" {
-                guard size - headerSize <= UInt64(moovLimit) else { return nil }
-                try? handle.seek(toOffset: offset + headerSize)
-                guard let body = try? handle.read(upToCount: Int(size - headerSize)) else { return nil }
-                return parse(moov: [UInt8](body))
+                guard size - headerSize <= moovLimit else { return nil }
+                let body = try read(offset + headerSize, Int(size - headerSize))
+                return Int64(body.count) == size - headerSize ? body : nil
             }
             offset += size
-            guard (try? handle.seek(toOffset: offset)) != nil else { return nil }
         }
         return nil
+    }
+
+    /// The frames that the packets of the first audio track declare, with or without trim data.
+    static func declaredFrames(moov body: [UInt8]) -> Int64? {
+        let moov = Box(type: "moov", body: body[...])
+        let track = moov.children.first { $0.type == "trak" && $0.find(["mdia", "minf", "smhd"]) != nil }
+        return track?.find(["mdia", "minf", "stbl", "stts"]).flatMap { frames($0.body) }
     }
 
     /// `body` is the content of the moov box.

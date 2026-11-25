@@ -22,6 +22,9 @@ LENGTHS = (22051, 18017)
 FORMATS = {
     "aac": ("m4a", ["-c:a", "aac", "-b:a", "128k"]),
     "alac": ("m4a", ["-c:a", "alac", "-sample_fmt", "s16p"]),
+    # The moov box first, as a server that optimizes M4A files for streaming sends it.
+    "aac-fast": ("m4a", ["-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart"]),
+    "alac-fast": ("m4a", ["-c:a", "alac", "-sample_fmt", "s16p", "-movflags", "+faststart"]),
     "wav": ("wav", ["-c:a", "pcm_s16le"]),
     "aiff": ("aiff", ["-c:a", "pcm_s16be"]),
     "flac": ("flac", ["-c:a", "flac", "-sample_fmt", "s16"]),
@@ -40,6 +43,14 @@ def glide(movement: int) -> str:
     )
 
 
+# Long fast-start tracks, so that a prefix of the file holds more than the 8 KB the system M4A reader reads first.
+LONG_SECONDS = 8
+LONG = {
+    "aac-long": ["-c:a", "aac", "-b:a", "48k", "-movflags", "+faststart"],
+    "alac-long": ["-c:a", "alac", "-sample_fmt", "s16p", "-movflags", "+faststart"],
+}
+
+
 def main(out: pathlib.Path) -> None:
     out.mkdir(parents=True, exist_ok=True)
     for name, (ext, args) in FORMATS.items():
@@ -52,6 +63,16 @@ def main(out: pathlib.Path) -> None:
                 check=True,
             )
             print(target)
+    source = f"aevalsrc=0.5*sin(2*PI*(300*t+25*t*t)):s={RATE}:d={LONG_SECONDS}"
+    for name, args in LONG.items():
+        target = out / f"{name}-1.m4a"
+        subprocess.run(
+            ["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", source, "-map_metadata", "-1"]
+            + args
+            + [str(target)],
+            check=True,
+        )
+        print(target)
 
 
 if __name__ == "__main__":

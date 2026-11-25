@@ -605,7 +605,7 @@ struct TrackTransferTests {
     @Test func otherFormatsWaitForTheWholeFile() async throws {
         let started = Started()
         let store = try makeStore(started)
-        let song = Song(id: "w", title: "w", suffix: "m4a")
+        let song = Song(id: "w", title: "w", suffix: "opus")
         let source = Task { try await store.source(for: song, client: client) }
         try await Task.sleep(for: .milliseconds(50))
         let transfer = try #require(started.transfers.first?.transfer)
@@ -613,10 +613,10 @@ struct TrackTransferTests {
         transfer.append(Data([1, 2]))
         transfer.finish(nil)
         guard case .file(let url) = try await source.value else {
-            Issue.record("M4A must load whole")
+            Issue.record("A format outside the early gate must load whole")
             return
         }
-        #expect(url == root.appending(path: "cache/w.m4a"))
+        #expect(url == root.appending(path: "cache/w.opus"))
         try? FileManager.default.removeItem(at: root)
     }
 

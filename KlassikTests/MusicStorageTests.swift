@@ -216,7 +216,7 @@ struct MusicStorageTests {
     @Test func anOversizedTrackThatCannotRollFailsAtItsHead() async throws {
         let store = try makeStore(limit: 32)
         defer { clean(store) }
-        let transfer = store.transfer(for: song("large", suffix: "m4a"), client: client)
+        let transfer = store.transfer(for: song("large", suffix: "opus"), client: client)
         transfer.begin(length: 200, validator: nil)
         await #expect(throws: TrackTransfer.Failure.exceedsStorage) { try await transfer.finished() }
         #expect(!FileManager.default.fileExists(atPath: transfer.partial.path()))

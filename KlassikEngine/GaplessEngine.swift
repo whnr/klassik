@@ -255,6 +255,12 @@ public final class GaplessEngine: PlaybackEngine {
         return (found.movement, Double(found.frame) / sampleRate)
     }
 
+    /// True once the engine placed audio of the movement on the node timeline. The audio of a movement that
+    /// follows a played one already waits on the node when this is true at the end of its predecessor.
+    public func hasScheduled(movement: Int) -> Bool {
+        timeline.spans.contains { $0.movement == movement }
+    }
+
     public func duration(of movement: Int) -> Double? {
         timeline.length(movement).map { Double($0) / sampleRate }
     }
@@ -904,10 +910,11 @@ public final class GaplessEngine: PlaybackEngine {
     }
 
     /// The frames of a decoded file that belong to the recording: the gapless data of an MP3 or an M4A file, else
-    /// every frame. The container tells an M4A file, because a stored track may carry no extension.
+    /// every frame.
     nonisolated static func playableRange(of file: AVAudioFile) -> Range<Int64> {
-        if file.url.pathExtension.lowercased() == "mp3",
-            let data = try? Data(contentsOf: file.url, options: .mappedIfSafe),
+        // The content tells an MP3 file, as it tells an M4A file: a stored track may carry no extension, and iOS
+        // then does not apply the header, so the encoder delay and padding would sound as a gap.
+        if let data = try? Data(contentsOf: file.url, options: .mappedIfSafe), MP3GaplessInfo.looksLikeMP3(data),
             let header = MP3GaplessInfo.parse(data)
         {
             return header.playableRange(decodedLength: file.length)

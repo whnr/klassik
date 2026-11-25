@@ -31,6 +31,13 @@ struct MP3GaplessInfoTests {
         #expect(info?.padding == 755)
     }
 
+    @Test func recognisesAnMP3ByItsContent() {
+        #expect(MP3GaplessInfo.looksLikeMP3(Self.header(frames: 116, delay: 576, padding: 755)))
+        #expect(MP3GaplessInfo.looksLikeMP3(Data([0xFF, 0xFB, 0x90, 0x00, 0, 0, 0, 0, 0, 0])))
+        #expect(!MP3GaplessInfo.looksLikeMP3(Data("fLaC0123456789".utf8)))
+        #expect(!MP3GaplessInfo.looksLikeMP3(Data("RIFF....WAVEfmt ".utf8)))
+    }
+
     @Test func ignoresFileWithoutInfoFrame() {
         var data = Self.header(frames: 116, delay: 576, padding: 755)
         let info = data.range(of: Data("Info".utf8))!

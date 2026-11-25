@@ -94,6 +94,19 @@ struct FormatGaplessTests {
         #expect(worst < 0.001, "\(name) worst difference \(worst)")
     }
 
+    /// A stored track may carry no extension. The header still cuts the encoder delay and padding.
+    @Test func anMP3WithoutExtensionIsCutLikeOneWithIt() throws {
+        let source = try FormatFixtures.url("mp3-1", "mp3")
+        let folder = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let bare = folder.appending(path: "track")
+        try FileManager.default.copyItem(at: source, to: bare)
+        let named = GaplessEngine.playableRange(of: try AVAudioFile(forReading: source))
+        let unnamed = GaplessEngine.playableRange(of: try AVAudioFile(forReading: bare))
+        #expect(unnamed == named)
+    }
+
     /// MP3 without a header has no record of its delay, so the file plays whole. The join is approximate (ADR 0005).
     @Test func anMP3WithoutHeaderPlaysWhole() throws {
         let file = try AVAudioFile(forReading: try FormatFixtures.url("mp3-bare-1", "mp3"))

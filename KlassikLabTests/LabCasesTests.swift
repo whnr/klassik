@@ -51,4 +51,13 @@ struct LabCasesTests {
         let lossy = LabCase.cases(from: [song("a", disc: 1, track: 1, suffix: "m4a", rate: 44_100, bitRate: 256)])[0]
         #expect(lossy.sourceLine == "M4A 44.1 kHz 256 kbit/s")
     }
+
+    @Test func onlyAnMP3WithoutHeaderCarriesTheGapNote() {
+        let bare = LabCase.cases(from: [song("a", disc: 1, track: 1, suffix: "mp3", work: "MP3 without header")])[0]
+        #expect(bare.gapNote == "This MP3 has no gapless header. A small gap at the join is expected.")
+        let lame = LabCase.cases(from: [song("a", disc: 1, track: 1, suffix: "mp3", work: "MP3 with LAME header")])[0]
+        #expect(lame.gapNote == nil)
+        let flac = LabCase.cases(from: [song("a", disc: 1, track: 1, work: "FLAC without header")])[0]
+        #expect(flac.gapNote == nil)
+    }
 }

@@ -129,14 +129,7 @@ private struct SystemPlaces: UIViewControllerRepresentable {
         controller.reservedWidth = reservedWidth
         controller.side = side
         controller.tabBar.tintColor = UIColor(named: Palette.tint.assetName(in: accent))
-        // The bar does not redraw a changed title, so a new language makes new tabs around the same pages.
-        if controller.tabs.map(\.title) != Place.allCases.map(\.title) {
-            let hosts = controller.tabs.compactMap(\.viewController)
-            if hosts.count == Place.allCases.count {
-                controller.setTabs(zip(Place.allCases, hosts).map { $0.tab($1) }, animated: false)
-                controller.selectedIndex = selected
-            }
-        }
+        controller.renameTabs()
         controller.view.setNeedsLayout()
     }
 
@@ -191,6 +184,15 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
         view.addSubview(host.view)
         host.didMove(toParent: self)
         playerHost = host
+    }
+
+    /// Gives each tab the name of its place in the app language, now and at each change of the language.
+    func renameTabs() {
+        withObservationTracking {
+            for tab in tabs { if let place = Place(rawValue: tab.identifier) { tab.title = place.title } }
+        } onChange: { [weak self] in
+            Task { @MainActor in self?.renameTabs() }
+        }
     }
 
     override func viewDidLoad() {

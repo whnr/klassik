@@ -690,6 +690,7 @@ public final class GaplessEngine: PlaybackEngine {
         halting?.cancel()
         halting = nil
         silenced = false
+        diag("ramp up from \(String(describing: level))")  // DIAG
         fade?.ramp(from: level, to: 1, frames: fadeFrames)
     }
 
@@ -701,6 +702,7 @@ public final class GaplessEngine: PlaybackEngine {
     ) {
         halting?.cancel()
         guard let fade else { return body() }
+        diag("halt frames \(frames) delay \(delay) extra \(extra)")  // DIAG
         silenced = true
         let wait = Double(frames) / sampleRate + extra
         if delay <= 0 { fade.ramp(to: 0, frames: frames) }
@@ -709,6 +711,7 @@ public final class GaplessEngine: PlaybackEngine {
             if delay > 0 {
                 try? await Task.sleep(for: .seconds(delay))
                 guard !Task.isCancelled else { return }
+                diag("delayed ramp to 0 runs")  // DIAG
                 fade.ramp(to: 0, frames: frames)
             }
             try? await Task.sleep(for: .seconds(wait))

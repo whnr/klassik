@@ -135,6 +135,7 @@ public final class GaplessEngine: PlaybackEngine {
     }
 
     private var diagLogged: Set<Int> = []  // DIAG
+    private var diagWaiting = false  // DIAG
     private var diagStart = ContinuousClock.now  // DIAG
     private func diag(_ text: String) {  // DIAG
         print("DIAG \(diagStart.duration(to: .now)) \(text)")  // DIAG
@@ -581,11 +582,14 @@ public final class GaplessEngine: PlaybackEngine {
             }  // DIAG
             openNext(after: position, decoded: emitted - origin, ahead: ahead)
             if scheduledEnd - (playedSamples() ?? 0) >= ahead {
+                if !diagWaiting { diag("m\(position) node full, decoded \(emitted - origin)") }  // DIAG
+                diagWaiting = true  // DIAG
                 try startIfReady(transfer, remaining: Double(fullLength - emitted) / rate)
                 try await Task.sleep(for: Self.watchInterval)
                 try check(generation)
                 continue
             }
+            diagWaiting = false  // DIAG
             let decoded = try await work { try Decoded(decoder, reader: reader) }
             try check(generation)
             stream = (transfer, AudioBitrate.current(song, observed: decoded.bitrate))
@@ -599,7 +603,9 @@ public final class GaplessEngine: PlaybackEngine {
                 heldStart = emitted
                 emitted += Int64(buffer.frameLength)
                 heldFrames = buffer.frameLength
-                if emitted == Int64(buffer.frameLength) { diag("movement \(position) first buffer") }  // DIAG
+                if emitted - origin <= 8 * Int64(buffer.frameLength) {  // DIAG
+                    diag("m\(position) buffer, decoded \(emitted - origin), ahead \(ahead)")  // DIAG
+                }  // DIAG
                 try startIfReady(transfer, remaining: Double(fullLength - emitted) / rate)
             case .end:
                 guard let held else { throw StreamDecoder.Failure.status(kAudioFileEndOfFileError) }

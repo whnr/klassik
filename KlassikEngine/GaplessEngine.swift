@@ -575,7 +575,9 @@ public final class GaplessEngine: PlaybackEngine {
         reading: while true {
             if !diagLogged.contains(position) && emitted - origin >= ahead / 2 {  // DIAG
                 diagLogged.insert(position)  // DIAG
-                diag("movement \(position) decoded \(emitted - origin) of ahead \(ahead), node holds \(scheduledEnd - (playedSamples() ?? 0)), started \(started), mayRequest \(mayRequest(position + 1, from: firstIndex))")  // DIAG
+                let held = scheduledEnd - (playedSamples() ?? 0)  // DIAG
+                let may = mayRequest(position + 1, from: firstIndex)  // DIAG
+                diag("movement \(position) decoded \(emitted - origin) of \(ahead), holds \(held), may \(may)")  // DIAG
             }  // DIAG
             openNext(after: position, decoded: emitted - origin, ahead: ahead)
             if scheduledEnd - (playedSamples() ?? 0) >= ahead {

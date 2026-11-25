@@ -42,8 +42,14 @@ public final class GaplessEngine: PlaybackEngine {
     private var task: Task<Void, Never>?
     private var watcher: Task<Void, Never>?
     private var activation: Task<Void, Never>?
-    /// The fade-in of the node that just started. A new start or a discard replaces it.
-    private var fadeIn: Task<Void, Never>?
+    /// The fade stage of this graph. It ramps the samples before the gain node and the mixer.
+    private var fade: FadeControl?
+    /// The wait for a fade-out to end before the node stops. A start or a discard replaces it.
+    private var halting: Task<Void, Never>?
+    /// True from the start of a fade-out until a start ramps the sound up again.
+    private var silenced = false
+    /// The length of every fade, in seconds. A change takes effect at the next fade, also on a running engine.
+    public var fadeSeconds: Double
     /// Completion handlers of an earlier load must not reach the session.
     private var generation = 0
     /// Whether the session wants sound. A load that finishes after a pause must stay silent.
@@ -103,8 +109,10 @@ public final class GaplessEngine: PlaybackEngine {
         rendered: (@Sendable (AVReadOnlyAudioPCMBuffer) -> Void)? = nil,
         manualRendering: Bool = false,
         failureMapper: any PlaybackFailureMapper = TransferFailureMapper(),
-        gainNode: Bool = true
+        gainNode: Bool = true,
+        fadeSeconds: Double = 0.1
     ) {
+        self.fadeSeconds = fadeSeconds
         self.deliverCompletion = deliverCompletion
         self.failureMapper = failureMapper
         self.gainNode = gainNode
@@ -127,9 +135,19 @@ public final class GaplessEngine: PlaybackEngine {
     }
 
     public func pause() {
-        pausedAt = playedSamples()
-        node?.pause()
         playing = false
+        guard let node, node.isPlaying else {
+            pausedAt = playedSamples()
+            node?.pause()
+            return report()
+        }
+        // The node keeps playing until the fade-out ends, so the stop lands on silence.
+        let generation = generation
+        halt(frames: fadeFrames) { [weak self] in
+            guard let self, generation == self.generation, !self.playing else { return }
+            self.pausedAt = self.playedSamples()
+            node.pause()
+        }
         report()
     }
 
@@ -155,10 +173,16 @@ public final class GaplessEngine: PlaybackEngine {
 
     /// Puts the engine in the state of a load that sounds on this graph, for tests that drive the node without a
     /// decoder.
-    func adopt(_ engine: AVAudioEngine, _ node: AVAudioPlayerNode, started: Bool) {
+    func adopt(
+        _ engine: AVAudioEngine, _ node: AVAudioPlayerNode, started: Bool, fade: FadeControl? = nil,
+        scheduledEnd: Int64 = 0, decoding: Bool = false
+    ) {
         self.engine = engine
         self.node = node
         self.started = started
+        self.fade = fade
+        self.scheduledEnd = scheduledEnd
+        self.decoding = decoding
         playing = true
     }
 
@@ -185,9 +209,11 @@ public final class GaplessEngine: PlaybackEngine {
         pump?.cancel()
         pump = nil
         pumped = 0
-        fadeIn?.cancel()
-        fadeIn = nil
-        retire(engine, node)
+        halting?.cancel()
+        halting = nil
+        retire(engine, node, fade)
+        fade = nil
+        silenced = false
         engine = nil
         node = nil
         gain = nil
@@ -334,9 +360,19 @@ public final class GaplessEngine: PlaybackEngine {
         guard let stable else { throw PCMConversion.Failure.format }
         format = stable
         sampleRate = stable.sampleRate
-        // The last node before the mixer: the gain node, or the player when the host builds no gain node.
-        let last: AVAudioNode = gain ?? node
-        if let gain { try engine.connectNode(node, to: gain, format: stable) }
+        // The fade stage comes first, so that a ramp covers the samples before any other stage. The last node before
+        // the mixer is the gain node, or the fade stage when the host builds no gain node.
+        var last: AVAudioNode = node
+        if let made = FadeAudioUnit.make() {
+            engine.attach(made.stage)
+            try engine.connectNode(node, to: made.stage, format: stable)
+            fade = made.control
+            last = made.stage
+        }
+        if let gain {
+            try engine.connectNode(last, to: gain, format: stable)
+            last = gain
+        }
         try engine.connectNode(last, to: engine.mainMixerNode, format: stable)
         if manualRendering {
             try engine.enableManualRenderingMode(.offline, format: stable, maximumFrameCount: 1_024)
@@ -663,35 +699,61 @@ public final class GaplessEngine: PlaybackEngine {
     private func sound() throws {
         started = true
         starved = false
-        if playing, let node, !node.isPlaying {
+        if playing, let node {
             try start(node)
             pausedAt = nil
         }
         report()
     }
 
+    /// The length of a fade in frames.
+    private var fadeFrames: Int { Int((fadeSeconds * sampleRate).rounded()) }
+
     /// Starts the node from silence, so a start inside a waveform (a seek, a resume) does not click.
-    /// A node that already plays keeps its level: a second start would dip it to silence.
+    /// A node that still plays only ramps up again, when a fade-out silenced it: a second start would dip it.
     func start(_ node: AVAudioPlayerNode) throws {
-        guard !node.isPlaying else { return }
-        fadeIn?.cancel()
-        node.volume = 0
+        guard !node.isPlaying else {
+            if silenced { rampUp(from: nil) }
+            return
+        }
+        rampUp(from: 0)
         try node.playAudio()
-        fadeIn = Task {
-            await SkipFade.run(rising: true) { node.volume = $0 }
-            if !Task.isCancelled { node.volume = 1 }
+    }
+
+    private func rampUp(from level: Float?) {
+        halting?.cancel()
+        halting = nil
+        silenced = false
+        fade?.ramp(from: level, to: 1, frames: fadeFrames)
+    }
+
+    /// Ramps the sound to silence over `frames`, then runs `body`. A start or a discard cancels the wait.
+    private func halt(frames: Int, then body: @escaping @MainActor () -> Void) {
+        halting?.cancel()
+        guard let fade else { return body() }
+        silenced = true
+        fade.ramp(to: 0, frames: frames)
+        // The render thread runs the ramp. The margin covers the output latency of the device.
+        let wait = Double(frames) / sampleRate + 0.03
+        halting = Task {
+            try? await Task.sleep(for: .seconds(wait))
+            guard !Task.isCancelled else { return }
+            halting = nil
+            body()
         }
     }
 
     /// Stops a replaced engine after its sound faded out, so a skip does not cut the wave. The replaced load is
     /// already invalid, so nothing of it reaches the session. A silent engine stops at once.
-    private func retire(_ engine: AVAudioEngine?, _ node: AVAudioPlayerNode?) {
+    private func retire(_ engine: AVAudioEngine?, _ node: AVAudioPlayerNode?, _ fade: FadeControl?) {
         guard let engine else { return }
-        guard let node, playing, started, !starved, node.isPlaying else { return engine.stop() }
-        // A skip during a fade-in starts the fade-out from the level that the node has reached.
-        let level = node.volume
+        guard let node, let fade, started, !starved, node.isPlaying else { return engine.stop() }
+        // A skip during another fade starts the fade-out from the level that the ramp has reached.
+        let frames = fadeFrames
+        fade.ramp(to: 0, frames: frames)
+        let wait = Double(frames) / sampleRate + 0.03
         Task {
-            await SkipFade.run(rising: false) { node.volume = level * $0 }
+            try? await Task.sleep(for: .seconds(wait))
             engine.stop()
         }
     }
@@ -707,16 +769,23 @@ public final class GaplessEngine: PlaybackEngine {
         }
     }
 
-    private func checkStarvation() {
-        if playing, started, !starved, decoding, let node, node.isPlaying, let played = playedSamples(),
-            played >= scheduledEnd
-        {
-            // A pause keeps the next sample in place on the timeline until the refill is ready.
-            starved = true
-            pausedAt = played
-            node.pause()
+    func checkStarvation() {
+        if let played = playedSamples() {
+            // The fade must end before the audio does, so the check looks one fade and one watch tick ahead.
+            let lead = Int64(fadeFrames) + Int64(sampleRate * (Self.watchInterval / .seconds(1)))
+            let remaining = scheduledEnd - played
+            if playing, started, !starved, decoding, let node, node.isPlaying, remaining <= lead {
+                // A pause keeps the next sample in place on the timeline until the refill is ready.
+                starved = true
+                let generation = generation
+                halt(frames: Int(min(Int64(fadeFrames), max(remaining, 0)))) { [weak self] in
+                    guard let self, generation == self.generation, self.starved else { return }
+                    self.pausedAt = self.playedSamples()
+                    node.pause()
+                }
+            }
+            timeline.prune(before: played)
         }
-        if let played = playedSamples() { timeline.prune(before: played) }
         report()
     }
 

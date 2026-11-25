@@ -66,6 +66,16 @@ struct LabPlayerView: View {
                 } footer: {
                     Text("Off builds the engine without its gain stage.")
                 }
+                Section {
+                    Slider(value: $player.fadeMilliseconds, in: LabPlayer.fadeRange, step: 10)
+                    Text("Fade \(Int(player.fadeMilliseconds)) ms")
+                        .font(.footnote.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                } header: {
+                    Text("Settings")
+                } footer: {
+                    Text("Fade at skip, seek, pause, resume and a stall. 0 turns it off.")
+                }
                 Section("Network") {
                     Picker("Throttle", selection: $player.throttle.mode) {
                         ForEach(LabThrottle.Mode.allCases) { Text($0.title).tag($0) }

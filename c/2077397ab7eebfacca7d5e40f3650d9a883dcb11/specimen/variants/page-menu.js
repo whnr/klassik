@@ -142,8 +142,9 @@
 
   /** Puts the ⋯ button into a page bar. It returns open(), which the menu pages use to draw it open. */
   function attach(nav, kind, item) {
+    // The player draws its ⋯ as a flat disc with a hairline, as the app does. The other bars keep glass.
     const button = el("button", {
-      class: "menu-button glass",
+      class: kind === "player" ? "menu-button flat" : "menu-button glass",
       "aria-label": "More",
       "aria-haspopup": "menu",
       "aria-expanded": "false",

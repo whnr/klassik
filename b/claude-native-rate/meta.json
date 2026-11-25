@@ -1,7 +1,7 @@
 {
-  "sha": "3134b3d6e8ee217e7e4db5f088fcd1479e3ff820",
+  "sha": "2077397ab7eebfacca7d5e40f3650d9a883dcb11",
   "branch": "claude-native-rate",
   "path": "claude-native-rate",
-  "subject": "[sz-u8f4] DIAG: log joins of the offline render",
-  "ts": 1795605678
+  "subject": "[sz-u8f4] DIAG: shorten a log line",
+  "ts": 1795605685
 }

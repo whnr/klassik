@@ -1,7 +1,7 @@
 {
-  "sha": "6af33803b9b1977415e90a6be1510f86f0db5efa",
+  "sha": "fe838624e11412886b16c155fa763438ea6e4fd1",
   "branch": "claude-native-rate",
   "path": "claude-native-rate",
-  "subject": "[sz-u8f4] DIAG: log connect and open times",
-  "ts": 1795601004
+  "subject": "[sz-u8f4] DIAG: shorten a log line",
+  "ts": 1795601015
 }

@@ -48,7 +48,7 @@ struct LabPlayerTests {
         #expect(LabPlayer.joinWaiting(movement: 1, count: 2) == LabPlayer.notPlayed)
     }
 
-    @Test func aCachedFileNamesTheTrackAndItsSuffix() {
+    @MainActor @Test func aCachedFileNamesTheTrackAndItsSuffix() {
         let track = PlaybackTrack(id: "ab12", suffix: "MP3")
         #expect(LabPlayer.cached(track) == LabPlayer.folder.appending(path: "ab12.mp3"))
         #expect(LabPlayer.cached(PlaybackTrack(id: "ab12")) == LabPlayer.folder.appending(path: "ab12"))

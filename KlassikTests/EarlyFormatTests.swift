@@ -69,6 +69,64 @@ struct EarlyFormatTests {
         #expect(first.playable == reference, "The stream cuts the same frames as the complete file")
     }
 
+    /// Which bytes the system M4A reader asks for until the first 1024 frames: the reads must stay in the head of the
+    /// file, with at most the index at the end.
+    @Test(arguments: ["aac-fast", "alac-fast", "aac", "alac"])
+    func theM4AReaderStaysNearTheHead(name: String) throws {
+        let data = try Data(contentsOf: FormatFixtures.url("\(name)-1", "m4a"))
+        let probe = ReadLog(data)
+        var file: AudioFileID?
+        let opened = AudioFileOpenWithCallbacks(
+            Unmanaged.passUnretained(probe).toOpaque(),
+            { context, position, requested, destination, actual in
+                Unmanaged<ReadLog>.fromOpaque(context).takeUnretainedValue()
+                    .read(position: position, requested: requested, into: destination, actual: actual)
+            }, nil,
+            { context in Int64(Unmanaged<ReadLog>.fromOpaque(context).takeUnretainedValue().data.count) }, nil,
+            kAudioFileM4AType, &file)
+        #expect(opened == noErr)
+        let audioFile = try #require(file)
+        defer { AudioFileClose(audioFile) }
+        var extended: ExtAudioFileRef?
+        #expect(ExtAudioFileWrapAudioFileID(audioFile, false, &extended) == noErr)
+        let decoder = try #require(extended)
+        defer { ExtAudioFileDispose(decoder) }
+        let format = try #require(AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 1))
+        var description = format.streamDescription.pointee
+        ExtAudioFileSetProperty(
+            decoder, kExtAudioFileProperty_ClientDataFormat, UInt32(MemoryLayout<AudioStreamBasicDescription>.size),
+            &description)
+        let buffer = try #require(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 1024))
+        buffer.frameLength = 1024
+        var frames: UInt32 = 1024
+        #expect(ExtAudioFileRead(decoder, &frames, buffer.mutableAudioBufferList) == noErr)
+        print("\(name): \(data.count) bytes, reads \(probe.reads)")
+        let furthest = probe.reads.map { $0.upperBound }.max() ?? 0
+        #expect(furthest <= Int64(data.count * 6 / 10) || name == "aac" || name == "alac", "reads \(probe.reads)")
+    }
+
+    private final class ReadLog {
+        let data: Data
+        var reads: [Range<Int64>] = []
+        init(_ data: Data) { self.data = data }
+
+        func read(
+            position: Int64, requested: UInt32, into destination: UnsafeMutableRawPointer,
+            actual: UnsafeMutablePointer<UInt32>
+        ) -> OSStatus {
+            guard position >= 0, position <= data.count else { return kAudioFilePositionError }
+            let count = min(Int(requested), data.count - Int(position))
+            data.withUnsafeBytes { bytes in
+                if count > 0 {
+                    destination.copyMemory(from: bytes.baseAddress!.advanced(by: Int(position)), byteCount: count)
+                }
+            }
+            reads.append(position..<(position + Int64(count)))
+            actual.pointee = UInt32(count)
+            return noErr
+        }
+    }
+
     /// The file with a free box of `size` bytes at its end.
     static func trailed(_ data: Data, by size: Int) -> Data {
         var box = [UInt8](repeating: 0, count: size)

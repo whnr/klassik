@@ -14,6 +14,22 @@
 .nav .menu-button[aria-expanded="true"] {
   background: var(--color-fill-quiet);
 }
+/* A 32 pt flat disc with a hairline inside the 44 pt press area, as the app draws the player's ⋯. */
+.nav .actions .menu-button.flat {
+  position: relative;
+  isolation: isolate;
+  padding: 0;
+  background: none;
+}
+.nav .actions .menu-button.flat::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  z-index: -1;
+  border-radius: var(--radius-full);
+  background: var(--color-background-elevated);
+  box-shadow: 0 0 0 0.5px var(--color-separator);
+}
 .menu-scrim {
   position: fixed;
   z-index: 60;

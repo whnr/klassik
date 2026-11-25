@@ -1,7 +1,7 @@
 {
-  "sha": "a1cfc8445a2f5eb45f5dc78ee83fc5890b9303ba",
+  "sha": "df354edb1a7ad9a699fe581709eff2fd4ed03090",
   "branch": "claude-early-formats",
   "path": "claude-early-formats",
-  "subject": "[sz-v7af] Test partial delivery on long M4A files",
-  "ts": 1795593516
+  "subject": "[sz-v7af] Cut a streamed M4A at its declared frames",
+  "ts": 1795594942
 }

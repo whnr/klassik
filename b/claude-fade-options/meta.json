@@ -1,7 +1,7 @@
 {
-  "sha": "013071bd09213653999d0c3d2baa13723996f62b",
+  "sha": "97cd58c6916acc363c9b3bb9f93020351d47f63d",
   "branch": "claude-fade-options",
   "path": "claude-fade-options",
-  "subject": "[sz-rs30.1.162.12] Add fade curves and seek modes",
-  "ts": 1795621067
+  "subject": "[sz-rs30.1.162.12] Stop the parked sound when a load fails",
+  "ts": 1795622872
 }

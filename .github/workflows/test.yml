@@ -10,16 +10,17 @@ name: Test
 # every area of a release title that walks everything. The plan job marks each walk group as required or not.
 # The nightly walk and manual walks report only.
 # The measure job (nightly, or by hand with `measure`) runs the slow throughput measurement and the wall-clock limits.
-# A push that changes only documentation starts no run. TestFlight accepts such a commit through
-# scripts/green_test_gate.py, which keeps the same ignore list.
+# A push that changes only documentation or the Playback Lab starts no run. The Klassik target does not build the Lab
+# (project.yml: Klassik depends on TaskRegistry and KlassikEngine only), and lab.yml covers it. TestFlight accepts such
+# a commit through scripts/green_test_gate.py, which keeps the same ignore list.
 on:
   push:
     branches: [ci, main]
-    paths-ignore: ["**.md", "LICENSE", "docs/**"]
+    paths-ignore: ["**.md", "LICENSE", "docs/**", "KlassikLab/**", "KlassikLabTests/**", ".github/workflows/lab.yml", ".github/workflows/testflight-lab.yml"]
   schedule:
     - cron: "23 3 * * *"
   pull_request:
-    paths-ignore: ["**.md", "LICENSE", "docs/**"]
+    paths-ignore: ["**.md", "LICENSE", "docs/**", "KlassikLab/**", "KlassikLabTests/**", ".github/workflows/lab.yml", ".github/workflows/testflight-lab.yml"]
   workflow_dispatch:
     inputs:
       ui:

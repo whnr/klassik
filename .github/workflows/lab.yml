@@ -3,6 +3,8 @@ name: Lab
 # The Playback Lab app: one build of its scheme and its logic tests, with no walk and no fixture server.
 # It is apart from Test, so a Lab change never changes the green-test gate of a Klassik release.
 # KlassikEngine is in the paths, because the Lab links the engine.
+# project.yml is in the paths too, but a change of its version lines only builds nothing: the plan job skips the build
+# (scripts/lab_plan.py). The skipped run is not green for TestFlight Lab, which reads scripts/lab_plan.py gate.
 on:
   push:
     branches: [main]
@@ -16,7 +18,44 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # Decides on a cheap runner if the macOS build runs. Any doubt, a manual run and a scheduled run build.
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.plan.outputs.run }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$EVENT" = pull_request ]; then
+            # The checkout is the merge of the PR head into its base, so its first parent is the base.
+            python3 scripts/lab_plan.py plan HEAD^1 HEAD
+          elif [ "$EVENT" = push ]; then
+            python3 scripts/lab_plan.py plan "$BEFORE" "$GITHUB_SHA"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  # The Lab code is not in the app target, so Test (which skips Lab-only changes) no longer checks its layout.
+  lint:
+    needs: plan
+    if: needs.plan.outputs.run == 'true'
+    runs-on: ubuntu-24.04
+    container: swift:6.2
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - run: scripts/lint.sh
+
   lab:
+    needs: plan
+    if: needs.plan.outputs.run == 'true'
     runs-on: xcode-27
     timeout-minutes: 30
     env:
@@ -25,6 +64,9 @@ jobs:
       - uses: actions/checkout@v7
       - name: Remove unavailable runner simulators
         run: xcrun simctl delete unavailable
+      # A cold boot takes about five minutes. It runs beside XcodeGen and the compiler; the test step waits for it.
+      - name: Boot the simulator early
+        run: scripts/start-simulator.sh
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Generate project
@@ -32,14 +74,18 @@ jobs:
       - name: Build and run the Lab tests
         run: |
           set -o pipefail
-          udid=$(scripts/simulator.sh)
+          udid=$KLASSIK_SIMULATOR_UDID
           mkdir -p "$RUNNER_TEMP/lab"
-          xcodebuild test \
-            -project Klassik.xcodeproj -scheme KlassikLab \
-            -destination "platform=iOS Simulator,id=$udid,arch=arm64" \
-            -derivedDataPath build/DerivedData \
+          args=(
+            -project Klassik.xcodeproj -scheme KlassikLab
+            -destination "platform=iOS Simulator,id=$udid,arch=arm64"
+            -derivedDataPath build/DerivedData
+          )
+          xcodebuild build-for-testing "${args[@]}" \
             CODE_SIGN_IDENTITY=- COMPILER_INDEX_STORE_ENABLE=NO ENABLE_PREVIEWS=NO ENABLE_DEBUG_DYLIB=NO \
             2>&1 | tee "$RUNNER_TEMP/lab/build.log"
+          xcrun simctl bootstatus "$udid" -b
+          xcodebuild test-without-building "${args[@]}" 2>&1 | tee -a "$RUNNER_TEMP/lab/build.log"
       # Warning-only, as in Test: the count shows in the summary and never fails the job.
       - name: Count build warnings
         if: always()

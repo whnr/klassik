@@ -18,11 +18,14 @@ import green_test_gate  # noqa: E402
 
 class IgnoredTests(unittest.TestCase):
     def test_documentation_paths(self):
-        for path in ("README.md", "docs/adr/0001.md", "docs/agents/x.png", "design/notes.md", "LICENSE"):
+        for path in ("README.md", "docs/adr/0001.md", "docs/agents/x.png", "design/notes.md", "LICENSE",
+                     "KlassikLab/LabModel.swift", "KlassikLabTests/X.swift", ".github/workflows/lab.yml",
+                     ".github/workflows/testflight-lab.yml"):
             self.assertTrue(green_test_gate.is_ignored(path), path)
 
     def test_code_paths(self):
-        for path in ("Klassik/App.swift", "docs.py", "scripts/docs/x.py", "LICENSE.txt", ".github/workflows/test.yml"):
+        for path in ("Klassik/App.swift", "docs.py", "scripts/docs/x.py", "LICENSE.txt", ".github/workflows/test.yml",
+                     "KlassikEngine/Gapless.swift", "KlassikLabs/x.swift", "project.yml"):
             self.assertFalse(green_test_gate.is_ignored(path), path)
 
 

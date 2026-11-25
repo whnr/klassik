@@ -1,7 +1,7 @@
 {
-  "sha": "733aa69400bc6d675eacdb72e3c1a3bd5792353a",
+  "sha": "aadda8c59af6f33705755b6059f84381f7089c46",
   "branch": "claude-ci-decouple",
   "path": "claude-ci-decouple",
-  "subject": "Decouple Lab and Test CI",
-  "ts": 1795613149
+  "subject": "Format the Lab plan scripts",
+  "ts": 1795613325
 }

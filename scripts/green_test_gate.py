@@ -1,6 +1,7 @@
 """Finds the green Test run that covers a commit, for the TestFlight gate.
 
-A push to main that changes only ignored paths starts no Test run (the paths-ignore list of test.yml).
+A push to main that changes only ignored paths (documentation, the Playback Lab) starts no Test run
+(the paths-ignore list of test.yml).
 A release commit changes only the version lines of project.yml and the TestFlight notes. Its Test run
 would build the same code as its parent, so the release need not wait for it.
 Such a commit is covered by the newest ancestor with a green run, if every change since then is
@@ -25,7 +26,16 @@ import re
 import subprocess
 import sys
 
-IGNORED = ["**.md", "LICENSE", "docs/**"]
+# The Playback Lab and its workflows are apart from the Klassik build, so changes to only those paths need no Test run.
+IGNORED = [
+    "**.md",
+    "LICENSE",
+    "docs/**",
+    "KlassikLab/**",
+    "KlassikLabTests/**",
+    ".github/workflows/lab.yml",
+    ".github/workflows/testflight-lab.yml",
+]
 # A run is green only if these jobs passed. A main run that a PR head covers skips build, so it proves nothing.
 REQUIRED_JOBS = ("build", "test")
 RELEASE_JOB = "release-launch"

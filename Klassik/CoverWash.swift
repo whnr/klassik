@@ -395,13 +395,10 @@ struct PlayerGround: View {
 struct PlayerGroundAbove: View {
     @Environment(\.playerWash) private var wash
 
-    /// More than any pull the player can take.
-    private static let reach: CGFloat = 1200
-
     var body: some View {
         Rectangle()
             .fill(wash.map { Color($0.colour) } ?? Palette.backgroundGrouped.color)
-            .frame(height: Self.reach)
+            .containerRelativeFrame(.vertical)
             .frame(height: 0, alignment: .bottom)
             .allowsHitTesting(false)
             .accessibilityHidden(true)

@@ -73,6 +73,11 @@ public final class GaplessEngine: PlaybackEngine {
     private var songs: [PlaybackTrack] = []
     /// The last track that this load asked a source for.
     private var requested = -1
+    /// The open of the track after the one that decodes. A join then needs no open inside the last `aheadSeconds`.
+    private var opening: (position: Int, id: String, task: Task<PlaybackSource, Error>)?
+    private var opener: PlaybackFileSource?
+    /// The first track of this load. `mayRequest` counts from it.
+    private var firstIndex = 0
     /// A converted track whose resampler continues into the next track of its source format.
     private var carry: Carry?
     private var reported: PlaybackWait?
@@ -204,6 +209,9 @@ public final class GaplessEngine: PlaybackEngine {
         heldFrames = 0
         songs = []
         requested = -1
+        opening?.task.cancel()
+        opening = nil
+        opener = nil
         carry = nil
         reported = nil
         playing = false
@@ -264,6 +272,8 @@ public final class GaplessEngine: PlaybackEngine {
         }
         engineNotifications = observers
         decoding = true
+        opener = source
+        firstIndex = index
         watch(generation)
         do {
             var position = index
@@ -282,7 +292,15 @@ public final class GaplessEngine: PlaybackEngine {
                 let song = songs[position]
                 let seconds = position == index ? offset : 0
                 report()
-                let track = try await source(song)
+                let track: PlaybackSource
+                if let opening, opening.position == position, opening.id == song.id {
+                    self.opening = nil
+                    track = try await opening.task.value
+                } else {
+                    opening?.task.cancel()
+                    opening = nil
+                    track = try await source(song)
+                }
                 try check(generation)
                 switch track {
                 case .file(let url):
@@ -300,6 +318,8 @@ public final class GaplessEngine: PlaybackEngine {
                 position += 1
             }
         } catch {
+            opening?.task.cancel()
+            opening = nil
             guard generation == self.generation, !Task.isCancelled else { return }
             if let failure = failureMapper.serverFailure(for: error) {
                 onEvent?(.serverFailed(failure))
@@ -312,6 +332,18 @@ public final class GaplessEngine: PlaybackEngine {
     /// Only the audible track and its immediate successor may request playback bytes.
     private func mayRequest(_ position: Int, from index: Int) -> Bool {
         playing && position < songs.count && (position <= index + 1 || audibleMovement() >= position - 1)
+    }
+
+    /// Opens the next track while this one still decodes, once this one has filled its lookahead. The open of a
+    /// recording can take longer than the audio that waits on the node, and a dry node is a gap in a continuous join.
+    /// The same `mayRequest` rule applies, so only the audible track's successor ever opens.
+    private func openNext(after position: Int, decoded: Int64, ahead: Int64) {
+        let next = position + 1
+        guard decoded >= ahead, opening?.position != next, mayRequest(next, from: firstIndex),
+            let opener, songs.indices.contains(next)
+        else { return }
+        let song = songs[next]
+        opening = (next, song.id, Task { try await opener(song) })
     }
 
     private func audibleMovement() -> Int {
@@ -495,6 +527,7 @@ public final class GaplessEngine: PlaybackEngine {
             for: decoder, format: decoder.format, frames: expected, continuous: skipped == 0, generation: generation)
         try check(generation)
         var emitted = Int64((Double(skipped) * rate / sourceRate).rounded())
+        let origin = emitted
         let fullLength = emitted + (expected ?? Int64(Double(playable.count) * rate / sourceRate))
         timeline.declare(position, frames: fullLength)
         let ahead = Int64((Self.aheadSeconds - Self.chunkSeconds * 2) * rate)
@@ -502,6 +535,7 @@ public final class GaplessEngine: PlaybackEngine {
         var held: AVAudioPCMBuffer?
         var heldStart = emitted
         reading: while true {
+            openNext(after: position, decoded: emitted - origin, ahead: ahead)
             if scheduledEnd - (playedSamples() ?? 0) >= ahead {
                 try startIfReady(transfer, remaining: Double(fullLength - emitted) / rate)
                 try await Task.sleep(for: Self.watchInterval)

@@ -48,20 +48,33 @@ struct EarlyFormatTests {
         }.value
     }
 
+    /// The decoder may read the end of a file, as the M4A reader does for its index. A trailing box 2 MB long puts
+    /// that end beyond the first range lead, so the read goes by range and the head arrives in order.
     @Test(arguments: EarlyFormatTests.headFirst)
     func soundStartsBeforeTheFileIsComplete(name: String, ext: String) async throws {
         defer { try? FileManager.default.removeItem(at: root) }
-        let data = try Data(contentsOf: FormatFixtures.url("\(name)-1", ext))
-        let head = data.count * 6 / 10
-        let transfer = try transfer(name, length: data.count)
+        let source = try Data(contentsOf: FormatFixtures.url("\(name)-1", ext))
+        let data = ext == "m4a" ? Self.trailed(source, by: 2 << 20) : source
+        let server = TrackTransferTests.RangeServer(data: data)
+        let head = source.count * 6 / 10
+        let transfer = try transfer(name, length: data.count, ranges: server)
         transfer.append(data.prefix(head))
         defer { transfer.cancel() }
         let first = try await Self.first(transfer, suffix: ext)
+        print("\(name): first PCM from \(head) of \(data.count) bytes, ranges \(server.requests)")
         #expect(first.frames > 0)
         #expect(transfer.snapshot.available == Int64(head))
         #expect(!transfer.snapshot.complete)
         let reference = try FormatFixtures.recording("\(name)-1", ext).range
         #expect(first.playable == reference, "The stream cuts the same frames as the complete file")
+    }
+
+    /// The file with a free box of `size` bytes at its end.
+    static func trailed(_ data: Data, by size: Int) -> Data {
+        var box = [UInt8](repeating: 0, count: size)
+        for index in 0..<4 { box[index] = UInt8(truncatingIfNeeded: size >> (24 - 8 * index)) }
+        box.replaceSubrange(4..<8, with: Array("free".utf8))
+        return data + Data(box)
     }
 
     /// Bytes arrive in small chunks, so the decoder waits as on a slow line. The streamed samples are the samples of

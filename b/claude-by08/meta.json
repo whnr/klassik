@@ -1,7 +1,7 @@
 {
-  "sha": "047473cf95bbc77e5a15a4e63757699937629e24",
+  "sha": "615579f5e19282a50f7082c3f4062b7df7535280",
   "branch": "claude-by08",
   "path": "claude-by08",
-  "subject": "Re-aim the tint slider drag until it lands",
-  "ts": 1795638235
+  "subject": "Bound only the start-up reads at 8 s",
+  "ts": 1795642659
 }

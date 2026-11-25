@@ -33,6 +33,8 @@ final class LabPlayer {
     private var ticker: Task<Void, Never>?
     private var ended: Set<Int> = []
     private var gainMovement: Int?
+    /// Where Play starts after a switch discarded the paused engine.
+    private var resumePlace: (movement: Int, offset: Double)?
 
     /// Audio files live here only while they play. The Lab keeps no audio cache.
     private static var folder: URL { URL.temporaryDirectory.appending(path: "lab-audio") }
@@ -58,6 +60,8 @@ final class LabPlayer {
             engine?.pause()
             isPlaying = false
             status = "Paused"
+        } else if let place = resumePlace {
+            start(movement: place.movement, offset: place.offset)
         } else if let engine, engine.isRunning, !ended.contains(lastIndex) {
             do {
                 try engine.resume()
@@ -79,6 +83,7 @@ final class LabPlayer {
 
     func stop() {
         teardown()
+        resumePlace = nil
         isPlaying = false
         status = "Stopped"
         movement = 0
@@ -92,8 +97,23 @@ final class LabPlayer {
 
     /// A switch that changes the signal path or the network takes effect at the place where it was.
     private func restart() {
-        guard isPlaying, engine != nil else { return }
-        start(movement: movement, offset: elapsed)
+        switch Self.switchAction(isPlaying: isPlaying, hasEngine: engine != nil) {
+        case .none: break
+        case .restart: start(movement: movement, offset: elapsed)
+        case .discard:
+            // A paused engine keeps its old gain node and feeders, so Play builds a new one here.
+            teardown()
+            resumePlace = (movement, elapsed)
+            status = "Paused"
+        }
+    }
+
+    enum SwitchAction: Equatable { case none, restart, discard }
+
+    /// A paused engine cannot take a switch, so it is discarded and Play builds it again.
+    nonisolated static func switchAction(isPlaying: Bool, hasEngine: Bool) -> SwitchAction {
+        guard hasEngine else { return .none }
+        return isPlaying ? .restart : .discard
     }
 
     private func teardown() {
@@ -109,6 +129,7 @@ final class LabPlayer {
     private func start(movement: Int, offset: Double) {
         guard let selected, canPlay else { return }
         teardown()
+        resumePlace = nil
         ended = []
         note = nil
         gainMovement = nil

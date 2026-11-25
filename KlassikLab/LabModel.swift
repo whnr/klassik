@@ -56,6 +56,8 @@ final class LabModel {
     func disconnect() {
         if case .ready(let player, _) = phase { player.stop() }
         store.clear()
+        address = ""
+        username = ""
         password = ""
         phase = .connect
     }

@@ -165,7 +165,9 @@ final class GaplessTests: XCTestCase {
         let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: engine.manualRenderingFormat, frameCapacity: 4096))
         var output: [Float] = []
         while output.count < total {
-            guard try engine.renderOffline(4096, to: buffer) == .success else { break }
+            let status = try engine.renderOffline(4096, to: buffer)
+            XCTAssertEqual(status, .success, "offline render status")
+            guard status == .success else { break }
             output += UnsafeBufferPointer(start: buffer.floatChannelData![0], count: Int(buffer.frameLength))
         }
         engine.stop()

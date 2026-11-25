@@ -106,7 +106,9 @@ struct FadeRampTests {
         let out = try #require(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 512))
         var samples: [Float] = []
         while samples.count < total {
-            guard try engine.renderOffline(512, to: out) == .success else { break }
+            let status = try engine.renderOffline(512, to: out)
+            #expect(status == .success, "offline render status \(status.rawValue)")
+            guard status == .success else { break }
             samples += UnsafeBufferPointer(start: out.floatChannelData![0], count: Int(out.frameLength))
         }
         #expect(samples.count >= total)

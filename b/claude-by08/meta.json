@@ -1,7 +1,7 @@
 {
-  "sha": "615579f5e19282a50f7082c3f4062b7df7535280",
+  "sha": "ba0dbe9ea4182f48dee9c83a32cfffd21ebfcd54",
   "branch": "claude-by08",
   "path": "claude-by08",
-  "subject": "Bound only the start-up reads at 8 s",
-  "ts": 1795642659
+  "subject": "Request the settings and playback walks [ui: settings,playback]",
+  "ts": 1795642668
 }

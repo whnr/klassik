@@ -1,7 +1,7 @@
 {
-  "sha": "800f51a2b3c765004fde342fcbba62eec1c1cf50",
+  "sha": "34c9f014cb56f7487893ceb6f3b8cef1678167af",
   "branch": "claude-connect2",
   "path": "claude-connect2",
-  "subject": "Name the state when the walk finds no library",
-  "ts": 1795671154
+  "subject": "TEMP stress: repeat the connect walk tests 20 times",
+  "ts": 1795671251
 }

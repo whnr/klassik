@@ -242,7 +242,7 @@ jobs:
     needs: [plan, build, fixtures]
     runs-on: xcode-27
     # A failed test is never retried, except after a simulator or runner failure, and then only that test.
-    timeout-minutes: 120
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
@@ -279,11 +279,9 @@ jobs:
           ND_LOGLEVEL: debug
         run: scripts/fixture-server.sh "$RUNNER_TEMP/fixture"
       - name: Run the tests
-        if: matrix.group == 'browse-pages' || matrix.group == 'playback-overlay'
         env:
-          KLASSIK_ITERATIONS: 20
           KLASSIK_PHASE: ui
-          KLASSIK_UI_TESTS: ${{ matrix.group == 'browse-pages' && 'BrowseScreens/testComposerAmongNamesakes' || 'PlaybackScreens/testPlayerFollowsAfterQuietSpell' }}
+          KLASSIK_UI_TESTS: ${{ matrix.tests }}
           KLASSIK_UI: ${{ steps.ui.outputs.ui }}
           UI_TESTS_REQUIRED: ${{ matrix.required }}
         run: scripts/screens.sh "$RUNNER_TEMP/screens"

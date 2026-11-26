@@ -3980,9 +3980,16 @@ final class LanguageScreens: ScreensTestCase {
     /// The width that a font of another face may need more than the system font, as a factor.
     static let widthSlack: CGFloat = 1.1
 
+    /// The font that draws a text. A time or a number has monospaced digits, which are wider than the proportional
+    /// digits; the other texts use the system font.
+    static func face(_ text: String, size: CGFloat) -> UIFont {
+        text.contains(where: \.isLetter)
+            ? UIFont.systemFont(ofSize: size) : UIFont.monospacedDigitSystemFont(ofSize: size, weight: .regular)
+    }
+
     /// The lines that a text needs in a width at a font size.
     static func lines(_ text: String, width: CGFloat, size: CGFloat) -> Int {
-        let font = UIFont.systemFont(ofSize: size)
+        let font = face(text, size: size)
         let box = (text as NSString).boundingRect(
             with: CGSize(width: width, height: .greatestFiniteMagnitude), options: .usesLineFragmentOrigin,
             attributes: [.font: font], context: nil)
@@ -4014,12 +4021,9 @@ final class LanguageScreens: ScreensTestCase {
     static func isCut(label: String, frame: CGRect) -> Bool {
         if label.hasSuffix("…") || label.hasSuffix("...") { return true }
         guard label.count > 3, frame.width > 0, frame.height > 0 else { return false }
-        // A time or a number has no translation to double and no word to wrap, and its monospaced digits are wider
-        // than the proportional font that this check measures with.
-        guard label.contains(where: \.isLetter) else { return false }
         var explained = false
         for size in fontSizes {
-            let line = UIFont.systemFont(ofSize: size).lineHeight
+            let line = face(label, size: size).lineHeight
             let shown = Int((frame.height / line).rounded())
             guard shown >= 1, abs(CGFloat(shown) * line - frame.height) <= 2 else { continue }
             explained = true
@@ -4036,13 +4040,16 @@ final class LanguageScreens: ScreensTestCase {
         let slack = Measure.timeline
         let width = app.frame
         for text in app.staticTexts.allElementsBoundByIndex.prefix(120) where text.exists {
-            let frame = text.frame
+            // One snapshot gives the label and the frame of the same element. A playing time changes every second,
+            // and a second query by index can answer for another element.
+            guard let snapshot = try? text.snapshot() else { continue }
+            let (label, frame) = (snapshot.label, snapshot.frame)
             guard !frame.isEmpty, frame.minX.isFinite, frame.maxX.isFinite else { continue }
-            let name = "\(screen): \"\(text.label)\""
+            let name = "\(screen): \"\(label)\""
             XCTAssertGreaterThanOrEqual(frame.minX, width.minX - slack, "\(name) leaves the left edge")
             XCTAssertLessThanOrEqual(frame.maxX, width.maxX + slack, "\(name) leaves the right edge")
             XCTAssertFalse(
-                Self.isCut(label: Self.drawn(text.label), frame: frame), "\(name) is cut off, frame \(frame)")
+                Self.isCut(label: Self.drawn(label), frame: frame), "\(name) is cut off, frame \(frame)")
         }
     }
 
@@ -4225,7 +4232,9 @@ final class LanguageScreens: ScreensTestCase {
                     label: Self.drawn("\(prefix)Allegro molto appassionato"),
                     frame: CGRect(x: 16, y: 672, width: 217, height: 20.3)))
         }
-        XCTAssertFalse(Self.isCut(label: "−1:54", frame: CGRect(x: 0, y: 0, width: 20, height: 14.3)))
+        // The remaining time of the player is one line of 32 pt; a frame too narrow for its digits cuts it.
+        XCTAssertFalse(Self.isCut(label: "−1:50", frame: CGRect(x: 0, y: 0, width: 32, height: 14.33)))
+        XCTAssertTrue(Self.isCut(label: "−1:50", frame: CGRect(x: 0, y: 0, width: 12, height: 14.33)))
         XCTAssertFalse(Self.isCut(label: "Settings", frame: CGRect(x: 0, y: 0, width: 300, height: 24)))
         XCTAssertTrue(Self.isCut(label: "Ser…", frame: CGRect(x: 0, y: 0, width: 300, height: 24)))
         XCTAssertTrue(

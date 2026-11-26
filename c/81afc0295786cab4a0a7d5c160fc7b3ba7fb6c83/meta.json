@@ -1,7 +1,0 @@
-{
-  "sha": "81afc0295786cab4a0a7d5c160fc7b3ba7fb6c83",
-  "branch": "claude-l10n",
-  "path": "claude-l10n",
-  "subject": "Fix lint findings of the localization change",
-  "ts": 1795629822
-}

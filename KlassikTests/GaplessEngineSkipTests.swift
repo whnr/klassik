@@ -385,7 +385,10 @@ struct GaplessEngineSkipTests {
     /// A pause before the first sound of the new graph fades the old graph out with the fade-out curve and length.
     @Test func aPauseBeforeTheFirstSoundFadesTheOldGraphOut() async throws {
         let (player, old, oldFade, trigger, new) = try await Self.crossfadeWaitingForSound()
-        defer { old.stop(); new.stop() }
+        defer {
+            old.stop()
+            new.stop()
+        }
         player.pause()
         #expect(trigger.isFired)
         #expect(old.isRunning, "the old graph fades, it is not cut")
@@ -398,7 +401,10 @@ struct GaplessEngineSkipTests {
     /// A second seek before the first sound of the new graph fades the first old graph out.
     @Test func aSecondSeekBeforeTheFirstSoundFadesTheOldGraphOut() async throws {
         let (player, old, oldFade, trigger, new) = try await Self.crossfadeWaitingForSound()
-        defer { old.stop(); new.stop() }
+        defer {
+            old.stop()
+            new.stop()
+        }
         Self.load(player, old: old, probe: Probe())
         #expect(trigger.isFired)
         #expect(old.isRunning, "the old graph fades, it is not cut")
@@ -410,7 +416,10 @@ struct GaplessEngineSkipTests {
     /// A discard before the first sound fades the old graph out too.
     @Test func aDiscardBeforeTheFirstSoundFadesTheOldGraphOut() async throws {
         let (player, old, _, trigger, new) = try await Self.crossfadeWaitingForSound()
-        defer { old.stop(); new.stop() }
+        defer {
+            old.stop()
+            new.stop()
+        }
         player.discard()
         #expect(trigger.isFired)
         #expect(old.isRunning, "the old graph fades, it is not cut")

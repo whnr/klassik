@@ -794,7 +794,7 @@ struct GaplessEngineSkipTests {
 
     /// Renders a crossfade seek whose new graph stays silent for 20 000 frames, as a slow read does. Returns the
     /// sum of both graphs from the load on, and the engine's request for the old graph.
-    private static func seekWithSilentNewGraph(onDisk: Bool) throws -> (mix: [Float], old: FadeControl.Command?) {
+    private static func seekWithSilentNewGraph(onDisk: Bool?) throws -> (mix: [Float], old: FadeControl.Command?) {
         var options = FadeOptions(outCurve: .equalPower, inCurve: .equalPower, outSeconds: 0.05, inSeconds: 0.05)
         options.seek = .crossfade
         let first = try renderedGraph(silent: 0)
@@ -804,7 +804,7 @@ struct GaplessEngineSkipTests {
         }
         let player = GaplessEngine(manualRendering: true)
         player.fadeOptions = options
-        player.isOnDisk = { _ in onDisk }
+        if let onDisk { player.isOnDisk = { _ in onDisk } }
         player.adopt(first.engine, first.node, started: true, fade: first.fade)
         try player.start(first.node)
         var mix: [Float] = []
@@ -823,6 +823,13 @@ struct GaplessEngineSkipTests {
     /// The new bytes are on the device: the old audio plays on at full level until the new sound starts.
     @Test func aCrossfadeSeekToATrackOnDiskHoldsTheOldAudioForTheNewSound() throws {
         let (mix, old) = try Self.seekWithSilentNewGraph(onDisk: true)
+        #expect(old?.after != nil)
+        #expect(mix.allSatisfy { abs($0 - 0.5) < 1e-4 }, "the old audio stays at full level")
+    }
+
+    /// No hook answers (the main app): a crossfade seek keeps the crossfade; the old audio plays on for the new sound.
+    @Test func aCrossfadeSeekWithoutAnOnDiskAnswerHoldsTheOldAudioForTheNewSound() throws {
+        let (mix, old) = try Self.seekWithSilentNewGraph(onDisk: nil)
         #expect(old?.after != nil)
         #expect(mix.allSatisfy { abs($0 - 0.5) < 1e-4 }, "the old audio stays at full level")
     }

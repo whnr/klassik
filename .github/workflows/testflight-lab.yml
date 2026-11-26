@@ -4,7 +4,7 @@ name: TestFlight Lab
 # Connect record and its own concurrency group. It reads the same secrets as the Klassik lane.
 # It starts by hand, and after every Lab run on main whose `lab` job passed, so a merge that changes the Lab ships it.
 # A Lab run whose `lab` job was skipped (a version-only change, no build) starts no upload: it would send the
-# build of an earlier commit a second time. A Lab run on a pull request or on another branch starts nothing.
+# build of an earlier commit a second time. A Lab run on a pull request (also from a fork branch called main) or on another branch starts nothing.
 # Both ways need a green Lab run that covers the commit. It makes no tag, no release and no What to Test text.
 on:
   workflow_dispatch:
@@ -20,7 +20,15 @@ concurrency:
 jobs:
   gate:
     # A workflow_run event runs on the head of main, so every step names the commit of the Lab run.
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    # The branch filter above matches the head branch name only. A fork pull request from a branch called main
+    # also gets a green Lab run, so the run must come from a push to this repository: its secrets must never meet
+    # fork code.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
+      && github.event.workflow_run.event == 'push'
+      && github.event.workflow_run.head_branch == 'main'
+      && github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-24.04
     permissions:
       actions: read
@@ -58,7 +66,13 @@ jobs:
 
   upload:
     needs: gate
-    if: needs.gate.outputs.upload == 'true'
+    if: >-
+      needs.gate.outputs.upload == 'true' &&
+      (github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
+      && github.event.workflow_run.event == 'push'
+      && github.event.workflow_run.head_branch == 'main'
+      && github.event.workflow_run.head_repository.full_name == github.repository))
     runs-on: xcode-27
     timeout-minutes: 45
     env:

@@ -1,7 +1,0 @@
-{
-  "sha": "5c34c5aa9488ea44b3128768f27422da9563ba9a",
-  "branch": "claude-by08",
-  "path": "claude-by08",
-  "subject": "Time out and retry the start-up reads",
-  "ts": 1795633824
-}

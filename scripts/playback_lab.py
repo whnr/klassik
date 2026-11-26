@@ -14,10 +14,12 @@ macOS. The source files stay outside the repository: it holds no copyrighted aud
 """
 
 import argparse
+import array
 import dataclasses
 import hashlib
 import ipaddress
 import json
+import math
 import os
 import pathlib
 import platform
@@ -30,6 +32,7 @@ import tarfile
 import time
 import urllib.error
 import urllib.request
+import wave
 
 from mutagen.id3 import TALB, TCOM, TCON, TDRC, TIT2, TPE1, TPE2, TPOS, TRCK, TXXX
 from mutagen.mp4 import MP4
@@ -61,6 +64,7 @@ class Case:
     args: tuple[str, ...]
     rates: tuple[int, int] | None = None
     tags: tuple[tuple[str, str], ...] = ()
+    tone: str | None = None
 
 
 FLAC24 = ("-c:a", "flac", "-sample_fmt", "s32", "-bits_per_raw_sample", "24")
@@ -96,14 +100,68 @@ CASES = (
     Case("aiff", "AIFF", "aiff", ("-c:a", "pcm_s24be", "-ar", "96000", "-write_id3v2", "1")),
     Case("opus", "Opus", "opus", ("-c:a", "libopus", "-b:a", "160k", "-ar", "48000")),
     Case("rate-change", "Rate change 96 kHz then 44.1 kHz", "flac", FLAC24, rates=(96000, 44100)),
+    Case("wave-440", "Wave 440 Hz", "wav", (), tone="pure"),
+    Case("wave-chord", "Wave Chord", "wav", (), tone="chord"),
 )
+
+# Generated tones: 24-bit stereo WAV at 96 kHz. Movement 2 continues the phase of movement 1 by sample index, so
+# the whole recording is one unbroken wave and any click, gap or level dip at a join is plain to hear.
+TONE_RATE = 96000
+TONE_SECONDS = (10, 20)
+TONE_PEAK_DB = -12.0
+# A major chord of pure sine partials (A3, C#4, E4, A4) with the weights of their levels.
+CHORD = ((220.0, 1.0), (277.18, 0.7), (329.63, 0.55), (440.0, 0.4))
+SWELL_HZ = 0.1
+SWELL_DEPTH_DB = 3.0
+
+
+def tone_frames(kind: str, start: int, count: int) -> list[int]:
+    """The 24-bit samples start..start+count of a tone. The peak stays at or under -12 dBFS.
+
+    The chord's amplitude breathes between 0 dB and -3 dB once every ten seconds, so it never stops moving
+    and never makes an edge that could hide a click."""
+    full = 2**23 - 1
+    ceiling = 10 ** (TONE_PEAK_DB / 20)
+    out = []
+    if kind == "pure":
+        scale = ceiling * full
+        for i in range(start, start + count):
+            out.append(round(scale * math.sin(2 * math.pi * 440.0 * i / TONE_RATE)))
+        return out
+    low = 10 ** (-SWELL_DEPTH_DB / 20)
+    mid, half = (1 + low) / 2, (1 - low) / 2
+    scale = ceiling * full / sum(weight for _, weight in CHORD)
+    for i in range(start, start + count):
+        t = i / TONE_RATE
+        swell = mid + half * math.cos(2 * math.pi * SWELL_HZ * t)
+        value = sum(weight * math.sin(2 * math.pi * freq * t) for freq, weight in CHORD)
+        out.append(round(scale * swell * value))
+    return out
+
+
+def write_tone(path: pathlib.Path, kind: str, movement: int) -> None:
+    """Writes one movement of a tone as a stereo 24-bit WAV."""
+    start = sum(TONE_SECONDS[: movement - 1]) * TONE_RATE
+    mono = array.array("i", tone_frames(kind, start, TONE_SECONDS[movement - 1] * TONE_RATE))
+    if sys.byteorder == "big":
+        mono.byteswap()
+    raw = mono.tobytes()
+    data = bytearray(len(mono) * 6)
+    for channel in (0, 1):
+        for byte in range(3):
+            data[channel * 3 + byte :: 6] = raw[byte::4]
+    with wave.open(str(path), "wb") as out:
+        out.setnchannels(2)
+        out.setsampwidth(3)
+        out.setframerate(TONE_RATE)
+        out.writeframes(bytes(data))
 
 
 @dataclasses.dataclass(frozen=True)
 class Job:
     """One file to encode, and the tags it must carry."""
 
-    source: pathlib.Path
+    source: pathlib.Path | None
     target: pathlib.Path
     args: tuple[str, ...]
     tags: dict[str, str]
@@ -183,6 +241,9 @@ def plan(movements: tuple[pathlib.Path, pathlib.Path], out: pathlib.Path) -> lis
         for movement, source in enumerate(movements, start=1):
             name = f"{movement:02d} {MOVEMENTS[movement - 1]}.{case.ext}"
             target = folder / name
+            if case.tone:
+                jobs.append(Job(None, target, (), metadata(case, number, movement)))
+                continue
             args = tuple(ffmpeg_args(case, number, movement, source, target))
             jobs.append(Job(source, target, args, metadata(case, number, movement)))
     return jobs
@@ -224,9 +285,13 @@ def build(movements: tuple[pathlib.Path, pathlib.Path], out: pathlib.Path) -> in
     jobs = plan(movements, out)
     for job in jobs:
         job.target.parent.mkdir(parents=True, exist_ok=True)
-        result = subprocess.run(job.args, capture_output=True, text=True)
-        if result.returncode != 0:
-            sys.exit(f"ffmpeg failed for {job.target.name}:\n{result.stderr.strip()}")
+        if job.source is None:
+            case = CASES[int(job.target.parent.name[:2]) - 1]
+            write_tone(job.target, case.tone, int(job.target.name[:2]))
+        else:
+            result = subprocess.run(job.args, capture_output=True, text=True)
+            if result.returncode != 0:
+                sys.exit(f"ffmpeg failed for {job.target.name}:\n{result.stderr.strip()}")
         if job.target.suffix == ".wav":
             write_wav_tags(job.target, job.tags)
         if job.target.suffix == ".m4a":

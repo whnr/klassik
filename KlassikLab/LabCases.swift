@@ -29,6 +29,18 @@ struct LabCase: Identifiable, Hashable, Sendable {
         return "This MP3 has no gapless header: \(reason). A gap at the join is expected."
     }
 
+    /// What to listen for in the generated tone cases. Other cases have none.
+    var listenNote: String? {
+        switch title {
+        case "Wave 440 Hz":
+            return "Listen for a click, gap or level dip at the join (10 s) and after every seek, pause and fade."
+        case "Wave Chord":
+            return "Listen for a click, gap or jump in the slow swell at the join (10 s) and after every seek."
+        default:
+            return nil
+        }
+    }
+
     /// The source format of the case, such as "FLAC 24-bit 96 kHz". A rate change inside the case shows both rates.
     var sourceLine: String {
         guard let first = songs.first else { return "" }

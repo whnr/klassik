@@ -31,6 +31,9 @@ struct LabPlayerView: View {
                     if let note = player.selected?.gapNote {
                         Text(note).font(.footnote).foregroundStyle(.secondary)
                     }
+                    if let note = player.selected?.listenNote {
+                        Text(note).font(.footnote).foregroundStyle(.secondary)
+                    }
                 }
                 // Everything iOS reports about the output, updated on each route change.
                 Section("Routing and output") {

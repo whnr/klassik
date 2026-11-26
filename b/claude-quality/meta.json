@@ -1,7 +1,0 @@
-{
-  "sha": "583ec499900e9dee0c9d2775a4bb74f9b60481fa",
-  "branch": "claude-quality",
-  "path": "claude-quality",
-  "subject": "Fix walk path to composers; wrap CARRIED",
-  "ts": 1795708921
-}

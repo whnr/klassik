@@ -301,10 +301,45 @@ const K = (() => {
     store("favourites", [...favourites]);
   }
 
+  // A recording holds part of its work when its movement-count tag exceeds the movements it holds. Without a
+  // count tag Klassik cannot tell, and the recording counts as complete (ADR 0013).
+  function partOf(r) {
+    if (!r.work) return null;
+    const total = Math.max(0, ...r.songs.map((s) => s.movements?.[0]?.count || 0));
+    const present = new Set(r.songs.map((s) => s.movements?.[0]?.number).filter(Boolean)).size;
+    return total > 0 && present > 0 && present < total ? { present, total } : null;
+  }
+  const completeness = (r) => {
+    const part = partOf(r);
+    return part ? `${part.present} of ${part.total} movements` : null;
+  };
+
+  // Tiers: favourite recordings, favourite performers, favourite albums, the rest newest first (ADR 0013).
   function orderedRecordings(work) {
-    const favs = work.recordings.filter((r) => isFavourite("rec:" + r.id));
-    const rest = work.recordings.filter((r) => !favs.includes(r)).sort((a, b) => (b.year || 0) - (a.year || 0));
-    return [...favs, ...rest];
+    const tier = (r) => {
+      if (isFavourite("rec:" + r.id)) return 0;
+      if (r.performers.some((p) => isFavourite("performer:" + p.name))) return 1;
+      return isFavourite("album:" + r.album.id) ? 2 : 3;
+    };
+    return [...work.recordings].sort((a, b) => tier(a) - tier(b) || (b.year || 0) - (a.year || 0));
+  }
+
+  // Why a recording rose above the newest ones. A favourite recording needs no reason.
+  function recordingReason(r) {
+    if (isFavourite("rec:" + r.id)) return null;
+    const person = r.performers.find((p) => isFavourite("performer:" + p.name));
+    if (person) return `Favourite performer: ${person.name}`;
+    return isFavourite("album:" + r.album.id) ? `Favourite album: ${r.album.name}` : null;
+  }
+
+  // The work page shows two lists, each in tier order. The reference recording is the first complete one.
+  function recordingLists(work) {
+    const all = orderedRecordings(work);
+    return { recordings: all.filter((r) => !partOf(r)), partial: all.filter((r) => partOf(r)) };
+  }
+  function referenceRecording(work) {
+    const lists = recordingLists(work);
+    return lists.recordings[0] || lists.partial[0];
   }
 
   // ---------- Playback: a pretend queue that ticks, so the timeline and the player move. ----------
@@ -1449,6 +1484,11 @@ const K = (() => {
     isFavourite,
     toggleFavourite,
     orderedRecordings,
+    recordingLists,
+    recordingReason,
+    referenceRecording,
+    completeness,
+    partOf,
     layoutChrome,
     emit,
     setPlayerOpen,

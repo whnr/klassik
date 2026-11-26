@@ -1,0 +1,7 @@
+{
+  "sha": "4b30900079f0faf48af94b7c9e8d09f1b3e99258",
+  "branch": "claude-l10n",
+  "path": "claude-l10n",
+  "subject": "[sz-odf9] Retry Connect only after a timeout",
+  "ts": 1795722946
+}

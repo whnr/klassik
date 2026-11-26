@@ -61,8 +61,14 @@ public final class GaplessEngine: PlaybackEngine {
     /// replaces a graph before it sounds hands the flag to the next graph. A pause, a discard, or a graph that stays
     /// silent past `soundWaitLimit` must not leave the old graph at full level.
     private var crossfadeTrigger: FadeTrigger?
-    /// The longest wait of the old graph for the first sound of the new one, in seconds.
-    var soundWaitLimit = 5.0
+    /// The longest wait of the old graph for the first sound of the new one, in seconds. A crossfade starts only
+    /// when the bytes are on the device, so the first sound follows in milliseconds. One second is ten times a slow
+    /// cold read plus the decoder start, and a stuck read then holds the old audio for a second at most.
+    var soundWaitLimit = 1.0
+    /// Tells whether the bytes of a track are on the device already (music cache or download). A crossfade seek
+    /// to a track that is not there fades the old audio out at once, because the network sets no time for the new
+    /// sound. Nil counts every track as on the device.
+    public var isOnDisk: (@MainActor (PlaybackTrack) -> Bool)?
 
     private struct Outgoing {
         let engine: AVAudioEngine
@@ -188,17 +194,18 @@ public final class GaplessEngine: PlaybackEngine {
     public func load(_ songs: [PlaybackTrack], from movement: Int, offset: Double, file: @escaping PlaybackFileSource) {
         // A graph that started but made no sound yet is no place to cross over from. The old graph keeps waiting for
         // the same flag, so that the next graph that sounds releases it.
-        let carried = fadeOptions.seek == .crossfade ? crossfadeTrigger.flatMap { $0.isFired ? nil : $0 } : nil
+        let crossfading = fadeOptions.seek == .crossfade && Self.isLocal(songs, movement, isOnDisk)
+        let carried = crossfading ? crossfadeTrigger.flatMap { $0.isFired ? nil : $0 } : nil
         let sounding = isSounding && carried == nil
         if manualRendering { offlineClock = max(offlineClock, graphEpoch + Double(pumped) / sampleRate) }
         registerPendingSink(sounding: sounding)
         // A graph that sounds stays up for a crossfade. A graph that is still silent has nothing to cross over from,
         // so an older graph that waits for the same crossfade stays instead.
         var parked: Outgoing?
-        if fadeOptions.seek == .crossfade, sounding, !silenced, let engine, let fade {
+        if crossfading, sounding, !silenced, let engine, let fade {
             parked = Outgoing(engine: engine, fade: fade, rate: sampleRate)
             self.engine = nil
-        } else if fadeOptions.seek == .crossfade, !sounding {
+        } else if crossfading, !sounding {
             parked = outgoing
             outgoing = nil
         }
@@ -222,6 +229,14 @@ public final class GaplessEngine: PlaybackEngine {
         task = Task {
             await schedule(from: movement, offset: offset, file: file, generation: generation)
         }
+    }
+
+    @MainActor
+    private static func isLocal(
+        _ songs: [PlaybackTrack], _ movement: Int, _ check: (@MainActor (PlaybackTrack) -> Bool)?
+    ) -> Bool {
+        guard let check, songs.indices.contains(movement) else { return true }
+        return check(songs[movement])
     }
 
     public func pause() {

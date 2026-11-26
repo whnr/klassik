@@ -337,6 +337,7 @@ final class LabPlayer {
         let engine = GaplessEngine(gainNode: replayGain)
         engine.fadeOptions = fade.options
         engine.onEvent = { [weak self] event in self?.handle(event) }
+        engine.isOnDisk = { FileManager.default.fileExists(atPath: Self.cached($0).path) }
         if let recorder { engine.setOutputTap { recorder.makeSource(startSeconds: $0) } }
         self.engine = engine
         return engine

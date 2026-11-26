@@ -41,10 +41,8 @@ PLURAL_FORMS = {
 DEFAULT_PLURAL_FORMS = ("one", "other")
 ALLOW = ROOT / "scripts" / "truncation_allowed.txt"
 
-# The developer test page and its player stay in the source language: no listener sees them.
+# Generated files hold no listener text.
 EXEMPT_FILES = {
-    "Klassik/GaplessTestView.swift",
-    "Klassik/GaplessTestPlayer.swift",
     "Klassik/Tokens.swift",
     "Klassik/Layout.swift",
 }

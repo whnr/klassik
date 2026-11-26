@@ -1,7 +1,7 @@
 {
-  "sha": "8b47af085d7bc65f5668168ee0d8a8bdf0acf46d",
+  "sha": "871fcd3db51526bc048cc4150d656d33d3395f7e",
   "branch": "claude-l10n",
   "path": "claude-l10n",
-  "subject": "Measure the drawn title, not the spoken label",
-  "ts": 1795674314
+  "subject": "[sz-odf9] Use the iOS per-app language",
+  "ts": 1795710710
 }

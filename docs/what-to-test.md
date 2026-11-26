@@ -1,8 +1,9 @@
-Klassik 0.23.0
+Klassik 0.24.0
 
-- Skips, seeks, pause and stalls fade on the audio itself over 100 ms, so they no longer click.
-- A failed download shows "Download Again" with the reason.
-- The area above the closing player now has its own background; the cover no longer floats.
-- The player's ⋯ menu is a flat disc that works in every scroll state.
-- M4A, ALAC, WAV and AIFF tracks start sooner and join more gaplessly.
-- The next movement opens earlier, so joins stay gapless on slow connections.
+- The app follows the iOS per-app language: English or German, set in Settings, Klassik, Language.
+- A new Fallback Language setting picks the language of fetched biographies and facts.
+- The player can show an audio quality line: format, bit depth, output rate and status.
+- Every track plays at its own sample rate; ReplayGain Off removes the gain stage.
+- A seek keeps the old sound until the new sound starts, and fades out at once for tracks not on the device.
+- A failed download shows an error code and retries in the foreground.
+- Settings always show the technical sections and end with an About section.

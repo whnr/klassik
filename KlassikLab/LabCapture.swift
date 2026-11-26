@@ -124,8 +124,16 @@ final class CaptureRecorder: @unchecked Sendable {
 
     /// Runs on the engine's tap queue. Copies the block, interleaved, and returns.
     func tap(_ buffer: AVReadOnlyAudioPCMBuffer) {
+        buffer.withUnsafeAudioBufferList { record(format: buffer.format, frames: Int(buffer.frameLength), list: $0) }
+    }
+
+    /// The same copy for a buffer that the caller owns.
+    func tap(_ buffer: AVAudioPCMBuffer) {
+        record(format: buffer.format, frames: Int(buffer.frameLength), list: buffer.audioBufferList)
+    }
+
+    private func record(format: AVAudioFormat, frames available: Int, list: UnsafePointer<AudioBufferList>) {
         guard !capFlag.load(ordering: .relaxed), !formatFlag.load(ordering: .relaxed) else { return }
-        let format = buffer.format
         guard format.commonFormat == .pcmFormatFloat32 else { return }
         let rateNow = Int(format.sampleRate.rounded())
         let channelsNow = Int(format.channelCount)
@@ -140,9 +148,9 @@ final class CaptureRecorder: @unchecked Sendable {
         }
         let limit = maxSeconds * rateNow
         let done = pushed.load(ordering: .relaxed)
-        let frames = min(Int(buffer.frameLength), limit - done)
+        let frames = min(available, limit - done)
         guard frames > 0 else { return }
-        buffer.withUnsafeAudioBufferList { list in
+        do {
             let buffers = UnsafeMutableAudioBufferListPointer(UnsafeMutablePointer(mutating: list))
             let count = frames * channelsNow
             withUnsafeTemporaryAllocation(of: Float.self, capacity: count) { block in

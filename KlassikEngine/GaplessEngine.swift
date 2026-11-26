@@ -132,6 +132,8 @@ public final class GaplessEngine: PlaybackEngine {
     /// the output sample for sample turns the watch off, so that runner load cannot pause the node.
     private let watchesStarvation: Bool
     private var pump: Task<Void, Never>?
+    private var outputTap: (@Sendable (AVReadOnlyAudioPCMBuffer) -> Void)?
+    private var outputTapInstalled = false
     /// An offline engine has no output device to play back to, so it reports data as consumed.
     private var completionType: AVAudioPlayerNodeCompletionCallbackType {
         manualRendering ? .dataConsumed : .dataPlayedBack
@@ -274,6 +276,7 @@ public final class GaplessEngine: PlaybackEngine {
         pump?.cancel()
         pump = nil
         pumped = 0
+        outputTapInstalled = false
         halting?.cancel()
         halting = nil
         retireOutgoing()
@@ -508,8 +511,33 @@ public final class GaplessEngine: PlaybackEngine {
             ) { buffer, _ in rendered(buffer) }
         }
         try engine.start()
+        installOutputTap()
         if manualRendering { startPump(engine, node: node, generation: generation) }
         return .ready
+    }
+
+    /// Copies each block of the final output (after the fade stage, the gain and the mixer, before the hardware) to
+    /// `tap`, or stops copying with nil. The tap runs on the system's tap queue, never on the render thread, and
+    /// changes neither the graph nor the format. A graph that is built later gets the same tap.
+    public func setOutputTap(_ tap: (@Sendable (AVReadOnlyAudioPCMBuffer) -> Void)?) {
+        removeOutputTap()
+        outputTap = tap
+        installOutputTap()
+    }
+
+    private func installOutputTap() {
+        guard let tap = outputTap, let engine, format != nil, engine.isRunning else { return }
+        let mixer = engine.mainMixerNode
+        let tapFormat = mixer.outputFormat(forBus: 0)
+        guard tapFormat.sampleRate > 0 else { return }
+        try? mixer.installAudioTap(onBus: 0, bufferSize: 4_096, format: tapFormat) { buffer, _ in tap(buffer) }
+        outputTapInstalled = true
+    }
+
+    private func removeOutputTap() {
+        guard outputTapInstalled else { return }
+        engine?.mainMixerNode.removeTap(onBus: 0)
+        outputTapInstalled = false
     }
 
     /// The track at `position` needs another graph format. Nothing after the track before it is scheduled, so that

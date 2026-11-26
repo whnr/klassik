@@ -75,6 +75,21 @@ struct LabPlayerView: View {
                     if let note = player.note { Text(note).font(.footnote).foregroundStyle(.secondary) }
                 }
                 Section {
+                    Button {
+                        player.toggleCapture()
+                    } label: {
+                        Label(
+                            player.capturing ? "Stop capture" : "Capture",
+                            systemImage: player.capturing ? "stop.circle.fill" : "record.circle")
+                    }
+                    .tint(player.capturing ? .red : nil)
+                    if let note = player.captureNote { Text(note).font(.footnote).foregroundStyle(.secondary) }
+                } header: {
+                    Text("Capture")
+                } footer: {
+                    Text("Records the engine output to a WAV, at most 60 s. Stop opens the share sheet.")
+                }
+                Section {
                     Toggle("ReplayGain", isOn: $player.replayGain)
                 } footer: {
                     Text("Off builds the engine without its gain stage.")
@@ -132,6 +147,9 @@ struct LabPlayerView: View {
                     .pickerStyle(.segmented)
                 }
             }
+            .sheet(item: $player.captured) { files in
+                ShareSheet(items: [files.wav, files.sidecar])
+            }
             .navigationTitle("Playback Lab")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -149,4 +167,15 @@ struct LabPlayerView: View {
         let whole = Int(max(seconds, 0))
         return String(format: "%d:%02d", whole / 60, whole % 60)
     }
+}
+
+/// The system share sheet for the files of a capture.
+private struct ShareSheet: UIViewControllerRepresentable {
+    let items: [URL]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }

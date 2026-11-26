@@ -1,7 +1,7 @@
 {
-  "sha": "901e95f88866316a986a35bfc8132b949446f936",
+  "sha": "ccab24da7af74b6606bbd2a6f298bb7d54c34c41",
   "branch": "claude-quality",
   "path": "claude-quality",
-  "subject": "Show audio quality; drop idle gain stage",
-  "ts": 1795680378
+  "subject": "Separate quality fields with commas; walk the line",
+  "ts": 1795705659
 }

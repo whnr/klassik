@@ -1,7 +1,7 @@
 {
-  "sha": "e8c501a0bb02ca8f507b134de350e043691426cf",
+  "sha": "5a3d373b55c51b935d93fe9c4a1d7b40ad38366e",
   "branch": "claude-l10n",
   "path": "claude-l10n",
-  "subject": "[sz-odf9] Skip numbers in the cut-text check",
-  "ts": 1795714738
+  "subject": "[sz-odf9] Translate the new audio quality texts",
+  "ts": 1795715351
 }

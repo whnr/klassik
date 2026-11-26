@@ -1,7 +1,7 @@
 {
-  "sha": "8507823d7e6d837eae7816bab495d2e224acd4b9",
+  "sha": "af8e015731a93d100ffe4d09c4d0bd1cd7943995",
   "branch": "claude-l10n",
   "path": "claude-l10n",
-  "subject": "Fix the review findings of the localization",
-  "ts": 1795652695
+  "subject": "Merge main into claude-l10n",
+  "ts": 1795657038
 }

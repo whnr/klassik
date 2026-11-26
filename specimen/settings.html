@@ -11,8 +11,7 @@
   </head>
   <body>
     <script>
-      // Settings in groups, in the order Flo set: Playback, Library, Colour, Advanced settings.
-      // ?technical=on shows the rows behind Technical Details.
+      // Settings in groups, in the order Flo set: Playback, Library, Colour, Advanced settings, About.
       K.start(() => {
         const { el, form } = K;
         const { scroll } = K.page({
@@ -27,7 +26,6 @@
           location.href = url.href;
         };
         const { group, toggle, link, menu, slider, button } = form;
-        const technical = K.params.get("technical") === "on";
         scroll.append(
           el("div", { class: "page-head" }, el("h1", { class: "t-largeTitle" }, "Settings")),
           group(
@@ -74,15 +72,14 @@
           group(
             "Advanced settings",
             [
-              toggle("Technical Details", technical, () => reload("technical", technical ? "off" : "on")),
-              ...(technical
-                ? [link("MusicBrainz", "lookup.html", "3 to confirm"), link("Diagnostics", null, "2 waiting")]
-                : []),
+              link("MusicBrainz", "lookup.html", "3 to confirm"),
+              link("Diagnostics", null, "2 waiting"),
               link("Server Connection", "server.html", "Connected"),
               link("Licences"),
             ],
             "Shows the lookups and diagnostics with the changes that wait.",
           ),
+          group("About", [link("Source Code on GitHub")], "Klassik 0.23.0 (1)"),
         );
       });
     </script>

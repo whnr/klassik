@@ -22,13 +22,13 @@ def plural(one, other, state="translated"):
 
 
 class CatalogTests(unittest.TestCase):
-    def check(self, strings):
-        return l10n_check.check_catalog("Test.xcstrings", catalog(strings))
+    def check(self, strings, languages=("en", "de")):
+        return l10n_check.check_catalog("Test.xcstrings", catalog(strings), list(languages), "en")
 
     def test_a_translated_key_passes(self):
         self.assertEqual(self.check({"Pause": {"localizations": {"de": unit("Pause")}}}), [])
 
-    def test_a_key_without_german_fails(self):
+    def test_a_key_without_a_language_fails(self):
         self.assertIn("no de text", self.check({"Pause": {}})[0])
 
     def test_a_text_that_waits_for_review_fails(self):
@@ -54,6 +54,21 @@ class CatalogTests(unittest.TestCase):
         strings = {"100%% sure": {"localizations": {"de": unit("100%% sicher")}}}
         self.assertEqual(self.check(strings), [])
 
+    def test_every_language_of_the_catalog_is_checked(self):
+        strings = {"Pause": {"localizations": {"de": unit("Pause"), "fr": unit("Pause")}}}
+        self.assertEqual(self.check(strings, ("en", "de", "fr")), [])
+        strings = {"Pause": {"localizations": {"de": unit("Pause")}}}
+        self.assertEqual(self.check(strings, ("en", "de", "fr")), ["Test.xcstrings: 'Pause': no fr text"])
+
+    def test_a_plural_needs_the_forms_of_its_language(self):
+        def forms(*names):
+            return {"variations": {"plural": {name: unit("%lld x") for name in names}}}
+
+        fr = {"localizations": {"en": plural("%lld a", "%lld b"), "fr": forms("one", "other")}}
+        self.assertIn("lacks the plural form many", self.check({"%lld a": fr}, ("en", "fr"))[0])
+        zh = {"localizations": {"en": plural("%lld a", "%lld b"), "zh": forms("other")}}
+        self.assertEqual(self.check({"%lld a": zh}, ("en", "zh")), [])
+
     def test_plural_keys_need_both_forms_in_both_languages(self):
         good = {"localizations": {"en": plural("%lld work", "%lld works"), "de": plural("%lld Werk", "%lld Werke")}}
         self.assertEqual(self.check({"%lld works": good}), [])
@@ -71,8 +86,15 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(self.check(strings), [])
 
     def test_a_catalog_needs_the_source_language(self):
-        problems = l10n_check.check_catalog("T", {"sourceLanguage": "fr", "strings": {}})
+        problems = l10n_check.check_catalog("T", {"sourceLanguage": "fr", "strings": {}}, ["en"], "en")
         self.assertIn("source language", problems[0])
+
+    def test_the_languages_are_the_source_and_every_catalog_language(self):
+        strings = {
+            "A": {"localizations": {"fr": unit("A"), "de": unit("A")}},
+            "B": {"localizations": {"es": unit("B")}},
+        }
+        self.assertEqual(l10n_check.languages_of({"T": catalog(strings)}), ["en", "de", "es", "fr"])
 
 
 class SwiftTests(unittest.TestCase):
@@ -115,11 +137,18 @@ class RepositoryTests(unittest.TestCase):
     def test_the_app_passes_its_own_check(self):
         self.assertEqual(l10n_check.main([]), 0)
 
-    def test_the_table_lists_every_key(self):
+    def test_the_table_prints_the_source_against_the_chosen_language(self):
         catalogs = l10n_check.load()
-        rows = l10n_check.table(catalogs).splitlines()
+        language = l10n_check.languages_of(catalogs)[1]
+        rows = l10n_check.table(catalogs, language).splitlines()
+        self.assertEqual(rows[0], f"| en | {language} |")
         self.assertGreater(len(rows), 300)
-        self.assertIn("| Settings | Einstellungen |", rows)
+
+    def test_the_table_needs_a_language_of_the_catalogs(self):
+        with self.assertRaises(SystemExit):
+            l10n_check.main(["--table"])
+        with self.assertRaises(SystemExit):
+            l10n_check.main(["--table", "--language", "xx"])
 
 
 if __name__ == "__main__":

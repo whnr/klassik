@@ -4,60 +4,76 @@ import Testing
 @testable import Klassik
 @testable import KlassikEngine
 
-/// The app language, its catalog and the formats that follow it (sz-odf9).
+/// The app language, its catalog and the formats that follow it (sz-odf9). Tests name concrete languages to read
+/// their texts; the app code names none.
+extension AppLanguage {
+    static let english = AppLanguage("en")
+    static let german = AppLanguage("de")
+}
+
 struct LocalizationTests {
-    /// A store of its own, so that a test never changes the language of the running app.
+    /// A store of its own, so that a test never changes the fallback language of the running app.
     private func localization(
-        _ setting: LanguageSetting = .system, device: [String] = ["en-US"], fallback: TextFallback = .english
+        _ language: AppLanguage = .english, fallback: TextFallback = .language(.english)
     ) -> Localization {
         let defaults = UserDefaults(suiteName: "LocalizationTests-\(UUID().uuidString)")!
-        let localization = Localization(defaults: defaults, preferred: { device })
-        localization.select(setting)
+        let localization = Localization(defaults: defaults, preferred: { [language.rawValue] })
         localization.select(fallback: fallback)
         return localization
     }
 
     // MARK: Choosing the language
 
-    @Test func followsTheDeviceByDefault() {
-        #expect(localization(device: ["de-DE", "en"]).language == .german)
-        #expect(localization(device: ["en-GB"]).language == .english)
+    @Test func theBundleDeclaresTheLanguages() {
+        let available = AppLanguage.available()
+        #expect(available.first == AppLanguage.source)
+        #expect(available.contains(.english))
+        #expect(available.contains(.german))
     }
 
     /// iOS lists the languages in the order of the listener. The first one that the app speaks wins.
-    @Test func takesTheFirstDeviceLanguageThatTheAppSpeaks() {
-        #expect(localization(device: ["fr-FR", "de-AT", "en"]).language == .german)
-        #expect(localization(device: ["fr-FR"]).language == .english)
-        #expect(localization(device: []).language == .english)
+    @Test func takesTheFirstPreferredLanguageThatTheAppSpeaks() {
+        let available = [AppLanguage.english, .german]
+        #expect(AppLanguage.matching(["de-DE", "en"], among: available) == .german)
+        #expect(AppLanguage.matching(["fr-FR", "de-AT", "en"], among: available) == .german)
+        #expect(AppLanguage.matching(["en-GB"], among: available) == .english)
+        #expect(AppLanguage.matching(["fr-FR"], among: available) == .source)
+        #expect(AppLanguage.matching([], among: available) == .source)
     }
 
-    @Test func aPickWinsOverTheDevice() {
-        #expect(localization(.english, device: ["de-DE"]).language == .english)
-        #expect(localization(.german, device: ["en-US"]).language == .german)
+    @Test func aLanguageNeedsNoCodeBesidesTheBundle() {
+        let french = AppLanguage("fr")
+        #expect(AppLanguage.matching(["fr-CA"], among: [.english, french]) == french)
+        #expect(french.name == "français")
+        #expect(PersonFactsService.wikipedia(french).host == "fr.wikipedia.org")
     }
 
-    @Test func remembersThePick() {
+    @Test func remembersTheFallback() {
         let defaults = UserDefaults(suiteName: "LocalizationTests-\(UUID().uuidString)")!
         let first = Localization(defaults: defaults, preferred: { ["en"] })
-        first.select(.german)
         first.select(fallback: .off)
-        let second = Localization(defaults: defaults, preferred: { ["en"] })
-        #expect(second.setting == .german)
-        #expect(second.fallbackSetting == .off)
-        #expect(second.language == .german)
+        #expect(Localization(defaults: defaults, preferred: { ["en"] }).fallbackSetting == .off)
+        first.select(fallback: .language(.german))
+        #expect(Localization(defaults: defaults, preferred: { ["en"] }).fallbackSetting == .language(.german))
+    }
+
+    @Test func aFallbackThatTheBundleLacksGivesTheSourceLanguage() {
+        #expect(TextFallback(stored: "xx") == .language(.source))
+        #expect(TextFallback(stored: nil) == .language(.source))
+        #expect(TextFallback(stored: "off") == .off)
     }
 
     // MARK: Languages of fetched texts
 
     @Test func textLanguagesPutTheAppFirst() {
-        #expect(localization(.german, fallback: .english).textLanguages.wanted == [.german, .english])
-        #expect(localization(.german, fallback: .english).textLanguages.key == "de>en")
-        #expect(localization(.english, fallback: .german).textLanguages.key == "en>de")
+        #expect(localization(.german, fallback: .language(.english)).textLanguages.wanted == [.german, .english])
+        #expect(localization(.german, fallback: .language(.english)).textLanguages.key == "de>en")
+        #expect(localization(.english, fallback: .language(.german)).textLanguages.key == "en>de")
     }
 
     @Test func theFallbackNeverRepeatsTheAppLanguage() {
-        #expect(localization(.english, fallback: .english).textLanguages.wanted == [.english])
-        #expect(localization(.german, fallback: .german).textLanguages.key == "de")
+        #expect(localization(.english, fallback: .language(.english)).textLanguages.wanted == [.english])
+        #expect(localization(.german, fallback: .language(.german)).textLanguages.key == "de")
     }
 
     @Test func fallbackOffWantsTheAppLanguageOnly() {
@@ -66,7 +82,7 @@ struct LocalizationTests {
 
     // MARK: The catalog
 
-    @Test func theCatalogHoldsBothLanguages() {
+    @Test func theCatalogHoldsTheLanguages() {
         let loc = localization()
         #expect(loc.string("Settings", in: .english) == "Settings")
         #expect(loc.string("Settings", in: .german) == "Einstellungen")
@@ -106,7 +122,7 @@ struct LocalizationTests {
 
     @Test func numbersFollowTheLanguage() {
         let german = localization(.german).locale
-        let english = localization(.english, device: ["en-US"]).locale
+        let english = localization(.english).locale
         #expect(1_234_567.formatted(IntegerFormatStyle<Int>(locale: german)) == "1.234.567")
         #expect(1_234_567.formatted(IntegerFormatStyle<Int>(locale: english)) == "1,234,567")
         #expect(1.5.formatted(FloatingPointFormatStyle<Double>(locale: german)) == "1,5")
@@ -118,7 +134,7 @@ struct LocalizationTests {
             day.formatted(Date.FormatStyle(date: .long, time: .omitted, locale: locale, timeZone: .gmt))
         }
         #expect(text(localization(.german).locale) == "14. November 2023")
-        #expect(text(localization(.english, device: ["en-US"]).locale) == "November 14, 2023")
+        #expect(text(localization(.english).locale) == "November 14, 2023")
     }
 
     @Test func durationsAndListsFollowTheLanguage() {

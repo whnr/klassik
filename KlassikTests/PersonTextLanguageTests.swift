@@ -143,6 +143,42 @@ struct PersonTextLanguageTests {
         try? FileManager.default.removeItem(at: url)
     }
 
+    /// A text stays when it is in a language that the new setting wants and the answer has none: the fallback
+    /// language that the text is already in. A text of an unwanted language goes, since it is no answer to the setting.
+    @Test func aSavedTextStaysWhenItIsInAWantedLanguage() {
+        var old = PersonFacts(qid: "Q1", name: "A", description: "German composer")
+        old.bio = "A was a German composer."
+        old.bioLanguage = "en"
+        old.descriptionLanguage = "en"
+        old.credits = [PersonCredit(kind: .text, text: "Wikipedia, CC BY-SA 4.0", url: nil)]
+
+        var wanted = PersonFacts(qid: "Q1", name: "A")
+        wanted.keepTexts(of: old, wanted: [.german, .english])
+        #expect(wanted.bio == old.bio)
+        #expect(wanted.bioLanguage == "en")
+        #expect(wanted.description == old.description)
+        #expect(wanted.credits.contains { $0.kind == .text })
+
+        var unwanted = PersonFacts(qid: "Q1", name: "A")
+        unwanted.keepTexts(of: old, wanted: [.german])
+        #expect(unwanted.bio == nil)
+        #expect(unwanted.description == nil)
+        #expect(!unwanted.credits.contains { $0.kind == .text })
+    }
+
+    /// A new text replaces the saved one: the old text is never kept beside it.
+    @Test func aNewTextReplacesTheSavedOne() {
+        var old = PersonFacts(qid: "Q1", name: "A", description: "German composer")
+        old.bio = "English text."
+        old.bioLanguage = "en"
+        var new = PersonFacts(qid: "Q1", name: "A", description: "deutscher Komponist")
+        new.bio = "Deutscher Text."
+        new.bioLanguage = "de"
+        new.keepTexts(of: old, wanted: [.german, .english])
+        #expect(new.bio == "Deutscher Text.")
+        #expect(new.description == "deutscher Komponist")
+    }
+
     /// A device language that changed while the app was closed marks the saved texts at the start of a pass.
     @Test func aPassMarksTheTextsOfAnotherLanguageAtLaunch() async throws {
         let item = Self.entity(

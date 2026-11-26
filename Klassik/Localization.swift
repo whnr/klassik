@@ -2,49 +2,71 @@ import Foundation
 import Observation
 import Synchronization
 
-/// A language that the app speaks. A new language is a new case, a catalog column and a Wikipedia edition.
-enum AppLanguage: String, CaseIterable, Identifiable, Sendable {
-    case english = "en"
-    case german = "de"
+/// A language that the app speaks. The bundle declares the languages (the catalogs and `CFBundleLocalizations`), and
+/// iOS offers them in Settings, Klassik, Language. A new language needs a catalog column, a line in `project.yml`
+/// and a Wikipedia edition of the same code, and no code.
+struct AppLanguage: RawRepresentable, Hashable, Identifiable, Sendable {
+    let rawValue: String
+
+    init(rawValue: String) { self.rawValue = rawValue }
+    init(_ code: String) { self.init(rawValue: code) }
 
     var id: String { rawValue }
 
     /// The name in its own language, so that a listener finds it whatever the app language is.
     var name: String {
-        switch self {
-        case .english: "English"
-        case .german: "Deutsch"
-        }
+        Locale(identifier: rawValue).localizedString(forLanguageCode: rawValue) ?? rawValue
     }
 
-    /// The first app language among preferred languages such as `Locale.preferredLanguages`. English when none.
-    static func matching(_ preferred: [String]) -> AppLanguage {
+    /// The language of the keys in the catalogs and of the texts that no catalog holds.
+    static var source: AppLanguage { AppLanguage(Bundle.main.developmentLocalization ?? "en") }
+
+    /// The languages that the bundle holds, the source language first.
+    static func available(in bundle: Bundle = .main) -> [AppLanguage] {
+        let first = source.rawValue
+        let others = Set(bundle.localizations).subtracting([first, "Base"]).sorted()
+        return ([first] + others).map { AppLanguage($0) }
+    }
+
+    /// The first of `all` among preferred languages such as `Bundle.preferredLocalizations`. The source language
+    /// when none.
+    static func matching(_ preferred: [String], among all: [AppLanguage] = AppLanguage.available()) -> AppLanguage {
         for tag in preferred {
             let code = Locale(identifier: tag).language.languageCode?.identifier
-            if let found = code.flatMap(AppLanguage.init(rawValue:)) { return found }
+            if let found = all.first(where: { $0.rawValue == code }) { return found }
         }
-        return .english
+        return .source
     }
-}
-
-/// What the listener picked for the app language. `system` follows the device.
-enum LanguageSetting: String, CaseIterable, Identifiable, Sendable {
-    case system
-    case english = "en"
-    case german = "de"
-
-    var id: String { rawValue }
-    var language: AppLanguage? { AppLanguage(rawValue: rawValue) }
 }
 
 /// The language of fetched texts when the app language has none. `off` leaves such a text empty.
-enum TextFallback: String, CaseIterable, Identifiable, Sendable {
-    case english = "en"
-    case german = "de"
+enum TextFallback: Hashable, Identifiable, Sendable {
+    case language(AppLanguage)
     case off
 
-    var id: String { rawValue }
-    var language: AppLanguage? { AppLanguage(rawValue: rawValue) }
+    /// What `UserDefaults` holds: a language code, or "off". A code that the bundle lacks gives the source language.
+    init(stored: String?) {
+        switch stored {
+        case "off": self = .off
+        case let code?: self = .language(AppLanguage.available().first { $0.rawValue == code } ?? .source)
+        case nil: self = .language(.source)
+        }
+    }
+
+    var stored: String {
+        switch self {
+        case .language(let language): language.rawValue
+        case .off: "off"
+        }
+    }
+
+    var id: String { stored }
+    var language: AppLanguage? {
+        if case .language(let language) = self { language } else { nil }
+    }
+
+    /// Every language of the bundle, then off.
+    static var all: [TextFallback] { AppLanguage.available().map(TextFallback.language) + [.off] }
 }
 
 /// The languages in which fetched texts (a Wikidata description, a Wikipedia lead) are wanted, best first.
@@ -62,59 +84,43 @@ struct TextLanguages: Equatable, Sendable {
     var key: String { wanted.map(\.rawValue).joined(separator: ">") }
 }
 
-/// The language of the app, and the strings in it. SwiftUI literals follow `locale` through the environment. A
-/// string that a view does not draw from a literal comes from `L`. Each read tracks `revision`, so that a view
-/// draws again when the language changes.
+/// The language of the app, and the strings in it. iOS picks the app language (Settings, Klassik, Language) and
+/// starts the app again after a change, so the language is fixed for a run: SwiftUI literals, formats and plurals
+/// follow the bundle, and no code overrides it. A string that a view does not draw from a literal comes from `L`.
+/// Only the fallback language of fetched texts changes inside a run, so only its reads track `revision`.
 @Observable
 final class Localization: @unchecked Sendable {
     static let shared = Localization()
-    static let languageKey = "settings.language"
     static let fallbackKey = "settings.textFallback"
+    /// The language that the main bundle resolved. A `Localization` made with another language (a test) reads its
+    /// folder instead.
+    static let bundleLanguage = AppLanguage.matching(Bundle.main.preferredLocalizations)
 
-    private struct Choice: Sendable {
-        var setting: LanguageSetting
-        var fallback: TextFallback
-    }
-
-    @ObservationIgnored private let choice: Mutex<Choice>
+    @ObservationIgnored private let fallback: Mutex<TextFallback>
     @ObservationIgnored private let defaults: UserDefaults
-    @ObservationIgnored private let preferred: @Sendable () -> [String]
+    /// The language is fixed for a run, so it is resolved once.
+    let language: AppLanguage
     private var revision = 0
 
     init(
         defaults: UserDefaults = .standard,
-        preferred: @escaping @Sendable () -> [String] = { Locale.preferredLanguages }
+        preferred: @escaping @Sendable () -> [String] = { Bundle.main.preferredLocalizations }
     ) {
         self.defaults = defaults
-        self.preferred = preferred
-        choice = Mutex(
-            Choice(
-                setting: defaults.string(forKey: Self.languageKey).flatMap(LanguageSetting.init) ?? .system,
-                fallback: defaults.string(forKey: Self.fallbackKey).flatMap(TextFallback.init) ?? .english))
+        language = AppLanguage.matching(preferred())
+        fallback = Mutex(TextFallback(stored: defaults.string(forKey: Self.fallbackKey)))
     }
 
     // MARK: Reading
 
-    var setting: LanguageSetting {
-        _ = revision
-        return choice.withLock { $0.setting }
-    }
-
     var fallbackSetting: TextFallback {
         _ = revision
-        return choice.withLock { $0.fallback }
-    }
-
-    /// The language of the app now.
-    var language: AppLanguage {
-        _ = revision
-        return choice.withLock { $0.setting }.language ?? AppLanguage.matching(preferred())
+        return fallback.withLock { $0 }
     }
 
     /// The languages of fetched texts now.
     var textLanguages: TextLanguages {
-        _ = revision
-        return TextLanguages(app: language, fallback: choice.withLock { $0.fallback }.language)
+        TextLanguages(app: language, fallback: fallbackSetting.language)
     }
 
     /// The formats of the app language: numbers, dates, durations, lists and plurals. The device region stays when the
@@ -126,15 +132,17 @@ final class Localization: @unchecked Sendable {
         return Locale(identifier: language.rawValue)
     }
 
-    /// The strings of one language, or the main bundle when the build holds none for it.
-    static func bundle(for language: AppLanguage) -> Bundle {
-        Bundle.main.path(forResource: language.rawValue, ofType: "lproj").flatMap(Bundle.init(path:)) ?? .main
+    /// The strings of one language. The app language reads the main bundle, as iOS resolved it. Another language
+    /// (a text in the fallback language, a test) reads its own folder, or the main bundle when the build holds none.
+    func bundle(for language: AppLanguage) -> Bundle {
+        if language == Self.bundleLanguage { return .main }
+        return Bundle.main.path(forResource: language.rawValue, ofType: "lproj").flatMap(Bundle.init(path:)) ?? .main
     }
 
     /// A string of the catalog in the app language, or in `language`.
     func string(_ key: String.LocalizationValue, in language: AppLanguage? = nil) -> String {
         let language = language ?? self.language
-        return String(localized: key, bundle: Self.bundle(for: language), locale: locale(for: language))
+        return String(localized: key, bundle: bundle(for: language), locale: locale(for: language))
     }
 
     /// A text of the engine library, which holds no catalog, in the app language. A text that the catalog lacks stays.
@@ -148,15 +156,9 @@ final class Localization: @unchecked Sendable {
 
     // MARK: Writing
 
-    func select(_ setting: LanguageSetting) {
-        choice.withLock { $0.setting = setting }
-        defaults.set(setting.rawValue, forKey: Self.languageKey)
-        revision += 1
-    }
-
-    func select(fallback: TextFallback) {
-        choice.withLock { $0.fallback = fallback }
-        defaults.set(fallback.rawValue, forKey: Self.fallbackKey)
+    func select(fallback setting: TextFallback) {
+        fallback.withLock { $0 = setting }
+        defaults.set(setting.stored, forKey: Self.fallbackKey)
         revision += 1
     }
 }
@@ -210,21 +212,10 @@ extension Array where Element == String {
 
 // MARK: Names in the pickers
 
-extension LanguageSetting {
-    var title: String {
-        switch self {
-        case .system: L("Device Language")
-        case .english: AppLanguage.english.name
-        case .german: AppLanguage.german.name
-        }
-    }
-}
-
 extension TextFallback {
     var title: String {
         switch self {
-        case .english: AppLanguage.english.name
-        case .german: AppLanguage.german.name
+        case .language(let language): language.name
         case .off: L("Off")
         }
     }

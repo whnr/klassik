@@ -371,16 +371,6 @@
         }
       }
     },
-    "App Language": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "App-Sprache"
-          }
-        }
-      }
-    },
     "Article": {
       "localizations": {
         "de": {
@@ -871,16 +861,6 @@
         }
       }
     },
-    "Device Language": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gerätesprache"
-          }
-        }
-      }
-    },
     "Diagnostics": {
       "localizations": {
         "de": {
@@ -1357,16 +1337,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Klassik"
-          }
-        }
-      }
-    },
-    "Klassik follows the language of your iPhone until you pick one. Descriptions and biographies come from Wikidata and Wikipedia in the app language. Where they have none, Klassik shows the fallback language, or nothing when it is off. Composer names, work titles and tags stay as your music tags them.": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Klassik nutzt die Sprache deines iPhones, bis du eine wählst. Beschreibungen und Biografien kommen von Wikidata und Wikipedia in der App-Sprache. Gibt es sie dort nicht, zeigt Klassik die Ersatzsprache oder nichts, wenn sie aus ist. Komponistennamen, Werktitel und Tags bleiben so, wie deine Musik sie taggt."
           }
         }
       }
@@ -4077,6 +4047,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld von %lld Sätzen"
+          }
+        }
+      }
+    },
+    "Descriptions and biographies come from Wikidata and Wikipedia in the app language. Where they have none, Klassik shows the fallback language, or nothing when it is off. Composer names, work titles and tags stay as your music tags them. Change the app language in the iOS Settings app, under Klassik.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beschreibungen und Biografien kommen von Wikidata und Wikipedia in der App-Sprache. Gibt es sie dort nicht, zeigt Klassik die Ersatzsprache oder nichts, wenn sie aus ist. Komponistennamen, Werktitel und Tags bleiben so, wie deine Musik sie taggt. Die App-Sprache änderst du in der iOS-App Einstellungen unter Klassik."
+          }
+        }
+      }
+    },
+    "Source Code on GitHub": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quellcode auf GitHub"
+          }
+        }
+      }
+    },
+    "Klassik %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klassik %@"
           }
         }
       }

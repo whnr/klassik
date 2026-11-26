@@ -30,7 +30,8 @@ targets:
       properties:
         CFBundleDisplayName: Klassik
         CFBundleDevelopmentRegion: en
-        # The app speaks these languages. The String Catalogs (Klassik/Localizable.xcstrings, InfoPlist.xcstrings) hold them.
+        # Every language of the String Catalogs (Klassik/Localizable.xcstrings, InfoPlist.xcstrings). iOS offers them in
+        # Settings, Klassik, Language. scripts/l10n_check.py fails when this list and the catalogs differ.
         CFBundleLocalizations: [en, de]
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)

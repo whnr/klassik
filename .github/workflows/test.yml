@@ -112,7 +112,7 @@ jobs:
       - run: python3 scripts/layout_lint.py
       - run: python3 -m unittest discover -s scripts -p "test_layout.py"
 
-  # The catalogs hold German for every key, the code draws only keys of the catalog, and no text truncates.
+  # The catalogs hold every language for every key, the code draws only keys of the catalog, and no text truncates.
   localization:
     runs-on: ubuntu-24.04
     timeout-minutes: 5

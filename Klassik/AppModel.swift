@@ -286,7 +286,8 @@ final class AppModel {
         await enrichment.enrich(index)
     }
 
-    /// A change of the app or fallback language: the saved texts of people load again in the background.
+    /// A change of the fallback language: the saved texts of people load again in the background. A change of the app
+    /// language restarts the app, and the first pass after the start finds the stale texts.
     func textLanguagesChanged() {
         sweepPeople()
     }

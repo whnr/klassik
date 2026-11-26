@@ -277,10 +277,11 @@ private struct ResolutionNotice: View {
                 }
                 Button("None of These") { Task { await people.choose(nil, forComposer: tag) } }
             } footer: {
+                // A ternary of literals draws as verbatim text, so each branch reads the catalog itself.
                 Text(
                     PersonFactsStore.isSurnameOnly(tag)
-                        ? "Your tag gives only \"\(tag)\" and your works do not say which composer it is."
-                        : "Several composers have the name \"\(tag)\" and your works do not say which one it is.")
+                        ? L("Your tag gives only \"\(tag)\" and your works do not say which composer it is.")
+                        : L("Several composers have the name \"\(tag)\" and your works do not say which one it is."))
             }
         case .mixed(let names):
             Section {

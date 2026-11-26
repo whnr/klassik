@@ -228,13 +228,7 @@ final class PersonFactsStore {
                     facts.portrait = portrait
                     facts.credits += old.credits.filter { $0.kind == .picture }
                 }
-                // A Wikipedia request that failed gives no text: the saved text stays until one arrives (ADR 0072).
-                if facts.textKey?.hasSuffix(PersonFacts.unansweredMark) == true, facts.bio == nil,
-                    let old = cache.people[qid], let bio = old.bio
-                {
-                    facts.bio = bio
-                    facts.credits += old.credits.filter { $0.kind == .text }
-                }
+                if let old = cache.people[qid] { facts.keepTexts(of: old, wanted: service.textLanguages().wanted) }
                 cache.people[qid] = facts
             } else {
                 // The item answered without facts: there is no picture to read.
@@ -290,7 +284,7 @@ final class PersonFactsStore {
     }
 
     /// Marks each person whose texts have other languages than the app asks for as unchecked, so that the next pass
-    /// loads their facts again. The old texts stay on the pages until then.
+    /// loads their facts again. The old texts stay on the pages until the new ones arrive (`PersonFacts.keepTexts`).
     func invalidateTexts() {
         var changed = false
         for key in Array(cache.checked.keys) {

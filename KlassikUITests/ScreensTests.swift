@@ -3849,14 +3849,96 @@ extension XCUIElement {
     }
 }
 
-/// The app in English and in German on four screens: Settings, the Library and Search, a work page and the player
-/// (sz-odf9). The rest of the walk stays English. The last test doubles every German text, as a pseudo-language
-/// does, to find text that a screen cuts off or lets leave its edge.
+/// The texts of the catalog in one language, for the walk to check the screen against. The path comes from
+/// `KLASSIK_CATALOG`, or from the place of this file in the repository: the simulator runs on the same machine.
+struct WalkCatalog: @unchecked Sendable {
+    let source: String
+    let language: String
+    private let strings: [String: [String: Any]]
+
+    static func load(language requested: String?) -> WalkCatalog? {
+        let env = ProcessInfo.processInfo.environment
+        let fallback = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Klassik/Localizable.xcstrings").path
+        let path = env["KLASSIK_CATALOG"].flatMap { $0.isEmpty ? nil : $0 } ?? fallback
+        guard let data = FileManager.default.contents(atPath: path),
+            let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let source = root["sourceLanguage"] as? String,
+            let strings = root["strings"] as? [String: [String: Any]]
+        else { return nil }
+        var languages = Set<String>()
+        for entry in strings.values {
+            if let localizations = entry["localizations"] as? [String: Any] { languages.formUnion(localizations.keys) }
+        }
+        guard let language = requested ?? languages.subtracting([source]).sorted().first else { return nil }
+        return WalkCatalog(source: source, language: language, strings: strings)
+    }
+
+    private static func value(_ localization: Any?) -> String? {
+        ((localization as? [String: Any])?["stringUnit"] as? [String: Any])?["value"] as? String
+    }
+
+    private func localization(_ key: String) -> [String: Any]? {
+        (strings[key]?["localizations"] as? [String: Any])?[language] as? [String: Any]
+    }
+
+    /// The text of a key in the walk language. A plural key gives the form named by `form`.
+    func text(_ key: String, form: String? = nil) -> String {
+        guard let form else { return Self.value(localization(key)) ?? key }
+        let plural = (localization(key)?["variations"] as? [String: Any])?["plural"] as? [String: Any]
+        return Self.value(plural?[form]) ?? key
+    }
+
+    /// The words of a text before its first argument, for a text that a screen completes.
+    func lead(_ key: String) -> String {
+        String(text(key).prefix { $0 != "%" })
+    }
+
+    /// The fixed words of a plural text, without its number.
+    func words(_ key: String, form: String = "other") -> String {
+        text(key, form: form).replacingOccurrences(of: "%lld", with: "").trimmingCharacters(in: .whitespaces)
+    }
+
+    /// Every text of the walk language as a pattern, with an argument matching anything, to tell a catalog text on
+    /// the screen from a text that no catalog translates.
+    func patterns() -> [NSRegularExpression] {
+        var values: [String] = []
+        for key in strings.keys {
+            let found = localization(key)
+            if let value = Self.value(found) { values.append(value) }
+            let plural = (found?["variations"] as? [String: Any])?["plural"] as? [String: Any]
+            if let plural {
+                for form in plural.values {
+                    if let value = Self.value(form) { values.append(value) }
+                }
+            }
+        }
+        let marker = "\u{1}"
+        return values.compactMap { value in
+            let marked = value.replacingOccurrences(
+                of: "%(\\d+\\$)?(l|ll)?[@dsf]", with: marker, options: .regularExpression)
+            let escaped = marked.components(separatedBy: marker).map { NSRegularExpression.escapedPattern(for: $0) }
+            return try? NSRegularExpression(
+                pattern: "^" + escaped.joined(separator: ".+") + "$", options: [.dotMatchesLineSeparators])
+        }
+    }
+}
+
+/// The app in the walk language on four screens: Settings, the Library and Search, a work page and the player
+/// (sz-odf9). The language comes from `KLASSIK_WALK_LANGUAGE` (a catalog language, such as `de`), or is the first
+/// language of the catalog that is not the source. The rest of the walk stays in the source language. The last test
+/// doubles every text, as a pseudo-language does, to find text that a screen cuts off or lets leave its edge.
 final class LanguageScreens: ScreensTestCase {
-    /// The launch arguments that set the app language, as the picker in Settings does.
-    static let german = ["-settings.language", "de"]
-    /// German with every text twice as long. Long words and accents meet every screen.
-    static let doubled = german + ["-NSDoubleLocalizedStrings", "YES"]
+    static let walk: WalkCatalog? = WalkCatalog.load(
+        language: ProcessInfo.processInfo.environment["KLASSIK_WALK_LANGUAGE"].flatMap { $0.isEmpty ? nil : $0 })
+
+    /// The launch arguments that set the app language, as the iOS Settings app does for one app.
+    static var language: [String] {
+        let code = walk?.language ?? ""
+        return ["-AppleLanguages", "(\(code))", "-AppleLocale", code]
+    }
+    /// The language with every text twice as long. Long words and accents meet every screen.
+    static var doubled: [String] { language + ["-NSDoubleLocalizedStrings", "YES"] }
 
     /// The text sizes that the check tries, in points, from the smallest of the app to a large title.
     static let fontSizes = stride(from: CGFloat(11), through: 34, by: 0.5)
@@ -3872,13 +3954,21 @@ final class LanguageScreens: ScreensTestCase {
         return Int((box.height / font.lineHeight).rounded())
     }
 
-    /// The words that VoiceOver says before the drawn title of the playing movement, in the app language and
-    /// doubled. They are in the label but not on the screen.
-    static let spokenPrefixes = ["Läuft: @ Läuft: ", "Läuft: ", "Now playing, "]
+    /// The words that VoiceOver says before the drawn title of the playing movement, in the walk language, in the
+    /// source language and doubled. They are in the label but not on the screen. They come from the catalog.
+    static var spokenPrefixes: [String] {
+        guard let walk else { return [] }
+        let spoken = "Now playing, %@"
+        let own = walk.lead(spoken)
+        let source = String(spoken.prefix { $0 != "%" })
+        return ["\(own)@ \(own)", own, source]
+    }
 
     /// The label without a spoken prefix: the text that the screen draws.
     static func drawn(_ label: String) -> String {
-        for prefix in spokenPrefixes where label.hasPrefix(prefix) { return String(label.dropFirst(prefix.count)) }
+        for prefix in spokenPrefixes where !prefix.isEmpty && label.hasPrefix(prefix) {
+            return String(label.dropFirst(prefix.count))
+        }
         return label
     }
 
@@ -3924,57 +4014,70 @@ final class LanguageScreens: ScreensTestCase {
         app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", text)).firstMatch
     }
 
-    /// The picker in Settings changes the language of the open page at once, and of the tabs.
-    @MainActor
-    func testPickerSwitchesTheLanguage() throws {
-        let app = try launchAndConnect()
-        openSettings(app)
-        let picker = reveal(app.buttons["app-language"], in: app)
-        XCTAssertTrue(picker.label.contains("Device Language"), "The language picker reads \(picker.label)")
-        XCTAssertTrue(reveal(app.buttons["text-fallback"], in: app).label.contains("English"))
-        XCTAssertTrue(heading(app, "Playback").exists)
-        snap(app, "20a-settings-en")
-        picker.tap()
-        let german = app.buttons["Deutsch"].firstMatch
-        XCTAssertTrue(german.waitForExistence(timeout: 5), "The picker offers no German")
-        german.tap()
-        XCTAssertTrue(app.navigationBars["Einstellungen"].waitForExistence(timeout: 10), "The title stays English")
-        snap(app, "20b-settings-de")
-        let library = tab(app, "Library")
-        let labels = app.tabBars.buttons.allElementsBoundByIndex.map(\.label)
-        XCTAssertTrue(
-            eventually(timeout: 5) { library.label == "Bibliothek" },
-            "The tab stays English: \(library.exists) \(library.label) \(labels)")
-        XCTAssertTrue(eventually(timeout: 5) { self.heading(app, "Wiedergabe").exists }, "A heading stays English")
-        XCTAssertTrue(reveal(app.buttons["app-language"], in: app).label.contains("Deutsch"))
-        expectInside(app, "Settings in German")
-        // The pick stays when the page closes and opens again.
-        back(app)
-        XCTAssertTrue(app.buttons["library-settings"].waitForExistence(timeout: 10))
-        app.buttons["library-settings"].tap()
-        XCTAssertTrue(app.navigationBars["Einstellungen"].waitForExistence(timeout: 10))
+    /// The catalog of the walk. A walk without one cannot say what the screen must show, so it fails.
+    func catalog() throws -> WalkCatalog {
+        try XCTUnwrap(Self.walk, "No catalog to read the walk language from")
     }
 
-    /// Library, Search, a work page and the player in German.
+    /// Settings, the title, the headings, the tabs and every footer in the walk language. The language picker is
+    /// the iOS Settings app, so Settings holds none, and says where to change the language.
     @MainActor
-    func testGermanScreens() throws {
-        let app = try launchAndConnect(openComposers: false, arguments: Self.german)
-        XCTAssertEqual(tab(app, "Library").label, "Bibliothek")
+    func testSettingsFollowTheAppLanguage() throws {
+        let walk = try catalog()
+        let app = try launchAndConnect(openComposers: false, arguments: Self.language)
+        XCTAssertEqual(tab(app, "Library").label, walk.text("Library"))
+        XCTAssertTrue(app.buttons["library-settings"].waitForExistence(timeout: 10))
+        app.buttons["library-settings"].tap()
+        XCTAssertTrue(
+            app.navigationBars[walk.text("Settings")].waitForExistence(timeout: 10), "The title stays in the source")
+        XCTAssertFalse(app.buttons["app-language"].exists, "Settings holds a language picker of its own")
+        XCTAssertTrue(heading(app, walk.text("Playback")).waitForExistence(timeout: 5), "A heading stays in the source")
+        snap(app, "20-settings-language")
+        let patterns = walk.patterns()
+        for _ in 0..<5 {
+            expectInside(app, "Settings")
+            expectTranslated(app, patterns, "Settings")
+            app.swipeUp()
+        }
+    }
+
+    /// Every long text on screen, such as a footer, is a text of the walk language that the catalog holds.
+    @MainActor
+    func expectTranslated(_ app: XCUIApplication, _ patterns: [NSRegularExpression], _ screen: String) {
+        for text in app.staticTexts.allElementsBoundByIndex.prefix(120) where text.exists {
+            let label = text.label
+            guard label.count > 40 else { continue }
+            let range = NSRange(label.startIndex..., in: label)
+            let known = patterns.contains { $0.firstMatch(in: label, range: range) != nil }
+            XCTAssertTrue(known, "\(screen): \"\(label)\" is no text of the language")
+        }
+    }
+
+    /// Library, Search, a work page and the player in the walk language.
+    @MainActor
+    func testScreensInTheAppLanguage() throws {
+        let walk = try catalog()
+        let source = walk.source
+        let app = try launchAndConnect(openComposers: false, arguments: Self.language)
+        XCTAssertEqual(tab(app, "Library").label, walk.text("Library"))
         let composers = app.buttons["library-composers"]
-        XCTAssertTrue(composers.label.contains("Komponisten"), composers.label)
-        snap(app, "21a-library-de")
+        XCTAssertTrue(composers.label.contains(walk.words("%lld composers")), composers.label)
+        snap(app, "21a-library-language")
         expectInside(app, "Library")
 
         openPlace(app, "Search")
         let field = app.textFields["search-field"]
         XCTAssertTrue(field.waitForExistence(timeout: 10))
-        XCTAssertEqual(field.placeholderValue, "Werk oder Name")
-        XCTAssertTrue(app.staticTexts["search-hint"].label.contains("Werknummer"), app.staticTexts["search-hint"].label)
+        XCTAssertEqual(field.placeholderValue, walk.text("Work or name"))
+        let hint = walk.text("Type a work, a catalogue number such as Op. 67 or K. 626, or a name.")
+        XCTAssertEqual(app.staticTexts["search-hint"].label, hint)
         field.tap()
         field.typeText("chopin")
         XCTAssertTrue(app.buttons.matching(identifier: "search-work").firstMatch.waitForExistence(timeout: 10))
-        XCTAssertTrue(heading(app, "Werke (").waitForExistence(timeout: 5), "The result heading stays English")
-        snap(app, "21b-search-de")
+        XCTAssertTrue(
+            heading(app, walk.text("Works") + " (").waitForExistence(timeout: 5),
+            "The result heading stays in \(source)")
+        snap(app, "21b-search-language")
         expectInside(app, "Search")
         field.typeText("\n")
         _ = app.keyboards.firstMatch.waitForNonExistence(timeout: 5)
@@ -3983,45 +4086,50 @@ final class LanguageScreens: ScreensTestCase {
         app.buttons["library-composers"].tap()
         XCTAssertTrue(composer(app, "Felix Mendelssohn").waitForExistence(timeout: 30))
         composer(app, "Felix Mendelssohn").tap()
-        XCTAssertTrue(app.buttons["Info"].waitForExistence(timeout: 10), "The About tab stays English")
+        XCTAssertTrue(app.buttons[walk.text("About")].waitForExistence(timeout: 10), "The About tab stays in \(source)")
         let work = app.buttons.matching(identifier: "work").firstMatch
         XCTAssertTrue(work.waitForExistence(timeout: 10))
         work.tap()
         let play = app.buttons["play-work"]
         XCTAssertTrue(play.waitForExistence(timeout: 10))
-        XCTAssertEqual(play.label, "Beste Aufnahme abspielen")
-        XCTAssertTrue(heading(app, "Aufnahmen").waitForExistence(timeout: 5), "The Recordings heading stays English")
-        snap(app, "21c-work-de")
+        XCTAssertEqual(play.label, walk.text("Play top recording"))
+        XCTAssertTrue(
+            heading(app, walk.text("Recordings")).waitForExistence(timeout: 5),
+            "The Recordings heading stays in \(source)")
+        snap(app, "21c-work-language")
         expectInside(app, "Work")
 
         let recording = app.buttons.matching(identifier: "recording").firstMatch
         XCTAssertTrue(recording.waitForExistence(timeout: 10))
         recording.tap()
         XCTAssertTrue(app.buttons["play-recording"].waitForExistence(timeout: 10))
-        XCTAssertEqual(app.buttons["play-recording"].label, "Abspielen")
+        XCTAssertEqual(app.buttons["play-recording"].label, walk.text("Play"))
         startPlaying(app)
         let pill = app.buttons["mini-player-pause"]
         XCTAssertTrue(pill.waitForExistence(timeout: 10))
         pill.tap()
-        XCTAssertTrue(eventually(timeout: 10) { pill.label == "Fortsetzen" }, "The mini player reads \(pill.label)")
+        let resume = walk.text("Resume")
+        XCTAssertTrue(eventually(timeout: 10) { pill.label == resume }, "The mini player reads \(pill.label)")
         openPlayer(app)
-        let next = app.buttons["Weiter"].firstMatch
-        XCTAssertTrue(next.waitForExistence(timeout: 10), "The player controls stay English")
-        // The facts line of the recording is built in code, not in a view: it must be German too.
-        let facts = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Aufgenommen")).firstMatch
-        XCTAssertTrue(facts.waitForExistence(timeout: 5), "The facts line is missing or English")
-        XCTAssertTrue(facts.label.contains("Satz") || facts.label.contains("Sätze"), facts.label)
-        for english in ["Recorded in", " movements"] {
-            let found = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", english)).firstMatch
-            XCTAssertFalse(found.exists, "\(english) stays English")
+        let next = app.buttons[walk.text("Next")].firstMatch
+        XCTAssertTrue(next.waitForExistence(timeout: 10), "The player controls stay in \(source)")
+        // The facts line of the recording is built in code, not in a view: it must follow the language too.
+        let lead = walk.lead("Recorded in %@ on %@.")
+        let facts = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", lead)).firstMatch
+        XCTAssertTrue(facts.waitForExistence(timeout: 5), "The facts line is missing or in \(source)")
+        let sourceLead = String("Recorded in %@ on %@.".prefix { $0 != "%" })
+        if sourceLead != lead {
+            let found = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", sourceLead)).firstMatch
+            XCTAssertFalse(found.exists, "\(sourceLead) stays in \(source)")
         }
-        snap(app, "21d-player-de")
+        snap(app, "21d-player-language")
         expectInside(app, "Player")
     }
 
-    /// German at twice its length on the same screens. Nothing may leave the screen sideways.
+    /// The walk language at twice its length on the same screens. Nothing may leave the screen sideways.
     @MainActor
-    func testDoubledGermanStaysInside() throws {
+    func testDoubledLanguageStaysInside() throws {
+        _ = try catalog()
         let app = try launchAndConnect(openComposers: false, arguments: Self.doubled)
         expectInside(app, "Library, doubled")
         snap(app, "22a-library-doubled")
@@ -4061,7 +4169,7 @@ final class LanguageScreens: ScreensTestCase {
     /// The test for a cut text finds what it must: an ellipsis, a two-line text in one line, a text in a frame
     /// too small, and nothing that fits.
     func testCutTextIsFound() {
-        let text = "Wiedergabe fortsetzen und die Warteschlange behalten"
+        let text = "Resume playback and keep the whole queue of movements"
         let font = UIFont.systemFont(ofSize: 17)
         let one = (text as NSString).size(withAttributes: [.font: font]).width
         let width = (one * 0.6).rounded()
@@ -4072,15 +4180,17 @@ final class LanguageScreens: ScreensTestCase {
         XCTAssertTrue(Self.isCut(label: text, frame: oneLine), "A two-line text in one line is not found")
         XCTAssertFalse(Self.isCut(label: text, frame: CGRect(x: 0, y: 0, width: one + 2, height: font.lineHeight)))
         // The spoken words of the playing title are not on the screen: the title fits its frame.
-        XCTAssertEqual(Self.drawn("Läuft: @ Läuft: Allegro molto appassionato"), "Allegro molto appassionato")
-        XCTAssertFalse(
-            Self.isCut(
-                label: Self.drawn("Läuft: @ Läuft: Allegro molto appassionato"),
-                frame: CGRect(x: 16, y: 672, width: 217, height: 20.3)))
-        XCTAssertFalse(Self.isCut(label: "Einstellungen", frame: CGRect(x: 0, y: 0, width: 300, height: 24)))
+        if let prefix = Self.spokenPrefixes.first {
+            XCTAssertEqual(Self.drawn("\(prefix)Allegro molto appassionato"), "Allegro molto appassionato")
+            XCTAssertFalse(
+                Self.isCut(
+                    label: Self.drawn("\(prefix)Allegro molto appassionato"),
+                    frame: CGRect(x: 16, y: 672, width: 217, height: 20.3)))
+        }
+        XCTAssertFalse(Self.isCut(label: "Settings", frame: CGRect(x: 0, y: 0, width: 300, height: 24)))
         XCTAssertTrue(Self.isCut(label: "Ser…", frame: CGRect(x: 0, y: 0, width: 300, height: 24)))
         XCTAssertTrue(
             Self.isCut(
-                label: String(repeating: "Wiedergabe ", count: 20), frame: CGRect(x: 0, y: 0, width: 300, height: 24)))
+                label: String(repeating: "Playback ", count: 20), frame: CGRect(x: 0, y: 0, width: 300, height: 24)))
     }
 }

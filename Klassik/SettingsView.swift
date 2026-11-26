@@ -31,13 +31,8 @@ struct SettingsView: View {
         let family = AccentChoice.shared.family
         GroupedPageList {
             Section {
-                Picker("App Language", selection: languageSetting) {
-                    ForEach(LanguageSetting.allCases) { Text($0.title).tag($0) }
-                }
-                .accessibilityIdentifier("app-language")
-                .id(family)
                 Picker("Fallback Language", selection: fallbackSetting) {
-                    ForEach(TextFallback.allCases) { Text($0.title).tag($0) }
+                    ForEach(TextFallback.all) { Text($0.title).tag($0) }
                 }
                 .accessibilityIdentifier("text-fallback")
                 .id(family)
@@ -45,7 +40,7 @@ struct SettingsView: View {
                 SectionHeading("Language")
             } footer: {
                 Text(
-                    "Klassik follows the language of your iPhone until you pick one. Descriptions and biographies come from Wikidata and Wikipedia in the app language. Where they have none, Klassik shows the fallback language, or nothing when it is off. Composer names, work titles and tags stay as your music tags them."
+                    "Descriptions and biographies come from Wikidata and Wikipedia in the app language. Where they have none, Klassik shows the fallback language, or nothing when it is off. Composer names, work titles and tags stay as your music tags them. Change the app language in the iOS Settings app, under Klassik."
                 )
             }
 
@@ -184,10 +179,6 @@ struct SettingsView: View {
         } message: {
             Text(deleteError ?? "")
         }
-    }
-
-    private var languageSetting: Binding<LanguageSetting> {
-        Binding(get: { Localization.shared.setting }, set: { Localization.shared.select($0) })
     }
 
     private var fallbackSetting: Binding<TextFallback> {

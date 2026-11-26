@@ -59,8 +59,8 @@ struct PersonAbout<Tags: View>: View {
             Section {
                 Text(
                     kind == "composer"
-                        ? "Wikidata has no facts for this composer. Klassik shows your tags."
-                        : "Wikidata has no facts for this performer. Klassik shows your tags."
+                        ? L("Wikidata has no facts for this composer. Klassik shows your tags.")
+                        : L("Wikidata has no facts for this performer. Klassik shows your tags.")
                 )
                 .foregroundStyle(Palette.textSecondary)
                 .listRowSeparator(.hidden)

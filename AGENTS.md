@@ -60,13 +60,13 @@ Rules for coding agents in this repository.
 
 ## Localization
 
-- The app speaks English and German ([0072](docs/adr/0072-app-language-and-fetched-texts.md)). `Klassik/Localizable.xcstrings` and `Klassik/InfoPlist.xcstrings` hold every text. English is the source language.
+- `Klassik/Localizable.xcstrings` and `Klassik/InfoPlist.xcstrings` hold every text. English is the source language. The app language is the iOS per-app language (Settings app, Klassik, Language): the bundle declares the languages, iOS restarts the app on a change, and no code overrides the bundle language. A new language is a catalog column, an entry in `CFBundleLocalizations` in `project.yml` and a line in the README. Code, docs and checks name no language.
 - A view takes text from a literal (`Text("Library")`, `Button("Done")`) or from `L("...")`. Both read a key of the catalog. A custom component takes the key as a `String` and draws it with `LocalizedStringKey`. A plural is one key with plural variations, such as `%lld works`.
 - A number, a date, a duration, a byte count and a list go through `localized()`, `localizedRelative()`, `localizedByteCount()`, `localizedTime(_:)` and `localizedList()`. They follow the app language, not the device.
 - Composer names, work titles and tags stay as tagged. A role label that the app words (`conductor`) goes through `Roles.displayLabel`.
 - A text never truncates: no `lineLimit`, `minimumScaleFactor` or `truncationMode` for a catalog text. A line for a tag or a number goes into `scripts/truncation_allowed.txt` with its reason.
-- `python3 scripts/l10n_check.py` checks all of this. The `localization` job of `test.yml` runs it. `--table` prints the German texts for a review.
-- `LanguageScreens` walks Settings, Library, Search, a work page and the player in German, and once with doubled texts (`-NSDoubleLocalizedStrings YES`). Every other walk stays English.
+- `python3 scripts/l10n_check.py` checks all of this. The `localization` job of `test.yml` runs it. `--table --language xx` prints the source texts against the texts of language `xx` for a review.
+- `LanguageScreens` walks Settings, Library, Search, a work page and the player in one language, and once with doubled texts (`-NSDoubleLocalizedStrings YES`). The language is `KLASSIK_WALK_LANGUAGE` (a catalog language); without it, the first catalog language that is not the source. Every other walk stays in the source language.
 
 ## Releases and TestFlight
 

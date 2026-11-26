@@ -5,21 +5,24 @@
 # ///
 """Checks the localization of the app (sz-odf9).
 
-The app speaks English and German. The catalogs are Klassik/Localizable.xcstrings and Klassik/InfoPlist.xcstrings.
-The check fails when:
+The catalogs are Klassik/Localizable.xcstrings and Klassik/InfoPlist.xcstrings. The languages of the app are the
+languages that the catalogs hold, and the source language is the catalog's `sourceLanguage`. The check fails when:
 
-- a key has no German text, or a text is not "translated", or the catalog marks a key stale;
-- a plural key lacks a plural form in a language, or a text has other format specifiers than its key;
+- a key lacks a text in a language of the catalogs, or a text is not "translated", or the catalog marks a key stale;
+- a plural key lacks a plural form that its language uses, or a text has other format specifiers than its key;
+- `CFBundleLocalizations` in project.yml differs from the languages of the catalogs;
 - the Swift code draws a literal that the catalog does not hold (Text, Button, L and the other calls below);
 - a view truncates text (`lineLimit`, `minimumScaleFactor`, `truncationMode`) without a reason in
   scripts/truncation_allowed.txt.
 
-python3 scripts/l10n_check.py            runs the check
-python3 scripts/l10n_check.py --table    prints the English and German texts as a Markdown table, for the review
+python3 scripts/l10n_check.py                        runs the check
+python3 scripts/l10n_check.py --table --language xx  prints the source texts and the texts of language xx as a
+                                                     Markdown table, for the review of that language
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import pathlib
@@ -28,13 +31,17 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 CATALOGS = ("Klassik/Localizable.xcstrings", "Klassik/InfoPlist.xcstrings")
-SOURCE = "en"
-LANGUAGES = ("en", "de")
-# The plural categories that English and German use.
-PLURAL_FORMS = ("one", "other")
+PROJECT = ROOT / "project.yml"
+# The plural categories (CLDR) that a language uses, when they are not "one" and "other".
+PLURAL_FORMS = {
+    **dict.fromkeys(("fr", "es", "it", "pt", "ca"), ("one", "many", "other")),
+    **dict.fromkeys(("ru", "uk", "pl", "cs", "lt", "he"), ("one", "few", "many", "other")),
+    **dict.fromkeys(("ja", "ko", "zh", "vi", "th", "id", "ms", "tr"), ("other",)),
+}
+DEFAULT_PLURAL_FORMS = ("one", "other")
 ALLOW = ROOT / "scripts" / "truncation_allowed.txt"
 
-# The developer test page and its player are English only: no listener sees them.
+# The developer test page and its player stay in the source language: no listener sees them.
 EXEMPT_FILES = {
     "Klassik/GaplessTestView.swift",
     "Klassik/GaplessTestPlayer.swift",
@@ -106,21 +113,50 @@ def values(localization: dict) -> dict[str, str]:
     return found
 
 
-def check_catalog(path: str, catalog: dict) -> list[str]:
+def plural_forms(language: str) -> tuple[str, ...]:
+    return PLURAL_FORMS.get(language.split("-")[0], DEFAULT_PLURAL_FORMS)
+
+
+def source_language(catalogs: dict[str, dict]) -> str:
+    sources = {catalog.get("sourceLanguage") for catalog in catalogs.values()}
+    return sources.pop() if len(sources) == 1 else ""
+
+
+def languages_of(catalogs: dict[str, dict]) -> list[str]:
+    """The source language first, then every language that a catalog holds."""
+    source = source_language(catalogs)
+    found = {source} if source else set()
+    for catalog in catalogs.values():
+        for entry in catalog.get("strings", {}).values():
+            found |= set(entry.get("localizations", {}))
+    return sorted(found, key=lambda code: (code != source, code))
+
+
+def check_project(languages: list[str]) -> list[str]:
+    match = re.search(r"CFBundleLocalizations:\s*\[([^\]]*)\]", PROJECT.read_text())
+    if match is None:
+        return [f"{PROJECT.name}: no CFBundleLocalizations"]
+    declared = sorted(code.strip() for code in match.group(1).split(",") if code.strip())
+    if declared != sorted(languages):
+        return [f"{PROJECT.name}: CFBundleLocalizations {declared} differs from the catalogs {sorted(languages)}"]
+    return []
+
+
+def check_catalog(path: str, catalog: dict, languages: list[str], source: str) -> list[str]:
     problems: list[str] = []
-    if catalog.get("sourceLanguage") != SOURCE:
-        problems.append(f"{path}: the source language is not {SOURCE}")
+    if not source or catalog.get("sourceLanguage") != source:
+        problems.append(f"{path}: its source language differs from the other catalogs")
     for key, entry in catalog.get("strings", {}).items():
         where = f"{path}: {key!r}"
         if entry.get("extractionState") == "stale":
             problems.append(f"{where}: stale; no code uses this key")
         localizations = entry.get("localizations", {})
-        plural = any("variations" in localizations.get(language, {}) for language in LANGUAGES)
-        for language in LANGUAGES:
+        plural = any("variations" in localizations.get(language, {}) for language in languages)
+        for language in languages:
             localization = localizations.get(language)
             if localization is None:
                 # The source text is the key itself.
-                if language != SOURCE or plural:
+                if language != source or plural:
                     problems.append(f"{where}: no {language} text")
                 continue
             texts = values(localization)
@@ -128,7 +164,7 @@ def check_catalog(path: str, catalog: dict) -> list[str]:
                 if "variations" not in localization:
                     problems.append(f"{where}: {language} has no plural forms")
                     continue
-                for form in PLURAL_FORMS:
+                for form in plural_forms(language):
                     if form not in texts:
                         problems.append(f"{where}: {language} lacks the plural form {form}")
             elif "" not in texts:
@@ -325,21 +361,24 @@ def check_truncation() -> list[str]:
 # MARK: Table
 
 
-def table(catalogs: dict[str, dict]) -> str:
-    rows = ["| English | Deutsch |", "| --- | --- |"]
+def table(catalogs: dict[str, dict], language: str) -> str:
+    """The source texts against the texts of `language`."""
+    source = source_language(catalogs)
+    rows = [f"| {source} | {language} |", "| --- | --- |"]
+
+    def cell(text: str) -> str:
+        return text.replace("|", "\\|").replace("\n", " ").replace("\u00a0", "~")
+
     for catalog in catalogs.values():
         for key, entry in sorted(catalog.get("strings", {}).items()):
-            german = values(entry.get("localizations", {}).get("de", {}))
-            english = values(entry.get("localizations", {}).get("en", {}))
-
-            def cell(text: str) -> str:
-                return text.replace("|", "\\|").replace("\n", " ").replace("\u00a0", "~")
-
-            if "" in german:
-                rows.append(f"| {cell(english.get('', key))} | {cell(german[''])} |")
+            localizations = entry.get("localizations", {})
+            other = values(localizations.get(language, {}))
+            original = values(localizations.get(source, {}))
+            if "" in other:
+                rows.append(f"| {cell(original.get('', key))} | {cell(other[''])} |")
             else:
-                for form in PLURAL_FORMS:
-                    rows.append(f"| {cell(english.get(form, key))} ({form}) | {cell(german.get(form, ''))} ({form}) |")
+                for form in plural_forms(language):
+                    rows.append(f"| {cell(original.get(form, key))} ({form}) | {cell(other.get(form, ''))} ({form}) |")
     return "\n".join(rows)
 
 
@@ -348,22 +387,35 @@ def load() -> dict[str, dict]:
 
 
 def main(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(description="Checks the localization of the app.")
+    parser.add_argument("--table", action="store_true", help="print the texts of one language for review")
+    parser.add_argument("--language", help="the language that --table prints (required with --table)")
+    args = parser.parse_args(argv)
     catalogs = load()
-    if "--table" in argv:
-        print(table(catalogs))
+    languages = languages_of(catalogs)
+    if args.table:
+        if args.language is None:
+            parser.error("--table needs --language, one of: " + ", ".join(languages[1:]))
+        if args.language not in languages[1:]:
+            parser.error(f"{args.language!r} is not a language of the catalogs: " + ", ".join(languages[1:]))
+        print(table(catalogs, args.language))
         return 0
+    if args.language:
+        parser.error("--language belongs to --table")
+    source = source_language(catalogs)
     problems: list[str] = []
     keys: set[str] = set()
     for path, catalog in catalogs.items():
-        problems += check_catalog(path, catalog)
+        problems += check_catalog(path, catalog, languages, source)
         keys |= set(catalog.get("strings", {}))
     if not catalogs:
         problems.append("no catalog: " + ", ".join(CATALOGS))
+    problems += check_project(languages)
     problems += check_swift(keys)
     problems += check_truncation()
     for problem in problems:
         print(f"::error::{problem}" if "GITHUB_ACTIONS" in os.environ else problem)
-    print(f"{len(keys)} keys, {len(problems)} problems")
+    print(f"{len(keys)} keys, {len(languages)} languages, {len(problems)} problems")
     return 1 if problems else 0
 
 

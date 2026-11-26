@@ -2731,6 +2731,16 @@
         }
       }
     },
+    "Show Audio Quality": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audioqualität anzeigen"
+          }
+        }
+      }
+    },
     "Show Taps": {
       "localizations": {
         "de": {
@@ -3381,12 +3391,12 @@
         }
       }
     },
-    "While music plays, the timeline runs on this screen edge. Album keeps the loudness steps between the movements of a work. Scrobbles count played movements on your server. Your server can send them to linked listening services.": {
+    "While music plays, the timeline runs on this screen edge. Album keeps the loudness steps between the movements of a work. ReplayGain Off removes the gain stage from the signal path. Show Audio Quality adds a line under the playback bar: the file format, the output rate, and whether anything changes the samples. Scrobbles count played movements on your server. Your server can send them to linked listening services.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Während Musik läuft, steht die Zeitleiste an diesem Bildschirmrand. „Album“ behält die Lautstärkestufen zwischen den Sätzen eines Werks. Scrobbles zählen gespielte Sätze auf deinem Server. Dein Server kann sie an verknüpfte Hördienste senden."
+            "value": "Während Musik läuft, steht die Zeitleiste an diesem Bildschirmrand. „Album“ behält die Lautstärkestufen zwischen den Sätzen eines Werks. „ReplayGain aus“ entfernt die Verstärkungsstufe aus dem Signalweg. „Audioqualität anzeigen“ fügt unter der Wiedergabeleiste eine Zeile hinzu: das Dateiformat, die Ausgaberate und ob etwas die Samples verändert. Scrobbles zählen gespielte Sätze auf deinem Server. Dein Server kann sie an verknüpfte Hördienste senden."
           }
         }
       }

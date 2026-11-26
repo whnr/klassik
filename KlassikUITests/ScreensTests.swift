@@ -2610,27 +2610,24 @@ final class SettingsScreens: ScreensTestCase {
         let tint = reveal(app.sliders["player-tint-strength"], in: app)
         XCTAssertTrue(tint.isHittable)
         XCTAssertEqual(tint.value as? String, "3×")
-        adjust(tint, toNormalizedSliderPosition: 0, expecting: "0×")
-        adjust(tint, toNormalizedSliderPosition: 0.5, expecting: "2.5×")
-        adjust(tint, toNormalizedSliderPosition: 1, expecting: "5×")
-        adjust(tint, toNormalizedSliderPosition: 0.6, expecting: "3×")
+        adjust(tint, toStrength: "0×")
+        adjust(tint, toStrength: "2.5×")
+        adjust(tint, toStrength: "5×")
+        adjust(tint, toStrength: "3×")
         snap(app, "08f-player-tint-setting")
     }
 
-    /// The slider value is a label ("2.5×"), not a percentage, and `adjust` aims from a thumb place that it can only
-    /// estimate, so a drag lands a fixed offset from its aim and can end a step away. A drag from the same aim repeats
-    /// the miss. Each try reads the value the slider holds and moves the aim by the missing distance, which cancels the
-    /// offset; the slider spans 0× to 5×. The final value is asserted.
+    /// The slider value is a label ("2.5×"), not a percentage. Each accessibility step moves it one grid stop, so the
+    /// steps reach the target without any drag. The loop is bounded by the number of stops; the final value is asserted.
     @MainActor
-    func adjust(_ slider: XCUIElement, toNormalizedSliderPosition position: CGFloat, expecting value: String) {
-        let range: CGFloat = 5
-        var aim = position
-        for _ in 0..<10 {
-            slider.adjust(toNormalizedSliderPosition: min(max(aim, 0), 1))
-            guard let shown = slider.value as? String, shown != value else { break }
-            let numbers = [shown, value].map { Double($0.replacingOccurrences(of: "×", with: "")) }
-            guard let now = numbers[0], let wanted = numbers[1] else { break }
-            aim += CGFloat(wanted - now) / range
+    func adjust(_ slider: XCUIElement, toStrength value: String) {
+        func strength(_ label: String?) -> Double? {
+            label.flatMap { Double($0.replacingOccurrences(of: "×", with: "")) }
+        }
+        guard let wanted = strength(value) else { return XCTFail("\(value) is not a strength") }
+        for _ in 0..<12 {
+            guard let now = strength(slider.value as? String), now != wanted else { break }
+            if now < wanted { slider.increment() } else { slider.decrement() }
         }
         XCTAssertEqual(slider.value as? String, value)
     }

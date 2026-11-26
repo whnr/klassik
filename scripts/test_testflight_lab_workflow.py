@@ -1,4 +1,4 @@
-"""Checks the trust conditions of the Lab TestFlight workflow: python3 -m unittest discover -s scripts -p "test_testflight_lab_workflow.py"."""
+"""Trust conditions of testflight-lab.yml: python3 -m unittest discover -s scripts -p "test_testflight_lab_*.py"."""
 
 import pathlib
 import re

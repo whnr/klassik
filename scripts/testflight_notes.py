@@ -29,6 +29,7 @@ BEAD_ID = re.compile(r"\bsz-[a-z0-9]")
 NUMBERED_CHECK = re.compile(r"^\s*\d+[.)]\s", re.MULTILINE)
 # The text is a feature summary: about 100 words. The cap leaves room and still stops a checklist.
 MAX_WORDS = 150
+MAX_BULLET_WORDS = 25
 
 
 def validate(notes, version, previous=None):
@@ -42,7 +43,7 @@ def validate(notes, version, previous=None):
         raise ValueError("docs/what-to-test.md names a bead ID. Testers cannot read the ledger.")
     match = DEVELOPMENT_TERMS.search(notes)
     if match:
-        raise ValueError(f"Development term in docs/what-to-test.md: {match.group()}. Use installed-app checks only.")
+        raise ValueError(f"Development term in docs/what-to-test.md: {match.group()}. Use words a tester sees.")
     body = notes.partition("\n")[2]
     if not body.strip():
         raise ValueError("docs/what-to-test.md has no summary. Write one short bullet per change.")
@@ -52,6 +53,12 @@ def validate(notes, version, previous=None):
             f"docs/what-to-test.md has {words} words; the feature summary allows {MAX_WORDS}. "
             "Write one short bullet per change."
         )
+    for line in body.splitlines():
+        if line.strip() == "-":
+            raise ValueError("docs/what-to-test.md has an empty bullet. Write a change or remove the line.")
+        count = len(line.split()) - 1
+        if line.startswith("- ") and count > MAX_BULLET_WORDS:
+            raise ValueError(f"A bullet has {count} words; the limit is {MAX_BULLET_WORDS}: {line[:60]!r}.")
     if NUMBERED_CHECK.search(body):
         raise ValueError(
             "docs/what-to-test.md has numbered checks. Write one bullet per feature change, not a regression checklist."

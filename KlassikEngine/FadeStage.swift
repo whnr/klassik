@@ -13,13 +13,20 @@ struct FadeRamp: Sendable {
     private var length = 0
     private var done = 0
     private var curve = FadeCurve.raisedCosine
+    /// True from the start of a ramp that waits for the first sound until `release`.
+    private(set) var isWaiting = false
 
     /// True while the gain still moves, or sits off unity.
-    var isIdle: Bool { done >= length && gain == 1 }
+    var isIdle: Bool { !isWaiting && done >= length && gain == 1 }
 
     /// Starts a ramp over `frames` frames, from `from` or else from the gain that the ramp has now.
     /// A length of 0 jumps to the target. A ramp that falls follows the fall of the curve, a ramp that rises its rise.
-    mutating func start(from: Float? = nil, to target: Float, frames: Int, curve: FadeCurve = .raisedCosine) {
+    /// A ramp with `waiting` holds its first gain until `release`, so that a node which plays later than the ramp
+    /// starts still fades in from its first sample.
+    mutating func start(
+        from: Float? = nil, to target: Float, frames: Int, curve: FadeCurve = .raisedCosine, waiting: Bool = false
+    ) {
+        isWaiting = waiting
         origin = from ?? gain
         self.target = target
         self.curve = curve
@@ -28,9 +35,12 @@ struct FadeRamp: Sendable {
         gain = length == 0 ? target : origin
     }
 
+    /// Lets a waiting ramp run, from the next frame on.
+    mutating func release() { isWaiting = false }
+
     /// The gain of the next frame.
     mutating func next() -> Float {
-        guard done < length else { return gain }
+        guard !isWaiting, done < length else { return gain }
         done += 1
         if done == length {
             gain = target
@@ -49,6 +59,24 @@ struct FadeRamp: Sendable {
     }
 }
 
+/// A flag that one fade stage sets when its ramp starts, and that another stage waits for. A crossfade joins the two
+/// graphs of the old and the new position with it, so that both ramps start at the first sounding frame of the new
+/// position. Neither side waits on the lock: a busy lock only delays the flag by one frame.
+final class FadeTrigger: @unchecked Sendable, Equatable {
+    private let flag = OSAllocatedUnfairLock(initialState: false)
+
+    static func == (lhs: FadeTrigger, rhs: FadeTrigger) -> Bool { lhs === rhs }
+
+    /// True once the flag is set. A busy lock reads as not set yet.
+    var isFired: Bool { flag.withLockIfAvailable { $0 } ?? false }
+
+    /// Sets the flag. Returns false when the lock was busy, so the caller tries again.
+    func fire() -> Bool { flag.withLockIfAvailable { $0 = true } != nil }
+
+    /// Sets the flag and waits for a busy lock. Only for the main thread: the render thread never waits.
+    func force() { flag.withLock { $0 = true } }
+}
+
 /// The hand-over between the main thread, which asks for a ramp, and the render thread, which runs it.
 /// The render thread never waits: when the lock is busy, it keeps the gain it has and asks again next block.
 final class FadeControl: @unchecked Sendable {
@@ -57,6 +85,12 @@ final class FadeControl: @unchecked Sendable {
         var target: Float
         var frames: Int
         var curve = FadeCurve.raisedCosine
+        /// The ramp waits for the first frame with sound before it runs.
+        var onSignal = false
+        /// Set when the waiting ramp starts, for a ramp on another stage that waits with `after`.
+        var fires: FadeTrigger?
+        /// The ramp waits for this flag instead of a sound on its own stage.
+        var after: FadeTrigger?
     }
 
     private struct State {
@@ -67,16 +101,33 @@ final class FadeControl: @unchecked Sendable {
     private let state = OSAllocatedUnfairLock(initialState: State())
     /// Only the render thread touches the ramp.
     private var ramp = FadeRamp()
+    private var fires: FadeTrigger?
+    private var after: FadeTrigger?
 
     /// The newest request, for tests and for the engine's own checks.
     var last: Command? { state.withLock { $0.last } }
 
-    func ramp(from: Float? = nil, to target: Float, frames: Int, curve: FadeCurve = .raisedCosine) {
-        let command = Command(from: from, target: target, frames: frames, curve: curve)
+    func ramp(
+        from: Float? = nil, to target: Float, frames: Int, curve: FadeCurve = .raisedCosine, onSignal: Bool = false,
+        fires: FadeTrigger? = nil, after: FadeTrigger? = nil
+    ) {
+        let command = Command(
+            from: from, target: target, frames: frames, curve: curve, onSignal: onSignal || after != nil,
+            fires: fires, after: after)
         state.withLock {
             $0.pending = command
             $0.last = command
         }
+    }
+
+    /// True when any channel of the frame holds a sample other than 0.
+    private static func hasSound(_ buffers: UnsafeMutableAudioBufferListPointer, at frame: Int) -> Bool {
+        for buffer in buffers {
+            guard let data = buffer.mData?.assumingMemoryBound(to: Float.self) else { continue }
+            let channels = Int(buffer.mNumberChannels)
+            for channel in 0..<channels where data[frame * channels + channel] != 0 { return true }
+        }
+        return false
     }
 
     /// Runs on the render thread. Reads a new request first, then scales the samples.
@@ -85,11 +136,22 @@ final class FadeControl: @unchecked Sendable {
             defer { state.pending = nil }
             return state.pending
         }) ?? nil {
-            ramp.start(from: command.from, to: command.target, frames: command.frames, curve: command.curve)
+            ramp.start(
+                from: command.from, to: command.target, frames: command.frames, curve: command.curve,
+                waiting: command.onSignal)
+            fires = command.fires
+            after = command.after
         }
         guard !ramp.isIdle else { return }
         let buffers = UnsafeMutableAudioBufferListPointer(list)
         for frame in 0..<frames {
+            if ramp.isWaiting {
+                if let after {
+                    if after.isFired { ramp.release() }
+                } else if Self.hasSound(buffers, at: frame), fires?.fire() ?? true {
+                    ramp.release()
+                }
+            }
             let gain = ramp.next()
             for buffer in buffers {
                 guard let data = buffer.mData?.assumingMemoryBound(to: Float.self) else { continue }

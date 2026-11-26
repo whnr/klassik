@@ -62,4 +62,13 @@ struct LabCasesTests {
         let flac = LabCase.cases(from: [song("a", disc: 1, track: 1, work: "FLAC without header")])[0]
         #expect(flac.gapNote == nil)
     }
+
+    @Test func onlyTheToneCasesCarryAListenNote() throws {
+        let pure = LabCase.cases(from: [song("a", disc: 1, track: 1, work: "Wave 440 Hz")])[0]
+        #expect(try #require(pure.listenNote).contains("click"))
+        let chord = LabCase.cases(from: [song("a", disc: 1, track: 1, work: "Wave Chord")])[0]
+        #expect(chord.listenNote != nil)
+        let flac = LabCase.cases(from: [song("a", disc: 1, track: 1, work: "FLAC 24/96")])[0]
+        #expect(flac.listenNote == nil)
+    }
 }

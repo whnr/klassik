@@ -89,7 +89,8 @@ struct NativeRateTests {
         let tap = Tap()
         let events = Events()
         let engine = GaplessEngine(
-            rendered: { tap.record($0) }, manualRendering: true, gainNode: gainNode, fadeSeconds: 0)
+            rendered: { tap.record($0) }, manualRendering: true, gainNode: gainNode, fadeSeconds: 0,
+            watchesStarvation: false)
         engine.onEvent = { event in
             switch event {
             case .movementEnded(let index): events.log.append("end \(index)")

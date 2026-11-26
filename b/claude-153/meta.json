@@ -1,7 +1,7 @@
 {
-  "sha": "8a9494c851e4eb1126f60106b5ef7b585edf0bb2",
+  "sha": "f3afe1c427d8a26b5c9e3f90b030656df2292d29",
   "branch": "claude-153",
   "path": "claude-153",
-  "subject": "Shorten release notes to a feature summary",
-  "ts": 1795383098
+  "subject": "Merge origin/main into claude-153",
+  "ts": 1795703903
 }

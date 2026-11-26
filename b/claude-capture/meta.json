@@ -1,7 +1,7 @@
 {
-  "sha": "6167a2ab85473c588678024285b93bc8ad8bc7c3",
+  "sha": "2de7cb5cf07b2d9e27c52d5d34ce508359fe85a7",
   "branch": "claude-capture",
   "path": "claude-capture",
-  "subject": "[sz-rs30.1.162.15] Capture every graph that sounds at a seek",
-  "ts": 1795659584
+  "subject": "[sz-rs30.1.162.15] Merge main into claude-capture",
+  "ts": 1795661396
 }

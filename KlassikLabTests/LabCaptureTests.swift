@@ -242,7 +242,8 @@ struct LabCaptureTests {
         var overlapped: Bool { overlap.load(ordering: .acquiring) }
 
         func record(_ buffer: AVReadOnlyAudioPCMBuffer, into recorder: CaptureRecorder) {
-            if inFlight.add(1, ordering: .acquiringAndReleasing).newValue > 1 { overlap.store(true, ordering: .releasing) }
+            let running = inFlight.add(1, ordering: .acquiringAndReleasing).newValue
+            if running > 1 { overlap.store(true, ordering: .releasing) }
             defer { inFlight.subtract(1, ordering: .acquiringAndReleasing) }
             let frames = Int(buffer.frameLength)
             buffer.withUnsafeAudioBufferList { list in

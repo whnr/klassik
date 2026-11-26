@@ -2610,21 +2610,30 @@ final class SettingsScreens: ScreensTestCase {
         let tint = reveal(app.sliders["player-tint-strength"], in: app)
         XCTAssertTrue(tint.isHittable)
         XCTAssertEqual(tint.value as? String, "3×")
-        adjust(tint, toNormalizedSliderPosition: 0, expecting: "0×")
-        adjust(tint, toNormalizedSliderPosition: 0.5, expecting: "2.5×")
-        adjust(tint, toNormalizedSliderPosition: 1, expecting: "5×")
-        adjust(tint, toNormalizedSliderPosition: 0.6, expecting: "3×")
+        adjust(tint, toStrength: "0×")
+        adjust(tint, toStrength: "2.5×")
+        adjust(tint, toStrength: "5×")
+        adjust(tint, toStrength: "3×")
         snap(app, "08f-player-tint-setting")
     }
 
-    /// The slider value is a label ("2.5×"), not a percentage, so the drag of `adjust` aims from a thumb place that it
-    /// can only estimate, and one drag can end a step away. Each try drags from where the thumb really is. The value
-    /// after the last try must still be the exact one.
+    /// The slider value is a label ("2.5×"), not a percentage, and XCUITest has no step API, only `adjust`, which drags
+    /// from a thumb place it can only estimate. The value never falls as the aim rises, so the aim is bisected on the
+    /// value read back until it equals the target. The bound is generous for the 11 stops; the final value is asserted.
     @MainActor
-    func adjust(_ slider: XCUIElement, toNormalizedSliderPosition position: CGFloat, expecting value: String) {
-        for _ in 0..<3 {
-            slider.adjust(toNormalizedSliderPosition: position)
-            if slider.value as? String == value { break }
+    func adjust(_ slider: XCUIElement, toStrength value: String) {
+        func strength(_ label: String?) -> Double? {
+            label.flatMap { Double($0.replacingOccurrences(of: "×", with: "")) }
+        }
+        guard let wanted = strength(value) else { return XCTFail("\(value) is not a strength") }
+        var low: CGFloat = 0
+        var high: CGFloat = 1
+        var aim = CGFloat(wanted / 5)
+        for _ in 0..<16 {
+            slider.adjust(toNormalizedSliderPosition: aim)
+            guard let now = strength(slider.value as? String), now != wanted else { break }
+            if now < wanted { low = aim } else { high = aim }
+            aim = (low + high) / 2
         }
         XCTAssertEqual(slider.value as? String, value)
     }

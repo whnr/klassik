@@ -1,7 +1,7 @@
 {
-  "sha": "60e6793073f4f391879476a8c016d5c161bf9ea6",
+  "sha": "73cf7db23b606925e70b9126b1076396edf10701",
   "branch": "claude-seek-fadein",
   "path": "claude-seek-fadein",
-  "subject": "[sz-rs30.1.162.14] Fire the crossfade flag in the skip tests",
-  "ts": 1795654487
+  "subject": "[sz-rs30.1.162.14] Schedule the test buffer from a sync test",
+  "ts": 1795656631
 }

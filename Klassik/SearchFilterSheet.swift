@@ -72,7 +72,7 @@ struct FilterSheet: View {
             .listSectionSpacing(0)
             // The terms are rows of one plain list on the sheet ground, with hairlines across the list.
             Section {
-                if choices.isEmpty {
+                if choices.isEmpty && model.library.hasSearchFilters {
                     Text("No term of this kind is left.")
                         .typeStyle(.subheadline)
                         .foregroundStyle(Palette.textSecondary)
@@ -113,7 +113,7 @@ struct FilterSheet: View {
                 .foregroundStyle(Palette.textPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityAddTraits(.isHeader)
-            if hasText || !conditions.isEmpty {
+            if (hasText || !conditions.isEmpty) && model.library.hasSearchFilters {
                 Text(WorkIndex.Recording.count(total, "recording"))
                     .typeStyle(.subheadline)
                     .monospacedDigit()

@@ -434,6 +434,8 @@ final class BrowseScreens: ScreensTestCase {
         let done = app.buttons["filter-done"]
         XCTAssertTrue(done.waitForExistence(timeout: 10))
         XCTAssertGreaterThan(done.frame.minY, app.frame.height / 3, "The sheet is not at the medium detent")
+        // The sheet shows no total until the terms of the library are built.
+        XCTAssertTrue(app.staticTexts["filter-total"].waitForExistence(timeout: 10), "The sheet shows no total")
         XCTAssertEqual(app.staticTexts["filter-total"].label, "4\u{00A0}recordings")
         // The head and the body share one inset: Back leads the head, the title follows it, and the note and the
         // kinds start under Back; the kinds reach to Done.

@@ -30,6 +30,9 @@ final class Library {
     /// The search terms of the index for the filter sheet. They build off the main actor when the index changes, so
     /// the first tap on Filters never waits. Until a build is done, the sheet keeps the terms of the last index.
     private(set) var searchFilters = SearchFilters(index: WorkIndex())
+    /// False until the first build of `searchFilters` is done. Before that the terms and counts are empty, and a
+    /// sheet that showed them would say "0 recordings" for a library that holds many.
+    private(set) var hasSearchFilters = false
     @ObservationIgnored private var filtersBuild: Task<Void, Never>?
     /// The last real change: the time of the last full sync.
     private(set) var syncedAt: Date?
@@ -81,6 +84,7 @@ final class Library {
             let built = await Task.detached(priority: .utility) { SearchFilters(index: index) }.value
             guard let self, !Task.isCancelled, self.indexVersion == version else { return }
             self.searchFilters = built
+            self.hasSearchFilters = true
         }
     }
 

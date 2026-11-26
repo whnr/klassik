@@ -1,7 +1,7 @@
 {
-  "sha": "d4451294d719b194d02022dece9d4df764775a9b",
+  "sha": "95d7df532bfb3bbf74c74a2fabcade43928f7218",
   "branch": "claude-seek-fadein",
   "path": "claude-seek-fadein",
-  "subject": "[sz-rs30.1.162.14] Fade in from the first sound after a seek",
-  "ts": 1795650253
+  "subject": "[sz-rs30.1.162.14] Crossfade with the chosen curves",
+  "ts": 1795651881
 }

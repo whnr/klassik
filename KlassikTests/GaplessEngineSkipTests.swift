@@ -590,7 +590,7 @@ struct GaplessEngineSkipTests {
 
     /// A seek in the silence mode, dB-linear fade-out: the level of the rendered output follows the curve at 25, 50
     /// and 75 percent of the fade. The engine's own load asks for the fade-out of a real graph with the fade stage.
-    @Test func aSilenceModeSeekFallsEvenlyInDecibels() async throws {
+    @Test func aSilenceModeSeekFallsEvenlyInDecibels() throws {
         let format = try #require(AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 2))
         let engine = AVAudioEngine()
         let node = AVAudioPlayerNode()

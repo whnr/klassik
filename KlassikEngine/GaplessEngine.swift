@@ -57,8 +57,9 @@ public final class GaplessEngine: PlaybackEngine {
     /// The graph of the old position, which keeps playing after a load in crossfade mode until the new graph can sound.
     private var outgoing: Outgoing?
 
-    /// The flag that the old graph of a crossfade waits for. The new graph's first sound sets it. A new graph that is
-    /// paused, discarded or replaced before it sounds, or that stays silent, must not leave the old graph at full level.
+    /// The flag that the old graph of a crossfade waits for. The new graph's first sound sets it. A load that
+    /// replaces a graph before it sounds hands the flag to the next graph. A pause, a discard, or a graph that stays
+    /// silent past `soundWaitLimit` must not leave the old graph at full level.
     private var crossfadeTrigger: FadeTrigger?
     /// The longest wait of the old graph for the first sound of the new one, in seconds.
     var soundWaitLimit = 5.0
@@ -185,7 +186,10 @@ public final class GaplessEngine: PlaybackEngine {
     }
 
     public func load(_ songs: [PlaybackTrack], from movement: Int, offset: Double, file: @escaping PlaybackFileSource) {
-        let sounding = isSounding
+        // A graph that started but made no sound yet is no place to cross over from. The old graph keeps waiting for
+        // the same flag, so that the next graph that sounds releases it.
+        let carried = fadeOptions.seek == .crossfade ? crossfadeTrigger.flatMap { $0.isFired ? nil : $0 } : nil
+        let sounding = isSounding && carried == nil
         if manualRendering { offlineClock = max(offlineClock, graphEpoch + Double(pumped) / sampleRate) }
         registerPendingSink(sounding: sounding)
         // A graph that sounds stays up for a crossfade. A graph that is still silent has nothing to cross over from,
@@ -198,8 +202,9 @@ public final class GaplessEngine: PlaybackEngine {
             parked = outgoing
             outgoing = nil
         }
-        let stopWait = reset()
+        let stopWait = reset(carryingCrossfade: carried != nil)
         outgoing = parked
+        crossfadeTrigger = carried
         // The load starts at once. Only the first sound waits, so the load time runs inside the fade-out and the gap.
         let delay = fadeOptions.newSoundDelay(stopWait: stopWait)
         // An offline graph is stamped at the time of its first sound, as the tests model it.
@@ -291,7 +296,7 @@ public final class GaplessEngine: PlaybackEngine {
     /// Drops the load and its graph. Returns the seconds that the old sound needs to fade out and stop, or 0 when
     /// it stops at once.
     @discardableResult
-    private func reset() -> Double {
+    private func reset(carryingCrossfade: Bool = false) -> Double {
         // Invalidate callbacks before stopping: node teardown also calls completion handlers.
         generation += 1
         cancelled.set()
@@ -309,9 +314,10 @@ public final class GaplessEngine: PlaybackEngine {
         halting?.cancel()
         halting = nil
         retireOutgoing()
-        releaseCrossfade()
+        // The old graph of a crossfade still waits for a sound. Only the next graph, a pause or a discard ends that.
+        if !carryingCrossfade { releaseCrossfade() }
         let stopWait = retire(
-            engine, fade, sounding: isSounding, rate: sampleRate, curve: fadeOptions.outCurve)
+            engine, fade, sounding: isSounding && !carryingCrossfade, rate: sampleRate, curve: fadeOptions.outCurve)
         fade = nil
         silenced = false
         earliestSound = nil
@@ -905,7 +911,15 @@ public final class GaplessEngine: PlaybackEngine {
             if silenced { rampUp(from: nil) }
             return
         }
-        if let old = outgoing { crossfade(from: old) } else { rampUp(from: 0) }
+        if let old = outgoing {
+            crossfade(from: old)
+        } else if let waiting = crossfadeTrigger, !waiting.isFired {
+            // A second seek replaced the graph before it sounded: this graph releases the old one.
+            silenced = false
+            fade?.ramp(from: 0, to: 1, frames: inFrames, curve: fadeOptions.inCurve, onSignal: true, fires: waiting)
+        } else {
+            rampUp(from: 0)
+        }
         try node.playAudio()
     }
 

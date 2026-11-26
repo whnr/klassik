@@ -87,6 +87,9 @@ final class LabPlayer {
     /// The lines of the routing section.
     var routeLines: [String] { LabRoute.lines(route: route, graph: graph, change: routeChange) }
 
+    /// The lines as the screen shows them: never fewer than `LabRoute.reservedLines`, so the box keeps its height.
+    var reservedRouteLines: [String] { LabRoute.reserved(routeLines) }
+
     private func routeChanged(_ raw: UInt?) {
         routeChange = LabRoute.reason(raw)
         refreshRoute()
@@ -95,9 +98,14 @@ final class LabPlayer {
     private func refreshRoute() {
         route = LabRoute.read()
         outputRate = route.sampleRate
-        graph = LabRoute.Graph(
-            sourceRate: engine?.sourceSampleRate ?? 0, sourceChannels: engine?.sourceChannelCount ?? 0,
-            outputs: engine?.outputFormats)
+        // A seek builds a new graph that has no format until its first track connects. The lines keep the last graph
+        // meanwhile, so that the routing box does not lose lines and shift the screen.
+        if let rate = engine?.sourceSampleRate, rate > 0 {
+            graph = LabRoute.Graph(
+                sourceRate: rate, sourceChannels: engine?.sourceChannelCount ?? 0, outputs: engine?.outputFormats)
+        } else if engine == nil {
+            graph = LabRoute.Graph(sourceRate: 0, sourceChannels: 0, outputs: nil)
+        }
         engineRate = graph.sourceRate
         engineChannels = graph.sourceChannels
     }
@@ -367,8 +375,9 @@ final class LabPlayer {
                 movement: index, offset: 0,
                 join: "gap, movement \(index + 1) has another sample rate or channel count")
         case .configurationChanged:
-            // The output changed, for example a headset: the engine stopped and the load starts again here.
-            if isPlaying { start(movement: movement, offset: elapsed) }
+            // The output changed, for example a headset: the engine stopped and the load starts again here. The engine
+            // stays, so that a crossfade that waits for its new graph keeps the old sound until that graph sounds.
+            if isPlaying { start(movement: movement, offset: elapsed, keepingEngine: true) }
         case .problem(let message): note = message
         case .failed(let message):
             isPlaying = false

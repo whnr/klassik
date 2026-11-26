@@ -398,17 +398,29 @@ struct GaplessEngineSkipTests {
         player.discard()
     }
 
-    /// A second seek before the first sound of the new graph fades the first old graph out.
-    @Test func aSecondSeekBeforeTheFirstSoundFadesTheOldGraphOut() async throws {
+    /// A second seek before the first sound of the new graph keeps the first old graph at full level and hands the
+    /// flag to the next graph. The replaced graph never sounded, so it stops at once.
+    @Test func aSecondSeekBeforeTheFirstSoundKeepsTheOldGraphForTheNextOne() async throws {
         let (player, old, oldFade, trigger, new) = try await Self.crossfadeWaitingForSound()
         defer {
             old.stop()
             new.stop()
         }
+        let before = oldFade.last
         Self.load(player, old: old, probe: Probe())
-        #expect(trigger.isFired)
-        #expect(old.isRunning, "the old graph fades, it is not cut")
-        #expect(try #require(oldFade.last).target == 0)
+        #expect(!trigger.isFired)
+        #expect(!new.isRunning, "the graph that never sounded has nothing to fade")
+        #expect(oldFade.last == before)
+        try? await Task.sleep(for: .milliseconds(150))
+        #expect(old.isRunning)
+
+        let (third, thirdNode) = try Self.graph()
+        defer { third.stop() }
+        let thirdFade = FadeControl()
+        player.adopt(third, thirdNode, started: false, fade: thirdFade)
+        try player.start(thirdNode)
+        #expect(try #require(thirdFade.last).fires == trigger)
+        #expect(trigger.fire())
         #expect(await Self.eventually { !old.isRunning })
         player.discard()
     }
@@ -670,6 +682,87 @@ struct GaplessEngineSkipTests {
             let power = oldMix[index] * oldMix[index] + newMix[index] * newMix[index]
             #expect(abs(power - 1) < 0.05, "frame \(index): \(power)")
         }
+    }
+
+    /// An offline graph with the real fade stage. Its node plays `silent` frames of silence, then a constant level.
+    private struct RenderedGraph {
+        let engine: AVAudioEngine
+        let node: AVAudioPlayerNode
+        let fade: FadeControl
+        let output: AVAudioPCMBuffer
+    }
+
+    private static func renderedGraph(silent: Int, level: Float = 0.5) throws -> RenderedGraph {
+        let format = try #require(AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 2))
+        let engine = AVAudioEngine()
+        let node = AVAudioPlayerNode()
+        let made = try #require(FadeAudioUnit.make())
+        engine.attach(node)
+        engine.attach(made.stage)
+        try engine.connectNode(node, to: made.stage, format: format)
+        try engine.connectNode(made.stage, to: engine.mainMixerNode, format: format)
+        try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 1_024)
+        try engine.start()
+        let capacity = AVAudioFrameCount(4 * 44_100)
+        let audio = try #require(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: capacity))
+        audio.frameLength = capacity
+        for channel in 0..<2 {
+            for index in 0..<Int(capacity) { audio.floatChannelData![channel][index] = index < silent ? 0 : level }
+        }
+        node.scheduleBuffer(audio, completionHandler: nil)
+        let output = try #require(AVAudioPCMBuffer(pcmFormat: engine.manualRenderingFormat, frameCapacity: 1_024))
+        return RenderedGraph(engine: engine, node: node, fade: made.control, output: output)
+    }
+
+    /// Renders the graphs in blocks of 64 frames, the first graph first, and adds the first channel of each.
+    private static func render(_ graphs: [RenderedGraph], blocks: Int, into mix: inout [Float]) throws {
+        for _ in 0..<blocks {
+            var sum = [Float](repeating: 0, count: 64)
+            for graph in graphs where graph.engine.isRunning {
+                #expect(try graph.engine.renderOffline(64, to: graph.output) == .success)
+                for index in 0..<64 { sum[index] += graph.output.floatChannelData![0][index] }
+            }
+            mix += sum
+        }
+    }
+
+    /// The new bytes of the first seek arrive late, and a second seek comes before they sound. The old graph plays
+    /// on until the graph that finally sounds, so the sum of all graphs has no silence and no dip.
+    @Test func aCrossfadeSeekWhoseNewBytesArriveLateNeverLeavesSilence() throws {
+        var options = FadeOptions(outCurve: .equalPower, inCurve: .equalPower, outSeconds: 0.05, inSeconds: 0.05)
+        options.seek = .crossfade
+        let first = try Self.renderedGraph(silent: 0)
+        let second = try Self.renderedGraph(silent: 20_000)
+        let third = try Self.renderedGraph(silent: 3_000)
+        defer {
+            for graph in [first, second, third] { graph.engine.stop() }
+        }
+        let player = GaplessEngine(manualRendering: true)
+        player.fadeOptions = options
+        player.adopt(first.engine, first.node, started: true, fade: first.fade)
+        try player.start(first.node)
+        var mix: [Float] = []
+        try Self.render([first], blocks: 10, into: &mix)
+
+        // First seek: its graph plays but is silent for 20 000 frames.
+        Self.load(player, old: first.engine, probe: Probe())
+        player.adopt(second.engine, second.node, started: false, fade: second.fade)
+        try player.start(second.node)
+        try Self.render([second, first], blocks: 20, into: &mix)
+
+        // Second seek, before the first new sound: its graph sounds 3000 frames after its start.
+        Self.load(player, old: first.engine, probe: Probe())
+        player.adopt(third.engine, third.node, started: false, fade: third.fade)
+        try player.start(third.node)
+        try Self.render([third, first], blocks: 3_000 / 64 + 2 * 50 * 44_100 / 1_000 / 64 + 8, into: &mix)
+
+        #expect(mix.count > 4_000)
+        // Equal power on a constant wave sums to at least the level of one graph. A fade-out before the new sound
+        // would leave exact zeros.
+        let lowest = mix.min() ?? 0
+        #expect(lowest > 0.45, "lowest sample of the sum: \(lowest)")
+        #expect(!mix.contains(0))
+        player.discard()
     }
 
     /// A seek in the silence mode, dB-linear fade-out: the level of the rendered output follows the curve at 25, 50

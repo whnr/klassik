@@ -37,7 +37,7 @@ struct LabPlayerView: View {
                 }
                 // Everything iOS reports about the output, updated on each route change.
                 Section("Routing and output") {
-                    Text(player.routeLines.joined(separator: "\n"))
+                    Text(player.reservedRouteLines.joined(separator: "\n"))
                         .font(.footnote.monospaced())
                         .textSelection(.enabled)
                 }
@@ -71,7 +71,8 @@ struct LabPlayerView: View {
                     }
                     .font(.footnote.monospacedDigit())
                     .foregroundStyle(.secondary)
-                    Text(player.status)
+                    // Two lines: "Waiting for bytes: link slower than the file" wraps on a narrow phone.
+                    Text(player.status).lineLimit(2, reservesSpace: true)
                     if let note = player.note { Text(note).font(.footnote).foregroundStyle(.secondary) }
                 }
                 Section {

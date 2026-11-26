@@ -108,6 +108,15 @@ struct LabRoute: Equatable, Sendable {
         return lines.isEmpty ? ["none: the file rate and channels reach the output"] : lines
     }
 
+    /// The least number of lines that the routing box shows. A route with one output, a graph and a change reason
+    /// has 8 lines; the rest is blank, so a line that comes or goes does not move the screen below it.
+    nonisolated static let reservedLines = 12
+
+    /// `lines`, filled up with blank lines to `reservedLines`.
+    nonisolated static func reserved(_ lines: [String]) -> [String] {
+        lines + Array(repeating: " ", count: max(reservedLines - lines.count, 0))
+    }
+
     /// The lines of the routing section, one fact each.
     nonisolated static func lines(route: LabRoute, graph: Graph, change: String?) -> [String] {
         var lines: [String] = []

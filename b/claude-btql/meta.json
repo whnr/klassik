@@ -1,7 +1,7 @@
 {
-  "sha": "51aa59d5353b45aac55f7b8210276de8843495ce",
+  "sha": "68fb8bf83298d70f1223654464cbe22c153d54d5",
   "branch": "claude-btql",
   "path": "claude-btql",
-  "subject": "[sz-btql] Upload the Lab to TestFlight after a green Lab run on main",
-  "ts": 1795711769
+  "subject": "[sz-btql] Run Lab uploads only for pushes to this repo",
+  "ts": 1795715877
 }

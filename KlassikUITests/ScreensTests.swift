@@ -2610,15 +2610,23 @@ final class SettingsScreens: ScreensTestCase {
         let tint = reveal(app.sliders["player-tint-strength"], in: app)
         XCTAssertTrue(tint.isHittable)
         XCTAssertEqual(tint.value as? String, "3×")
-        tint.adjust(toNormalizedSliderPosition: 0)
-        XCTAssertEqual(tint.value as? String, "0×")
-        tint.adjust(toNormalizedSliderPosition: 0.5)
-        XCTAssertEqual(tint.value as? String, "2.5×")
-        tint.adjust(toNormalizedSliderPosition: 1)
-        XCTAssertEqual(tint.value as? String, "5×")
-        tint.adjust(toNormalizedSliderPosition: 0.6)
-        XCTAssertEqual(tint.value as? String, "3×")
+        adjust(tint, toNormalizedSliderPosition: 0, expecting: "0×")
+        adjust(tint, toNormalizedSliderPosition: 0.5, expecting: "2.5×")
+        adjust(tint, toNormalizedSliderPosition: 1, expecting: "5×")
+        adjust(tint, toNormalizedSliderPosition: 0.6, expecting: "3×")
         snap(app, "08f-player-tint-setting")
+    }
+
+    /// The slider value is a label ("2.5×"), not a percentage, so the drag of `adjust` aims from a thumb place that it
+    /// can only estimate, and one drag can end a step away. Each try drags from where the thumb really is. The value
+    /// after the last try must still be the exact one.
+    @MainActor
+    func adjust(_ slider: XCUIElement, toNormalizedSliderPosition position: CGFloat, expecting value: String) {
+        for _ in 0..<3 {
+            slider.adjust(toNormalizedSliderPosition: position)
+            if slider.value as? String == value { break }
+        }
+        XCTAssertEqual(slider.value as? String, value)
     }
 
     /// The drawn ink of the page title, after the push has settled.

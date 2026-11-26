@@ -41,13 +41,15 @@ struct SettingsView: View {
                 }
                 .accessibilityIdentifier("replaygain")
                 .id(family)
+                Toggle("Show Audio Quality", isOn: $player.showsAudioQuality)
+                    .accessibilityIdentifier("audio-quality-setting")
                 Toggle("Scrobbles", isOn: $player.scrobblesEnabled)
                     .accessibilityIdentifier("scrobbles")
             } header: {
                 SectionHeading("Playback")
             } footer: {
                 Text(
-                    "While music plays, the timeline runs on this screen edge. Album keeps the loudness steps between the movements of a work. Scrobbles count played movements on your server. Your server can send them to linked listening services."
+                    "While music plays, the timeline runs on this screen edge. Album keeps the loudness steps between the movements of a work. ReplayGain Off removes the gain stage from the signal path. Show Audio Quality adds a line under the playback bar: the file format, the output rate, and whether anything changes the samples. Scrobbles count played movements on your server. Your server can send them to linked listening services."
                 )
             }
 

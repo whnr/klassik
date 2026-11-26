@@ -1,7 +1,7 @@
 {
-  "sha": "dc61f831447f443a931a89c6012900b560fc0504",
+  "sha": "37b74e7dce9b2038df6975a3128f00ff8b8ce06f",
   "branch": "claude-settings-about",
   "path": "claude-settings-about",
-  "subject": "Merge origin/main into claude-settings-about",
-  "ts": 1795679861
+  "subject": "[sz-rs30.1.166] Make the version format nonisolated",
+  "ts": 1795683083
 }

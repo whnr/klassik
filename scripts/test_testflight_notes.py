@@ -77,14 +77,20 @@ class NotesTests(unittest.TestCase):
 
     def test_long_summary_fails(self):
         with self.assertRaisesRegex(ValueError, "words"):
-            validate("Klassik 0.10.4\n\n- " + "word " * 151, "0.10.4")
-        validate("Klassik 0.10.4\n\n- " + "word " * 149, "0.10.4")
+            validate("Klassik 0.10.4\n\n" + "\n".join(["- " + " ".join(["word"] * 20)] * 8), "0.10.4")
+        validate("Klassik 0.10.4\n\n" + "\n".join(["- " + " ".join(["word"] * 20)] * 7), "0.10.4")
 
     def test_repeating_the_last_release_fails(self):
         old = "Klassik 0.10.3\n\n- Page menu on work pages.\n- Search shows nicknames."
         with self.assertRaisesRegex(ValueError, "repeats"):
             validate("Klassik 0.10.4\n\n- Search shows nicknames.\n- Player closes by drag.", "0.10.4", old)
         validate("Klassik 0.10.4\n\n- Player closes by drag.", "0.10.4", old)
+
+    def test_bullet_limits_fail(self):
+        with self.assertRaisesRegex(ValueError, "26 words"):
+            validate("Klassik 0.10.4\n\n- " + " ".join(["word"] * 26), "0.10.4")
+        with self.assertRaisesRegex(ValueError, "empty bullet"):
+            validate("Klassik 0.10.4\n\n- Play.\n- ", "0.10.4")
 
     def test_empty_summary_fails(self):
         for notes in ("Klassik 0.10.4", "Klassik 0.10.4\n", "Klassik 0.10.4\n\n  \n"):

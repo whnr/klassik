@@ -121,7 +121,7 @@ xcodebuild_tests() {
   local bundle=$1 result=$2 append=$3
   shift 3
   local status=0
-  TEST_RUNNER_KLASSIK_SERVER_URL=http://localhost:4533 \
+  TEST_RUNNER_KLASSIK_SERVER_URL=http://127.0.0.1:4533 \
   TEST_RUNNER_KLASSIK_USERNAME=fixture \
   TEST_RUNNER_KLASSIK_PASSWORD=fixture \
   TEST_RUNNER_KLASSIK_LATENCY_LIMITS=${KLASSIK_LATENCY_LIMITS:-0} \

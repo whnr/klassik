@@ -52,6 +52,14 @@ struct LabRouteTests {
         #expect(LabRoute.conversions(graph: none, sessionRate: 48_000) == ["no track loaded"])
     }
 
+    /// A seek drops the graph lines for a moment. The box keeps the tallest height that it had, wrapped lines
+    /// included.
+    @Test func theRoutingBoxKeepsItsTallestHeight() {
+        #expect(LabRoute.heldHeight(current: 0, measured: 180) == 180)
+        #expect(LabRoute.heldHeight(current: 180, measured: 120) == 180)
+        #expect(LabRoute.heldHeight(current: 180, measured: 220) == 220)
+    }
+
     @Test func aBluetoothOutputSaysThatIOSExposesNoCodec() {
         var route = LabRoute()
         route.ports = [port("BluetoothA2DPOutput", name: "Headphones")]

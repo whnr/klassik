@@ -8,6 +8,7 @@ struct LabPlayerView: View {
     let cases: [LabCase]
 
     @State private var scrubbing: Double?
+    @State private var routeHeight: CGFloat = 0
 
     var body: some View {
         NavigationStack {
@@ -40,6 +41,11 @@ struct LabPlayerView: View {
                     Text(player.routeLines.joined(separator: "\n"))
                         .font(.footnote.monospaced())
                         .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, minHeight: routeHeight, alignment: .topLeading)
+                        .onGeometryChange(
+                            for: CGFloat.self,
+                            of: { $0.size.height },
+                            action: { routeHeight = LabRoute.heldHeight(current: routeHeight, measured: $0) })
                 }
                 Section("Playback") {
                     HStack {
@@ -71,7 +77,8 @@ struct LabPlayerView: View {
                     }
                     .font(.footnote.monospacedDigit())
                     .foregroundStyle(.secondary)
-                    Text(player.status)
+                    // Two lines: "Waiting for bytes: link slower than the file" wraps on a narrow phone.
+                    Text(player.status).lineLimit(2, reservesSpace: true)
                     if let note = player.note { Text(note).font(.footnote).foregroundStyle(.secondary) }
                 }
                 Section {

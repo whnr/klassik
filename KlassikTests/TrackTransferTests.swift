@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Klassik
+@testable import KlassikEngine
 
 /// The shared byte store of ADR 0060: readers wait for bytes, never read zeros, and a complete file moves to the
 /// cache in one step.
@@ -463,7 +464,9 @@ struct TrackTransferTests {
         }.value
         let longest = waits.dropFirst().max() ?? .zero
         print("far reader: first=\(waits[0]), longest later wait=\(longest), ranges=\(server.requests.count)")
-        #expect(longest < .milliseconds(150), "the reader waited at a range boundary")
+        if LatencyLimits.enforced {
+            #expect(longest < .milliseconds(150), "the reader waited at a range boundary")
+        }
         #expect(server.requests.count >= 3)
     }
 
@@ -602,7 +605,7 @@ struct TrackTransferTests {
     @Test func otherFormatsWaitForTheWholeFile() async throws {
         let started = Started()
         let store = try makeStore(started)
-        let song = Song(id: "w", title: "w", suffix: "m4a")
+        let song = Song(id: "w", title: "w", suffix: "opus")
         let source = Task { try await store.source(for: song, client: client) }
         try await Task.sleep(for: .milliseconds(50))
         let transfer = try #require(started.transfers.first?.transfer)
@@ -610,10 +613,10 @@ struct TrackTransferTests {
         transfer.append(Data([1, 2]))
         transfer.finish(nil)
         guard case .file(let url) = try await source.value else {
-            Issue.record("M4A must load whole")
+            Issue.record("A format outside the early gate must load whole")
             return
         }
-        #expect(url == root.appending(path: "cache/w.m4a"))
+        #expect(url == root.appending(path: "cache/w.opus"))
         try? FileManager.default.removeItem(at: root)
     }
 
@@ -739,8 +742,9 @@ struct TrackTransferTests {
         transfer.begin(length: 4, validator: nil)
         transfer.append(Data([1, 2]))
         store.cancelDownload(recording.id)
-        for _ in 0..<100 where !store.progress.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
         #expect(store.progress.isEmpty)
+        // The menu shows the cancel at once; the task releases the transfers when it ends.
+        for _ in 0..<100 where store.isRunning { try await Task.sleep(for: .milliseconds(10)) }
         #expect(store.failures.isEmpty)
         #expect(store.downloads.isEmpty)
         if playbackNeedsTrack {

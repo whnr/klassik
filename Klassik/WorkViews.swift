@@ -6,9 +6,10 @@ enum FavouriteAction {
 }
 
 /// The actions of a row that stands for one recording or one album. Trailing swipe: the queue. Leading swipe:
-/// download and favourites. The context menu holds all of them, as in Apple Music.
+/// download and favourites. The long-press menu holds Play, then the page menu of the row's item, then the favourite.
 private struct ItemActions: ViewModifier {
     @Environment(AppModel.self) private var model
+    @Environment(AppNavigator.self) private var navigator
     let item: QueueItem
     /// Only recordings and albums download, never a whole work.
     let downloads: Bool
@@ -28,12 +29,28 @@ private struct ItemActions: ViewModifier {
                 ForEach(SwipeSettings.actions(model.swipes.leading)) { button(for: $0) }
             }
             .contextMenu {
-                playButton
-                Button("Play Next", systemImage: "text.line.first.and.arrowtriangle.forward") { playNext() }
-                Button("Add to Queue", systemImage: "text.line.last.and.arrowtriangle.forward") { addToQueue() }
-                if downloads { downloadButton }
-                if hasFavourite { favouriteButton }
+                let target = PageMenuTarget(kind: kind, item: item, album: album)
+                let player = model.playback
+                let isPlaying = player.recording?.id == item.recording.id
+                let play = PageMenu.play(isPlaying: isPlaying, isPaused: player.isPaused)
+                PageMenuItems(menu: target.menu(model, play: play)) {
+                    target.run($0, model: model, navigator: navigator)
+                }
+                // Rows have no fermata of their own to tap, so the favourite stays in their menu.
+                if hasFavourite { Section { favouriteButton } }
             }
+    }
+
+    /// The album of an album row: its menu says how many recordings of it are downloaded.
+    private var album: WorkIndex.Album? {
+        guard kind == .album else { return nil }
+        return item.recording.albumKey.flatMap { model.library.album($0) }
+    }
+
+    /// Only recordings and albums download and show tags; a work row queues its top recording.
+    private var kind: PageMenu.Kind {
+        guard downloads else { return .work }
+        return item.recording.isAlbum ? .album : .recording
     }
 
     /// A row that cannot do an action leaves it out: works never download.
@@ -60,23 +77,12 @@ private struct ItemActions: ViewModifier {
             Button("Cancel Download", systemImage: "xmark") { tracks.cancelDownload(item.recording.id) }
         } else {
             // A plain glyph, as the queue actions have: a circled glyph draws as a ring inside the pill.
-            Button("Download", systemImage: "arrow.down") {
+            let title = tracks.failures[item.recording.id] == nil ? "Download" : "Download Again"
+            Button(title, systemImage: "arrow.down") {
                 if let client = model.client {
                     tracks.download(item.recording, title: item.work.title, client: client)
                 }
             }
-        }
-    }
-
-    /// The playing recording pauses and resumes, so its label says that.
-    private var playButton: some View {
-        let player = model.playback
-        let isPlaying = player.recording?.id == item.recording.id
-        return Button(
-            isPlaying ? (player.isPaused ? "Resume" : "Pause") : "Play",
-            systemImage: isPlaying && !player.isPaused ? "pause" : "play"
-        ) {
-            player.play(item)
         }
     }
 
@@ -215,7 +221,7 @@ struct WorkRow: View {
     }
 
     /// The one line under the title: when the work was composed, then the recordings, as
-    /// "Composed 1844, 1 recording" (person.html workRow). The track titles stay on the work page: in a list they
+    /// "Composed 1844, 1 recording". The track titles stay on the work page: in a list they
     /// repeat the title or name one movement.
     nonisolated static func detail(of work: WorkIndex.Work, composed: String?) -> String {
         let recordings = WorkIndex.Recording.count(work.recordings.count, "recording")
@@ -285,12 +291,9 @@ struct WorkView: View {
                     .playingRow(isPlaying)
                     .itemActions(QueueItem(work: work, recording: recording), downloads: true, favourite: true)
                     .accessibilityIdentifier("recording")
-                    .moveDisabled(!row.isFavourite)
-                    .modifier(RecordingDrag(row: row, work: work))
                     .itemSeparator(first: row.id == recordings.first?.id, last: row.id == recordings.last?.id)
                 }
-                .onMove { model.recordingOrder.moveFavourites(of: work, from: $0, to: $1) }
-                Text("Favourite recordings come first, in your order. Then the newest.")
+                Text("Favourite recordings come first. Then the newest.")
                     .typeStyle(Layout.footnote)
                     .foregroundStyle(Palette.textSecondary)
                     .listRowSeparator(.hidden)
@@ -300,46 +303,21 @@ struct WorkView: View {
         .navigationTitle(work.title)
         .navigationBarTitleDisplayMode(.inline)
         .environment(\.pageHeading, "")
-        .toolbar { if recordings.filter(\.isFavourite).count > 1 { EditButton() } }
+        .toolbar {
+            // The menu queues the recording that Play plays: the top of the list.
+            if let recording = model.recordingOrder.reference(of: work) {
+                ToolbarItem(placement: .topBarTrailing) {
+                    PageMenuButton(
+                        target: PageMenuTarget(kind: .work, item: QueueItem(work: work, recording: recording)))
+                }
+            }
+        }
         .onAppear { model.sweep.prefer(performers: recordings.flatMap(\.recording.performerNames)) }
     }
 
     private func plays(_ recording: WorkIndex.Recording) -> Bool {
         guard let item = model.playback.item else { return false }
         return item.work.id == work.id && item.recording.id == recording.id
-    }
-}
-
-/// A long press lifts a favourite recording and a drag reorders it, with no Edit mode (ADR 0013). A row that is no
-/// favourite does not lift, but it takes a drop. The system keeps the context menu on a press that does not move.
-private struct RecordingDrag: ViewModifier {
-    @Environment(AppModel.self) private var model
-    let row: RecordingOrder.Row
-    let work: WorkIndex.Work
-
-    struct Payload: Codable, Transferable {
-        let id: String
-        static var transferRepresentation: some TransferRepresentation {
-            CodableRepresentation(contentType: .json)
-        }
-    }
-
-    func body(content: Content) -> some View {
-        content
-            .dropDestination(for: Payload.self) { items, _ in
-                guard let dragged = items.first else { return false }
-                withoutAnimation {
-                    model.recordingOrder.moveFavourite(dragged.id, of: work, onto: row.id)
-                }
-                return true
-            }
-            .applyIf(row.isFavourite) { $0.draggable(Payload(id: row.id)) }
-    }
-}
-
-extension View {
-    @ViewBuilder fileprivate func applyIf<Result: View>(_ condition: Bool, _ transform: (Self) -> Result) -> some View {
-        if condition { transform(self) } else { self }
     }
 }
 
@@ -396,7 +374,7 @@ private struct WorkHeader: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// When the work was composed, as plain text (specimen work.html).
+    /// When the work was composed, as plain text.
     private var composed: some View {
         let enrichment = model.enrichment
         let text =
@@ -505,8 +483,8 @@ private struct RecordingRow: View {
     }
 }
 
-/// The page of a recording or album, and the content of the player overlay (ADR 0014): the header holds what every
-/// track shares, and a row holds what differs (ADR 0027). Only the overlay is the player. It alone shows the playing
+/// The page of a recording or album, and the content of the player overlay: the header holds what every
+/// track shares, and a row holds what differs. Only the overlay is the player. It alone shows the playing
 /// row with its playback bar, and the next queue item at its end.
 struct RecordingView: View {
     @Environment(AppModel.self) private var model
@@ -517,10 +495,12 @@ struct RecordingView: View {
     /// Set on the album page, which lists the tracks of the album.
     var album: WorkIndex.Album?
     var isOverlay = false
+    /// The drag that the heading of the player takes to close it. Set on the overlay only.
+    var closeDrag: PlayerCloseDrag?
     /// The rows that the listener opened, by track position.
     @State private var opened: Set<Int> = []
     @State private var spell = QuietSpell()
-    /// The note that the listener writes in the playing row. It stays while the listener scrubs (ADR 0027).
+    /// The note that the listener writes in the playing row. It stays while the listener scrubs.
     @State private var draft: NoteDraft?
     /// Where the notes of each row live, by track position.
     @State private var places: [NotePlace?] = []
@@ -568,7 +548,7 @@ struct RecordingView: View {
                         }
                     }
                 } else {
-                    // The rows follow the header with no heading (specimen player.html).
+                    // The rows follow the header with no heading.
                     Section {
                         ForEach(Array(recording.songs.enumerated()), id: \.element.id) { index, song in
                             movementRow(song, at: index, page: page, title: recording.title(of: song))
@@ -595,7 +575,7 @@ struct RecordingView: View {
             }
             .onChange(of: model.isScrubbing) { _, scrubbing in spell.hold(scrubbing) }
             .onChange(of: draft != nil) { _, writing in spell.writing(writing) }
-            // specimen player.html: each second, after a quiet spell, the player brings the playing row back.
+            // Each second, after a quiet spell, the player brings the playing row back.
             .task(id: isOverlay && isPlayingThis) {
                 guard isOverlay, isPlayingThis else { return }
                 // Opening the player counts as a touch, so its header shows for one spell.
@@ -627,11 +607,14 @@ struct RecordingView: View {
         .environment(\.pageHeading, "")
         .navigationTitle(isOverlay ? "" : work.title)
         .navigationBarTitleDisplayMode(.inline)
-        // The specimen page has no settings rows. The tags and the download stay one menu away in the bar.
+        // The specimen page has no settings rows. The queue, the download and the tags are in the page menu.
         .toolbar {
             if !isOverlay {
                 ToolbarItem(placement: .topBarTrailing) {
-                    RecordingMenu(work: work, recording: recording)
+                    PageMenuButton(
+                        target: PageMenuTarget(
+                            kind: recording.isAlbum ? .album : .recording,
+                            item: QueueItem(work: work, recording: recording), album: album))
                 }
             }
         }
@@ -644,7 +627,7 @@ struct RecordingView: View {
         "\(recording.id)|\(model.library.classical.count)|\(model.library.syncedAt?.timeIntervalSince1970 ?? 0)"
     }
 
-    /// The favourite of the page: the album on an album page, else the recording (ADR 0013, 0017).
+    /// The favourite of the page: the album on an album page, else the recording (ADR 0013).
     private var favourite: FavouriteHeading? {
         let order = model.recordingOrder
         if recording.isAlbum {
@@ -671,7 +654,7 @@ struct RecordingView: View {
         }
     }
 
-    /// The end of the player: the next queue item, or where the queue ends (ADR 0014, specimen player.html).
+    /// The end of the player: the next queue item, or where the queue ends.
     @ViewBuilder private var tail: some View {
         let player = model.playback
         switch PlayerTail(isPlaying: isPlayingThis, upNext: player.upNext.map(\.id)) {
@@ -705,25 +688,24 @@ struct RecordingView: View {
         }
     }
 
-    /// The player is the overlay only. The page of the playing item shows no playing row (ADR 0014).
+    /// The player is the overlay only. The page of the playing item shows no playing row.
     private var showsPlayer: Bool { isOverlay && isPlayingThis }
 
-    /// The cover, the title, then what every track shares in centred lines, the facts and the Play buttons (specimen
-    /// player.html `.hero`). Names with a page are links.
-    private func hero(_ page: PlayerPage) -> some View {
+    /// The cover, the title, then what every track shares in centred lines, the facts and the Play buttons. Names with a page are links.
+    @ViewBuilder private func hero(_ page: PlayerPage) -> some View {
+        let content = heroContent(page)
+        if let drag = closeDrag {
+            // The zone covers the cover, the title, the subtitle and the names. The links in it keep their taps: the
+            // pan begins only after a downward move.
+            content.contentShape(.rect).gesture(drag.heroGesture)
+        } else {
+            content
+        }
+    }
+
+    private func heroContent(_ page: PlayerPage) -> some View {
         VStack(spacing: Layout.heroGap) {
-            CoverImage(
-                song: isPlayingThis ? model.playback.coverSong : recording.songs.first,
-                points: Layout.bigCover, playback: isPlayingThis
-            )
-            .frame(width: Layout.bigCover, height: Layout.bigCover)
-            .clipShape(.rect(cornerRadius: Layout.bigCoverCorner))
-            .accessibilityElement()
-            .accessibilityLabel("Cover")
-            .accessibilityIdentifier("hero-cover")
-            .padding(.bottom, Layout.bigCoverBottom)
-            heroTitle
-                .accessibilityAddTraits(.isHeader)
+            heading()
             if let composer = page.composer {
                 RoleLines(
                     lines: [Roles.Line(kind: .unlabelled, label: "", names: [composer])], alignment: .center,
@@ -749,6 +731,22 @@ struct RecordingView: View {
         .frame(maxWidth: .infinity)
     }
 
+    /// The cover and the title.
+    @ViewBuilder private func heading() -> some View {
+        CoverImage(
+            song: isPlayingThis ? model.playback.coverSong : recording.songs.first,
+            points: Layout.bigCover, playback: isPlayingThis
+        )
+        .frame(width: Layout.bigCover, height: Layout.bigCover)
+        .clipShape(.rect(cornerRadius: Layout.bigCoverCorner))
+        .accessibilityElement()
+        .accessibilityLabel("Cover")
+        .accessibilityIdentifier("hero-cover")
+        .padding(.bottom, Layout.bigCoverBottom)
+        heroTitle
+            .accessibilityAddTraits(.isHeader)
+    }
+
     /// The album line opens the album; a performer with a page opens it.
     private func headerLink(_ line: Roles.Line, _ name: String) -> Page? {
         if line.kind == .other, line.label == "album" {
@@ -758,7 +756,7 @@ struct RecordingView: View {
         return model.library.index.performer(named: name) == nil ? nil : .performer(name)
     }
 
-    /// A name in a row opens its page as in the header (specimen player.html `performerRows`).
+    /// A name in a row opens its page as in the header.
     private func rowLink(_ line: Roles.Line, _ name: String) -> Page? {
         if line.kind == .other, line.label == PlayerPage.composerLabel {
             return model.library.index.composer(named: name) == nil ? nil : .composer(name)
@@ -777,12 +775,12 @@ struct RecordingView: View {
         }
     }
 
-    /// Play and Play Album while the item does not play. While it plays, the page offers the player (specimen
-    /// player.html). The overlay shows neither.
+    /// Play and Play Album while the item does not play. While it plays, the page offers the player.
+    /// The overlay shows neither.
     @ViewBuilder private var actions: some View {
         let player = model.playback
         if !isPlayingThis {
-            // Play is the accent capsule; Play Album is muted beside it (sz-3hcq.2).
+            // Play is the accent capsule; Play Album is muted beside it.
             HStack(spacing: Layout.buttonRowGap) {
                 Button {
                     play(from: 0)
@@ -869,6 +867,7 @@ struct RecordingView: View {
             notes: place.map { model.notes.notes(at: $0) } ?? [],
             place: place,
             isPlaying: showsPlayer && model.playback.movement == index,
+            isCurrent: isPlayingThis && !isOverlay && model.playback.movement == index,
             isOpen: opened.contains(index),
             draft: Binding(
                 get: { draft?.row == index ? draft : nil },
@@ -880,6 +879,7 @@ struct RecordingView: View {
             play: { play(from: index) },
             jump: { note, plays in jump(to: note, row: index, plays: plays) }
         )
+        .playingRow(isPlayingThis && !isOverlay && model.playback.movement == index)
         .id(song.id)
     }
 
@@ -889,7 +889,7 @@ struct RecordingView: View {
         model.playback.play(QueueItem(work: work, recording: recording), from: index)
     }
 
-    /// A tap on a note moves to its time; a tap on its time also plays (ADR 0014). A note of a page that does not
+    /// A tap on a note moves to its time; a tap on its time also plays. A note of a page that does not
     /// play starts that page there.
     private func jump(to note: ListeningNote, row: Int, plays: Bool) {
         spell.touch()
@@ -904,7 +904,7 @@ struct RecordingView: View {
 
 /// One movement or track. A row that does not play has a faint play button at its trailing edge. It opens only when
 /// it holds names that differ from the header or listening notes, and then shows the disclosure chevron. The playing
-/// row stays open, holds the only playback bar and takes a new note (ADR 0027).
+/// row stays open, holds the only playback bar and takes a new note.
 private struct MovementRow: View {
     @Environment(AppModel.self) private var model
     let song: Song
@@ -919,6 +919,8 @@ private struct MovementRow: View {
     /// Where a new note of this row goes. A row without a place takes no note.
     let place: NotePlace?
     let isPlaying: Bool
+    /// The movement that plays while the page shows the recording: it keeps its row and its button pauses it.
+    let isCurrent: Bool
     let isOpen: Bool
     @Binding var draft: NoteDraft?
     let toggle: () -> Void
@@ -947,7 +949,6 @@ private struct MovementRow: View {
                     NoteList(notes: notes, jump: jump)
                 }
             }
-            .accessibilityIdentifier("movement")
         }
     }
 
@@ -988,10 +989,14 @@ private struct MovementRow: View {
     }
 
     private var playButton: some View {
-        Button(action: play) {
-            Image(systemName: "play.fill")
+        let player = model.playback
+        let pauses = isCurrent && !player.isPaused
+        return Button {
+            if isCurrent { player.togglePause() } else { play() }
+        } label: {
+            Image(systemName: pauses ? "pause.fill" : "play.fill")
                 .typeStyle(.caption1)
-                .foregroundStyle(Palette.textSecondary)
+                .foregroundStyle(isCurrent ? Palette.tint : Palette.textSecondary)
                 .frame(width: Layout.roundButton, height: Layout.roundButton)
                 .background(Palette.fillQuiet, in: .circle)
                 // The circle, not its hit frame, ends on the page edge, as the specimen `.round` does.
@@ -999,16 +1004,16 @@ private struct MovementRow: View {
                 .contentShape(.rect)
         }
         .buttonStyle(.borderless)
-        .accessibilityLabel("Play from here")
-        .accessibilityIdentifier("play-movement")
+        .accessibilityLabel(isCurrent ? (player.isPaused ? "Resume" : "Pause") : "Play from here")
+        .accessibilityIdentifier(isCurrent ? "movement-slot" : "play-movement")
     }
 
     /// The playing row: its title, the names that differ, the playback bar with the note marks, the controls, the
-    /// notes and the note that the listener writes (specimen player.html `openBody`).
+    /// notes and the note that the listener writes.
     private var playing: some View {
         let player = model.playback
         return VStack(alignment: .leading, spacing: gap) {
-            // The bold title marks the playing row (specimen player.html). VoiceOver hears it too.
+            // The bold title marks the playing row. VoiceOver hears it too.
             HStack {
                 MovementTitle(title: title, style: .headline)
                     .accessibilityLabel("Now playing, \(title)")
@@ -1030,8 +1035,8 @@ private struct MovementRow: View {
     }
 }
 
-/// The controls of the playing row, centred in ink (specimen player.html `.mv-controls`). Next Work and Stop follow
-/// Next: the specimen has neither, but the queue (sz-rs30.1.105.8) and ADR 0053 need them.
+/// The controls of the playing row, centred in ink. Next Work and Stop follow
+/// Next: the specimen has neither, but the queue needs them.
 private struct PlayerControls: View {
     let player: PlaybackSession
     @ScaledMetric(relativeTo: .title2) private var icon = Layout.playerControlIcon
@@ -1089,8 +1094,8 @@ private struct PlayerControls: View {
     }
 }
 
-/// The notes of a movement, earliest first. The time is a prefix in the tint (specimen player.html `.note`). A tap
-/// on the text moves to the note; a tap on its time moves there and plays (ADR 0014).
+/// The notes of a movement, earliest first. The time is a prefix in the tint. A tap
+/// on the text moves to the note; a tap on its time moves there and plays.
 private struct NoteList: View {
     let notes: [ListeningNote]
     let jump: (ListeningNote, Bool) -> Void
@@ -1130,7 +1135,7 @@ private struct NoteList: View {
     }
 }
 
-/// "Add a note here", then the note in the row: never a modal (ADR 0027). The note stays open until Save or Return,
+/// "Add a note here", then the note in the row: never a modal. The note stays open until Save or Return,
 /// so the listener can scrub the bar or the timeline to find the end.
 private struct NoteEditor: View {
     @Environment(AppModel.self) private var model
@@ -1229,7 +1234,7 @@ private struct MovementTitle: View {
 }
 
 /// A button that does not dim its label while a finger is down. A row that opens must not flash its duration and its
-/// offline mark (specimen player.html `.track .row`).
+/// offline mark.
 struct StillButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -1388,7 +1393,7 @@ extension PositionBar {
     /// A note mark is this many seconds wide on the bar.
     private var reach: Double { ListeningNotes.reach(width: width, duration: duration) }
 
-    /// Dots for moments and lines for spans above the bar. Notes that overlap stack in lanes (ADR 0014).
+    /// Dots for moments and lines for spans above the bar. Notes that overlap stack in lanes.
     private func marks(_ lanes: [UUID: Int]) -> some View {
         let pitch = -Layout.noteDotTop
         return ZStack(alignment: .topLeading) {
@@ -1454,57 +1459,6 @@ struct NoteRoom: ViewModifier {
     }
 }
 
-/// The menu of a recording or album page: its tags, and the download with its state.
-private struct RecordingMenu: View {
-    @Environment(AppModel.self) private var model
-    @Environment(AppNavigator.self) private var navigator
-    let work: WorkIndex.Work
-    let recording: WorkIndex.Recording
-
-    var body: some View {
-        Menu {
-            Button("Tags and Grouping", systemImage: "tag") {
-                navigator.open(.rawTags(work: work.id, recording: recording.id), in: navigator.selection)
-            }
-            .accessibilityIdentifier("raw-tags")
-            download
-        } label: {
-            Label("More", systemImage: "ellipsis")
-        }
-        .accessibilityIdentifier("recording-menu")
-    }
-
-    /// Download, follow the download, or remove it. The state heads its section, so the menu says it.
-    @ViewBuilder private var download: some View {
-        let tracks = model.tracks
-        if let stored = tracks.downloads.first(where: { $0.id == recording.id }) {
-            Section("Downloaded, \(Self.size(stored.bytes))") {
-                Button("Remove Download", systemImage: "trash", role: .destructive) { tracks.remove(stored) }
-                    .accessibilityIdentifier("remove-download")
-            }
-        } else if let share = tracks.progress[recording.id] {
-            Section("Downloading, \(share.formatted(.percent.precision(.fractionLength(0))))") {
-                Button("Cancel Download", systemImage: "xmark.circle") { tracks.cancelDownload(recording.id) }
-            }
-        } else if let failure = tracks.failures[recording.id] {
-            Section(failure) { start }
-        } else {
-            start
-        }
-    }
-
-    private var start: some View {
-        Button("Download", systemImage: "arrow.down.circle") {
-            if let client = model.client { model.tracks.download(recording, title: work.title, client: client) }
-        }
-        .accessibilityIdentifier("download")
-    }
-
-    static func size(_ bytes: Int64) -> String {
-        bytes.formatted(.byteCount(style: .file))
-    }
-}
-
 /// Proposes a share of the offered width to its one subview and centres it (specimen `width: 60%`).
 private struct ShareOfWidth: ViewModifier {
     let share: CGFloat
@@ -1533,7 +1487,7 @@ private struct ShareOfWidth: ViewModifier {
     }
 }
 
-/// The row of the next queue item at the end of the player (ADR 0014). It shows the cover, title and album.
+/// The row of the next queue item at the end of the player. It shows the cover, title and album.
 /// A tap on the row skips to the item at once; the row itself only shows what comes.
 private struct NextItemRow: View {
     let item: QueueItem
@@ -1560,7 +1514,7 @@ private struct NextItemRow: View {
     }
 }
 
-/// A capsule button face (specimen.css .capsule): filled in the accent, or muted on the quiet fill.
+/// A capsule button face: filled in the accent, or muted on the quiet fill.
 struct CapsuleLabel: View {
     let title: String
     let systemImage: String?

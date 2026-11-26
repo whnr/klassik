@@ -1,9 +1,8 @@
-Klassik 0.20.0
+Klassik 0.23.0
 
-- Music starts at once, even for tracks you have never played, on Wi-Fi and on cellular.
-- Every tinted name on a recording, album, person page and the player opens its page.
-- Person and player pages follow the new design; grid covers line up.
-- The player no longer flashes when you scrub; the lock screen shows the cover.
-- Search shows Composers, Performers, Works and Albums. "Eroica" finds the work.
-- Swipe down closes the player, Filters and the Chronology works sheet.
-- Settings are regrouped; Technical Details sits under Advanced.
+- Skips, seeks, pause and stalls fade on the audio itself over 100 ms, so they no longer click.
+- A failed download shows "Download Again" with the reason.
+- The area above the closing player now has its own background; the cover no longer floats.
+- The player's ⋯ menu is a flat disc that works in every scroll state.
+- M4A, ALAC, WAV and AIFF tracks start sooner and join more gaplessly.
+- The next movement opens earlier, so joins stay gapless on slow connections.

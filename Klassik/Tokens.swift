@@ -2,7 +2,7 @@
 
 import SwiftUI
 
-/// An accent family of ADR 0034. The raw value is the folder of its colour sets.
+/// An accent family. The raw value is the folder of its colour sets.
 enum AccentFamily: String, CaseIterable, Sendable {
     case claret = "Claret"
     case green = "Green"
@@ -43,7 +43,7 @@ enum Palette: String, CaseIterable, ShapeStyle, Sendable {
     /// The colour in the family that the listener picked in Settings.
     var color: Color { Color(assetName()) }
 
-    /// The player wash solves colours again on its ground. They come through the environment (ADR 0034).
+    /// The player wash solves colours again on its ground. They come through the environment.
     /// The family comes through the environment too, so that a new pick redraws every style at once.
     func resolve(in environment: EnvironmentValues) -> Color.Resolved {
         environment.paletteOverrides[self]
@@ -51,7 +51,7 @@ enum Palette: String, CaseIterable, ShapeStyle, Sendable {
     }
 }
 
-/// A text style of ADR 0030. `typeStyle(_:)` sets it on a view.
+/// A text style. `typeStyle(_:)` sets it on a view.
 enum TypeStyle: CaseIterable, Sendable {
     case largeTitle
     case title1

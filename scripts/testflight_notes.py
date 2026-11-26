@@ -1,16 +1,17 @@
 """Sets the "What to Test" text of a TestFlight build from docs/what-to-test.md.
 
-Usage: testflight_notes.py --check            validates version, bullet format, length, and development terms
+Usage: testflight_notes.py --check            validates version, length, style, and staleness
+       testflight_notes.py --release-summary  prints the text for the Summary of the GitHub release
        testflight_notes.py <build-number>     waits for the build, then sets the text
 Env for the second form: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8.
-The file starts with the line "Klassik X.Y.Z", then one "- " bullet per change.
-See docs/agents/release-notes.md.
+The file starts with the line "Klassik X.Y.Z". Apple allows 4000 characters.
 """
 
 import json
 import os
 import pathlib
 import re
+import subprocess
 import sys
 import time
 import urllib.error
@@ -24,34 +25,75 @@ DEVELOPMENT_TERMS = re.compile(
     re.IGNORECASE,
 )
 
-BEAD_ID = re.compile(r"\bsz-[a-z0-9]+(?:\.[0-9]+)*\b", re.IGNORECASE)
+BEAD_ID = re.compile(r"\bsz-[a-z0-9]")
+NUMBERED_CHECK = re.compile(r"^\s*\d+[.)]\s", re.MULTILINE)
+# The text is a feature summary: about 100 words. The cap leaves room and still stops a checklist.
+MAX_WORDS = 150
 MAX_BULLET_WORDS = 25
-MAX_TOTAL_WORDS = 150
 
 
-def validate(notes, version):
-    if not notes.startswith(f"Klassik {version}\n"):
+def validate(notes, version, previous=None):
+    if notes.split("\n", 1)[0] != f"Klassik {version}":
         raise ValueError(
             f"docs/what-to-test.md must start with the line 'Klassik {version}'. Write the notes for this release."
         )
-    bullets = [line for line in notes.splitlines()[1:] if line.strip()]
-    if not bullets:
-        raise ValueError("docs/what-to-test.md has no bullets. Write one '- ' bullet per change.")
-    for line in bullets:
-        if not line.startswith("- "):
-            raise ValueError(f"Not a bullet in docs/what-to-test.md: {line[:60]!r}. Use one '- ' line per change.")
-        words = len(line[2:].split())
-        if words > MAX_BULLET_WORDS:
-            raise ValueError(f"A bullet has {words} words; the limit is {MAX_BULLET_WORDS}: {line[:60]!r}.")
-    total = sum(len(line[2:].split()) for line in bullets)
-    if total > MAX_TOTAL_WORDS:
-        raise ValueError(f"docs/what-to-test.md has {total} words; the limit is {MAX_TOTAL_WORDS}.")
+    if len(notes) > 4000:
+        raise ValueError(f"docs/what-to-test.md has {len(notes)} characters; TestFlight allows 4000.")
     if BEAD_ID.search(notes):
-        raise ValueError("A bead id in docs/what-to-test.md. Testers see a feature summary only.")
+        raise ValueError("docs/what-to-test.md names a bead ID. Testers cannot read the ledger.")
     match = DEVELOPMENT_TERMS.search(notes)
     if match:
-        raise ValueError(f"Development term in docs/what-to-test.md: {match.group()}. Use installed-app checks only.")
+        raise ValueError(f"Development term in docs/what-to-test.md: {match.group()}. Use words a tester sees.")
+    body = notes.partition("\n")[2]
+    if not body.strip():
+        raise ValueError("docs/what-to-test.md has no summary. Write one short bullet per change.")
+    words = len(body.split())
+    if words > MAX_WORDS:
+        raise ValueError(
+            f"docs/what-to-test.md has {words} words; the feature summary allows {MAX_WORDS}. "
+            "Write one short bullet per change."
+        )
+    for line in body.splitlines():
+        if line.strip() == "-":
+            raise ValueError("docs/what-to-test.md has an empty bullet. Write a change or remove the line.")
+        count = len(line.split()) - 1
+        if line.startswith("- ") and count > MAX_BULLET_WORDS:
+            raise ValueError(f"A bullet has {count} words; the limit is {MAX_BULLET_WORDS}: {line[:60]!r}.")
+    if NUMBERED_CHECK.search(body):
+        raise ValueError(
+            "docs/what-to-test.md has numbered checks. Write one bullet per feature change, not a regression checklist."
+        )
+    if previous:
+        old = {line.strip() for line in previous.splitlines()[1:] if line.strip()}
+        repeated = [line.strip() for line in body.splitlines() if line.strip() in old]
+        if repeated:
+            raise ValueError(
+                f"docs/what-to-test.md repeats a line of the last release's notes: {repeated[0]!r}. "
+                "Write this release's changes."
+            )
     return notes
+
+
+def previous_notes(root, version):
+    """The notes of the newest release tag, or None when this version is already tagged.
+
+    A missing tag list, a git failure or an unreadable file raises: a skipped staleness check passes on no data.
+    """
+    git = ["git", "-C", str(root)]
+    tag = subprocess.run(git + ["tag", "--list", "v*", "--sort=-v:refname"], capture_output=True, text=True)
+    if tag.returncode:
+        raise ValueError(f"Cannot list release tags to check for stale notes: {tag.stderr.strip()}")
+    tags = tag.stdout.split()
+    if f"v{version}" in tags:
+        return None
+    if not tags:
+        raise ValueError(
+            "No v* release tag in this checkout, so stale notes cannot be checked. Fetch the full history and tags."
+        )
+    old = subprocess.run(git + ["show", f"{tags[0]}:docs/what-to-test.md"], capture_output=True, text=True)
+    if old.returncode:
+        raise ValueError(f"Cannot read docs/what-to-test.md at {tags[0]}: {old.stderr.strip()}")
+    return old.stdout
 
 
 def main():
@@ -59,10 +101,13 @@ def main():
     notes = (root / "docs/what-to-test.md").read_text().strip()
     version = re.search(r'^ *MARKETING_VERSION: "(.*)"', (root / "project.yml").read_text(), re.M).group(1)
     try:
-        validate(notes, version)
+        validate(notes, version, previous_notes(root, version))
     except ValueError as error:
         sys.exit(str(error))
     if sys.argv[1:] == ["--check"]:
+        return
+    if sys.argv[1:] == ["--release-summary"]:
+        print("## Summary\n\n" + notes.split("\n", 1)[1].strip())
         return
 
     import jwt  # pyjwt[crypto]

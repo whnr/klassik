@@ -58,10 +58,8 @@ struct CoverArtTests {
         return song
     }
 
-    func makeStore(limit: Int64? = nil, folder: String = "art") throws -> ImageStore {
-        let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
-        if let limit { defaults.set(limit, forKey: "test.limit") }
-        return ImageStore(folder: root.appending(path: folder), limitKey: "test.limit", defaults: defaults)
+    func makeStore(folder: String = "art") throws -> ImageStore {
+        ImageStore(folder: root.appending(path: folder))
     }
 
     func makeCovers(_ store: ImageStore, songs: [Song], classical: [Song]? = nil, links: String = "links")
@@ -258,19 +256,11 @@ struct CoverArtTests {
         #expect(sizes == Array(repeating: String(CoverArt.storedPixels), count: 3))
     }
 
-    @Test func thePassStopsAtTheLimitAndOnFailuresButPagesStillLoad() async throws {
+    @Test func thePassStopsOnFailures() async throws {
         let songs = (1...3).map { Self.song("\($0)", album: "album \($0)", cover: "al-\($0)") }
-        let red = try Self.png(.red)
-        server.covers = ["al-1": red, "al-2": try Self.png(.blue), "al-3": try Self.png(.green)]
-        let full = makeCovers(try makeStore(limit: Int64(red.count), folder: "full"), songs: songs)
-        full.keepAll()
-        await full.idle()
-        #expect(server.ids == ["al-1"])
-        full.request(songs[2])
-        await full.idle()
-        #expect(server.ids == ["al-1", "al-3"])
-
-        server.reset()
+        server.covers = [
+            "al-1": try Self.png(.red), "al-2": try Self.png(.blue), "al-3": try Self.png(.green),
+        ]
         server.isDown = true
         let offline = makeCovers(try makeStore(folder: "offline"), songs: songs, links: "offline-links")
         offline.keepAll()

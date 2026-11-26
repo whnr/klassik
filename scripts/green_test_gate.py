@@ -1,21 +1,23 @@
 """Finds the green Test run that covers a commit, for the TestFlight gate.
 
-A push to main that changes only ignored paths starts no Test run (the paths-ignore list of test.yml).
+A push to main that changes only ignored paths (documentation, the Playback Lab) starts no Test run
+(the paths-ignore list of test.yml).
 A release commit changes only the version lines of project.yml and the TestFlight notes. Its Test run
 would build the same code as its parent, so the release need not wait for it.
 Such a commit is covered by the newest ancestor with a green run, if every change since then is
 ignored or a version line. Any other change fails closed.
 A merge commit that adds nothing to the PR head it merges is covered by the green run of that head
 (see merged_head). Its own run on main skips the build.
-A pull request run opens the Release launch check only for a release title, so the green head run may never
-have opened a Release build. Then a merge is covered only if the Release launch passed on the head run or on
-the run of the merge commit itself (see `launched`).
+A main push runs no Release launch check, and a pull request run opens it only for a release title. So a commit
+is covered only by a run that passed the Release launch check: its own run, or, for a merge, the green PR head
+run or the run of the merge commit itself (see `launched`). A plain merge still skips its build, because
+`merged` needs only build and unit tests on the head.
 The ignore list here must match `pull_request.paths-ignore` and `push.paths-ignore` in test.yml.
 
 Usage: GH_TOKEN=... GITHUB_REPOSITORY=owner/repo python3 scripts/green_test_gate.py [merged] <sha>
 Prints the covering SHA. Exits 1 and prints the reason when none covers the commit, or when a run
 cannot be read. With `merged`, only the green PR head of a merge commit covers it. That mode is the plan of
-a main run, which opens the Release launch itself, so it does not ask for it.
+a main run, which runs no Release launch, so it does not ask for it.
 """
 
 import json
@@ -24,7 +26,16 @@ import re
 import subprocess
 import sys
 
-IGNORED = ["**.md", "LICENSE", "docs/**"]
+# The Playback Lab and its workflows are apart from the Klassik build, so changes to only those paths need no Test run.
+IGNORED = [
+    "**.md",
+    "LICENSE",
+    "docs/**",
+    "KlassikLab/**",
+    "KlassikLabTests/**",
+    ".github/workflows/lab.yml",
+    ".github/workflows/testflight-lab.yml",
+]
 # A run is green only if these jobs passed. A main run that a PR head covers skips build, so it proves nothing.
 REQUIRED_JOBS = ("build", "test")
 RELEASE_JOB = "release-launch"
@@ -81,25 +92,39 @@ def version_only(diff):
     return True
 
 
+def missing_launch(sha, run_sha):
+    return (
+        f"no green Test run for {sha} with a Release launch: the green run of {run_sha} has no passing Release launch"
+    )
+
+
 def covering(commits, changed, green, version_diff, merged=lambda sha: None, launched=lambda sha, head: False):
     """The first of `commits` (newest first) with a green run, if each commit before it changed only ignored
     paths and version lines. A commit is also covered by the green run of the PR head that `merged(sha)` gives,
     if `launched(sha, head)` says that a Release build opened on the head run or on the run of `sha`.
 
     `changed(sha)` gives the paths that the commit changed, `green(sha)` tells if Test passed on it, and
-    `version_diff(sha)` gives the commit's patch of project.yml.
-    Returns (sha, None), or (None, reason).
+    `version_diff(sha)` gives the commit's patch of project.yml. `launched(sha, head)` tells if a Release build
+    opened on the run of `head` or of `sha`; a commit that is green needs it on its own run.
+    Returns (sha, None), or (None, reason). A reason that follows a green run without a Release launch says so.
     """
+    unlaunched = None
     for sha in commits:
-        if green(sha):
-            return sha, None
-        if (head := merged(sha)) and green(head) and launched(sha, head):
-            return head, None
+        head = merged(sha)
+        for run_sha in (sha, head):
+            if run_sha and green(run_sha):
+                if launched(sha, run_sha):
+                    return run_sha, None
+                unlaunched = unlaunched or (sha, run_sha)
         covered = [path for path in changed(sha) if not is_ignored(path)]
         if covered == [VERSION_FILE] and version_only(version_diff(sha)):
             continue
         if covered:
+            if unlaunched:
+                return None, missing_launch(*unlaunched)
             return None, f"no green Test run for {sha}, and it changes files that Test covers: {', '.join(covered)}"
+    if unlaunched:
+        return None, missing_launch(*unlaunched)
     return None, f"no green Test run in the last {len(commits)} commits"
 
 
@@ -185,8 +210,9 @@ def main(args, read=api):
         return green_on(repo, commit, read)
 
     def launched(commit, head):
-        # A merge run of main always plans the Release launch, so a green one proves it; a PR head run only
-        # does for a release title, which can come after its last push.
+        # A main push no longer runs the Release launch check, so the proof is a release PR head run, or a
+        # manual or nightly run of the commit itself. A PR head run opens it only for a release title, which can
+        # come after its last push.
         with_release = REQUIRED_JOBS + (RELEASE_JOB,)
         return green_on(repo, head, read, with_release) or green_on(repo, commit, read, (RELEASE_JOB,))
 

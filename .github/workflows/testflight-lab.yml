@@ -1,0 +1,93 @@
+name: TestFlight Lab
+
+# Manual. The Playback Lab has its own TestFlight lane: its own bundle id (de.whnr.klassik.lab), its own App Store
+# Connect record and its own concurrency group. It reads the same secrets as the Klassik lane.
+# It needs a green Lab run on the exact commit. It makes no tag, no release and no What to Test text.
+# It never starts on a schedule, so no run can upload before the App Store Connect record exists.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: testflight-lab
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      # The `lab` job of the run must have passed. A run that skipped it (a version bump) proves nothing, so the
+      # commit is covered by the newest earlier green run when every commit since needs no Lab build.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 50
+      - name: Require a green Lab run that covers this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          covering=$(python3 scripts/lab_plan.py gate "$GITHUB_SHA") \
+            || { echo "::error::$covering; run the Lab workflow on this ref first"; exit 1; }
+          echo "Green Lab run on $covering covers $GITHUB_SHA."
+
+  upload:
+    needs: gate
+    runs-on: xcode-27
+    timeout-minutes: 45
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check secrets
+        run: |
+          for s in ASC_KEY_ID ASC_ISSUER_ID APPLE_TEAM_ID; do
+            [ -n "${!s}" ] || { echo "::error::secret $s is missing (AGENTS.md: Build and ship)"; exit 1; }
+          done
+      - name: Write App Store Connect API key
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/keys"
+          printf '%s\n' "$ASC_KEY_P8" > "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        run: xcodegen generate
+      # Unsigned archive, signed at export: the same steps as the Klassik lane.
+      - name: Archive
+        run: |
+          xcodebuild archive \
+            -project Klassik.xcodeproj -scheme KlassikLab \
+            -destination generic/platform=iOS \
+            -archivePath "$RUNNER_TEMP/KlassikLab.xcarchive" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" CODE_SIGNING_ALLOWED=NO \
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+      - name: Export (sign for distribution)
+        run: |
+          plutil -replace teamID -string "$APPLE_TEAM_ID" ExportOptions.plist
+          plutil -replace destination -string export ExportOptions.plist
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/KlassikLab.xcarchive" \
+            -exportOptionsPlist ExportOptions.plist \
+            -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+      - name: Distribution logs
+        if: failure()
+        run: find "$TMPDIR" -name '*.xcdistributionlogs' -exec sh -c 'cat "$1"/IDEDistribution*.log | tail -80' _ {} \;
+      - name: Upload to App Store Connect
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          cp "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8" ~/.appstoreconnect/private_keys/
+          xcrun altool --upload-app -t ios -f "$RUNNER_TEMP"/export/*.ipa \
+            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"

@@ -1,4 +1,5 @@
 import Foundation
+import KlassikEngine
 import Observation
 
 @MainActor @Observable
@@ -6,20 +7,25 @@ final class AppModel {
     private(set) var credentials: ServerCredentials? {
         didSet { updateServer() }
     }
-    private(set) var serverInfo: ServerInfo?
+    /// The last answer of the server, kept on the device so the Server Connection page shows it at launch.
+    private(set) var serverInfo: ServerInfo? {
+        didSet { saveServerInfo() }
+    }
+    /// Whether the last check reached the server. Nil until the first check ends.
+    private(set) var serverReached: Bool?
     private(set) var lastCheck: Date?
     private(set) var lastError: String?
     private(set) var lastErrorDate: Date?
     private(set) var isChecking = false
     /// True while a finger scrubs the timeline or the position bar. The rows of the player stay still until it
-    /// lifts (ADR 0027).
+    /// lifts.
     var isScrubbing = false
 
     let library: Library
     private(set) var recordingOrder: RecordingOrder
     /// Listening notes share the device file with the favourites (ADR 0013).
     private(set) var notes: ListeningNotes
-    /// Recent searches share the device file too; they never reach the server (ADR 0029).
+    /// Recent searches share the device file too; they never reach the server.
     private(set) var recentSearches: RecentSearches
     let tracks: TrackStore
     let covers = CoverArt.Cache()
@@ -39,27 +45,37 @@ final class AppModel {
     @ObservationIgnored private var reconnect: ConnectionMonitor?
     @ObservationIgnored private var reconnectSync: Task<Void, Never>?
     private let store: CredentialStore
+    private let defaults: UserDefaults
     private let listener: ListenerData
+
+    /// Downloads load through the system's background session, so they continue while Klassik is suspended.
+    static let backgroundLoad: TrackStore.BackgroundLoad = { song, client in
+        try await BackgroundDownloads.shared.load(song.id, from: client.streamURL(songID: song.id))
+    }
 
     var client: SubsonicClient? { credentials.map { SubsonicClient(credentials: $0) } }
 
     init(
         store: CredentialStore = CredentialStore(), library: Library = Library(),
-        listener: ListenerData = ListenerData()
+        listener: ListenerData = ListenerData(), defaults: UserDefaults = .standard
     ) {
         self.store = store
+        self.defaults = defaults
         self.listener = listener
         self.library = library
         recordingOrder = RecordingOrder(library: library)
         notes = ListeningNotes(store: nil)
         recentSearches = RecentSearches(store: nil)
         #if DEBUG
-            tracks = SlowMusic.isOn ? TrackStore(transport: SlowMusic.transport) : TrackStore()
+            tracks =
+                SlowMusic.isOn
+                ? TrackStore(transport: SlowMusic.transport, background: Self.backgroundLoad)
+                : TrackStore(background: Self.backgroundLoad)
         #else
-            tracks = TrackStore()
+            tracks = TrackStore(background: Self.backgroundLoad)
         #endif
         albumCovers = AlbumCovers(store: ImageStore.albumArt)
-        playback = PlaybackSession(engine: GaplessEngine(), store: tracks)
+        playback = PlaybackSession(engine: GaplessEngine(failureMapper: AppFailureMapper()), store: tracks)
         enrichment = Enrichment.forLaunch()
         people = PersonFactsStore.forLaunch()
         let connection = ConnectionMonitor()
@@ -76,6 +92,7 @@ final class AppModel {
         // UI tests start from the connect screen.
         if ProcessInfo.processInfo.arguments.contains("-resetServer") {
             store.clear()
+            SavedServerAnswer(defaults: defaults).clear()
             library.clear()
             tracks.clearAll()
             albumArt.clear()
@@ -87,6 +104,7 @@ final class AppModel {
             chronology.clear()
         }
         credentials = store.load()
+        serverInfo = savedServerInfo()
         updateServer()
         dataModes = DataModeMonitor { [weak self] mode, pathChanged in
             guard let self else { return }
@@ -110,6 +128,7 @@ final class AppModel {
                 self.keepAlbumArt()
                 Self.start(self.sweep, over: self.library.index)
                 self.synchronizeAfterReconnect()
+                await self.checkForChanges()
             }
         }
         // No build reads the URL cache folder of the pictures, so its space goes back to the device.
@@ -228,6 +247,7 @@ final class AppModel {
             let info = try await SubsonicClient(credentials: candidate).ping()
             credentials = candidate
             serverInfo = info
+            serverReached = true
             lastCheck = .now
             do { try store.save(candidate) } catch { record(error) }
             return nil
@@ -247,6 +267,7 @@ final class AppModel {
 
     func start() async {
         guard let credentials, let client else { return }
+        tracks.resumeDownloads(client: client)
         await library.load(for: credentials)
         sweepPeople()
         // The UI walk requires a fresh player on each reset launch.
@@ -296,6 +317,19 @@ final class AppModel {
         albumCovers.plan(classical: library.classical, library: library.songs)
     }
 
+    /// Foreground and reconnect: asks the server whether the library changed, and syncs only if it did.
+    /// It runs quietly: a failed check leaves the server status to say so.
+    func checkForChanges() async {
+        guard let client else { return }
+        let before = library.syncedAt
+        await Self.checkForChanges(library: library, client: client)
+        if library.syncedAt != before { keepAlbumArt() }
+    }
+
+    static func checkForChanges(library: Library, client: SubsonicClient) async {
+        await library.syncIfChanged(with: client)
+    }
+
     /// Pull to refresh: the full sync of ADR 0059 reads the library again and refreshes every cover.
     func fullSync() async {
         guard let client else { return }
@@ -307,21 +341,16 @@ final class AppModel {
         }
     }
 
-    /// Album Art Clear. The next library sync and every page that opens fetch the covers again.
-    func clearAlbumArt() {
-        albumArt.clear()
-        albumCovers.clear()
-        covers.clear()
-    }
-
     func check() async {
         guard let credentials, !isChecking else { return }
         isChecking = true
         defer { isChecking = false }
         do {
             serverInfo = try await SubsonicClient(credentials: credentials).ping()
+            serverReached = true
             lastCheck = .now
         } catch {
+            serverReached = false
             record(error)
         }
     }
@@ -335,10 +364,25 @@ final class AppModel {
         library.clear()
         credentials = nil
         serverInfo = nil
+        serverReached = nil
         lastCheck = nil
     }
 
-    /// Delete Listening Data in Settings (ADR 0013). The favourite works, the order of favourite recordings, the
+    /// The one word of the connection, for Settings and the Server Connection page. Empty before the first check.
+    var connectionState: String {
+        guard let serverReached else { return isChecking ? "Checking…" : "" }
+        return serverReached ? "Connected" : "Not reachable"
+    }
+
+    private func saveServerInfo() {
+        SavedServerAnswer(defaults: defaults).save(serverInfo, for: credentials?.url)
+    }
+
+    private func savedServerInfo() -> ServerInfo? {
+        SavedServerAnswer(defaults: defaults).load(for: credentials?.url)
+    }
+
+    /// Delete Listening Data in Settings (ADR 0013). The favourite works, the
     /// listening notes, the recent searches and the changes that wait of this server and user go. Server stars
     /// stay, and a read shows them.
     func deleteListeningData() throws {
@@ -354,7 +398,7 @@ final class AppModel {
         albumCovers.attach(credentials)
         playback.server = client
         let file = listener.attach(credentials)
-        // Each UI walk must start with the same local favourites and order.
+        // Each UI walk must start with the same local favourites.
         if ProcessInfo.processInfo.arguments.contains("-resetServer") { try? file.delete() }
         openListenerFile()
     }

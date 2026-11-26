@@ -1,6 +1,6 @@
 # 0004. How tracks group into works and recordings
 
-Date: 2026-10-17. Decided by Flo for TB2. Beads: sz-rs30.1.3, sz-rs30.1.8.
+Date: 2026-10-17. Decided by Flo for TB2.
 
 ## Context
 
@@ -16,5 +16,5 @@ Few tracks carry work tags. On music.whnr.de, 9% of classical tracks have a WORK
 
 ## Consequences
 
-- The same work in two languages gives two works until TB6 (sz-rs30.1.8) adds catalogue numbers.
-- The data was measured on the old library only. Measure again after the Presto downloads (sz-rs30.1.29).
+- The same work in two languages gives two works until TB6 adds catalogue numbers.
+- The data was measured on the old library only. Measure again after the Presto downloads.

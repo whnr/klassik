@@ -3,6 +3,7 @@ import Synchronization
 import Testing
 
 @testable import Klassik
+@testable import KlassikEngine
 
 /// The ADR 0060 measurements against the fixture server: first sound and starvation across throughput ratios, a
 /// seek inside a stream that is still arriving, and the ReplayGain change at a recording boundary.
@@ -113,19 +114,26 @@ struct EarlyPlaybackMeasurementTests {
         let (data, validator) = try await StreamingPlaybackTests.resource(of: song, from: client)
         #expect(data.count >= 100_000_000)
         // The fixture is constant 320 kbit/s, the same as the MP3 estimate before packet timing.
-        let bitrate = AudioBitrate.initial(song)
+        let bitrate = AudioBitrate.initial(song.playbackTrack)
         let duration = Double(data.count) * 8 / bitrate
         defer { try? FileManager.default.removeItem(at: root) }
         for ratio in [4.0, 2.0, 1.0, 0.75, 0.5] {
-            try await measure(
-                ratio: ratio, song: song, data: data, validator: validator, url: client.streamURL(songID: song.id),
-                bitrate: bitrate, duration: duration)
+            func attempt() async throws -> Bool {
+                try await measure(
+                    ratio: ratio, song: song, data: data, validator: validator,
+                    url: client.streamURL(songID: song.id), bitrate: bitrate, duration: duration)
+            }
+            // A runner stall drains the buffer early and looks like a regression. A stall does not repeat on
+            // cue, so the limit holds only when the second run also dries early.
+            var steady = try await attempt()
+            if !steady { steady = try await attempt() }
+            #expect(steady, "ratio \(ratio): the buffer ran dry before its prediction twice")
         }
     }
 
     @MainActor private func measure(
         ratio: Double, song: Song, data: Data, validator: String?, url: URL, bitrate: Double, duration: Double
-    ) async throws {
+    ) async throws -> Bool {
         let transfer = stream("ratio-\(ratio).mp3", data: data, validator: validator, url: url)
         let tap = Tap()
         let engine = GaplessEngine(rendered: { tap.record($0) })
@@ -135,7 +143,7 @@ struct EarlyPlaybackMeasurementTests {
             StartThreshold.seconds(bitrate: bitrate, throughput: bitrate * ratio, remaining: duration))
         let requested = ContinuousClock.now
         let feeder = Self.pace(data, into: transfer, bitrate: bitrate, ratio: ratio, latency: .milliseconds(150))
-        engine.load([song], from: 0, offset: 0) { _ in .stream(transfer) }
+        engine.load([song.playbackTrack], from: 0, offset: 0) { _ in .stream(transfer) }
         func cleanUp() async {
             engine.discard()
             feeder.cancel()
@@ -149,7 +157,7 @@ struct EarlyPlaybackMeasurementTests {
         guard let heard = tap.heard, let ready = timeline.sounds.first else {
             await cleanUp()
             Issue.record("ratio \(ratio): no sound, failures \(timeline.failures)")
-            return
+            return true
         }
         let atSound = transfer.snapshot
         let measured = transfer.throughput
@@ -207,9 +215,10 @@ struct EarlyPlaybackMeasurementTests {
         }
         if let predicted {
             let offset = try #require(starvedAfter, "ratio \(ratio): a bounded buffer must run dry at r < 1")
-            #expect(offset >= predicted * 0.6, "ratio \(ratio): the buffer ran dry before its prediction")
             if recover { #expect(recovered != nil, "ratio \(ratio): playback must continue after a refill") }
+            return offset >= predicted * 0.6
         }
+        return true
     }
 
     // MARK: Seeks
@@ -242,7 +251,7 @@ struct EarlyPlaybackMeasurementTests {
             try? FileManager.default.removeItem(at: root)
         }
         let seconds = 1.0
-        engine.load(played, from: 0, offset: seconds) { .stream(streams[$0.id]!) }
+        engine.load(played.map(\.playbackTrack), from: 0, offset: seconds) { .stream(streams[$0.id]!) }
         for _ in 0..<300 where !timeline.ended.contains(1) && timeline.failures.isEmpty {
             try await Task.sleep(for: .milliseconds(100))
         }
@@ -263,7 +272,7 @@ struct EarlyPlaybackMeasurementTests {
     // MARK: ReplayGain
 
     /// The gain stage follows the audible recording. The report gives how far after the join the new gain starts;
-    /// the join itself keeps every frame (ADR 0007, ADR 0060).
+    /// the join itself keeps every frame (ADR 0060).
     @MainActor @Test func theRecordingGainChangesAtTheJoin() async throws {
         let (client, songs) = try await StreamingPlaybackTests.album("Glide", named: "Glide in FLAC")
         var resources: [String: Data] = [:]

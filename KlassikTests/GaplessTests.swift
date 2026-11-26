@@ -4,6 +4,7 @@ import AudioToolbox
 import XCTest
 
 @testable import Klassik
+@testable import KlassikEngine
 
 /// Measures how iOS decodes the attacca fixture work as Navidrome streams it, and whether the engine joins
 /// its movements without a gap. The screens workflow runs it against the fixture server and keeps the report.
@@ -149,7 +150,7 @@ final class GaplessTests: XCTestCase {
         let engine = AVAudioEngine()
         let node = AVAudioPlayerNode()
         engine.attach(node)
-        engine.connect(node, to: engine.mainMixerNode, format: format)
+        try engine.connectNode(node, to: engine.mainMixerNode, format: format)
         try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 4096)
         try engine.start()
         var total = 8192
@@ -160,11 +161,13 @@ final class GaplessTests: XCTestCase {
                 file, startingFrame: frames.lowerBound, frameCount: AVAudioFrameCount(frames.count), at: nil,
                 completionHandler: nil)
         }
-        node.play()
+        try node.playAudio()
         let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: engine.manualRenderingFormat, frameCapacity: 4096))
         var output: [Float] = []
         while output.count < total {
-            guard try engine.renderOffline(4096, to: buffer) == .success else { break }
+            let status = try engine.renderOffline(4096, to: buffer)
+            XCTAssertEqual(status, .success, "offline render status")
+            guard status == .success else { break }
             output += UnsafeBufferPointer(start: buffer.floatChannelData![0], count: Int(buffer.frameLength))
         }
         engine.stop()

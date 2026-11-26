@@ -98,7 +98,7 @@ import UIKit
     }
 
     /// The largest centred square of the image, at most `pixels` on a side. Album art shows square everywhere,
-    /// whatever its shape (sz-rs30.1.105.82). The short side decodes at `pixels`, so the square keeps its detail.
+    /// whatever its shape. The short side decodes at `pixels`, so the square keeps its detail.
     nonisolated static func square(_ data: Data, to pixels: Int) async -> UIImage? {
         await Task.detached(priority: .userInitiated) { () -> UIImage? in
             guard let source = CGImageSourceCreateWithData(data as CFData, nil),
@@ -222,7 +222,7 @@ enum CoverPlan {
 /// The order of the disc covers to check. A page or the playback puts its discs in front of the pass.
 struct CoverQueue: Equatable {
     enum Reason: Int, Comparable {
-        /// The pass over the library. It stops at the album art limit and on the first failure.
+        /// The pass over the library. It stops on the first failure.
         case pass
         /// A page shows the cover.
         case page
@@ -494,10 +494,6 @@ final class AlbumCovers {
                 link(key, to: hash, source: job.source)
                 continue
             }
-            if next.reason == .pass, !store.hasRoomForTypicalFile || store.isFull {
-                queue.dropPass()
-                continue
-            }
             let outcome = await download(job, reason: next.reason)
             guard !Task.isCancelled else { return }
             switch outcome {
@@ -518,7 +514,7 @@ final class AlbumCovers {
         case stored(String)
         /// The server has no valid image. The old cover stays.
         case invalid
-        /// No answer, or no room under the limit. The work waits for the next pass or page.
+        /// No answer. The work waits for the next pass or page.
         case stopped
         /// The device did not write the file.
         case storage
@@ -534,10 +530,6 @@ final class AlbumCovers {
         guard let http = answer.1 as? HTTPURLResponse, (200..<300).contains(http.statusCode),
             UIImage(data: data) != nil
         else { return .invalid }
-        // The pass never pushes out art that it kept before; a page may, as ADR 0051 says.
-        if reason == .pass, !store.contains(named: ImageStore.contentName(data)), !store.fits(Int64(data.count)) {
-            return .stopped
-        }
         guard let hash = await store.store(content: data) else { return .storage }
         return .stored(hash)
     }

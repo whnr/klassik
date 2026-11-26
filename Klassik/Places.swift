@@ -64,8 +64,8 @@ struct PlacesView: View {
     }
 }
 
-/// A hosting controller starts its own environment, so the root of each host reads the accent pick itself
-/// (ADR 0034). The read observes the pick, so every control under it takes a new family at once.
+/// A hosting controller starts its own environment, so the root of each host reads the accent pick itself.
+/// The read observes the pick, so every control under it takes a new family at once.
 private struct AccentRoot: ViewModifier {
     func body(content: Content) -> some View {
         content
@@ -137,7 +137,7 @@ private struct SystemPlaces: UIViewControllerRepresentable {
         init(navigator: AppNavigator) { self.navigator = navigator }
 
         func tabBarController(_ controller: UITabBarController, shouldSelectTab tab: UITab) -> Bool {
-            // The search tab keeps the identifier that UIKit gives it, so the position names the place.
+            // The position in the tab list names the place.
             guard let index = controller.tabs.firstIndex(where: { $0 === tab }) else { return false }
             let place = Place.allCases[index]
             let dismissesCurrent = navigator.isPlayerOpen && navigator.selection == place
@@ -164,6 +164,11 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
     private var remeasuresLabels = false
     /// The pass after the first remeasure: the bar has its final, narrow frame then, and the labels must fit it.
     private var remeasuresAtFinalFrame = false
+    /// The frame that the last layout pass gave the bar. UIKit's container can lay the bar out again at the full
+    /// width without a new pass of this controller, which puts the tabs under the mini player.
+    private var barFrame: CGRect?
+    private var barFrameObservations: [NSKeyValueObservation] = []
+    private var barRepairs = 0
     private(set) var playerHost: UIHostingController<AnyView>?
     let playerLayout = PlayerOverlayLayout()
 
@@ -192,6 +197,7 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
     @objc private func keyboardVisibilityChanged(_ notification: Notification) {
         keyboardVisible = notification.name == UIResponder.keyboardWillShowNotification
         if !keyboardVisible { remeasuresLabels = true }
+        barRepairs = 0
         view.setNeedsLayout()
     }
 
@@ -282,10 +288,32 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
         }
     }
 
+    /// Puts the bar back at the frame of the last pass when the container moves it. A few repairs only: a container
+    /// that always disagrees must not start a loop.
+    private func observeBarFrame() {
+        guard barFrameObservations.isEmpty else { return }
+        // UIKit can move the bar through its layer, which a key path of the view frame does not report.
+        barFrameObservations = [
+            tabBar.layer.observe(\.bounds) { [weak self] _, _ in
+                MainActor.assumeIsolated { self?.repairBarFrame() }
+            },
+            tabBar.layer.observe(\.position) { [weak self] _, _ in
+                MainActor.assumeIsolated { self?.repairBarFrame() }
+            },
+        ]
+    }
+
+    private func repairBarFrame() {
+        guard let barFrame, tabBar.frame != barFrame, barRepairs < 6 else { return }
+        barRepairs += 1
+        Task { @MainActor [weak self] in self?.view.setNeedsLayout() }
+    }
+
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         configureBackGesture()
         var frame = tabBar.frame
+        if let barFrame, tabBar.frame == barFrame { barRepairs = 0 }
         // UIKit removes the home-indicator inset under a keyboard.
         // Playback controls must keep the resting bar position.
         if keyboardVisible, let restingFrame {
@@ -312,7 +340,7 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
             tabBar.layoutIfNeeded()
             tabBar.frame = frame
             // The container of the bar can still lay out after this pass and give the bar the full screen width,
-            // which puts the Search tab under the mini player. The next pass puts the bar back beside it and
+            // which puts the tabs under the mini player. The next pass puts the bar back beside it and
             // measures the labels at that narrow width.
             Task { @MainActor [weak self] in
                 self?.remeasuresAtFinalFrame = true
@@ -320,6 +348,8 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
             }
         }
         tabBar.frame = frame
+        barFrame = frame
+        observeBarFrame()
         playerHost?.view.frame = view.bounds
         let top = view.window?.safeAreaInsets.top ?? view.safeAreaInsets.top
         let bottom = max(0, view.bounds.maxY - tabBar.convert(tabBar.bounds, to: view).minY)
@@ -349,17 +379,10 @@ private final class PlacesController: UITabBarController, UIGestureRecognizerDel
 }
 
 extension Place {
-    /// Search is a `UISearchTab` that activates search. iOS 27 draws only such a tab apart from the other tabs, in
-    /// its own circle at the trailing end of the bar; without the flag the tab stays in the capsule.
+    /// Every place is a plain `UITab`: a `UISearchTab` would draw Search apart in its own circle, and the three
+    /// tabs must share one capsule. The Search page draws its own field.
     @MainActor func tab(_ host: UIViewController) -> UITab {
-        let tab: UITab
-        if self == .search {
-            let search = UISearchTab { _ in host }
-            search.automaticallyActivatesSearch = true
-            tab = search
-        } else {
-            tab = UITab(title: title, image: image, identifier: rawValue) { _ in host }
-        }
+        let tab = UITab(title: title, image: image, identifier: rawValue) { _ in host }
         // UITab declares no accessibility identifier. In a Release build a protocol cast of the tab is a forced
         // cast that stops the app at launch. A run-time check of the setter is safe in every build.
         let identifier = #selector(setter: UIAccessibilityIdentification.accessibilityIdentifier)
@@ -367,7 +390,7 @@ extension Place {
         return tab
     }
 
-    /// Chronology draws the specimen lifelines (specimen.js `ICON.chronology`). It is a template image, so the tab
+    /// Chronology draws the specimen lifelines. It is a template image, so the tab
     /// bar tints it as it tints a system symbol.
     var image: UIImage? {
         switch self {
@@ -394,7 +417,7 @@ enum TabRow {
 
 /// The `NavigationStack` of one place. Its pages are the stack of the navigator. The back button of a page is the
 /// system one. A root has none, so a root that the listener reached from another place gets an arrow and an
-/// edge swipe back to that place (ADR 0038).
+/// edge swipe back to that place.
 struct PlaceStack<Root: View>: View {
     @Environment(AppNavigator.self) private var navigator
     @Environment(AppModel.self) private var model
@@ -451,7 +474,7 @@ struct PlaceStack<Root: View>: View {
     }
 }
 
-/// Keeps the last rows of a page clear of the tab row, and the scroll indicator clear of the timeline (ADR 0029).
+/// Keeps the last rows of a page clear of the tab row, and the scroll indicator clear of the timeline.
 /// Each page needs its own inset: an inset on the `NavigationStack` does not move the last rows of a pushed List.
 /// UIKit keeps the native tab bar visible as the page stack changes.
 private struct PlaceInsets: ViewModifier {
@@ -469,7 +492,7 @@ private struct PlaceInsets: ViewModifier {
             }
             .scrollEdgeEffectStyle(.soft, for: .top)
             .toolbarBackground(.hidden, for: .navigationBar)
-            // The bar shows no title (ADR 0023). The navigation title still names the back button of the next page.
+            // The bar shows no title. The navigation title still names the back button of the next page.
             .toolbar(removing: .title)
             .contentMargins(.trailing, beside, for: .scrollIndicators)
     }

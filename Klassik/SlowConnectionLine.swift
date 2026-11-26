@@ -1,18 +1,5 @@
 import Foundation
-
-/// What the player engine reports while the listener waits for sound.
-struct PlaybackWait: Equatable, Sendable {
-    enum Kind: Equatable, Sendable {
-        /// No sound yet for this selection.
-        case start
-        /// Sound stopped because the bytes did not arrive in time.
-        case resume
-    }
-
-    var kind: Kind
-    /// True when the measured throughput is below the bitrate that the track needs.
-    var slow: Bool
-}
+import KlassikEngine
 
 /// The one line under the playback bar while a slow connection keeps the player silent (ADR 0060).
 /// It shows after one second without sound, and only when the throughput is below the needed bitrate.

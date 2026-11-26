@@ -59,7 +59,7 @@ struct PlayerPageTests {
         let page = PlayerPage(
             recording: Self.recording([Self.song("a", 1), Self.song("b", 2, composer: "Johannes Brahms")]))
         #expect(page.composer == nil)
-        // Each row names its composer instead, first (specimen player.html `performerRows`).
+        // Each row names its composer instead, first.
         #expect(page.differing[0].first == Roles.Line(kind: .other, label: "composer", names: ["Ludwig van Beethoven"]))
         #expect(page.differing[1].first?.names == ["Johannes Brahms"])
         #expect(page.opens(0))

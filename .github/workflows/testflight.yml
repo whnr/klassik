@@ -28,7 +28,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 50
+          fetch-depth: 0
+          fetch-tags: true
       - id: age
         env:
           CHECK: ${{ github.event_name == 'schedule' || inputs.only_if_due }}
@@ -45,8 +46,8 @@ jobs:
         if: steps.age.outputs.upload == 'true'
         run: python3 scripts/testflight_notes.py --check
       # The commit, the PR head that a merge commit adds nothing to, or the newest earlier commit before a run of
-      # documentation-only and version-only changes, needs a green test run.
-      # The UI walk is not required.
+      # documentation-only and version-only changes, needs a green test run that passed the Release launch check.
+      # A main push runs no Release launch, so that check comes from the release PR head run. The UI walk is not required.
       - name: Require a green test run
         if: steps.age.outputs.upload == 'true'
         env:
@@ -62,6 +63,8 @@ jobs:
     timeout-minutes: 45
     permissions:
       contents: write
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
     env:
       # The same Xcode as the Test workflow, on the image that holds the iOS 27 SDK.
       DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
@@ -124,8 +127,10 @@ jobs:
             --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
       # The 85-day refresh uploads the same version again; its tag already exists then.
       - name: Tag the version
+        id: tag
         run: |
           version=$(sed -n 's/^ *MARKETING_VERSION: "\(.*\)"/\1/p' project.yml)
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
           git rev-parse -q --verify "refs/tags/v$version" >/dev/null && exit 0
           git ls-remote --exit-code --tags origin "v$version" >/dev/null && exit 0
           git tag "v$version" && git push origin "v$version"
@@ -141,6 +146,27 @@ jobs:
       ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
       - run: pip install --quiet 'pyjwt[crypto]'
       - name: Set What to Test
         run: python3 scripts/testflight_notes.py "${{ github.run_number }}"
+
+  # Linux job: it creates the GitHub release on the tag. Its failure fails the run, so a missing release is visible.
+  # A release that exists stays unchanged, so the 85-day refresh and a rerun do no harm.
+  release:
+    needs: upload
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/github_release.py "${{ needs.upload.outputs.tag }}"

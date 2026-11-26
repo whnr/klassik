@@ -1,6 +1,7 @@
 import Foundation
 
 @testable import Klassik
+@testable import KlassikEngine
 
 /// A server that lives in memory. It answers with addresses and holds no audio.
 actor InMemoryServer: ServerPort {
@@ -94,6 +95,7 @@ final class FakeEngine: PlaybackEngine {
     private var songs: [String] = []
     /// The last track that the load asked for. A test moves it on, as the real engine does near a join.
     var requested = 0
+    var requestedMovement: Int? { isRunning ? requested : nil }
     /// What `position(from:)` answers. A load sets it to the place that it starts at.
     var playing: (movement: Int, elapsed: Double)?
     /// The exact length of scheduled movements.
@@ -111,7 +113,7 @@ final class FakeEngine: PlaybackEngine {
         }
     }
 
-    func load(_ songs: [Song], from movement: Int, offset: Double, file: @escaping PlaybackFileSource) {
+    func load(_ songs: [PlaybackTrack], from movement: Int, offset: Double, file: @escaping PlaybackFileSource) {
         calls.append(.load(Load(songs: songs.map(\.id), movement: movement, offset: offset)))
         self.file = file
         self.songs = songs.map(\.id)
@@ -120,7 +122,7 @@ final class FakeEngine: PlaybackEngine {
         playing = (movement, offset)
     }
 
-    func replace(_ songs: [Song]) -> Bool {
+    func replace(_ songs: [PlaybackTrack]) -> Bool {
         let ids = songs.map(\.id)
         calls.append(.replace(ids))
         guard isRunning, ids.count > requested, ids.prefix(requested + 1) == self.songs.prefix(requested + 1) else {

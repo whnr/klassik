@@ -1,15 +1,15 @@
 import SwiftUI
 
 /// What Klassik keeps on the device: the music cache, the downloads, the pictures and the album art, in one bar
-/// like the iPhone storage page, with a limit for each cache (ADR 0051).
+/// like the iPhone storage page. Only the music cache has a limit; pictures and album art only show their size.
 struct LocalStorageView: View {
     @Environment(AppModel.self) private var model
     @State private var available: Int64?
 
     var body: some View {
         @Bindable var tracks = model.tracks
-        @Bindable var pictures = model.pictures
-        @Bindable var albumArt = model.albumArt
+        let pictures = model.pictures
+        let albumArt = model.albumArt
         let parts = [
             StoragePart(id: "music", name: "Music", colour: .tint, bytes: tracks.cacheBytes),
             StoragePart(id: "downloads", name: "Downloads", colour: .swipeDownload, bytes: tracks.downloadBytes),
@@ -65,36 +65,6 @@ struct LocalStorageView: View {
             }
 
             Section {
-                LimitStepper(limit: $pictures.limit)
-                    .accessibilityIdentifier("pictures-limit")
-                Button("Clear Pictures", role: .destructive) { pictures.clear() }
-                    .disabled(pictures.bytes == 0)
-                    .accessibilityIdentifier("clear-pictures")
-            } header: {
-                Text("Pictures")
-            } footer: {
-                Text(
-                    "Composer and performer pictures from Wikimedia Commons. When the limit is full, the pictures "
-                        + "shown longest ago go first."
-                )
-            }
-
-            Section {
-                LimitStepper(limit: $albumArt.limit)
-                    .accessibilityIdentifier("album-art-limit")
-                Button("Clear Album Art", role: .destructive) { model.clearAlbumArt() }
-                    .disabled(albumArt.bytes == 0)
-                    .accessibilityIdentifier("clear-album-art")
-            } header: {
-                Text("Album Art")
-            } footer: {
-                Text(
-                    "Klassik keeps the cover of every album that passes the classical filter, so that it shows "
-                        + "without the server. In Low Data Mode it waits, except for the cover of what plays."
-                )
-            }
-
-            Section {
                 if tracks.downloads.isEmpty {
                     Text("No downloads")
                         .foregroundStyle(Palette.textSecondary)
@@ -121,12 +91,10 @@ struct LocalStorageView: View {
             } header: {
                 Text("Downloads")
             } footer: {
-                Text("A download stays until you remove it. The cache limits do not count it. Signing out removes it.")
+                Text("A download stays until you remove it. The music limit does not count it. Signing out removes it.")
             }
         }
         .pageTitle("Local Storage")
-        // A higher limit leaves room for the art at which the pass stopped.
-        .onChange(of: albumArt.limit) { model.keepAlbumArt() }
         .task { available = await Self.availableBytes() }
     }
 
@@ -181,31 +149,5 @@ extension StoragePart {
     /// The share of the total, from 0 to 1. An empty total has no shares.
     func share(of total: Int64) -> CGFloat {
         total > 0 ? CGFloat(bytes) / CGFloat(total) : 0
-    }
-}
-
-/// A limit in whole gigabytes, or none. One step past the largest limit is No Limit.
-struct LimitStepper: View {
-    @Binding var limit: Int64?
-
-    static let noLimit = TrackStore.limitRange.upperBound + 1
-
-    /// The stepper value of a limit. A limit under one gigabyte shows as one.
-    static func step(_ limit: Int64?) -> Int {
-        limit.map { max(1, Int($0 / TrackStore.gigabyte)) } ?? noLimit
-    }
-
-    static func limit(_ step: Int) -> Int64? {
-        step >= noLimit ? nil : Int64(step) * TrackStore.gigabyte
-    }
-
-    var body: some View {
-        Stepper(
-            value: Binding(get: { Self.step(limit) }, set: { limit = Self.limit($0) }),
-            in: TrackStore.limitRange.lowerBound...Self.noLimit
-        ) {
-            LabeledContent("Limit", value: limit.map(LocalStorageView.size) ?? "No Limit")
-                .ink()
-        }
     }
 }

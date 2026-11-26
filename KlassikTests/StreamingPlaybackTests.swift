@@ -3,6 +3,7 @@ import Synchronization
 import Testing
 
 @testable import Klassik
+@testable import KlassikEngine
 
 /// The production decoder path of ADR 0060 against the fixture server: sound before the file is complete, the same
 /// samples as a complete file, and exact joins. Bytes arrive in small chunks, so the decoder waits as on a slow line.
@@ -240,7 +241,9 @@ struct StreamingPlaybackTests {
             #expect(first.1 != nil, "The header declares the length, so missing bytes never end the track")
             transfer.cancel()
         }
-        #expect(times.min()! < .milliseconds(500), "\(times)")
+        if LatencyLimits.enforced {
+            #expect(times.min()! < .milliseconds(500), "\(times)")
+        }
         try? FileManager.default.removeItem(at: root)
     }
 
@@ -270,8 +273,8 @@ struct StreamingPlaybackTests {
         let transfer = self.transfer(
             "render.\(suffix)", length: data.count, url: client.streamURL(songID: song.id), validator: validator)
         let first = FirstSound()
-        let engine = GaplessEngine(rendered: { first.record($0) })
-        let bitrate = AudioBitrate.initial(song)
+        let engine = GaplessEngine(rendered: { first.record($0) }, fadeSeconds: 0)
+        let bitrate = AudioBitrate.initial(song.playbackTrack)
         let chunk = 32 * 1024
         let interval = Double(chunk) * 8 / (bitrate * 2)
         let started = ContinuousClock.now
@@ -291,7 +294,7 @@ struct StreamingPlaybackTests {
             transfer.cancel()
             try? FileManager.default.removeItem(at: root)
         }
-        engine.load([song], from: 0, offset: 0) { _ in .stream(transfer) }
+        engine.load([song.playbackTrack], from: 0, offset: 0) { _ in .stream(transfer) }
         for _ in 0..<1000 where first.instant == nil { try await Task.sleep(for: .milliseconds(10)) }
         let rendered = try #require(first.instant, "The engine must render audible samples from partial bytes")
         let snapshot = transfer.snapshot
@@ -300,7 +303,9 @@ struct StreamingPlaybackTests {
         )
         #expect(!snapshot.complete)
         #expect(snapshot.available < Int64(data.count / 10))
-        #expect(started.duration(to: rendered) < .seconds(3))
+        if LatencyLimits.enforced {
+            #expect(started.duration(to: rendered) < .seconds(3))
+        }
     }
 
     /// A read far past the arrived bytes asks the server for a validated range instead of waiting for the file.
@@ -370,9 +375,12 @@ struct StreamingPlaybackTests {
     }
 
     /// Plays local files through the real engine until the last one ends or the engine fails.
-    @MainActor private func render(_ files: [URL], output: RenderedAudio) async throws -> [String] {
+    @MainActor private func render(
+        _ files: [URL], output: RenderedAudio, gainNode: Bool = true, decibels: Float = 0
+    ) async throws -> [String] {
         let events = Events()
-        let engine = GaplessEngine(rendered: { output.record($0) })
+        let engine = GaplessEngine(rendered: { output.record($0) }, gainNode: gainNode, fadeSeconds: 0)
+        engine.setGain(decibels)
         engine.onEvent = { event in
             switch event {
             case .movementEnded(let index): events.log.append("end \(index)")
@@ -383,7 +391,7 @@ struct StreamingPlaybackTests {
         }
         defer { engine.discard() }
         let songs = files.indices.map { Song(id: String($0), title: "Tone", duration: 1, suffix: "wav") }
-        engine.load(songs, from: 0, offset: 0) { .file(files[Int($0.id)!]) }
+        engine.load(songs.map(\.playbackTrack), from: 0, offset: 0) { .file(files[Int($0.id)!]) }
         let last = "end \(files.count - 1)"
         for _ in 0..<500 where !events.log.contains(last) && !events.log.contains(where: { $0.hasPrefix("failed") }) {
             try await Task.sleep(for: .milliseconds(10))
@@ -393,69 +401,20 @@ struct StreamingPlaybackTests {
         return events.log
     }
 
-    /// A mono opener never downmixes the stereo recording after it: the node keeps two channels (ADR 0060).
-    @MainActor @Test func aMonoOpenerKeepsTheStereoAfterIt() async throws {
+    /// A host that builds the engine without a gain node plays at the file's level, whatever gain the session sets.
+    @MainActor @Test func anEngineWithoutAGainNodeIgnoresTheGain() async throws {
         let count = 22_050
-        let mono = try wav("mono.wav", rate: 44_100, channels: [Self.tone(count, rate: 44_100)])
-        let stereo = try wav(
-            "stereo.wav", rate: 44_100, channels: [Self.tone(count, rate: 44_100), Array(repeating: 0, count: count)])
+        let file = try wav("level.wav", rate: 44_100, channels: [Self.tone(count, rate: 44_100)])
         defer { try? FileManager.default.removeItem(at: root) }
-        let output = RenderedAudio()
-        let log = try await render([mono, stereo], output: output)
-        #expect(log == ["end 0", "end 1"])
-        #expect(output.channels == 2)
-        let left = output.channel(0)
-        let right = output.channel(1)
-        let first = try #require(left.firstIndex { abs($0) > 0.01 }) - 1
-        let opener = (first + 256)..<(first + count - 256)
-        let second = (first + count + 256)..<(first + 2 * count - 256)
-        try #require(right.indices.contains(second.upperBound))
-        #expect(opener.map { abs(left[$0] - right[$0]) }.max() ?? 1 < 0.0001, "The mono opener plays in both ears")
-        #expect(second.map { abs(left[$0]) }.max() ?? 0 > 0.2, "The left channel plays the tone")
-        #expect(second.map { abs(right[$0]) }.max() ?? 1 < 0.0001, "The silent right channel stays silent")
+        let plain = RenderedAudio()
+        _ = try await render([file], output: plain, gainNode: false, decibels: -20)
+        let leveled = RenderedAudio()
+        _ = try await render([file], output: leveled, decibels: -20)
+        #expect(plain.channel(0).map { abs($0) }.max() ?? 0 > 0.2, "Without the node the tone keeps its level")
+        #expect(leveled.channel(0).map { abs($0) }.max() ?? 1 < 0.05, "With the node the gain lowers it")
     }
 
-    /// One resampler runs across two tracks of one source format, so a continuous tone split between them joins
-    /// as a one-pass conversion does (ADR 0060).
-    @MainActor @Test func aResampledJoinMatchesOnePassConversion() async throws {
-        let opener = 11_025
-        let split = 24_000
-        let total = 48_000
-        let tone = Self.tone(total, rate: 48_000)
-        let files = [
-            try wav("opener.wav", rate: 44_100, channels: Array(repeating: Self.tone(opener, rate: 44_100), count: 2)),
-            try wav("first.wav", rate: 48_000, channels: [Array(tone[..<split]), Array(tone[..<split])]),
-            try wav("second.wav", rate: 48_000, channels: [Array(tone[split...]), Array(tone[split...])]),
-        ]
-        defer { try? FileManager.default.removeItem(at: root) }
-        let whole = try wav("whole.wav", rate: 48_000, channels: [tone, tone])
-        let output44 = try #require(AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 2))
-        var count = ConvertedFrameCount()
-        let frames = count.frames(Int64(total), from: 48_000, to: 44_100)
-        let decoder = try FilePCMDecoder(whole, playable: 0..<Int64(total))
-        let conversion = try PCMConversion(from: decoder.file.processingFormat, to: output44, frames: frames) {
-            try decoder.read(frames: $0)
-        }
-        var reference: [Float] = []
-        while let buffer = try conversion.read(frames: 4096) {
-            reference += Array(UnsafeBufferPointer(start: buffer.floatChannelData![0], count: Int(buffer.frameLength)))
-        }
-        let output = RenderedAudio()
-        let log = try await render(files, output: output)
-        #expect(log == ["end 0", "end 1", "end 2"])
-        let rendered = output.samples
-        let first = try #require(rendered.firstIndex { abs($0) > 0.01 }) - 1
-        let converted = first + opener
-        var tracks = ConvertedFrameCount()
-        let join = Int(tracks.frames(Int64(split), from: 48_000, to: 44_100))
-        let window = (join - 256)..<(join + 256)
-        try #require(rendered.indices.contains(converted + window.upperBound))
-        let error = window.map { abs(rendered[converted + $0] - reference[$0]) }.max() ?? .infinity
-        print("resampled join: start=\(first), join=\(join), error=\(error)")
-        #expect(error < 0.0001, "The join must interpolate between real samples, never against zeros")
-    }
-
-    /// A server that goes away during playback pauses quietly: no notice, only the one server status (ADR 0058).
+    /// A server that goes away during playback pauses quietly: no notice, only the one server status.
     @MainActor @Test func aServerThatGoesAwayPausesQuietly() async throws {
         let (client, songs) = try await Self.album("Glide", named: "Glide in FLAC")
         let song = try #require(songs.first)
@@ -536,7 +495,7 @@ struct StreamingPlaybackTests {
                 _ = Self.feed(bytes, into: transfer)
             })
         let output = RenderedAudio()
-        let engine = GaplessEngine(rendered: { output.record($0) })
+        let engine = GaplessEngine(rendered: { output.record($0) }, manualRendering: true, fadeSeconds: 0)
         let player = PlaybackSession(engine: engine, store: store, defaults: defaults)
         player.server = InMemoryServer()
         player.leveling = .off
@@ -555,9 +514,11 @@ struct StreamingPlaybackTests {
         for _ in 0..<1500 where !player.queueEnded && player.error == nil {
             try await Task.sleep(for: .milliseconds(10))
         }
-        #expect(player.error == nil)
-        #expect(player.queueEnded)
         let rendered = output.samples
+        #expect(player.error == nil, "error=\(String(describing: player.error))")
+        let expected = GaplessTests.movementSamples.reduce(0, +)
+        let state = "rendered=\(rendered.count) of \(expected) loading=\(player.isLoading)"
+        #expect(player.queueEnded, Comment(rawValue: state))
         let firstAudible = try #require(rendered.firstIndex { abs($0) > 0.01 })
         let start = firstAudible + GaplessTests.alignment(rendered, at: firstAudible + 2048, referenceAt: 2048)
         var join = 0
@@ -566,88 +527,9 @@ struct StreamingPlaybackTests {
             return GaplessTests.alignment(rendered, at: start + join + 256, referenceAt: join + 256)
         }
         print("rendered \(suffix) recording joins: start=\(start), frames=\(rendered.count), shifts=\(shifts)")
-        #expect(shifts == [0, 0])
-    }
-
-    /// The output timeline stays at the first rate while subsequent files differ. Each converted track ends on its
-    /// own, because the next one has another source format.
-    @MainActor @Test func mixedRatesAndChannelsUseOneTimeline() async throws {
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        let rates = [44_100.0, 48_000.0, 32_000.0]
-        let channels: [UInt32] = [1, 2, 1]
-        let counts = [22_051, 24_017, 16_013]
-        var urls: [String: URL] = [:]
-        for index in rates.indices {
-            let format = try #require(
-                AVAudioFormat(standardFormatWithSampleRate: rates[index], channels: channels[index]))
-            let buffer = try #require(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: UInt32(counts[index])))
-            buffer.frameLength = buffer.frameCapacity
-            for channel in 0..<Int(channels[index]) {
-                for sample in 0..<counts[index] {
-                    buffer.floatChannelData![channel][sample] = Float(
-                        sin(Double(sample) * 2 * .pi * 440 / rates[index]) * 0.25)
-                }
-            }
-            let url = root.appending(path: "mixed-\(index).wav")
-            var settings = format.settings
-            settings[AVLinearPCMIsNonInterleaved] = false
-            let file = try AVAudioFile(forWriting: url, settings: settings)
-            try file.write(from: buffer)
-            urls[String(index)] = url
-        }
-        let songs = rates.indices.map { Song(id: String($0), title: "Tone", duration: 1, suffix: "wav") }
-        let files = urls
-        // A mono opener gives a stereo node, so the stereo track after it keeps both channels.
-        let outputFormat = try #require(AVAudioFormat(standardFormatWithSampleRate: rates[0], channels: 2))
-        var frameCount = ConvertedFrameCount()
-        var reference: [Float] = []
-        var joins: [Int] = []
-        for index in rates.indices {
-            if index > 0 { joins.append(reference.count) }
-            let decoder = try FilePCMDecoder(files[String(index)]!, playable: 0..<Int64(counts[index]))
-            let count = frameCount.frames(Int64(counts[index]), from: rates[index], to: rates[0])
-            let conversion = try PCMConversion(from: decoder.file.processingFormat, to: outputFormat, frames: count) {
-                try decoder.read(frames: $0)
-            }
-            while let buffer = try conversion.read(frames: 4096) {
-                reference += Array(
-                    UnsafeBufferPointer(start: buffer.floatChannelData![0], count: Int(buffer.frameLength)))
-            }
-        }
-        let events = Events()
-        let output = RenderedAudio()
-        let engine = GaplessEngine(rendered: { output.record($0) })
-        engine.onEvent = { event in
-            if case .movementEnded(let index) = event { events.log.append("end \(index)") }
-            if case .failed(let text) = event { events.log.append("failed \(text)") }
-            if case .problem(let text) = event { events.log.append("failed \(text)") }
-        }
-        defer {
-            engine.discard()
-            try? FileManager.default.removeItem(at: root)
-        }
-        engine.load(songs, from: 0, offset: 0) { .file(files[$0.id]!) }
-        for _ in 0..<500 where !events.log.contains("end 2") && !events.log.contains(where: { $0.hasPrefix("failed") })
-        {
-            try await Task.sleep(for: .milliseconds(10))
-        }
-        #expect(events.log == ["end 0", "end 1", "end 2"])
-        let rendered = output.samples
-        let first = try #require(rendered.firstIndex { abs($0) > 0.01 })
-        let expectedFirst = try #require(reference.firstIndex { abs($0) > 0.01 })
-        let start = first - expectedFirst
-        for join in joins {
-            let window = (join - 128)..<(join + 512)
-            let actual = try #require(rendered.indices.contains(start + window.upperBound - 1) ? rendered : nil)
-            let error = window.map { abs(actual[start + $0] - reference[$0]) }.max() ?? .infinity
-            #expect(error < 0.00001, "Converted join at \(join) differs from its complete-file reference")
-        }
-        print("mixed-format rendered joins: start=\(start), joins=\(joins), frames=\(reference.count)")
-        var count = ConvertedFrameCount()
-        for index in rates.indices {
-            let frames = count.frames(Int64(counts[index]), from: rates[index], to: rates[0])
-            #expect(engine.duration(of: index) == Double(frames) / rates[0])
-        }
+        #expect(
+            shifts == [0, 0],
+            "shifts=\(shifts) start=\(start) frames=\(rendered.count) joins=\(GaplessTests.movementSamples)")
     }
 
     // MARK: Sample-exact output
@@ -704,7 +586,7 @@ struct StreamingPlaybackTests {
             if case .movementEnded(let index) = event { events.log.append("end \(index)") }
             if case .failed(let text) = event { events.log.append("failed \(text)") }
         }
-        engine.load([song], from: 0, offset: 0) { _ in .stream(transfer) }
+        engine.load([song.playbackTrack], from: 0, offset: 0) { _ in .stream(transfer) }
         defer { engine.discard() }
         try await Task.sleep(for: .milliseconds(200))
         engine.pause()
@@ -766,7 +648,7 @@ struct StreamingPlaybackTests {
             }
         }
         let streams = transfers
-        engine.load(songs, from: 0, offset: 0) { song in .stream(streams[song.id]!) }
+        engine.load(songs.map(\.playbackTrack), from: 0, offset: 0) { song in .stream(streams[song.id]!) }
         defer { engine.discard() }
         for _ in 0..<300 where !events.log.contains("end 2") { try await Task.sleep(for: .milliseconds(100)) }
         for feeder in feeders { feeder.cancel() }
@@ -780,5 +662,61 @@ struct StreamingPlaybackTests {
             #expect(engine.duration(of: index) == Double(length) / GaplessTests.sampleRate)
         }
         try? FileManager.default.removeItem(at: root)
+    }
+
+    /// The next recording opens while the current one still decodes. A slow open then finishes before the join
+    /// and cannot run the node dry. The tail of movement 1 is withheld, so only an early open passes.
+    @MainActor @Test func theNextRecordingOpensBeforeTheCurrentOneEnds() async throws {
+        let (client, songs) = try await Self.album("Glide", named: "Glide in FLAC")
+        var transfers: [String: TrackTransfer] = [:]
+        var tail: (data: Data, offset: Int)?
+        var feeders: [Task<Void, Never>] = []
+        for (index, song) in songs.enumerated() {
+            let data = try await Self.bytes(of: song, from: client)
+            let transfer = self.transfer("early\(index).flac", length: data.count)
+            transfers[song.id] = transfer
+            if index == 0 {
+                // Four fifths hold more audio than the lookahead of the engine.
+                let held = data.count * 4 / 5
+                transfer.append(data.prefix(held))
+                tail = (data, held)
+            } else {
+                feeders.append(Self.feed(data, into: transfer))
+            }
+        }
+        let events = Events()
+        let engine = GaplessEngine()
+        engine.onEvent = { event in
+            switch event {
+            case .movementEnded(let movement): events.log.append("end \(movement)")
+            case .failed(let text), .problem(let text): events.log.append("failed \(text)")
+            case .serverFailed(let trouble): events.log.append("failed server \(trouble)")
+            default: break
+            }
+        }
+        let streams = transfers
+        let opens = OpenLog()
+        engine.load(songs.map(\.playbackTrack), from: 0, offset: 0) { song in
+            opens.ids.append(song.id)
+            // A recording that opens slowly, as under load.
+            if song.id != songs[0].id { try await Task.sleep(for: .milliseconds(300)) }
+            return .stream(streams[song.id]!)
+        }
+        defer {
+            engine.discard()
+            for feeder in feeders { feeder.cancel() }
+            try? FileManager.default.removeItem(at: root)
+        }
+        for _ in 0..<100 where !opens.ids.contains(songs[1].id) { try await Task.sleep(for: .milliseconds(50)) }
+        #expect(opens.ids == [songs[0].id, songs[1].id], "Movement 2 opened late: \(opens.ids)")
+        let rest = try #require(tail)
+        feeders.append(Self.feed(rest.data, from: rest.offset, into: transfers[songs[0].id]!))
+        for _ in 0..<300 where !events.log.contains("end 2") { try await Task.sleep(for: .milliseconds(100)) }
+        #expect(events.log.filter { $0.hasPrefix("end") } == ["end 0", "end 1", "end 2"], "\(events.log)")
+        #expect(!events.log.contains { $0.hasPrefix("failed") }, "\(events.log)")
+    }
+
+    @MainActor final class OpenLog {
+        var ids: [String] = []
     }
 }

@@ -1,5 +1,5 @@
 {
-  "$description": "Klassik design tokens, DTCG 2025.10. Decided values only (ADR 0021). Type and spacing follow ADR 0030, colour ADR 0034. Radius, size and motion stay at neutral iOS system values until a look ticket decides.",
+  "$description": "Klassik design tokens, DTCG 2025.10. Decided values only (ADR 0021). Type, spacing and colour follow the token page of the specimen. Radius, size and motion stay at neutral iOS system values until a look ticket decides.",
   "color": {
     "$type": "color",
     "background": {
@@ -400,7 +400,7 @@
   },
   "space": {
     "$type": "dimension",
-    "$description": "Spacing. In SwiftUI, ScaledMetric. The roles follow the type ratio (ADR 0030). The steps are system insets and paddings.",
+    "$description": "Spacing. In SwiftUI, ScaledMetric. The roles follow the type ratio. The steps are system insets and paddings.",
     "xxs": {
       "$value": {
         "value": 2,

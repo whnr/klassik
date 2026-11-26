@@ -31,7 +31,7 @@ One comment on the release PR that mentions `@whnr`.
 
 - Group by feature. Give each feature 1 to 5 checks, by how complex it is.
 - Write each check as what the owner does and what he expects to see. Never one check per commit.
-- Known issues: one line each, with the release that fixes them.
+- Known issues: one line each.
 - End with: reply here with what does not match your expectations.
 
 Example (0.20.0):
@@ -60,7 +60,7 @@ Example (0.20.0):
 1. Swipe down on the player, Filters and the Chronology works sheet. Expect each to close.
 2. Open Settings. Expect Playback, Library, Colour, Advanced; Technical Details under Advanced.
 
-Known: after a search while music plays, the Chronology label can be cut off. Fixed in 0.20.1.
+Known: after a search while music plays, the Chronology label can be cut off. (Format example only.)
 
 Reply here with what does not match your expectations.
 ```

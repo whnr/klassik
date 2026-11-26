@@ -1,83 +1,49 @@
-# Specimen
+# Design
 
-The design reference of Klassik: every decision of the design map sz-rs30.1.83 and the colour map sz-rs30.1.83.19 on six pages and a token sheet, in light, dark and Increase Contrast. It shows only what is decided (ADR 0021 to 0035). Claret is the default accent.
+The specimen is the design reference of Klassik: what is decided, in light, dark and Increase Contrast. The pages on screen are the reference. A rule that a page cannot show is a short comment in that page's HTML. Claret is the default accent.
+
+## Principles
+
+- The work comes first. An album only tells where a recording comes from.
+- Klassik shows the listener's own library and picks nothing for them.
+- Everything is ready before a page opens. No page waits for the network.
+- Facts read as prose, with no separator glyphs.
+- Native iOS first: system tabs, stacks, sheets, glass and gestures.
+- The phone is the judge. The checks cannot judge looks.
 
 ## Pages
 
-- `index.html`: the Library place, with links to every page.
-- `work.html`: a work page with recording rows. `?work=<composer>|<work>` picks another work.
-- `player.html`: the recording page or album page. With `?embed=player` it is the content of the player overlay (ADR 0014), in the cover room (or the hall, a setting), with the open movement. The overlay needs no other URL: the cover of the mini player opens it on every page. A tap opens a movement row: the performers that differ from the whole page (ADR 0014) and its notes, the play button in place of the chevron. An album page heads its tracks by work only when a work has two movements on consecutive tracks (ADR 0024). Each work heading links its work page and stays in the text colour and ends in one disclosure chevron (sz-rs30.1.117.6; Flo 2026-11-22). In the player overlay a tap on the Next row plays the next item (Flo 2026-11-22). `?recording=<id>` or `?album=<id>` shows another page; Play starts it, and the page then offers "Show the player". Movement rows follow sz-rs30.1.83.8: a faint play button at the end of every row; a row with notes or with names that differ from the header opens under a trailing disclosure chevron. The header shows what every track shares, the composer included. After a quiet spell the view brings the playing row back (ADR 0014). A scrub on the timeline holds the rows still until the finger lifts. A row that does not play has no bar. A note is written in the playing row: one tap starts it at the playing time and opens the text field; "End here" is optional and makes a span. The first pill button puts the timeline on the right or the left edge (`?side=`), on every page. On this page the pill's Slow start fakes a play tap on a slow connection (ADR 0060): one second of silence, the slow-connection line, the start, a later wait and its line, then normal playback. A second tap ends it. The small line replaces the times under the bar. Both messages reserve their wrapped height before either appears.
+- `index.html`: the Library tab and the frame of every page, with links to every page.
+- `work.html`: a work page. `?work=<composer>|<work>` picks another work.
+- `player.html`: a recording or album page. `?embed=player` is the player overlay. `?recording=<id>` or `?album=<id>` picks another.
 - `chronology.html`: one composer among the contemporaries, and the overview (`?level=overview`).
-- `search.html`: the field finds works, names and albums; filters on demand in a sheet (ADR 0025). The field and the Filters button sit at the top under the back arrow, which returns to the page Search was opened from. The x in the field clears the text; the x pill beside Filters clears the text and every condition. The empty page lists recent searches, newest first, each with its filters; One search session is one entry: Enter, Done on the filters, opening a result and leaving the page update it; the x pill ends the session. Back from a result keeps the search; a tab or a link opens Search fresh. A tap restores the text and the filters. A pick in the filters clears their narrowing field. Filters closes the keyboard as the sheet rises (sz-rs30.1.83.13).
-- `person.html`: a composer or performer page with the screen-wide picture (ADR 0017, 0019). The name sits on the picture over a blur and a measured scrim (ADR 0034). `?name=<artist name>`.
-- `lookup.html`: the MusicBrainz page of Settings with the Wikidata pass (ADR 0042). `?state=running`, `upToDate`, `waiting`, `connection` or `slowDown`. Settings links to it.
-- `settings.html`: Settings in inset grouped lists (ADR 0030): playback, library, colour and advanced settings with the Technical Details switch. `?technical=on` shows the rows behind the switch.
-- `rules.html`: the Classical Rules page. The result counts come first, then the rules.
-- `swipe.html`: the Swipe Actions page of Settings. Each edge lists its buttons as the row shows them, from left to right: Download and Favourite on a swipe right, Play Next and Add to Queue on a swipe left.
-- Settings, `lookup.html`, `storage.html` and `swipe.html` draw inset grouped lists with the SwiftUI Form controls from `K.form` (ADR 0030): a menu picker with its value in the accent, a switch, a slider with a dot for each step, a stepper and button rows. `K.page({ grouped: true })` marks such a page.
-- `tokens.html`: the token sheet. Every colour in the four themes side by side, contrast on rows, the type scale at each Dynamic Type size, spacing, radius, size and each animation alone. The Library cog opens Settings. Settings links to the token sheet.
+- `search.html`: Search and its Filters sheet.
+- `person.html`: a composer or performer page. `?name=<artist name>`.
+- `settings.html`, `lookup.html`, `storage.html`, `server.html`, `rules.html`, `swipe.html`: Settings and its pages.
+- `tokens.html`: the token sheet: every colour in the four themes, contrast, type scale, spacing, radius, size and motion.
+- `menu.html`: the page menu, one page per variant, drawn open. `?for=recording`, `album`, `work` or `player`; `?state=none`, `downloading`, `downloaded` or `offline`.
 
-The flows follow ADR 0013 to 0029. Nothing comes from the UX prototypes.
+The pill at the top belongs to the specimen, not to the app. It sets the timeline edge, room, accent, player look, contrast, Dynamic Type size and what plays. The settings stay in the URL.
 
-## Words and role lines
+## Files
 
-The pages carry no middle dot (sz-rs30.1.83.16). Facts read as prose: "Recorded in 1972 on Dvořák Symphonies. 42 minutes, 4 movements." Durations round to the minute. Counts stand in words; a section heading takes its count in lighter parentheses, "Recordings (23)". Names in one role join with commas and "and". `K.roleBlock` sets names one line per role behind a small-cap label; at accessibility sizes the label stands above its names. `?edge=sort` shows every personal name in sort form ("Kubelík, Rafael").
+- `specimen.css`, `specimen.js`: the frame and the components. Pages read tokens only; a fixed value is chrome that iOS fixes.
+- `pill.*`, `overlay.*`, `timeline.css`, `cover.*`, `picture.*`: the mini player, the player overlay, the timeline, the cover room and the person picture.
+- `../tokens.css`: written by `design/scripts/tokens.py` from the token files. `design/scripts/palette.py` solves the colours from their contrast targets; `check.py` proves the pairs.
+- `../marks/fermata.svg`: the favourite mark and the master of its SF Symbol. `FermataMark.swift` draws and scales it.
+- `../fonts/`: [Wittgenstein](https://github.com/jrgdrs/Wittgenstein) by Jörg Drees, SIL Open Font License (`OFL.txt`), for page titles and section headings at weight 500.
+- `data/`: the Navidrome responses and the Wikidata facts that the pages show (see `data/README.md`).
 
-## Mini player and player overlay
+## Variants
 
-`pill.css` and `pill.js` draw the mini player of ADR 0028 on every page. The cover opens the player overlay of ADR 0014: `overlay.css` and `overlay.js` slide it up from the bottom over the place, in a frame that shows `player.html?embed=player`. A drag down on its handle, or a tap on another tab, slides it down. The tab bar, the pill and the timeline stay above it, and the pill then holds only play/pause. The frame follows the clock of the place under it. A link inside the overlay leaves it, because the frame has no stack. `?overlay=opening`, `open` or `closing` shows a pose without a finger; the control at the top sets it. They load before any variant, so a variant can still replace the mini player through `K.setMini`.
-
-## Specimen controls
-
-The pill at the top belongs to the specimen, not to the app. It sets the timeline edge, the room (light or dark, never from the system settings), the accent (claret, bottle green, plum), the player look (cover room or hall), Increase Contrast, the Dynamic Type size and what plays (Beethoven 5, a Chopin album, the Matthäus-Passion, the Chopin sonatas, weak tags, nothing). The settings stay in the URL and in the session, so links keep them. The page scroll indicator is drawn by hand so it runs beside the timeline. The specimen pill pushes the timeline down; the app starts it at the top safe area.
-
-## Drawn views
-
-- `timeline.css`: the timeline shape of ADR 0035. `K.setTimeline` sets the gap between two segments.
-- `cover.css` and `cover.js`: the player page while it plays (ADR 0034). The cover room solves the ground, secondary text, the tint and the favourite from the cover's hue; the hall lights the dark room with a glow in the cover's hue.
-- `picture.css` and `picture.js`: the person picture. The script measures the blurred picture under the name and sets the scrim just strong enough (ADR 0034).
-- `pill.css` and `pill.js`: the mini player of ADR 0028. A look can replace it through `K.setMini`.
-- `overlay.css` and `overlay.js`: the player overlay of ADR 0014.
-- The fermata of ADR 0033 is drawn in `specimen.js`; `design/marks/fermata.svg` on `main` holds the same path.
-
-## Values
-
-- `tokens.css` is `design/tokens.css` on `main`, which `design/scripts/tokens.py` writes from the token files. The copy under `design/specimen/` on `main` links it directly.
-- `specimen.css` and every page read tokens only. A fixed value in them is chrome that iOS fixes, such as the tab label size.
-- Favourites, listening notes and the queue are specimen state in the session. Close the tab to reset them.
-- `design/scripts/palette.py` solves the colour values from their contrast targets (ADR 0037); `design/scripts/check.py` proves the pairs.
-
-## Variants for a new look ticket
-
-A look ticket adds its variants to `variants/variants.json` or `variants/looks.json`; both are empty when nothing is open. `?variant=<name>` or `?look=<name>` loads its css and js after the decided files, and the pill shows a menu. When Flo decides, the winning values go into the token file on `main`, the decided rules into the base files here, and the variant files go.
-
-## Data
-
-`data/specimen.json` holds the Navidrome responses (see `data/README.md`). `data/chronology.json` holds composer dates and work years from Wikidata, because the server gives none. `data/people.json` holds the Wikidata facts, Commons picture and Wikipedia lead of each composer and performer. `make_chronology.py` and `make_people.py` in `data/` write them again. The specimen cannot detect faces, so every Wikidata picture shows.
+A look under review adds its variants to `variants/variants.json` or `variants/looks.json`; `?variant=<name>` or `?look=<name>` loads them. When Flo decides, the winning values go into the token files and the base files, and the variant files go.
 
 ## Run
 
-The server sends no cache header, so Safari keeps old copies. Raise the `?v=` stamp on the `tokens.css`, `specimen.css` and `specimen.js` links in every page before a deploy.
+Raise the `?v=` stamp on the `tokens.css`, `specimen.css` and `specimen.js` links in every page before a deploy, because the server sends no cache header.
 
-In the folder above the specimen, run `python3 -m http.server 8765 --bind 0.0.0.0` and open `http://<laptop>:8765/specimen/`. The covers and pictures load from Wikimedia Commons, so the phone needs network access.
+In `design/`, run `python3 -m http.server 8765 --bind 0.0.0.0` and open `http://<laptop>:8765/specimen/`. Covers and pictures load from Wikimedia Commons.
 
-## Parity and previews
+The Preview workflow publishes the specimen of every push to `gh-pages`: `/c/<sha>/specimen/` for one commit, `/b/<branch>/specimen/index.html` for the newest push of a branch. The bot comments the links on the pull request. Forks are not published.
 
-The frame has three places, a Library Settings cog and a chevron Back button (ADRs 0038 and 0040).
-A first tab tap restores its page. A second tap returns to its root.
-Above the player, every tab tap closes the overlay and restores that tab’s last page.
-A slide down restores the page underneath. The full pill stays visible.
-The scrub label uses 17-point body text and adds 36 points of finger clearance on each edge.
-The composer link and fading header follow the app specification.
-
-The specimen shows decided flows for unfinished slices too. It does not prove their installed-app behavior.
-Every keyboard covers the tab bar, mini player and timeline. These controls keep their position.
-Native glass, display corners and system gestures require an installed-app check.
-With each UX change, update affected specimen flows and run the design check.
-
-The Design workflow attaches the public specimen to each relevant pull request.
-The Preview workflow publishes the specimen of every push to the `gh-pages` branch. Pull requests from forks are not published.
-Set Pages to "Deploy from a branch: gh-pages, / (root)" once. The bot comments the links on the pull request.
-Use `/c/<sha>/specimen/` for one commit and `/b/<branch>/specimen/index.html` for the newest push of a branch.
-The site root shows `main` and an index of branches and recent commits. The newest 40 commit folders stay.
-The revision.txt file in each folder names its commit.
+The specimen approximates native glass, display corners and system gestures. The installed app is their check. With each UX change, update the affected pages and run `design/scripts/lint.sh`.

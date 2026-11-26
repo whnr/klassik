@@ -15,13 +15,8 @@ struct ImageStoreTests {
     let credentials = ServerCredentials(
         url: URL(string: "https://music.example.org")!, username: "fixture", password: "fixture")
 
-    func makeStore(limit: Int64? = nil, defaults: UserDefaults? = nil, folder: String = "images") async throws
-        -> ImageStore
-    {
-        let suite = UserDefaults(suiteName: UUID().uuidString)
-        let defaults = try #require(defaults ?? suite)
-        if let limit { defaults.set(limit, forKey: "test.limit") }
-        let store = ImageStore(folder: root.appending(path: folder), limitKey: "test.limit", defaults: defaults)
+    func makeStore(folder: String = "images") async throws -> ImageStore {
+        let store = ImageStore(folder: root.appending(path: folder))
         await store.loaded()
         return store
     }
@@ -51,10 +46,7 @@ struct ImageStoreTests {
     }
 
     @Test func storedFilesCountAndStayAfterARelaunch() async throws {
-        let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
-        let store = try await makeStore(defaults: defaults)
-        #expect(store.limit == nil)
-        #expect(!store.isFull)
+        let store = try await makeStore()
         await store.store(Data(count: 100), for: "a")
         await store.store(Data(count: 50), for: "b")
         #expect(store.bytes == 150)
@@ -62,46 +54,13 @@ struct ImageStoreTests {
         #expect(await store.data(for: "a") == Data(count: 100))
         #expect(await store.data(for: "missing") == nil)
 
-        let again = try await makeStore(defaults: defaults)
+        let again = try await makeStore()
         #expect(again.bytes == 150)
         #expect(again.contains("b"))
         again.clear()
         #expect(again.bytes == 0)
         #expect(!again.contains("a"))
         #expect(await again.data(for: "a") == nil)
-    }
-
-    @Test func aFullStoreDropsTheFileShownLongestAgo() async throws {
-        let store = try await makeStore(limit: 250)
-        await store.store(Data(count: 100), for: "old")
-        await store.store(Data(count: 100), for: "shown")
-        _ = await store.data(for: "old")
-        await store.store(Data(count: 100), for: "new")
-        #expect(store.contains("old"))
-        #expect(!store.contains("shown"))
-        #expect(store.contains("new"))
-        #expect(store.bytes == 200)
-        #expect(!store.isFull)
-        store.limit = 100
-        #expect(store.bytes == 100)
-        #expect(store.isFull)
-    }
-
-    @Test func theLimitPersistsAndNoLimitIsTheDefault() async throws {
-        let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
-        let store = try await makeStore(defaults: defaults)
-        store.limit = 3 * TrackStore.gigabyte
-        #expect(try await makeStore(defaults: defaults).limit == 3 * TrackStore.gigabyte)
-        store.limit = nil
-        #expect(try await makeStore(defaults: defaults).limit == nil)
-    }
-
-    @Test func theStepperEndsInNoLimit() {
-        #expect(LimitStepper.step(nil) == TrackStore.limitRange.upperBound + 1)
-        #expect(LimitStepper.limit(LimitStepper.noLimit) == nil)
-        #expect(LimitStepper.step(5 * TrackStore.gigabyte) == 5)
-        #expect(LimitStepper.limit(5) == 5 * TrackStore.gigabyte)
-        #expect(LimitStepper.step(TrackStore.gigabyte / 2) == 1)
     }
 
     @Test func theBarGivesEachStoreItsShare() {
@@ -189,20 +148,6 @@ struct ImageStoreTests {
         #expect(!store.contains(first.url.absoluteString))
         #expect(PortraitLoader.ready(first, store: store) == nil)
         #expect(store.contains(second.url.absoluteString))
-    }
-
-    @Test func aLookupStopsAtThePicturesLimit() async throws {
-        let red = try png(.red)
-        let store = try await makeStore(limit: Int64(red.count))
-        await store.store(red, for: "kept")
-        let server = PictureServer((red, 200))
-        let screen = PortraitSize.Screen(hero: CGSize(width: 400, height: 470), scale: 3)
-        let portrait = PersonPortrait(url: URL(string: "https://upload.wikimedia.org/a.png")!)
-        #expect(
-            !(await PortraitLoader.keep(
-                portrait, replacing: nil, screen: screen, store: store, fetch: { await server.fetch($0) })))
-        #expect(server.requests.isEmpty)
-        #expect(store.contains("kept"))
     }
 
     @Test func aPageShowsThePictureThatTheLookupKeptWithoutTheNetwork() async throws {

@@ -11,7 +11,6 @@ import Observation
 struct DeviceStore {
     struct Data: Codable, Equatable {
         var favouriteWorks: Set<String> = []
-        var recordingOrder: [String: [String]] = [:]
         /// The album stars as the app shows them, so that they also show without a connection.
         var favouriteAlbums: Set<String> = []
         var favouriteArtists: [Song.Artist] = []
@@ -19,7 +18,7 @@ struct DeviceStore {
         var pendingFavourites: [FavouriteChange] = []
         /// Listening notes by recording ID (ADR 0013). The server never sees them.
         var notes: [String: [ListeningNote]] = [:]
-        /// Recent searches, newest first (ADR 0029). The server never sees them.
+        /// Recent searches, newest first. The server never sees them.
         var recentSearches: [RecentSearch] = []
 
         /// Keeps one change for each target: the server must get the newest choice.
@@ -60,6 +59,16 @@ struct DeviceStore {
         url = folder.appending(path: "\(key).json")
     }
 
+    /// Removes the key `recordingOrder`, which older builds stored. Other keys stay as they are. A file that
+    /// does not parse stays untouched, so a damaged file is never replaced.
+    func removeLegacyOrder() throws {
+        guard FileManager.default.fileExists(atPath: url.path),
+            var object = try JSONSerialization.jsonObject(with: Foundation.Data(contentsOf: url)) as? [String: Any],
+            object.removeValue(forKey: "recordingOrder") != nil
+        else { return }
+        try JSONSerialization.data(withJSONObject: object).write(to: url, options: .atomic)
+    }
+
     func load() throws -> Data {
         guard FileManager.default.fileExists(atPath: url.path) else { return Data() }
         return try JSONDecoder().decode(Data.self, from: Foundation.Data(contentsOf: url))
@@ -80,7 +89,6 @@ extension DeviceStore.Data {
     init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         favouriteWorks = try values.decode(Set<String>.self, forKey: .favouriteWorks)
-        recordingOrder = try values.decode([String: [String]].self, forKey: .recordingOrder)
         favouriteAlbums = try values.decodeIfPresent(Set<String>.self, forKey: .favouriteAlbums) ?? []
         favouriteArtists = try values.decodeIfPresent([Song.Artist].self, forKey: .favouriteArtists) ?? []
         pendingFavourites =
@@ -101,7 +109,10 @@ final class ListenerFile {
 
     init(store: DeviceStore?) {
         self.store = store
-        do { data = try store?.load() ?? DeviceStore.Data() } catch { loadError = error.localizedDescription }
+        do {
+            try store?.removeLegacyOrder()
+            data = try store?.load() ?? DeviceStore.Data()
+        } catch { loadError = error.localizedDescription }
     }
 
     /// Writes the file, then keeps the change in memory.

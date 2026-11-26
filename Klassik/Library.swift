@@ -31,8 +31,12 @@ final class Library {
     /// the first tap on Filters never waits. Until a build is done, the sheet keeps the terms of the last index.
     private(set) var searchFilters = SearchFilters(index: WorkIndex())
     @ObservationIgnored private var filtersBuild: Task<Void, Never>?
+    /// The last real change: the time of the last full sync.
     private(set) var syncedAt: Date?
+    /// The last successful check of the server's change marker, or the last sync.
+    private(set) var checkedAt: Date?
     private(set) var isSyncing = false
+    @ObservationIgnored private(set) var isChecking = false
     /// Tracks received so far in the running sync.
     private(set) var received = 0
     private(set) var syncError: String?
@@ -87,6 +91,8 @@ final class Library {
 
     var albumCount: Int { Set(songs.map(\.albumKey)).count }
     var classicalAlbumCount: Int { Set(classical.map(\.albumKey)).count }
+    /// The tracks that the classical filter keeps out.
+    var otherTrackCount: Int { max(0, songs.count - classical.count) }
 
     private var owner: (server: URL, username: String)?
     private let cacheURL: URL
@@ -120,9 +126,41 @@ final class Library {
     }
 
     /// Syncs only if the server changed since the last sync. A star by another app does not count as a change.
+    /// A check that cannot reach the server ends without a sync and without an error: the server status shows it.
+    /// A running sync or check makes this call do nothing.
     func syncIfChanged(with client: SubsonicClient) async {
-        guard !songs.isEmpty, let known = marker, let current = try? await client.changeMarker(), current == known
-        else { return await sync(with: client) }
+        guard !isSyncing, !isChecking else { return }
+        guard !songs.isEmpty, let known = marker else { return await sync(with: client) }
+        isChecking = true
+        defer { isChecking = false }
+        guard let current = try? await client.changeMarker() else { return }
+        if current == known {
+            checkedAt = .now
+        } else {
+            await sync(with: client)
+        }
+    }
+
+    /// The time of a check after the last change, when it found no change.
+    var unchangedCheck: Date? {
+        guard let syncedAt, let checkedAt, checkedAt > syncedAt else { return nil }
+        return checkedAt
+    }
+
+    /// The Diagnostics row for a check that found no change. A suspended app can show a day-old check, so it carries the date.
+    var unchangedCheckRow: String? {
+        unchangedCheck.map { "Checked \($0.formatted(date: .abbreviated, time: .standard)), no changes" }
+    }
+
+    /// The line under the Library page.
+    var statusText: String? {
+        if let syncError { return syncError }
+        if isSyncing { return "Syncing… \(received) tracks" }
+        guard let syncedAt else { return "Not synced." }
+        if let unchangedCheck {
+            return "Checked \(unchangedCheck.formatted(.relative(presentation: .named))), no changes."
+        }
+        return "Synced \(syncedAt.formatted(.relative(presentation: .named)))."
     }
 
     func sync(with client: SubsonicClient) async {
@@ -142,6 +180,7 @@ final class Library {
             owner = (client.credentials.url, client.credentials.username)
             let syncedAt = Date.now
             show(songs, syncedAt: syncedAt)
+            checkedAt = syncedAt
             let cache = LibraryCache(
                 server: client.credentials.url, username: client.credentials.username, syncedAt: syncedAt,
                 songs: self.songs, marker: marker)
@@ -219,6 +258,7 @@ final class Library {
         songs = []
         classical = []
         syncedAt = nil
+        checkedAt = nil
         syncError = nil
     }
 

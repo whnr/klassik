@@ -24,7 +24,7 @@ struct LibraryView: View {
                         Text(status)
                             .accessibilityIdentifier("library-synced")
                     }
-                    // Server trouble shows here only, never as a notice for each failed sync (ADR 0058).
+                    // Server trouble shows here only, never as a notice for each failed sync.
                     if let trouble = model.serverTrouble {
                         Text(trouble.status)
                             .accessibilityIdentifier("server-status")
@@ -56,16 +56,7 @@ struct LibraryView: View {
         }
     }
 
-    private var status: String? {
-        let library = model.library
-        if let error = library.syncError { return error }
-        guard let syncedAt = library.syncedAt else {
-            return library.isSyncing ? "Syncing… \(library.received) tracks" : "Not synced."
-        }
-        return library.isSyncing
-            ? "Syncing… \(library.received) tracks"
-            : "Synced \(syncedAt.formatted(.relative(presentation: .named)))."
-    }
+    private var status: String? { model.library.statusText }
 }
 
 /// Every composer of the library.

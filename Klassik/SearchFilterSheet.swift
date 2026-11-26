@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The conditions of a search in a modal sheet at the medium detent (ADR 0067).
+/// The conditions of a search in a modal sheet at the medium detent.
 /// Each scope has a narrowing field; each term shows what a tap does.
 struct FilterSheet: View {
     @Environment(AppModel.self) private var model
@@ -12,7 +12,7 @@ struct FilterSheet: View {
     let pool: Search.Pool
     /// True when the search has a text, so the heading shows the recordings that remain.
     let hasText: Bool
-    /// Done keeps the search as a recent search (ADR 0029).
+    /// Done keeps the search as a recent search.
     let done: () -> Void
     let back: () -> Void
     @State private var scope: Search.Scope = .composers
@@ -52,7 +52,7 @@ struct FilterSheet: View {
                     }
                 }
             }
-            // The note, the kinds and the field start under Back, at the shared inset (search.html `.fsheet .body`).
+            // The note, the kinds and the field start under Back, at the shared inset.
             Section {
                 Text(note)
                     .typeStyle(.footnote)
@@ -88,7 +88,7 @@ struct FilterSheet: View {
         }
         .grounds()
         .contentMargins(.horizontal, Layout.filterHeadInset, for: .scrollContent)
-        // The note follows the head directly (search.html `.fsheet .body` has no top padding).
+        // The note follows the head directly, with no top padding.
         .contentMargins(.top, 0, for: .scrollContent)
         .environment(\.defaultMinListRowHeight, 0)
         .environment(\.defaultMinListHeaderHeight, 0)
@@ -102,7 +102,7 @@ struct FilterSheet: View {
         .presentationBackground(Palette.backgroundGrouped)
     }
 
-    /// The title, the recordings that remain, and Done (search.html .fsheet .head).
+    /// The title, the recordings that remain, and Done.
     private func head(total: Int) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: Layout.filterHeadGap) {
             Button("Back", action: back)
@@ -141,7 +141,7 @@ struct FilterSheet: View {
             + " term to it with \u{201C}or\u{201D}."
     }
 
-    /// A pick clears the narrowing field, so the next term can be typed at once (ADR 0029).
+    /// A pick clears the narrowing field, so the next term can be typed at once.
     private func pick(_ choice: Search.Choice) {
         narrowing = ""
         switch choice.effect {
@@ -293,7 +293,7 @@ private struct TermRow: View {
     }
 }
 
-/// The field that narrows the terms of one scope (search.html .narrow).
+/// The field that narrows the terms of one scope.
 private struct NarrowField: View {
     @Binding var text: String
     let scope: Search.Scope

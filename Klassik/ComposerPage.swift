@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// A composer as a person: a picture, the name, a description line, a Chronology button, and the tabs Works and
-/// About (ADR 0017). Facts come from Wikidata; the tags stay the truth for the works.
+/// About. Facts come from Wikidata; the tags stay the truth for the works.
 struct ComposerPage: View {
     enum Tab: Hashable {
         case works, about
@@ -213,7 +213,7 @@ private struct GenreChips: View {
     @ScaledMetric(relativeTo: .subheadline) private var height = Layout.chipHeight
 }
 
-/// One credit line as in the specimen: the source, then its link in the tint (person.html, `.link`).
+/// One credit line as in the specimen: the source, then its link in the tint.
 /// Increase Contrast underlines the link in its own colour.
 struct CreditRow: View {
     @Environment(\.colorSchemeContrast) private var contrast
@@ -304,10 +304,10 @@ private struct ResolutionNotice: View {
 }
 
 /// The picture, the name and the description line. Without a picture the page shows the name on the plain ground.
-/// `kind` prefixes the accessibility identifiers. Every picture shows (ADR 0043).
+/// `kind` prefixes the accessibility identifiers. Every picture shows.
 struct PersonHero: View {
     /// The ground of a named picture before it loads. It is opaque, because the heading keeps the page room's
-    /// colours there and the unselected fermata needs its contrast floor on it (ADR 0065).
+    /// colours there and the unselected fermata needs its contrast floor on it.
     static let placeholder = Palette.backgroundElevated
 
     @Environment(AppModel.self) private var model
@@ -376,7 +376,7 @@ struct PersonHero: View {
                 .padding(.bottom, spacesChronology ? Layout.pictureBottom + Layout.buttonRowTop : 0)
             } else {
                 // No picture: the name sits close under the back arrow, as a page title does. Its edge is the page
-                // edge of ADR 0045, as `.page-head` in person.html: 20 pt without a timeline, 16 pt on the side
+                // edge, as `.page-head`: 20 pt without a timeline, 16 pt on the side
                 // away from it. The width frame keeps the list from insetting the name, as in the picture branch.
                 heading
                     .frame(width: width, alignment: .leading)
@@ -420,7 +420,7 @@ struct PersonHero: View {
                     action: { model.recordingOrder.toggleAtOnce(person: name) }, textIdentifier: "\(kind)-title",
                     ink: portrait == nil ? Palette.textPrimary.color : paper, minimumHeight: nil
                 )
-                // The portrait scrim uses the dark room's ink and favourite colours (picture.css).
+                // The portrait scrim uses the dark room's ink and favourite colours.
                 .environment(\.colorScheme, portrait == nil ? scheme : .dark)
                 .accessibilityIdentifier("favourite-\(kind)")
             } else {
@@ -505,7 +505,7 @@ struct PersonHero: View {
     private func picture(_ portrait: LoadedPortrait, framing: CGRect, frame: CGSize) -> some View {
         // The scrim comes from the picture under the text, as the frame shows it.
         let visible = PortraitFraming.visible(of: framing, in: frame)
-        // From the bottom: the text block with a margin, the blur strip, and the fade of the scrim (picture.css).
+        // From the bottom: the text block with a margin, the blur strip, and the fade of the scrim.
         let geometry = ScrimGeometry(
             frame: frame, textHeight: textHeight, textRight: textRight ?? frame.width, margin: Space.m.points)
         let under = geometry.under
@@ -528,7 +528,7 @@ struct PersonHero: View {
                     .frame(width: framing.width, height: framing.height)
                     .position(x: framing.midX, y: framing.midY)
                     .accessibilityHidden(true)
-                // The name sits on a blur, which averages a small bright patch away (ADR 0034).
+                // The name sits on a blur, which averages a small bright patch away.
                 image
                     .frame(width: framing.width, height: framing.height)
                     .position(x: framing.midX, y: framing.midY)
@@ -594,7 +594,7 @@ struct PersonHero: View {
     }
 }
 
-/// The credit under the whole picture: author and licence, then "File page" in the tint (person.html, `.link`).
+/// The credit under the whole picture: author and licence, then "File page" in the tint.
 /// Increase Contrast underlines the link in its own colour.
 private struct PictureCredit: View {
     @Environment(\.colorSchemeContrast) private var contrast
@@ -624,7 +624,7 @@ private struct PictureCredit: View {
 }
 
 /// The whole picture with its credit, full screen. A swipe down or the system close button closes it, as for any
-/// full-screen overlay. Flo chose this over the specimen's sheet with Done (sz-rs30.1.105.73).
+/// full-screen overlay. Flo chose this over the specimen's sheet with Done.
 private struct WholePicture: View {
     /// A drag down this far, or a flick that would carry this far, closes the picture.
     static let closeDistance = 120.0

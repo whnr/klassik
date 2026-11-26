@@ -114,7 +114,7 @@ jobs:
           done
           echo "Push to gh-pages failed" >&2
           exit 1
-      - name: Comment the preview URL
+      - name: Comment the preview URL (only when the PR changes the specimen)
         run: |
           set -euo pipefail
           safe=$(printf '%s' "$BRANCH" | tr -c 'A-Za-z0-9._/-' '_')
@@ -126,6 +126,13 @@ jobs:
           numbers=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open \
             --json number,isCrossRepository --jq '.[] | select(.isCrossRepository | not) | .number')
           for n in $numbers; do
+            # Only a PR whose diff (base..head) touches the specimen gets the comment. The pages are still published.
+            # grep -q on a pipe would end gh early and fail the pipeline under pipefail, so read into a variable first.
+            files=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$n/files" --paginate --jq '.[].filename')
+            if ! grep -q '^design/specimen/' <<< "$files"; then
+              echo "PR #$n does not change design/specimen/, so it gets no preview comment."
+              continue
+            fi
             id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$n/comments" --paginate \
               --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | head -n 1)
             if [ -n "$id" ]; then

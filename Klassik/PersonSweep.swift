@@ -34,10 +34,10 @@ final class PersonSweep {
     static let unknownDays = 90
     /// Each due time moves by a random amount up to this many days, so that a library does not fall due at once.
     nonisolated static let jitterDays = 10.0
-    /// A pass tries one person at most this many times (ADR 0044). Then the person waits for its next due time.
+    /// A pass tries one person at most this many times. Then the person waits for its next due time.
     static let triesPerPass = 2
     /// A picture that Commons did not answer in any try of a pass waits this long after the first such pass, then
-    /// twice as long after each next one, at most `pictureWaitMaxHours` (ADR 0044). The first wait is short,
+    /// twice as long after each next one, at most `pictureWaitMaxHours`. The first wait is short,
     /// because a short loss of the connection can fail both tries of a pass.
     static let pictureWaitHours = 1.0
     static let pictureWaitMaxHours = 24.0
@@ -61,7 +61,7 @@ final class PersonSweep {
     /// Picture downloads run one after the other beside the lookup, so that they never slow it down.
     @ObservationIgnored private var pictureWork: Task<Void, Never>?
     @ObservationIgnored private var pictureID = UUID()
-    /// Performers that a page shows and that have no saved check, the latest page first (ADR 0046).
+    /// Performers that a page shows and that have no saved check, the latest page first.
     @ObservationIgnored private(set) var shown: [Person] = []
 
     init(
@@ -127,15 +127,14 @@ final class PersonSweep {
         return (new, due.sorted { $0.overdue > $1.overdue }.map(\.person))
     }
 
-    /// The order of a pass: all composers before all performers, new ones before due ones in each group
-    /// (ADR 0046).
+    /// The order of a pass: all composers before all performers, new ones before due ones in each group.
     func order(_ people: [Person]) -> [Person] {
         let found = plan(people)
         let all = found.new + found.due
         return all.filter { $0.kind == .composer } + all.filter { $0.kind == .performer }
     }
 
-    /// Puts the performers of a page in front of the pass, when they were never looked up (ADR 0046).
+    /// Puts the performers of a page in front of the pass, when they were never looked up.
     func prefer(performers tags: [String]) {
         var seen: Set<Person> = []
         let fresh = tags.map { Person(kind: .performer, tag: $0) }.filter {
@@ -184,7 +183,7 @@ final class PersonSweep {
     }
 
     /// Runs a pass to its end, and returns when it ends or is stopped.
-    /// A failed person goes to the end of the queue, so that it does not hold up the others (ADR 0044).
+    /// A failed person goes to the end of the queue, so that it does not hold up the others.
     func run(_ people: [Person]) async {
         for person in people {
             guard !Task.isCancelled else { return }
@@ -251,7 +250,7 @@ final class PersonSweep {
     }
 
     /// The place of the first shown performer that waits in the queue and has no try in this pass. A failed
-    /// performer keeps its place at the end of the queue (ADR 0044).
+    /// performer keeps its place at the end of the queue.
     private func shownIndex(in queue: [Person], from next: Int, tries: [Person: Int]) -> Int? {
         for person in shown where tries[person] == nil && store.cache.checked[person.key] == nil {
             if let index = queue[next...].firstIndex(of: person) { return index }
@@ -362,7 +361,7 @@ final class PersonSweep {
 }
 
 /// Tells whether the connection suits a long run of small requests: it works and it is not metered. Low Data
-/// Mode alone does not stop people pictures (ADR 0061); mobile data keeps the limit of ADR 0042.
+/// Mode alone does not stop people pictures; mobile data keeps the limit of ADR 0042.
 final class ConnectionMonitor: @unchecked Sendable {
     private let monitor = NWPathMonitor()
     private let lock = NSLock()

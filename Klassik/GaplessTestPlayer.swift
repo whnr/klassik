@@ -1,4 +1,5 @@
 import AVFoundation
+import KlassikEngine
 import Observation
 
 /// Plays tracks back to back with one of two players, so that a listener can compare the joins.
@@ -95,9 +96,9 @@ final class GaplessTestPlayer {
 
                 if format == nil {
                     format = file.processingFormat
-                    engine.connect(node, to: engine.mainMixerNode, format: file.processingFormat)
+                    try engine.connectNode(node, to: engine.mainMixerNode, format: file.processingFormat)
                     try engine.start()
-                    node.play()
+                    try node.playAudio()
                 } else if file.processingFormat != format {
                     status = "Track \(number + 1) has a different audio format. Stopped scheduling."
                     return

@@ -19,6 +19,7 @@ enum Page: Hashable {
     case worksWithoutMatch
     case classicalRules
     case localStorage
+    case serverConnection
     case swipeActions
     case diagnostics
     case licences
@@ -90,6 +91,7 @@ extension Page {
         case .worksWithoutMatch: return "No Match"
         case .classicalRules: return "Classical Rules"
         case .localStorage: return "Local Storage"
+        case .serverConnection: return "Server Connection"
         case .swipeActions: return "Swipe Actions"
         case .diagnostics: return "Diagnostics"
         case .licences: return "Licences"
@@ -236,6 +238,8 @@ struct PageView: View {
             ClassicalRulesView()
         case .localStorage:
             LocalStorageView()
+        case .serverConnection:
+            ServerConnectionView()
         case .swipeActions:
             SwipeSettingsView()
         case .diagnostics:

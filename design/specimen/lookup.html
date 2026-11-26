@@ -18,7 +18,7 @@
         const { scroll } = K.page({
           tab: "library",
           title: "MusicBrainz",
-          back: { label: "Settings", href: href("settings.html", { place: "library", back: "Library" }) },
+          back: { label: "Settings", href: href("settings.html", { tab: "library", back: "Library" }) },
           grouped: true,
         });
         const state = K.params.get("state") || "upToDate";

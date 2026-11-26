@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The timeline on the screen edge while something plays (ADR 0014, 0035), and its scrub label. `TimelineBar` holds
+/// The timeline on the screen edge while something plays, and its scrub label. `TimelineBar` holds
 /// the geometry and `TimelineTouch` decides what a touch does; this view draws and forwards.
 struct TimelineBarView: View {
     @Environment(AppModel.self) private var model
@@ -111,7 +111,7 @@ struct TimelineBarView: View {
         .frame(maxHeight: .infinity, alignment: .top)
     }
 
-    /// Flush with the screen edge, round on the content side. The first segment grows out of the edge (ADR 0035).
+    /// Flush with the screen edge, round on the content side. The first segment grows out of the edge.
     private func shape(first: Bool) -> UnevenRoundedRectangle {
         let top = first ? Measure.timelineCap : Radius.xs
         return side == .right
@@ -121,7 +121,7 @@ struct TimelineBarView: View {
                 topLeadingRadius: 0, bottomLeadingRadius: 0, bottomTrailingRadius: Radius.xs, topTrailingRadius: top)
     }
 
-    /// Two lines: the movement, then the time. No separator (ADR 0031).
+    /// Two lines: the movement, then the time. No separator.
     private func label(_ place: TimelineBar.Place) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(title(of: place.movement))

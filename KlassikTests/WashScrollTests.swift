@@ -3,7 +3,7 @@ import Testing
 
 @testable import Klassik
 
-/// The wash follows the scroll of the item that the player shows (ADR 0015, specimen player.html `.wash`).
+/// The wash follows the scroll of the item that the player shows.
 @MainActor
 struct WashScrollTests {
     @Test func nextItemOpensAtTheTopWhileTheOldListStillScrolls() {

@@ -5,7 +5,7 @@ import UIKit
 
 @testable import Klassik
 
-/// The cover hue and the player wash of ADR 0034.
+/// The cover hue and the player wash.
 @MainActor
 struct CoverWashTests {
     static func hex(_ value: UInt32) -> SRGB {
@@ -140,7 +140,7 @@ struct CoverWashTests {
 
     // MARK: Ground
 
-    /// The ground takes the room's lightness and at most its chroma (ADR 0034).
+    /// The ground takes the room's lightness and at most its chroma.
     @Test(arguments: WashRoom.allCases)
     func groundKeepsTheRoomLimits(room: WashRoom) {
         for hue in stride(from: 0.0, to: 360, by: 15) {

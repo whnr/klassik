@@ -319,7 +319,7 @@ def swift_colours(resolver, tokens):
         *swift_enum(
             "AccentFamily",
             "String, CaseIterable, Sendable",
-            "An accent family of ADR 0034. The raw value is the folder of its colour sets.",
+            "An accent family. The raw value is the folder of its colour sets.",
             [f'{accent} = "{upper_camel(accent)}"' for accent in accents["contexts"]],
         ),
         "",
@@ -341,7 +341,7 @@ def swift_colours(resolver, tokens):
         "    /// The colour in the family that the listener picked in Settings.",
         "    var color: Color { Color(assetName()) }",
         "",
-        "    /// The player wash solves colours again on its ground. They come through the environment (ADR 0034).",
+        "    /// The player wash solves colours again on its ground. They come through the environment.",
         "    /// The family comes through the environment too, so that a new pick redraws every style at once.",
         "    func resolve(in environment: EnvironmentValues) -> Color.Resolved {",
         "        environment.paletteOverrides[self]",
@@ -378,7 +378,7 @@ def swift_type_styles(tokens):
         *swift_enum(
             "TypeStyle",
             "CaseIterable, Sendable",
-            "A text style of ADR 0030. `typeStyle(_:)` sets it on a view.",
+            "A text style. `typeStyle(_:)` sets it on a view.",
             [style["name"] for style in styles],
         ),
         "",

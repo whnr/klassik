@@ -1,6 +1,6 @@
 # 0002. Sync the whole library into a local cache
 
-Date: 2026-10-17. Decided by Flo. Beads: sz-rs30.1, sz-rs30.1.2, sz-rs30.1.24.
+Date: 2026-10-17. Decided by Flo.
 
 ## Context
 
@@ -16,4 +16,4 @@ The work index needs every track and its classical tags. OpenSubsonic has no end
 ## Consequences
 
 - A full sync of 8,961 tracks takes 2 to 5 s on music.whnr.de. Flo accepts this.
-- The API has no "changed since" query for tracks. An incremental sync can only skip a sync when nothing changed (sz-rs30.1.24).
+- The API has no "changed since" query for tracks. An incremental sync can only skip a sync when nothing changed.

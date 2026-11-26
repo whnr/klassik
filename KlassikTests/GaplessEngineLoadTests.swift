@@ -1,6 +1,7 @@
 import Testing
 
 @testable import Klassik
+@testable import KlassikEngine
 
 @Suite(.serialized)
 @MainActor
@@ -16,7 +17,7 @@ struct GaplessEngineLoadTests {
         let engine = GaplessEngine()
         engine.onEvent = { recorder.events.append($0) }
         let song = Song(id: "a-0", title: "Movement 1", duration: 10, suffix: "wav")
-        engine.load([song], from: 0, offset: 0) { _ in
+        engine.load([song.playbackTrack], from: 0, offset: 0) { _ in
             recorder.fileRequests += 1
             throw CancellationError()
         }
@@ -30,7 +31,7 @@ struct GaplessEngineLoadTests {
         let recorder = Recorder()
         let engine = GaplessEngine()
         let song = Song(id: "a-0", title: "Movement 1", duration: 10, suffix: "wav")
-        engine.load([song], from: 0, offset: 0) { _ in
+        engine.load([song.playbackTrack], from: 0, offset: 0) { _ in
             recorder.fileRequests += 1
             throw CancellationError()
         }

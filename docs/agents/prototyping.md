@@ -1,12 +1,12 @@
 # Prototyping
 
-How to build a UX prototype that the tester tests on a phone. The search ticket (sz-rs30.1.74.5) used this flow.
+How to build a UX prototype that the tester tests on a phone. The search ticket used this flow.
 
 ## What the owner judges
 
 - The owner judges the flow: the steps, the states, and what each tap does. Polish comes second.
 - Still make it look native. A clean iOS 26 look lets the owner judge the flow without distraction. The search prototypes had the right level: system colours, light and dark mode, inset lists, a glass search field at the bottom. Do not spend more time on looks than that.
-- Looks get their own decisions in the design system map (sz-rs30.1.83).
+- Looks get their own decisions in the design system map.
 
 ## Build
 

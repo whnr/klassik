@@ -1,13 +1,13 @@
 import Foundation
 
-/// What the page of a recording or album shows (ADR 0014, 0027): the header holds what every track shares, and a
+/// What the page of a recording or album shows: the header holds what every track shares, and a
 /// row holds only the names that differ for its track.
 struct PlayerPage: Sendable {
     /// The composer that every track names, if there is one.
     let composer: String?
     /// The names that every track shares, then the album as a labelled line.
     let header: [Roles.Line]
-    /// The year and the length in prose, under the names (specimen player.html `.facts`).
+    /// The year and the length in prose, under the names.
     let facts: String
     /// For each track, the names that differ from the header. A composer that the header does not show leads.
     let differing: [[Roles.Line]]
@@ -68,7 +68,7 @@ struct PlayerPage: Sendable {
     }
 }
 
-/// When the player may scroll by itself (ADR 0027): only after a quiet spell without touches, and never while
+/// When the player may scroll by itself: only after a quiet spell without touches, and never while
 /// a scrub on the timeline or a note being written holds the rows still.
 struct QuietSpell: Sendable {
     /// specimen player.html waits 8000 ms.
@@ -119,7 +119,7 @@ struct QuietSpell: Sendable {
     }
 }
 
-/// What the player shows after its rows (ADR 0014).
+/// What the player shows after its rows.
 enum PlayerTail: Equatable, Sendable {
     /// The row of the next queue item, which becomes the player when the playing item ends.
     case next(UUID)
@@ -128,7 +128,7 @@ enum PlayerTail: Equatable, Sendable {
     /// The player shows an item that does not play.
     case nothing
 
-    /// `upNext` holds the queue after the item. The player closes when no item plays (ADR 0053).
+    /// `upNext` holds the queue after the item. The player closes when no item plays.
     init(isPlaying: Bool, upNext: [UUID]) {
         self = isPlaying ? upNext.first.map(Self.next) ?? .endsHere : .nothing
     }

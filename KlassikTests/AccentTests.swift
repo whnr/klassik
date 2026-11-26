@@ -4,7 +4,7 @@ import Testing
 
 @testable import Klassik
 
-/// The accent switch of Settings: claret by default, bottle green and plum on request (ADR 0034).
+/// The accent switch of Settings: claret by default, bottle green and plum on request.
 struct AccentTests {
     private func key() -> String { "accent-test-\(UUID().uuidString)" }
 

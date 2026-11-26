@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Klassik
+@testable import KlassikEngine
 
 /// Automatic music stays inside the Music limit (ADR 0060). Old files go first, then speculative transfers, and
 /// current playback stops last. A track larger than the limit plays from a rolling window. Explicit downloads
@@ -215,7 +216,7 @@ struct MusicStorageTests {
     @Test func anOversizedTrackThatCannotRollFailsAtItsHead() async throws {
         let store = try makeStore(limit: 32)
         defer { clean(store) }
-        let transfer = store.transfer(for: song("large", suffix: "m4a"), client: client)
+        let transfer = store.transfer(for: song("large", suffix: "opus"), client: client)
         transfer.begin(length: 200, validator: nil)
         await #expect(throws: TrackTransfer.Failure.exceedsStorage) { try await transfer.finished() }
         #expect(!FileManager.default.fileExists(atPath: transfer.partial.path()))

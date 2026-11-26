@@ -1,4 +1,5 @@
 import AVFoundation
+import KlassikEngine
 import MediaPlayer
 import Observation
 import UIKit
@@ -105,7 +106,7 @@ final class PlaybackSession {
         willSet { savePosition() }
         didSet { defaults.set(scrobblesEnabled, forKey: Self.scrobblesKey) }
     }
-    /// Why listening data waits on the device. The Library shows it in the one server status (ADR 0058).
+    /// Why listening data waits on the device. The Library shows it in the one server status.
     private(set) var listeningTrouble: ServerTrouble?
     /// Why music stopped loading from the server. It joins the one server status and goes with the next sound
     /// (ADR 0060).
@@ -202,15 +203,22 @@ final class PlaybackSession {
     private var engineBase = 0
     /// The tracks that the engine plays, from the first one of its load.
     private var engineSongs: [Song] = []
-    private let engine: any PlaybackEngine
+    /// Internal so that the tests can check the engine that the app builds.
+    let engine: any PlaybackEngine
     private let store: TrackStore
     private let defaults: UserDefaults
+    /// Replaces the leveling setting as the source of the volume change. Nil keeps the setting.
+    private let gainStage: (any GainStage)?
     private static let levelingKey = "player.volumeLeveling"
 
-    init(engine: any PlaybackEngine, store: TrackStore, defaults: UserDefaults = .standard) {
+    init(
+        engine: any PlaybackEngine, store: TrackStore, defaults: UserDefaults = .standard,
+        gainStage: (any GainStage)? = nil
+    ) {
         self.engine = engine
         self.store = store
         self.defaults = defaults
+        self.gainStage = gainStage
         scrobblesEnabled = defaults.object(forKey: Self.scrobblesKey) as? Bool ?? true
         leveling = defaults.string(forKey: Self.levelingKey).flatMap(VolumeLeveling.init) ?? .album
         engine.onEvent = { [weak self] event in self?.engineEvent(event) }
@@ -270,8 +278,8 @@ final class PlaybackSession {
 
     // MARK: Queue
 
-    /// Plays one item. On the item that already plays, it pauses or resumes, as a tap on its tinted row does
-    /// (ADR 0039). Any other item replaces the queue (ADR 0006).
+    /// Plays one item. On the item that already plays, it pauses or resumes, as a tap on its tinted row does.
+    /// Any other item replaces the queue.
     func play(_ item: QueueItem) {
         if let playing = self.item, playing.recording.id == item.recording.id {
             togglePause()
@@ -281,7 +289,7 @@ final class PlaybackSession {
     }
 
     /// Plays one item from a movement. A movement of the playing item only moves the position and keeps the
-    /// queue (ADR 0015). Any other item replaces the queue (ADR 0006).
+    /// queue. Any other item replaces the queue.
     func play(_ item: QueueItem, from movement: Int, at position: Double = 0) {
         if let playing = self.item, playing.recording.id == item.recording.id {
             start(playing, from: movement, offset: position, preserveListen: true)
@@ -341,7 +349,7 @@ final class PlaybackSession {
         savePosition()
         if let item {
             let songs = Array(engineSongs.prefix(engineBase)) + ([item] + upNext).flatMap { $0.recording.songs }
-            if engine.replace(songs) {
+            if engine.replace(songs.map(\.playbackTrack)) {
                 engineSongs = songs
             } else if playback.shouldPlay {
                 rebuild()
@@ -479,10 +487,14 @@ final class PlaybackSession {
         case .scheduled(let scheduled):
             refreshSegments()
             if scheduled == movement.map({ $0 + engineBase }) { updateNowPlaying() }
+        case .formatChanged:
+            // `finished` already moved the checkpoint to the movement that needs the new format. A paused session
+            // drops the engine, so that Resume builds the graph for that movement.
+            if playback.shouldPlay { rebuild() } else { discardEngine() }
         case .configurationChanged: handle(.configurationChanged)
         case .problem(let text): error = text
         case .failed(let text): playbackFailed(text)
-        case .serverFailed(let trouble): playbackFailed(nil, trouble: trouble)
+        case .serverFailed(let failure): playbackFailed(nil, trouble: ServerTrouble(engine: failure))
         }
     }
 
@@ -563,8 +575,11 @@ final class PlaybackSession {
         let songs = ([item] + upNext).flatMap { $0.recording.songs }
         engineSongs = songs
         soundRequested = .now
-        engine.load(songs, from: checkpoint.movement, offset: checkpoint.elapsed) { song in
-            try await store.source(for: song, client: server)
+        engine.load(songs.map(\.playbackTrack), from: checkpoint.movement, offset: checkpoint.elapsed) {
+            [weak self] track in
+            // A queue edit changes the songs after the load, so the song comes from the current list.
+            guard let song = self?.engineSongs.first(where: { $0.id == track.id }) else { throw CancellationError() }
+            return try await store.source(for: song, client: server)
         }
         positionTask = Task { [weak self] in
             while !Task.isCancelled {
@@ -578,7 +593,7 @@ final class PlaybackSession {
         }
     }
 
-    /// A server failure pauses quietly: the Library shows its cause in the one server status (ADR 0058, 0060).
+    /// A server failure pauses quietly: the Library shows its cause in the one server status (ADR 0060).
     private func playbackFailed(_ text: String?, trouble: ServerTrouble? = nil) {
         savePosition()
         _ = playback.handle(.pause)
@@ -650,7 +665,7 @@ final class PlaybackSession {
     /// Album gains are the same for each movement, so a change at the movement boundary is not audible.
     private func applyGain() {
         guard let recording, let movement, recording.songs.indices.contains(movement) else { return engine.setGain(0) }
-        engine.setGain(leveling.gain(for: recording.songs[movement]))
+        engine.setGain((gainStage ?? leveling).gain(for: recording.songs[movement].playbackTrack))
     }
 
     // MARK: Waiting and read-ahead
@@ -770,7 +785,9 @@ final class PlaybackSession {
         guard current(), !store.isOffline(opening) else { return }
         let transfer = store.transfer(for: opening, client: client)
         defer { transfer.hold(false) }
-        while current() {
+        // Once the engine asked for the opening's source, it reads this shared transfer: a hold would starve the join.
+        func engineReads() -> Bool { (engine.requestedMovement ?? -1) > (movement ?? .max) }
+        while current(), !engineReads() {
             transfer.hold(buffered() < Self.competitionFloor)
             try await Task.sleep(for: Self.readAheadPoll)
         }

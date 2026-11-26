@@ -5,7 +5,7 @@ struct PageTabsStyle {
     var label: TypeStyle
     var height: CGFloat
     var corner: CGFloat
-    /// The filter sheet sets the chosen kind in bold (search.html `.seg button.on`).
+    /// The filter sheet sets the chosen kind in bold.
     var boldSelection: Bool
 
     static let page = PageTabsStyle(

@@ -3,25 +3,34 @@ name: Test
 # One build runs unit tests and supplies the requested UI shards.
 # A pull request walks the areas that the commit message of its head requests, so interim pushes skip the walk.
 # Main pushes run no walk. Nightly runs and feature release pull requests walk every group.
-# The Release launch check runs on main, nightly and release pull requests, not on other pull requests.
+# The Release launch check runs on nightly and manual runs and on release pull requests. A main push does not run it:
+# the TestFlight gate takes the release PR head run, which proves it (scripts/green_test_gate.py).
 # A merge to main that adds nothing to its green PR head skips the build: TestFlight accepts that PR run.
-# UI_TESTS_REQUIRED controls whether a failed walk blocks the run.
-# A push that changes only documentation starts no run. TestFlight accepts such a commit through
-# scripts/green_test_gate.py, which keeps the same ignore list.
+# A failed walk test blocks the run in an area that the pull request requested: the head commit's [ui: ...] line, or
+# every area of a release title that walks everything. The plan job marks each walk group as required or not.
+# The nightly walk and manual walks report only.
+# The measure job (nightly, or by hand with `measure`) runs the slow throughput measurement and the wall-clock limits.
+# A push that changes only documentation or the Playback Lab starts no run. The Klassik target does not build the Lab
+# (project.yml: Klassik depends on TaskRegistry and KlassikEngine only), and lab.yml covers it. TestFlight accepts such
+# a commit through scripts/green_test_gate.py, which keeps the same ignore list.
 on:
   push:
     branches: [ci, main]
-    paths-ignore: ["**.md", "LICENSE", "docs/**"]
+    paths-ignore: ["**.md", "LICENSE", "docs/**", "KlassikLab/**", "KlassikLabTests/**", ".github/workflows/lab.yml", ".github/workflows/testflight-lab.yml"]
   schedule:
     - cron: "23 3 * * *"
   pull_request:
-    paths-ignore: ["**.md", "LICENSE", "docs/**"]
+    paths-ignore: ["**.md", "LICENSE", "docs/**", "KlassikLab/**", "KlassikLabTests/**", ".github/workflows/lab.yml", ".github/workflows/testflight-lab.yml"]
   workflow_dispatch:
     inputs:
       ui:
         description: 'Walk the screens: "all", or areas such as "browse,settings"'
         type: string
         default: ""
+      measure:
+        description: "Run the measurement tests (throughput matrix, latency limits)"
+        type: boolean
+        default: false
 
 # A newer push cancels only a pull request's older run. Any other run has its own group:
 # a shared group would drop a queued run when a newer one arrives, and TestFlight needs
@@ -42,6 +51,7 @@ jobs:
       ui: ${{ steps.plan.outputs.ui }}
       matrix: ${{ steps.plan.outputs.matrix }}
       release_launch: ${{ steps.plan.outputs.release_launch }}
+      ui_required: ${{ steps.plan.outputs.ui_required }}
       covered: ${{ steps.covered.outputs.head }}
     steps:
       - uses: actions/checkout@v7
@@ -108,7 +118,11 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
+      # The notes test runs the stale-notes check, which reads the newest release tag.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
       # A pinned static build: the Ubuntu mirror can take ten minutes for ffmpeg's packages.
       # BtbN prunes old builds; when this one is gone the step warns and falls back to apt.
       - name: Install ffmpeg
@@ -161,9 +175,12 @@ jobs:
         run: xcrun simctl delete unavailable
       # The cached DerivedData helps only if unchanged files keep their time.
       - run: python3 scripts/git_mtimes.py
+      # The simulator boots while the compiler runs. scripts/screens.sh waits for it after the build.
+      - name: Boot the simulator early
+        run: scripts/start-simulator.sh
       - id: xcode
         env:
-          SOURCES_HASH: ${{ hashFiles('project.yml', 'Klassik/**', 'KlassikTests/**', 'KlassikUITests/**') }}
+          SOURCES_HASH: ${{ hashFiles('project.yml', 'Klassik/**', 'KlassikEngine/**', 'KlassikTests/**', 'KlassikUITests/**') }}
         run: |
           echo "version=$(xcodebuild -version | tr -s '\n ' '--')" >> "$GITHUB_OUTPUT"
           echo "sources=$SOURCES_HASH" >> "$GITHUB_OUTPUT"
@@ -188,6 +205,9 @@ jobs:
         run: |
           scripts/screens.sh "$RUNNER_TEMP/build-report"
           tar czf "$RUNNER_TEMP/test-products.tgz" -C build/DerivedData/Build Products
+      - name: Navidrome log
+        if: failure()
+        run: tail -50 "$RUNNER_TEMP/fixture/navidrome.log"
       - uses: actions/upload-artifact@v7
         with:
           name: test-products
@@ -199,6 +219,10 @@ jobs:
           cat "$RUNNER_TEMP/build-report/timings.txt" >> "$GITHUB_STEP_SUMMARY" || true
           cat "$RUNNER_TEMP/build-report/"*-retries.txt >> "$GITHUB_STEP_SUMMARY" || true
           python3 scripts/screen_report.py console "$RUNNER_TEMP/build-report/"{unit,screens}.log "$RUNNER_TEMP/build-report/"*-console.txt >> "$GITHUB_STEP_SUMMARY" || true
+      # Warning-only: the count shows in the summary and as a notice. It never fails the job.
+      - name: Count build warnings
+        if: always()
+        run: python3 scripts/screen_report.py warnings "$RUNNER_TEMP/build-report/build.log" | tee -a "$GITHUB_STEP_SUMMARY" || true
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -217,7 +241,7 @@ jobs:
     if: needs.plan.outputs.ui != 'false'
     needs: [plan, build, fixtures]
     runs-on: xcode-27
-    # A failed test gets one retry within its shard.
+    # A failed test is never retried, except after a simulator or runner failure, and then only that test.
     timeout-minutes: 45
     strategy:
       fail-fast: false
@@ -250,13 +274,16 @@ jobs:
           path: ${{ runner.temp }}
       - run: mkdir -p "$RUNNER_TEMP/fixture" && tar xzf "$RUNNER_TEMP/fixture-ui-music.tgz" -C "$RUNNER_TEMP/fixture"
       - name: Start Navidrome on the fixture library
+        # The request log with its timings tells a slow server from a request that never arrived.
+        env:
+          ND_LOGLEVEL: debug
         run: scripts/fixture-server.sh "$RUNNER_TEMP/fixture"
       - name: Run the tests
         env:
           KLASSIK_PHASE: ui
           KLASSIK_UI_TESTS: ${{ matrix.tests }}
           KLASSIK_UI: ${{ steps.ui.outputs.ui }}
-          UI_TESTS_REQUIRED: ${{ vars.UI_TESTS_REQUIRED || 'false' }}
+          UI_TESTS_REQUIRED: ${{ matrix.required }}
         run: scripts/screens.sh "$RUNNER_TEMP/screens"
       - name: Results and time of each phase
         id: report
@@ -268,6 +295,7 @@ jobs:
           cat "$out/timings.txt" >> "$GITHUB_STEP_SUMMARY" || true
           python3 scripts/screen_report.py console "$out/"{unit,screens}.log "$out/"*-console.txt >> "$GITHUB_STEP_SUMMARY" || true
           echo "ui=$(grep '^ui=' "$out/results.txt" | tail -1 | cut -d= -f2)" >> "$GITHUB_OUTPUT" || true
+          cp "$RUNNER_TEMP/fixture/navidrome.log" "$out/navidrome.log" || true
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -284,6 +312,61 @@ jobs:
         with:
           name: screens-xcresult-${{ matrix.group }}
           path: ${{ runner.temp }}/screens/*.xcresult
+
+  # Slow and runner-dependent tests: the throughput matrix and the wall-clock latency limits. They need no
+  # pull request run, because the walk and the unit tests cover behavior. A failure stays visible in this job and
+  # its summary but leaves the run green: scripts/screen_baseline.py takes the screens baseline from successful
+  # nightly runs only, and a red limit must not void it. TestFlight reads the build and test jobs, not this one.
+  measure:
+    needs: [plan, build, fixtures]
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.measure)
+    continue-on-error: true
+    runs-on: xcode-27
+    timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v7
+      - name: Remove unavailable runner simulators
+        run: xcrun simctl delete unavailable
+      - name: Boot the simulator early
+        run: scripts/start-simulator.sh
+      - uses: actions/download-artifact@v8
+        with:
+          name: test-products
+          path: ${{ runner.temp }}
+      - run: mkdir -p build/DerivedData/Build && tar xzf "$RUNNER_TEMP/test-products.tgz" -C build/DerivedData/Build
+      - uses: actions/download-artifact@v8
+        with:
+          name: fixture-music
+          path: ${{ runner.temp }}
+      - run: mkdir -p "$RUNNER_TEMP/fixture" && tar xzf "$RUNNER_TEMP/fixture-music.tgz" -C "$RUNNER_TEMP/fixture"
+      - name: Start Navidrome on the fixture library
+        run: scripts/fixture-server.sh "$RUNNER_TEMP/fixture"
+      - name: Run the measurement tests
+        env:
+          KLASSIK_PHASE: measure
+          KLASSIK_UI: "false"
+        run: scripts/screens.sh "$RUNNER_TEMP/measure"
+      - name: Results and time of each phase
+        if: always()
+        run: |
+          out="$RUNNER_TEMP/measure"
+          mkdir -p "$out"
+          cat "$out/timings.txt" >> "$GITHUB_STEP_SUMMARY" || true
+          cat "$out/"*-retries.txt >> "$GITHUB_STEP_SUMMARY" || true
+          grep -h 'throughput matrix' "$out/measure.log" >> "$GITHUB_STEP_SUMMARY" || true
+          if grep -q '^measure=failed' "$out/results.txt"; then
+            echo "::error::The measurement tests failed. The run stays green so the nightly screens baseline holds."
+          fi
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: measure-report
+          path: |
+            ${{ runner.temp }}/measure/*.txt
+            ${{ runner.temp }}/measure/*.log
+            ${{ runner.temp }}/measure/*.xcresult
 
   # TestFlight gets an optimized Release build. This job opens one after a login and after a relaunch.
   release-launch:
@@ -357,7 +440,7 @@ jobs:
           INPUT: ${{ needs.plan.outputs.ui }}
           BUILD: ${{ needs.build.result }}
           WALK: ${{ needs.walk.result }}
-          UI_TESTS_REQUIRED: ${{ vars.UI_TESTS_REQUIRED || 'false' }}
+          UI_TESTS_REQUIRED: ${{ needs.plan.outputs.ui_required }}
         run: |
           mkdir -p screens
           find reports -name '*.png' -exec cp {} screens/ \;
@@ -401,10 +484,14 @@ jobs:
           COVERED: ${{ needs.plan.outputs.covered }}
           WANT_RELEASE: ${{ needs.plan.outputs.release_launch }}
         run: |
-          test "$PLAN" = success
-          test "$BUILD" = success || { test "$BUILD" = skipped && test -n "$COVERED"; }
-          test "$WALK" = success || test "$WALK" = skipped
-          test "$RELEASE" = success || { test "$RELEASE" = skipped && test "$WANT_RELEASE" = false; }
+          # Explicit ifs: `set -e` ignores a failed test inside `a || { b && c; }`, so that form passed after a failed build.
+          fail() { echo "::error::$1"; exit 1; }
+          [ "$PLAN" = success ] || fail "plan: $PLAN"
+          if [ "$BUILD" != success ] && { [ "$BUILD" != skipped ] || [ -z "$COVERED" ]; }; then fail "build: $BUILD"; fi
+          if [ "$WALK" != success ] && [ "$WALK" != skipped ]; then fail "walk: $WALK"; fi
+          if [ "$RELEASE" != success ] && { [ "$RELEASE" != skipped ] || [ "$WANT_RELEASE" != false ]; }; then
+            fail "release launch: $RELEASE"
+          fi
 
   # The diff informs; it never fails the run. It runs when screenshots exist, also after a failed test job.
   # Without screenshots the job shows as skipped, and the summary of test says why.

@@ -1,10 +1,10 @@
 # What Wikidata gives a performer page
 
-Bead: sz-rs30.1.74.13. Checked 2026-11-04 against the live APIs from Linux. Probe: `probe.py` in this folder (566 requests). It downloads no image and reads no library. The names are public, well-known classical performers, typed as weak tags spell them. Method as in `../wikidata-composer-facts/`.
+ Checked 2026-11-04 against the live APIs from Linux. Probe: `probe.py` in this folder (566 requests). It downloads no image and reads no library. The names are public, well-known classical performers, typed as weak tags spell them. Method as in `../wikidata-composer-facts/`.
 
 ## Answer
 
-Wikidata finds the right conductor, soloist, singer or ensemble from a name alone. It gives a description, dates and, in most cases, a picture. ADR 0017 holds, with four risks (section "Risks for ADR 0017").
+Wikidata finds the right conductor, soloist, singer or ensemble from a name alone. It gives a description, dates and, in most cases, a picture. The person page rules of [design/specimen/person.html](../../../design/specimen/person.html) hold, with four risks (section "Risks for the person page").
 
 - Match: full-text search with `haswbstatement:P434` (the item has a MusicBrainz artist ID). First hit right for 94 of 94 tag variants: 58 of persons, 36 of ensembles. No wrong first hit.
 - Dates: persons have P569 in 52 of 52. Ensembles have P571 (inception) in 33 of 33, and P576 (dissolved) in 2.
@@ -89,11 +89,11 @@ Junk tags with way D: "Various Artists", "Unknown Artist", "[unknown]" and "Trad
 
 The same as for composers: 1 search for each name or split part. Then one SPARQL request for the facts of 85 items, and one Commons request for the licences of 50 files.
 
-## Risks for ADR 0017
+## Risks for the person page
 
 1. The face-centred picture fails for many ensembles and some persons: a building, a hall, a group photo, or the wrong subject. Vision finds no face or many faces. The page needs a rule for no face and for many faces.
 2. 88 % of performer pictures (65 of 76 files) need a credit. About must show author and licence for almost every performer.
-3. ADR 0017 gives the surname rule ("matched through its works") for composers only. A one-word performer tag can match an actor. The page needs the role filter, and the listener's choice when two candidates remain.
+3. The person page gives the surname rule ("matched through its works") for composers only. A one-word performer tag can match an actor. The page needs the role filter, and the listener's choice when two candidates remain.
 4. The performer page needs a split of album-wide strings in the app. The split is a heuristic and fails on shared endings ("Chor und Symphonieorchester …").
 5. Ensembles have no life dates. The description line needs "founded" years from P571 and P576.
 

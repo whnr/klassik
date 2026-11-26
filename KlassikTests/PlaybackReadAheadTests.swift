@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Klassik
+@testable import KlassikEngine
 
 /// The session prepares the tracks of ADR 0060 and shows the slow-connection line at its events.
 @Suite(.serialized)
@@ -255,6 +256,29 @@ struct PlaybackReadAheadTests {
         try await wait { !opening.isHeld }
         #expect(!opening.isHeld)
         #expect(store.transfers["a-1"] === opening)
+    }
+
+    @Test func theOpeningHoldEndsWhenTheEngineAsksForTheOpening() async throws {
+        let started = MusicStorageTests.Started()
+        let (session, engine, store) = try makeStreamingSession(started)
+        defer {
+            session.stop()
+            store.clearAll()
+            try? FileManager.default.removeItem(at: root)
+        }
+        session.dataMode = .constrained
+        session.play(item("a", movements: 2))
+        engine.decodedSeconds = 3
+        engine.encodedSeconds = 1
+        engine.playing = (0, 7)
+        try await wait { started.ids.count == 2 }
+        let opening = try #require(store.transfers["a-1"])
+        engine.encodedSeconds = 0
+        try await wait { opening.isHeld }
+        // The decoder of a-0 ended before a-0's transfer did: the engine now reads the opening's transfer.
+        engine.requested = 1
+        try await wait { !opening.isHeld }
+        #expect(!opening.isHeld, "A held transfer starves the join")
     }
 
     @Test func clearMusicPausesPlaybackAndRefillsOnlyOnResume() async throws {

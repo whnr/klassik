@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// The Chronology place: the overview of all composers, or one composer among the contemporaries
-/// (ADR 0016, 0022, 0026). It draws what `Chronology` gives and owns only the gestures.
+/// The Chronology place: the overview of all composers, or one composer among the contemporaries.
+/// It draws what `Chronology` gives and owns only the gestures.
 struct ChronologyView: View {
     @Environment(AppModel.self) private var model
     @Environment(AppNavigator.self) private var navigator
@@ -91,8 +91,8 @@ struct ChronologyView: View {
     }
 }
 
-/// The name of the composer in focus, which opens the composer page, and the facts line (ADR 0022). The name is
-/// a page title: `h1[class]` in specimen.css sets it over the `t-title2` class of chronology.html.
+/// The name of the composer in focus, which opens the composer page, and the facts line. The name is
+/// a page title: `h1[class]` in specimen.css sets it over the `t-title2` class.
 private struct ChronologyHead: View {
     let chronology: Chronology
     let focus: Chronology.Composer?
@@ -149,7 +149,7 @@ private struct ListedWorksSheet: View {
 
     var body: some View {
         NavigationStack {
-            // This drawer holds works, so it follows the plain page list at every detent (ADR 0063).
+            // This drawer holds works, so it follows the plain page list at every detent.
             PageList {
                 ForEach(listed.works) { work in
                     Button {
@@ -177,7 +177,7 @@ private struct ListedWorksSheet: View {
                 }
             }
             .environment(\.pageHeading, "")
-            // The specimen sheet head replaces the bar: a leading title and a plain Done (specimen.js `K.sheet`).
+            // The specimen sheet head replaces the bar: a leading title and a plain Done.
             .toolbar(.hidden, for: .navigationBar)
             .safeAreaInset(edge: .top, spacing: 0) {
                 SheetHead(title: listed.title, done: { dismiss() })
@@ -191,7 +191,7 @@ private struct ListedWorksSheet: View {
 }
 
 /// The chart: lines, dots and rows at the places that `Chronology` and `Chronology.Chart` give. Each mark keeps
-/// one identity across composers and levels, so a move glides lines and years instead of a cut (ADR 0016).
+/// one identity across composers and levels, so a move glides lines and years instead of a cut.
 private struct ChronologyChart: View {
     typealias Chart = Chronology.Chart
 
@@ -449,7 +449,7 @@ private struct ChronologyChart: View {
         scrub == nil && Date.now.timeIntervalSince(scrubEnded) > Chart.tapAfterScrub
     }
 
-    /// A row of one work opens its work page; a row of several lists them (ADR 0022).
+    /// A row of one work opens its work page; a row of several lists them.
     private func open(_ row: Chronology.Row) {
         guard tapIsLive else { return }
         if !row.opensList {
@@ -460,7 +460,7 @@ private struct ChronologyChart: View {
     }
 
     /// A tap picks a work of the focus composer on its dot or beside the focus line. In the overview it opens the
-    /// nearest line. The rows are buttons of their own (ADR 0016, 0022).
+    /// nearest line. The rows are buttons of their own.
     private func tap(at point: CGPoint, lanes: [Lane], scale: Chronology.Scale?) {
         guard tapIsLive else { return }
         guard let focus, let scale else {
@@ -477,11 +477,11 @@ private struct ChronologyChart: View {
     }
 
     /// A sideways drag scrubs across the lines on the screen: the chart width maps onto them in order. The chart
-    /// stays until the finger lifts, then glides to the composer under it. It never zooms (ADR 0022).
+    /// stays until the finger lifts, then glides to the composer under it. It never zooms.
     private func scrubGesture(lanes: [Lane]) -> some Gesture {
         DragGesture(minimumDistance: Chart.scrubStart, coordinateSpace: .local)
             .onChanged { drag in
-                // A drag from the leading screen edge is the system back swipe (ADR 0056), not a scrub.
+                // A drag from the leading screen edge is the system back swipe, not a scrub.
                 if scrub == nil, drag.startLocation.x < Layout.edge { return }
                 if scrub == nil, abs(drag.translation.width) <= abs(drag.translation.height) { return }
                 scrub = Scrub(

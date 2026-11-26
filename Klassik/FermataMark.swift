@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-/// The engraved fermata of ADR 0033, on its 17 × 10.5 grid, as `design/marks/fermata.svg` draws it.
+/// The engraved fermata, on its 17 × 10.5 grid, as `design/marks/fermata.svg` draws it.
 struct FermataShape: Shape {
     func path(in rect: CGRect) -> Path {
         let scale = rect.width / 17
@@ -43,7 +43,7 @@ extension FermataShape {
     }()
 }
 
-/// The favourite mark after a line of text. It is 0.64 em high and sits on the baseline (ADR 0032).
+/// The favourite mark after a line of text. It is 0.64 em high and sits on the baseline.
 struct FermataMark: View {
     let isSet: Bool
     @ScaledMetric(relativeTo: .body) private var em = TypeStyle.body.size
@@ -181,12 +181,12 @@ extension FermataShape {
     }
 }
 
-/// A title in a list row. A favourite gets the set fermata a quarter em after its last word (ADR 0033); any other
+/// A title in a list row. A favourite gets the set fermata a quarter em after its last word; any other
 /// row shows no mark, so a list stays quiet until something in it is a favourite.
 struct MarkedTitle: View {
     let title: String
     let isFavourite: Bool
-    /// The mark must match the title size (ADR 0033).
+    /// The mark must match the title size.
     @ScaledMetric private var em: CGFloat
     @Environment(\.displayScale) private var scale
     @Environment(\.colorScheme) private var scheme

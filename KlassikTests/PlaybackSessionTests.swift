@@ -4,6 +4,7 @@ import Testing
 import UIKit
 
 @testable import Klassik
+@testable import KlassikEngine
 
 /// A seek event with a fixed position.
 private final class PositionEvent: MPChangePlaybackPositionCommandEvent {
@@ -29,7 +30,8 @@ struct PlaybackSessionTests {
     }
 
     private func makeSession(
-        _ requests: Requests = Requests(), server: (any ServerPort)? = InMemoryServer()
+        _ requests: Requests = Requests(), server: (any ServerPort)? = InMemoryServer(),
+        gainStage: (any GainStage)? = nil
     ) throws -> (session: PlaybackSession, engine: FakeEngine) {
         let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
         let store = TrackStore(
@@ -42,7 +44,7 @@ struct PlaybackSessionTests {
                 return file
             })
         let engine = FakeEngine()
-        let session = PlaybackSession(engine: engine, store: store, defaults: defaults)
+        let session = PlaybackSession(engine: engine, store: store, defaults: defaults, gainStage: gainStage)
         session.server = server
         return (session, engine)
     }
@@ -243,6 +245,55 @@ struct PlaybackSessionTests {
         #expect(engine.loads == [load("a", movements: 2, following: ["b-0"])])
         engine.end(2)
         #expect(session.state.queueEnded)
+    }
+
+    /// A recording whose movements differ in rate: the engine ends its load at the join and the session loads again
+    /// at the movement that needs the new format, from its start.
+    @Test func aFormatBreakInsideARecordingLoadsAgainAtThatMovement() throws {
+        let (session, engine) = try makeSession()
+        session.play(queue: [item("a", movements: 3), item("b")])
+        engine.end(0)
+        engine.report(.formatChanged(1))
+        #expect(
+            engine.loads == [
+                load("a", movements: 3, following: ["b-0"]),
+                load("a", movements: 3, from: 1, following: ["b-0"]),
+            ])
+        #expect(session.state.movement == 1)
+        #expect(session.state.position == 0)
+        #expect(session.state.isPaused == false)
+    }
+
+    /// The first movement of the next recording has another format: the old engine ends with the last movement,
+    /// and the reload takes the next recording as its first one.
+    @Test func aFormatBreakAtARecordingBoundaryLoadsTheNextRecording() throws {
+        let (session, engine) = try makeSession()
+        session.play(queue: [item("a"), item("b", movements: 2), item("c")])
+        engine.end(0)
+        #expect(session.state.item?.recording.id == "b")
+        #expect(engine.loads.count == 1)
+        engine.report(.formatChanged(1))
+        #expect(engine.loads.count == 2)
+        #expect(engine.loads.last == load("b", movements: 2, following: ["c-0"]))
+        #expect(session.state.item?.recording.id == "b")
+        #expect(session.state.movement == 0)
+        #expect(session.state.upNext.map(\.recording.id) == ["c"])
+    }
+
+    /// A paused session builds no graph: it drops the engine, and Resume loads at the movement that needs it.
+    @Test func aFormatBreakWhilePausedWaitsForResume() throws {
+        let (session, engine) = try makeSession()
+        session.play(queue: [item("a", movements: 2)])
+        engine.end(0)
+        session.pause()
+        engine.report(.formatChanged(1))
+        #expect(engine.loads.count == 1)
+        #expect(engine.calls.last == .discard)
+        #expect(!engine.isRunning)
+        session.resume()
+        #expect(engine.loads.count == 2)
+        #expect(engine.loads.last == load("a", movements: 2, from: 1))
+        #expect(session.state.movement == 1)
     }
 
     @Test func renderPositionCrossesRecordingsBeforeCompletionDelivery() throws {
@@ -683,6 +734,13 @@ struct PlaybackSessionTests {
         #expect(engine.loads.last == load("a", movements: 2, from: 1, at: 3))
     }
 
+    @Test func aGainStageReplacesTheLeveling() throws {
+        let (session, engine) = try makeSession(gainStage: NoGainStage())
+        session.leveling = .track
+        session.play(item("a", movements: 2, gains: [-3, -6]))
+        #expect(engine.gain == 0)
+    }
+
     @Test func gainFollowsTheMovementAndTheLeveling() throws {
         let (session, engine) = try makeSession()
         session.leveling = .track
@@ -700,7 +758,7 @@ struct PlaybackSessionTests {
         let queued = item("a", movements: 2)
         session.play(queued)
         let file = try #require(engine.file)
-        _ = try await file(queued.recording.songs[1])
+        _ = try await file(queued.recording.songs[1].playbackTrack)
         #expect(requests.urls == [InMemoryServer().streamURL(songID: "a-1")])
         try? FileManager.default.removeItem(at: root)
     }

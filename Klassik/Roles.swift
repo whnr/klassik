@@ -1,6 +1,6 @@
 import Foundation
 
-/// The names of tracks, one line per role (ADR 0031). The page shows what every track shares, and a row shows what
+/// The names of tracks, one line per role. The page shows what every track shares, and a row shows what
 /// its track adds.
 enum Roles {
     /// The musical roles in page order. Names without a role come last.

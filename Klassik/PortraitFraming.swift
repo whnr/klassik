@@ -1,7 +1,7 @@
 import CoreGraphics
 import Foundation
 
-/// Where a picture sits in the frame of a person page: wide as the screen, around the face (ADR 0017).
+/// Where a picture sits in the frame of a person page: wide as the screen, around the face.
 enum PortraitFraming {
     /// How far a small face may zoom beyond the picture that just fills the frame.
     static let maxZoom: CGFloat = 2
@@ -44,7 +44,7 @@ enum HeroSpace {
     static let name = "person-hero"
 }
 
-/// Where blur and scrim lie on the person picture, as shares of the frame (picture.css).
+/// Where blur and scrim lie on the person picture, as shares of the frame.
 /// Vertical shares count from the bottom; side shares count from the leading edge.
 struct ScrimGeometry: Equatable {
     var frame: CGSize
@@ -74,7 +74,7 @@ struct ScrimGeometry: Equatable {
     var sideClear: CGFloat { min(1, (textRight + Space.l.points + Layout.pictureSideFade) / width) }
 }
 
-/// How strong the scrim under the name and the facts must be (ADR 0034). Text over a picture never fails.
+/// How strong the scrim under the name and the facts must be. Text over a picture never fails.
 enum PictureScrim {
     /// The paper colour of the text, sRGB.
     static let text = RGB(red: 0.980, green: 0.953, blue: 0.898)

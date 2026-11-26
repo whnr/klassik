@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Klassik
+@testable import KlassikEngine
 
 struct AudioStorageBudgetTests {
     let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)

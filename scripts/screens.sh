@@ -128,6 +128,7 @@ xcodebuild_tests() {
   xcodebuild test-without-building \
     "${common[@]}" \
     -collect-test-diagnostics never \
+    ${KLASSIK_ITERATIONS:+-test-iterations "$KLASSIK_ITERATIONS"} \
     "$@" \
     -resultBundlePath "$result" \
     | tee ${append:+"$append"} "$out/$bundle.log" | $formatter || status=$?

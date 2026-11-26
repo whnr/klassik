@@ -1,7 +1,7 @@
 {
-  "sha": "6b9864ff4aba308834cd45912f917e6be8f024d6",
+  "sha": "f95c0c8ff430bc045b88d9df071d345f5cd5f91c",
   "branch": "main",
   "path": "main",
-  "subject": "Shorten release notes to a feature summary (#166)",
-  "ts": 1795704019
+  "subject": "[sz-rs30.1.161.10] Mark ADR 0013 Proposed without drag order (#195)",
+  "ts": 1795704242
 }

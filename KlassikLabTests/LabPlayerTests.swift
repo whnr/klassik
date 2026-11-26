@@ -18,6 +18,15 @@ struct LabPlayerTests {
         #expect(LabPlayer.switchAction(isPlaying: true, hasEngine: false) == .none)
     }
 
+    /// A new output restarts a playing load on the same engine, so that the old graph of a crossfade keeps playing.
+    @Test func aRouteChangeWhilePlayingRestartsOnTheSameEngine() {
+        #expect(LabPlayer.configurationAction(isPlaying: true) == .restartKeepingEngine)
+        #expect(LabPlayer.configurationAction(isPlaying: false) == .none)
+        #expect(!LabPlayer.dropsEngine(keepingEngine: true, hasEngine: true))
+        #expect(LabPlayer.dropsEngine(keepingEngine: true, hasEngine: false))
+        #expect(LabPlayer.dropsEngine(keepingEngine: false, hasEngine: true))
+    }
+
     @Test func theFadeSlidersRunFromZeroTo300AndStartAt100() {
         #expect(LabFadeSettings.durationRange == 0...300)
         #expect(LabFadeSettings.defaultDuration == 100)

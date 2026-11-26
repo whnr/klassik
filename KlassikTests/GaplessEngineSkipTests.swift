@@ -457,6 +457,32 @@ struct GaplessEngineSkipTests {
         player.discard()
     }
 
+    /// A second seek hands the flag to its graph and gives it a new wait limit. The limit of the first seek must
+    /// not fade the old graph out while the second graph still waits for bytes.
+    @Test func aCarriedFlagGetsANewWaitLimit() async throws {
+        var options = Self.fiftyMilliseconds
+        options.seek = .crossfade
+        let (player, old, _) = try Self.sounding(options)
+        defer { old.stop() }
+        player.soundWaitLimit = 1.0
+        Self.load(player, old: old, probe: Probe())
+        let (new, newNode) = try Self.graph()
+        defer { new.stop() }
+        let incoming = FadeControl()
+        player.adopt(new, newNode, started: false, fade: incoming)
+        try player.start(newNode)
+        let trigger = try #require(incoming.last?.fires)
+        try? await Task.sleep(for: .milliseconds(600))
+        Self.load(player, old: old, probe: Probe())
+        // 1.2 s after the first start: the first limit has run out, the second has not.
+        try? await Task.sleep(for: .milliseconds(600))
+        #expect(!trigger.isFired, "the second seek restarted the limit")
+        #expect(old.isRunning)
+        #expect(await Self.eventually { trigger.isFired })
+        #expect(await Self.eventually { !old.isRunning })
+        player.discard()
+    }
+
     /// A second seek while the crossfade ramp runs parks the sounding graph. The first old graph retires on its own
     /// timer, and the parked graph crossfades with the next one.
     @Test func aSecondLoadDuringTheCrossfadeRampParksTheNewSoundAndRetiresTheFirstOneOnItsOwn() async throws {

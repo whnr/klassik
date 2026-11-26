@@ -202,6 +202,8 @@ public final class GaplessEngine: PlaybackEngine {
             parked = outgoing
             outgoing = nil
         }
+        // The new graph is the one that the old graph waits for now, so its wait limit starts again.
+        carried?.restartWait()
         let stopWait = reset(carryingCrossfade: carried != nil)
         outgoing = parked
         crossfadeTrigger = carried
@@ -1014,8 +1016,16 @@ public final class GaplessEngine: PlaybackEngine {
             // second seek of the new graph releases the trigger. A new graph that stays silent is released here
             // after the wait limit, so the old sound fades out and is never cut.
             if let trigger {
-                let limit = ContinuousClock.now + .seconds(soundWaitLimit)
-                while !trigger.isFired, ContinuousClock.now < limit { try? await Task.sleep(for: .milliseconds(5)) }
+                var seen = trigger.restarts
+                var limit = ContinuousClock.now + .seconds(soundWaitLimit)
+                while !trigger.isFired, ContinuousClock.now < limit {
+                    try? await Task.sleep(for: .milliseconds(5))
+                    // A load that hands the flag to the next graph restarts the limit.
+                    if trigger.restarts != seen {
+                        seen = trigger.restarts
+                        limit = ContinuousClock.now + .seconds(soundWaitLimit)
+                    }
+                }
                 trigger.force()
             }
             try? await Task.sleep(for: .seconds(wait + flush))

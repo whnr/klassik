@@ -75,6 +75,14 @@ final class FadeTrigger: @unchecked Sendable, Equatable {
 
     /// Sets the flag and waits for a busy lock. Only for the main thread: the render thread never waits.
     func force() { flag.withLock { $0 = true } }
+
+    private let restartCount = OSAllocatedUnfairLock(initialState: 0)
+
+    /// How often the wait for this flag was restarted. Only the main thread reads and writes it.
+    var restarts: Int { restartCount.withLock { $0 } }
+
+    /// Gives the wait for this flag a new time limit. A load that hands the flag to its graph calls it.
+    func restartWait() { restartCount.withLock { $0 += 1 } }
 }
 
 /// The hand-over between the main thread, which asks for a ramp, and the render thread, which runs it.

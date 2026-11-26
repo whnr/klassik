@@ -8,6 +8,7 @@ struct LabPlayerView: View {
     let cases: [LabCase]
 
     @State private var scrubbing: Double?
+    @State private var routeHeight: CGFloat = 0
 
     var body: some View {
         NavigationStack {
@@ -37,9 +38,13 @@ struct LabPlayerView: View {
                 }
                 // Everything iOS reports about the output, updated on each route change.
                 Section("Routing and output") {
-                    Text(player.reservedRouteLines.joined(separator: "\n"))
+                    Text(player.routeLines.joined(separator: "\n"))
                         .font(.footnote.monospaced())
                         .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, minHeight: routeHeight, alignment: .topLeading)
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: {
+                            routeHeight = LabRoute.heldHeight(current: routeHeight, measured: $0)
+                        }
                 }
                 Section("Playback") {
                     HStack {

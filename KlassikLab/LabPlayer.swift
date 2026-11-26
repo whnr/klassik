@@ -87,9 +87,6 @@ final class LabPlayer {
     /// The lines of the routing section.
     var routeLines: [String] { LabRoute.lines(route: route, graph: graph, change: routeChange) }
 
-    /// The lines as the screen shows them: never fewer than `LabRoute.reservedLines`, so the box keeps its height.
-    var reservedRouteLines: [String] { LabRoute.reserved(routeLines) }
-
     private func routeChanged(_ raw: UInt?) {
         routeChange = LabRoute.reason(raw)
         refreshRoute()
@@ -282,6 +279,19 @@ final class LabPlayer {
         return isPlaying ? .restart : .discard
     }
 
+    enum ConfigurationAction: Equatable { case none, restartKeepingEngine }
+
+    /// A crossfade that waits for its new graph keeps the old sound until that graph sounds, so a new output
+    /// restarts the load on the same engine.
+    nonisolated static func configurationAction(isPlaying: Bool) -> ConfigurationAction {
+        isPlaying ? .restartKeepingEngine : .none
+    }
+
+    /// A start drops the engine, except for a restart that keeps it.
+    nonisolated static func dropsEngine(keepingEngine: Bool, hasEngine: Bool) -> Bool {
+        !(keepingEngine && hasEngine)
+    }
+
     private func teardown() {
         stopWork()
         engine?.discard()
@@ -297,7 +307,7 @@ final class LabPlayer {
 
     private func start(movement: Int, offset: Double, join opening: String? = nil, keepingEngine: Bool = false) {
         guard let selected, canPlay else { return }
-        if keepingEngine, engine != nil { stopWork() } else { teardown() }
+        if Self.dropsEngine(keepingEngine: keepingEngine, hasEngine: engine != nil) { teardown() } else { stopWork() }
         resumePlace = nil
         ended = []
         note = nil
@@ -375,9 +385,10 @@ final class LabPlayer {
                 movement: index, offset: 0,
                 join: "gap, movement \(index + 1) has another sample rate or channel count")
         case .configurationChanged:
-            // The output changed, for example a headset: the engine stopped and the load starts again here. The engine
-            // stays, so that a crossfade that waits for its new graph keeps the old sound until that graph sounds.
-            if isPlaying { start(movement: movement, offset: elapsed, keepingEngine: true) }
+            // The output changed, for example a headset: the engine stopped and the load starts again here.
+            if Self.configurationAction(isPlaying: isPlaying) == .restartKeepingEngine {
+                start(movement: movement, offset: elapsed, keepingEngine: true)
+            }
         case .problem(let message): note = message
         case .failed(let message):
             isPlaying = false

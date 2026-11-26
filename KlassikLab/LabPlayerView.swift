@@ -42,9 +42,10 @@ struct LabPlayerView: View {
                         .font(.footnote.monospaced())
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, minHeight: routeHeight, alignment: .topLeading)
-                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: {
-                            routeHeight = LabRoute.heldHeight(current: routeHeight, measured: $0)
-                        }
+                        .onGeometryChange(
+                            for: CGFloat.self,
+                            of: { $0.size.height },
+                            action: { routeHeight = LabRoute.heldHeight(current: routeHeight, measured: $0) })
                 }
                 Section("Playback") {
                     HStack {

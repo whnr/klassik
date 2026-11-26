@@ -2610,10 +2610,12 @@ final class SettingsScreens: ScreensTestCase {
         let tint = reveal(app.sliders["player-tint-strength"], in: app)
         XCTAssertTrue(tint.isHittable)
         XCTAssertEqual(tint.value as? String, "3×")
-        adjust(tint, toStrength: "0×")
-        adjust(tint, toStrength: "2.5×")
-        adjust(tint, toStrength: "5×")
-        adjust(tint, toStrength: "3×")
+        for _ in 0..<20 {
+            adjust(tint, toStrength: "0×")
+            adjust(tint, toStrength: "2.5×")
+            adjust(tint, toStrength: "5×")
+            adjust(tint, toStrength: "3×")
+        }
         snap(app, "08f-player-tint-setting")
     }
 

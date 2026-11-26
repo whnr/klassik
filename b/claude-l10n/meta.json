@@ -1,7 +1,7 @@
 {
-  "sha": "e635ef7a4d154fd844ccdd9693a047c518e8c368",
+  "sha": "c514c9acded2da4762e3e1dc5db2ef12a89ad906",
   "branch": "claude-l10n",
   "path": "claude-l10n",
-  "subject": "Keep the saved biography; measure cut text",
-  "ts": 1795668569
+  "subject": "Fix the saved-biography test stub",
+  "ts": 1795670402
 }

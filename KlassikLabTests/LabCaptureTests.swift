@@ -267,13 +267,20 @@ struct LabCaptureTests {
         #expect(result.url == nil && result.frames == 0)
     }
 
-    @Test func aFileThatCannotBeWrittenStopsTheTapAndSaysWhy() async throws {
+    // The writer task is the only thing that ends the capture, and a loaded runner can delay it for seconds. The test
+    // waits for the recorder's own stop signal, with no deadline of its own, so that only a lost signal fails it.
+    @Test(.timeLimit(.minutes(1)))
+    func aFileThatCannotBeWrittenStopsTheTapAndSaysWhy() async throws {
         let calls = Mutex(0)
+        let (stopped, signal) = AsyncStream.makeStream(of: Void.self)
         // The folder does not exist, so the file cannot be created.
-        let recorder = CaptureRecorder(url: root.appending(path: "missing/w.wav")) { calls.withLock { $0 += 1 } }
+        let recorder = CaptureRecorder(url: root.appending(path: "missing/w.wav")) {
+            calls.withLock { $0 += 1 }
+            signal.yield()
+        }
         let source = recorder.makeSource(startSeconds: 0)
         source.tap(try level(1, frames: 1_000), atSeconds: 0)
-        for _ in 0..<300 where !recorder.isStopped { try await Task.sleep(for: .milliseconds(10)) }
+        for await _ in stopped { break }
         #expect(recorder.isStopped)
         source.tap(try level(1, frames: 1_000), atSeconds: 1)
         let result = await recorder.finish()

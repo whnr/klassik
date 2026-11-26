@@ -1250,6 +1250,52 @@ final class PlaybackScreens: ScreensTestCase {
         snap(app, "16b-overlay-dismissed")
     }
 
+    /// The pixels of the strip above a pulled player, read inside a held drag.
+    private final class StripSample: @unchecked Sendable {
+        var ink: Int?
+        var top: CGFloat = 0
+    }
+
+    /// While a finger holds the player pulled down, the page behind shows in the strip above it. An opaque layer
+    /// behind the player fills that strip with one colour. The timer fires inside the held drag: the gesture call
+    /// spins the main run loop while it waits.
+    @MainActor
+    func testPulledPlayerShowsThePageBehind() throws {
+        let app = try launchAndConnect()
+        openRecording(app)
+        playPaused(app)
+        openPlayer(app)
+        let overlay = app.descendants(matching: .any)["player-overlay"].firstMatch
+        let strip = StripSample()
+        let timer = Timer(timeInterval: 2.5, repeats: false) { _ in
+            MainActor.assumeIsolated {
+                let top = overlay.frame.minY
+                guard top > 200, let pixels = ScreenPixels(app) else { return }
+                // Below the status bar and above the player. Each row's ground is the pixel at the left edge.
+                let rows = stride(from: Int(70 * pixels.scale), to: Int((top - 4) * pixels.scale), by: 2)
+                let right = Int((app.frame.width - 8) * pixels.scale)
+                let columns = Array(stride(from: Int(8 * pixels.scale), to: right, by: 2))
+                var ink = 0
+                for y in rows {
+                    ink += columns.filter { pixels.differs($0, y, from: 2) }.count
+                }
+                strip.ink = ink
+                strip.top = top
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        let handle = app.buttons["player-handle"]
+        handle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(
+            forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45)),
+            withVelocity: .slow, thenHoldForDuration: 3)
+        timer.invalidate()
+        XCTAssertNotNil(strip.ink, "The player was not pulled down while the finger held it")
+        XCTAssertGreaterThan(
+            strip.ink ?? 0, 50,
+            "The strip above the pulled player (top at \(strip.top)) is one flat colour, not the page")
+        expectPlayerClosed(app)
+    }
+
     /// A swipe down on the content of the player closes it when its list is at the top, as a system sheet closes.
     @MainActor
     func testSwipeDownClosesThePlayer() throws {

@@ -1157,6 +1157,9 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(
             eventually(timeout: 5) { setting.value as? String == "1" }, "Show Audio Quality did not turn on")
         back(app)
+        let composers = app.buttons["library-composers"]
+        XCTAssertTrue(composers.waitForExistence(timeout: 10), "No library after Settings")
+        composers.tap()
         openRecording(app)
         startPlaying(app)
         openPlayer(app)

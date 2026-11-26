@@ -31,6 +31,9 @@ struct LabPlayerView: View {
                     if let note = player.selected?.gapNote {
                         Text(note).font(.footnote).foregroundStyle(.secondary)
                     }
+                    if let note = player.selected?.listenNote {
+                        Text(note).font(.footnote).foregroundStyle(.secondary)
+                    }
                 }
                 // Everything iOS reports about the output, updated on each route change.
                 Section("Routing and output") {
@@ -70,6 +73,21 @@ struct LabPlayerView: View {
                     .foregroundStyle(.secondary)
                     Text(player.status)
                     if let note = player.note { Text(note).font(.footnote).foregroundStyle(.secondary) }
+                }
+                Section {
+                    Button {
+                        player.toggleCapture()
+                    } label: {
+                        Label(
+                            player.capturing ? "Stop capture" : "Capture",
+                            systemImage: player.capturing ? "stop.circle.fill" : "record.circle")
+                    }
+                    .tint(player.capturing ? .red : nil)
+                    if let note = player.captureNote { Text(note).font(.footnote).foregroundStyle(.secondary) }
+                } header: {
+                    Text("Capture")
+                } footer: {
+                    Text("Records the engine output to a WAV, at most 60 s. Stop opens the share sheet.")
                 }
                 Section {
                     Toggle("ReplayGain", isOn: $player.replayGain)
@@ -119,8 +137,9 @@ struct LabPlayerView: View {
                     Text(
                         "Today: fade out and load at the same time; the two can overlap. "
                             + "Silence: fade out, wait, then fade in; never overlapping. "
-                            + "Crossfade: the old place plays until the new one is ready, then both cross over "
-                            + "with equal power for the fade-out length.")
+                            + "Crossfade: the old place plays until the new one is ready, then both cross over: "
+                            + "the old one with the fade-out curve and length, "
+                            + "the new one with the fade-in curve and length.")
                 }
                 Section("Network") {
                     Picker("Throttle", selection: $player.throttle.mode) {
@@ -128,6 +147,9 @@ struct LabPlayerView: View {
                     }
                     .pickerStyle(.segmented)
                 }
+            }
+            .sheet(item: $player.captured) { files in
+                ShareSheet(items: [files.wav, files.sidecar])
             }
             .navigationTitle("Playback Lab")
             .toolbar {
@@ -146,4 +168,15 @@ struct LabPlayerView: View {
         let whole = Int(max(seconds, 0))
         return String(format: "%d:%02d", whole / 60, whole % 60)
     }
+}
+
+/// The system share sheet for the files of a capture.
+private struct ShareSheet: UIViewControllerRepresentable {
+    let items: [URL]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }

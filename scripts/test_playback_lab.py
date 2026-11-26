@@ -1,11 +1,13 @@
 """Tests for playback_lab.py: the folder plan, the ffmpeg arguments, and one real run when ffmpeg exists."""
 
+import math
 import pathlib
 import re
 import shutil
 import subprocess
 import tempfile
 import unittest
+import wave
 from unittest import mock
 
 import playback_lab as lab
@@ -59,6 +61,9 @@ class PlanTests(unittest.TestCase):
 
     def test_movement_one_uses_the_first_source(self):
         for number, job in enumerate(lab.plan(SRC, OUT)):
+            if lab.CASES[number // 2].tone:
+                self.assertIsNone(job.source)
+                continue
             self.assertEqual(job.source, SRC[number % 2])
             self.assertTrue(job.target.name.startswith(f"{number % 2 + 1:02d} "))
 
@@ -67,8 +72,9 @@ class PlanTests(unittest.TestCase):
             [c.title for c in lab.CASES][:3],
             ["FLAC 24/96", "FLAC 16/44.1", "FLAC 24/192"],
         )
-        self.assertEqual(len(lab.CASES), 12)
-        self.assertEqual(len({c.slug for c in lab.CASES}), 12)
+        self.assertEqual(len(lab.CASES), 14)
+        self.assertEqual(len({c.slug for c in lab.CASES}), 14)
+        self.assertEqual([c.title for c in lab.CASES][-2:], ["Wave 440 Hz", "Wave Chord"])
 
     def test_folder_names_are_unique_and_sort_in_case_order(self):
         names = sorted({job.target.parent.name for job in lab.plan(SRC, OUT)})
@@ -195,7 +201,68 @@ AUDIO = {
         r"Audio: flac[^\n]*, 96000 Hz, stereo, s32 \(24 bit\)",
         r"Audio: flac[^\n]*, 44100 Hz, stereo, s32 \(24 bit\)",
     ),
+    13: (r"Audio: pcm_s24le[^\n]*, 96000 Hz, (?:stereo|2 channels), s32 \(24 bit\)",) * 2,
+    14: (r"Audio: pcm_s24le[^\n]*, 96000 Hz, (?:stereo|2 channels), s32 \(24 bit\)",) * 2,
 }
+
+
+def read_wav(path):
+    """The left-channel samples of a 24-bit stereo 96 kHz WAV, as signed integers."""
+    with wave.open(str(path), "rb") as audio:
+        assert (audio.getnchannels(), audio.getsampwidth(), audio.getframerate()) == (2, 3, 96000)
+        raw = audio.readframes(audio.getnframes())
+    return [int.from_bytes(raw[i : i + 3], "little", signed=True) for i in range(0, len(raw), 6)]
+
+
+class ToneTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.dir = tempfile.TemporaryDirectory()
+        cls.samples = {}
+        for kind in ("pure", "chord"):
+            parts = []
+            for movement in (1, 2):
+                path = pathlib.Path(cls.dir.name) / f"{kind}{movement}.wav"
+                lab.write_tone(path, kind, movement)
+                parts.append(read_wav(path))
+            cls.samples[kind] = parts
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.dir.cleanup()
+
+    def test_movements_are_exactly_10_and_20_seconds(self):
+        for kind, (one, two) in self.samples.items():
+            self.assertEqual(len(one), 10 * 96000, kind)
+            self.assertEqual(len(two), 20 * 96000, kind)
+
+    def test_the_pure_tone_peaks_at_minus_12_dbfs(self):
+        peak = max(abs(v) for part in self.samples["pure"] for v in part)
+        self.assertAlmostEqual(20 * math.log10(peak / (2**23 - 1)), -12.0, places=2)
+
+    def test_the_chord_never_exceeds_minus_12_dbfs_and_is_not_quiet(self):
+        peak = max(abs(v) for part in self.samples["chord"] for v in part)
+        db = 20 * math.log10(peak / (2**23 - 1))
+        self.assertLessEqual(db, -12.0)
+        self.assertGreater(db, -15.0)
+
+    def test_the_wave_has_no_step_at_the_split(self):
+        # The step across the split must be no larger than the largest step inside the wave.
+        for kind, (one, two) in self.samples.items():
+            joined = one + two
+            steps = [abs(b - a) for a, b in zip(joined, joined[1:])]
+            at_split = steps[len(one) - 1]
+            self.assertEqual(at_split, abs(two[0] - one[-1]))
+            self.assertLessEqual(at_split, max(steps[: len(one) - 1] + steps[len(one) :]), kind)
+
+    def test_the_split_continues_the_exact_sequence(self):
+        for kind, (one, two) in self.samples.items():
+            whole = lab.tone_frames(kind, len(one) - 2, 4)
+            self.assertEqual([one[-2], one[-1], two[0], two[1]], whole, kind)
+
+    def test_the_pure_tone_has_no_swell(self):
+        one, _ = self.samples["pure"]
+        self.assertEqual(max(map(abs, one[:96000])), max(map(abs, one[-96000:])))
 
 
 @unittest.skipUnless(shutil.which("ffmpeg"), "needs ffmpeg")
@@ -256,7 +323,7 @@ class EndToEndTests(unittest.TestCase):
                 data = f.read_bytes()
                 self.assertRegex(info, AUDIO[number][movement - 1], f.name)
                 self.assertRegex(info, rf"work\s*:\s*{re.escape(case.title)}", f.name)
-                if number in (9, 10):
+                if number in (9, 10, 13, 14):
                     self.assertTagsRead(f, number, movement, case.title)
                 if f.suffix == ".m4a":
                     self.assertM4aTagsRead(f, number, movement, case.title)

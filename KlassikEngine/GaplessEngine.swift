@@ -98,6 +98,18 @@ public final class GaplessEngine: PlaybackEngine {
             mixerRate: mixer.sampleRate, mixerChannels: Int(mixer.channelCount),
             hardwareRate: hardware.sampleRate, hardwareChannels: Int(hardware.channelCount))
     }
+
+    /// Where the sound goes and what changes it, or nil before the first track connects. A host reads it to say what
+    /// reaches the output (sz-u8f4).
+    public var signalPath: PlaybackSignalPath? {
+        guard let outputs = outputFormats, let format else { return nil }
+        return PlaybackSignalPath(
+            engineRate: format.sampleRate, engineChannels: Int(format.channelCount), outputs: outputs,
+            sessionRate: activatedSampleRate, gainStage: gain != nil)
+    }
+
+    public func useGainStage(_ on: Bool) { gainNode = on }
+
     /// A paused node reports no player time, so the position is kept here.
     private(set) var pausedAt: Int64?
     /// The end of the scheduled audio on the node timeline.
@@ -133,8 +145,9 @@ public final class GaplessEngine: PlaybackEngine {
     private let deliverCompletion: CompletionDelivery
     /// Internal so that the app's tests can check which mapper the app passes.
     let failureMapper: any PlaybackFailureMapper
-    /// False builds a signal path without the gain node, for a host that applies no ReplayGain.
-    private let gainNode: Bool
+    /// False builds a signal path without the gain node, for a host that applies no ReplayGain. A change takes
+    /// effect at the next graph (`useGainStage`).
+    private var gainNode: Bool
     private let rendered: (@Sendable (AVReadOnlyAudioPCMBuffer) -> Void)?
     /// Tests only. The engine renders offline and only audio that is already on the node, so the output does not
     /// depend on runner load.
@@ -431,6 +444,7 @@ public final class GaplessEngine: PlaybackEngine {
                 decoding = true
                 requested = position
                 let song = songs[position]
+                if let reason = song.unsupportedFormat { throw UnsupportedFormat(reason: reason) }
                 let seconds = position == index ? offset : 0
                 report()
                 let track: PlaybackSource

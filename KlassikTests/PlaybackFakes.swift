@@ -145,10 +145,19 @@ final class FakeEngine: PlaybackEngine {
         calls.append(.discard)
         isRunning = false
         playing = nil
+        signalPath = nil
     }
 
     func setGain(_ decibels: Float) {
         gain = decibels
+    }
+
+    /// What the real engine reports for its graph. A test sets it.
+    var signalPath: PlaybackSignalPath?
+    private(set) var gainStageRequests: [Bool] = []
+
+    func useGainStage(_ on: Bool) {
+        gainStageRequests.append(on)
     }
 
     func position(from movement: Int) -> (movement: Int, elapsed: Double)? {

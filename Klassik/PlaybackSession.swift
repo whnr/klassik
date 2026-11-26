@@ -99,8 +99,19 @@ final class PlaybackSession {
         didSet {
             defaults.set(leveling.rawValue, forKey: Self.levelingKey)
             applyGain()
+            syncGainStage()
         }
     }
+
+    /// Shows the quality line under the playback bar.
+    var showsAudioQuality: Bool {
+        didSet {
+            defaults.set(showsAudioQuality, forKey: Self.showsAudioQualityKey)
+            refreshQuality()
+        }
+    }
+    /// The quality line of the playing movement, or nil when the setting is off or nothing plays (sz-u8f4).
+    private(set) var qualityLine: String?
 
     var scrobblesEnabled: Bool {
         willSet { savePosition() }
@@ -210,6 +221,7 @@ final class PlaybackSession {
     /// Replaces the leveling setting as the source of the volume change. Nil keeps the setting.
     private let gainStage: (any GainStage)?
     private static let levelingKey = "player.volumeLeveling"
+    private static let showsAudioQualityKey = "player.showsAudioQuality"
 
     init(
         engine: any PlaybackEngine, store: TrackStore, defaults: UserDefaults = .standard,
@@ -221,6 +233,8 @@ final class PlaybackSession {
         self.gainStage = gainStage
         scrobblesEnabled = defaults.object(forKey: Self.scrobblesKey) as? Bool ?? true
         leveling = defaults.string(forKey: Self.levelingKey).flatMap(VolumeLeveling.init) ?? .album
+        showsAudioQuality = defaults.bool(forKey: Self.showsAudioQualityKey)
+        engine.useGainStage(Self.wantsGainStage(leveling, gainStage))
         engine.onEvent = { [weak self] event in self?.engineEvent(event) }
         store.willClearMusic = { [weak self] in self?.musicCleared() }
         observeAudioSession()
@@ -644,6 +658,7 @@ final class PlaybackSession {
     }
 
     private func savePosition() {
+        refreshQuality()
         guard let found = located(), let movement, found.movement >= movement else { return }
         refreshSegments()
         if playback.shouldPlay { hear(through: found) }
@@ -660,6 +675,30 @@ final class PlaybackSession {
         guard let songs = item?.recording.songs else { return }
         let lengths = songs.indices.map { engine.duration(of: $0 + engineBase) ?? Double(songs[$0].duration ?? 0) }
         if lengths != segments { segments = lengths }
+    }
+
+    /// ReplayGain off leaves the gain stage out of the graph, so no stage scales the samples.
+    private static func wantsGainStage(_ leveling: VolumeLeveling, _ gainStage: (any GainStage)?) -> Bool {
+        if let gainStage { return !(gainStage is NoGainStage) }
+        return leveling != .off
+    }
+
+    /// A graph that is already built keeps its stage. A change of the setting reloads it at the checkpoint.
+    private func syncGainStage() {
+        let wanted = Self.wantsGainStage(leveling, gainStage)
+        engine.useGainStage(wanted)
+        guard let path = engine.signalPath, path.gainStage != wanted else { return }
+        if playback.shouldPlay { rebuild() } else { discardEngine() }
+        // A discarded graph has no path, so the old reason must leave the line now, not at the next play.
+        refreshQuality()
+    }
+
+    private func refreshQuality() {
+        var line: String?
+        if showsAudioQuality, let songs = item?.recording.songs, let movement, songs.indices.contains(movement) {
+            line = AudioQuality.line(track: songs[movement].playbackTrack, path: engine.signalPath)
+        }
+        if line != qualityLine { qualityLine = line }
     }
 
     /// Album gains are the same for each movement, so a change at the movement boundary is not audible.

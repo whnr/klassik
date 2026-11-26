@@ -1149,6 +1149,30 @@ final class PlaybackScreens: ScreensTestCase {
         snap(app, "07s-slow-connection")
     }
 
+    /// Show Audio Quality adds one line under the playback bar. Commas separate its fields (sz-u8f4).
+    @MainActor
+    func testAudioQualityLine() throws {
+        let app = try launchAndConnect()
+        openSettings(app)
+        let setting = reveal(app.switches["audio-quality-setting"], in: app)
+        setting.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        XCTAssertTrue(
+            eventually(timeout: 5) { setting.value as? String == "1" }, "Show Audio Quality did not turn on")
+        back(app)
+        let composers = app.buttons["library-composers"]
+        XCTAssertTrue(composers.waitForExistence(timeout: 10), "No library after Settings")
+        composers.tap()
+        openRecording(app)
+        startPlaying(app)
+        openPlayer(app)
+        let line = app.staticTexts["audio-quality"]
+        XCTAssertTrue(line.waitForExistence(timeout: 20), "No quality line under the playback bar")
+        XCTAssertTrue(
+            eventually(timeout: 10) { line.label.contains(", output ") }, "No output rate in the line: \(line.label)")
+        XCTAssertFalse(line.label.contains("·"), "The line separates fields with a middle dot: \(line.label)")
+        snap(app, "07t-audio-quality")
+    }
+
     /// The quiet spell returns to the playing row after the listener scrolls away.
     @MainActor
     func testPlayerFollowsAfterQuietSpell() throws {
@@ -2577,7 +2601,8 @@ final class SettingsScreens: ScreensTestCase {
         snap(app, "08c-settings-top")
         // Flo's groups: Playback, Library, Colour, Advanced settings, About. Each row follows the one before it.
         let order = [
-            "timeline-side", "replaygain", "scrobbles", "classical-rules", "partial-works", "swipe-actions",
+            "timeline-side", "replaygain", "audio-quality-setting", "scrobbles", "classical-rules", "partial-works",
+            "swipe-actions",
             "local-storage", "delete-listening-data", "accent", "player-tint-strength",
             "musicbrainz", "diagnostics", "server-connection", "licences", "source-code",
         ]

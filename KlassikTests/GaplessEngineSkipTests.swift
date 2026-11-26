@@ -362,6 +362,81 @@ struct GaplessEngineSkipTests {
         player.discard()
     }
 
+    /// Starts a crossfade seek whose new graph has not sounded yet. Nothing fires the flag by hand.
+    private static func crossfadeWaitingForSound() async throws -> (
+        player: GaplessEngine, old: AVAudioEngine, oldFade: FadeControl, trigger: FadeTrigger, new: AVAudioEngine
+    ) {
+        var options = fiftyMilliseconds
+        options.seek = .crossfade
+        let (player, old, oldFade) = try sounding(options)
+        load(player, old: old, probe: Probe())
+        let (new, newNode) = try graph()
+        let incoming = FadeControl()
+        player.adopt(new, newNode, started: false, fade: incoming)
+        try player.start(newNode)
+        let trigger = try #require(incoming.last?.fires)
+        #expect(oldFade.last?.after == trigger)
+        #expect(!trigger.isFired)
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(old.isRunning, "the old sound plays on while it waits for the new one")
+        return (player, old, oldFade, trigger, new)
+    }
+
+    /// A pause before the first sound of the new graph fades the old graph out with the fade-out curve and length.
+    @Test func aPauseBeforeTheFirstSoundFadesTheOldGraphOut() async throws {
+        let (player, old, oldFade, trigger, new) = try await Self.crossfadeWaitingForSound()
+        defer { old.stop(); new.stop() }
+        player.pause()
+        #expect(trigger.isFired)
+        #expect(old.isRunning, "the old graph fades, it is not cut")
+        let ramp = try #require(oldFade.last)
+        #expect(ramp.target == 0 && ramp.frames == Self.rate / 20 && ramp.curve == .raisedCosine)
+        #expect(await Self.eventually { !old.isRunning })
+        player.discard()
+    }
+
+    /// A second seek before the first sound of the new graph fades the first old graph out.
+    @Test func aSecondSeekBeforeTheFirstSoundFadesTheOldGraphOut() async throws {
+        let (player, old, oldFade, trigger, new) = try await Self.crossfadeWaitingForSound()
+        defer { old.stop(); new.stop() }
+        Self.load(player, old: old, probe: Probe())
+        #expect(trigger.isFired)
+        #expect(old.isRunning, "the old graph fades, it is not cut")
+        #expect(try #require(oldFade.last).target == 0)
+        #expect(await Self.eventually { !old.isRunning })
+        player.discard()
+    }
+
+    /// A discard before the first sound fades the old graph out too.
+    @Test func aDiscardBeforeTheFirstSoundFadesTheOldGraphOut() async throws {
+        let (player, old, _, trigger, new) = try await Self.crossfadeWaitingForSound()
+        defer { old.stop(); new.stop() }
+        player.discard()
+        #expect(trigger.isFired)
+        #expect(old.isRunning, "the old graph fades, it is not cut")
+        #expect(await Self.eventually { !old.isRunning })
+    }
+
+    /// A new graph that never sounds ends the wait at the limit, and the old graph fades out.
+    @Test func aNewGraphThatNeverSoundsEndsTheWaitAtTheLimit() async throws {
+        var options = Self.fiftyMilliseconds
+        options.seek = .crossfade
+        let (player, old, _) = try Self.sounding(options)
+        defer { old.stop() }
+        player.soundWaitLimit = 0.2
+        Self.load(player, old: old, probe: Probe())
+        let (new, newNode) = try Self.graph()
+        defer { new.stop() }
+        let incoming = FadeControl()
+        player.adopt(new, newNode, started: false, fade: incoming)
+        try player.start(newNode)
+        let trigger = try #require(incoming.last?.fires)
+        #expect(!trigger.isFired)
+        #expect(await Self.eventually { trigger.isFired })
+        #expect(await Self.eventually { !old.isRunning })
+        player.discard()
+    }
+
     /// A second seek while the crossfade ramp runs parks the sounding graph. The first old graph retires on its own
     /// timer, and the parked graph crossfades with the next one.
     @Test func aSecondLoadDuringTheCrossfadeRampParksTheNewSoundAndRetiresTheFirstOneOnItsOwn() async throws {

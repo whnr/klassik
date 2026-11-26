@@ -72,6 +72,9 @@ final class FadeTrigger: @unchecked Sendable, Equatable {
 
     /// Sets the flag. Returns false when the lock was busy, so the caller tries again.
     func fire() -> Bool { flag.withLockIfAvailable { $0 = true } != nil }
+
+    /// Sets the flag and waits for a busy lock. Only for the main thread: the render thread never waits.
+    func force() { flag.withLock { $0 = true } }
 }
 
 /// The hand-over between the main thread, which asks for a ramp, and the render thread, which runs it.

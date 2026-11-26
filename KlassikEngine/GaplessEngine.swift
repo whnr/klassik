@@ -56,6 +56,12 @@ public final class GaplessEngine: PlaybackEngine {
     /// The graph of the old position, which keeps playing after a load in crossfade mode until the new graph can sound.
     private var outgoing: Outgoing?
 
+    /// The flag that the old graph of a crossfade waits for. The new graph's first sound sets it. A new graph that is
+    /// paused, discarded or replaced before it sounds, or that stays silent, must not leave the old graph at full level.
+    private var crossfadeTrigger: FadeTrigger?
+    /// The longest wait of the old graph for the first sound of the new one, in seconds.
+    var soundWaitLimit = 5.0
+
     private struct Outgoing {
         let engine: AVAudioEngine
         let fade: FadeControl
@@ -194,6 +200,7 @@ public final class GaplessEngine: PlaybackEngine {
     public func pause() {
         playing = false
         retireOutgoing()
+        releaseCrossfade()
         guard let node, node.isPlaying else {
             pausedAt = playedSamples()
             node?.pause()
@@ -281,6 +288,7 @@ public final class GaplessEngine: PlaybackEngine {
         halting?.cancel()
         halting = nil
         retireOutgoing()
+        releaseCrossfade()
         let stopWait = retire(
             engine, fade, sounding: isSounding, rate: sampleRate, curve: fadeOptions.outCurve)
         fade = nil
@@ -811,8 +819,16 @@ public final class GaplessEngine: PlaybackEngine {
         silenced = false
         // Both ramps start at the first sounding frame of the new position, so the mix never dips or doubles.
         let trigger = FadeTrigger()
+        crossfadeTrigger = trigger
         fade?.ramp(from: 0, to: 1, frames: inFrames, curve: fadeOptions.inCurve, onSignal: true, fires: trigger)
         retire(old.engine, old.fade, sounding: true, rate: old.rate, curve: fadeOptions.outCurve, after: trigger)
+    }
+
+    /// Starts the fade-out of the old graph of a crossfade at once, with the fade-out curve and length. A no-op
+    /// when the new sound already started it.
+    private func releaseCrossfade() {
+        crossfadeTrigger?.force()
+        crossfadeTrigger = nil
     }
 
     /// Fades the parked graph out and stops it. A load that never gets ready must not leave it playing.
@@ -865,10 +881,13 @@ public final class GaplessEngine: PlaybackEngine {
         fade.ramp(to: 0, frames: frames, curve: curve, after: trigger)
         let wait = Double(frames) / rate + FadeOptions.stopMargin
         Task {
-            // The fade-out of a crossfade starts with the new sound, which can be late. A new sound that never comes
-            // is retired by `retireOutgoing`, which asks for a plain fade-out.
+            // The fade-out of a crossfade starts with the new sound, which can be late. A pause, a discard or a
+            // second seek of the new graph releases the trigger. A new graph that stays silent is released here
+            // after the wait limit, so the old sound fades out and is never cut.
             if let trigger {
-                for _ in 0..<6_000 where !trigger.isFired { try? await Task.sleep(for: .milliseconds(5)) }
+                let limit = ContinuousClock.now + .seconds(soundWaitLimit)
+                while !trigger.isFired, ContinuousClock.now < limit { try? await Task.sleep(for: .milliseconds(5)) }
+                trigger.force()
             }
             try? await Task.sleep(for: .seconds(wait))
             engine.stop()

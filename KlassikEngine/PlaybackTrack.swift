@@ -49,6 +49,15 @@ public struct PlaybackTrack: Sendable, Hashable, Identifiable {
         self.replayGain = replayGain
     }
 
+    /// Why iOS cannot play this file, or nil. The engine refuses these formats with this text (sz-u8f4).
+    public var unsupportedFormat: String? {
+        switch suffix?.lowercased() {
+        case "opus": "Opus is not supported on iOS."
+        case "ogg", "oga": "Ogg is not supported on iOS."
+        default: nil
+        }
+    }
+
     /// True when the decoder can start from the first bytes of this format.
     public var canStartEarly: Bool { StreamDecoder.canStartEarly(self) }
 }

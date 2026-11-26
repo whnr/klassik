@@ -63,6 +63,46 @@ public protocol PlaybackEngine: AnyObject {
     func position(from movement: Int) -> (movement: Int, elapsed: Double)?
     /// The exact length of a scheduled movement, in seconds.
     func duration(of movement: Int) -> Double?
+    /// What the sound passes on its way to the output, or nil before the first track connects.
+    var signalPath: PlaybackSignalPath? { get }
+    /// False keeps the gain stage out of the next graph, so nothing scales the samples. The graph that plays keeps
+    /// its stage until the host reloads.
+    func useGainStage(_ on: Bool)
+}
+
+extension PlaybackEngine {
+    public var signalPath: PlaybackSignalPath? { nil }
+    public func useGainStage(_ on: Bool) {}
+}
+
+/// An engine failure for a format that iOS cannot decode.
+struct UnsupportedFormat: LocalizedError {
+    let reason: String
+    var errorDescription: String? { reason }
+}
+
+/// What the engine knows of the path from the file to the output: its own graph and the formats that iOS reports.
+/// The engine converts nothing, so any difference between the rates is a conversion by iOS.
+public struct PlaybackSignalPath: Sendable, Equatable {
+    /// The format of the graph: the sample rate and channel count of the file.
+    public var engineRate: Double
+    public var engineChannels: Int
+    public var outputs: PlaybackOutputFormats
+    /// The rate that the audio session reported after activation, or nil when it reported none.
+    public var sessionRate: Double?
+    /// True when a gain stage sits in the graph. With none, no stage scales the samples.
+    public var gainStage: Bool
+
+    public init(
+        engineRate: Double, engineChannels: Int, outputs: PlaybackOutputFormats, sessionRate: Double? = nil,
+        gainStage: Bool
+    ) {
+        self.engineRate = engineRate
+        self.engineChannels = engineChannels
+        self.outputs = outputs
+        self.sessionRate = sessionRate
+        self.gainStage = gainStage
+    }
 }
 
 /// The sample rate and channel count at the output end of an engine's graph.

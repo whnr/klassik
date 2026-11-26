@@ -752,6 +752,46 @@ struct PlaybackSessionTests {
         #expect(engine.gain == 0)
     }
 
+    private func path(gainStage: Bool, rate: Double = 44_100, hardware: Double = 44_100) -> PlaybackSignalPath {
+        let outputs = PlaybackOutputFormats(
+            mixerRate: rate, mixerChannels: 2, hardwareRate: hardware, hardwareChannels: 2)
+        return PlaybackSignalPath(engineRate: rate, engineChannels: 2, outputs: outputs, gainStage: gainStage)
+    }
+
+    /// ReplayGain off builds the next graph without a gain stage, and a graph that has one reloads at the checkpoint.
+    @Test func replayGainOffReloadsTheGraphWithoutAGainStage() throws {
+        let (session, engine) = try makeSession()
+        #expect(engine.gainStageRequests == [true])
+        session.play(item("a", movements: 2))
+        engine.signalPath = path(gainStage: true)
+        session.leveling = .off
+        #expect(engine.gainStageRequests == [true, false])
+        #expect(engine.loads.count == 2)
+        engine.signalPath = path(gainStage: false)
+        session.leveling = .album
+        #expect(engine.gainStageRequests == [true, false, true])
+        #expect(engine.loads.count == 3)
+    }
+
+    @Test func aChangeThatLeavesTheGraphAloneReloadsNothing() throws {
+        let (session, engine) = try makeSession()
+        session.play(item("a"))
+        engine.signalPath = path(gainStage: true)
+        session.leveling = .track
+        #expect(engine.loads.count == 1)
+    }
+
+    @Test func theQualityLineFollowsTheSettingAndTheEngine() throws {
+        let (session, engine) = try makeSession()
+        session.play(item("a"))
+        engine.signalPath = path(gainStage: false)
+        #expect(session.qualityLine == nil)
+        session.showsAudioQuality = true
+        #expect(session.qualityLine == "MP3 44.1 kHz · output 44.1 kHz · lossy source · bit-perfect not verified")
+        session.showsAudioQuality = false
+        #expect(session.qualityLine == nil)
+    }
+
     @Test func theEngineGetsItsFilesThroughTheServer() async throws {
         let requests = Requests()
         let (session, engine) = try makeSession(requests)

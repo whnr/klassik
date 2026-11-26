@@ -1325,6 +1325,14 @@ private struct PositionBar: View {
         VStack(alignment: .leading, spacing: lineGap) {
             bar(shown)
             PlaybackProgress.under(shown, of: duration, line: player.slowLine)
+            if let quality = player.qualityLine {
+                Text(quality)
+                    .typeStyle(.caption1)
+                    .foregroundStyle(Palette.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+                    .accessibilityIdentifier("audio-quality")
+            }
         }
         .onChange(of: elapsed) { _, now in scrub.observe(elapsed: now) }
         // A cancelled drag never calls onEnded, and a new movement replaces this bar while a finger holds it.

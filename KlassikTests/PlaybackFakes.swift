@@ -151,6 +151,14 @@ final class FakeEngine: PlaybackEngine {
         gain = decibels
     }
 
+    /// What the real engine reports for its graph. A test sets it.
+    var signalPath: PlaybackSignalPath?
+    private(set) var gainStageRequests: [Bool] = []
+
+    func useGainStage(_ on: Bool) {
+        gainStageRequests.append(on)
+    }
+
     func position(from movement: Int) -> (movement: Int, elapsed: Double)? {
         playing
     }

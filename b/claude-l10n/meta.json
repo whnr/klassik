@@ -1,7 +1,7 @@
 {
-  "sha": "c514c9acded2da4762e3e1dc5db2ef12a89ad906",
+  "sha": "8b47af085d7bc65f5668168ee0d8a8bdf0acf46d",
   "branch": "claude-l10n",
   "path": "claude-l10n",
-  "subject": "Fix the saved-biography test stub",
-  "ts": 1795670402
+  "subject": "Measure the drawn title, not the spoken label",
+  "ts": 1795674314
 }

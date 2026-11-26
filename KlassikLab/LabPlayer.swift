@@ -167,13 +167,6 @@ final class LabPlayer {
 
     static var captureFolder: URL { URL.temporaryDirectory.appending(path: "lab-capture") }
 
-    /// Deletes the files of the last capture. The share sheet has copied or shared them by the time it closes.
-    func discardCapture() {
-        captured = nil
-        guard finishTask == nil else { return }
-        try? FileManager.default.removeItem(at: Self.captureFolder)
-    }
-
     private func beginCapture() {
         // The previous finish writes into the folder, so it ends before the folder goes.
         let previous = finishTask
@@ -182,6 +175,7 @@ final class LabPlayer {
         captured = nil
         capturing = true
         captureNote = nil
+        // The files of the last capture stay until now: a share target can read a file after the sheet has closed.
         Task {
             await previous?.value
             startRecording()
@@ -202,7 +196,7 @@ final class LabPlayer {
         self.recorder = recorder
         captureStart = Date()
         captureTitle = title
-        engine?.setOutputTap { recorder.tap($0) }
+        engine?.setOutputTap { recorder.makeSource(startSeconds: $0) }
     }
 
     private func endCapture() {
@@ -220,14 +214,10 @@ final class LabPlayer {
         finishTask = Task {
             defer { finishTask = nil }
             let result = await recorder.finish()
-            if let error = result.error {
-                captureNote = "The capture stopped: \(error)"
-                try? FileManager.default.removeItem(at: Self.captureFolder)
-                return
-            }
             guard !Task.isCancelled else { return }
+            let stopped = result.error.map { "The capture stopped: \($0)" }
             guard let wav = result.url else {
-                captureNote = "Nothing was recorded: no sound reached the output."
+                captureNote = stopped ?? "Nothing was recorded: no sound reached the output."
                 return
             }
             let sidecar = wav.deletingPathExtension().appendingPathExtension("txt")
@@ -235,7 +225,7 @@ final class LabPlayer {
                 caseTitle: title, fade: fade, replayGain: gain, throttle: throttle, route: route, result: result,
                 startedAt: started)
             try? text.write(to: sidecar, atomically: true, encoding: .utf8)
-            captureNote = result.capped ? "Stopped at the 60 s cap." : nil
+            captureNote = stopped ?? (result.capped ? "Stopped at the 60 s cap." : nil)
             captured = CapturedFiles(wav: wav, sidecar: sidecar)
         }
     }
@@ -329,7 +319,7 @@ final class LabPlayer {
         let engine = GaplessEngine(gainNode: replayGain)
         engine.fadeOptions = fade.options
         engine.onEvent = { [weak self] event in self?.handle(event) }
-        if let recorder { engine.setOutputTap { recorder.tap($0) } }
+        if let recorder { engine.setOutputTap { recorder.makeSource(startSeconds: $0) } }
         self.engine = engine
         return engine
     }

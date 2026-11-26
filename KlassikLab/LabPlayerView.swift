@@ -147,7 +147,7 @@ struct LabPlayerView: View {
                     .pickerStyle(.segmented)
                 }
             }
-            .sheet(item: $player.captured, onDismiss: { player.discardCapture() }) { files in
+            .sheet(item: $player.captured) { files in
                 ShareSheet(items: [files.wav, files.sidecar])
             }
             .navigationTitle("Playback Lab")

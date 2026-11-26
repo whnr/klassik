@@ -12,26 +12,54 @@ struct LabCaptureTests {
 
     // MARK: Ring
 
-    @Test func theRingKeepsOrderAcrossTheWrap() {
-        let ring = CaptureRing(capacity: 8)
+    @Test func theRingKeepsBlocksInOrderAcrossTheWrap() {
+        let ring = CaptureRing(capacity: 32)
         var out = [Float](repeating: 0, count: 8)
         var seen: [Float] = []
-        for round in 0..<5 {
+        var starts: [Int] = []
+        for round in 0..<9 {
             let block = (0..<5).map { Float(round * 5 + $0) }
-            #expect(block.withUnsafeBufferPointer { ring.push($0.baseAddress!, count: 5) })
-            let count = out.withUnsafeMutableBufferPointer { ring.pop(into: $0.baseAddress!, limit: 8) }
-            seen += out[0..<count]
+            #expect(block.withUnsafeBufferPointer { ring.push(start: round * 100, $0.baseAddress!, count: 5) })
+            let record = out.withUnsafeMutableBufferPointer { ring.pop(into: $0.baseAddress!, limit: 8) }
+            starts.append(record?.start ?? -1)
+            seen += out[0..<(record?.count ?? 0)]
         }
-        #expect(seen == (0..<25).map(Float.init))
+        #expect(seen == (0..<45).map(Float.init))
+        #expect(starts == (0..<9).map { $0 * 100 })
         #expect(ring.dropped == 0)
+        #expect(ring.isEmpty)
     }
 
-    @Test func aFullRingDropsAndCountsInsteadOfWaiting() {
-        let ring = CaptureRing(capacity: 4)
+    @Test func aFullRingDropsAWholeBlockAndCountsIt() {
+        let ring = CaptureRing(capacity: 8)
         let block: [Float] = [1, 2, 3]
-        #expect(block.withUnsafeBufferPointer { ring.push($0.baseAddress!, count: 3) })
-        #expect(!block.withUnsafeBufferPointer { ring.push($0.baseAddress!, count: 3) })
+        #expect(block.withUnsafeBufferPointer { ring.push(start: 7, $0.baseAddress!, count: 3) })
+        #expect(!block.withUnsafeBufferPointer { ring.push(start: 9, $0.baseAddress!, count: 3) })
         #expect(ring.dropped == 3)
+        var out = [Float](repeating: 0, count: 3)
+        let record = out.withUnsafeMutableBufferPointer { ring.pop(into: $0.baseAddress!, limit: 3) }
+        #expect(record?.start == 7 && record?.count == 3 && out == block)
+        #expect(out.withUnsafeMutableBufferPointer { ring.pop(into: $0.baseAddress!, limit: 3) } == nil)
+    }
+
+    // MARK: Mixer
+
+    @Test func theMixerSumsOverlapsAndFillsGapsWithSilence() {
+        var mixer = CaptureMixer(channels: 1)
+        let first: [Float] = [1, 1, 1, 1]
+        let second: [Float] = [2, 2, 2, 2]
+        let third: [Float] = [3, 3]
+        first.withUnsafeBufferPointer { mixer.add(start: 0, frames: 4, samples: $0.baseAddress!) }
+        second.withUnsafeBufferPointer { mixer.add(start: 2, frames: 4, samples: $0.baseAddress!) }
+        third.withUnsafeBufferPointer { mixer.add(start: 10, frames: 2, samples: $0.baseAddress!) }
+        var out: [Float] = []
+        mixer.release(upTo: 3) { out += $0 }
+        mixer.release(upTo: 12) { out += $0 }
+        #expect(out == [1, 1, 3, 3, 2, 2, 0, 0, 0, 0, 3, 3])
+        #expect(mixer.emitted == 12 && mixer.end == 12 && mixer.late == 0)
+        // A block of a time that was released is cut, and counted.
+        first.withUnsafeBufferPointer { mixer.add(start: 10, frames: 4, samples: $0.baseAddress!) }
+        #expect(mixer.late == 2 && mixer.end == 14)
     }
 
     // MARK: File
@@ -65,21 +93,63 @@ struct LabCaptureTests {
         return buffer
     }
 
+    /// A mono block of `frames` frames at 1 kHz, all of one value.
+    private func level(_ value: Float, frames: Int) throws -> AVAudioPCMBuffer {
+        let buffer = try block(frames, channels: 1, rate: 1_000, start: 0)
+        for frame in 0..<frames { buffer.floatChannelData![0][frame] = value }
+        return buffer
+    }
+
+    private func samples(of url: URL) throws -> [Float] {
+        let data = try Data(contentsOf: url).dropFirst(CaptureWAV.headerSize)
+        return data.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
+    }
+
     @Test func theRecorderWritesTheSamplesInterleavedAndExact() async throws {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
         let url = root.appending(path: "a.wav")
         let recorder = CaptureRecorder(url: url)
-        for index in 0..<4 { recorder.tap(try block(1_000, channels: 2, rate: 48_000, start: index * 1_000)) }
+        let source = recorder.makeSource(startSeconds: 0)
+        for index in 0..<4 {
+            source.tap(
+                try block(1_000, channels: 2, rate: 48_000, start: index * 1_000),
+                atSeconds: Double(index * 1_000) / 48_000)
+        }
         let result = await recorder.finish()
         #expect(result.frames == 4_000 && result.rate == 48_000 && result.channels == 2 && result.dropped == 0)
         let data = try Data(contentsOf: url)
         #expect(data.count == CaptureWAV.headerSize + 4_000 * 8)
-        let floats = data.dropFirst(CaptureWAV.headerSize).withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
+        let floats = try samples(of: url)
         for frame in [0, 1, 999, 1_000, 3_999] {
             #expect(floats[frame * 2] == Float(frame) * 0.001)
             #expect(floats[frame * 2 + 1] == Float(frame) * 0.001 + 1)
         }
+    }
+
+    @Test func graphsThatOverlapAreSummedAndGapsAreSilent() async throws {
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let url = root.appending(path: "mix.wav")
+        let recorder = CaptureRecorder(url: url)
+        // The graphs exist before their sound does, as in the engine, where a tap installs before its first block.
+        let old = recorder.makeSource(startSeconds: 0)
+        let new = recorder.makeSource(startSeconds: 0.3)
+        let later = recorder.makeSource(startSeconds: 1)
+        for index in 0..<5 { old.tap(try level(1, frames: 100), atSeconds: Double(index) / 10) }
+        old.finish()
+        for index in 0..<5 { new.tap(try level(0.5, frames: 100), atSeconds: 0.3 + Double(index) / 10) }
+        new.finish()
+        later.tap(try level(0.25, frames: 100), atSeconds: 1)
+        later.finish()
+        let result = await recorder.finish()
+        var expected = [Float](repeating: 0, count: 1_100)
+        for frame in 0..<500 { expected[frame] += 1 }
+        for frame in 300..<800 { expected[frame] += 0.5 }
+        for frame in 1_000..<1_100 { expected[frame] += 0.25 }
+        let written = try samples(of: url)
+        #expect(result.frames == 1_100 && result.dropped == 0)
+        #expect(written == expected)
     }
 
     @Test func theCapEndsTheRecordingAtTheLimit() async throws {
@@ -89,7 +159,8 @@ struct LabCaptureTests {
         let recorder = CaptureRecorder(url: root.appending(path: "c.wav"), maxSeconds: 1) {
             capped.withLock { $0 += 1 }
         }
-        for index in 0..<5 { recorder.tap(try block(1_000, channels: 1, rate: 1_000, start: index * 1_000)) }
+        let source = recorder.makeSource(startSeconds: 0)
+        for index in 0..<5 { source.tap(try level(1, frames: 1_000), atSeconds: Double(index)) }
         let result = await recorder.finish()
         #expect(result.frames == 1_000 && result.capped)
         #expect(capped.withLock { $0 } == 1)
@@ -99,8 +170,9 @@ struct LabCaptureTests {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
         let recorder = CaptureRecorder(url: root.appending(path: "f.wav"))
-        recorder.tap(try block(500, channels: 2, rate: 48_000, start: 0))
-        recorder.tap(try block(500, channels: 2, rate: 44_100, start: 0))
+        let source = recorder.makeSource(startSeconds: 0)
+        source.tap(try block(500, channels: 2, rate: 48_000, start: 0), atSeconds: 0)
+        source.tap(try block(500, channels: 2, rate: 44_100, start: 0), atSeconds: 0.5)
         let result = await recorder.finish()
         #expect(result.frames == 500 && result.formatChanged)
     }
@@ -109,6 +181,21 @@ struct LabCaptureTests {
         let recorder = CaptureRecorder(url: root.appending(path: "none.wav"))
         let result = await recorder.finish()
         #expect(result.url == nil && result.frames == 0)
+    }
+
+    @Test func aFileThatCannotBeWrittenStopsTheTapAndSaysWhy() async throws {
+        let calls = Mutex(0)
+        // The folder does not exist, so the file cannot be created.
+        let recorder = CaptureRecorder(url: root.appending(path: "missing/w.wav")) { calls.withLock { $0 += 1 } }
+        let source = recorder.makeSource(startSeconds: 0)
+        source.tap(try level(1, frames: 1_000), atSeconds: 0)
+        for _ in 0..<300 where !recorder.isStopped { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(recorder.isStopped)
+        source.tap(try level(1, frames: 1_000), atSeconds: 1)
+        let result = await recorder.finish()
+        #expect(result.url == nil && result.frames == 0 && result.dropped == 0)
+        #expect(result.error != nil)
+        #expect(calls.withLock { $0 } == 1)
     }
 
     @Test func theSidecarNamesCaseSettingsAndRoute() {
@@ -127,6 +214,18 @@ struct LabCaptureTests {
         #expect(text.contains("Seek mode: Silence, silence 70 ms"))
         #expect(text.contains("ReplayGain: off"))
         #expect(text.contains("  Output: USB"))
+        #expect(!text.contains("Write error"))
+    }
+
+    @Test func theSidecarCarriesTheWriteError() {
+        let result = CaptureRecorder.Result(
+            url: nil, frames: 10, rate: 48_000, channels: 2, dropped: 4, capped: false, formatChanged: false,
+            error: "The disk is full.")
+        let text = CaptureSidecar.text(
+            caseTitle: "WAV", fade: LabFadeSettings(), replayGain: true, throttle: "Off", route: [],
+            result: result, startedAt: Date(timeIntervalSince1970: 0))
+        #expect(text.contains("Write error: The disk is full."))
+        #expect(text.contains("4 frames dropped"))
     }
 
     // MARK: Engine
@@ -179,14 +278,14 @@ struct LabCaptureTests {
         defer { engine.discard() }
         let url = root.appending(path: "capture-\(UUID().uuidString).wav")
         let recorder = CaptureRecorder(url: url)
-        if capture == .whole { engine.setOutputTap { recorder.tap($0) } }
+        if capture == .whole { engine.setOutputTap { recorder.makeSource(startSeconds: $0) } }
         engine.load([PlaybackTrack(id: "0", duration: 1, suffix: "wav")], from: 0, offset: 0.25) { _ in .file(file) }
         var started = false
         for _ in 0..<1000 where !ended.withLock({ $0 }) {
             try await Task.sleep(for: .milliseconds(10))
             if capture == .toggled, !started, !reference.channels.isEmpty, reference.channels[0].count > 4_096 {
                 started = true
-                engine.setOutputTap { recorder.tap($0) }
+                engine.setOutputTap { recorder.makeSource(startSeconds: $0) }
                 try await Task.sleep(for: .milliseconds(20))
                 engine.setOutputTap(nil)
             }
@@ -195,13 +294,12 @@ struct LabCaptureTests {
         if capture == .whole { engine.setOutputTap(nil) }
         let result = await recorder.finish()
         guard let written = result.url else { return (reference.channels, nil) }
-        let data = try Data(contentsOf: written).dropFirst(CaptureWAV.headerSize)
-        return (reference.channels, data.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) })
+        return (reference.channels, try samples(of: written))
     }
 
     enum CaptureWindow { case none, whole, toggled }
 
-    @MainActor @Test func aCaptureOfASeekEqualsTheEngineOutputSampleForSample() async throws {
+    @MainActor @Test func aCaptureOfAPlayEqualsTheEngineOutputSampleForSample() async throws {
         defer { try? FileManager.default.removeItem(at: root) }
         let (reference, captured) = try await play(capture: .whole)
         let samples = try #require(captured)
@@ -233,61 +331,133 @@ struct LabCaptureTests {
         }
     }
 
-    /// Every block that reached the tap, in arrival order, and whether two blocks ever ran at once.
-    private final class Delivery: Sendable {
-        private let state = Mutex<[Float]>([])
-        private let inFlight = Atomic<Int>(0)
-        private let overlap = Atomic<Bool>(false)
-        var samples: [Float] { state.withLock { $0 } }
-        var overlapped: Bool { overlap.load(ordering: .acquiring) }
+    /// One graph's sink in a test: it logs every block that the graph's tap delivers, and passes it on to the
+    /// capture.
+    private final class LoggingSink: OutputTapSink, Sendable {
+        struct Block {
+            let seconds: Double
+            let samples: [Float]
+        }
 
-        func record(_ buffer: AVReadOnlyAudioPCMBuffer, into recorder: CaptureRecorder) {
-            let running = inFlight.add(1, ordering: .acquiringAndReleasing).newValue
-            if running > 1 { overlap.store(true, ordering: .releasing) }
-            defer { inFlight.subtract(1, ordering: .acquiringAndReleasing) }
+        private let inner: CaptureSource
+        private let log = Mutex<[Block]>([])
+
+        init(_ inner: CaptureSource) { self.inner = inner }
+
+        var blocks: [Block] { log.withLock { $0 } }
+
+        func tap(_ buffer: AVReadOnlyAudioPCMBuffer, atSeconds seconds: Double) {
             let frames = Int(buffer.frameLength)
             buffer.withUnsafeAudioBufferList { list in
                 let buffers = UnsafeMutableAudioBufferListPointer(UnsafeMutablePointer(mutating: list))
-                state.withLock { state in
-                    for frame in 0..<frames {
-                        for audio in buffers {
-                            guard let source = audio.mData?.assumingMemoryBound(to: Float.self) else { continue }
-                            let width = Int(audio.mNumberChannels)
-                            for channel in 0..<width { state.append(source[frame * width + channel]) }
-                        }
+                var interleaved: [Float] = []
+                for frame in 0..<frames {
+                    for audio in buffers {
+                        guard let source = audio.mData?.assumingMemoryBound(to: Float.self) else { continue }
+                        let width = Int(audio.mNumberChannels)
+                        for channel in 0..<width { interleaved.append(source[frame * width + channel]) }
                     }
                 }
+                log.withLock { $0.append(Block(seconds: seconds, samples: interleaved)) }
             }
-            recorder.tap(buffer)
+            inner.tap(buffer, atSeconds: seconds)
+        }
+
+        func finish() { inner.finish() }
+    }
+
+    /// The sinks that an engine asked for, one per graph, in the order of the graphs.
+    private final class Graphs: Sendable {
+        private let recorder: CaptureRecorder
+        private let made = Mutex<[LoggingSink]>([])
+
+        init(_ recorder: CaptureRecorder) { self.recorder = recorder }
+
+        var sinks: [LoggingSink] { made.withLock { $0 } }
+
+        func make(startSeconds: Double) -> LoggingSink {
+            let sink = LoggingSink(recorder.makeSource(startSeconds: startSeconds))
+            made.withLock { $0.append(sink) }
+            return sink
         }
     }
 
-    @MainActor @Test(arguments: [SeekMode.today, SeekMode.crossfade])
-    func twoSeeksWithACaptureRunningLeaveTheCaptureEqualToTheOutput(mode: SeekMode) async throws {
+    @MainActor private func waitForSound(_ engine: GaplessEngine) async throws {
+        for _ in 0..<500 where !engine.isSounding { try await Task.sleep(for: .milliseconds(10)) }
+        try #require(engine.isSounding, "the graph never made sound")
+    }
+
+    /// Sums the logged blocks of all graphs on one timeline, each block at its time, the way a listener hears them.
+    private func summed(_ sinks: [LoggingSink], rate: Double, channels: Int) -> [Float] {
+        let blocks = sinks.flatMap(\.blocks)
+        let origin = blocks.map(\.seconds).min() ?? 0
+        func place(_ block: LoggingSink.Block) -> Int { Int(((block.seconds - origin) * rate).rounded()) }
+        let end = blocks.map { place($0) + $0.samples.count / channels }.max() ?? 0
+        var sum = [Float](repeating: 0, count: end * channels)
+        for block in blocks {
+            let offset = place(block) * channels
+            for index in 0..<block.samples.count { sum[offset + index] += block.samples[index] }
+        }
+        return sum
+    }
+
+    private func peak(_ samples: [Float], from start: Double, to end: Double, rate: Double = 44_100) -> Float {
+        let range = Int(start * rate) * 2..<Int(end * rate) * 2
+        return samples[range].map { abs($0) }.max() ?? 0
+    }
+
+    /// A seek with a capture running. The first graph plays 0.5 s and is replaced by a second graph. The file must
+    /// hold both graphs on one timeline: the fade-out of the first, the silence before the second, and the fade-in
+    /// of the second, equal to the sum of what the two graphs delivered.
+    @MainActor @Test(arguments: [SeekMode.today, SeekMode.silence(seconds: 0.05), SeekMode.crossfade])
+    func aSeekWithACaptureRunningHoldsEverythingThatSounded(mode: SeekMode) async throws {
         defer { try? FileManager.default.removeItem(at: root) }
         let file = try wav(frames: 44_100 * 2)
-        let engine = GaplessEngine(manualRendering: true, gainNode: true, watchesStarvation: false)
+        let engine = GaplessEngine(
+            manualRendering: true, gainNode: true, watchesStarvation: false, renderOnDemand: true)
         engine.fadeOptions = FadeOptions(seek: mode)
         defer { engine.discard() }
         let recorder = CaptureRecorder(url: root.appending(path: "seek-\(UUID().uuidString).wav"))
-        let delivery = Delivery()
-        engine.setOutputTap { delivery.record($0, into: recorder) }
+        let graphs = Graphs(recorder)
+        engine.setOutputTap { graphs.make(startSeconds: $0) }
         let track = PlaybackTrack(id: "0", duration: 2, suffix: "wav")
         engine.load([track], from: 0, offset: 0) { _ in .file(file) }
-        for offset in [0.5, 1.0] {
-            try await Task.sleep(for: .milliseconds(300))
-            engine.load([track], from: 0, offset: offset) { _ in .file(file) }
-        }
-        try await Task.sleep(for: .milliseconds(900))
+        try await waitForSound(engine)
+        engine.render(frames: 22_050)
+        engine.load([track], from: 0, offset: 1) { _ in .file(file) }
+        try await waitForSound(engine)
+        engine.render(frames: 22_050)
+        // The tap queues deliver the last blocks, and the first graph's tap leaves after its fade.
+        try await Task.sleep(for: .milliseconds(600))
         engine.setOutputTap(nil)
         let result = await recorder.finish()
         let url = try #require(result.url)
-        let data = try Data(contentsOf: url).dropFirst(CaptureWAV.headerSize)
-        let captured = data.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
-        let delivered = delivery.samples
-        #expect(!delivery.overlapped, "two engines fed the tap at once")
-        #expect(result.dropped == 0)
-        #expect(captured.count > 20_000)
-        #expect(captured == delivered)
+        let captured = try samples(of: url)
+
+        let sinks = graphs.sinks
+        #expect(sinks.count == 2, "each graph feeds its own sink")
+        #expect(result.error == nil && result.dropped == 0)
+        let expected = summed(sinks, rate: 44_100, channels: 2)
+        #expect(captured.count == expected.count)
+        for (index, value) in expected.enumerated() where index < captured.count {
+            guard abs(captured[index] - value) <= 1e-6 else {
+                Issue.record("first difference at frame \(index / 2): \(captured[index]) against \(value)")
+                break
+            }
+        }
+
+        // The first graph delivers its fade-out after the seek, up to the end of the fade, and the file holds it.
+        let first = try #require(sinks.first?.blocks.last)
+        #expect(first.seconds + Double(first.samples.count / 2) / 44_100 >= 0.6)
+        #expect(peak(captured, from: 0.5, to: 0.55) > 0.05)
+        // The second graph starts where the engine put it on the timeline.
+        let start = try #require(sinks.last?.blocks.first?.seconds)
+        let gap = mode == .silence(seconds: 0.05) ? 0.05 : 0
+        #expect(abs(start - (0.5 + (gap > 0 ? 0.13 + gap : 0))) < 1e-6)
+        #expect(peak(captured, from: start + 0.1, to: start + 0.15) > 0.05)
+        if gap > 0 {
+            // The fade-out ended at 0.6 s and the fade-in has not begun: the file is silent in between.
+            #expect(peak(captured, from: 0.605, to: start - 0.005) == 0)
+        }
     }
 }

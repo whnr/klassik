@@ -1,7 +1,7 @@
 {
-  "sha": "68fb8bf83298d70f1223654464cbe22c153d54d5",
+  "sha": "f7c4f80c6a3b6786fa0bfa13ef3c6f1f887c4b68",
   "branch": "claude-btql",
   "path": "claude-btql",
-  "subject": "[sz-btql] Run Lab uploads only for pushes to this repo",
-  "ts": 1795715877
+  "subject": "[sz-btql] Shorten the workflow test docstring",
+  "ts": 1795716485
 }

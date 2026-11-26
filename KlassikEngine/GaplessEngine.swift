@@ -57,6 +57,12 @@ public final class GaplessEngine: PlaybackEngine {
     /// The graph of the old position, which keeps playing after a load in crossfade mode until the new graph can sound.
     private var outgoing: Outgoing?
 
+    /// The flag that the old graph of a crossfade waits for. The new graph's first sound sets it. A new graph that is
+    /// paused, discarded or replaced before it sounds, or that stays silent, must not leave the old graph at full level.
+    private var crossfadeTrigger: FadeTrigger?
+    /// The longest wait of the old graph for the first sound of the new one, in seconds.
+    var soundWaitLimit = 5.0
+
     private struct Outgoing {
         let engine: AVAudioEngine
         let fade: FadeControl
@@ -95,6 +101,9 @@ public final class GaplessEngine: PlaybackEngine {
     private(set) var pausedAt: Int64?
     /// The end of the scheduled audio on the node timeline.
     private var scheduledEnd: Int64 = 0
+    /// The first moment at which the new node may play, when a silence-mode load waits for the old fade-out and the
+    /// gap. A node that is ready later plays at once. Nil when nothing holds the first sound back.
+    private(set) var earliestSound: ContinuousClock.Instant?
     /// True once the first sound of this load was allowed.
     private var started = false
     /// True while the node waits, paused, for bytes that did not arrive in time.
@@ -191,8 +200,11 @@ public final class GaplessEngine: PlaybackEngine {
         }
         let stopWait = reset()
         outgoing = parked
+        // The load starts at once. Only the first sound waits, so the load time runs inside the fade-out and the gap.
         let delay = fadeOptions.newSoundDelay(stopWait: stopWait)
+        // An offline graph is stamped at the time of its first sound, as the tests model it.
         if manualRendering { graphEpoch = offlineClock + delay }
+        earliestSound = delay > 0 ? .now + .seconds(delay) : nil
         self.songs = songs
         // The track at the load's start is fixed before the scheduler asks for it.
         requested = movement
@@ -201,11 +213,6 @@ public final class GaplessEngine: PlaybackEngine {
         cancelled = CancelFlag()
         worker = DispatchQueue(label: "de.whnr.klassik.decoder", qos: .default)
         task = Task {
-            // The new graph does not exist before this wait ends, so its sound cannot meet the fading one.
-            if delay > 0 {
-                try? await Task.sleep(for: .seconds(delay))
-                guard generation == self.generation, !Task.isCancelled else { return }
-            }
             await schedule(from: movement, offset: offset, file: file, generation: generation)
         }
     }
@@ -213,6 +220,7 @@ public final class GaplessEngine: PlaybackEngine {
     public func pause() {
         playing = false
         retireOutgoing()
+        releaseCrossfade()
         guard let node, node.isPlaying else {
             pausedAt = playedSamples()
             node?.pause()
@@ -238,6 +246,10 @@ public final class GaplessEngine: PlaybackEngine {
             do {
                 activatedSampleRate = try await Self.activateSession(preferredRate: format?.sampleRate)
                 try check(generation)
+                if let wait = soundWait() {
+                    try await Task.sleep(for: wait)
+                    try check(generation)
+                }
                 guard playing else { return }
                 try start(node)
                 pausedAt = nil
@@ -297,10 +309,12 @@ public final class GaplessEngine: PlaybackEngine {
         halting?.cancel()
         halting = nil
         retireOutgoing()
+        releaseCrossfade()
         let stopWait = retire(
             engine, fade, sounding: isSounding, rate: sampleRate, curve: fadeOptions.outCurve)
         fade = nil
         silenced = false
+        earliestSound = nil
         engine = nil
         node = nil
         gain = nil
@@ -550,15 +564,16 @@ public final class GaplessEngine: PlaybackEngine {
         AVAudioTime.seconds(forHostTime: mach_absolute_time())
     }
 
-    /// The sink of the graph that this load builds, at the time that its sound can start at the earliest: after the
-    /// old sound faded out and the silence of the seek mode.
+    /// The sink of the graph that this load builds. A real graph is built at once and its tap can deliver from the
+    /// install on, so the sink starts now; only its first sound waits. An offline graph starts at the time of its
+    /// first sound.
     private func registerPendingSink(sounding: Bool) {
         dropPendingSink()
         guard let source = outputTapSource else { return }
         let fadesOut = sounding && engine != nil && fade != nil
         let stopWait = fadesOut ? Double(outFrames) / sampleRate + FadeOptions.stopMargin : 0
         let delay = fadeOptions.newSoundDelay(stopWait: stopWait)
-        pendingSink = source(manualRendering ? offlineClock + delay : Self.hostSeconds() + delay)
+        pendingSink = source(manualRendering ? offlineClock + delay : Self.hostSeconds())
     }
 
     private func dropPendingSink() {
@@ -839,10 +854,39 @@ public final class GaplessEngine: PlaybackEngine {
         started = true
         starved = false
         if playing, let node {
-            try start(node)
-            pausedAt = nil
+            if let wait = soundWait() {
+                startLater(node, after: wait)
+            } else {
+                try start(node)
+                pausedAt = nil
+            }
         }
         report()
+    }
+
+    /// How long the first sound still waits for the fade-out and the gap. Nil when it may start now.
+    private func soundWait() -> Duration? {
+        guard let earliestSound else { return nil }
+        let wait = earliestSound - .now
+        if wait > .zero { return wait }
+        self.earliestSound = nil
+        return nil
+    }
+
+    private func startLater(_ node: AVAudioPlayerNode, after wait: Duration) {
+        let generation = generation
+        activation?.cancel()
+        activation = Task { [weak self] in
+            try? await Task.sleep(for: wait)
+            guard let self, generation == self.generation, !Task.isCancelled, self.playing else { return }
+            do {
+                try self.start(node)
+                self.pausedAt = nil
+                self.report()
+            } catch {
+                self.onEvent?(.failed(error.localizedDescription))
+            }
+        }
     }
 
     private var outFrames: Int { Int((fadeOptions.outSeconds * sampleRate).rounded()) }
@@ -869,18 +913,29 @@ public final class GaplessEngine: PlaybackEngine {
         halting?.cancel()
         halting = nil
         silenced = false
-        fade?.ramp(from: level, to: 1, frames: inFrames, curve: fadeOptions.inCurve)
+        // A start from silence waits for the first sound: the node can begin to play after the ramp was asked for.
+        fade?.ramp(from: level, to: 1, frames: inFrames, curve: fadeOptions.inCurve, onSignal: level == 0)
     }
 
-    /// The new graph sounds: it fades in while the old one fades out, both with equal-power curves over the length
-    /// of the fade-out.
+    /// The new graph sounds: it fades in with the fade-in curve and length while the old one fades out with the
+    /// fade-out curve and length.
     private func crossfade(from old: Outgoing) {
         outgoing = nil
         halting?.cancel()
         halting = nil
         silenced = false
-        fade?.ramp(from: 0, to: 1, frames: outFrames, curve: .equalPower)
-        retire(old.engine, old.fade, sounding: true, rate: old.rate, curve: .equalPower)
+        // Both ramps start at the first sounding frame of the new position, so the mix never dips or doubles.
+        let trigger = FadeTrigger()
+        crossfadeTrigger = trigger
+        fade?.ramp(from: 0, to: 1, frames: inFrames, curve: fadeOptions.inCurve, onSignal: true, fires: trigger)
+        retire(old.engine, old.fade, sounding: true, rate: old.rate, curve: fadeOptions.outCurve, after: trigger)
+    }
+
+    /// Starts the fade-out of the old graph of a crossfade at once, with the fade-out curve and length. A no-op
+    /// when the new sound already started it.
+    private func releaseCrossfade() {
+        crossfadeTrigger?.force()
+        crossfadeTrigger = nil
     }
 
     /// Fades the parked graph out and stops it. A load that never gets ready must not leave it playing.
@@ -921,7 +976,8 @@ public final class GaplessEngine: PlaybackEngine {
     /// the last block of the fade, so that a capture hears the whole fade-out.
     @discardableResult
     private func retire(
-        _ engine: AVAudioEngine?, _ fade: FadeControl?, sounding: Bool, rate: Double, curve: FadeCurve
+        _ engine: AVAudioEngine?, _ fade: FadeControl?, sounding: Bool, rate: Double, curve: FadeCurve,
+        after trigger: FadeTrigger? = nil
     ) -> Double {
         guard let engine else { return 0 }
         let tap = taps.first { $0.engine === engine }
@@ -932,7 +988,7 @@ public final class GaplessEngine: PlaybackEngine {
         }
         // A skip during another fade starts the fade-out from the level that the ramp has reached.
         let frames = Int((fadeOptions.outSeconds * rate).rounded())
-        fade.ramp(to: 0, frames: frames, curve: curve)
+        fade.ramp(to: 0, frames: frames, curve: curve, after: trigger)
         let wait = Double(frames) / rate + FadeOptions.stopMargin
         if manualRendering, tap != nil {
             // An offline engine has no clock, so the fade, the margin and the blocks that deliver them render now.
@@ -940,6 +996,14 @@ public final class GaplessEngine: PlaybackEngine {
         }
         let flush = tap == nil ? 0 : 1.5 * Self.tapSeconds
         Task {
+            // The fade-out of a crossfade starts with the new sound, which can be late. A pause, a discard or a
+            // second seek of the new graph releases the trigger. A new graph that stays silent is released here
+            // after the wait limit, so the old sound fades out and is never cut.
+            if let trigger {
+                let limit = ContinuousClock.now + .seconds(soundWaitLimit)
+                while !trigger.isFired, ContinuousClock.now < limit { try? await Task.sleep(for: .milliseconds(5)) }
+                trigger.force()
+            }
             try? await Task.sleep(for: .seconds(wait + flush))
             tap?.remove()
             engine.stop()

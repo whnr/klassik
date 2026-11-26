@@ -110,10 +110,18 @@ struct FadeOptionsTests {
         #expect(FadeOptions(seek: .today).newSoundDelay(stopWait: stop) == 0)
         #expect(FadeOptions(seek: .crossfade).newSoundDelay(stopWait: stop) == 0)
         let silence = FadeOptions(seek: .silence(seconds: 0.05))
-        #expect(abs(silence.newSoundDelay(stopWait: stop) - 0.18) < 1e-12)
-        #expect(FadeOptions(seek: .silence(seconds: 0)).newSoundDelay(stopWait: stop) == stop)
-        #expect(FadeOptions(seek: .silence(seconds: -1)).newSoundDelay(stopWait: stop) == stop)
+        // The fade-out takes 100 ms and the stop margin 30 ms: only the fade-out and the gap are silence.
+        #expect(abs(silence.newSoundDelay(stopWait: stop) - 0.15) < 1e-12)
+        #expect(abs(FadeOptions(seek: .silence(seconds: 0)).newSoundDelay(stopWait: stop) - 0.1) < 1e-12)
+        #expect(abs(FadeOptions(seek: .silence(seconds: -1)).newSoundDelay(stopWait: stop) - 0.1) < 1e-12)
         // A silent graph has nothing to fade out, so nothing waits.
         #expect(silence.newSoundDelay(stopWait: 0) == 0)
+    }
+
+    /// The silence the user hears is the set gap. The fade-out is 150 ms and the stop margin 30 ms.
+    @Test func theSilenceModeWaitsForTheFadeOutAndTheSetGapOnly() {
+        let options = FadeOptions(outSeconds: 0.15, inSeconds: 0.15, seek: .silence(seconds: 0.1))
+        let stopWait = options.outSeconds + FadeOptions.stopMargin
+        #expect(abs(options.newSoundDelay(stopWait: stopWait) - 0.25) < 1e-12)
     }
 }

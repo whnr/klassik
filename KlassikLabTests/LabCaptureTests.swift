@@ -152,6 +152,90 @@ struct LabCaptureTests {
         #expect(written == expected)
     }
 
+    /// A mono block at 48 kHz whose frame `first + n` has the value `value(first + n)`.
+    private func ramp(first: Int, frames: Int, value: (Int) -> Float) throws -> AVAudioPCMBuffer {
+        let format = try #require(AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 1))
+        let buffer = try #require(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(frames)))
+        buffer.frameLength = AVAudioFrameCount(frames)
+        for frame in 0..<frames { buffer.floatChannelData![0][frame] = value(first + frame) }
+        return buffer
+    }
+
+    /// Two graphs whose host clocks start 0.35 s apart, with ±5 ms of jitter on every block after the first, over
+    /// 60 s. The host time of the first block of a graph places it. After that the blocks follow by sample count, so
+    /// the jitter makes no hole and no overlap, the offset between the graphs stays fixed, and nothing drifts.
+    @Test func twoGraphsOnTheHostClockLandSampleExactAndDoNotDriftOverSixtySeconds() async throws {
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let url = root.appending(path: "clock.wav")
+        let recorder = CaptureRecorder(url: url, maxSeconds: 70, ringWords: 1 << 22)
+        let rate = 48_000
+        let block = 4_800
+        let blocks = 600
+        let host = 123_456.0
+        let offset = 0.35
+        let offsetFrames = 16_800
+        let first = recorder.makeSource(startSeconds: host)
+        let second = recorder.makeSource(startSeconds: host + offset)
+        func a(_ frame: Int) -> Float { Float(frame % 1_000 + 1) * 0.001 }
+        func b(_ frame: Int) -> Float { Float(frame % 777 + 1) * -0.002 }
+        var seed: UInt64 = 7
+        func jitter() -> Double {
+            seed = seed &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
+            return (Double(seed >> 33) / Double(1 << 31) - 0.5) * 0.01
+        }
+        for index in 0..<blocks {
+            let nominal = Double(index * block) / Double(rate)
+            let noise = index == 0 ? 0 : jitter()
+            first.tap(try ramp(first: index * block, frames: block, value: a), atSeconds: host + nominal + noise)
+            let other = index == 0 ? 0 : jitter()
+            second.tap(
+                try ramp(first: index * block, frames: block, value: b), atSeconds: host + offset + nominal + other)
+        }
+        first.finish()
+        second.finish()
+        let result = await recorder.finish()
+        let total = offsetFrames + blocks * block
+        var expected = [Float](repeating: 0, count: total)
+        for frame in 0..<(blocks * block) { expected[frame] += a(frame) }
+        for frame in 0..<(blocks * block) { expected[offsetFrames + frame] += b(frame) }
+        #expect(result.error == nil && result.dropped == 0 && !result.capped)
+        #expect(result.frames == total && result.rate == rate)
+        let written = try samples(of: url)
+        #expect(written.count == total)
+        // One comparison for the whole file: a hole, an overlap or a drift would shift the tail against the head.
+        let wrong = zip(written, expected).enumerated().first { $0.element.0 != $0.element.1 }
+        #expect(wrong == nil, "first difference at frame \(wrong?.offset ?? -1)")
+        // The last frame of each graph sits where its sample count says, 60 s after its first.
+        #expect(written[blocks * block - 1] == a(blocks * block - 1) + (b(blocks * block - 1 - offsetFrames)))
+        #expect(written[total - 1] == b(blocks * block - 1))
+    }
+
+    /// A block that comes more than 20 ms away from where the one before it ends is a real gap or overlap of the
+    /// device, and the stamp places it. A smaller difference is clock jitter, and the sample count wins.
+    @Test func aBlockMoreThanTwentyMillisecondsOffItsPlaceKeepsItsStamp() async throws {
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let url = root.appending(path: "snap.wav")
+        let recorder = CaptureRecorder(url: url)
+        let source = recorder.makeSource(startSeconds: 0)
+        func one(_ frame: Int) -> Float { 1 }
+        // 100 ms blocks. The second is 19 ms late, the third 30 ms late after the snap, the fourth on time again.
+        source.tap(try ramp(first: 0, frames: 4_800, value: one), atSeconds: 0)
+        source.tap(try ramp(first: 0, frames: 4_800, value: one), atSeconds: 0.1 + 0.019)
+        source.tap(try ramp(first: 0, frames: 4_800, value: one), atSeconds: 0.2 + 0.030)
+        source.tap(try ramp(first: 0, frames: 4_800, value: one), atSeconds: 0.330)
+        source.finish()
+        let result = await recorder.finish()
+        // The first three blocks run on from each other. The third starts 30 ms after its place, so 1 440 frames of
+        // silence separate it from the second, and the fourth follows the third by its sample count.
+        #expect(result.frames == 4 * 4_800 + 1_440 && result.dropped == 0)
+        let written = try samples(of: url)
+        #expect(written[0..<9_600].allSatisfy { $0 == 1 })
+        #expect(written[9_600..<(9_600 + 1_440)].allSatisfy { $0 == 0 })
+        #expect(written[(9_600 + 1_440)...].allSatisfy { $0 == 1 })
+    }
+
     @Test func theCapEndsTheRecordingAtTheLimit() async throws {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
@@ -453,7 +537,7 @@ struct LabCaptureTests {
         // The second graph starts where the engine put it on the timeline.
         let start = try #require(sinks.last?.blocks.first?.seconds)
         let gap = mode == .silence(seconds: 0.05) ? 0.05 : 0
-        #expect(abs(start - (0.5 + (gap > 0 ? 0.13 + gap : 0))) < 1e-6)
+        #expect(abs(start - (0.5 + (gap > 0 ? 0.1 + gap : 0))) < 1e-6)
         #expect(peak(captured, from: start + 0.1, to: start + 0.15) > 0.05)
         if gap > 0 {
             // The fade-out ended at 0.6 s and the fade-in has not begun: the file is silent in between.

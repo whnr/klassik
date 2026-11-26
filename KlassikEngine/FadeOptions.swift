@@ -40,8 +40,8 @@ public enum SeekMode: Sendable, Equatable {
     case today
     /// Fade the old sound out, stay silent for `seconds`, then fade the new sound in. The two never overlap.
     case silence(seconds: Double)
-    /// Keep the old sound until the new one is ready, then cross over with equal-power curves for the length of
-    /// the fade-out.
+    /// Keep the old sound until the new one is ready, then cross over: the old sound follows the fade-out curve and
+    /// length, the new one the fade-in curve and length.
     case crossfade
 
     /// The silence after the fade-out, in seconds.
@@ -74,11 +74,19 @@ public struct FadeOptions: Sendable, Equatable {
     /// the tail of the fade.
     static let stopMargin = 0.03
 
-    /// The seconds that a load waits before it builds the new graph, when the old sound needs `stopWait` seconds to
-    /// fade out and stop. Only the silence mode waits: the new sound then starts after the old one stopped and
-    /// `gap` more seconds passed. A load over a silent graph never waits.
+    /// The seconds after a load starts before the new sound may play, when the old sound needs `stopWait` seconds to
+    /// fade out and stop. Only the silence mode waits: the new sound starts `gap` seconds after the fade-out ends.
+    /// The load itself starts at once, so a load that is ready in time adds no silence.
+    /// The stop margin only keeps the old node alive, so it is silence that the set gap must not count twice.
+    /// A load over a silent graph never waits.
     func newSoundDelay(stopWait: Double) -> Double {
         guard case .silence = seek, stopWait > 0 else { return 0 }
-        return stopWait + seek.gap
+        return max(stopWait - Self.stopMargin, 0) + seek.gap
+    }
+
+    /// The seconds after the load starts at which the new sound first plays, when the load is ready after `ready`
+    /// seconds: the later of the two, so only the late part of a slow load adds silence.
+    func soundStart(ready: Double, stopWait: Double) -> Double {
+        max(ready, newSoundDelay(stopWait: stopWait))
     }
 }

@@ -377,6 +377,8 @@ struct GaplessEngineSkipTests {
         player.adopt(second, secondNode, started: true, fade: secondFade)
         try player.start(secondNode)
         #expect(first.isRunning)
+        // The first old graph fades out with the first sound of the second one.
+        #expect(try #require(secondFade.last?.fires).fire())
         Self.load(player, old: second, probe: Probe())
 
         #expect(await Self.eventually { !first.isRunning })
@@ -385,9 +387,12 @@ struct GaplessEngineSkipTests {
 
         let (third, thirdNode) = try Self.graph()
         defer { third.stop() }
-        player.adopt(third, thirdNode, started: false, fade: FadeControl())
+        let thirdFade = FadeControl()
+        player.adopt(third, thirdNode, started: false, fade: thirdFade)
         try player.start(thirdNode)
-        #expect(secondFade.last == .init(from: nil, target: 0, frames: Self.rate / 20, curve: .raisedCosine))
+        let parked = try #require(secondFade.last)
+        #expect(parked.target == 0 && parked.frames == Self.rate / 20 && parked.curve == .raisedCosine)
+        #expect(try #require(thirdFade.last?.fires).fire())
         #expect(await Self.eventually { !second.isRunning })
         player.discard()
     }
@@ -572,7 +577,8 @@ struct GaplessEngineSkipTests {
             done += size
         }
         // The old sound plays at full level until the new one starts, then follows its curve.
-        #expect(oldMix[0..<late].allSatisfy { $0 == 1 })
+        // The old stage reads the flag at the start of the block in which the new one fires it.
+        #expect(oldMix[0..<(late - 64)].allSatisfy { $0 == 1 })
         #expect(oldMix[late + 64 + 100] < 1)
         #expect(oldMix[late + rate / 20 + 64 + 5] == 0)
         // Equal power: the two powers add up to one, so the mix does not dip. Allow the 64 frames of block delay.

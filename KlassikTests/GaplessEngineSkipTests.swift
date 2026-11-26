@@ -597,9 +597,12 @@ struct GaplessEngineSkipTests {
         try engine.start()
         defer { engine.stop() }
         let seconds = 4
-        let audio = try #require(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(seconds * 44_100)))
-        audio.frameLength = audio.frameCapacity
-        for channel in 0..<2 { for index in 0..<Int(audio.frameLength) { audio.floatChannelData![channel][index] = 0.5 } }
+        let capacity = AVAudioFrameCount(seconds * 44_100)
+        let audio = try #require(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: capacity))
+        audio.frameLength = capacity
+        for channel in 0..<2 {
+            for index in 0..<Int(capacity) { audio.floatChannelData![channel][index] = 0.5 }
+        }
         node.scheduleBuffer(audio, completionHandler: nil)
 
         let player = GaplessEngine(manualRendering: true)

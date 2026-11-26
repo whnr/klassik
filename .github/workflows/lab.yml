@@ -87,7 +87,7 @@ jobs:
             -project Klassik.xcodeproj -scheme KlassikLab \
             -destination "platform=iOS Simulator,id=$udid,arch=arm64" \
             -derivedDataPath build/DerivedData \
-            -only-testing:KlassikLabTests/LabCaptureTests/aFileThatCannotBeWrittenStopsTheTapAndSaysWhy() \
+            "-only-testing:KlassikLabTests/LabCaptureTests/aFileThatCannotBeWrittenStopsTheTapAndSaysWhy()" \
             -test-iterations 50 2>&1 | tee "$RUNNER_TEMP/lab/repeat.log"
           grep -c "Test aFileThatCannotBeWrittenStopsTheTapAndSaysWhy() passed" "$RUNNER_TEMP/lab/repeat.log"
       # Warning-only, as in Test: the count shows in the summary and never fails the job.

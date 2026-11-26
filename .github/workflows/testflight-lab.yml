@@ -1,11 +1,17 @@
 name: TestFlight Lab
 
-# Manual. The Playback Lab has its own TestFlight lane: its own bundle id (de.whnr.klassik.lab), its own App Store
+# The Playback Lab has its own TestFlight lane: its own bundle id (de.whnr.klassik.lab), its own App Store
 # Connect record and its own concurrency group. It reads the same secrets as the Klassik lane.
-# It needs a green Lab run on the exact commit. It makes no tag, no release and no What to Test text.
-# It never starts on a schedule, so no run can upload before the App Store Connect record exists.
+# It starts by hand, and after every Lab run on main whose `lab` job passed, so a merge that changes the Lab ships it.
+# A Lab run whose `lab` job was skipped (a version-only change, no build) starts no upload: it would send the
+# build of an earlier commit a second time. A Lab run on a pull request or on another branch starts nothing.
+# Both ways need a green Lab run that covers the commit. It makes no tag, no release and no What to Test text.
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: [Lab]
+    types: [completed]
+    branches: [main]
 
 concurrency:
   group: testflight-lab
@@ -13,26 +19,46 @@ concurrency:
 
 jobs:
   gate:
+    # A workflow_run event runs on the head of main, so every step names the commit of the Lab run.
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-24.04
     permissions:
       actions: read
       contents: read
+    outputs:
+      upload: ${{ steps.cover.outputs.upload }}
+    env:
+      SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
       # The `lab` job of the run must have passed. A run that skipped it (a version bump) proves nothing, so the
       # commit is covered by the newest earlier green run when every commit since needs no Lab build.
       - uses: actions/checkout@v7
         with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           fetch-depth: 50
       - name: Require a green Lab run that covers this commit
+        id: cover
         env:
           GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
         run: |
-          covering=$(python3 scripts/lab_plan.py gate "$GITHUB_SHA") \
+          if [ -n "$RUN_ID" ]; then
+            built=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" \
+              --jq '[.jobs[] | select(.name == "lab" and .conclusion == "success")] | length')
+            if [ "$built" = 0 ]; then
+              echo "The Lab run $RUN_ID built nothing, so it uploads nothing."
+              echo "upload=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+          covering=$(python3 scripts/lab_plan.py gate "$SHA") \
             || { echo "::error::$covering; run the Lab workflow on this ref first"; exit 1; }
-          echo "Green Lab run on $covering covers $GITHUB_SHA."
+          echo "Green Lab run on $covering covers $SHA."
+          echo "upload=true" >> "$GITHUB_OUTPUT"
 
   upload:
     needs: gate
+    if: needs.gate.outputs.upload == 'true'
     runs-on: xcode-27
     timeout-minutes: 45
     env:
@@ -42,6 +68,8 @@ jobs:
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
       - name: Check secrets
         run: |
           for s in ASC_KEY_ID ASC_ISSUER_ID APPLE_TEAM_ID; do

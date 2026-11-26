@@ -228,6 +228,13 @@ final class PersonFactsStore {
                     facts.portrait = portrait
                     facts.credits += old.credits.filter { $0.kind == .picture }
                 }
+                // A Wikipedia request that failed gives no text: the saved text stays until one arrives (ADR 0072).
+                if facts.textKey?.hasSuffix(PersonFacts.unansweredMark) == true, facts.bio == nil,
+                    let old = cache.people[qid], let bio = old.bio
+                {
+                    facts.bio = bio
+                    facts.credits += old.credits.filter { $0.kind == .text }
+                }
                 cache.people[qid] = facts
             } else {
                 // The item answered without facts: there is no picture to read.

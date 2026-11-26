@@ -107,6 +107,41 @@ struct PersonTextLanguageTests {
         #expect(!again.needsTexts(for: Self.german))
     }
 
+    /// A failed Wikipedia request gives no text: the saved biography and its credit stay, and the next pass asks again.
+    @Test func aFailedTextRequestKeepsTheSavedBiography() async throws {
+        let item = Self.entity(descriptions: ["de": "deutscher Komponist", "en": "German composer"], wiki: ["en": "x"])
+        let germanOnly = Self.entity(descriptions: ["de": "deutscher Komponist"], wiki: ["de": "x"])
+        let stub = PersonStub(
+            [
+                ("list=search", PersonStub.search(["Q1339"])),
+                ("ids=Q1339&props=labels|descriptions|claims", item),
+            ] + Self.both)
+        let languages = Languages(TextLanguages(app: .english, fallback: nil))
+        let url = FileManager.default.temporaryDirectory.appending(path: "\(UUID().uuidString).json")
+        let store = PersonFactsStore(service: Self.service(stub, languages), cacheURL: url)
+        #expect(await store.resolve(performer: "Johann Sebastian Bach"))
+        await store.saved()
+        let saved = try #require(store.facts(ofPerformer: "Johann Sebastian Bach"))
+        #expect(saved.bio == "Johann Sebastian Bach was a German composer.")
+
+        // Only the German edition has an article now, and that request fails.
+        let failing = PersonStub(
+            [
+                ("list=search", PersonStub.search(["Q1339"])),
+                ("ids=Q1339&props=labels|descriptions|claims", germanOnly),
+            ] + Self.both)
+        failing.fail(["de.wikipedia.org"])
+        languages.value = TextLanguages(app: .german, fallback: nil)
+        let again = PersonFactsStore(service: Self.service(failing, languages), cacheURL: url)
+        #expect(await again.refresh("Q1339"))
+        let kept = try #require(again.facts(ofPerformer: "Johann Sebastian Bach"))
+        #expect(kept.bio == saved.bio)
+        #expect(kept.credits.contains { $0.kind == .text })
+        #expect(kept.needsTexts(for: languages.value))
+        await again.saved()
+        try? FileManager.default.removeItem(at: url)
+    }
+
     /// A device language that changed while the app was closed marks the saved texts at the start of a pass.
     @Test func aPassMarksTheTextsOfAnotherLanguageAtLaunch() async throws {
         let item = Self.entity(

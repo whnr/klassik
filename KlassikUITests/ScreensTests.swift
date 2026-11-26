@@ -3863,18 +3863,36 @@ final class LanguageScreens: ScreensTestCase {
     /// German with every text twice as long. Long words and accents meet every screen.
     static let doubled = german + ["-NSDoubleLocalizedStrings", "YES"]
 
-    /// The smallest text size of the app in points. A text that needs more room than this size would need is cut.
-    static let smallestFont: CGFloat = 11
-    /// The least area that one character takes at a font size: about 0.42 em wide and 1.15 em high.
-    static let characterArea: CGFloat = 0.48
+    /// The text sizes that the check tries, in points, from the smallest of the app to a large title.
+    static let fontSizes = stride(from: CGFloat(11), through: 34, by: 0.5)
+    /// The width that a font of another face may need more than the system font, as a factor.
+    static let widthSlack: CGFloat = 1.1
 
-    /// True when the text cannot fit its frame at any size of the app, or ends in an ellipsis. The label of a cut
-    /// text stays complete, so the frame is the evidence. The bound is a floor: it finds a text cut to a few
-    /// letters, never a text that fits.
+    /// The lines that a text needs in a width at a font size.
+    static func lines(_ text: String, width: CGFloat, size: CGFloat) -> Int {
+        let font = UIFont.systemFont(ofSize: size)
+        let box = (text as NSString).boundingRect(
+            with: CGSize(width: width, height: .greatestFiniteMagnitude), options: .usesLineFragmentOrigin,
+            attributes: [.font: font], context: nil)
+        return Int((box.height / font.lineHeight).rounded())
+    }
+
+    /// True when the text ends in an ellipsis, or needs more lines than its frame shows. The label of a cut text
+    /// stays complete, so the check measures it: the frame height gives the lines n and the font size together
+    /// (n lines of a size fill the height within 2 pt), and the text must fit n lines of that size in the frame
+    /// width. A frame that no size explains is not judged.
     static func isCut(label: String, frame: CGRect) -> Bool {
         if label.hasSuffix("…") || label.hasSuffix("...") { return true }
-        let needed = CGFloat(label.count) * characterArea * smallestFont * smallestFont
-        return label.count > 3 && frame.width * frame.height < needed
+        guard label.count > 3, frame.width > 0, frame.height > 0 else { return false }
+        var explained = false
+        for size in fontSizes {
+            let line = UIFont.systemFont(ofSize: size).lineHeight
+            let shown = Int((frame.height / line).rounded())
+            guard shown >= 1, abs(CGFloat(shown) * line - frame.height) <= 2 else { continue }
+            explained = true
+            if lines(label, width: frame.width * widthSlack, size: size) <= shown { return false }
+        }
+        return explained
     }
 
     /// No text leaves the screen sideways, and none is cut off. A wrapped text stays inside; a text that does not
@@ -4034,13 +4052,23 @@ final class LanguageScreens: ScreensTestCase {
         snap(app, "22e-player-doubled")
     }
 
-    /// The test for a cut text finds what it must: an ellipsis, a frame too small for the text, and nothing else.
+    /// The test for a cut text finds what it must: an ellipsis, a two-line text in one line, a text in a frame
+    /// too small, and nothing that fits.
     func testCutTextIsFound() {
-        let wide = CGRect(x: 0, y: 0, width: 300, height: 24)
-        XCTAssertFalse(Self.isCut(label: "Einstellungen", frame: wide))
-        let page = CGRect(x: 0, y: 0, width: 300, height: 400)
-        XCTAssertFalse(Self.isCut(label: String(repeating: "Wort ", count: 40), frame: page))
-        XCTAssertTrue(Self.isCut(label: "Ser…", frame: wide))
-        XCTAssertTrue(Self.isCut(label: String(repeating: "Wiedergabe ", count: 20), frame: wide))
+        let text = "Wiedergabe fortsetzen und die Warteschlange behalten"
+        let font = UIFont.systemFont(ofSize: 17)
+        let one = (text as NSString).size(withAttributes: [.font: font]).width
+        let width = (one * 0.6).rounded()
+        let twoLines = CGRect(x: 0, y: 0, width: width, height: font.lineHeight * 2)
+        let oneLine = CGRect(x: 0, y: 0, width: width, height: font.lineHeight)
+        XCTAssertEqual(Self.lines(text, width: width, size: 17), 2)
+        XCTAssertFalse(Self.isCut(label: text, frame: twoLines))
+        XCTAssertTrue(Self.isCut(label: text, frame: oneLine), "A two-line text in one line is not found")
+        XCTAssertFalse(Self.isCut(label: text, frame: CGRect(x: 0, y: 0, width: one + 2, height: font.lineHeight)))
+        XCTAssertFalse(Self.isCut(label: "Einstellungen", frame: CGRect(x: 0, y: 0, width: 300, height: 24)))
+        XCTAssertTrue(Self.isCut(label: "Ser…", frame: CGRect(x: 0, y: 0, width: 300, height: 24)))
+        XCTAssertTrue(
+            Self.isCut(
+                label: String(repeating: "Wiedergabe ", count: 20), frame: CGRect(x: 0, y: 0, width: 300, height: 24)))
     }
 }

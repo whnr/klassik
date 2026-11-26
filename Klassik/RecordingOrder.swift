@@ -152,7 +152,23 @@ final class RecordingOrder {
         }
     }
 
-    func reference(of work: WorkIndex.Work) -> WorkIndex.Recording? { rows(of: work).first?.recording }
+    /// The two lists of the work page, each in the order of `rows(of:)`. With `separatingPartial`, recordings that
+    /// hold only part of the work go to the second list; without it, the second list is empty.
+    func lists(
+        of work: WorkIndex.Work, separatingPartial: Bool = ComposerWorks.separatesPartial
+    ) -> (recordings: [Row], partial: [Row]) {
+        let all = rows(of: work)
+        guard separatingPartial else { return (all, []) }
+        return (all.filter { !$0.recording.isPartial }, all.filter(\.recording.isPartial))
+    }
+
+    /// The first complete recording, else the first partial one (ADR 0013).
+    func reference(of work: WorkIndex.Work, separatingPartial: Bool = ComposerWorks.separatesPartial)
+        -> WorkIndex.Recording?
+    {
+        let lists = lists(of: work, separatingPartial: separatingPartial)
+        return (lists.recordings.first ?? lists.partial.first)?.recording
+    }
 
     func toggle(_ work: WorkIndex.Work) {
         var changed = data

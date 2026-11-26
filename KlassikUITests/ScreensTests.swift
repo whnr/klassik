@@ -3071,11 +3071,16 @@ class ScreensTestCase: XCTestCase {
         // The Library place lists its rows at once. The composers fill in while the first sync runs.
         let composers = app.buttons["library-composers"]
         // On a loaded runner the fixture server can answer a ping after the app's 10 second read limit. The
-        // connect screen then shows the timeout, and the listener taps Connect again, as the test does.
+        // connect screen then shows the timeout, and the listener taps Connect again, as the test does. Any other
+        // state is a real failure and ends the wait at once.
+        let timeout = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "The request timed out."))
         var listed = false
-        for _ in 0..<3 where !listed {
+        for attempt in 1...3 {
             if connect.exists { connect.tap() }
             listed = composers.waitForExistence(timeout: 30)
+            if listed { break }
+            guard connect.exists, timeout.firstMatch.exists, attempt < 3 else { break }
+            print("launchAndConnect: connect timed out, tapping Connect again (attempt \(attempt + 1) of 3)")
         }
         XCTAssertTrue(listed, "No library after connect. On screen: \(visibleTexts(app))")
         if openComposers {

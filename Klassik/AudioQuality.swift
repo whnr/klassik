@@ -12,7 +12,7 @@ enum AudioQuality {
     static func line(track: PlaybackTrack, path: PlaybackSignalPath?) -> String? {
         if let reason = track.unsupportedFormat { return reason }
         var parts = [source(of: track, path: path)]
-        guard let path else { return parts.joined(separator: " · ") }
+        guard let path else { return parts.joined(separator: ", ") }
         let output = outputRate(path)
         parts.append("output \(kilohertz(output)) kHz")
         let processing = self.processing(path, output: output)
@@ -23,7 +23,7 @@ enum AudioQuality {
         } else {
             parts.append("processing active: " + processing.joined(separator: ", "))
         }
-        return parts.joined(separator: " · ")
+        return parts.joined(separator: ", ")
     }
 
     /// The format of the file, such as "FLAC 24-bit 96 kHz". The server's tags give the bit depth; the graph gives

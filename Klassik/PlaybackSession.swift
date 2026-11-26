@@ -689,6 +689,8 @@ final class PlaybackSession {
         engine.useGainStage(wanted)
         guard let path = engine.signalPath, path.gainStage != wanted else { return }
         if playback.shouldPlay { rebuild() } else { discardEngine() }
+        // A discarded graph has no path, so the old reason must leave the line now, not at the next play.
+        refreshQuality()
     }
 
     private func refreshQuality() {

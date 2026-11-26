@@ -20,12 +20,12 @@ struct AudioQualityTests {
 
     @Test func aNativeRateWithoutAGainStageIsNotVerified() {
         let line = AudioQuality.line(track: flac, path: path(engine: 96_000, hardware: 96_000))
-        #expect(line == "FLAC 24-bit 96 kHz · output 96 kHz · bit-perfect not verified")
+        #expect(line == "FLAC 24-bit 96 kHz, output 96 kHz, bit-perfect not verified")
     }
 
     @Test func aRateConversionByIOSIsProcessing() {
         let line = AudioQuality.line(track: flac, path: path(engine: 96_000, hardware: 48_000, mixer: 48_000))
-        #expect(line == "FLAC 24-bit 96 kHz · output 48 kHz · processing active: iOS converts to 48 kHz")
+        #expect(line == "FLAC 24-bit 96 kHz, output 48 kHz, processing active: iOS converts to 48 kHz")
     }
 
     @Test func aGainStageIsProcessingEvenAtTheSameRate() {
@@ -41,7 +41,7 @@ struct AudioQualityTests {
     @Test func aLossySourceIsLabelled() {
         let mp3 = PlaybackTrack(id: "t", suffix: "mp3", samplingRate: 44_100)
         let line = AudioQuality.line(track: mp3, path: path(engine: 44_100, hardware: 44_100))
-        #expect(line == "MP3 44.1 kHz · output 44.1 kHz · lossy source · bit-perfect not verified")
+        #expect(line == "MP3 44.1 kHz, output 44.1 kHz, lossy source, bit-perfect not verified")
     }
 
     @Test func theFileAloneGivesTheFormatBeforeTheGraphExists() {

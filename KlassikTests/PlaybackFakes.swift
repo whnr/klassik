@@ -145,6 +145,7 @@ final class FakeEngine: PlaybackEngine {
         calls.append(.discard)
         isRunning = false
         playing = nil
+        signalPath = nil
     }
 
     func setGain(_ decibels: Float) {

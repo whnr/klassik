@@ -787,9 +787,21 @@ struct PlaybackSessionTests {
         engine.signalPath = path(gainStage: false)
         #expect(session.qualityLine == nil)
         session.showsAudioQuality = true
-        #expect(session.qualityLine == "MP3 44.1 kHz · output 44.1 kHz · lossy source · bit-perfect not verified")
+        #expect(session.qualityLine == "MP3 44.1 kHz, output 44.1 kHz, lossy source, bit-perfect not verified")
         session.showsAudioQuality = false
         #expect(session.qualityLine == nil)
+    }
+
+    /// A paused session discards its graph on a ReplayGain change, so the line must drop the old stage reason at once.
+    @Test func theQualityLineDropsTheGainStageReasonWhenReplayGainChangesWhilePaused() throws {
+        let (session, engine) = try makeSession()
+        session.play(item("a"))
+        engine.signalPath = path(gainStage: true)
+        session.showsAudioQuality = true
+        #expect(session.qualityLine?.contains("ReplayGain stage in the path") == true)
+        session.pause()
+        session.leveling = .off
+        #expect(session.qualityLine?.contains("ReplayGain") == false)
     }
 
     @Test func theEngineGetsItsFilesThroughTheServer() async throws {

@@ -1,7 +1,7 @@
 {
-  "sha": "af8e015731a93d100ffe4d09c4d0bd1cd7943995",
+  "sha": "67673469a63cf6fc2eafa09405233dc8a7636728",
   "branch": "claude-l10n",
   "path": "claude-l10n",
-  "subject": "Merge main into claude-l10n",
-  "ts": 1795657038
+  "subject": "Aim the tint slider drag by the value it holds",
+  "ts": 1795660583
 }

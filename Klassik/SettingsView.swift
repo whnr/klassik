@@ -6,13 +6,16 @@ struct SettingsView: View {
     /// Klassik is open source. The link opens in the browser.
     static let sourceCode = URL(string: "https://github.com/whnr/klassik")!
 
-    /// Version and build, as the bundle reports them.
-    static var version: String {
-        let info = Bundle.main.infoDictionary
-        let version = info?["CFBundleShortVersionString"] as? String ?? "?"
-        let build = info?["CFBundleVersion"] as? String ?? "?"
-        return "\(version) (\(build))"
+    /// Version and build, as the bundle reports them. A missing or empty value shows as "?", never as blank.
+    static func version(from info: [String: Any]?) -> String {
+        func value(_ key: String) -> String {
+            let text = (info?[key] as? String)?.trimmingCharacters(in: .whitespaces) ?? ""
+            return text.isEmpty ? "?" : text
+        }
+        return "\(value("CFBundleShortVersionString")) (\(value("CFBundleVersion")))"
     }
+
+    static var version: String { version(from: Bundle.main.infoDictionary) }
 
     @Environment(AppModel.self) private var model
     @AppStorage(TimelineSide.storageKey) private var timelineSide = TimelineSide.standard

@@ -213,8 +213,8 @@ struct GaplessEngineSkipTests {
         player.discard()
     }
 
-    /// The silence mode builds the new graph only after the old engine stopped and the gap passed.
-    @Test func aLoadInTheSilenceModeWaitsUntilTheOldSoundStoppedAndTheGapPassed() async throws {
+    /// The silence mode starts the load at once, and only the first sound waits for the fade-out and the gap.
+    @Test func aLoadInTheSilenceModeAsksForTheNewTrackAtOnceAndHoldsOnlyTheFirstSound() async throws {
         var options = Self.fiftyMilliseconds
         options.seek = .silence(seconds: 0.05)
         let (player, old, fade) = try Self.sounding(options)
@@ -224,9 +224,10 @@ struct GaplessEngineSkipTests {
         Self.load(player, old: old, probe: probe)
         #expect(fade.last == .init(from: nil, target: 0, frames: Self.rate / 20))
         #expect(await Self.eventually { probe.oldEngineRunning != nil })
-        #expect(probe.oldEngineRunning == false)
+        #expect(ContinuousClock.now - start < .milliseconds(40))
         // The fade-out takes 50 ms and the gap adds 50 ms. The stop margin is not silence.
-        #expect(ContinuousClock.now - start >= .milliseconds(95))
+        let earliest = try #require(player.earliestSound)
+        #expect(earliest - start >= .milliseconds(95) && earliest - start < .milliseconds(140))
         player.discard()
     }
 
@@ -268,10 +269,17 @@ struct GaplessEngineSkipTests {
         let incoming = FadeControl()
         player.adopt(engine, node, started: false, fade: incoming)
         try player.start(node)
-        #expect(fade.last == .init(from: nil, target: 0, frames: Self.rate / 20, curve: .raisedCosine))
-        #expect(
-            incoming.last
-                == .init(from: 0, target: 1, frames: Self.rate / 20, curve: .raisedCosine, onSignal: true))
+        // Both ramps wait for the first sounding frame of the new position: the new one fires the flag, the old one
+        // waits on it, and the old engine stays up until the flag is set and the fade-out is over.
+        let oldCommand = try #require(fade.last)
+        let newCommand = try #require(incoming.last)
+        #expect(oldCommand.target == 0 && oldCommand.frames == Self.rate / 20 && oldCommand.onSignal)
+        #expect(newCommand.target == 1 && newCommand.from == 0 && newCommand.onSignal)
+        let trigger = try #require(newCommand.fires)
+        #expect(oldCommand.after == trigger)
+        try? await Task.sleep(for: .milliseconds(200))
+        #expect(old.isRunning)
+        #expect(trigger.fire())
         #expect(await Self.eventually { !old.isRunning })
         player.discard()
     }
@@ -339,10 +347,17 @@ struct GaplessEngineSkipTests {
         let incoming = FadeControl()
         player.adopt(engine, node, started: false, fade: incoming)
         try player.start(node)
-        #expect(fade.last == .init(from: nil, target: 0, frames: Self.rate / 20, curve: .raisedCosine))
-        #expect(
-            incoming.last
-                == .init(from: 0, target: 1, frames: Self.rate / 20, curve: .raisedCosine, onSignal: true))
+        // Both ramps wait for the first sounding frame of the new position: the new one fires the flag, the old one
+        // waits on it, and the old engine stays up until the flag is set and the fade-out is over.
+        let oldCommand = try #require(fade.last)
+        let newCommand = try #require(incoming.last)
+        #expect(oldCommand.target == 0 && oldCommand.frames == Self.rate / 20 && oldCommand.onSignal)
+        #expect(newCommand.target == 1 && newCommand.from == 0 && newCommand.onSignal)
+        let trigger = try #require(newCommand.fires)
+        #expect(oldCommand.after == trigger)
+        try? await Task.sleep(for: .milliseconds(200))
+        #expect(old.isRunning)
+        #expect(trigger.fire())
         #expect(await Self.eventually { !old.isRunning })
         player.discard()
     }
@@ -465,5 +480,155 @@ struct GaplessEngineSkipTests {
         for channel in 0..<2 { for index in 0..<count { buffer.floatChannelData![channel][index] = 1 } }
         control.process(buffer.mutableAudioBufferList, frames: count)
         return Array(UnsafeBufferPointer(start: buffer.floatChannelData![0], count: count))
+    }
+
+    // MARK: Rendered output
+
+    private static let silenceThreshold: Float = 1e-4
+
+    /// Renders the two gains of a silence-mode seek, one block at a time: the old sound fades out from frame 0, and the
+    /// new node starts at the frame that `soundStart` gives. Returns the length of the silent span in frames.
+    private static func silentFrames(options: FadeOptions, ready: Double) throws -> Int {
+        let rate = 44_100.0
+        let stopWait = options.outSeconds + FadeOptions.stopMargin
+        let start = Int((options.soundStart(ready: ready, stopWait: stopWait) * rate).rounded())
+        let count = start + Int(options.inSeconds * rate) + 2_000
+        let old = FadeControl()
+        old.ramp(to: 0, frames: Int((options.outSeconds * rate).rounded()), curve: options.outCurve)
+        let new = FadeControl()
+        new.ramp(
+            from: 0, to: 1, frames: Int((options.inSeconds * rate).rounded()), curve: options.inCurve, onSignal: true)
+        let oldMix = try render(old, ones: 0..<count, count: count)
+        let newMix = try render(new, ones: start..<count, count: count)
+        let mix = zip(oldMix, newMix).map { $0 + $1 }
+        let quiet = mix.indices.filter { abs(mix[$0]) < silenceThreshold }
+        guard let first = quiet.first, let last = quiet.last else { return 0 }
+        #expect(last - first + 1 == quiet.count, "one silent span")
+        return quiet.count
+    }
+
+    /// Runs a signal that is 1 inside `ones` and 0 outside through a fade stage, in blocks of 64 frames.
+    private static func render(_ control: FadeControl, ones: Range<Int>, count: Int) throws -> [Float] {
+        let format = try #require(AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 2))
+        var result: [Float] = []
+        var done = 0
+        while done < count {
+            let size = min(64, count - done)
+            let buffer = try #require(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(size)))
+            buffer.frameLength = AVAudioFrameCount(size)
+            for channel in 0..<2 {
+                for index in 0..<size { buffer.floatChannelData![channel][index] = ones.contains(done + index) ? 1 : 0 }
+            }
+            control.process(buffer.mutableAudioBufferList, frames: size)
+            result += UnsafeBufferPointer(start: buffer.floatChannelData![0], count: size)
+            done += size
+        }
+        return result
+    }
+
+    private static let silenceOptions = FadeOptions(
+        outCurve: .equalPower, inCurve: .equalPower, outSeconds: 0.15, inSeconds: 0.15, seek: .silence(seconds: 0.1))
+
+    /// The silence is the set gap when the new audio is ready before the fade-out and the gap end.
+    @Test(arguments: [0.0, 0.05, 0.25]) func theSilenceEqualsTheGapWhenTheLoadIsFast(ready: Double) throws {
+        let frames = try Self.silentFrames(options: Self.silenceOptions, ready: ready)
+        #expect(abs(frames - Self.rate / 10) <= 2, "silent frames: \(frames)")
+    }
+
+    /// A slow load adds only its late part: the time after the fade-out and the gap.
+    @Test func theSilenceIsTheGapPlusOnlyTheLatePartOfASlowLoad() throws {
+        let frames = try Self.silentFrames(options: Self.silenceOptions, ready: 0.4)
+        // The first sound can start at 0.25 s. The load is ready at 0.4 s, so 0.15 s is late: 0.1 + 0.15 s of silence.
+        #expect(abs(frames - Int(0.25 * 44_100)) <= 2, "silent frames: \(frames)")
+    }
+
+    /// A crossfade starts both ramps at the first sounding frame of the new position, also when the new node sounds
+    /// late, so the mix does not dip.
+    @Test func aCrossfadeStartsBothRampsAtTheFirstSoundOfTheNewPosition() throws {
+        let rate = 44_100
+        let late = 3_000
+        let count = late + rate / 10 + 400
+        let trigger = FadeTrigger()
+        let old = FadeControl()
+        old.ramp(to: 0, frames: rate / 20, curve: .equalPower, after: trigger)
+        let new = FadeControl()
+        new.ramp(from: 0, to: 1, frames: rate / 20, curve: .equalPower, onSignal: true, fires: trigger)
+        let format = try #require(AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 2))
+        var oldMix: [Float] = []
+        var newMix: [Float] = []
+        var done = 0
+        while done < count {
+            let size = min(64, count - done)
+            for (control, silent, into) in [(new, late, 0), (old, 0, 1)] {
+                let buffer = try #require(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(size)))
+                buffer.frameLength = AVAudioFrameCount(size)
+                for channel in 0..<2 {
+                    for index in 0..<size { buffer.floatChannelData![channel][index] = done + index < silent ? 0 : 1 }
+                }
+                control.process(buffer.mutableAudioBufferList, frames: size)
+                let block = Array(UnsafeBufferPointer(start: buffer.floatChannelData![0], count: size))
+                if into == 0 { newMix += block } else { oldMix += block }
+            }
+            done += size
+        }
+        // The old sound plays at full level until the new one starts, then follows its curve.
+        #expect(oldMix[0..<late].allSatisfy { $0 == 1 })
+        #expect(oldMix[late + 64 + 100] < 1)
+        #expect(oldMix[late + rate / 20 + 64 + 5] == 0)
+        // Equal power: the two powers add up to one, so the mix does not dip. Allow the 64 frames of block delay.
+        for index in (late + 64)..<(late + rate / 20) {
+            let power = oldMix[index] * oldMix[index] + newMix[index] * newMix[index]
+            #expect(abs(power - 1) < 0.05, "frame \(index): \(power)")
+        }
+    }
+
+    /// A seek in the silence mode, dB-linear fade-out: the level of the rendered output follows the curve at 25, 50
+    /// and 75 percent of the fade. The engine's own load asks for the fade-out of a real graph with the fade stage.
+    @Test func aSilenceModeSeekFallsEvenlyInDecibels() async throws {
+        let format = try #require(AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 2))
+        let engine = AVAudioEngine()
+        let node = AVAudioPlayerNode()
+        let made = try #require(FadeAudioUnit.make())
+        engine.attach(node)
+        engine.attach(made.stage)
+        try engine.connectNode(node, to: made.stage, format: format)
+        try engine.connectNode(made.stage, to: engine.mainMixerNode, format: format)
+        try engine.enableManualRenderingMode(.offline, format: format, maximumFrameCount: 1_024)
+        try engine.start()
+        defer { engine.stop() }
+        let seconds = 4
+        let audio = try #require(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(seconds * 44_100)))
+        audio.frameLength = audio.frameCapacity
+        for channel in 0..<2 { for index in 0..<Int(audio.frameLength) { audio.floatChannelData![channel][index] = 0.5 } }
+        node.scheduleBuffer(audio, completionHandler: nil)
+
+        let player = GaplessEngine(manualRendering: true)
+        player.fadeOptions = FadeOptions(
+            outCurve: .decibelLinear, inCurve: .equalPower, outSeconds: 0.15, inSeconds: 0.05,
+            seek: .silence(seconds: 0.1))
+        player.adopt(engine, node, started: true, fade: made.control)
+        try player.start(node)
+
+        let output = try #require(AVAudioPCMBuffer(pcmFormat: engine.manualRenderingFormat, frameCapacity: 1_024))
+        func render(blocks: Int) throws -> [Float] {
+            var result: [Float] = []
+            for _ in 0..<blocks {
+                #expect(try engine.renderOffline(1_024, to: output) == .success)
+                result += UnsafeBufferPointer(start: output.floatChannelData![0], count: Int(output.frameLength))
+            }
+            return result
+        }
+        var samples = try render(blocks: 8)
+        #expect(abs(samples.last! - 0.5) < 1e-4, "the fade-in is over")
+        let loadAt = samples.count
+        Self.load(player, old: engine, probe: Probe())
+        samples += try render(blocks: 10)
+        let length = Self.rate * 15 / 100
+        for progress in [0.25, 0.5, 0.75] {
+            let level = samples[loadAt + Int(progress * Double(length)) - 1] / 0.5
+            let decibels = 20 * log10(Double(level))
+            #expect(abs(decibels - FadeCurve.floorDecibels * progress) < 1, "\(progress): \(decibels) dB")
+        }
+        player.discard()
     }
 }

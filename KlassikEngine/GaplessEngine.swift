@@ -94,6 +94,9 @@ public final class GaplessEngine: PlaybackEngine {
     private(set) var pausedAt: Int64?
     /// The end of the scheduled audio on the node timeline.
     private var scheduledEnd: Int64 = 0
+    /// The first moment at which the new node may play, when a silence-mode load waits for the old fade-out and the
+    /// gap. A node that is ready later plays at once. Nil when nothing holds the first sound back.
+    private(set) var earliestSound: ContinuousClock.Instant?
     /// True once the first sound of this load was allowed.
     private var started = false
     /// True while the node waits, paused, for bytes that did not arrive in time.
@@ -173,7 +176,9 @@ public final class GaplessEngine: PlaybackEngine {
         }
         let stopWait = reset()
         outgoing = parked
+        // The load starts at once. Only the first sound waits, so the load time runs inside the fade-out and the gap.
         let delay = fadeOptions.newSoundDelay(stopWait: stopWait)
+        earliestSound = delay > 0 ? .now + .seconds(delay) : nil
         self.songs = songs
         // The track at the load's start is fixed before the scheduler asks for it.
         requested = movement
@@ -182,11 +187,6 @@ public final class GaplessEngine: PlaybackEngine {
         cancelled = CancelFlag()
         worker = DispatchQueue(label: "de.whnr.klassik.decoder", qos: .default)
         task = Task {
-            // The new graph does not exist before this wait ends, so its sound cannot meet the fading one.
-            if delay > 0 {
-                try? await Task.sleep(for: .seconds(delay))
-                guard generation == self.generation, !Task.isCancelled else { return }
-            }
             await schedule(from: movement, offset: offset, file: file, generation: generation)
         }
     }
@@ -219,6 +219,10 @@ public final class GaplessEngine: PlaybackEngine {
             do {
                 activatedSampleRate = try await Self.activateSession(preferredRate: format?.sampleRate)
                 try check(generation)
+                if let wait = soundWait() {
+                    try await Task.sleep(for: wait)
+                    try check(generation)
+                }
                 guard playing else { return }
                 try start(node)
                 pausedAt = nil
@@ -281,6 +285,7 @@ public final class GaplessEngine: PlaybackEngine {
             engine, fade, sounding: isSounding, rate: sampleRate, curve: fadeOptions.outCurve)
         fade = nil
         silenced = false
+        earliestSound = nil
         engine = nil
         node = nil
         gain = nil
@@ -734,10 +739,39 @@ public final class GaplessEngine: PlaybackEngine {
         started = true
         starved = false
         if playing, let node {
-            try start(node)
-            pausedAt = nil
+            if let wait = soundWait() {
+                startLater(node, after: wait)
+            } else {
+                try start(node)
+                pausedAt = nil
+            }
         }
         report()
+    }
+
+    /// How long the first sound still waits for the fade-out and the gap. Nil when it may start now.
+    private func soundWait() -> Duration? {
+        guard let earliestSound else { return nil }
+        let wait = earliestSound - .now
+        if wait > .zero { return wait }
+        self.earliestSound = nil
+        return nil
+    }
+
+    private func startLater(_ node: AVAudioPlayerNode, after wait: Duration) {
+        let generation = generation
+        activation?.cancel()
+        activation = Task { [weak self] in
+            try? await Task.sleep(for: wait)
+            guard let self, generation == self.generation, !Task.isCancelled, self.playing else { return }
+            do {
+                try self.start(node)
+                self.pausedAt = nil
+                self.report()
+            } catch {
+                self.onEvent?(.failed(error.localizedDescription))
+            }
+        }
     }
 
     private var outFrames: Int { Int((fadeOptions.outSeconds * sampleRate).rounded()) }
@@ -775,8 +809,10 @@ public final class GaplessEngine: PlaybackEngine {
         halting?.cancel()
         halting = nil
         silenced = false
-        fade?.ramp(from: 0, to: 1, frames: inFrames, curve: fadeOptions.inCurve, onSignal: true)
-        retire(old.engine, old.fade, sounding: true, rate: old.rate, curve: fadeOptions.outCurve)
+        // Both ramps start at the first sounding frame of the new position, so the mix never dips or doubles.
+        let trigger = FadeTrigger()
+        fade?.ramp(from: 0, to: 1, frames: inFrames, curve: fadeOptions.inCurve, onSignal: true, fires: trigger)
+        retire(old.engine, old.fade, sounding: true, rate: old.rate, curve: fadeOptions.outCurve, after: trigger)
     }
 
     /// Fades the parked graph out and stops it. A load that never gets ready must not leave it playing.
@@ -816,7 +852,8 @@ public final class GaplessEngine: PlaybackEngine {
     /// until the engine stops, or 0 when it stopped at once.
     @discardableResult
     private func retire(
-        _ engine: AVAudioEngine?, _ fade: FadeControl?, sounding: Bool, rate: Double, curve: FadeCurve
+        _ engine: AVAudioEngine?, _ fade: FadeControl?, sounding: Bool, rate: Double, curve: FadeCurve,
+        after trigger: FadeTrigger? = nil
     ) -> Double {
         guard let engine else { return 0 }
         guard sounding, let fade else {
@@ -825,9 +862,14 @@ public final class GaplessEngine: PlaybackEngine {
         }
         // A skip during another fade starts the fade-out from the level that the ramp has reached.
         let frames = Int((fadeOptions.outSeconds * rate).rounded())
-        fade.ramp(to: 0, frames: frames, curve: curve)
+        fade.ramp(to: 0, frames: frames, curve: curve, after: trigger)
         let wait = Double(frames) / rate + FadeOptions.stopMargin
         Task {
+            // The fade-out of a crossfade starts with the new sound, which can be late. A new sound that never comes
+            // is retired by `retireOutgoing`, which asks for a plain fade-out.
+            if let trigger {
+                for _ in 0..<6_000 where !trigger.isFired { try? await Task.sleep(for: .milliseconds(5)) }
+            }
             try? await Task.sleep(for: .seconds(wait))
             engine.stop()
         }

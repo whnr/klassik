@@ -283,6 +283,9 @@ jobs:
           path: ${{ runner.temp }}
       - run: mkdir -p "$RUNNER_TEMP/fixture" && tar xzf "$RUNNER_TEMP/fixture-ui-music.tgz" -C "$RUNNER_TEMP/fixture"
       - name: Start Navidrome on the fixture library
+        # The request log with its timings tells a slow server from a request that never arrived.
+        env:
+          ND_LOGLEVEL: debug
         run: scripts/fixture-server.sh "$RUNNER_TEMP/fixture"
       - name: Run the tests
         env:
@@ -301,6 +304,7 @@ jobs:
           cat "$out/timings.txt" >> "$GITHUB_STEP_SUMMARY" || true
           python3 scripts/screen_report.py console "$out/"{unit,screens}.log "$out/"*-console.txt >> "$GITHUB_STEP_SUMMARY" || true
           echo "ui=$(grep '^ui=' "$out/results.txt" | tail -1 | cut -d= -f2)" >> "$GITHUB_OUTPUT" || true
+          cp "$RUNNER_TEMP/fixture/navidrome.log" "$out/navidrome.log" || true
       - uses: actions/upload-artifact@v7
         if: always()
         with:

@@ -46,11 +46,7 @@ struct KlassikApp: App {
     /// It runs before the first colour, because the first colour reads the accent.
     private static func resetSettingsForTheWalk() {
         guard ProcessInfo.processInfo.arguments.contains("-resetServer") else { return }
-        let keys = [
-            TapIndicator.storageKey, AccentFamily.storageKey, SettingsView.technicalDetailsKey,
-            Localization.languageKey, Localization.fallbackKey,
-        ]
-        for key in keys {
+        for key in [TapIndicator.storageKey, AccentFamily.storageKey] {
             UserDefaults.standard.removeObject(forKey: key)
         }
     }

@@ -108,6 +108,12 @@ struct LabRoute: Equatable, Sendable {
         return lines.isEmpty ? ["none: the file rate and channels reach the output"] : lines
     }
 
+    /// The height that the routing box holds: the tallest it has been. A line that comes or goes, wrapped or not,
+    /// does not move the screen below it.
+    nonisolated static func heldHeight(current: CGFloat, measured: CGFloat) -> CGFloat {
+        max(current, measured)
+    }
+
     /// The lines of the routing section, one fact each.
     nonisolated static func lines(route: LabRoute, graph: Graph, change: String?) -> [String] {
         var lines: [String] = []

@@ -819,7 +819,7 @@ final class BrowseScreens: ScreensTestCase {
     @MainActor
     func testMusicBrainz() throws {
         let app = try launchAndConnect()
-        openSettings(app, technical: true)
+        openSettings(app)
         // The row shows once the library has composers.
         let musicBrainz = app.buttons["musicbrainz"]
         XCTAssertTrue(eventually(timeout: 30) { reveal(musicBrainz, in: app).exists })
@@ -836,7 +836,7 @@ final class BrowseScreens: ScreensTestCase {
     @MainActor
     func testPeopleFromWikidata() throws {
         let app = try launchAndConnect()
-        openSettings(app, technical: true)
+        openSettings(app)
         // The row shows once the library has composers.
         let musicBrainz = app.buttons["musicbrainz"]
         XCTAssertTrue(eventually(timeout: 30) { reveal(musicBrainz, in: app).exists })
@@ -914,7 +914,7 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertEqual(mark.value as? String, "Favourite")
         mark.tap()
         XCTAssertEqual(mark.value as? String, "Not a favourite")
-        openSettings(app, technical: true)
+        openSettings(app)
         reveal(app.buttons["diagnostics"], in: app).tap()
         let pending = app.descendants(matching: .any)["pending-favourite"].firstMatch
         XCTAssertTrue(reveal(pending, in: app).exists)
@@ -2572,20 +2572,14 @@ final class SettingsScreens: ScreensTestCase {
         // The mini player must leave the last rows free, so something must be playing.
         _ = pausedPlayerInLibrary(app)
         openSettings(app)
-        // Technical Details starts off, so MusicBrainz and Diagnostics stay out of the way.
-        let technical = reveal(app.switches["technical-details"], in: app)
-        XCTAssertEqual(technical.value as? String, "0", "Technical Details is not off by default")
-        XCTAssertFalse(app.buttons["diagnostics"].exists)
-        XCTAssertFalse(app.buttons["musicbrainz"].exists)
-        technical.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
         XCTAssertTrue(reveal(app.buttons["diagnostics"], in: app).isHittable)
         for _ in 0..<6 where !row(app, "timeline-side").isHittable { app.swipeDown() }
         snap(app, "08c-settings-top")
-        // Flo's groups: Playback, Library, Colour, Advanced settings. Each row follows the one before it.
+        // Flo's groups: Playback, Library, Colour, Advanced settings, About. Each row follows the one before it.
         let order = [
             "timeline-side", "replaygain", "scrobbles", "classical-rules", "partial-works", "swipe-actions",
             "local-storage", "delete-listening-data", "accent", "player-tint-strength",
-            "technical-details", "musicbrainz", "diagnostics", "server-connection", "licences",
+            "musicbrainz", "diagnostics", "server-connection", "licences", "source-code",
         ]
         reveal(row(app, order[0]), in: app)
         for (above, below) in zip(order, order.dropFirst()) {
@@ -2612,26 +2606,30 @@ final class SettingsScreens: ScreensTestCase {
         let tint = reveal(app.sliders["player-tint-strength"], in: app)
         XCTAssertTrue(tint.isHittable)
         XCTAssertEqual(tint.value as? String, "3×")
-        adjust(tint, toNormalizedSliderPosition: 0, expecting: "0×")
-        adjust(tint, toNormalizedSliderPosition: 0.5, expecting: "2.5×")
-        adjust(tint, toNormalizedSliderPosition: 1, expecting: "5×")
-        adjust(tint, toNormalizedSliderPosition: 0.6, expecting: "3×")
+        adjust(tint, toStrength: "0×")
+        adjust(tint, toStrength: "2.5×")
+        adjust(tint, toStrength: "5×")
+        adjust(tint, toStrength: "3×")
         snap(app, "08f-player-tint-setting")
     }
 
-    /// The slider value is a label ("2.5×"), not a percentage, and the drag of `adjust` aims from a thumb place that it
-    /// can only estimate, so one drag can end steps away. Each try reads the value that the slider really holds and
-    /// moves the aim by the missing distance, so the error shrinks instead of repeating. The final value is asserted.
+    /// The slider value is a label ("2.5×"), not a percentage, and XCUITest has no step API, only `adjust`, which drags
+    /// from a thumb place it can only estimate. The value never falls as the aim rises, so the aim is bisected on the
+    /// value read back until it equals the target. The bound is generous for the 11 stops; the final value is asserted.
     @MainActor
-    func adjust(_ slider: XCUIElement, toNormalizedSliderPosition position: CGFloat, expecting value: String) {
-        let range: CGFloat = 5
-        var aim = position
-        for _ in 0..<8 {
-            slider.adjust(toNormalizedSliderPosition: min(max(aim, 0), 1))
-            guard let shown = slider.value as? String, shown != value else { break }
-            let numbers = [shown, value].map { Double($0.replacingOccurrences(of: "×", with: "")) }
-            guard let now = numbers[0], let wanted = numbers[1] else { break }
-            aim += CGFloat(wanted - now) / range
+    func adjust(_ slider: XCUIElement, toStrength value: String) {
+        func strength(_ label: String?) -> Double? {
+            label.flatMap { Double($0.replacingOccurrences(of: "×", with: "")) }
+        }
+        guard let wanted = strength(value) else { return XCTFail("\(value) is not a strength") }
+        var low: CGFloat = 0
+        var high: CGFloat = 1
+        var aim = CGFloat(wanted / 5)
+        for _ in 0..<16 {
+            slider.adjust(toNormalizedSliderPosition: aim)
+            guard let now = strength(slider.value as? String), now != wanted else { break }
+            if now < wanted { low = aim } else { high = aim }
+            aim = (low + high) / 2
         }
         XCTAssertEqual(slider.value as? String, value)
     }
@@ -2822,7 +2820,7 @@ final class SettingsScreens: ScreensTestCase {
         let app = try launchAndConnect()
         // Diagnostics checks that the mini player leaves the last row free, so something must be playing.
         let bar = pausedPlayerInLibrary(app)
-        openSettings(app, technical: true)
+        openSettings(app)
         reveal(app.buttons["diagnostics"], in: app).tap()
         XCTAssertTrue(app.staticTexts["Diagnostics"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.descendants(matching: .any)["opensubsonic"].waitForExistence(timeout: 10))
@@ -2842,7 +2840,7 @@ final class SettingsScreens: ScreensTestCase {
     @MainActor
     func testGapless() throws {
         let app = try launchAndConnect()
-        openSettings(app, technical: true)
+        openSettings(app)
         reveal(app.buttons["diagnostics"], in: app).tap()
         XCTAssertTrue(app.descendants(matching: .any)["opensubsonic"].waitForExistence(timeout: 10))
         reveal(app.buttons["gapless-test"], in: app).tap()
@@ -3048,12 +3046,19 @@ class ScreensTestCase: XCTestCase {
         connect.tap()
         // The Library place lists its rows at once. The composers fill in while the first sync runs.
         let composers = app.buttons["library-composers"]
-        XCTAssertTrue(composers.waitForExistence(timeout: 30))
+        let listed = composers.waitForExistence(timeout: 30)
+        XCTAssertTrue(listed, "No library after connect. On screen: \(visibleTexts(app))")
         if openComposers {
             composers.tap()
             XCTAssertTrue(composer(app, "Felix Mendelssohn").waitForExistence(timeout: 30))
         }
         return app
+    }
+
+    /// The labels on screen, for the message of a wait that ended on the connect screen or an empty library.
+    @MainActor
+    func visibleTexts(_ app: XCUIApplication) -> String {
+        app.staticTexts.allElementsBoundByIndex.map(\.label).joined(separator: " | ")
     }
 
     /// A place opened from another one shows an arrow like the system back button: a chevron with no name on
@@ -3161,25 +3166,15 @@ class ScreensTestCase: XCTestCase {
         return identified.exists ? identified : app.tabBars["tab-row"].buttons[name]
     }
 
-    /// Settings belongs to the Library stack, behind its toolbar cog. `technical` turns on Technical Details, so
-    /// that MusicBrainz and Diagnostics show. A reset launch turns the switch off again.
+    /// Settings belongs to the Library stack, behind its toolbar cog.
     @MainActor
-    func openSettings(_ app: XCUIApplication, technical: Bool = false) {
+    func openSettings(_ app: XCUIApplication) {
         openPlace(app, "Library")
         for _ in 0..<10 where !app.buttons["library-settings"].exists { back(app) }
         let cog = app.buttons["library-settings"]
         XCTAssertTrue(cog.waitForExistence(timeout: 10))
         cog.tap()
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 10))
-        guard technical else { return }
-        let toggle = reveal(app.switches["technical-details"], in: app)
-        // The switch reports its new value after its animation. A tap during the page's push can be lost; one
-        // more tap follows then.
-        for _ in 0..<2 where toggle.value as? String != "1" {
-            toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
-            _ = eventually(timeout: 3) { toggle.value as? String == "1" }
-        }
-        XCTAssertEqual(toggle.value as? String, "1", "Technical Details does not turn on")
     }
 
     /// The classical albums open from the Result rows of Classical Rules.

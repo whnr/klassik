@@ -1,16 +1,26 @@
 import KlassikEngine
 import SwiftUI
 
-/// Settings, in groups, in the order Flo set: Playback, Library, Colour, Advanced settings.
+/// Settings, in groups, in the order Flo set: Playback, Library, Colour, Advanced settings, About.
 struct SettingsView: View {
-    /// The Technical Details switch. It stays off until the listener wants MusicBrainz and Diagnostics.
-    static let technicalDetailsKey = "settings.technicalDetails"
+    /// Klassik is open source. The link opens in the browser.
+    static let sourceCode = URL(string: "https://github.com/whnr/klassik")!
+
+    /// Version and build, as the bundle reports them. A missing or empty value shows as "?", never as blank.
+    nonisolated static func version(from info: [String: Any]?) -> String {
+        func value(_ key: String) -> String {
+            let text = (info?[key] as? String)?.trimmingCharacters(in: .whitespaces) ?? ""
+            return text.isEmpty ? "?" : text
+        }
+        return "\(value("CFBundleShortVersionString")) (\(value("CFBundleVersion")))"
+    }
+
+    static var version: String { version(from: Bundle.main.infoDictionary) }
 
     @Environment(AppModel.self) private var model
     @AppStorage(TimelineSide.storageKey) private var timelineSide = TimelineSide.standard
     @AppStorage(ComposerWorks.separatesPartialKey) private var separatesPartial = true
     @AppStorage(CoverWash.strengthKey) private var tintStrength = CoverWash.defaultStrength
-    @AppStorage(Self.technicalDetailsKey) private var showsTechnicalDetails = false
     @State private var deleteError: String?
 
     private var tintLabel: String { "\(tintStrength.localized())×" }
@@ -113,30 +123,26 @@ struct SettingsView: View {
             }
 
             Section {
-                Toggle("Technical Details", isOn: $showsTechnicalDetails)
-                    .accessibilityIdentifier("technical-details")
-                if showsTechnicalDetails {
-                    if !model.library.index.composers.isEmpty {
-                        NavigationLink(value: Page.musicBrainz) {
-                            LabeledContent {
-                                Text(lookupState)
-                                    .foregroundStyle(Palette.textSecondary)
-                            } label: {
-                                InkLabel("MusicBrainz", systemImage: "books.vertical")
-                            }
-                        }
-                        .accessibilityIdentifier("musicbrainz")
-                    }
-                    NavigationLink(value: Page.diagnostics) {
+                if !model.library.index.composers.isEmpty {
+                    NavigationLink(value: Page.musicBrainz) {
                         LabeledContent {
-                            Text(waitingChanges)
+                            Text(lookupState)
                                 .foregroundStyle(Palette.textSecondary)
                         } label: {
-                            InkLabel("Diagnostics", systemImage: "stethoscope")
+                            InkLabel("MusicBrainz", systemImage: "books.vertical")
                         }
                     }
-                    .accessibilityIdentifier("diagnostics")
+                    .accessibilityIdentifier("musicbrainz")
                 }
+                NavigationLink(value: Page.diagnostics) {
+                    LabeledContent {
+                        Text(waitingChanges)
+                            .foregroundStyle(Palette.textSecondary)
+                    } label: {
+                        InkLabel("Diagnostics", systemImage: "stethoscope")
+                    }
+                }
+                .accessibilityIdentifier("diagnostics")
                 NavigationLink(value: Page.serverConnection) {
                     LabeledContent {
                         Text(model.connectionState)
@@ -154,6 +160,18 @@ struct SettingsView: View {
                 SectionHeading("Advanced settings")
             } footer: {
                 Text("Shows the lookups and diagnostics with the changes that wait.")
+            }
+
+            Section {
+                Link(destination: Self.sourceCode) {
+                    InkLabel("Source Code on GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
+                }
+                .accessibilityIdentifier("source-code")
+            } header: {
+                SectionHeading("About")
+            } footer: {
+                Text("Klassik \(Self.version)")
+                    .accessibilityIdentifier("app-version")
             }
         }
         .pageTitle(L("Settings"))

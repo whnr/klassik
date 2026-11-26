@@ -22,6 +22,11 @@ final class LabPlayer {
     private(set) var routeChange: String?
     private(set) var join = "not played yet"
     private(set) var note: String?
+    /// True while the output is recorded to a WAV.
+    private(set) var capturing = false
+    /// The files of the last capture. Setting it back to nil closes the share sheet.
+    var captured: CapturedFiles?
+    private(set) var captureNote: String?
 
     var selected: LabCase? {
         didSet {
@@ -43,7 +48,17 @@ final class LabPlayer {
         didSet { if oldValue != throttle { restart() } }
     }
 
+    struct CapturedFiles: Identifiable {
+        let id = UUID()
+        let wav: URL
+        let sidecar: URL
+    }
+
     private let client: LabClient
+    private var recorder: CaptureRecorder?
+    private var captureStart = Date()
+    private var captureTitle = ""
+    private var finishTask: Task<Void, Never>?
     /// Removes its observers when the player goes away.
     private let routeNotifications = PlaybackNotifications()
     private var engine: GaplessEngine?
@@ -80,9 +95,14 @@ final class LabPlayer {
     private func refreshRoute() {
         route = LabRoute.read()
         outputRate = route.sampleRate
-        graph = LabRoute.Graph(
-            sourceRate: engine?.sourceSampleRate ?? 0, sourceChannels: engine?.sourceChannelCount ?? 0,
-            outputs: engine?.outputFormats)
+        // A seek builds a new graph that has no format until its first track connects. The lines keep the last graph
+        // meanwhile, so that the routing box does not lose lines and shift the screen.
+        if let rate = engine?.sourceSampleRate, rate > 0 {
+            graph = LabRoute.Graph(
+                sourceRate: rate, sourceChannels: engine?.sourceChannelCount ?? 0, outputs: engine?.outputFormats)
+        } else if engine == nil {
+            graph = LabRoute.Graph(sourceRate: 0, sourceChannels: 0, outputs: nil)
+        }
         engineRate = graph.sourceRate
         engineChannels = graph.sourceChannels
     }
@@ -144,6 +164,77 @@ final class LabPlayer {
         }
     }
 
+    /// Starts or stops the recording of the engine's output. Neither touches the graph or the engine: the engine only
+    /// gets a tap that copies blocks.
+    func toggleCapture() {
+        if capturing { endCapture() } else { beginCapture() }
+    }
+
+    static var captureFolder: URL { URL.temporaryDirectory.appending(path: "lab-capture") }
+
+    private func beginCapture() {
+        // The previous finish writes into the folder, so it ends before the folder goes.
+        let previous = finishTask
+        previous?.cancel()
+        finishTask = nil
+        captured = nil
+        capturing = true
+        captureNote = nil
+        // The files of the last capture stay until now: a share target can read a file after the sheet has closed.
+        Task {
+            await previous?.value
+            startRecording()
+        }
+    }
+
+    private func startRecording() {
+        guard capturing, recorder == nil else { return }
+        try? FileManager.default.removeItem(at: Self.captureFolder)
+        try? FileManager.default.createDirectory(at: Self.captureFolder, withIntermediateDirectories: true)
+        let title = selected?.title ?? "no case"
+        let stamp = UUID().uuidString.prefix(8)
+        let slug = String(title.lowercased().map { $0.isLetter || $0.isNumber ? $0 : "-" })
+        let url = Self.captureFolder.appending(path: "lab-\(slug)-\(stamp).wav")
+        let recorder = CaptureRecorder(url: url) { [weak self] in
+            Task { @MainActor in self?.endCapture() }
+        }
+        self.recorder = recorder
+        captureStart = Date()
+        captureTitle = title
+        engine?.setOutputTap { recorder.makeSource(startSeconds: $0) }
+    }
+
+    private func endCapture() {
+        guard capturing else { return }
+        capturing = false
+        guard let recorder else { return }
+        self.recorder = nil
+        engine?.setOutputTap(nil)
+        let title = captureTitle
+        let started = captureStart
+        let fade = fade
+        let gain = replayGain
+        let throttle = throttle.mode.title
+        let route = routeLines
+        finishTask = Task {
+            defer { finishTask = nil }
+            let result = await recorder.finish()
+            guard !Task.isCancelled else { return }
+            let stopped = result.error.map { "The capture stopped: \($0)" }
+            guard let wav = result.url else {
+                captureNote = stopped ?? "Nothing was recorded: no sound reached the output."
+                return
+            }
+            let sidecar = wav.deletingPathExtension().appendingPathExtension("txt")
+            let text = CaptureSidecar.text(
+                caseTitle: title, fade: fade, replayGain: gain, throttle: throttle, route: route, result: result,
+                startedAt: started)
+            try? text.write(to: sidecar, atomically: true, encoding: .utf8)
+            captureNote = stopped ?? (result.capped ? "Stopped at the 60 s cap." : nil)
+            captured = CapturedFiles(wav: wav, sidecar: sidecar)
+        }
+    }
+
     /// Moves to a place in the movement that sounds. The engine that plays stays, so that the seek mode can keep
     /// the old position until the new one is ready.
     func seek(to fraction: Double) {
@@ -188,6 +279,19 @@ final class LabPlayer {
         return isPlaying ? .restart : .discard
     }
 
+    enum ConfigurationAction: Equatable { case none, restartKeepingEngine }
+
+    /// A crossfade that waits for its new graph keeps the old sound until that graph sounds, so a new output
+    /// restarts the load on the same engine.
+    nonisolated static func configurationAction(isPlaying: Bool) -> ConfigurationAction {
+        isPlaying ? .restartKeepingEngine : .none
+    }
+
+    /// A start drops the engine, except for a restart that keeps it.
+    nonisolated static func dropsEngine(keepingEngine: Bool, hasEngine: Bool) -> Bool {
+        !(keepingEngine && hasEngine)
+    }
+
     private func teardown() {
         stopWork()
         engine?.discard()
@@ -203,7 +307,7 @@ final class LabPlayer {
 
     private func start(movement: Int, offset: Double, join opening: String? = nil, keepingEngine: Bool = false) {
         guard let selected, canPlay else { return }
-        if keepingEngine, engine != nil { stopWork() } else { teardown() }
+        if Self.dropsEngine(keepingEngine: keepingEngine, hasEngine: engine != nil) { teardown() } else { stopWork() }
         resumePlace = nil
         ended = []
         note = nil
@@ -233,6 +337,7 @@ final class LabPlayer {
         let engine = GaplessEngine(gainNode: replayGain)
         engine.fadeOptions = fade.options
         engine.onEvent = { [weak self] event in self?.handle(event) }
+        if let recorder { engine.setOutputTap { recorder.makeSource(startSeconds: $0) } }
         self.engine = engine
         return engine
     }
@@ -281,7 +386,9 @@ final class LabPlayer {
                 join: "gap, movement \(index + 1) has another sample rate or channel count")
         case .configurationChanged:
             // The output changed, for example a headset: the engine stopped and the load starts again here.
-            if isPlaying { start(movement: movement, offset: elapsed) }
+            if Self.configurationAction(isPlaying: isPlaying) == .restartKeepingEngine {
+                start(movement: movement, offset: elapsed, keepingEngine: true)
+            }
         case .problem(let message): note = message
         case .failed(let message):
             isPlaying = false

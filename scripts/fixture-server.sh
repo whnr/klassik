@@ -19,7 +19,7 @@ fi
 
 mkdir -p "$work/data"
 ND_MUSICFOLDER="$work/music" ND_DATAFOLDER="$work/data" ND_ADDRESS=127.0.0.1 ND_PORT=4533 \
-  ND_LOGLEVEL=warn ND_ENABLEINSIGHTSCOLLECTOR=false \
+  ND_LOGLEVEL="${ND_LOGLEVEL:-warn}" ND_ENABLEINSIGHTSCOLLECTOR=false \
   nohup "$work/navidrome" > "$work/navidrome.log" 2>&1 &
 echo $! > "$work/navidrome.pid"
 

@@ -1,7 +1,7 @@
 {
-  "sha": "6e30b0bda8a5a403e1b7230cfa7750aa4efce89d",
+  "sha": "34e9420afef7b8cc2cb0caa2ee4ce1a0d099e0b8",
   "branch": "claude-captest",
   "path": "claude-captest",
-  "subject": "Temporary: quote the test selector",
-  "ts": 1795678832
+  "subject": "Revert the temporary 50x repeat of the write-error test",
+  "ts": 1795679453
 }

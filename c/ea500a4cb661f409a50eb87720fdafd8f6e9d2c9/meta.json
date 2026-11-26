@@ -1,7 +1,0 @@
-{
-  "sha": "ea500a4cb661f409a50eb87720fdafd8f6e9d2c9",
-  "branch": "claude-seek-fadein",
-  "path": "claude-seek-fadein",
-  "subject": "[sz-rs30.1.162.14] Fade the old graph out when the new one never sounds",
-  "ts": 1795657941
-}

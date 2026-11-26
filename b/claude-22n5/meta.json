@@ -1,7 +1,7 @@
 {
-  "sha": "a76208300f16a15463541b1eff236dbfb41e79d6",
+  "sha": "60372540cd509848c6b3f69a3619fd7384e67fd8",
   "branch": "claude-22n5",
   "path": "claude-22n5",
-  "subject": "[sz-22n5] Show the page behind a pulled player",
-  "ts": 1795735198
+  "subject": "Merge origin/main into claude-22n5 [ui: playback]",
+  "ts": 1795736847
 }

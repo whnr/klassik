@@ -1,7 +1,0 @@
-{
-  "sha": "2658ca5ddfce5db632908f20cc692a97484e6b15",
-  "branch": "claude-tones",
-  "path": "claude-tones",
-  "subject": "[sz-rs30.1.162.13] Fix import order and ffmpeg channel wording",
-  "ts": 1795650546
-}

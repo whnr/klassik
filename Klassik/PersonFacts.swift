@@ -89,6 +89,9 @@ struct PersonFacts: Codable, Equatable, Identifiable, Sendable {
     var textKey: String?
     var id: String { qid }
 
+    /// Added to `textKey` when a Wikipedia request failed. The key then never matches, so the texts load again.
+    static let unansweredMark = "?"
+
     /// True when the description and the biography were fetched for other text languages than `languages`.
     func needsTexts(for languages: TextLanguages) -> Bool {
         (textKey ?? AppLanguage.english.rawValue) != languages.key
@@ -328,16 +331,23 @@ struct PersonFactsService: Sendable {
         facts.credits.append(
             PersonCredit(kind: .facts, text: "Wikidata, CC0", url: URL(string: "https://www.wikidata.org/wiki/\(qid)")))
         // The article of the app language wins; the fallback language gives its article when there is none.
+        // A request that failed is no answer: the text is kept as incomplete, and a later pass asks again.
+        var answered = true
         for language in texts.wanted {
             guard let title = Self.wikipediaTitle(entity, language: language) else { continue }
             // The text and the picture are extras: a failure there leaves the facts.
-            if let summary = try? await bio(title: title, language: language) {
-                facts.bio = summary.text
-                facts.credits.append(
-                    PersonCredit(kind: .text, text: "Wikipedia, CC BY-SA 4.0", url: summary.page))
-                break
+            do {
+                if let summary = try await bio(title: title, language: language) {
+                    facts.bio = summary.text
+                    facts.credits.append(
+                        PersonCredit(kind: .text, text: "Wikipedia, CC BY-SA 4.0", url: summary.page))
+                    break
+                }
+            } catch {
+                answered = false
             }
         }
+        if !answered { facts.textKey = texts.key + PersonFacts.unansweredMark }
         if let file = Self.pictureFile(entity) {
             do {
                 if let found = try await portrait(file: file) {

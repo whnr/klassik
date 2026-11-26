@@ -10,15 +10,22 @@ final class PersonStub: @unchecked Sendable {
     private let lock = NSLock()
     private let rules: [(contains: String, body: String)]
     private(set) var requests: [String] = []
+    private var failing: [String] = []
 
     init(_ rules: [(contains: String, body: String)]) {
         self.rules = rules
+    }
+
+    /// The URLs that hold one of these texts answer 503.
+    func fail(_ texts: [String]) {
+        lock.withLock { failing = texts }
     }
 
     var fetch: MusicBrainz.Fetch {
         { request in
             let url = request.url!.absoluteString.removingPercentEncoding ?? ""
             self.lock.withLock { self.requests.append(url) }
+            if self.lock.withLock({ self.failing.contains { url.contains($0) } }) { return (Data(), 503) }
             guard let rule = self.rules.first(where: { url.contains($0.contains) }) else { return (Data(), 404) }
             return (Data(rule.body.utf8), 200)
         }

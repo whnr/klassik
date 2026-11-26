@@ -126,12 +126,12 @@ final class PersonFactsStore {
         return cache.people[qid]
     }
 
-    /// True when a lookup for the tag has finished, with or without a match.
     /// True when the saved facts of the item hold texts of other languages than the app asks for now.
     func hasStaleTexts(_ qid: String) -> Bool {
         cache.people[qid]?.needsTexts(for: service.textLanguages()) ?? false
     }
 
+    /// True when a lookup for the tag has finished, with or without a match.
     func hasResolved(performer tag: String) -> Bool {
         guard let qid = cache.performers[tag] else { return false }
         return qid.isEmpty || cache.people[qid] != nil
@@ -285,6 +285,7 @@ final class PersonFactsStore {
     /// Marks each person whose texts have other languages than the app asks for as unchecked, so that the next pass
     /// loads their facts again. The old texts stay on the pages until then.
     func invalidateTexts() {
+        var changed = false
         for key in Array(cache.checked.keys) {
             let qid: String?
             if key.hasPrefix("composer:") {
@@ -295,8 +296,9 @@ final class PersonFactsStore {
             guard let qid, hasStaleTexts(qid) else { continue }
             cache.checked[key] = nil
             cache.due[key] = nil
+            changed = true
         }
-        save()
+        if changed { save() }
     }
 
     /// Records that the background pass settled a person, and when the person falls due again.

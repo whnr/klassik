@@ -3848,7 +3848,22 @@ final class LanguageScreens: ScreensTestCase {
     /// German with every text twice as long. Long words and accents meet every screen.
     static let doubled = german + ["-NSDoubleLocalizedStrings", "YES"]
 
-    /// No text leaves the screen sideways. A wrapped text stays inside; a text that does not wrap would leave.
+    /// The smallest text size of the app in points. A text that needs more room than this size would need is cut.
+    static let smallestFont: CGFloat = 11
+    /// The least area that one character takes at a font size: about 0.42 em wide and 1.15 em high.
+    static let characterArea: CGFloat = 0.48
+
+    /// True when the text cannot fit its frame at any size of the app, or ends in an ellipsis. The label of a cut
+    /// text stays complete, so the frame is the evidence. The bound is a floor: it finds a text cut to a few
+    /// letters, never a text that fits.
+    static func isCut(label: String, frame: CGRect) -> Bool {
+        if label.hasSuffix("…") || label.hasSuffix("...") { return true }
+        let needed = CGFloat(label.count) * characterArea * smallestFont * smallestFont
+        return label.count > 3 && frame.width * frame.height < needed
+    }
+
+    /// No text leaves the screen sideways, and none is cut off. A wrapped text stays inside; a text that does not
+    /// wrap would leave or be cut.
     @MainActor
     func expectInside(_ app: XCUIApplication, _ screen: String) {
         // The timeline moves the page sideways by half its width while music plays.
@@ -3860,6 +3875,7 @@ final class LanguageScreens: ScreensTestCase {
             let name = "\(screen): \"\(text.label)\""
             XCTAssertGreaterThanOrEqual(frame.minX, width.minX - slack, "\(name) leaves the left edge")
             XCTAssertLessThanOrEqual(frame.maxX, width.maxX + slack, "\(name) leaves the right edge")
+            XCTAssertFalse(Self.isCut(label: text.label, frame: frame), "\(name) is cut off, frame \(frame)")
         }
     }
 
@@ -3952,6 +3968,14 @@ final class LanguageScreens: ScreensTestCase {
         openPlayer(app)
         let next = app.buttons["Weiter"].firstMatch
         XCTAssertTrue(next.waitForExistence(timeout: 10), "The player controls stay English")
+        // The facts line of the recording is built in code, not in a view: it must be German too.
+        let facts = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Aufgenommen")).firstMatch
+        XCTAssertTrue(facts.waitForExistence(timeout: 5), "The facts line is missing or English")
+        XCTAssertTrue(facts.label.contains("Satz") || facts.label.contains("Sätze"), facts.label)
+        for english in ["Recorded in", " movements"] {
+            let found = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", english)).firstMatch
+            XCTAssertFalse(found.exists, "\(english) stays English")
+        }
         snap(app, "21d-player-de")
         expectInside(app, "Player")
     }
@@ -3984,5 +4008,24 @@ final class LanguageScreens: ScreensTestCase {
         XCTAssertTrue(app.buttons["play-work"].waitForExistence(timeout: 10))
         expectInside(app, "Work, doubled")
         snap(app, "22d-work-doubled")
+        let recording = app.buttons.matching(identifier: "recording").firstMatch
+        XCTAssertTrue(recording.waitForExistence(timeout: 10))
+        recording.tap()
+        XCTAssertTrue(app.buttons["play-recording"].waitForExistence(timeout: 10))
+        startPlaying(app)
+        XCTAssertTrue(app.buttons["mini-player-pause"].waitForExistence(timeout: 10))
+        openPlayer(app)
+        expectInside(app, "Player, doubled")
+        snap(app, "22e-player-doubled")
+    }
+
+    /// The test for a cut text finds what it must: an ellipsis, a frame too small for the text, and nothing else.
+    func testCutTextIsFound() {
+        let wide = CGRect(x: 0, y: 0, width: 300, height: 24)
+        XCTAssertFalse(Self.isCut(label: "Einstellungen", frame: wide))
+        let page = CGRect(x: 0, y: 0, width: 300, height: 400)
+        XCTAssertFalse(Self.isCut(label: String(repeating: "Wort ", count: 40), frame: page))
+        XCTAssertTrue(Self.isCut(label: "Ser…", frame: wide))
+        XCTAssertTrue(Self.isCut(label: String(repeating: "Wiedergabe ", count: 20), frame: wide))
     }
 }

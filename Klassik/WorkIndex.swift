@@ -124,7 +124,7 @@ struct WorkIndex: Sendable {
         var isPartial: Bool { part != nil }
 
         /// "3 of 5 movements" when the recording holds only part of its work.
-        var completeness: String? { part.map { "\($0.present) of \($0.total) movements" } }
+        var completeness: String? { part.map { L("\($0.present) of \($0.total) movements") } }
 
         /// A movement name alone does not say which work of an album it belongs to.
         func title(of song: Song) -> String {

@@ -288,7 +288,6 @@ final class AppModel {
 
     /// A change of the app or fallback language: the saved texts of people load again in the background.
     func textLanguagesChanged() {
-        people.invalidateTexts()
         sweepPeople()
     }
 
@@ -299,6 +298,7 @@ final class AppModel {
 
     private static func start(_ sweep: PersonSweep, over index: WorkIndex) {
         let people = PersonSweep.people(of: index)
+        sweep.invalidateStaleTexts()
         sweep.measure(people)
         sweep.start(people)
     }

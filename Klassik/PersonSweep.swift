@@ -144,6 +144,12 @@ final class PersonSweep {
         shown = Array((fresh + shown.filter { !seen.contains($0) }).prefix(Self.shownLimit))
     }
 
+    /// Marks the people whose saved texts are of another language than the app asks for. A device language that
+    /// changed while the app was closed leaves no in-session change to see, so each pass starts with this.
+    func invalidateStaleTexts() {
+        store.invalidateTexts()
+    }
+
     /// Counts what waits, for Settings.
     func measure(_ people: [Person]) {
         let found = plan(people)

@@ -84,6 +84,55 @@ struct PersonTextLanguageTests {
         #expect(facts.credits.first { $0.kind == .text }?.url?.host() == "en.wikipedia.org")
     }
 
+    /// A failed German request is no "no article": the English text shows, marked incomplete, and the next pass
+    /// asks for German again.
+    @Test func aFailedAppLanguageRequestKeepsTheFallbackMarked() async throws {
+        let stub = PersonStub(
+            [
+                (
+                    "ids=Q1339&props=labels|descriptions|claims",
+                    Self.entity(
+                        descriptions: ["de": "deutscher Komponist", "en": "German composer"],
+                        wiki: ["de": "x", "en": "x"])
+                )
+            ] + Self.both)
+        stub.fail(["de.wikipedia.org"])
+        let service = Self.service(stub, Languages(Self.german))
+        let failed = try #require(try await service.facts(qid: "Q1339"))
+        #expect(failed.bio == "Johann Sebastian Bach was a German composer.")
+        #expect(failed.needsTexts(for: Self.german))
+        stub.fail([])
+        let again = try #require(try await service.facts(qid: "Q1339"))
+        #expect(again.bio == "Johann Sebastian Bach war ein deutscher Komponist.")
+        #expect(!again.needsTexts(for: Self.german))
+    }
+
+    /// A device language that changed while the app was closed marks the saved texts at the start of a pass.
+    @Test func aPassMarksTheTextsOfAnotherLanguageAtLaunch() async throws {
+        let item = Self.entity(
+            descriptions: ["de": "deutscher Komponist", "en": "German composer"], wiki: ["de": "x", "en": "x"])
+        let stub = PersonStub(
+            [
+                ("list=search", PersonStub.search(["Q1339"])),
+                ("ids=Q1339&props=labels|descriptions|claims", item),
+                ("ids=Q1339&props=labels|descriptions&languages", item),
+            ] + Self.both)
+        let languages = Languages(TextLanguages(app: .english, fallback: .english))
+        let url = FileManager.default.temporaryDirectory.appending(path: "\(UUID().uuidString).json")
+        let store = PersonFactsStore(service: Self.service(stub, languages), cacheURL: url)
+        #expect(await store.resolve(performer: "Johann Sebastian Bach"))
+        let person = PersonSweep.Person(kind: .performer, tag: "Johann Sebastian Bach")
+        store.markChecked(person.key, at: .now, due: .distantFuture)
+        let sweep = PersonSweep(store: store)
+        #expect(sweep.plan([person]).new.isEmpty)
+
+        languages.value = Self.german
+        sweep.invalidateStaleTexts()
+        #expect(sweep.plan([person]).new.count == 1)
+        await store.saved()
+        try? FileManager.default.removeItem(at: url)
+    }
+
     /// With the fallback off and no German text, the about field stays empty. The name stays English.
     @Test func withoutFallbackNothingFills() async throws {
         let stub = PersonStub(

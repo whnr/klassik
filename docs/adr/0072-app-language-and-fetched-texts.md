@@ -1,6 +1,6 @@
 # 0072. App language, fetched texts and the fallback language
 
-Date: 2026-11-25. Status: Proposed. Flo reviews it. The rules come from Flo's spec on sz-odf9 of 2026-11-25.
+Date: 2026-11-25. Status: Proposed. Flo reviews it. The rules come from Flo's spec of 2026-11-25.
 
 ## Context
 

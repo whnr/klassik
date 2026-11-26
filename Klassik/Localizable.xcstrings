@@ -66,7 +66,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld von %lld Aufnahmen geladen"
+            "value": "%lld von %lld Aufnahmen heruntergeladen"
           }
         }
       }
@@ -796,7 +796,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Das Passwort ließ sich nicht im Schlüsselbund sichern (Status %d)."
+            "value": "Das Passwort ließ sich nicht im Schlüsselbund speichern (Status %d)."
           }
         }
       }
@@ -906,7 +906,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Laden"
+            "value": "Herunterladen"
           }
         }
       }
@@ -916,7 +916,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Erneut laden"
+            "value": "Erneut herunterladen"
           }
         }
       }
@@ -926,7 +926,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Geladen, %@"
+            "value": "Heruntergeladen, %@"
           }
         }
       }
@@ -1346,7 +1346,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zurück gedrückt halten, um weiterzugehen"
+            "value": "Zurück halten für frühere Seiten"
           }
         }
       }
@@ -2646,7 +2646,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sichern"
+            "value": "Speichern"
           }
         }
       }
@@ -2766,7 +2766,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tipper zeigen"
+            "value": "Berührungen zeigen"
           }
         }
       }
@@ -3116,7 +3116,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Der Tag „%@“ enthält Werke von %@. Tagge sie mit vollen Namen neu. Klassik teilt keinen Tag auf."
+            "value": "Das Tag „%@“ enthält Werke von %@. Tagge sie mit vollen Namen neu. Klassik teilt kein Tag auf."
           }
         }
       }
@@ -4067,6 +4067,16 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "%lld of %lld movements": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld von %lld Sätzen"
           }
         }
       }

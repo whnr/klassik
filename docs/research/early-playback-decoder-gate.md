@@ -108,7 +108,7 @@ A queue edit keeps the sound. The engine takes the new tracks after the last one
 Only an edit of a track that it already asked for loads again from the audible place.
 Pause keeps the engine, unless pause cancels the transfer of the next audible track. A download keeps that transfer.
 
-The node takes the rate and channel count of the first track. The app never converts: a track with another rate or channel count ends the load at that join, and the session starts again at it (sz-u8f4).
+The node takes the rate and channel count of the first track. The app never converts: a track with another rate or channel count ends the load at that join, and the session starts again at it.
 
 A server or network failure pauses playback and shows the one quiet server status of [the Library page](../../design/specimen/index.html); device failures keep their text.
 The slow-connection line needs bytes within the last second. A server that stops sending never shows it.

@@ -115,6 +115,7 @@ struct PersonTextLanguageTests {
             [
                 ("list=search", PersonStub.search(["Q1339"])),
                 ("ids=Q1339&props=labels|descriptions|claims", item),
+                ("ids=Q1339&props=labels|descriptions&languages", item),
             ] + Self.both)
         let languages = Languages(TextLanguages(app: .english, fallback: nil))
         let url = FileManager.default.temporaryDirectory.appending(path: "\(UUID().uuidString).json")

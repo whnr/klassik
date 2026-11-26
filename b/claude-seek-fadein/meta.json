@@ -1,7 +1,7 @@
 {
-  "sha": "c05964e153f2c4bb8f83d917f30e50d1c3d7a89d",
+  "sha": "c936125949bcb0d734238594801ab57afb4e7474",
   "branch": "claude-seek-fadein",
   "path": "claude-seek-fadein",
-  "subject": "[sz-rs30.1.162.14] Overlap the load with the fade-out and gap",
-  "ts": 1795653309
+  "subject": "[sz-rs30.1.162.14] Wrap long test lines",
+  "ts": 1795653316
 }

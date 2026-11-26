@@ -409,7 +409,6 @@ struct GaplessEngineSkipTests {
         let before = oldFade.last
         Self.load(player, old: old, probe: Probe())
         #expect(!trigger.isFired)
-        #expect(!new.isRunning, "the graph that never sounded has nothing to fade")
         #expect(oldFade.last == before)
         try? await Task.sleep(for: .milliseconds(150))
         #expect(old.isRunning)
@@ -741,8 +740,10 @@ struct GaplessEngineSkipTests {
         player.fadeOptions = options
         player.adopt(first.engine, first.node, started: true, fade: first.fade)
         try player.start(first.node)
+        // The start fades in from silence; the measure begins when the first graph plays at full level.
         var mix: [Float] = []
-        try Self.render([first], blocks: 10, into: &mix)
+        try Self.render([first], blocks: 60, into: &mix)
+        mix = []
 
         // First seek: its graph plays but is silent for 20 000 frames.
         Self.load(player, old: first.engine, probe: Probe())

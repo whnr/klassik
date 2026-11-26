@@ -1,7 +1,7 @@
 {
-  "sha": "2de7cb5cf07b2d9e27c52d5d34ce508359fe85a7",
+  "sha": "465701eebc4cde22734c5165fd9635679c7fea3b",
   "branch": "claude-capture",
   "path": "claude-capture",
-  "subject": "[sz-rs30.1.162.15] Merge main into claude-capture",
-  "ts": 1795661396
+  "subject": "[sz-rs30.1.162.15] Flush only after all sources drained",
+  "ts": 1795662555
 }

@@ -299,21 +299,18 @@
             el("span", { html: K.ICON.chevron }),
           );
         }
-        // A work is partial when no recording holds it whole. A set stays in Works: its completeness is unknown.
-        const isPartialWork = (w) => w.recordings.length > 0 && w.recordings.every((r) => K.partOf(r));
-        // Favourite works lead, each as a row of its own. A partial favourite stays under Partial works.
-        const promoted = (w) => K.isFavourite("work:" + w.id) && !isPartialWork(w);
-        function setRows(list) {
+        function worksTab() {
+          const shown = works.filter((w) => !picked.size || [...picked].some((g) => w.genres.has(g)));
           const rows = [],
             seen = new Set();
-          for (const w of list) {
+          for (const w of shown) {
             if (!w.grouping) {
               rows.push(workRow(w));
               continue;
             }
             if (seen.has(w.grouping)) continue;
             seen.add(w.grouping);
-            const members = list.filter((x) => x.grouping === w.grouping);
+            const members = shown.filter((x) => x.grouping === w.grouping);
             const open = openSets.has(w.grouping);
             rows.push(
               el(
@@ -343,20 +340,6 @@
                 rows.push(workRow(m, true));
               });
           }
-          return rows;
-        }
-        function worksTab() {
-          const shown = works.filter((w) => !picked.size || [...picked].some((g) => w.genres.has(g)));
-          const favourite = shown.filter(promoted);
-          const rest = shown.filter((w) => !promoted(w));
-          const partial = rest.filter((w) => !w.grouping && isPartialWork(w));
-          const complete = rest.filter((w) => !partial.includes(w));
-          const parts = [
-            ["Favourite works", favourite, favourite.map((w) => workRow(w))],
-            ["Works", complete, setRows(complete)],
-            ["Partial works", partial, partial.map((w) => workRow(w))],
-          ];
-          const visible = parts.filter(([, list]) => list.length);
           return [
             allGenres.length
               ? el(
@@ -377,18 +360,16 @@
                   ),
                 )
               : null,
-            ...(visible.length ? visible : [parts[1]]).map(([title, list, rows]) =>
+            el(
+              "section",
+              { class: "section" },
               el(
-                "section",
-                { class: "section" },
-                el(
-                  "div",
-                  { class: "section-head t-footnote" },
-                  el("span", {}, title),
-                  el("span", { class: "count" }, `(${list.length})`),
-                ),
-                el("div", { class: "list" }, ...rows),
+                "div",
+                { class: "section-head t-footnote" },
+                el("span", {}, "Works"),
+                el("span", { class: "count" }, `(${shown.length})`),
               ),
+              el("div", { class: "list" }, ...rows),
             ),
           ];
         }

@@ -3044,12 +3044,19 @@ class ScreensTestCase: XCTestCase {
         connect.tap()
         // The Library place lists its rows at once. The composers fill in while the first sync runs.
         let composers = app.buttons["library-composers"]
-        XCTAssertTrue(composers.waitForExistence(timeout: 30))
+        let listed = composers.waitForExistence(timeout: 30)
+        XCTAssertTrue(listed, "No library after connect. On screen: \(visibleTexts(app))")
         if openComposers {
             composers.tap()
             XCTAssertTrue(composer(app, "Felix Mendelssohn").waitForExistence(timeout: 30))
         }
         return app
+    }
+
+    /// The labels on screen, for the message of a wait that ended on the connect screen or an empty library.
+    @MainActor
+    func visibleTexts(_ app: XCUIApplication) -> String {
+        app.staticTexts.allElementsBoundByIndex.map(\.label).joined(separator: " | ")
     }
 
     /// A place opened from another one shows an arrow like the system back button: a chevron with no name on

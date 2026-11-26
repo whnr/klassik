@@ -94,6 +94,8 @@ final class CaptureRecorder: @unchecked Sendable {
         var dropped: Int
         var capped: Bool
         var formatChanged: Bool
+        /// Why the file could not be written, when a write failed.
+        var error: String? = nil
     }
 
     static let maxSeconds = 60
@@ -107,8 +109,13 @@ final class CaptureRecorder: @unchecked Sendable {
     private let capFlag = Atomic<Bool>(false)
     private let formatFlag = Atomic<Bool>(false)
     private let finishing = Atomic<Bool>(false)
+    private let failFlag = Atomic<Bool>(false)
+    /// The tap's one scratch block, allocated before the tap runs so that the audio path never allocates.
+    private let scratch: UnsafeMutablePointer<Float>
+    private static let scratchSamples = 1 << 15
     private var writer: Task<Result, Never>?
-    /// Called once when the cap ends the recording. It runs off the main actor.
+    /// Called once, by the writer task and never by the tap, when the cap, a format change or a write error ends
+    /// the recording. It runs off the main actor.
     private let onCap: @Sendable () -> Void
 
     init(
@@ -119,8 +126,12 @@ final class CaptureRecorder: @unchecked Sendable {
         self.maxSeconds = maxSeconds
         self.onCap = onCap
         ring = CaptureRing(capacity: ringSamples)
+        scratch = .allocate(capacity: Self.scratchSamples)
+        scratch.initialize(repeating: 0, count: Self.scratchSamples)
         writer = Task.detached(priority: .utility) { [self] in await write() }
     }
+
+    deinit { scratch.deallocate() }
 
     /// Runs on the engine's tap queue. Copies the block, interleaved, and returns.
     func tap(_ buffer: AVReadOnlyAudioPCMBuffer) {
@@ -133,7 +144,9 @@ final class CaptureRecorder: @unchecked Sendable {
     }
 
     private func record(format: AVAudioFormat, frames available: Int, list: UnsafePointer<AudioBufferList>) {
-        guard !capFlag.load(ordering: .relaxed), !formatFlag.load(ordering: .relaxed) else { return }
+        guard !capFlag.load(ordering: .relaxed), !formatFlag.load(ordering: .relaxed),
+            !failFlag.load(ordering: .relaxed)
+        else { return }
         guard format.commonFormat == .pcmFormatFloat32 else { return }
         let rateNow = Int(format.sampleRate.rounded())
         let channelsNow = Int(format.channelCount)
@@ -143,36 +156,33 @@ final class CaptureRecorder: @unchecked Sendable {
             channels.store(channelsNow, ordering: .relaxed)
         } else if known != channelsNow || rate.load(ordering: .relaxed) != rateNow {
             formatFlag.store(true, ordering: .releasing)
-            onCap()
             return
         }
         let limit = maxSeconds * rateNow
         let done = pushed.load(ordering: .relaxed)
         let frames = min(available, limit - done)
         guard frames > 0 else { return }
-        do {
-            let buffers = UnsafeMutableAudioBufferListPointer(UnsafeMutablePointer(mutating: list))
-            let count = frames * channelsNow
-            withUnsafeTemporaryAllocation(of: Float.self, capacity: count) { block in
-                let out = block.baseAddress!
-                if buffers.count == 1 && Int(buffers[0].mNumberChannels) == channelsNow {
-                    guard let data = buffers[0].mData?.assumingMemoryBound(to: Float.self) else { return }
-                    for index in 0..<count { out[index] = data[index] }
-                } else {
-                    for channel in 0..<channelsNow {
-                        guard let data = buffers[channel].mData?.assumingMemoryBound(to: Float.self) else { return }
-                        for frame in 0..<frames { out[frame * channelsNow + channel] = data[frame] }
-                    }
+        let buffers = UnsafeMutableAudioBufferListPointer(UnsafeMutablePointer(mutating: list))
+        let out = scratch
+        let block = Self.scratchSamples / channelsNow
+        var start = 0
+        while start < frames {
+            let part = min(block, frames - start)
+            if buffers.count == 1 && Int(buffers[0].mNumberChannels) == channelsNow {
+                guard let data = buffers[0].mData?.assumingMemoryBound(to: Float.self) else { return }
+                for index in 0..<(part * channelsNow) { out[index] = data[start * channelsNow + index] }
+            } else {
+                for channel in 0..<channelsNow {
+                    guard let data = buffers[channel].mData?.assumingMemoryBound(to: Float.self) else { return }
+                    for frame in 0..<part { out[frame * channelsNow + channel] = data[start + frame] }
                 }
-                // A block that does not fit is lost and counted; the sidecar warns about the hole.
-                _ = ring.push(out, count: count)
             }
+            // A block that does not fit is lost and counted; the sidecar warns about the hole.
+            _ = ring.push(out, count: part * channelsNow)
+            start += part
         }
         pushed.store(done + frames, ordering: .relaxed)
-        if done + frames >= limit {
-            capFlag.store(true, ordering: .releasing)
-            onCap()
-        }
+        if done + frames >= limit { capFlag.store(true, ordering: .releasing) }
     }
 
     /// Stops the tap's input, waits for the writer to drain the ring, and closes the file.
@@ -186,28 +196,48 @@ final class CaptureRecorder: @unchecked Sendable {
     private func write() async -> Result {
         var handle: FileHandle?
         var frames = 0
+        var failure: String?
+        var notified = false
         let chunk = 1 << 14
-        let scratch = UnsafeMutablePointer<Float>.allocate(capacity: chunk)
-        defer { scratch.deallocate() }
+        let chunkBuffer = UnsafeMutablePointer<Float>.allocate(capacity: chunk)
+        defer { chunkBuffer.deallocate() }
         while true {
             let stopping = finishing.load(ordering: .acquiring)
+            if !notified,
+                capFlag.load(ordering: .acquiring) || formatFlag.load(ordering: .acquiring) || failure != nil
+            {
+                notified = true
+                onCap()
+            }
             var wrote = false
             let width = channels.load(ordering: .acquiring)
             if width > 0, !ring.isEmpty {
                 if handle == nil {
-                    FileManager.default.createFile(atPath: url.path, contents: nil)
-                    handle = try? FileHandle(forWritingTo: url)
-                    let first = rate.load(ordering: .relaxed)
-                    try? handle?.write(contentsOf: CaptureWAV.header(rate: first, channels: width, frames: 0))
+                    do {
+                        guard FileManager.default.createFile(atPath: url.path, contents: nil) else {
+                            throw CocoaError(.fileWriteUnknown)
+                        }
+                        handle = try FileHandle(forWritingTo: url)
+                        let first = rate.load(ordering: .relaxed)
+                        try handle?.write(contentsOf: CaptureWAV.header(rate: first, channels: width, frames: 0))
+                    } catch {
+                        failure = error.localizedDescription
+                        failFlag.store(true, ordering: .releasing)
+                    }
                 }
                 // Whole frames only, so that the file never holds half a frame.
                 let take = (chunk / width) * width
-                let count = ring.pop(into: scratch, limit: take)
-                if count > 0 {
-                    try? handle?.write(contentsOf: Data(bytes: scratch, count: count * 4))
-                    frames += count / width
-                    wrote = true
+                let count = ring.pop(into: chunkBuffer, limit: take)
+                if count > 0, failure == nil {
+                    do {
+                        try handle?.write(contentsOf: Data(bytes: chunkBuffer, count: count * 4))
+                        frames += count / width
+                    } catch {
+                        failure = error.localizedDescription
+                        failFlag.store(true, ordering: .releasing)
+                    }
                 }
+                if count > 0 { wrote = true }
             }
             if stopping, ring.isEmpty { break }
             if !wrote { try? await Task.sleep(for: .milliseconds(20)) }
@@ -215,13 +245,19 @@ final class CaptureRecorder: @unchecked Sendable {
         let width = channels.load(ordering: .relaxed)
         let sampleRate = rate.load(ordering: .relaxed)
         if let handle {
-            try? handle.seek(toOffset: 0)
-            try? handle.write(contentsOf: CaptureWAV.header(rate: sampleRate, channels: width, frames: frames))
-            try? handle.close()
+            do {
+                try handle.seek(toOffset: 0)
+                try handle.write(contentsOf: CaptureWAV.header(rate: sampleRate, channels: width, frames: frames))
+                try handle.close()
+            } catch {
+                failure = failure ?? error.localizedDescription
+            }
         }
+        if !notified, failure != nil { onCap() }
         return Result(
             url: handle == nil ? nil : url, frames: frames, rate: sampleRate, channels: width, dropped: ring.dropped,
-            capped: capFlag.load(ordering: .relaxed), formatChanged: formatFlag.load(ordering: .relaxed))
+            capped: capFlag.load(ordering: .relaxed), formatChanged: formatFlag.load(ordering: .relaxed),
+            error: failure)
     }
 }
 
@@ -250,6 +286,7 @@ enum CaptureSidecar {
         lines += route.map { "  \($0)" }
         if result.capped { lines.append("Stopped at the \(CaptureRecorder.maxSeconds) s cap.") }
         if result.formatChanged { lines.append("Stopped when the output rate or channel count changed.") }
+        if let error = result.error { lines.append("Write error: \(error)") }
         if result.dropped > 0 { lines.append("Warning: \(result.dropped) samples dropped, the file has holes.") }
         return lines.joined(separator: "\n") + "\n"
     }

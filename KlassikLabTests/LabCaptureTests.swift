@@ -232,4 +232,61 @@ struct LabCaptureTests {
             #expect(Array(a[0..<common]) == Array(b[0..<common]))
         }
     }
+
+    /// Every block that reached the tap, in arrival order, and whether two blocks ever ran at once.
+    private final class Delivery: Sendable {
+        private let state = Mutex<[Float]>([])
+        private let inFlight = Atomic<Int>(0)
+        private let overlap = Atomic<Bool>(false)
+        var samples: [Float] { state.withLock { $0 } }
+        var overlapped: Bool { overlap.load(ordering: .acquiring) }
+
+        func record(_ buffer: AVReadOnlyAudioPCMBuffer, into recorder: CaptureRecorder) {
+            if inFlight.add(1, ordering: .acquiringAndReleasing).newValue > 1 { overlap.store(true, ordering: .releasing) }
+            defer { inFlight.subtract(1, ordering: .acquiringAndReleasing) }
+            let frames = Int(buffer.frameLength)
+            buffer.withUnsafeAudioBufferList { list in
+                let buffers = UnsafeMutableAudioBufferListPointer(UnsafeMutablePointer(mutating: list))
+                state.withLock { state in
+                    for frame in 0..<frames {
+                        for audio in buffers {
+                            guard let source = audio.mData?.assumingMemoryBound(to: Float.self) else { continue }
+                            let width = Int(audio.mNumberChannels)
+                            for channel in 0..<width { state.append(source[frame * width + channel]) }
+                        }
+                    }
+                }
+            }
+            recorder.tap(buffer)
+        }
+    }
+
+    @MainActor @Test(arguments: [SeekMode.today, SeekMode.crossfade])
+    func twoSeeksWithACaptureRunningLeaveTheCaptureEqualToTheOutput(mode: SeekMode) async throws {
+        defer { try? FileManager.default.removeItem(at: root) }
+        let file = try wav(frames: 44_100 * 2)
+        let engine = GaplessEngine(manualRendering: true, gainNode: true, watchesStarvation: false)
+        engine.fadeOptions = FadeOptions(seek: mode)
+        defer { engine.discard() }
+        let recorder = CaptureRecorder(url: root.appending(path: "seek-\(UUID().uuidString).wav"))
+        let delivery = Delivery()
+        engine.setOutputTap { delivery.record($0, into: recorder) }
+        let track = PlaybackTrack(id: "0", duration: 2, suffix: "wav")
+        engine.load([track], from: 0, offset: 0) { _ in .file(file) }
+        for offset in [0.5, 1.0] {
+            try await Task.sleep(for: .milliseconds(300))
+            engine.load([track], from: 0, offset: offset) { _ in .file(file) }
+        }
+        try await Task.sleep(for: .milliseconds(900))
+        engine.setOutputTap(nil)
+        let result = await recorder.finish()
+        let url = try #require(result.url)
+        let data = try Data(contentsOf: url).dropFirst(CaptureWAV.headerSize)
+        let captured = data.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
+        let delivered = delivery.samples
+        #expect(!delivery.overlapped, "two engines fed the tap at once")
+        #expect(result.dropped == 0)
+        #expect(captured.count > 20_000)
+        #expect(captured == delivered)
+    }
 }

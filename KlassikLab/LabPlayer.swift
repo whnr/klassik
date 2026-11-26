@@ -58,6 +58,7 @@ final class LabPlayer {
     private var recorder: CaptureRecorder?
     private var captureStart = Date()
     private var captureTitle = ""
+    private var finishTask: Task<Void, Never>?
     /// Removes its observers when the player goes away.
     private let routeNotifications = PlaybackNotifications()
     private var engine: GaplessEngine?
@@ -166,11 +167,33 @@ final class LabPlayer {
 
     static var captureFolder: URL { URL.temporaryDirectory.appending(path: "lab-capture") }
 
+    /// Deletes the files of the last capture. The share sheet has copied or shared them by the time it closes.
+    func discardCapture() {
+        captured = nil
+        guard finishTask == nil else { return }
+        try? FileManager.default.removeItem(at: Self.captureFolder)
+    }
+
     private func beginCapture() {
+        // The previous finish writes into the folder, so it ends before the folder goes.
+        let previous = finishTask
+        previous?.cancel()
+        finishTask = nil
+        captured = nil
+        capturing = true
+        captureNote = nil
+        Task {
+            await previous?.value
+            startRecording()
+        }
+    }
+
+    private func startRecording() {
+        guard capturing, recorder == nil else { return }
         try? FileManager.default.removeItem(at: Self.captureFolder)
         try? FileManager.default.createDirectory(at: Self.captureFolder, withIntermediateDirectories: true)
         let title = selected?.title ?? "no case"
-        let stamp = Int(Date().timeIntervalSince1970)
+        let stamp = UUID().uuidString.prefix(8)
         let slug = String(title.lowercased().map { $0.isLetter || $0.isNumber ? $0 : "-" })
         let url = Self.captureFolder.appending(path: "lab-\(slug)-\(stamp).wav")
         let recorder = CaptureRecorder(url: url) { [weak self] in
@@ -179,15 +202,13 @@ final class LabPlayer {
         self.recorder = recorder
         captureStart = Date()
         captureTitle = title
-        captureNote = nil
-        captured = nil
-        capturing = true
         engine?.setOutputTap { recorder.tap($0) }
     }
 
     private func endCapture() {
-        guard capturing, let recorder else { return }
+        guard capturing else { return }
         capturing = false
+        guard let recorder else { return }
         self.recorder = nil
         engine?.setOutputTap(nil)
         let title = captureTitle
@@ -196,8 +217,15 @@ final class LabPlayer {
         let gain = replayGain
         let throttle = throttle.mode.title
         let route = routeLines
-        Task {
+        finishTask = Task {
+            defer { finishTask = nil }
             let result = await recorder.finish()
+            if let error = result.error {
+                captureNote = "The capture stopped: \(error)"
+                try? FileManager.default.removeItem(at: Self.captureFolder)
+                return
+            }
+            guard !Task.isCancelled else { return }
             guard let wav = result.url else {
                 captureNote = "Nothing was recorded: no sound reached the output."
                 return

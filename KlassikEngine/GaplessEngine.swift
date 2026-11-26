@@ -1,4 +1,5 @@
 import AVFoundation
+import Synchronization
 
 /// Plays the queued recordings back to back, without gaps, on one node timeline.
 /// A complete file plays as a segment. A track that is still arriving plays from decoded buffers, as soon as the
@@ -134,6 +135,12 @@ public final class GaplessEngine: PlaybackEngine {
     private var pump: Task<Void, Never>?
     private var outputTap: (@Sendable (AVReadOnlyAudioPCMBuffer) -> Void)?
     private var outputTapInstalled = false
+    /// Closed when the tap leaves its engine, so that a block already queued from a retired engine is dropped.
+    private var outputTapGate: TapGate?
+
+    private final class TapGate: Sendable {
+        let open = Atomic<Bool>(true)
+    }
     /// An offline engine has no output device to play back to, so it reports data as consumed.
     private var completionType: AVAudioPlayerNodeCompletionCallbackType {
         manualRendering ? .dataConsumed : .dataPlayedBack
@@ -165,6 +172,8 @@ public final class GaplessEngine: PlaybackEngine {
         let sounding = isSounding
         // A graph that sounds stays up for a crossfade. A graph that is still silent has nothing to cross over from,
         // so an older graph that waits for the same crossfade stays instead.
+        // A parked engine keeps sounding, so its tap goes now; two taps would feed the recorder from two queues.
+        removeOutputTap()
         var parked: Outgoing?
         if fadeOptions.seek == .crossfade, sounding, !silenced, let engine, let fade {
             parked = Outgoing(engine: engine, fade: fade, rate: sampleRate)
@@ -276,7 +285,7 @@ public final class GaplessEngine: PlaybackEngine {
         pump?.cancel()
         pump = nil
         pumped = 0
-        outputTapInstalled = false
+        removeOutputTap()
         halting?.cancel()
         halting = nil
         retireOutgoing()
@@ -530,12 +539,18 @@ public final class GaplessEngine: PlaybackEngine {
         let mixer = engine.mainMixerNode
         let tapFormat = mixer.outputFormat(forBus: 0)
         guard tapFormat.sampleRate > 0 else { return }
-        try? mixer.installAudioTap(onBus: 0, bufferSize: 4_096, format: tapFormat) { buffer, _ in tap(buffer) }
+        let gate = TapGate()
+        try? mixer.installAudioTap(onBus: 0, bufferSize: 4_096, format: tapFormat) { buffer, _ in
+            if gate.open.load(ordering: .acquiring) { tap(buffer) }
+        }
+        outputTapGate = gate
         outputTapInstalled = true
     }
 
     private func removeOutputTap() {
         guard outputTapInstalled else { return }
+        outputTapGate?.open.store(false, ordering: .releasing)
+        outputTapGate = nil
         engine?.mainMixerNode.removeTap(onBus: 0)
         outputTapInstalled = false
     }

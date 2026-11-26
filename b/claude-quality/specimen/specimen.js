@@ -15,7 +15,19 @@ const K = (() => {
   const STAMP = document.currentScript ? new URL(document.currentScript.src).searchParams.get("v") || "" : "";
   // The player overlay shows its page in a frame over the tab; the frame has no chrome of its own.
   const embedded = params.get("embed") === "player";
-  const CARRIED = ["variant", "look", "theme", "paper", "contrast", "size", "playing", "side", "edge", "tab", "quality"];
+  const CARRIED = [
+    "variant",
+    "look",
+    "theme",
+    "paper",
+    "contrast",
+    "size",
+    "playing",
+    "side",
+    "edge",
+    "tab",
+    "quality",
+  ];
   const SIZES = [
     "xSmall",
     "small",

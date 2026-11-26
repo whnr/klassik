@@ -1,4 +1,5 @@
 import AVFoundation
+import Synchronization
 
 /// Plays the queued recordings back to back, without gaps, on one node timeline.
 /// A complete file plays as a segment. A track that is still arriving plays from decoded buffers, as soon as the
@@ -141,6 +142,19 @@ public final class GaplessEngine: PlaybackEngine {
     /// the output sample for sample turns the watch off, so that runner load cannot pause the node.
     private let watchesStarvation: Bool
     private var pump: Task<Void, Never>?
+    /// Tests only. An offline engine renders when the test asks (`render`), so that a seek lands at a known frame.
+    private let renderOnDemand: Bool
+    private var outputTapSource: OutputTapSource?
+    /// The sink of the graph that a load builds. It exists from the load on, so that a capture holds back the time
+    /// that this graph can still add to, also while the old graph fades out.
+    private var pendingSink: (any OutputTapSink)?
+    /// The taps of the graphs that make sound: the graph that plays, and a retired graph until it has faded out and
+    /// the tap has delivered the end of the fade.
+    private var taps: [GraphTap] = []
+    /// Tests only. The offline timeline: where the graph that loads next starts, and the latest frame that any graph
+    /// rendered. A real engine stamps its blocks with the host clock instead.
+    private var graphEpoch = 0.0
+    private var offlineClock = 0.0
     /// An offline engine has no output device to play back to, so it reports data as consumed.
     private var completionType: AVAudioPlayerNodeCompletionCallbackType {
         manualRendering ? .dataConsumed : .dataPlayedBack
@@ -157,8 +171,10 @@ public final class GaplessEngine: PlaybackEngine {
         failureMapper: any PlaybackFailureMapper = TransferFailureMapper(),
         gainNode: Bool = true,
         fadeSeconds: Double = 0.1,
-        watchesStarvation: Bool = true
+        watchesStarvation: Bool = true,
+        renderOnDemand: Bool = false
     ) {
+        self.renderOnDemand = renderOnDemand
         self.watchesStarvation = watchesStarvation
         fadeOptions = FadeOptions(outSeconds: fadeSeconds, inSeconds: fadeSeconds)
         self.deliverCompletion = deliverCompletion
@@ -170,6 +186,8 @@ public final class GaplessEngine: PlaybackEngine {
 
     public func load(_ songs: [PlaybackTrack], from movement: Int, offset: Double, file: @escaping PlaybackFileSource) {
         let sounding = isSounding
+        if manualRendering { offlineClock = max(offlineClock, graphEpoch + Double(pumped) / sampleRate) }
+        registerPendingSink(sounding: sounding)
         // A graph that sounds stays up for a crossfade. A graph that is still silent has nothing to cross over from,
         // so an older graph that waits for the same crossfade stays instead.
         var parked: Outgoing?
@@ -184,6 +202,8 @@ public final class GaplessEngine: PlaybackEngine {
         outgoing = parked
         // The load starts at once. Only the first sound waits, so the load time runs inside the fade-out and the gap.
         let delay = fadeOptions.newSoundDelay(stopWait: stopWait)
+        // An offline graph is stamped at the time of its first sound, as the tests model it.
+        if manualRendering { graphEpoch = offlineClock + delay }
         earliestSound = delay > 0 ? .now + .seconds(delay) : nil
         self.songs = songs
         // The track at the load's start is fixed before the scheduler asks for it.
@@ -265,6 +285,7 @@ public final class GaplessEngine: PlaybackEngine {
 
     public func discard() {
         reset()
+        dropPendingSink()
     }
 
     /// Drops the load and its graph. Returns the seconds that the old sound needs to fade out and stop, or 0 when
@@ -521,8 +542,94 @@ public final class GaplessEngine: PlaybackEngine {
             ) { buffer, _ in rendered(buffer) }
         }
         try engine.start()
-        if manualRendering { startPump(engine, node: node, generation: generation) }
+        installOutputTap()
+        if manualRendering && !renderOnDemand { startPump(engine, node: node, generation: generation) }
         return .ready
+    }
+
+    /// Copies each block of the final output (after the fade stage, the gain and the mixer, before the hardware) to a
+    /// sink, or stops copying with nil. Every graph that makes sound gets its own sink from `source`, so a sink has
+    /// one producer, and a graph that is built later gets one too. A retired graph keeps its tap until it has faded
+    /// out, so the sink hears the whole fade. The tap runs on the system's tap queue, never on the render thread, and
+    /// changes neither the graph nor the format.
+    public func setOutputTap(_ source: OutputTapSource?) {
+        for tap in taps { tap.remove() }
+        taps = []
+        dropPendingSink()
+        outputTapSource = source
+        installOutputTap()
+    }
+
+    nonisolated private static func hostSeconds() -> Double {
+        AVAudioTime.seconds(forHostTime: mach_absolute_time())
+    }
+
+    /// The sink of the graph that this load builds. A real graph is built at once and its tap can deliver from the
+    /// install on, so the sink starts now; only its first sound waits. An offline graph starts at the time of its
+    /// first sound.
+    private func registerPendingSink(sounding: Bool) {
+        dropPendingSink()
+        guard let source = outputTapSource else { return }
+        let fadesOut = sounding && engine != nil && fade != nil
+        let stopWait = fadesOut ? Double(outFrames) / sampleRate + FadeOptions.stopMargin : 0
+        let delay = fadeOptions.newSoundDelay(stopWait: stopWait)
+        pendingSink = source(manualRendering ? offlineClock + delay : Self.hostSeconds())
+    }
+
+    private func dropPendingSink() {
+        pendingSink?.finish()
+        pendingSink = nil
+    }
+
+    /// The seconds that a retired graph stays up after its fade-out, so that the tap delivers the last block.
+    nonisolated static let tapSeconds = 0.1
+
+    private func installOutputTap() {
+        guard let source = outputTapSource, let engine, format != nil, engine.isRunning else { return }
+        guard !taps.contains(where: { $0.engine === engine }) else { return }
+        let mixer = engine.mainMixerNode
+        let tapFormat = mixer.outputFormat(forBus: 0)
+        guard tapFormat.sampleRate > 0 else { return }
+        let rate = tapFormat.sampleRate
+        let start = manualRendering ? graphEpoch + Double(pumped) / rate : Self.hostSeconds()
+        let sink = pendingSink ?? source(start)
+        pendingSink = nil
+        let gate = TapGate()
+        let stamper = TapStamper(offline: manualRendering, start: start, rate: rate)
+        do {
+            try mixer.installAudioTap(
+                onBus: 0, bufferSize: AVAudioFrameCount((rate * Self.tapSeconds).rounded()), format: tapFormat
+            ) { buffer, time in
+                if gate.open.load(ordering: .acquiring) {
+                    sink.tap(buffer, atSeconds: stamper.seconds(of: time, frames: Int(buffer.frameLength)))
+                }
+            }
+        } catch {
+            sink.finish()
+            return
+        }
+        taps.removeAll { $0.removed }
+        taps.append(GraphTap(engine: engine, sink: sink, gate: gate))
+    }
+
+    /// Tests only: renders `frames` of the audio that waits on the graph that plays.
+    func render(frames: Int) {
+        guard manualRendering, let engine else { return }
+        renderOffline(engine, frames: frames)
+        pumped += Int64(frames)
+    }
+
+    /// Renders offline in steps of the engine's largest block. A graph that cannot render has nothing to add.
+    private func renderOffline(_ engine: AVAudioEngine, frames: Int) {
+        let format = engine.manualRenderingFormat
+        let capacity = engine.manualRenderingMaximumFrameCount
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: capacity) else { return }
+        var left = frames
+        while left > 0 {
+            let step = min(left, Int(buffer.frameCapacity))
+            guard (try? engine.renderOffline(AVAudioFrameCount(step), to: buffer)) == .success else { return }
+            left -= step
+        }
     }
 
     /// The track at `position` needs another graph format. Nothing after the track before it is scheduled, so that
@@ -786,7 +893,7 @@ public final class GaplessEngine: PlaybackEngine {
     private var inFrames: Int { Int((fadeOptions.inSeconds * sampleRate).rounded()) }
 
     /// True while the graph makes sound that a fade-out has to cover.
-    private var isSounding: Bool {
+    var isSounding: Bool {
         guard let node else { return false }
         return started && !starved && node.isPlaying
     }
@@ -865,14 +972,17 @@ public final class GaplessEngine: PlaybackEngine {
 
     /// Stops a replaced engine after its sound faded out, so a skip does not cut the wave. The replaced load is
     /// already invalid, so nothing of it reaches the session. A silent engine stops at once. Returns the seconds
-    /// until the engine stops, or 0 when it stopped at once.
+    /// until the engine stops, or 0 when it stopped at once. A tap on the engine stays until the engine has made
+    /// the last block of the fade, so that a capture hears the whole fade-out.
     @discardableResult
     private func retire(
         _ engine: AVAudioEngine?, _ fade: FadeControl?, sounding: Bool, rate: Double, curve: FadeCurve,
         after trigger: FadeTrigger? = nil
     ) -> Double {
         guard let engine else { return 0 }
+        let tap = taps.first { $0.engine === engine }
         guard sounding, let fade else {
+            tap?.remove()
             engine.stop()
             return 0
         }
@@ -880,6 +990,11 @@ public final class GaplessEngine: PlaybackEngine {
         let frames = Int((fadeOptions.outSeconds * rate).rounded())
         fade.ramp(to: 0, frames: frames, curve: curve, after: trigger)
         let wait = Double(frames) / rate + FadeOptions.stopMargin
+        if manualRendering, tap != nil {
+            // An offline engine has no clock, so the fade, the margin and the blocks that deliver them render now.
+            renderOffline(engine, frames: Int((wait + 3 * Self.tapSeconds) * rate))
+        }
+        let flush = tap == nil ? 0 : 1.5 * Self.tapSeconds
         Task {
             // The fade-out of a crossfade starts with the new sound, which can be late. A pause, a discard or a
             // second seek of the new graph releases the trigger. A new graph that stays silent is released here
@@ -889,7 +1004,8 @@ public final class GaplessEngine: PlaybackEngine {
                 while !trigger.isFired, ContinuousClock.now < limit { try? await Task.sleep(for: .milliseconds(5)) }
                 trigger.force()
             }
-            try? await Task.sleep(for: .seconds(wait))
+            try? await Task.sleep(for: .seconds(wait + flush))
+            tap?.remove()
             engine.stop()
         }
         return wait
@@ -1001,5 +1117,67 @@ public final class GaplessEngine: PlaybackEngine {
             return info.playableRange(decodedLength: file.length)
         }
         return 0..<file.length
+    }
+}
+
+/// Receives the final output of one graph of a `GaplessEngine`, block by block. Each graph gets its own sink, so a
+/// sink has one producer. `tap` runs on the system's tap queue and must not wait.
+public protocol OutputTapSink: AnyObject, Sendable {
+    /// `seconds` places the first frame of the block on one timeline that all graphs of an engine share. A real engine
+    /// uses the host clock, so that a graph that fades out and a graph that fades in meet at the time they sounded.
+    func tap(_ buffer: AVReadOnlyAudioPCMBuffer, atSeconds seconds: Double)
+    /// The graph's tap is gone. No block follows.
+    func finish()
+}
+
+/// Makes the sink of a graph that starts at `startSeconds` on the timeline of the sinks.
+public typealias OutputTapSource = @Sendable (_ startSeconds: Double) -> any OutputTapSink
+
+/// Closed when a tap leaves its engine, so that a block already queued is dropped.
+private final class TapGate: Sendable {
+    let open = Atomic<Bool>(true)
+}
+
+/// Gives each block of one tap its time. The tap queue is the only caller.
+private final class TapStamper: @unchecked Sendable {
+    private let offline: Bool
+    private let rate: Double
+    private var next: Double
+
+    init(offline: Bool, start: Double, rate: Double) {
+        self.offline = offline
+        self.rate = rate
+        next = start
+    }
+
+    /// An offline engine and a time without a host clock follow on from the block before. A real engine's host time
+    /// is the start of the block.
+    func seconds(of time: AVAudioTime, frames: Int) -> Double {
+        let start = !offline && time.isHostTimeValid ? AVAudioTime.seconds(forHostTime: time.hostTime) : next
+        next = start + Double(frames) / rate
+        return start
+    }
+}
+
+/// The tap of one graph.
+@MainActor
+private final class GraphTap {
+    let engine: AVAudioEngine
+    private let sink: any OutputTapSink
+    private let gate: TapGate
+    private(set) var removed = false
+
+    init(engine: AVAudioEngine, sink: any OutputTapSink, gate: TapGate) {
+        self.engine = engine
+        self.sink = sink
+        self.gate = gate
+    }
+
+    func remove() {
+        guard !removed else { return }
+        removed = true
+        gate.open.store(false, ordering: .releasing)
+        engine.mainMixerNode.removeTap(onBus: 0)
+        sink.finish()
     }
 }

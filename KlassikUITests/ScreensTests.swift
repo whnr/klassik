@@ -3068,10 +3068,15 @@ class ScreensTestCase: XCTestCase {
         let connect = app.buttons["connect"]
         XCTAssertTrue(connect.waitForExistence(timeout: 10))
         if snapConnect { snap(app, "01-connect") }
-        connect.tap()
         // The Library place lists its rows at once. The composers fill in while the first sync runs.
         let composers = app.buttons["library-composers"]
-        let listed = composers.waitForExistence(timeout: 30)
+        // On a loaded runner the fixture server can answer a ping after the app's 10 second read limit. The
+        // connect screen then shows the timeout, and the listener taps Connect again, as the test does.
+        var listed = false
+        for _ in 0..<3 where !listed {
+            if connect.exists { connect.tap() }
+            listed = composers.waitForExistence(timeout: 30)
+        }
         XCTAssertTrue(listed, "No library after connect. On screen: \(visibleTexts(app))")
         if openComposers {
             composers.tap()

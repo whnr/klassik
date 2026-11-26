@@ -1,7 +1,7 @@
 {
-  "sha": "a90415830ee8c6a985c12d1e03f50240fb6e9809",
+  "sha": "ebd41cf0431df68926271b87d752f1f199b7708e",
   "branch": "claude-seekgap",
   "path": "claude-seekgap",
-  "subject": "Keep the old graph until a new graph sounds",
-  "ts": 1795700723
+  "subject": "Fix two expectations of the seek tests",
+  "ts": 1795702164
 }

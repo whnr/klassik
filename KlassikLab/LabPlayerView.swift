@@ -144,9 +144,11 @@ struct LabPlayerView: View {
                     Text(
                         "Today: fade out and load at the same time; the two can overlap. "
                             + "Silence: fade out, wait, then fade in; never overlapping. "
-                            + "Crossfade: the old place plays until the new one is ready, then both cross over: "
-                            + "the old one with the fade-out curve and length, "
-                            + "the new one with the fade-in curve and length.")
+                            + "Crossfade: when the new place is on the device, the old place plays until the new one "
+                            + "is ready, then both cross over: the old one with the fade-out curve and length, "
+                            + "the new one with the fade-in curve and length. "
+                            + "When it is not on the device, the old place fades out at once and the new one "
+                            + "starts when it has loaded.")
                 }
                 Section("Network") {
                     Picker("Throttle", selection: $player.throttle.mode) {

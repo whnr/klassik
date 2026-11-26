@@ -792,6 +792,81 @@ struct GaplessEngineSkipTests {
         player.discard()
     }
 
+    /// Renders a crossfade seek whose new graph stays silent for 20 000 frames, as a slow read does. Returns the
+    /// sum of both graphs from the load on, and the engine's request for the old graph.
+    private static func seekWithSilentNewGraph(onDisk: Bool?) throws -> (mix: [Float], old: FadeControl.Command?) {
+        var options = FadeOptions(outCurve: .equalPower, inCurve: .equalPower, outSeconds: 0.05, inSeconds: 0.05)
+        options.seek = .crossfade
+        let first = try renderedGraph(silent: 0)
+        let second = try renderedGraph(silent: 20_000)
+        defer {
+            for graph in [first, second] { graph.engine.stop() }
+        }
+        let player = GaplessEngine(manualRendering: true)
+        player.fadeOptions = options
+        if let onDisk { player.isOnDisk = { _ in onDisk } }
+        player.adopt(first.engine, first.node, started: true, fade: first.fade)
+        try player.start(first.node)
+        var mix: [Float] = []
+        try render([first], blocks: 60, into: &mix)
+        mix = []
+        load(player, old: first.engine, probe: Probe())
+        player.adopt(second.engine, second.node, started: false, fade: second.fade)
+        try player.start(second.node)
+        // 100 ms: twice the fade-out and its margin, and still far from the first sound of the new graph.
+        try render([second, first], blocks: 4_410 / 64, into: &mix)
+        let command = first.fade.last
+        player.discard()
+        return (mix, command)
+    }
+
+    /// The new bytes are on the device: the old audio plays on at full level until the new sound starts.
+    @Test func aCrossfadeSeekToATrackOnDiskHoldsTheOldAudioForTheNewSound() throws {
+        let (mix, old) = try Self.seekWithSilentNewGraph(onDisk: true)
+        #expect(old?.after != nil)
+        #expect(mix.allSatisfy { abs($0 - 0.5) < 1e-4 }, "the old audio stays at full level")
+    }
+
+    /// No hook answers (the main app): a crossfade seek keeps the crossfade; the old audio plays on for the new sound.
+    @Test func aCrossfadeSeekWithoutAnOnDiskAnswerHoldsTheOldAudioForTheNewSound() throws {
+        let (mix, old) = try Self.seekWithSilentNewGraph(onDisk: nil)
+        #expect(old?.after != nil)
+        #expect(mix.allSatisfy { abs($0 - 0.5) < 1e-4 }, "the old audio stays at full level")
+    }
+
+    /// The new bytes come from the network: the old audio fades out at once, and nothing plays until the new sound.
+    @Test func aCrossfadeSeekToATrackNotOnDiskFadesTheOldAudioOutAtOnce() throws {
+        let (mix, old) = try Self.seekWithSilentNewGraph(onDisk: false)
+        #expect(old?.after == nil && old?.target == 0 && old?.frames == Self.rate / 20)
+        #expect(mix.prefix(40).contains { $0 > 0.4 }, "the fade-out starts from the level that played")
+        let tail = mix.suffix(mix.count - Self.rate / 20 - 200)
+        #expect(!tail.isEmpty && tail.allSatisfy { abs($0) < 1e-4 }, "silent after the fade-out, not held")
+    }
+
+    /// A read from the device that never gives a sound ends the hold of the old audio at the default limit.
+    @Test func aStuckReadFromDiskEndsTheHoldAtTheDefaultLimit() async throws {
+        var options = Self.fiftyMilliseconds
+        options.seek = .crossfade
+        let (player, old, _) = try Self.sounding(options)
+        defer { old.stop() }
+        player.isOnDisk = { _ in true }
+        #expect(player.soundWaitLimit <= 1.0)
+        Self.load(player, old: old, probe: Probe())
+        let (new, newNode) = try Self.graph()
+        defer { new.stop() }
+        let incoming = FadeControl()
+        player.adopt(new, newNode, started: false, fade: incoming)
+        try player.start(newNode)
+        let trigger = try #require(incoming.last?.fires)
+        try? await Task.sleep(for: .milliseconds(300))
+        #expect(!trigger.isFired && old.isRunning, "the hold lasts for the limit")
+        // The limit is 1 s; poll for 2 s so a slow runner does not fail the test for the wrong reason.
+        for _ in 0..<400 where !trigger.isFired { try? await Task.sleep(for: .milliseconds(5)) }
+        #expect(trigger.isFired)
+        #expect(await Self.eventually { !old.isRunning })
+        player.discard()
+    }
+
     /// A seek in the silence mode, dB-linear fade-out: the level of the rendered output follows the curve at 25, 50
     /// and 75 percent of the fade. The engine's own load asks for the fade-out of a real graph with the fade stage.
     @Test func aSilenceModeSeekFallsEvenlyInDecibels() throws {

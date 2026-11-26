@@ -74,30 +74,30 @@ extension Page {
     @MainActor func backTitle(in library: Library) -> String {
         let index = library.index
         switch self {
-        case .settings: return "Settings"
-        case .composers: return "Composers"
-        case .favourites: return "Favourites"
+        case .settings: return L("Settings")
+        case .composers: return L("Composers")
+        case .favourites: return L("Favourites")
         case .composer(let name): return name
-        case .work(let id): return index.work(id)?.title ?? "Work"
+        case .work(let id): return index.work(id)?.title ?? L("Work")
         case .recording(let work, let recording):
-            return library.recording(work: work, recording: recording)?.work.title ?? "Recording"
-        case .rawTags: return "Tags"
-        case .sources: return "Dates and Sources"
+            return library.recording(work: work, recording: recording)?.work.title ?? L("Recording")
+        case .rawTags: return L("Tags")
+        case .sources: return L("Dates and Sources")
         case .performer(let name): return name
-        case .albums(let classical): return classical ? "Classical Albums" : "Other Albums"
-        case .album(let key): return library.album(key)?.title ?? "Album"
-        case .musicBrainz: return "MusicBrainz"
-        case .worksToConfirm: return "To Confirm"
-        case .worksWithoutMatch: return "No Match"
-        case .classicalRules: return "Classical Rules"
-        case .localStorage: return "Local Storage"
-        case .serverConnection: return "Server Connection"
-        case .swipeActions: return "Swipe Actions"
-        case .diagnostics: return "Diagnostics"
-        case .licences: return "Licences"
+        case .albums(let classical): return classical ? L("Classical Albums") : L("Other Albums")
+        case .album(let key): return library.album(key)?.title ?? L("Album")
+        case .musicBrainz: return L("MusicBrainz")
+        case .worksToConfirm: return L("To Confirm")
+        case .worksWithoutMatch: return L("No Match")
+        case .classicalRules: return L("Classical Rules")
+        case .localStorage: return L("Local Storage")
+        case .serverConnection: return L("Server Connection")
+        case .swipeActions: return L("Swipe Actions")
+        case .diagnostics: return L("Diagnostics")
+        case .licences: return L("Licences")
         case .gaplessTest: return "Gapless Test"
         // The page loads the album name, so the arrow cannot name it.
-        case .gaplessAlbum: return "Album"
+        case .gaplessAlbum: return L("Album")
         }
     }
 }
@@ -231,9 +231,9 @@ struct PageView: View {
         case .musicBrainz:
             EnrichmentStatusView()
         case .worksToConfirm:
-            WorkListView(title: "To Confirm", works: model.enrichment.summary(of: index).toConfirm)
+            WorkListView(title: L("To Confirm"), works: model.enrichment.summary(of: index).toConfirm)
         case .worksWithoutMatch:
-            WorkListView(title: "No Match", works: model.enrichment.summary(of: index).unmatched)
+            WorkListView(title: L("No Match"), works: model.enrichment.summary(of: index).unmatched)
         case .classicalRules:
             ClassicalRulesView()
         case .localStorage:

@@ -46,7 +46,7 @@ struct KlassikApp: App {
     /// It runs before the first colour, because the first colour reads the accent.
     private static func resetSettingsForTheWalk() {
         guard ProcessInfo.processInfo.arguments.contains("-resetServer") else { return }
-        for key in [TapIndicator.storageKey, AccentFamily.storageKey] {
+        for key in [TapIndicator.storageKey, AccentFamily.storageKey, Localization.fallbackKey] {
             UserDefaults.standard.removeObject(forKey: key)
         }
     }
@@ -121,6 +121,7 @@ struct RootView: View {
             Text(model.recordingOrder.error ?? "")
         }
         .onChange(of: showTaps, initial: true) { TapIndicator.shared.setEnabled(showTaps) }
+        .onChange(of: Localization.shared.textLanguages) { model.textLanguagesChanged() }
         .tint(Palette.tint)
         // The tint reads the family from the environment, so the family is set outside it.
         .environment(\.accentFamily, AccentChoice.shared.family)

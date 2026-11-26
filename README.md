@@ -10,6 +10,10 @@ Klassik is a classical music player for iPhone. It plays your own library from a
 - Plain iOS. Klassik uses system components and adds no design of its own.
 - Classical only. Use a general Subsonic client for other music.
 
+## Languages
+
+Klassik speaks English and German. English is the source language. Change the language of the app in the iOS Settings app, under Klassik, Language. Texts that Wikidata and Wikipedia give follow the app language.
+
 ## Requirements
 
 - iPhone with iOS 27 or later.

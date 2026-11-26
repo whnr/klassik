@@ -57,9 +57,13 @@ struct PersonAbout<Tags: View>: View {
             }
         } else {
             Section {
-                Text("Wikidata has no facts for this \(kind). Klassik shows your tags.")
-                    .foregroundStyle(Palette.textSecondary)
-                    .listRowSeparator(.hidden)
+                Text(
+                    kind == "composer"
+                        ? L("Wikidata has no facts for this composer. Klassik shows your tags.")
+                        : L("Wikidata has no facts for this performer. Klassik shows your tags.")
+                )
+                .foregroundStyle(Palette.textSecondary)
+                .listRowSeparator(.hidden)
             }
         }
         Section {

@@ -10,8 +10,8 @@ enum LibraryRow: String, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .composers: "Composers"
-        case .favourites: "Favourites"
+        case .composers: L("Composers")
+        case .favourites: L("Favourites")
         }
     }
 }

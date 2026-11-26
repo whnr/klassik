@@ -1,0 +1,4096 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "%@ (Subsonic error %lld)": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (Subsonic-Fehler %lld)"
+          }
+        }
+      }
+    },
+    "%@ of %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: %@"
+          }
+        }
+      }
+    },
+    "%@ of %@ on server": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ von %@ auf dem Server"
+          }
+        }
+      }
+    },
+    "%@ on %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: %@"
+          }
+        }
+      }
+    },
+    "%lld of %@ match": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld von %@ passen"
+          }
+        }
+      }
+    },
+    "%lld of %lld": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld von %lld"
+          }
+        }
+      }
+    },
+    "%lld of %lld recordings downloaded": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld von %lld Aufnahmen heruntergeladen"
+          }
+        }
+      }
+    },
+    "%lld others": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld weitere"
+          }
+        }
+      }
+    },
+    "%lld to confirm": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld zu bestätigen"
+          }
+        }
+      }
+    },
+    "%lld waiting": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld warten"
+          }
+        }
+      }
+    },
+    ", composed %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ", komponiert %@"
+          }
+        }
+      }
+    },
+    "1 other": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 weiterer"
+          }
+        }
+      }
+    },
+    "A composer page lists a work with no complete recording under Partial works. Favourite works, listening notes, recent searches and the changes that wait stay on this iPhone, for this server and user. Sign-out keeps them.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eine Komponistenseite führt ein Werk ohne vollständige Aufnahme unter „Teilwerke“. Favoriten, Hörnotizen, letzte Suchen und wartende Änderungen bleiben auf diesem iPhone, für diesen Server und Benutzer. Beim Abmelden bleiben sie erhalten."
+          }
+        }
+      }
+    },
+    "A download stays until you remove it. The music limit does not count it. Signing out removes it.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Download bleibt, bis du ihn entfernst. Die Musikgrenze zählt ihn nicht. Beim Abmelden wird er entfernt."
+          }
+        }
+      }
+    },
+    "A recording holds the tracks of one work on one album, in disc and track order.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eine Aufnahme enthält die Titel eines Werks auf einem Album, in Disc- und Titelreihenfolge."
+          }
+        }
+      }
+    },
+    "A tap adds a new condition with “and”. “or +” on a condition adds the next term to it with “or”.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Tippen fügt eine neue Bedingung mit „und“ hinzu. „oder +“ an einer Bedingung fügt ihr den nächsten Begriff mit „oder“ hinzu."
+          }
+        }
+      }
+    },
+    "A tap adds the term with “or” to the marked condition.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Tippen fügt den Begriff mit „oder“ zur markierten Bedingung hinzu."
+          }
+        }
+      }
+    },
+    "A track is classical if one of the classical rules matches. A rule matches if all of its checks match. An album is classical if most of its tracks are; then all of its tracks count. Klassik keeps the rules on this iPhone.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Titel ist klassisch, wenn eine der Klassik-Regeln passt. Eine Regel passt, wenn alle ihre Prüfungen passen. Ein Album ist klassisch, wenn die meisten seiner Titel es sind; dann zählen alle seine Titel. Klassik speichert die Regeln auf diesem iPhone."
+          }
+        }
+      }
+    },
+    "A whole album played as one work. Each track below shows its own work key.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein ganzes Album, als ein Werk gespielt. Jeder Titel unten zeigt seinen eigenen Werkschlüssel."
+          }
+        }
+      }
+    },
+    "API version": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "API-Version"
+          }
+        }
+      }
+    },
+    "About": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Info"
+          }
+        }
+      }
+    },
+    "Accent": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Akzentfarbe"
+          }
+        }
+      }
+    },
+    "Account": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konto"
+          }
+        }
+      }
+    },
+    "Add Check": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prüfung hinzufügen"
+          }
+        }
+      }
+    },
+    "Add Rule": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regel hinzufügen"
+          }
+        }
+      }
+    },
+    "Add a note here": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hier eine Notiz hinzufügen"
+          }
+        }
+      }
+    },
+    "Add to Queue": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zur Warteschlange"
+          }
+        }
+      }
+    },
+    "Advanced settings": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erweiterte Einstellungen"
+          }
+        }
+      }
+    },
+    "Album": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Album"
+          }
+        }
+      }
+    },
+    "Album Art": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Albumcover"
+          }
+        }
+      }
+    },
+    "Album ID": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Album-ID"
+          }
+        }
+      }
+    },
+    "Albums": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alben"
+          }
+        }
+      }
+    },
+    "Albums without a WORK tag show as one work each.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alben ohne WORK-Tag erscheinen als je ein Werk."
+          }
+        }
+      }
+    },
+    "All": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle"
+          }
+        }
+      }
+    },
+    "All composers": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle Komponisten"
+          }
+        }
+      }
+    },
+    "Any OpenSubsonic server, such as Navidrome. Klassik reads your tags and never changes them.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jeder OpenSubsonic-Server, zum Beispiel Navidrome. Klassik liest deine Tags und ändert sie nie."
+          }
+        }
+      }
+    },
+    "App": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App"
+          }
+        }
+      }
+    },
+    "Article": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Artikel"
+          }
+        }
+      }
+    },
+    "Available offline": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Offline verfügbar"
+          }
+        }
+      }
+    },
+    "Back": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zurück"
+          }
+        }
+      }
+    },
+    "Back to Chronology": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zurück zur Chronologie"
+          }
+        }
+      }
+    },
+    "Baroque": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Barock"
+          }
+        }
+      }
+    },
+    "Biography": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Biografie"
+          }
+        }
+      }
+    },
+    "Bottle Green": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flaschengrün"
+          }
+        }
+      }
+    },
+    "Cancel": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abbrechen"
+          }
+        }
+      }
+    },
+    "Cancel Download": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download abbrechen"
+          }
+        }
+      }
+    },
+    "Check": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prüfung"
+          }
+        }
+      }
+    },
+    "Check Again": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erneut prüfen"
+          }
+        }
+      }
+    },
+    "Checked %@, no changes": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geprüft %@, keine Änderungen"
+          }
+        }
+      }
+    },
+    "Checked %@, no changes.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geprüft %@, keine Änderungen."
+          }
+        }
+      }
+    },
+    "Checking…": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prüfe …"
+          }
+        }
+      }
+    },
+    "Choose Composer Again": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Komponist neu wählen"
+          }
+        }
+      }
+    },
+    "Chronology": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronologie"
+          }
+        }
+      }
+    },
+    "Claret": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bordeaux"
+          }
+        }
+      }
+    },
+    "Classical": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klassik"
+          }
+        }
+      }
+    },
+    "Classical Albums": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klassische Alben"
+          }
+        }
+      }
+    },
+    "Classical Rules": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klassik-Regeln"
+          }
+        }
+      }
+    },
+    "Classical Tracks": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klassische Titel"
+          }
+        }
+      }
+    },
+    "Classical albums": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klassische Alben"
+          }
+        }
+      }
+    },
+    "Classical counts follow the classical rules. Tracks Outside Filter are on the server but fail the rules.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Klassik-Zahlen folgen den Klassik-Regeln. Titel außerhalb des Filters liegen auf dem Server, erfüllen die Regeln aber nicht."
+          }
+        }
+      }
+    },
+    "Classical tracks": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klassische Titel"
+          }
+        }
+      }
+    },
+    "Clear": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Löschen"
+          }
+        }
+      }
+    },
+    "Clear Music": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Musik löschen"
+          }
+        }
+      }
+    },
+    "Clear search and filters": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suche und Filter löschen"
+          }
+        }
+      }
+    },
+    "Close Tip": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tipp schließen"
+          }
+        }
+      }
+    },
+    "Close the player": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Player schließen"
+          }
+        }
+      }
+    },
+    "Collapsed": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zugeklappt"
+          }
+        }
+      }
+    },
+    "Colour": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Farbe"
+          }
+        }
+      }
+    },
+    "Composed": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Komponiert"
+          }
+        }
+      }
+    },
+    "Composed %@, %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Komponiert %@, %@"
+          }
+        }
+      }
+    },
+    "Composer": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Komponist"
+          }
+        }
+      }
+    },
+    "Composers": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Komponisten"
+          }
+        }
+      }
+    },
+    "Composers appear here when Wikidata gives their life dates.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Komponisten erscheinen hier, sobald Wikidata ihre Lebensdaten kennt."
+          }
+        }
+      }
+    },
+    "Conductor": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dirigent"
+          }
+        }
+      }
+    },
+    "Conductors": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dirigenten"
+          }
+        }
+      }
+    },
+    "Connect": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbinden"
+          }
+        }
+      }
+    },
+    "Connected": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbunden"
+          }
+        }
+      }
+    },
+    "Connection": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbindung"
+          }
+        }
+      }
+    },
+    "Could not save the password in the Keychain (status %d).": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Passwort ließ sich nicht im Schlüsselbund speichern (Status %d)."
+          }
+        }
+      }
+    },
+    "Cover": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cover"
+          }
+        }
+      }
+    },
+    "Credits": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nachweise"
+          }
+        }
+      }
+    },
+    "Dates and Sources": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daten und Quellen"
+          }
+        }
+      }
+    },
+    "Dates come from MusicBrainz and Wikidata. Your own years win.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Daten kommen von MusicBrainz und Wikidata. Deine eigenen Jahre haben Vorrang."
+          }
+        }
+      }
+    },
+    "Delete Listening Data": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hördaten löschen"
+          }
+        }
+      }
+    },
+    "Delete Listening Data?": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hördaten löschen?"
+          }
+        }
+      }
+    },
+    "Delete Rule": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regel löschen"
+          }
+        }
+      }
+    },
+    "Diagnostics": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diagnose"
+          }
+        }
+      }
+    },
+    "Done": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fertig"
+          }
+        }
+      }
+    },
+    "Download": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Herunterladen"
+          }
+        }
+      }
+    },
+    "Download Again": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erneut herunterladen"
+          }
+        }
+      }
+    },
+    "Downloaded, %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heruntergeladen, %@"
+          }
+        }
+      }
+    },
+    "Downloading, %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lädt, %@"
+          }
+        }
+      }
+    },
+    "Downloading, waits for the server": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lädt, wartet auf den Server"
+          }
+        }
+      }
+    },
+    "Downloads": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Downloads"
+          }
+        }
+      }
+    },
+    "Downloads and the music cache leave this iPhone. Favourite works, listening notes and the changes that wait stay for this server and user.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Downloads und der Musik-Zwischenspeicher verlassen dieses iPhone. Favoriten, Hörnotizen und wartende Änderungen bleiben für diesen Server und Benutzer."
+          }
+        }
+      }
+    },
+    "Due for a New Check": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zur erneuten Prüfung fällig"
+          }
+        }
+      }
+    },
+    "End here": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hier enden"
+          }
+        }
+      }
+    },
+    "Every track that plays stays here. When the cache is full, the tracks played longest ago go first.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jeder gespielte Titel bleibt hier. Ist der Zwischenspeicher voll, gehen die am längsten nicht gespielten Titel zuerst."
+          }
+        }
+      }
+    },
+    "Expanded": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aufgeklappt"
+          }
+        }
+      }
+    },
+    "Extensions": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erweiterungen"
+          }
+        }
+      }
+    },
+    "Facts": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fakten"
+          }
+        }
+      }
+    },
+    "Facts from Wikidata are not available now. Klassik tries again when you open this page.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fakten von Wikidata sind jetzt nicht verfügbar. Klassik versucht es erneut, wenn du diese Seite öffnest."
+          }
+        }
+      }
+    },
+    "Failed: %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fehlgeschlagen: %@"
+          }
+        }
+      }
+    },
+    "Fallback Language": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ersatzsprache"
+          }
+        }
+      }
+    },
+    "Favourite": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Favorit"
+          }
+        }
+      }
+    },
+    "Favourite album: %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lieblingsalbum: %@"
+          }
+        }
+      }
+    },
+    "Favourite changes waiting": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wartende Favoriten-Änderungen"
+          }
+        }
+      }
+    },
+    "Favourite file error": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fehler in der Favoritendatei"
+          }
+        }
+      }
+    },
+    "Favourite performer: %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lieblingsinterpret: %@"
+          }
+        }
+      }
+    },
+    "Favourite recordings come first. Then the newest.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Favorisierte Aufnahmen stehen oben, dann die neuesten."
+          }
+        }
+      }
+    },
+    "Favourite refresh error": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fehler beim Aktualisieren der Favoriten"
+          }
+        }
+      }
+    },
+    "Favourites": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Favoriten"
+          }
+        }
+      }
+    },
+    "File page": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dateiseite"
+          }
+        }
+      }
+    },
+    "Filters": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filter"
+          }
+        }
+      }
+    },
+    "Find in composers": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In Komponisten suchen"
+          }
+        }
+      }
+    },
+    "Find in conductors": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In Dirigenten suchen"
+          }
+        }
+      }
+    },
+    "Find in genres": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In Genres suchen"
+          }
+        }
+      }
+    },
+    "Find in performers": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In Interpreten suchen"
+          }
+        }
+      }
+    },
+    "Gapless Test": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gapless-Test"
+          }
+        }
+      }
+    },
+    "Genre": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Genre"
+          }
+        }
+      }
+    },
+    "Genre contains": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Genre enthält"
+          }
+        }
+      }
+    },
+    "Genre does not contain": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Genre enthält nicht"
+          }
+        }
+      }
+    },
+    "Genres": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Genres"
+          }
+        }
+      }
+    },
+    "Grouped by composer and the WORK tag. No MusicBrainz work ID is tagged.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruppiert nach Komponist und WORK-Tag. Keine MusicBrainz-Werk-ID ist getaggt."
+          }
+        }
+      }
+    },
+    "Grouped by the MusicBrainz work ID in the tags.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruppiert nach der MusicBrainz-Werk-ID in den Tags."
+          }
+        }
+      }
+    },
+    "Grouping (derived by Klassik)": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruppierung (von Klassik abgeleitet)"
+          }
+        }
+      }
+    },
+    "Has a composer": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hat einen Komponisten"
+          }
+        }
+      }
+    },
+    "Has a movement": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hat einen Satz"
+          }
+        }
+      }
+    },
+    "Has a work": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hat ein Werk"
+          }
+        }
+      }
+    },
+    "Hides the names": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blendet die Namen aus"
+          }
+        }
+      }
+    },
+    "Hides the names and notes": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blendet Namen und Notizen aus"
+          }
+        }
+      }
+    },
+    "Hides the notes": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Blendet die Notizen aus"
+          }
+        }
+      }
+    },
+    "Hold Back to Go Further": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zurück halten für frühere Seiten"
+          }
+        }
+      }
+    },
+    "Klassik": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klassik"
+          }
+        }
+      }
+    },
+    "Klassik keeps playing from the library on this iPhone. Changes wait until the server answers.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klassik spielt weiter aus der Bibliothek auf diesem iPhone. Änderungen warten, bis der Server antwortet."
+          }
+        }
+      }
+    },
+    "Klassik lists each composer's works in MusicBrainz and matches them on this iPhone. MusicBrainz allows one request a second. Look up missing again after a fix in MusicBrainz.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klassik listet die Werke jedes Komponisten in MusicBrainz auf und gleicht sie auf diesem iPhone ab. MusicBrainz erlaubt eine Anfrage pro Sekunde. Frage Fehlende erneut ab, nachdem du etwas in MusicBrainz korrigiert hast."
+          }
+        }
+      }
+    },
+    "Klassik looks up every composer and performer of your library, new people first, one at a time at the pace that Wikidata asks for. It asks again for living people after about %lld days and for others after about a year, or after about 3 months when Wikidata does not know them. It waits for a connection that is not metered and not in Low Data Mode.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klassik fragt jeden Komponisten und Interpreten deiner Bibliothek ab, neue Personen zuerst, einzeln und in dem Tempo, das Wikidata verlangt. Lebende Personen fragt es nach etwa %lld Tagen erneut ab, andere nach etwa einem Jahr, oder nach etwa 3 Monaten, wenn Wikidata sie nicht kennt. Es wartet auf eine Verbindung ohne Datenlimit und ohne Datensparmodus."
+          }
+        }
+      }
+    },
+    "Klassik uses %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klassik belegt %@"
+          }
+        }
+      }
+    },
+    "Klassik uses %@.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klassik belegt %@."
+          }
+        }
+      }
+    },
+    "Klassik uses %@. %@ free on this iPhone.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klassik belegt %@. %@ frei auf diesem iPhone."
+          }
+        }
+      }
+    },
+    "Language": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sprache"
+          }
+        }
+      }
+    },
+    "Last Error": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Letzter Fehler"
+          }
+        }
+      }
+    },
+    "Last Sync": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Letzte Synchronisierung"
+          }
+        }
+      }
+    },
+    "Last change check": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Letzte Änderungsprüfung"
+          }
+        }
+      }
+    },
+    "Last check": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Letzte Prüfung"
+          }
+        }
+      }
+    },
+    "Last sync": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Letzte Synchronisierung"
+          }
+        }
+      }
+    },
+    "Left": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Links"
+          }
+        }
+      }
+    },
+    "Library": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bibliothek"
+          }
+        }
+      }
+    },
+    "Licences": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lizenzen"
+          }
+        }
+      }
+    },
+    "Limit": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grenze"
+          }
+        }
+      }
+    },
+    "Linked to MusicBrainz": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mit MusicBrainz verknüpft"
+          }
+        }
+      }
+    },
+    "Listening Data": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hördaten"
+          }
+        }
+      }
+    },
+    "Loading this track stopped.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Laden dieses Titels wurde beendet."
+          }
+        }
+      }
+    },
+    "Local Storage": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lokaler Speicher"
+          }
+        }
+      }
+    },
+    "Look Up Again": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erneut abfragen"
+          }
+        }
+      }
+    },
+    "Look Up Missing Again": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fehlende erneut abfragen"
+          }
+        }
+      }
+    },
+    "Looking up %lld of %lld people": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suche %lld von %lld Personen"
+          }
+        }
+      }
+    },
+    "Looking up %lld of %lld works in Wikidata.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suche %lld von %lld Werken in Wikidata."
+          }
+        }
+      }
+    },
+    "Looking up %lld of %lld works, now %@.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suche %lld von %lld Werken, jetzt %@."
+          }
+        }
+      }
+    },
+    "Looking up…": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suche …"
+          }
+        }
+      }
+    },
+    "Lookup": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abfrage"
+          }
+        }
+      }
+    },
+    "Mark a person, work, recording or album as a favourite to see it here.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Markiere eine Person, ein Werk, eine Aufnahme oder ein Album als Favorit, um es hier zu sehen."
+          }
+        }
+      }
+    },
+    "Mini player": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mini-Player"
+          }
+        }
+      }
+    },
+    "Missing or wrong data? Fix it in MusicBrainz, then look up again.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daten fehlen oder sind falsch? Korrigiere sie in MusicBrainz und frage dann erneut ab."
+          }
+        }
+      }
+    },
+    "Modern": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Moderne"
+          }
+        }
+      }
+    },
+    "More": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mehr"
+          }
+        }
+      }
+    },
+    "Movement %lld of %lld, %@, %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Satz %lld von %lld, %@, %@"
+          }
+        }
+      }
+    },
+    "Moves to %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Springt zu %@"
+          }
+        }
+      }
+    },
+    "Music": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Musik"
+          }
+        }
+      }
+    },
+    "MusicBrainz": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MusicBrainz"
+          }
+        }
+      }
+    },
+    "MusicBrainz lookup stopped: %@ Klassik tries again at the next start.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die MusicBrainz-Abfrage wurde gestoppt: %@ Klassik versucht es beim nächsten Start erneut."
+          }
+        }
+      }
+    },
+    "Name in your tags": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name in deinen Tags"
+          }
+        }
+      }
+    },
+    "Needs the server": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Braucht den Server"
+          }
+        }
+      }
+    },
+    "New": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neu"
+          }
+        }
+      }
+    },
+    "Next": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weiter"
+          }
+        }
+      }
+    },
+    "Next Work": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nächstes Werk"
+          }
+        }
+      }
+    },
+    "Nickname: %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beiname: %@"
+          }
+        }
+      }
+    },
+    "No": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nein"
+          }
+        }
+      }
+    },
+    "No Albums": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine Alben"
+          }
+        }
+      }
+    },
+    "No Composers": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine Komponisten"
+          }
+        }
+      }
+    },
+    "No Favourites": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine Favoriten"
+          }
+        }
+      }
+    },
+    "No Match": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kein Treffer"
+          }
+        }
+      }
+    },
+    "No MusicBrainz work matches.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kein MusicBrainz-Werk passt."
+          }
+        }
+      }
+    },
+    "No MusicBrainz work matches. A catalogue number in the title, such as Op. 67, helps.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kein MusicBrainz-Werk passt. Eine Werknummer im Titel, zum Beispiel Op. 67, hilft."
+          }
+        }
+      }
+    },
+    "No albums name this performer.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kein Album nennt diesen Interpreten."
+          }
+        }
+      }
+    },
+    "No date": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ohne Datum"
+          }
+        }
+      }
+    },
+    "No downloads": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine Downloads"
+          }
+        }
+      }
+    },
+    "No source gives a year.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine Quelle nennt ein Jahr."
+          }
+        }
+      }
+    },
+    "No term of this kind is left.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kein Begriff dieser Art ist übrig."
+          }
+        }
+      }
+    },
+    "No work, name or album matches.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kein Werk, Name oder Album passt."
+          }
+        }
+      }
+    },
+    "No works with these genres.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine Werke mit diesen Genres."
+          }
+        }
+      }
+    },
+    "None": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine"
+          }
+        }
+      }
+    },
+    "None of These": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keiner davon"
+          }
+        }
+      }
+    },
+    "Not Looked Up Yet": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noch nicht abgefragt"
+          }
+        }
+      }
+    },
+    "Not This Work": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht dieses Werk"
+          }
+        }
+      }
+    },
+    "Not a favourite": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kein Favorit"
+          }
+        }
+      }
+    },
+    "Not found": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht gefunden"
+          }
+        }
+      }
+    },
+    "Not looked up yet.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noch nicht abgefragt."
+          }
+        }
+      }
+    },
+    "Not reachable": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht erreichbar"
+          }
+        }
+      }
+    },
+    "Not reached": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht erreicht"
+          }
+        }
+      }
+    },
+    "Not synced": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht synchronisiert"
+          }
+        }
+      }
+    },
+    "Not synced.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht synchronisiert."
+          }
+        }
+      }
+    },
+    "Now playing, %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Läuft: %@"
+          }
+        }
+      }
+    },
+    "OK": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        }
+      }
+    },
+    "Off": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aus"
+          }
+        }
+      }
+    },
+    "Open in MusicBrainz": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In MusicBrainz öffnen"
+          }
+        }
+      }
+    },
+    "OpenSubsonic": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenSubsonic"
+          }
+        }
+      }
+    },
+    "Opens the player overlay.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öffnet den Player."
+          }
+        }
+      }
+    },
+    "Or": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oder"
+          }
+        }
+      }
+    },
+    "Or Rule %lld": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oder-Regel %lld"
+          }
+        }
+      }
+    },
+    "Other Albums": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Andere Alben"
+          }
+        }
+      }
+    },
+    "Own work key (derived)": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eigener Werkschlüssel (abgeleitet)"
+          }
+        }
+      }
+    },
+    "Page Not Found": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seite nicht gefunden"
+          }
+        }
+      }
+    },
+    "Partial works": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Teilwerke"
+          }
+        }
+      }
+    },
+    "Password": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passwort"
+          }
+        }
+      }
+    },
+    "Pause": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pause"
+          }
+        }
+      }
+    },
+    "Pause Album": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Album pausieren"
+          }
+        }
+      }
+    },
+    "Paused": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pausiert"
+          }
+        }
+      }
+    },
+    "Paused: Wikidata asked for a pause. Klassik tries again %@.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pausiert: Wikidata hat um eine Pause gebeten. Klassik versucht es %@ erneut."
+          }
+        }
+      }
+    },
+    "Paused: no suitable connection": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pausiert: keine passende Verbindung"
+          }
+        }
+      }
+    },
+    "People %lld of %lld": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Personen %lld von %lld"
+          }
+        }
+      }
+    },
+    "People Checked": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geprüfte Personen"
+          }
+        }
+      }
+    },
+    "People from Wikidata": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Personen aus Wikidata"
+          }
+        }
+      }
+    },
+    "Performer": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Interpret"
+          }
+        }
+      }
+    },
+    "Performers": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Interpreten"
+          }
+        }
+      }
+    },
+    "Pick a term to start a condition.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wähle einen Begriff, um eine Bedingung zu beginnen."
+          }
+        }
+      }
+    },
+    "Picture": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bild"
+          }
+        }
+      }
+    },
+    "Picture of %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bild von %@"
+          }
+        }
+      }
+    },
+    "Pictures": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bilder"
+          }
+        }
+      }
+    },
+    "Play": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abspielen"
+          }
+        }
+      }
+    },
+    "Play Album": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Album abspielen"
+          }
+        }
+      }
+    },
+    "Play Next": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Als Nächstes"
+          }
+        }
+      }
+    },
+    "Play from %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ab %@ abspielen"
+          }
+        }
+      }
+    },
+    "Play from here": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ab hier abspielen"
+          }
+        }
+      }
+    },
+    "Play top recording": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beste Aufnahme abspielen"
+          }
+        }
+      }
+    },
+    "Playback": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wiedergabe"
+          }
+        }
+      }
+    },
+    "Player Tint": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Player-Tönung"
+          }
+        }
+      }
+    },
+    "Plum": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pflaume"
+          }
+        }
+      }
+    },
+    "Position": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Position"
+          }
+        }
+      }
+    },
+    "Previous": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zurück"
+          }
+        }
+      }
+    },
+    "Recent": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zuletzt"
+          }
+        }
+      }
+    },
+    "Recorded in %@ on %@.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aufgenommen %@ auf %@."
+          }
+        }
+      }
+    },
+    "Recorded in %@.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aufgenommen %@."
+          }
+        }
+      }
+    },
+    "Recorded on %@.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aufgenommen auf %@."
+          }
+        }
+      }
+    },
+    "Recording": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aufnahme"
+          }
+        }
+      }
+    },
+    "Recordings": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aufnahmen"
+          }
+        }
+      }
+    },
+    "Remove": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entfernen"
+          }
+        }
+      }
+    },
+    "Remove %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ entfernen"
+          }
+        }
+      }
+    },
+    "Remove Download": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download entfernen"
+          }
+        }
+      }
+    },
+    "Renaissance": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Renaissance"
+          }
+        }
+      }
+    },
+    "ReplayGain": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ReplayGain"
+          }
+        }
+      }
+    },
+    "Requests Since Start": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anfragen seit dem Start"
+          }
+        }
+      }
+    },
+    "Restore Default Rules": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Standardregeln wiederherstellen"
+          }
+        }
+      }
+    },
+    "Restore Defaults": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Standard wiederherstellen"
+          }
+        }
+      }
+    },
+    "Result": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ergebnis"
+          }
+        }
+      }
+    },
+    "Resume": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fortsetzen"
+          }
+        }
+      }
+    },
+    "Resume Album": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Album fortsetzen"
+          }
+        }
+      }
+    },
+    "Right": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rechts"
+          }
+        }
+      }
+    },
+    "Romantic": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Romantik"
+          }
+        }
+      }
+    },
+    "Rows of recordings and albums. A row that cannot do an action leaves it out.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zeilen von Aufnahmen und Alben. Eine Zeile, die eine Aktion nicht kann, lässt sie aus."
+          }
+        }
+      }
+    },
+    "Rule %lld": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Regel %lld"
+          }
+        }
+      }
+    },
+    "Save": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Speichern"
+          }
+        }
+      }
+    },
+    "Scrobbles": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scrobbles"
+          }
+        }
+      }
+    },
+    "Search": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suche"
+          }
+        }
+      }
+    },
+    "Search on MusicBrainz": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In MusicBrainz suchen"
+          }
+        }
+      }
+    },
+    "Separate Partial Works": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Teilwerke trennen"
+          }
+        }
+      }
+    },
+    "Server": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Server"
+          }
+        }
+      }
+    },
+    "Server Address": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Serveradresse"
+          }
+        }
+      }
+    },
+    "Server Connection": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Serververbindung"
+          }
+        }
+      }
+    },
+    "Server URL": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Server-URL"
+          }
+        }
+      }
+    },
+    "Server not reachable. Changes wait on this iPhone.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Server nicht erreichbar. Änderungen warten auf diesem iPhone."
+          }
+        }
+      }
+    },
+    "Settings": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einstellungen"
+          }
+        }
+      }
+    },
+    "Several composers have the name \"%@\" and your works do not say which one it is.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mehrere Komponisten heißen „%@“, und deine Werke sagen nicht, welcher es ist."
+          }
+        }
+      }
+    },
+    "Show Audio Quality": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audioqualität anzeigen"
+          }
+        }
+      }
+    },
+    "Show Taps": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Berührungen zeigen"
+          }
+        }
+      }
+    },
+    "Show the player": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Player zeigen"
+          }
+        }
+      }
+    },
+    "Shows a circle at each touch, so a screen recording shows where you tap.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zeigt einen Kreis bei jeder Berührung, damit eine Bildschirmaufnahme zeigt, wo du tippst."
+          }
+        }
+      }
+    },
+    "Shows the lookups and diagnostics with the changes that wait.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zeigt die Abfragen und die Diagnose mit den wartenden Änderungen."
+          }
+        }
+      }
+    },
+    "Shows the names": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zeigt die Namen"
+          }
+        }
+      }
+    },
+    "Shows the names and notes": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zeigt Namen und Notizen"
+          }
+        }
+      }
+    },
+    "Shows the notes": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zeigt die Notizen"
+          }
+        }
+      }
+    },
+    "Shows the whole picture with its credit.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zeigt das ganze Bild mit seinem Nachweis."
+          }
+        }
+      }
+    },
+    "Sign Out": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abmelden"
+          }
+        }
+      }
+    },
+    "Sign Out of %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Von %@ abmelden"
+          }
+        }
+      }
+    },
+    "Slow connection. Playback will continue shortly.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Langsame Verbindung. Die Wiedergabe geht gleich weiter."
+          }
+        }
+      }
+    },
+    "Slow connection. Playback will start shortly.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Langsame Verbindung. Die Wiedergabe beginnt gleich."
+          }
+        }
+      }
+    },
+    "Status": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Status"
+          }
+        }
+      }
+    },
+    "Stop": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stopp"
+          }
+        }
+      }
+    },
+    "Swipe Actions": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wischaktionen"
+          }
+        }
+      }
+    },
+    "Swipe Left": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nach links wischen"
+          }
+        }
+      }
+    },
+    "Swipe Right": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nach rechts wischen"
+          }
+        }
+      }
+    },
+    "Swipe up or down to play the next or the previous movement.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wische nach oben oder unten, um den nächsten oder vorigen Satz zu spielen."
+          }
+        }
+      }
+    },
+    "Sync error": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synchronisierungsfehler"
+          }
+        }
+      }
+    },
+    "Synced %@.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synchronisiert %@."
+          }
+        }
+      }
+    },
+    "Syncing": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synchronisiere"
+          }
+        }
+      }
+    },
+    "Syncing…": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synchronisiere …"
+          }
+        }
+      }
+    },
+    "Syncing… %lld tracks": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Synchronisiere … %lld Titel"
+          }
+        }
+      }
+    },
+    "Tags": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tags"
+          }
+        }
+      }
+    },
+    "Tags and Grouping": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tags und Gruppierung"
+          }
+        }
+      }
+    },
+    "Technical Details": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Technische Details"
+          }
+        }
+      }
+    },
+    "Text": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Text"
+          }
+        }
+      }
+    },
+    "The accent marks links, controls and what plays. Player Tint is a temporary comparison of the cover tint strength.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Akzentfarbe markiert Links, Bedienelemente und das laufende Stück. Die Player-Tönung ist ein vorläufiger Vergleich der Cover-Tönung."
+          }
+        }
+      }
+    },
+    "The audio format cannot be played.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Audioformat lässt sich nicht abspielen."
+          }
+        }
+      }
+    },
+    "The device could not store this track. Free some space and play again.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Gerät konnte diesen Titel nicht speichern. Schaffe Platz und spiele erneut."
+          }
+        }
+      }
+    },
+    "The queue ends here.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hier endet die Warteschlange."
+          }
+        }
+      }
+    },
+    "The server answered with HTTP %lld.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Server antwortete mit HTTP %lld."
+          }
+        }
+      }
+    },
+    "The server did not answer like a Subsonic server.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Server hat nicht wie ein Subsonic-Server geantwortet."
+          }
+        }
+      }
+    },
+    "The server did not take some changes. They wait on this iPhone.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Server hat einige Änderungen nicht angenommen. Sie warten auf diesem iPhone."
+          }
+        }
+      }
+    },
+    "The server stopped sending this track.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Server hat aufgehört, diesen Titel zu senden."
+          }
+        }
+      }
+    },
+    "The tag \"%@\" holds works of %@. Retag them with full names. Klassik does not split a tag.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Tag „%@“ enthält Werke von %@. Tagge sie mit vollen Namen neu. Klassik teilt kein Tag auf."
+          }
+        }
+      }
+    },
+    "The track ended before its declared length.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Titel endete vor seiner angegebenen Länge."
+          }
+        }
+      }
+    },
+    "The tracks have no WORK tag. Klassik shows the album as one work.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Titel haben kein WORK-Tag. Klassik zeigt das Album als ein Werk."
+          }
+        }
+      }
+    },
+    "This iPhone cannot allocate an audio buffer.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieses iPhone kann keinen Audiopuffer anlegen."
+          }
+        }
+      }
+    },
+    "This iPhone could not decode the track.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieses iPhone konnte den Titel nicht dekodieren."
+          }
+        }
+      }
+    },
+    "This iPhone could not read the track.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieses iPhone konnte den Titel nicht lesen."
+          }
+        }
+      }
+    },
+    "This iPhone has no network for music now.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieses iPhone hat jetzt kein Netz für Musik."
+          }
+        }
+      }
+    },
+    "This removes the favourite works, the listening notes, the recent searches and the changes that wait of this server and user from this iPhone. You cannot undo this.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das entfernt die Favoriten, die Hörnotizen, die letzten Suchen und die wartenden Änderungen dieses Servers und Benutzers von diesem iPhone. Du kannst das nicht rückgängig machen."
+          }
+        }
+      }
+    },
+    "This track is larger than the Music limit. Raise the limit in Local Storage.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieser Titel ist größer als die Musikgrenze. Erhöhe die Grenze unter „Lokaler Speicher“."
+          }
+        }
+      }
+    },
+    "This track must load whole, and it is larger than the Music limit. Raise the limit in Local Storage.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieser Titel muss ganz geladen werden und ist größer als die Musikgrenze. Erhöhe die Grenze unter „Lokaler Speicher“."
+          }
+        }
+      }
+    },
+    "Timeline": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zeitleiste"
+          }
+        }
+      }
+    },
+    "To Confirm": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zu bestätigen"
+          }
+        }
+      }
+    },
+    "Touch and hold the back button to jump to any page behind this one.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Halte die Zurück-Taste gedrückt, um zu einer beliebigen früheren Seite zu springen."
+          }
+        }
+      }
+    },
+    "Track: %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titel: %@"
+          }
+        }
+      }
+    },
+    "Tracks": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titel"
+          }
+        }
+      }
+    },
+    "Tracks Outside Filter": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titel außerhalb des Filters"
+          }
+        }
+      }
+    },
+    "Type a work, a catalogue number such as Op. 67 or K. 626, or a name.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gib ein Werk, eine Werknummer wie Op. 67 oder K. 626 oder einen Namen ein."
+          }
+        }
+      }
+    },
+    "URL": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "URL"
+          }
+        }
+      }
+    },
+    "Unfavourite": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kein Favorit mehr"
+          }
+        }
+      }
+    },
+    "Unknown": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unbekannt"
+          }
+        }
+      }
+    },
+    "Unknown Composer": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unbekannter Komponist"
+          }
+        }
+      }
+    },
+    "Unknown author": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unbekannter Autor"
+          }
+        }
+      }
+    },
+    "Unknown error": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unbekannter Fehler"
+          }
+        }
+      }
+    },
+    "Up to date": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktuell"
+          }
+        }
+      }
+    },
+    "User": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Benutzer"
+          }
+        }
+      }
+    },
+    "Username": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Benutzername"
+          }
+        }
+      }
+    },
+    "Version": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version"
+          }
+        }
+      }
+    },
+    "Waiting": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wartet"
+          }
+        }
+      }
+    },
+    "Which MusicBrainz work is this?": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Welches MusicBrainz-Werk ist das?"
+          }
+        }
+      }
+    },
+    "Which composer is this?": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Welcher Komponist ist das?"
+          }
+        }
+      }
+    },
+    "While music plays, the timeline runs on this screen edge. Album keeps the loudness steps between the movements of a work. ReplayGain Off removes the gain stage from the signal path. Show Audio Quality adds a line under the playback bar: the file format, the output rate, and whether anything changes the samples. Scrobbles count played movements on your server. Your server can send them to linked listening services.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Während Musik läuft, steht die Zeitleiste an diesem Bildschirmrand. „Album“ behält die Lautstärkestufen zwischen den Sätzen eines Werks. „ReplayGain aus“ entfernt die Verstärkungsstufe aus dem Signalweg. „Audioqualität anzeigen“ fügt unter der Wiedergabeleiste eine Zeile hinzu: das Dateiformat, die Ausgaberate und ob etwas die Samples verändert. Scrobbles zählen gespielte Sätze auf deinem Server. Dein Server kann sie an verknüpfte Hördienste senden."
+          }
+        }
+      }
+    },
+    "Whole picture": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ganzes Bild"
+          }
+        }
+      }
+    },
+    "Wikidata (published)": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wikidata (veröffentlicht)"
+          }
+        }
+      }
+    },
+    "Wikidata has no facts for this composer. Klassik shows your tags.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wikidata kennt keine Fakten zu diesem Komponisten. Klassik zeigt deine Tags."
+          }
+        }
+      }
+    },
+    "Wikidata has no facts for this performer. Klassik shows your tags.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wikidata kennt keine Fakten zu diesem Interpreten. Klassik zeigt deine Tags."
+          }
+        }
+      }
+    },
+    "With Life Dates": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mit Lebensdaten"
+          }
+        }
+      }
+    },
+    "With a Year": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mit Jahr"
+          }
+        }
+      }
+    },
+    "Work": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Werk"
+          }
+        }
+      }
+    },
+    "Work key (derived)": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Werkschlüssel (abgeleitet)"
+          }
+        }
+      }
+    },
+    "Work or name": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Werk oder Name"
+          }
+        }
+      }
+    },
+    "Works": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Werke"
+          }
+        }
+      }
+    },
+    "Works with a WORK Tag": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Werke mit WORK-Tag"
+          }
+        }
+      }
+    },
+    "Write the note": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notiz schreiben"
+          }
+        }
+      }
+    },
+    "Yes": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ja"
+          }
+        }
+      }
+    },
+    "Your tag gives only \"%@\" and your works do not say which composer it is.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dein Tag nennt nur „%@“, und deine Werke sagen nicht, welcher Komponist es ist."
+          }
+        }
+      }
+    },
+    "Your tags": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deine Tags"
+          }
+        }
+      }
+    },
+    "active from %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "aktiv ab %@"
+          }
+        }
+      }
+    },
+    "album": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Album"
+          }
+        }
+      }
+    },
+    "and": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "und"
+          }
+        }
+      }
+    },
+    "and %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "und %@"
+          }
+        }
+      }
+    },
+    "arranger": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrangeur"
+          }
+        }
+      }
+    },
+    "born %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "geboren %@"
+          }
+        }
+      }
+    },
+    "composer": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Komponist"
+          }
+        }
+      }
+    },
+    "conductor": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dirigent"
+          }
+        }
+      }
+    },
+    "died %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "gestorben %@"
+          }
+        }
+      }
+    },
+    "ensemble": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ensemble"
+          }
+        }
+      }
+    },
+    "lyricist": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Textdichter"
+          }
+        }
+      }
+    },
+    "music.example.org": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "musik.example.org"
+          }
+        }
+      }
+    },
+    "or": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "oder"
+          }
+        }
+      }
+    },
+    "or %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "oder %@"
+          }
+        }
+      }
+    },
+    "or +": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "oder +"
+          }
+        }
+      }
+    },
+    "or ✓": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "oder ✓"
+          }
+        }
+      }
+    },
+    "soloist": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solist"
+          }
+        }
+      }
+    },
+    "unknown": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "unbekannt"
+          }
+        }
+      }
+    },
+    "%lld composers": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld composer"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld composers"
+                }
+              }
+            }
+          }
+        },
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Komponist"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Komponisten"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld conditions": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld condition"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld conditions"
+                }
+              }
+            }
+          }
+        },
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Bedingung"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Bedingungen"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld hours": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld hour"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld hours"
+                }
+              }
+            }
+          }
+        },
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Stunde"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Stunden"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld minutes": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld minute"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld minutes"
+                }
+              }
+            }
+          }
+        },
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Minute"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Minuten"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld movements": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld movement"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld movements"
+                }
+              }
+            }
+          }
+        },
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Satz"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Sätze"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld recordings": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld recording"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld recordings"
+                }
+              }
+            }
+          }
+        },
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Aufnahme"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Aufnahmen"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld tracks": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld track"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld tracks"
+                }
+              }
+            }
+          }
+        },
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Titel"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Titel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld works": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld work"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld works"
+                }
+              }
+            }
+          }
+        },
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Werk"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Werke"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld of %lld movements": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld von %lld Sätzen"
+          }
+        }
+      }
+    },
+    "Descriptions and biographies come from Wikidata and Wikipedia in the app language. Where they have none, Klassik shows the fallback language, or nothing when it is off. Composer names, work titles and tags stay as your music tags them. Change the app language in the iOS Settings app, under Klassik.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beschreibungen und Biografien kommen von Wikidata und Wikipedia in der App-Sprache. Gibt es sie dort nicht, zeigt Klassik die Ersatzsprache oder nichts, wenn sie aus ist. Komponistennamen, Werktitel und Tags bleiben so, wie deine Musik sie taggt. Die App-Sprache änderst du in der iOS-App Einstellungen unter Klassik."
+          }
+        }
+      }
+    },
+    "Source Code on GitHub": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quellcode auf GitHub"
+          }
+        }
+      }
+    },
+    "Klassik %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klassik %@"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

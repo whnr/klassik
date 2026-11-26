@@ -16,9 +16,10 @@ struct LookupStatus: View {
     }
 
     static func text(_ progress: Enrichment.Progress) -> String {
-        let count = "Looking up \(progress.done) of \(progress.total) works"
-        guard let composer = progress.composer else { return "\(count) in Wikidata." }
-        return "\(count), now \(composer)."
+        guard let composer = progress.composer else {
+            return L("Looking up \(progress.done) of \(progress.total) works in Wikidata.")
+        }
+        return L("Looking up \(progress.done) of \(progress.total) works, now \(composer).")
     }
 }
 
@@ -41,10 +42,10 @@ struct EnrichmentStatusView: View {
                     Label(error, systemImage: "exclamationmark.triangle")
                         .foregroundStyle(Palette.textPrimary)
                 } else {
-                    LabeledContent("Status", value: summary.pending > 0 ? "Waiting" : "Up to date")
+                    LabeledContent("Status", value: summary.pending > 0 ? L("Waiting") : L("Up to date"))
                         .ink()
                 }
-                LabeledContent("Requests Since Start", value: enrichment.requests.formatted())
+                LabeledContent("Requests Since Start", value: enrichment.requests.localized())
                     .ink()
                 Button("Look Up Missing Again", systemImage: "arrow.clockwise") {
                     Task { await enrichment.lookUpMissingAgain(index) }
@@ -54,45 +55,45 @@ struct EnrichmentStatusView: View {
                 Text("Lookup")
             } footer: {
                 Text(
-                    "Klassik lists each composer's works in MusicBrainz and matches them on this iPhone. "
-                        + "MusicBrainz allows one request a second. Look up missing again after a fix in MusicBrainz.")
+                    "Klassik lists each composer's works in MusicBrainz and matches them on this iPhone. MusicBrainz allows one request a second. Look up missing again after a fix in MusicBrainz."
+                )
             }
 
             Section("Works with a WORK Tag") {
-                LabeledContent("Works", value: summary.works.formatted())
+                LabeledContent("Works", value: summary.works.localized())
                     .ink()
-                LabeledContent("Linked to MusicBrainz", value: summary.linked.formatted())
+                LabeledContent("Linked to MusicBrainz", value: summary.linked.localized())
                     .ink()
                     .accessibilityIdentifier("linked-count")
-                LabeledContent("With a Year", value: summary.dated.formatted())
+                LabeledContent("With a Year", value: summary.dated.localized())
                     .ink()
                 NavigationLink(value: Page.worksToConfirm) {
-                    LabeledContent("To Confirm", value: summary.toConfirm.count.formatted())
+                    LabeledContent("To Confirm", value: summary.toConfirm.count.localized())
                         .ink()
                 }
                 .disabled(summary.toConfirm.isEmpty)
                 .accessibilityIdentifier("to-confirm")
                 NavigationLink(value: Page.worksWithoutMatch) {
-                    LabeledContent("No Match", value: summary.unmatched.count.formatted())
+                    LabeledContent("No Match", value: summary.unmatched.count.localized())
                         .ink()
                 }
                 .disabled(summary.unmatched.isEmpty)
                 if summary.pending > 0 {
-                    LabeledContent("Not Looked Up Yet", value: summary.pending.formatted())
+                    LabeledContent("Not Looked Up Yet", value: summary.pending.localized())
                         .ink()
                 }
             }
 
             Section("Composers") {
                 LabeledContent(
-                    "With Life Dates", value: "\(summary.composersWithDates) of \(summary.composers)"
+                    "With Life Dates", value: L("\(summary.composersWithDates) of \(summary.composers)")
                 )
                 .ink()
             }
 
             PeopleSection(sweep: model.sweep, checked: model.people.cache.checked.count)
         }
-        .pageTitle("MusicBrainz")
+        .pageTitle(L("MusicBrainz"))
     }
 }
 
@@ -114,40 +115,37 @@ struct PeopleSection: View {
                     .foregroundStyle(Palette.textPrimary)
                     .accessibilityIdentifier("people-paused")
             case .paused(.slowDown(let until)):
-                let retry = until.formatted(.relative(presentation: .named))
+                let retry = until.localizedRelative()
                 Label(
                     "Paused: Wikidata asked for a pause. Klassik tries again \(retry).", systemImage: "pause.circle"
                 )
                 .foregroundStyle(Palette.textPrimary)
                 .accessibilityIdentifier("people-paused")
             case .upToDate:
-                LabeledContent("Status", value: "Up to date")
+                LabeledContent("Status", value: L("Up to date"))
                     .ink()
                     .accessibilityIdentifier("people-status")
             case .idle:
-                LabeledContent("Status", value: "Waiting")
+                LabeledContent("Status", value: L("Waiting"))
                     .ink()
                     .accessibilityIdentifier("people-status")
             }
-            LabeledContent("People Checked", value: checked.formatted())
+            LabeledContent("People Checked", value: checked.localized())
                 .ink()
             if sweep.newCount > 0 {
-                LabeledContent("New", value: sweep.newCount.formatted())
+                LabeledContent("New", value: sweep.newCount.localized())
                     .ink()
             }
             if sweep.dueCount > 0 {
-                LabeledContent("Due for a New Check", value: sweep.dueCount.formatted())
+                LabeledContent("Due for a New Check", value: sweep.dueCount.localized())
                     .ink()
             }
         } header: {
             Text("People from Wikidata")
         } footer: {
             Text(
-                "Klassik looks up every composer and performer of your library, new people first, one at a time "
-                    + "at the pace that Wikidata asks for. It asks again for living people after about "
-                    + "\(PersonSweep.livingDays) days and for others after about a year, or after about 3 months "
-                    + "when Wikidata does not know them. It waits for a connection that is not metered and not in "
-                    + "Low Data Mode.")
+                "Klassik looks up every composer and performer of your library, new people first, one at a time at the pace that Wikidata asks for. It asks again for living people after about \(PersonSweep.livingDays) days and for others after about a year, or after about 3 months when Wikidata does not know them. It waits for a connection that is not metered and not in Low Data Mode."
+            )
         }
     }
 }

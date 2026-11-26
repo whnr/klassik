@@ -33,7 +33,7 @@ struct CredentialStore {
 
     struct KeychainError: LocalizedError {
         var status: OSStatus
-        var errorDescription: String? { "Could not save the password in the Keychain (status \(status))." }
+        var errorDescription: String? { L("Could not save the password in the Keychain (status \(status)).") }
     }
 
     private static func query(account: String) -> [String: Any] {

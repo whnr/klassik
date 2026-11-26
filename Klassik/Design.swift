@@ -220,7 +220,8 @@ struct InkLabel: View {
 
     var body: some View {
         Label {
-            Text(title).ink()
+            // A title is a catalog key, so a computed one translates too.
+            Text(LocalizedStringKey(title)).ink()
         } icon: {
             Image(systemName: systemImage)
         }
@@ -239,7 +240,7 @@ struct SectionHeading: View {
     }
 
     var body: some View {
-        Text(title)
+        Text(LocalizedStringKey(title))
             .typeStyle(Layout.sectionHeading)
             .foregroundStyle(Palette.textPrimary)
             .textCase(nil)

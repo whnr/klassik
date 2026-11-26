@@ -125,6 +125,8 @@ xcodebuild_tests() {
   TEST_RUNNER_KLASSIK_USERNAME=fixture \
   TEST_RUNNER_KLASSIK_PASSWORD=fixture \
   TEST_RUNNER_KLASSIK_LATENCY_LIMITS=${KLASSIK_LATENCY_LIMITS:-0} \
+  TEST_RUNNER_KLASSIK_WALK_LANGUAGE=${KLASSIK_WALK_LANGUAGE:-} \
+  TEST_RUNNER_KLASSIK_CATALOG="$PWD/Klassik/Localizable.xcstrings" \
   xcodebuild test-without-building \
     "${common[@]}" \
     -collect-test-diagnostics never \

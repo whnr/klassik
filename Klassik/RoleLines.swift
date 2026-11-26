@@ -63,7 +63,7 @@ struct RoleLines: View {
     private var tie: Text { Text("\u{00A0}").kerning(size * 0.2) }
 
     private func label(_ text: String) -> Text {
-        Text(text)
+        Text(Roles.displayLabel(text))
             .font(style.font(size: size).lowercaseSmallCaps())
             .tracking(size * Layout.roleLabelTracking)
             .foregroundStyle(Palette.textSecondary)

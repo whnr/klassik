@@ -243,6 +243,8 @@ struct LibraryTests {
         try LibraryCache(server: credentials.url, username: credentials.username, syncedAt: .now, songs: songs)
             .write(to: url)
         let library = Library(cacheURL: url, defaults: defaults)
+        // The sheet shows no total and no "no term" line while the first build runs.
+        #expect(!library.hasSearchFilters)
         library.filter = ClassicalFilter(rules: [Self.rule(.init(kind: .genreContains, text: "Classical"))])
         await library.load(for: credentials)
 
@@ -260,6 +262,7 @@ struct LibraryTests {
 
         try await settle(on: ["Mozart"])
         #expect(composers() == ["Mozart"])
+        #expect(library.hasSearchFilters)
 
         library.filter = ClassicalFilter(rules: [Self.rule(.init(kind: .genreContains, text: "Opera"))])
 

@@ -21,20 +21,20 @@ struct DiagnosticsView: View {
                     .ink()
                     LabeledContent("API version", value: info.apiVersion)
                         .ink()
-                    LabeledContent("OpenSubsonic", value: info.openSubsonic ? "Yes" : "No")
+                    LabeledContent("OpenSubsonic", value: info.openSubsonic ? L("Yes") : L("No"))
                         .ink()
                         .accessibilityIdentifier("opensubsonic")
                     LabeledContent(
                         "Extensions",
-                        value: info.extensions.isEmpty ? "None" : info.extensions.sorted().joined(separator: ", ")
+                        value: info.extensions.isEmpty ? L("None") : info.extensions.sorted().joined(separator: ", ")
                     )
                     .ink()
                 } else {
-                    LabeledContent("Status", value: model.isChecking ? "Checking…" : "Not reached")
+                    LabeledContent("Status", value: model.isChecking ? L("Checking…") : L("Not reached"))
                         .ink()
                 }
                 if let lastCheck = model.lastCheck {
-                    LabeledContent("Last check", value: lastCheck.formatted(date: .abbreviated, time: .standard))
+                    LabeledContent("Last check", value: lastCheck.localized(date: .abbreviated, time: .standard))
                         .ink()
                 }
             }
@@ -42,22 +42,22 @@ struct DiagnosticsView: View {
             Section("Library") {
                 let library = model.library
                 if let syncedAt = library.syncedAt {
-                    LabeledContent("Tracks", value: library.songs.count.formatted())
+                    LabeledContent("Tracks", value: library.songs.count.localized())
                         .ink()
-                    LabeledContent("Albums", value: library.albumCount.formatted())
+                    LabeledContent("Albums", value: library.albumCount.localized())
                         .ink()
-                    LabeledContent("Classical tracks", value: library.classical.count.formatted())
+                    LabeledContent("Classical tracks", value: library.classical.count.localized())
                         .ink()
-                    LabeledContent("Classical albums", value: library.classicalAlbumCount.formatted())
+                    LabeledContent("Classical albums", value: library.classicalAlbumCount.localized())
                         .ink()
-                    LabeledContent("Last sync", value: syncedAt.formatted(date: .abbreviated, time: .standard))
+                    LabeledContent("Last sync", value: syncedAt.localized(date: .abbreviated, time: .standard))
                         .ink()
                     if let row = library.unchangedCheckRow {
                         LabeledContent("Last change check", value: row)
                             .ink()
                     }
                 } else {
-                    LabeledContent("Tracks", value: library.isSyncing ? "Syncing…" : "Not synced")
+                    LabeledContent("Tracks", value: library.isSyncing ? L("Syncing…") : L("Not synced"))
                         .ink()
                 }
                 if let error = library.syncError {
@@ -79,7 +79,7 @@ struct DiagnosticsView: View {
                 }
                 ForEach(order.pendingChanges) { change in
                     LabeledContent(
-                        order.title(of: change), value: change.isSet ? "Favourite" : "Not a favourite"
+                        order.title(of: change), value: change.isSet ? L("Favourite") : L("Not a favourite")
                     )
                     .ink()
                     .accessibilityIdentifier("pending-favourite")
@@ -91,7 +91,7 @@ struct DiagnosticsView: View {
                     Text(error)
                         .ink()
                     if let date = model.lastErrorDate {
-                        Text(date.formatted(date: .abbreviated, time: .standard))
+                        Text(date.localized(date: .abbreviated, time: .standard))
                             .foregroundStyle(Palette.textSecondary)
                     }
                 } else {
@@ -132,7 +132,7 @@ struct DiagnosticsView: View {
                 }
             }
         }
-        .pageTitle("Diagnostics")
+        .pageTitle(L("Diagnostics"))
         .refreshable { await model.refreshDiagnostics() }
     }
 

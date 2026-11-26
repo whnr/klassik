@@ -612,7 +612,7 @@ final class PlaybackSession {
         savePosition()
         _ = playback.handle(.pause)
         discardEngine()
-        error = text
+        error = text.map(Localization.shared.translated)
         if let trouble { playbackTrouble = trouble }
         updateNowPlaying()
         persistQueue()

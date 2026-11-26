@@ -29,7 +29,9 @@ struct ComposerPage: View {
         .navigationBarTitleDisplayMode(.inline)
         // A person page puts all its covers in front of the cover queue (ADR 0059).
         .onAppear { model.albumCovers.prefer(composer.works.flatMap { $0.recordings.compactMap(\.songs.first) }) }
-        .task(id: artistIDs) { await people.resolve(composer: composer.name, artistIDs: artistIDs) }
+        .task(id: artistIDs + [Localization.shared.textLanguages.key]) {
+            await people.resolve(composer: composer.name, artistIDs: artistIDs)
+        }
     }
 
     @ViewBuilder private func content(
@@ -58,7 +60,7 @@ struct ComposerPage: View {
         .pageEdges()
         .listRowSeparator(.hidden)
         .accessibilityIdentifier("composer-chronology")
-        PageTabs(tabs: [Tab.works, .about], title: { $0 == .works ? "Works" : "About" }, selection: $tab)
+        PageTabs(tabs: [Tab.works, .about], title: { $0 == .works ? L("Works") : L("About") }, selection: $tab)
             .pageEdges(top: Layout.segmentedTop)
             .listRowSeparator(.hidden)
             .accessibilityIdentifier("composer-tabs")
@@ -167,7 +169,7 @@ struct ComposerPage: View {
             LabeledContent("Name in your tags", value: composer.name)
                 .ink()
                 .itemSeparator(first: true, last: false)
-            LabeledContent("Works", value: composer.works.count.formatted())
+            LabeledContent("Works", value: composer.works.count.localized())
                 .ink()
                 .itemSeparator(first: false, last: !choosesAgain)
             if choosesAgain {
@@ -275,16 +277,18 @@ private struct ResolutionNotice: View {
                 }
                 Button("None of These") { Task { await people.choose(nil, forComposer: tag) } }
             } footer: {
+                // A ternary of literals draws as verbatim text, so each branch reads the catalog itself.
                 Text(
                     PersonFactsStore.isSurnameOnly(tag)
-                        ? "Your tag gives only \"\(tag)\" and your works do not say which composer it is."
-                        : "Several composers have the name \"\(tag)\" and your works do not say which one it is.")
+                        ? L("Your tag gives only \"\(tag)\" and your works do not say which composer it is.")
+                        : L("Several composers have the name \"\(tag)\" and your works do not say which one it is."))
             }
         case .mixed(let names):
             Section {
                 Text(
-                    "The tag \"\(tag)\" holds works of \(names.formatted(.list(type: .and))). "
-                        + "Retag them with full names. Klassik does not split a tag."
+                    L(
+                        "The tag \"\(tag)\" holds works of \(names.localizedList()). Retag them with full names. Klassik does not split a tag."
+                    )
                 )
                 .ink()
                 .accessibilityIdentifier("composer-mixed")
@@ -608,7 +612,7 @@ private struct PictureCredit: View {
     /// Only the words "File page" are the link, as in the specimen; the author and licence are plain text.
     private var text: Text {
         guard let url = PersonFactsService.trusted(credit.url) else { return Text(credit.text) }
-        var file = AttributedString("File page")
+        var file = AttributedString(L("File page"))
         file.link = url
         file.foregroundColor = Palette.tint.color
         if contrast == .increased { file.underlineStyle = Text.LineStyle.single }

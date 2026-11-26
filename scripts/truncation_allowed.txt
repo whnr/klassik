@@ -1,0 +1,7 @@
+# Lines of Klassik/ that may cut text off, for scripts/l10n_check.py. A line is "path: code  # reason".
+# A text from the catalog never truncates: it wraps, and a long word breaks where iOS allows it. Only a text that
+# the app does not translate may stay on one line: a tag, a name or a number.
+Klassik/ChronologyView.swift: .lineLimit(1)  # Composer names, period names and years in the chart are one line by design; tags and numbers stay as tagged.
+Klassik/ChronologyView.swift: .truncationMode(.tail)  # A work title is a tag; its row in the chart is one line.
+Klassik/ComposerPage.swift: .lineLimit(1)  # A genre chip shows a tag.
+Klassik/SearchFilterSheet.swift: .lineLimit(1)  # A chip shows a tag name, and the or switch shows two glyphs.

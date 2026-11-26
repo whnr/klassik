@@ -11,11 +11,11 @@ struct ClassicalFilter: Codable, Equatable, Sendable {
 
             var title: String {
                 switch self {
-                case .genreContains: "Genre contains"
-                case .genreDoesNotContain: "Genre does not contain"
-                case .hasWork: "Has a work"
-                case .hasMovement: "Has a movement"
-                case .hasComposer: "Has a composer"
+                case .genreContains: L("Genre contains")
+                case .genreDoesNotContain: L("Genre does not contain")
+                case .hasWork: L("Has a work")
+                case .hasMovement: L("Has a movement")
+                case .hasComposer: L("Has a composer")
                 }
             }
 

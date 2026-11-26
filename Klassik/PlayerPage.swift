@@ -43,7 +43,7 @@ struct PlayerPage: Sendable {
     /// "Recorded in 1972. 42 minutes, 4 movements." A recording of one movement gives only its length.
     static func facts(of recording: WorkIndex.Recording) -> String {
         var sentences: [String] = []
-        if let year = year(of: recording) { sentences.append("Recorded in \(year).") }
+        if let year = year(of: recording) { sentences.append(L("Recorded in \(String(year)).")) }
         var measures: [String] = []
         let seconds = recording.songs.compactMap(\.duration).reduce(0, +)
         if let length = WorkIndex.Recording.duration(seconds) { measures.append(length) }

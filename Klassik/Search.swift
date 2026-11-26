@@ -16,8 +16,8 @@ struct Search: Sendable {
 
             var text: String {
                 countsWorks
-                    ? "\(label) of \(WorkIndex.Recording.count(count, "work"))"
-                    : "\(label) on \(WorkIndex.Recording.count(count, "recording"))"
+                    ? L("\(Roles.displayLabel(label)) of \(WorkIndex.Recording.count(count, "work"))")
+                    : L("\(Roles.displayLabel(label)) on \(WorkIndex.Recording.count(count, "recording"))")
             }
         }
 
@@ -31,7 +31,7 @@ struct Search: Sendable {
         var composes: Bool { roles.contains(where: \.countsWorks) }
 
         /// "Conductor on 212 recordings, composer of 30 works and violin on 3 recordings".
-        func counts(locale: Locale = .current) -> String {
+        func counts(locale: Locale = Localization.shared.locale) -> String {
             let text = Roles.Line.list(roles.map(\.text), locale: locale)
             return text.prefix(1).uppercased() + text.dropFirst()
         }

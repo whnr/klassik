@@ -11,7 +11,7 @@ struct LibraryView: View {
             Section {
                 ForEach(rows.rows) { row in
                     NavigationLink(value: row.page) {
-                        LabeledContent(row.title, value: count(of: row).formatted())
+                        LabeledContent(row.title, value: count(of: row).localized())
                             .ink()
                     }
                     .accessibilityIdentifier("library-\(row.rawValue)")
@@ -32,7 +32,7 @@ struct LibraryView: View {
                 }
             }
         }
-        .pageTitle("Library")
+        .pageTitle(L("Library"))
         .toolbar {
             ToolbarItem(placement: .topBarLeading) { EditButton() }
             ToolbarItem(placement: .topBarTrailing) {
@@ -69,7 +69,7 @@ struct ComposersView: View {
             ForEach(library.index.composers) { composer in
                 PersonPageLink(page: .composer(composer.name)) {
                     LabeledContent {
-                        Text(composer.works.count.formatted())
+                        Text(composer.works.count.localized())
                     } label: {
                         MarkedTitle(
                             title: composer.name, isFavourite: model.recordingOrder.isFavourite(person: composer.name))
@@ -87,7 +87,7 @@ struct ComposersView: View {
                 ContentUnavailableView("No Composers", systemImage: "music.quarternote.3")
             }
         }
-        .pageTitle("Composers")
+        .pageTitle(L("Composers"))
     }
 }
 
@@ -169,6 +169,6 @@ struct FavouritesView: View {
                     description: Text("Mark a person, work, recording or album as a favourite to see it here."))
             }
         }
-        .pageTitle("Favourites")
+        .pageTitle(L("Favourites"))
     }
 }

@@ -35,8 +35,8 @@ enum ServerTrouble: Equatable, Sendable {
     /// The one quiet status line.
     var status: String {
         switch self {
-        case .unreachable: "Server not reachable. Changes wait on this iPhone."
-        case .refused: "The server did not take some changes. They wait on this iPhone."
+        case .unreachable: L("Server not reachable. Changes wait on this iPhone.")
+        case .refused: L("The server did not take some changes. They wait on this iPhone.")
         }
     }
 }

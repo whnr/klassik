@@ -9,10 +9,20 @@ extension Search {
 
         var title: String {
             switch self {
-            case .genres: "Genres"
-            case .composers: "Composers"
-            case .conductors: "Conductors"
-            case .performers: "Performers"
+            case .genres: L("Genres")
+            case .composers: L("Composers")
+            case .conductors: L("Conductors")
+            case .performers: L("Performers")
+            }
+        }
+
+        /// The prompt of the field that narrows the terms of this kind.
+        var findPrompt: String {
+            switch self {
+            case .genres: L("Find in genres")
+            case .composers: L("Find in composers")
+            case .conductors: L("Find in conductors")
+            case .performers: L("Find in performers")
             }
         }
     }

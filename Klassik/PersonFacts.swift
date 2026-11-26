@@ -7,9 +7,9 @@ struct PersonCredit: Codable, Equatable, Hashable, Sendable {
 
         var title: String {
             switch self {
-            case .picture: "Picture"
-            case .text: "Text"
-            case .facts: "Facts"
+            case .picture: L("Picture")
+            case .text: L("Text")
+            case .facts: L("Facts")
             }
         }
     }
@@ -34,7 +34,7 @@ struct PersonCredit: Codable, Equatable, Hashable, Sendable {
     func linkLabel(_ url: URL) -> String {
         switch kind {
         case .picture: "Wikimedia Commons"
-        case .text: "Article"
+        case .text: L("Article")
         case .facts: url.lastPathComponent
         }
     }
@@ -84,14 +84,47 @@ struct PersonFacts: Codable, Equatable, Identifiable, Sendable {
     /// The Commons file of an unread picture, so that a retry asks Commons only.
     var pictureFile: String?
     var credits: [PersonCredit] = []
+    /// The text languages (`TextLanguages.key`) that the description and the biography were fetched for. Nil: facts
+    /// that were fetched when the app asked for the source language only.
+    var textKey: String?
+    /// The languages of the description and of the biography that the facts hold. Nil: the source language.
+    var descriptionLanguage: String?
+    var bioLanguage: String?
     var id: String { qid }
+
+    /// Added to `textKey` when a Wikipedia request failed. The key then never matches, so the texts load again.
+    static let unansweredMark = "?"
+
+    /// True when the description and the biography were fetched for other text languages than `languages`.
+    func needsTexts(for languages: TextLanguages) -> Bool {
+        (textKey ?? AppLanguage.source.rawValue) != languages.key
+    }
+
+    /// Fetched texts reload when the language changes (the app language in Settings, or the fallback language), and
+    /// that load must never empty a page: a text stays until a new one replaces it. A text also stays when it is in
+    /// a wanted language and the new answer has none (the fallback language that the old text is in), or when the
+    /// Wikipedia request failed, which is no answer.
+    mutating func keepTexts(of old: PersonFacts, wanted: [AppLanguage]) {
+        let codes = wanted.map(\.rawValue)
+        func wantedHere(_ language: String?) -> Bool { codes.contains(language ?? AppLanguage.source.rawValue) }
+        let failed = textKey?.hasSuffix(Self.unansweredMark) == true
+        if bio == nil, let text = old.bio, failed || wantedHere(old.bioLanguage) {
+            bio = text
+            bioLanguage = old.bioLanguage
+            credits += old.credits.filter { $0.kind == .text }
+        }
+        if description == nil, old.description != nil, wantedHere(old.descriptionLanguage) {
+            description = old.description
+            descriptionLanguage = old.descriptionLanguage
+        }
+    }
 
     /// "1685–1750", "born 1950", or nil when Wikidata knows no year.
     var years: String? {
         switch (born, died) {
         case (let born?, let died?): "\(born)–\(died)"
-        case (let born?, nil): "born \(born)"
-        case (nil, let died?): "died \(died)"
+        case (let born?, nil): L("born \(String(born))")
+        case (nil, let died?): L("died \(String(died))")
         case (nil, nil): nil
         }
     }
@@ -202,17 +235,21 @@ struct PersonFactsService: Sendable {
 
     static let wikidata = URL(string: "https://www.wikidata.org/w/api.php")!
     static let commons = URL(string: "https://commons.wikimedia.org/w/api.php")!
-    static let wikipedia = URL(string: "https://en.wikipedia.org/api/rest_v1/page/summary/")!
+    /// The summary service of the Wikipedia edition in a language.
+    static func wikipedia(_ language: AppLanguage) -> URL {
+        URL(string: "https://\(language.rawValue).wikipedia.org/api/rest_v1/page/summary/")!
+    }
     /// Wikidata items of occupation "composer".
     static let composerOccupation = "Q36834"
 
     /// Hosts that a link or a picture from Wikimedia JSON may point to. The JSON is untrusted: a URL outside
     /// this list is dropped, so that no request leaves the app for a host that a page editor chose.
     /// Commons answers a scaled picture (`iiurlwidth`) with a URL on thumb.wikimedia.org, not upload.
-    static let trustedHosts: Set<String> = [
-        "upload.wikimedia.org", "thumb.wikimedia.org", "commons.wikimedia.org", "en.wikipedia.org",
-        "www.wikidata.org",
-    ]
+    static var trustedHosts: Set<String> {
+        Set(AppLanguage.available().map { "\($0.rawValue).wikipedia.org" }).union([
+            "upload.wikimedia.org", "thumb.wikimedia.org", "commons.wikimedia.org", "www.wikidata.org",
+        ])
+    }
     /// The seconds that one request may take.
     static let timeout: TimeInterval = 15
 
@@ -227,6 +264,8 @@ struct PersonFactsService: Sendable {
 
     var respond: Respond = PersonFactsService.network
     var pacer = WikimediaPacer.shared
+    /// The languages of descriptions and biographies, read at each request so that a change applies at once.
+    var textLanguages: @Sendable () -> TextLanguages = { Localization.shared.textLanguages }
 
     init() {}
 
@@ -300,26 +339,40 @@ struct PersonFactsService: Sendable {
     /// The facts, the bio and the portrait of one item.
     func facts(qid: String) async throws -> PersonFacts? {
         guard Self.isQID(qid) else { return nil }
+        let texts = textLanguages()
         let data = try await get(
             Self.wikidata,
             [
                 .init(name: "action", value: "wbgetentities"), .init(name: "ids", value: qid),
                 .init(name: "props", value: "labels|descriptions|claims|sitelinks"),
-                .init(name: "languages", value: "en"), .init(name: "sitefilter", value: "enwiki"),
+                .init(name: "languages", value: Self.labelLanguages(texts)),
+                .init(name: "sitefilter", value: texts.wanted.map { "\($0.rawValue)wiki" }.joined(separator: "|")),
                 .init(name: "format", value: "json"),
             ])
         guard let entity = Self.entity(qid, in: data) else { return nil }
-        var facts = Self.parse(entity, qid: qid)
+        var facts = Self.parse(entity, qid: qid, languages: texts.wanted)
+        facts.textKey = texts.key
         facts.credits.append(
             PersonCredit(kind: .facts, text: "Wikidata, CC0", url: URL(string: "https://www.wikidata.org/wiki/\(qid)")))
-        if let title = Self.wikipediaTitle(entity) {
+        // The article of the app language wins; the fallback language gives its article when there is none.
+        // A request that failed is no answer: the text is kept as incomplete, and a later pass asks again.
+        var answered = true
+        for language in texts.wanted {
+            guard let title = Self.wikipediaTitle(entity, language: language) else { continue }
             // The text and the picture are extras: a failure there leaves the facts.
-            if let summary = try? await bio(title: title) {
-                facts.bio = summary.text
-                facts.credits.append(
-                    PersonCredit(kind: .text, text: "Wikipedia, CC BY-SA 4.0", url: summary.page))
+            do {
+                if let summary = try await bio(title: title, language: language) {
+                    facts.bio = summary.text
+                    facts.bioLanguage = language.rawValue
+                    facts.credits.append(
+                        PersonCredit(kind: .text, text: "Wikipedia, CC BY-SA 4.0", url: summary.page))
+                    break
+                }
+            } catch {
+                answered = false
             }
         }
+        if !answered { facts.textKey = texts.key + PersonFacts.unansweredMark }
         if let file = Self.pictureFile(entity) {
             do {
                 if let found = try await portrait(file: file) {
@@ -338,6 +391,7 @@ struct PersonFactsService: Sendable {
     // MARK: Search
 
     private func matches(search: String) async throws -> [PersonMatch] {
+        let texts = textLanguages()
         let data = try await get(
             Self.wikidata,
             [
@@ -351,21 +405,21 @@ struct PersonFactsService: Sendable {
             Self.wikidata,
             [
                 .init(name: "action", value: "wbgetentities"), .init(name: "ids", value: titles.joined(separator: "|")),
-                .init(name: "props", value: "labels|descriptions"), .init(name: "languages", value: "en"),
-                .init(name: "format", value: "json"),
+                .init(name: "props", value: "labels|descriptions"),
+                .init(name: "languages", value: Self.labelLanguages(texts)), .init(name: "format", value: "json"),
             ])
         return titles.compactMap { qid in
             guard let entity = Self.entity(qid, in: labels) else { return nil }
-            let parsed = Self.parse(entity, qid: qid)
+            let parsed = Self.parse(entity, qid: qid, languages: texts.wanted)
             return PersonMatch(qid: qid, name: parsed.name, description: parsed.description)
         }
     }
 
-    private func bio(title: String) async throws -> (text: String, page: URL?)? {
+    private func bio(title: String, language: AppLanguage) async throws -> (text: String, page: URL?)? {
         // A title is one path segment: a slash in it is text.
         let segment = title.replacingOccurrences(of: " ", with: "_")
             .addingPercentEncoding(withAllowedCharacters: Self.segmentCharacters)
-        guard let segment, let url = URL(string: Self.wikipedia.absoluteString + segment) else { return nil }
+        guard let segment, let url = URL(string: Self.wikipedia(language).absoluteString + segment) else { return nil }
         let (data, status) = try await send(Self.request(url))
         if status == 404 { return nil }
         guard (200..<300).contains(status) else { throw MusicBrainz.Failure.http(status) }
@@ -374,7 +428,7 @@ struct PersonFactsService: Sendable {
             !text.isEmpty
         else { return nil }
         let page = ((object["content_urls"] as? [String: Any])?["desktop"] as? [String: Any])?["page"] as? String
-        let article = URL(string: "https://en.wikipedia.org/wiki/" + segment)
+        let article = URL(string: "https://\(language.rawValue).wikipedia.org/wiki/" + segment)
         return (text, Self.trusted(page.flatMap { URL(string: $0) }) ?? article)
     }
 
@@ -453,9 +507,22 @@ struct PersonFactsService: Sendable {
         return entity?["missing"] == nil ? entity : nil
     }
 
-    static func parse(_ entity: [String: Any], qid: String) -> PersonFacts {
-        func text(_ key: String) -> String? {
-            ((entity[key] as? [String: Any])?["en"] as? [String: Any])?["value"] as? String
+    /// The languages that a Wikidata request asks for: the wanted ones, and English for the name.
+    static func labelLanguages(_ texts: TextLanguages) -> String {
+        var codes = texts.wanted.map(\.rawValue)
+        if !codes.contains(AppLanguage.source.rawValue) { codes.append(AppLanguage.source.rawValue) }
+        return codes.joined(separator: "|")
+    }
+
+    /// `languages` are the wanted text languages, best first. The name is in the source language when Wikidata has
+    /// it: the name settles which item a tag stands for, and a listener's tag is the name that the app shows.
+    static func parse(_ entity: [String: Any], qid: String, languages: [AppLanguage] = [.source]) -> PersonFacts {
+        let codes = languages.map(\.rawValue)
+        func text(_ key: String, among codes: [String]) -> (code: String, value: String)? {
+            let values = entity[key] as? [String: Any]
+            return codes.lazy.compactMap { code in
+                (values?[code] as? [String: Any])?["value"].flatMap { ($0 as? String).map { (code, $0) } }
+            }.first
         }
         let claims = entity["claims"] as? [String: Any] ?? [:]
         func value(_ property: String) -> Any? {
@@ -470,9 +537,12 @@ struct PersonFactsService: Sendable {
             if let precision = object["precision"] as? Int, precision < 9 { return nil }
             return (object["time"] as? String).flatMap { YearSpan.year(of: $0) }
         }
-        return PersonFacts(
-            qid: qid, name: text("labels") ?? qid, description: text("descriptions"), born: year("P569"),
-            died: year("P570"), activeFrom: year("P2031"))
+        let description = text("descriptions", among: codes)
+        var facts = PersonFacts(
+            qid: qid, name: text("labels", among: [AppLanguage.source.rawValue] + codes)?.value ?? qid,
+            description: description?.value, born: year("P569"), died: year("P570"), activeFrom: year("P2031"))
+        facts.descriptionLanguage = description?.code
+        return facts
     }
 
     static func pictureFile(_ entity: [String: Any]) -> String? {
@@ -482,8 +552,8 @@ struct PersonFactsService: Sendable {
         return ((best?["mainsnak"] as? [String: Any])?["datavalue"] as? [String: Any])?["value"] as? String
     }
 
-    static func wikipediaTitle(_ entity: [String: Any]) -> String? {
-        ((entity["sitelinks"] as? [String: Any])?["enwiki"] as? [String: Any])?["title"] as? String
+    static func wikipediaTitle(_ entity: [String: Any], language: AppLanguage = .source) -> String? {
+        ((entity["sitelinks"] as? [String: Any])?["\(language.rawValue)wiki"] as? [String: Any])?["title"] as? String
     }
 
     static func parsePortrait(_ data: Data) -> (portrait: PersonPortrait, credit: PersonCredit)? {
@@ -501,7 +571,8 @@ struct PersonFactsService: Sendable {
         let author = field("Artist").map(plain).flatMap { $0.isEmpty ? nil : $0 }
         let licence = field("LicenseShortName").map(plain).flatMap { $0.isEmpty ? nil : $0 }
         let filePage = trusted((info["descriptionurl"] as? String).flatMap { URL(string: $0) })
-        let text = [author ?? "Unknown author", licence, "Wikimedia Commons"].compactMap { $0 }.joined(separator: ", ")
+        let unknown = L("Unknown author")
+        let text = [author ?? unknown, licence, "Wikimedia Commons"].compactMap { $0 }.joined(separator: ", ")
         let portrait = PersonPortrait(
             url: url, page: filePage, original: trusted((info["url"] as? String).flatMap { URL(string: $0) }),
             width: info["width"] as? Int, height: info["height"] as? Int)

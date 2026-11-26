@@ -286,6 +286,12 @@ final class AppModel {
         await enrichment.enrich(index)
     }
 
+    /// A change of the fallback language: the saved texts of people load again in the background. A change of the app
+    /// language restarts the app, and the first pass after the start finds the stale texts.
+    func textLanguagesChanged() {
+        sweepPeople()
+    }
+
     /// Starts the background pass over the persons of the library. Nothing runs while it runs already.
     func sweepPeople() {
         Self.start(sweep, over: library.index)
@@ -293,6 +299,7 @@ final class AppModel {
 
     private static func start(_ sweep: PersonSweep, over index: WorkIndex) {
         let people = PersonSweep.people(of: index)
+        sweep.invalidateStaleTexts()
         sweep.measure(people)
         sweep.start(people)
     }
@@ -370,8 +377,8 @@ final class AppModel {
 
     /// The one word of the connection, for Settings and the Server Connection page. Empty before the first check.
     var connectionState: String {
-        guard let serverReached else { return isChecking ? "Checking…" : "" }
-        return serverReached ? "Connected" : "Not reachable"
+        guard let serverReached else { return isChecking ? L("Checking…") : "" }
+        return serverReached ? L("Connected") : L("Not reachable")
     }
 
     private func saveServerInfo() {

@@ -61,22 +61,24 @@ struct PageMenu: Equatable, Sendable {
         sections = []
         if kind != .player {
             var queue = [
-                Item(action: .playNext, title: "Play Next", systemImage: "text.line.first.and.arrowtriangle.forward"),
                 Item(
-                    action: .addToQueue, title: "Add to Queue", systemImage: "text.line.last.and.arrowtriangle.forward"),
+                    action: .playNext, title: L("Play Next"), systemImage: "text.line.first.and.arrowtriangle.forward"),
+                Item(
+                    action: .addToQueue, title: L("Add to Queue"),
+                    systemImage: "text.line.last.and.arrowtriangle.forward"),
             ]
             if let play { queue.insert(play, at: 0) }
             sections.append(queue)
         }
         guard kind != .work else { return }
         sections.append([Self.item(for: download, needsServer: needsServer)])
-        sections.append([Item(action: .tags, title: "Tags and Grouping", systemImage: "tag")])
+        sections.append([Item(action: .tags, title: L("Tags and Grouping"), systemImage: "tag")])
     }
 
     /// The first item of a row's long-press menu. The playing recording pauses and resumes, so its label says that.
     static func play(isPlaying: Bool, isPaused: Bool) -> Item {
         Item(
-            action: .play, title: isPlaying ? (isPaused ? "Resume" : "Pause") : "Play",
+            action: .play, title: isPlaying ? (isPaused ? L("Resume") : L("Pause")) : L("Play"),
             systemImage: isPlaying && !isPaused ? "pause" : "play")
     }
 
@@ -84,37 +86,37 @@ struct PageMenu: Equatable, Sendable {
         switch download {
         case .downloaded(let bytes):
             return Item(
-                action: .removeDownload, title: "Remove Download", subtitle: "Downloaded, \(size(bytes))",
+                action: .removeDownload, title: L("Remove Download"), subtitle: L("Downloaded, \(size(bytes))"),
                 systemImage: "trash", isDestructive: true)
         case .downloading(let share):
-            let percent = Int((share * 100).rounded(.down))
+            let percent = "\(Int((share * 100).rounded(.down)))\u{00A0}%"
             return Item(
-                action: .cancelDownload, title: "Cancel Download",
-                subtitle: needsServer ? "Downloading, waits for the server" : "Downloading, \(percent)\u{00A0}%",
+                action: .cancelDownload, title: L("Cancel Download"),
+                subtitle: needsServer ? L("Downloading, waits for the server") : L("Downloading, \(percent)"),
                 systemImage: "xmark.circle")
         case .failed(let reason):
             return Item(
-                action: .download, title: "Download Again", subtitle: "Failed: \(reason)",
+                action: .download, title: L("Download Again"), subtitle: L("Failed: \(reason)"),
                 systemImage: "arrow.clockwise.circle", isDisabled: needsServer)
         case .notDownloaded, .partly:
             let line: String?
             if needsServer {
-                line = "Needs the server"
+                line = L("Needs the server")
             } else if case .partly(let done, let total) = download {
-                line = "\(done) of \(total) recordings downloaded"
+                line = L("\(done) of \(total) recordings downloaded")
             } else if case .notDownloaded(let bytes?) = download {
                 line = size(bytes)
             } else {
                 line = nil
             }
             return Item(
-                action: .download, title: "Download", subtitle: line, systemImage: "arrow.down.circle",
+                action: .download, title: L("Download"), subtitle: line, systemImage: "arrow.down.circle",
                 isDisabled: needsServer)
         }
     }
 
     static func size(_ bytes: Int64) -> String {
-        bytes.formatted(.byteCount(style: .file))
+        bytes.localizedByteCount()
     }
 
     /// The download state of a recording or an album.

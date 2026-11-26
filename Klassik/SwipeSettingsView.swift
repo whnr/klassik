@@ -29,7 +29,7 @@ struct SwipeSettingsView: View {
                 Button("Restore Defaults") { swipes.reset() }
             }
         }
-        .pageTitle("Swipe Actions")
+        .pageTitle(L("Swipe Actions"))
     }
 
     private func picker(_ slot: Int, in actions: Binding<[SwipeAction?]>, leftmost: Int) -> some View {

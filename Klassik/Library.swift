@@ -30,6 +30,9 @@ final class Library {
     /// The search terms of the index for the filter sheet. They build off the main actor when the index changes, so
     /// the first tap on Filters never waits. Until a build is done, the sheet keeps the terms of the last index.
     private(set) var searchFilters = SearchFilters(index: WorkIndex())
+    /// False until the first build of `searchFilters` is done. Before that the terms and counts are empty, and a
+    /// sheet that showed them would say "0 recordings" for a library that holds many.
+    private(set) var hasSearchFilters = false
     @ObservationIgnored private var filtersBuild: Task<Void, Never>?
     /// The last real change: the time of the last full sync.
     private(set) var syncedAt: Date?
@@ -81,6 +84,7 @@ final class Library {
             let built = await Task.detached(priority: .utility) { SearchFilters(index: index) }.value
             guard let self, !Task.isCancelled, self.indexVersion == version else { return }
             self.searchFilters = built
+            self.hasSearchFilters = true
         }
     }
 
@@ -149,18 +153,18 @@ final class Library {
 
     /// The Diagnostics row for a check that found no change. A suspended app can show a day-old check, so it carries the date.
     var unchangedCheckRow: String? {
-        unchangedCheck.map { "Checked \($0.formatted(date: .abbreviated, time: .standard)), no changes" }
+        unchangedCheck.map { L("Checked \($0.localized(date: .abbreviated, time: .standard)), no changes") }
     }
 
     /// The line under the Library page.
     var statusText: String? {
         if let syncError { return syncError }
-        if isSyncing { return "Syncing… \(received) tracks" }
-        guard let syncedAt else { return "Not synced." }
+        if isSyncing { return L("Syncing… \(received) tracks") }
+        guard let syncedAt else { return L("Not synced.") }
         if let unchangedCheck {
-            return "Checked \(unchangedCheck.formatted(.relative(presentation: .named))), no changes."
+            return L("Checked \(unchangedCheck.localizedRelative()), no changes.")
         }
-        return "Synced \(syncedAt.formatted(.relative(presentation: .named)))."
+        return L("Synced \(syncedAt.localizedRelative()).")
     }
 
     func sync(with client: SubsonicClient) async {

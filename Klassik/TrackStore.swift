@@ -49,7 +49,7 @@ final class TrackStore {
     enum Failure: LocalizedError {
         case offline
 
-        var errorDescription: String? { "This iPhone has no network for music now." }
+        var errorDescription: String? { L("This iPhone has no network for music now.") }
     }
     @ObservationIgnored private var downloadTracks: [String: Set<String>] = [:]
     /// Downloads asked for again while their cancelled task still ends. Each starts when its old task ended.

@@ -2,7 +2,7 @@ import SwiftUI
 
 /// The name of the favourite action. On a favourite it takes the favourite away.
 enum FavouriteAction {
-    static func title(isSet: Bool) -> String { isSet ? "Unfavourite" : "Favourite" }
+    static func title(isSet: Bool) -> String { isSet ? L("Unfavourite") : L("Favourite") }
 }
 
 /// The actions of a row that stands for one recording or one album. Trailing swipe: the queue. Leading swipe:
@@ -77,7 +77,7 @@ private struct ItemActions: ViewModifier {
             Button("Cancel Download", systemImage: "xmark") { tracks.cancelDownload(item.recording.id) }
         } else {
             // A plain glyph, as the queue actions have: a circled glyph draws as a ring inside the pill.
-            let title = tracks.failures[item.recording.id] == nil ? "Download" : "Download Again"
+            let title = tracks.failures[item.recording.id] == nil ? L("Download") : L("Download Again")
             Button(title, systemImage: "arrow.down") {
                 if let client = model.client {
                     tracks.download(item.recording, title: item.work.title, client: client)
@@ -226,7 +226,7 @@ struct WorkRow: View {
     nonisolated static func detail(of work: WorkIndex.Work, composed: String?) -> String {
         let recordings = WorkIndex.Recording.count(work.recordings.count, "recording")
         guard let composed else { return recordings }
-        return "Composed\u{00A0}\(composed), \(recordings)"
+        return L("Composed\u{00A0}\(composed), \(recordings)")
     }
 }
 
@@ -333,7 +333,7 @@ struct CountedHeading: View {
     }
 
     var body: some View {
-        Text("\(title) \(Text("(\(count))").foregroundStyle(Palette.textSecondary))")
+        Text("\(Text(LocalizedStringKey(title))) \(Text("(\(count))").foregroundStyle(Palette.textSecondary))")
             .typeStyle(Layout.sectionHeading)
             .foregroundStyle(Palette.textPrimary)
             .textCase(nil)
@@ -381,7 +381,7 @@ private struct WorkHeader: View {
             if let composed = enrichment.composed(work) {
                 composed.span.text
             } else {
-                enrichment.isRunning ? "…" : "unknown"
+                enrichment.isRunning ? "…" : L("unknown")
             }
         return Text(", composed\u{00A0}\(text)")
             .foregroundStyle(Palette.textSecondary)
@@ -792,13 +792,13 @@ struct RecordingView: View {
                 if let wholeAlbum {
                     // The playing album pauses and resumes, so the button says that.
                     let playsAlbum = player.recording?.id == wholeAlbum.recording.id
-                    let verb = playsAlbum ? (player.isPaused ? "Resume" : "Pause") : "Play"
+                    let title = playsAlbum ? (player.isPaused ? L("Resume Album") : L("Pause Album")) : L("Play Album")
                     Button {
                         spell.touch()
                         player.play(wholeAlbum)
                     } label: {
                         CapsuleLabel(
-                            title: "\(verb) Album",
+                            title: title,
                             systemImage: playsAlbum && !player.isPaused ? "pause.fill" : "play.fill",
                             filled: false)
                     }
@@ -964,15 +964,21 @@ private struct MovementRow: View {
     }
 
     private var hint: String {
-        let what = hasNames ? (notes.isEmpty ? "the names" : "the names and notes") : "the notes"
-        return (isOpen ? "Hides " : "Shows ") + what
+        switch (isOpen, hasNames, notes.isEmpty) {
+        case (true, true, true): return L("Hides the names")
+        case (true, true, false): return L("Hides the names and notes")
+        case (true, false, _): return L("Hides the notes")
+        case (false, true, true): return L("Shows the names")
+        case (false, true, false): return L("Shows the names and notes")
+        case (false, false, _): return L("Shows the notes")
+        }
     }
 
     private var label: some View {
         HStack {
             MovementTitle(title: title, style: .body)
             if let duration = song.duration {
-                Text(Duration.seconds(duration).formatted(.time(pattern: .minuteSecond)))
+                Text(Duration.seconds(duration).localizedTime(.minuteSecond))
                     .foregroundStyle(Palette.textSecondary)
             }
             if opens {
@@ -1089,7 +1095,7 @@ private struct PlayerControls: View {
                     .frame(width: Measure.hitTarget, height: Measure.hitTarget)
                     .contentShape(.rect)
             }
-            .accessibilityLabel(title)
+            .accessibilityLabel(LocalizedStringKey(title))
         }
     }
 }
@@ -1301,8 +1307,7 @@ struct PlaybackProgress: View {
     }
 
     static func time(_ seconds: Double) -> String {
-        Duration.seconds(seconds.rounded()).formatted(
-            .time(pattern: seconds >= 3600 ? .hourMinuteSecond : .minuteSecond))
+        Duration.seconds(seconds.rounded()).localizedTime(seconds >= 3600 ? .hourMinuteSecond : .minuteSecond)
     }
 }
 
@@ -1534,7 +1539,7 @@ struct CapsuleLabel: View {
                 Image(systemName: systemImage)
                     .accessibilityHidden(true)
             }
-            Text(title)
+            Text(LocalizedStringKey(title))
                 .fixedSize(horizontal: false, vertical: true)
         }
         .typeStyle(Layout.capsuleLabel)

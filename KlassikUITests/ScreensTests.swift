@@ -434,6 +434,8 @@ final class BrowseScreens: ScreensTestCase {
         let done = app.buttons["filter-done"]
         XCTAssertTrue(done.waitForExistence(timeout: 10))
         XCTAssertGreaterThan(done.frame.minY, app.frame.height / 3, "The sheet is not at the medium detent")
+        // The sheet shows no total until the terms of the library are built.
+        XCTAssertTrue(app.staticTexts["filter-total"].waitForExistence(timeout: 10), "The sheet shows no total")
         XCTAssertEqual(app.staticTexts["filter-total"].label, "4\u{00A0}recordings")
         // The head and the body share one inset: Back leads the head, the title follows it, and the note and the
         // kinds start under Back; the kinds reach to Done.
@@ -3066,10 +3068,20 @@ class ScreensTestCase: XCTestCase {
         let connect = app.buttons["connect"]
         XCTAssertTrue(connect.waitForExistence(timeout: 10))
         if snapConnect { snap(app, "01-connect") }
-        connect.tap()
         // The Library place lists its rows at once. The composers fill in while the first sync runs.
         let composers = app.buttons["library-composers"]
-        let listed = composers.waitForExistence(timeout: 30)
+        // On a loaded runner the fixture server can answer a ping after the app's 10 second read limit. The
+        // connect screen then shows the timeout, and the listener taps Connect again, as the test does. Any other
+        // state is a real failure and ends the wait at once.
+        let timeout = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "The request timed out."))
+        var listed = false
+        for attempt in 1...3 {
+            if connect.exists { connect.tap() }
+            listed = composers.waitForExistence(timeout: 30)
+            if listed { break }
+            guard connect.exists, timeout.firstMatch.exists, attempt < 3 else { break }
+            print("launchAndConnect: connect timed out, tapping Connect again (attempt \(attempt + 1) of 3)")
+        }
         XCTAssertTrue(listed, "No library after connect. On screen: \(visibleTexts(app))")
         if openComposers {
             composers.tap()
@@ -3869,5 +3881,364 @@ extension XCUIElement {
     func waitForSelection(timeout: TimeInterval) -> Bool {
         let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isSelected == true"), object: self)
         return XCTWaiter.wait(for: [selected], timeout: timeout) == .completed
+    }
+}
+
+/// The texts of the catalog in one language, for the walk to check the screen against. The path comes from
+/// `KLASSIK_CATALOG`, or from the place of this file in the repository: the simulator runs on the same machine.
+struct WalkCatalog: @unchecked Sendable {
+    let source: String
+    let language: String
+    private let strings: [String: [String: Any]]
+
+    static func load(language requested: String?) -> WalkCatalog? {
+        let env = ProcessInfo.processInfo.environment
+        let fallback = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Klassik/Localizable.xcstrings").path
+        let path = env["KLASSIK_CATALOG"].flatMap { $0.isEmpty ? nil : $0 } ?? fallback
+        guard let data = FileManager.default.contents(atPath: path),
+            let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let source = root["sourceLanguage"] as? String,
+            let strings = root["strings"] as? [String: [String: Any]]
+        else { return nil }
+        var languages = Set<String>()
+        for entry in strings.values {
+            if let localizations = entry["localizations"] as? [String: Any] { languages.formUnion(localizations.keys) }
+        }
+        guard let language = requested ?? languages.subtracting([source]).sorted().first else { return nil }
+        return WalkCatalog(source: source, language: language, strings: strings)
+    }
+
+    private static func value(_ localization: Any?) -> String? {
+        ((localization as? [String: Any])?["stringUnit"] as? [String: Any])?["value"] as? String
+    }
+
+    private func localization(_ key: String) -> [String: Any]? {
+        (strings[key]?["localizations"] as? [String: Any])?[language] as? [String: Any]
+    }
+
+    /// The text of a key in the walk language. A plural key gives the form named by `form`.
+    func text(_ key: String, form: String? = nil) -> String {
+        guard let form else { return Self.value(localization(key)) ?? key }
+        let plural = (localization(key)?["variations"] as? [String: Any])?["plural"] as? [String: Any]
+        return Self.value(plural?[form]) ?? key
+    }
+
+    /// The words of a text before its first argument, for a text that a screen completes.
+    func lead(_ key: String) -> String {
+        String(text(key).prefix { $0 != "%" })
+    }
+
+    /// The fixed words of a plural text, without its number.
+    func words(_ key: String, form: String = "other") -> String {
+        text(key, form: form).replacingOccurrences(of: "%lld", with: "").trimmingCharacters(in: .whitespaces)
+    }
+
+    /// Every text of the walk language as a pattern, with an argument matching anything, to tell a catalog text on
+    /// the screen from a text that no catalog translates.
+    func patterns() -> [NSRegularExpression] {
+        var values: [String] = []
+        for key in strings.keys {
+            let found = localization(key)
+            if let value = Self.value(found) { values.append(value) }
+            let plural = (found?["variations"] as? [String: Any])?["plural"] as? [String: Any]
+            if let plural {
+                for form in plural.values {
+                    if let value = Self.value(form) { values.append(value) }
+                }
+            }
+        }
+        let marker = "\u{1}"
+        return values.compactMap { value in
+            let marked = value.replacingOccurrences(
+                of: "%(\\d+\\$)?(l|ll)?[@dsf]", with: marker, options: .regularExpression)
+            let escaped = marked.components(separatedBy: marker).map { NSRegularExpression.escapedPattern(for: $0) }
+            return try? NSRegularExpression(
+                pattern: "^" + escaped.joined(separator: ".+") + "$", options: [.dotMatchesLineSeparators])
+        }
+    }
+}
+
+/// The app in the walk language on four screens: Settings, the Library and Search, a work page and the player
+/// (sz-odf9). The language comes from `KLASSIK_WALK_LANGUAGE` (a catalog language, such as `de`), or is the first
+/// language of the catalog that is not the source. The rest of the walk stays in the source language. The last test
+/// doubles every text, as a pseudo-language does, to find text that a screen cuts off or lets leave its edge.
+final class LanguageScreens: ScreensTestCase {
+    static let walk: WalkCatalog? = WalkCatalog.load(
+        language: ProcessInfo.processInfo.environment["KLASSIK_WALK_LANGUAGE"].flatMap { $0.isEmpty ? nil : $0 })
+
+    /// The launch arguments that set the app language, as the iOS Settings app does for one app.
+    static var language: [String] {
+        let code = walk?.language ?? ""
+        return ["-AppleLanguages", "(\(code))", "-AppleLocale", code]
+    }
+    /// The language with every text twice as long. Long words and accents meet every screen.
+    static var doubled: [String] { language + ["-NSDoubleLocalizedStrings", "YES"] }
+
+    /// The text sizes that the check tries, in points, from the smallest of the app to a large title.
+    static let fontSizes = stride(from: CGFloat(11), through: 34, by: 0.5)
+    /// The width that a font of another face may need more than the system font, as a factor.
+    static let widthSlack: CGFloat = 1.1
+
+    /// The font that draws a text. A time or a number has monospaced digits, which are wider than the proportional
+    /// digits; the other texts use the system font.
+    static func face(_ text: String, size: CGFloat) -> UIFont {
+        text.contains(where: \.isLetter)
+            ? UIFont.systemFont(ofSize: size) : UIFont.monospacedDigitSystemFont(ofSize: size, weight: .regular)
+    }
+
+    /// The lines that a text needs in a width at a font size.
+    static func lines(_ text: String, width: CGFloat, size: CGFloat) -> Int {
+        let font = face(text, size: size)
+        let box = (text as NSString).boundingRect(
+            with: CGSize(width: width, height: .greatestFiniteMagnitude), options: .usesLineFragmentOrigin,
+            attributes: [.font: font], context: nil)
+        return Int((box.height / font.lineHeight).rounded())
+    }
+
+    /// The words that VoiceOver says before the drawn title of the playing movement, in the walk language, in the
+    /// source language and doubled. They are in the label but not on the screen. They come from the catalog.
+    static var spokenPrefixes: [String] {
+        guard let walk else { return [] }
+        let spoken = "Now playing, %@"
+        let own = walk.lead(spoken)
+        let source = String(spoken.prefix { $0 != "%" })
+        return ["\(own)@ \(own)", own, source]
+    }
+
+    /// The label without a spoken prefix: the text that the screen draws.
+    static func drawn(_ label: String) -> String {
+        for prefix in spokenPrefixes where !prefix.isEmpty && label.hasPrefix(prefix) {
+            return String(label.dropFirst(prefix.count))
+        }
+        return label
+    }
+
+    /// True when the text ends in an ellipsis, or needs more lines than its frame shows. The label of a cut text
+    /// stays complete, so the check measures it: the frame height gives the lines n and the font size together
+    /// (n lines of a size fill the height within 2 pt), and the text must fit n lines of that size in the frame
+    /// width. A frame that no size explains is not judged.
+    static func isCut(label: String, frame: CGRect) -> Bool {
+        if label.hasSuffix("…") || label.hasSuffix("...") { return true }
+        guard label.count > 3, frame.width > 0, frame.height > 0 else { return false }
+        var explained = false
+        for size in fontSizes {
+            let line = face(label, size: size).lineHeight
+            let shown = Int((frame.height / line).rounded())
+            guard shown >= 1, abs(CGFloat(shown) * line - frame.height) <= 2 else { continue }
+            explained = true
+            if lines(label, width: frame.width * widthSlack, size: size) <= shown { return false }
+        }
+        return explained
+    }
+
+    /// No text leaves the screen sideways, and none is cut off. A wrapped text stays inside; a text that does not
+    /// wrap would leave or be cut.
+    @MainActor
+    func expectInside(_ app: XCUIApplication, _ screen: String) {
+        // The timeline moves the page sideways by half its width while music plays.
+        let slack = Measure.timeline
+        let width = app.frame
+        for text in app.staticTexts.allElementsBoundByIndex.prefix(120) where text.exists {
+            // One snapshot gives the label and the frame of the same element. A playing time changes every second,
+            // and a second query by index can answer for another element.
+            guard let snapshot = try? text.snapshot() else { continue }
+            let (label, frame) = (snapshot.label, snapshot.frame)
+            guard !frame.isEmpty, frame.minX.isFinite, frame.maxX.isFinite else { continue }
+            let name = "\(screen): \"\(label)\""
+            XCTAssertGreaterThanOrEqual(frame.minX, width.minX - slack, "\(name) leaves the left edge")
+            XCTAssertLessThanOrEqual(frame.maxX, width.maxX + slack, "\(name) leaves the right edge")
+            XCTAssertFalse(
+                Self.isCut(label: Self.drawn(label), frame: frame), "\(name) is cut off, frame \(frame)")
+        }
+    }
+
+    /// A section heading by its text.
+    @MainActor
+    func heading(_ app: XCUIApplication, _ text: String) -> XCUIElement {
+        app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", text)).firstMatch
+    }
+
+    /// The catalog of the walk. A walk without one cannot say what the screen must show, so it fails.
+    func catalog() throws -> WalkCatalog {
+        try XCTUnwrap(Self.walk, "No catalog to read the walk language from")
+    }
+
+    /// Settings, the title, the headings, the tabs and every footer in the walk language. The language picker is
+    /// the iOS Settings app, so Settings holds none, and says where to change the language.
+    @MainActor
+    func testSettingsFollowTheAppLanguage() throws {
+        let walk = try catalog()
+        let app = try launchAndConnect(openComposers: false, arguments: Self.language)
+        XCTAssertEqual(tab(app, "Library").label, walk.text("Library"))
+        XCTAssertTrue(app.buttons["library-settings"].waitForExistence(timeout: 10))
+        app.buttons["library-settings"].tap()
+        XCTAssertTrue(
+            app.navigationBars[walk.text("Settings")].waitForExistence(timeout: 10), "The title stays in the source")
+        XCTAssertFalse(app.buttons["app-language"].exists, "Settings holds a language picker of its own")
+        XCTAssertTrue(heading(app, walk.text("Playback")).waitForExistence(timeout: 5), "A heading stays in the source")
+        snap(app, "20-settings-language")
+        let patterns = walk.patterns()
+        for _ in 0..<5 {
+            expectInside(app, "Settings")
+            expectTranslated(app, patterns, "Settings")
+            app.swipeUp()
+        }
+    }
+
+    /// Every long text on screen, such as a footer, is a text of the walk language that the catalog holds.
+    @MainActor
+    func expectTranslated(_ app: XCUIApplication, _ patterns: [NSRegularExpression], _ screen: String) {
+        for text in app.staticTexts.allElementsBoundByIndex.prefix(120) where text.exists {
+            let label = text.label
+            guard label.count > 40 else { continue }
+            let range = NSRange(label.startIndex..., in: label)
+            let known = patterns.contains { $0.firstMatch(in: label, range: range) != nil }
+            XCTAssertTrue(known, "\(screen): \"\(label)\" is no text of the language")
+        }
+    }
+
+    /// Library, Search, a work page and the player in the walk language.
+    @MainActor
+    func testScreensInTheAppLanguage() throws {
+        let walk = try catalog()
+        let source = walk.source
+        let app = try launchAndConnect(openComposers: false, arguments: Self.language)
+        XCTAssertEqual(tab(app, "Library").label, walk.text("Library"))
+        let composers = app.buttons["library-composers"]
+        XCTAssertTrue(composers.label.contains(walk.words("%lld composers")), composers.label)
+        snap(app, "21a-library-language")
+        expectInside(app, "Library")
+
+        openPlace(app, "Search")
+        let field = app.textFields["search-field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        XCTAssertEqual(field.placeholderValue, walk.text("Work or name"))
+        let hint = walk.text("Type a work, a catalogue number such as Op. 67 or K. 626, or a name.")
+        XCTAssertEqual(app.staticTexts["search-hint"].label, hint)
+        field.tap()
+        field.typeText("chopin")
+        XCTAssertTrue(app.buttons.matching(identifier: "search-work").firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(
+            heading(app, walk.text("Works") + " (").waitForExistence(timeout: 5),
+            "The result heading stays in \(source)")
+        snap(app, "21b-search-language")
+        expectInside(app, "Search")
+        field.typeText("\n")
+        _ = app.keyboards.firstMatch.waitForNonExistence(timeout: 5)
+
+        openPlace(app, "Library")
+        app.buttons["library-composers"].tap()
+        XCTAssertTrue(composer(app, "Felix Mendelssohn").waitForExistence(timeout: 30))
+        composer(app, "Felix Mendelssohn").tap()
+        XCTAssertTrue(app.buttons[walk.text("About")].waitForExistence(timeout: 10), "The About tab stays in \(source)")
+        let work = app.buttons.matching(identifier: "work").firstMatch
+        XCTAssertTrue(work.waitForExistence(timeout: 10))
+        work.tap()
+        let play = app.buttons["play-work"]
+        XCTAssertTrue(play.waitForExistence(timeout: 10))
+        XCTAssertEqual(play.label, walk.text("Play top recording"))
+        XCTAssertTrue(
+            heading(app, walk.text("Recordings")).waitForExistence(timeout: 5),
+            "The Recordings heading stays in \(source)")
+        snap(app, "21c-work-language")
+        expectInside(app, "Work")
+
+        let recording = app.buttons.matching(identifier: "recording").firstMatch
+        XCTAssertTrue(recording.waitForExistence(timeout: 10))
+        recording.tap()
+        XCTAssertTrue(app.buttons["play-recording"].waitForExistence(timeout: 10))
+        XCTAssertEqual(app.buttons["play-recording"].label, walk.text("Play"))
+        startPlaying(app)
+        let pill = app.buttons["mini-player-pause"]
+        XCTAssertTrue(pill.waitForExistence(timeout: 10))
+        pill.tap()
+        let resume = walk.text("Resume")
+        XCTAssertTrue(eventually(timeout: 10) { pill.label == resume }, "The mini player reads \(pill.label)")
+        openPlayer(app)
+        let next = app.buttons[walk.text("Next")].firstMatch
+        XCTAssertTrue(next.waitForExistence(timeout: 10), "The player controls stay in \(source)")
+        // The facts line of the recording is built in code, not in a view: it must follow the language too.
+        let lead = walk.lead("Recorded in %@ on %@.")
+        let facts = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", lead)).firstMatch
+        XCTAssertTrue(facts.waitForExistence(timeout: 5), "The facts line is missing or in \(source)")
+        let sourceLead = String("Recorded in %@ on %@.".prefix { $0 != "%" })
+        if sourceLead != lead {
+            let found = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", sourceLead)).firstMatch
+            XCTAssertFalse(found.exists, "\(sourceLead) stays in \(source)")
+        }
+        snap(app, "21d-player-language")
+        expectInside(app, "Player")
+    }
+
+    /// The walk language at twice its length on the same screens. Nothing may leave the screen sideways.
+    @MainActor
+    func testDoubledLanguageStaysInside() throws {
+        _ = try catalog()
+        let app = try launchAndConnect(openComposers: false, arguments: Self.doubled)
+        expectInside(app, "Library, doubled")
+        snap(app, "22a-library-doubled")
+        app.buttons["library-settings"].tap()
+        XCTAssertTrue(app.staticTexts["page-heading"].waitForExistence(timeout: 10))
+        for _ in 0..<3 {
+            expectInside(app, "Settings, doubled")
+            app.swipeUp()
+        }
+        snap(app, "22b-settings-doubled")
+        back(app)
+        openPlace(app, "Search")
+        XCTAssertTrue(app.staticTexts["search-hint"].waitForExistence(timeout: 10))
+        expectInside(app, "Search, doubled")
+        snap(app, "22c-search-doubled")
+        openPlace(app, "Library")
+        app.buttons["library-composers"].tap()
+        XCTAssertTrue(composer(app, "Felix Mendelssohn").waitForExistence(timeout: 30))
+        composer(app, "Felix Mendelssohn").tap()
+        let work = app.buttons.matching(identifier: "work").firstMatch
+        XCTAssertTrue(work.waitForExistence(timeout: 10))
+        work.tap()
+        XCTAssertTrue(app.buttons["play-work"].waitForExistence(timeout: 10))
+        expectInside(app, "Work, doubled")
+        snap(app, "22d-work-doubled")
+        let recording = app.buttons.matching(identifier: "recording").firstMatch
+        XCTAssertTrue(recording.waitForExistence(timeout: 10))
+        recording.tap()
+        XCTAssertTrue(app.buttons["play-recording"].waitForExistence(timeout: 10))
+        startPlaying(app)
+        XCTAssertTrue(app.buttons["mini-player-pause"].waitForExistence(timeout: 10))
+        openPlayer(app)
+        expectInside(app, "Player, doubled")
+        snap(app, "22e-player-doubled")
+    }
+
+    /// The test for a cut text finds what it must: an ellipsis, a two-line text in one line, a text in a frame
+    /// too small, and nothing that fits.
+    func testCutTextIsFound() {
+        let text = "Resume playback and keep the whole queue of movements"
+        let font = UIFont.systemFont(ofSize: 17)
+        let one = (text as NSString).size(withAttributes: [.font: font]).width
+        let width = (one * 0.6).rounded()
+        let twoLines = CGRect(x: 0, y: 0, width: width, height: font.lineHeight * 2)
+        let oneLine = CGRect(x: 0, y: 0, width: width, height: font.lineHeight)
+        XCTAssertEqual(Self.lines(text, width: width, size: 17), 2)
+        XCTAssertFalse(Self.isCut(label: text, frame: twoLines))
+        XCTAssertTrue(Self.isCut(label: text, frame: oneLine), "A two-line text in one line is not found")
+        XCTAssertFalse(Self.isCut(label: text, frame: CGRect(x: 0, y: 0, width: one + 2, height: font.lineHeight)))
+        // The spoken words of the playing title are not on the screen: the title fits its frame.
+        if let prefix = Self.spokenPrefixes.first {
+            XCTAssertEqual(Self.drawn("\(prefix)Allegro molto appassionato"), "Allegro molto appassionato")
+            XCTAssertFalse(
+                Self.isCut(
+                    label: Self.drawn("\(prefix)Allegro molto appassionato"),
+                    frame: CGRect(x: 16, y: 672, width: 217, height: 20.3)))
+        }
+        // The remaining time of the player is one line of 32 pt; a frame too narrow for its digits cuts it.
+        XCTAssertFalse(Self.isCut(label: "−1:50", frame: CGRect(x: 0, y: 0, width: 32, height: 14.33)))
+        XCTAssertTrue(Self.isCut(label: "−1:50", frame: CGRect(x: 0, y: 0, width: 12, height: 14.33)))
+        XCTAssertFalse(Self.isCut(label: "Settings", frame: CGRect(x: 0, y: 0, width: 300, height: 24)))
+        XCTAssertTrue(Self.isCut(label: "Ser…", frame: CGRect(x: 0, y: 0, width: 300, height: 24)))
+        XCTAssertTrue(
+            Self.isCut(
+                label: String(repeating: "Playback ", count: 20), frame: CGRect(x: 0, y: 0, width: 300, height: 24)))
     }
 }

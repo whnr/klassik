@@ -200,7 +200,8 @@ struct TimelineBarView: View {
     private var accessibilityValue: String {
         let player = model.playback
         guard let movement = player.movement, let recording = player.recording else { return "" }
-        return "Movement \(movement + 1) of \(recording.songs.count), \(title(of: movement)), "
-            + PlaybackProgress.time(player.position)
+        return L(
+            "Movement \(movement + 1) of \(recording.songs.count), \(title(of: movement)), \(PlaybackProgress.time(player.position))"
+        )
     }
 }

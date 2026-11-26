@@ -813,7 +813,9 @@ class PlanTests(unittest.TestCase):
         self.assertTrue(browse)
         self.assertTrue(all(entry.startswith("BrowseScreens/") for entry in browse))
         self.assertEqual(screen_report.group_tests("browse-pages", "places"), [])
-        self.assertEqual(screen_report.group_tests("settings-timeline"), ["SettingsScreens", "TimelineScreens"])
+        self.assertEqual(
+            screen_report.group_tests("settings-timeline"), ["SettingsScreens", "TimelineScreens", "LanguageScreens"]
+        )
 
     def test_each_shard_requires_only_its_own_screenshots(self):
         source = screen_report.WALK.read_text()

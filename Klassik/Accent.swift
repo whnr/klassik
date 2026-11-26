@@ -9,9 +9,9 @@ extension AccentFamily: Identifiable {
 
     var title: String {
         switch self {
-        case .claret: "Claret"
-        case .green: "Bottle Green"
-        case .plum: "Plum"
+        case .claret: L("Claret")
+        case .green: L("Bottle Green")
+        case .plum: L("Plum")
         }
     }
 

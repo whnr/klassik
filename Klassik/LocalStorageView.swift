@@ -11,10 +11,10 @@ struct LocalStorageView: View {
         let pictures = model.pictures
         let albumArt = model.albumArt
         let parts = [
-            StoragePart(id: "music", name: "Music", colour: .tint, bytes: tracks.cacheBytes),
-            StoragePart(id: "downloads", name: "Downloads", colour: .swipeDownload, bytes: tracks.downloadBytes),
-            StoragePart(id: "pictures", name: "Pictures", colour: .textSecondary, bytes: pictures.bytes),
-            StoragePart(id: "album-art", name: "Album Art", colour: .textTertiary, bytes: albumArt.bytes),
+            StoragePart(id: "music", name: L("Music"), colour: .tint, bytes: tracks.cacheBytes),
+            StoragePart(id: "downloads", name: L("Downloads"), colour: .swipeDownload, bytes: tracks.downloadBytes),
+            StoragePart(id: "pictures", name: L("Pictures"), colour: .textSecondary, bytes: pictures.bytes),
+            StoragePart(id: "album-art", name: L("Album Art"), colour: .textTertiary, bytes: albumArt.bytes),
         ]
         let total = parts.reduce(0) { $0 + $1.bytes }
         PageForm {
@@ -37,8 +37,8 @@ struct LocalStorageView: View {
                 }
             } footer: {
                 Text(
-                    available.map { "Klassik uses \(Self.size(total)). \(Self.size($0)) free on this iPhone." }
-                        ?? "Klassik uses \(Self.size(total))."
+                    available.map { L("Klassik uses \(Self.size(total)). \(Self.size($0)) free on this iPhone.") }
+                        ?? L("Klassik uses \(Self.size(total)).")
                 )
             }
 
@@ -94,12 +94,12 @@ struct LocalStorageView: View {
                 Text("A download stays until you remove it. The music limit does not count it. Signing out removes it.")
             }
         }
-        .pageTitle("Local Storage")
+        .pageTitle(L("Local Storage"))
         .task { available = await Self.availableBytes() }
     }
 
     static func size(_ bytes: Int64) -> String {
-        bytes.formatted(.byteCount(style: .file))
+        bytes.localizedByteCount()
     }
 
     /// The free space that the system reports for files that the listener asked for.

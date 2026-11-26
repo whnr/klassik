@@ -12,7 +12,7 @@ struct RawTagsView: View {
                     .ink()
                 LabeledContent("Work key (derived)", value: work.id)
                     .ink()
-                LabeledContent("Album ID", value: recording.songs.first?.albumId ?? "None")
+                LabeledContent("Album ID", value: recording.songs.first?.albumId ?? L("None"))
                     .ink()
             } header: {
                 Text("Grouping (derived by Klassik)")
@@ -33,19 +33,19 @@ struct RawTagsView: View {
                 }
             }
         }
-        .pageTitle("Tags")
+        .pageTitle(L("Tags"))
     }
 }
 
 extension WorkIndex.Work {
     /// Which tags put the tracks of this work together.
     var groupingReason: String {
-        if id.hasPrefix("mbid:") { return "Grouped by the MusicBrainz work ID in the tags." }
-        if id.hasPrefix("work:") { return "Grouped by composer and the WORK tag. No MusicBrainz work ID is tagged." }
+        if id.hasPrefix("mbid:") { return L("Grouped by the MusicBrainz work ID in the tags.") }
+        if id.hasPrefix("work:") { return L("Grouped by composer and the WORK tag. No MusicBrainz work ID is tagged.") }
         if id.hasPrefix("album|") {
-            return "A whole album played as one work. Each track below shows its own work key."
+            return L("A whole album played as one work. Each track below shows its own work key.")
         }
-        return "The tracks have no WORK tag. Klassik shows the album as one work."
+        return L("The tracks have no WORK tag. Klassik shows the album as one work.")
     }
 }
 

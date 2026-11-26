@@ -3979,6 +3979,9 @@ final class LanguageScreens: ScreensTestCase {
     static func isCut(label: String, frame: CGRect) -> Bool {
         if label.hasSuffix("…") || label.hasSuffix("...") { return true }
         guard label.count > 3, frame.width > 0, frame.height > 0 else { return false }
+        // A time or a number has no translation to double and no word to wrap, and its monospaced digits are wider
+        // than the proportional font that this check measures with.
+        guard label.contains(where: \.isLetter) else { return false }
         var explained = false
         for size in fontSizes {
             let line = UIFont.systemFont(ofSize: size).lineHeight
@@ -4187,6 +4190,7 @@ final class LanguageScreens: ScreensTestCase {
                     label: Self.drawn("\(prefix)Allegro molto appassionato"),
                     frame: CGRect(x: 16, y: 672, width: 217, height: 20.3)))
         }
+        XCTAssertFalse(Self.isCut(label: "−1:54", frame: CGRect(x: 0, y: 0, width: 20, height: 14.3)))
         XCTAssertFalse(Self.isCut(label: "Settings", frame: CGRect(x: 0, y: 0, width: 300, height: 24)))
         XCTAssertTrue(Self.isCut(label: "Ser…", frame: CGRect(x: 0, y: 0, width: 300, height: 24)))
         XCTAssertTrue(

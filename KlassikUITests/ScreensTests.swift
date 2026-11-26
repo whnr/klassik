@@ -3877,6 +3877,16 @@ final class LanguageScreens: ScreensTestCase {
         return Int((box.height / font.lineHeight).rounded())
     }
 
+    /// The words that VoiceOver says before the drawn title of the playing movement, in the app language and
+    /// doubled. They are in the label but not on the screen.
+    static let spokenPrefixes = ["Läuft: @ Läuft: ", "Läuft: ", "Now playing, "]
+
+    /// The label without a spoken prefix: the text that the screen draws.
+    static func drawn(_ label: String) -> String {
+        for prefix in spokenPrefixes where label.hasPrefix(prefix) { return String(label.dropFirst(prefix.count)) }
+        return label
+    }
+
     /// True when the text ends in an ellipsis, or needs more lines than its frame shows. The label of a cut text
     /// stays complete, so the check measures it: the frame height gives the lines n and the font size together
     /// (n lines of a size fill the height within 2 pt), and the text must fit n lines of that size in the frame
@@ -3908,7 +3918,8 @@ final class LanguageScreens: ScreensTestCase {
             let name = "\(screen): \"\(text.label)\""
             XCTAssertGreaterThanOrEqual(frame.minX, width.minX - slack, "\(name) leaves the left edge")
             XCTAssertLessThanOrEqual(frame.maxX, width.maxX + slack, "\(name) leaves the right edge")
-            XCTAssertFalse(Self.isCut(label: text.label, frame: frame), "\(name) is cut off, frame \(frame)")
+            XCTAssertFalse(
+                Self.isCut(label: Self.drawn(text.label), frame: frame), "\(name) is cut off, frame \(frame)")
         }
     }
 
@@ -4065,6 +4076,12 @@ final class LanguageScreens: ScreensTestCase {
         XCTAssertFalse(Self.isCut(label: text, frame: twoLines))
         XCTAssertTrue(Self.isCut(label: text, frame: oneLine), "A two-line text in one line is not found")
         XCTAssertFalse(Self.isCut(label: text, frame: CGRect(x: 0, y: 0, width: one + 2, height: font.lineHeight)))
+        // The spoken words of the playing title are not on the screen: the title fits its frame.
+        XCTAssertEqual(Self.drawn("Läuft: @ Läuft: Allegro molto appassionato"), "Allegro molto appassionato")
+        XCTAssertFalse(
+            Self.isCut(
+                label: Self.drawn("Läuft: @ Läuft: Allegro molto appassionato"),
+                frame: CGRect(x: 16, y: 672, width: 217, height: 20.3)))
         XCTAssertFalse(Self.isCut(label: "Einstellungen", frame: CGRect(x: 0, y: 0, width: 300, height: 24)))
         XCTAssertTrue(Self.isCut(label: "Ser…", frame: CGRect(x: 0, y: 0, width: 300, height: 24)))
         XCTAssertTrue(

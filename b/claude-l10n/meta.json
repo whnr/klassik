@@ -1,7 +1,7 @@
 {
-  "sha": "0c13ecc684d43927a7621e71e1f3888e6be7f975",
+  "sha": "e635ef7a4d154fd844ccdd9693a047c518e8c368",
   "branch": "claude-l10n",
   "path": "claude-l10n",
-  "subject": "Show no filter total before the terms are built",
-  "ts": 1795664482
+  "subject": "Keep the saved biography; measure cut text",
+  "ts": 1795668569
 }

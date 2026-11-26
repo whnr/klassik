@@ -1,7 +1,7 @@
 {
-  "sha": "871fcd3db51526bc048cc4150d656d33d3395f7e",
+  "sha": "e8c501a0bb02ca8f507b134de350e043691426cf",
   "branch": "claude-l10n",
   "path": "claude-l10n",
-  "subject": "[sz-odf9] Use the iOS per-app language",
-  "ts": 1795710710
+  "subject": "[sz-odf9] Skip numbers in the cut-text check",
+  "ts": 1795714738
 }

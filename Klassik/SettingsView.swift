@@ -7,7 +7,7 @@ struct SettingsView: View {
     static let sourceCode = URL(string: "https://github.com/whnr/klassik")!
 
     /// Version and build, as the bundle reports them. A missing or empty value shows as "?", never as blank.
-    static func version(from info: [String: Any]?) -> String {
+    nonisolated static func version(from info: [String: Any]?) -> String {
         func value(_ key: String) -> String {
             let text = (info?[key] as? String)?.trimmingCharacters(in: .whitespaces) ?? ""
             return text.isEmpty ? "?" : text

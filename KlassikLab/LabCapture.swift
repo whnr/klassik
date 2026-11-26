@@ -398,8 +398,7 @@ final class CaptureRecorder: @unchecked Sendable {
                     progressed = true
                     let frames = block.count / width
                     guard frames > 0 else { continue }
-                    // A block far ahead of the file means a long silence: write it now, not keep it in memory.
-                    flush(min(block.start - Self.lagSeconds * rate, limit), width: width, rate: rate)
+                    // No flush here: another source, drained later in this pass, can still hold blocks of that time.
                     mixer.add(start: block.start, frames: frames, samples: chunkBuffer)
                     tracked.end = max(tracked.end ?? 0, block.start + frames)
                 }

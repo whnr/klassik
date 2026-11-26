@@ -768,15 +768,15 @@ public final class GaplessEngine: PlaybackEngine {
         fade?.ramp(from: level, to: 1, frames: inFrames, curve: fadeOptions.inCurve, onSignal: level == 0)
     }
 
-    /// The new graph sounds: it fades in while the old one fades out, both with equal-power curves over the length
-    /// of the fade-out.
+    /// The new graph sounds: it fades in with the fade-in curve and length while the old one fades out with the
+    /// fade-out curve and length.
     private func crossfade(from old: Outgoing) {
         outgoing = nil
         halting?.cancel()
         halting = nil
         silenced = false
-        fade?.ramp(from: 0, to: 1, frames: outFrames, curve: .equalPower, onSignal: true)
-        retire(old.engine, old.fade, sounding: true, rate: old.rate, curve: .equalPower)
+        fade?.ramp(from: 0, to: 1, frames: inFrames, curve: fadeOptions.inCurve, onSignal: true)
+        retire(old.engine, old.fade, sounding: true, rate: old.rate, curve: fadeOptions.outCurve)
     }
 
     /// Fades the parked graph out and stops it. A load that never gets ready must not leave it playing.

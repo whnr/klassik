@@ -246,8 +246,8 @@ struct GaplessEngineSkipTests {
         player.discard()
     }
 
-    /// The crossfade mode leaves the old sound alone until the new graph sounds, then both ramp with equal power
-    /// over the length of the fade-out.
+    /// The crossfade mode leaves the old sound alone until the new graph sounds, then the old one follows the
+    /// fade-out curve and the new one the fade-in curve.
     @Test func aLoadInTheCrossfadeModeKeepsTheOldSoundUntilTheNewOneIsReady() async throws {
         var options = Self.fiftyMilliseconds
         options.seek = .crossfade
@@ -268,8 +268,10 @@ struct GaplessEngineSkipTests {
         let incoming = FadeControl()
         player.adopt(engine, node, started: false, fade: incoming)
         try player.start(node)
-        #expect(fade.last == .init(from: nil, target: 0, frames: Self.rate / 20, curve: .equalPower))
-        #expect(incoming.last == .init(from: 0, target: 1, frames: Self.rate / 20, curve: .equalPower))
+        #expect(fade.last == .init(from: nil, target: 0, frames: Self.rate / 20, curve: .raisedCosine))
+        #expect(
+            incoming.last
+                == .init(from: 0, target: 1, frames: Self.rate / 20, curve: .raisedCosine, onSignal: true))
         #expect(await Self.eventually { !old.isRunning })
         player.discard()
     }
@@ -337,8 +339,10 @@ struct GaplessEngineSkipTests {
         let incoming = FadeControl()
         player.adopt(engine, node, started: false, fade: incoming)
         try player.start(node)
-        #expect(fade.last == .init(from: nil, target: 0, frames: Self.rate / 20, curve: .equalPower))
-        #expect(incoming.last == .init(from: 0, target: 1, frames: Self.rate / 20, curve: .equalPower))
+        #expect(fade.last == .init(from: nil, target: 0, frames: Self.rate / 20, curve: .raisedCosine))
+        #expect(
+            incoming.last
+                == .init(from: 0, target: 1, frames: Self.rate / 20, curve: .raisedCosine, onSignal: true))
         #expect(await Self.eventually { !old.isRunning })
         player.discard()
     }
@@ -368,7 +372,7 @@ struct GaplessEngineSkipTests {
         defer { third.stop() }
         player.adopt(third, thirdNode, started: false, fade: FadeControl())
         try player.start(thirdNode)
-        #expect(secondFade.last == .init(from: nil, target: 0, frames: Self.rate / 20, curve: .equalPower))
+        #expect(secondFade.last == .init(from: nil, target: 0, frames: Self.rate / 20, curve: .raisedCosine))
         #expect(await Self.eventually { !second.isRunning })
         player.discard()
     }
@@ -414,5 +418,52 @@ struct GaplessEngineSkipTests {
         try player.start(node)
         #expect(fade.last == .init(from: 0, target: 1, frames: Self.rate / 5, curve: curve, onSignal: true))
         player.discard()
+    }
+
+    /// Renders both gains of a crossfade with different curves and lengths and compares them with the formulas.
+    @Test func aCrossfadeFollowsTheFadeOutCurveForTheOldSoundAndTheFadeInCurveForTheNewOne() async throws {
+        var options = FadeOptions(outCurve: .decibelLinear, inCurve: .smootherstep, outSeconds: 0.05, inSeconds: 0.1)
+        options.seek = .crossfade
+        let (player, old, fade) = try Self.sounding(options)
+        defer { old.stop() }
+        let probe = Probe()
+        Self.load(player, old: old, probe: probe)
+        #expect(await Self.eventually { probe.oldEngineRunning != nil })
+        let (engine, node) = try Self.graph()
+        defer { engine.stop() }
+        let incoming = FadeControl()
+        player.adopt(engine, node, started: false, fade: incoming)
+        try player.start(node)
+        let oldCommand = try #require(fade.last)
+        let newCommand = try #require(incoming.last)
+        #expect(oldCommand.curve == .decibelLinear && oldCommand.frames == Self.rate / 20)
+        #expect(newCommand.curve == .smootherstep && newCommand.frames == Self.rate / 10)
+        let oldGains = try Self.render(oldCommand, count: Self.rate / 10, start: 1)
+        let newGains = try Self.render(newCommand, count: Self.rate / 10 + 10, start: 1)
+        for index in 0..<oldCommand.frames - 1 {
+            let expected = Float(FadeCurve.decibelLinear.fall(Double(index + 1) / Double(oldCommand.frames)))
+            #expect(abs(oldGains[index] - expected) < 1e-4, "old frame \(index)")
+        }
+        for index in 0..<newCommand.frames - 1 {
+            let expected = Float(FadeCurve.smootherstep.rise(Double(index + 1) / Double(newCommand.frames)))
+            #expect(abs(newGains[index] - expected) < 1e-4, "new frame \(index)")
+        }
+        #expect(oldGains[oldCommand.frames + 5] == 0)
+        #expect(newGains[newCommand.frames + 5] == 1)
+        player.discard()
+    }
+
+    /// The gains that a fade stage gives to a signal of ones, with the first sound at frame 0.
+    private static func render(_ command: FadeControl.Command, count: Int, start: Float) throws -> [Float] {
+        let format = try #require(AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 2))
+        let control = FadeControl()
+        control.ramp(
+            from: command.from ?? start, to: command.target, frames: command.frames, curve: command.curve,
+            onSignal: command.onSignal)
+        let buffer = try #require(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(count)))
+        buffer.frameLength = AVAudioFrameCount(count)
+        for channel in 0..<2 { for index in 0..<count { buffer.floatChannelData![channel][index] = 1 } }
+        control.process(buffer.mutableAudioBufferList, frames: count)
+        return Array(UnsafeBufferPointer(start: buffer.floatChannelData![0], count: count))
     }
 }

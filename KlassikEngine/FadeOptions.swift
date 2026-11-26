@@ -40,8 +40,8 @@ public enum SeekMode: Sendable, Equatable {
     case today
     /// Fade the old sound out, stay silent for `seconds`, then fade the new sound in. The two never overlap.
     case silence(seconds: Double)
-    /// Keep the old sound until the new one is ready, then cross over with equal-power curves for the length of
-    /// the fade-out.
+    /// Keep the old sound until the new one is ready, then cross over: the old sound follows the fade-out curve and
+    /// length, the new one the fade-in curve and length.
     case crossfade
 
     /// The silence after the fade-out, in seconds.

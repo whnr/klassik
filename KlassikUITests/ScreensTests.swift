@@ -820,15 +820,18 @@ final class BrowseScreens: ScreensTestCase {
     func testMusicBrainz() throws {
         let app = try launchAndConnect()
         openSettings(app)
-        // The row shows once the library has composers.
-        let musicBrainz = app.buttons["musicbrainz"]
-        XCTAssertTrue(eventually(timeout: 30) { reveal(musicBrainz, in: app).exists })
-        musicBrainz.tap()
+        let enrichment = reveal(app.buttons["data-enrichment"], in: app)
+        XCTAssertTrue(enrichment.exists)
+        enrichment.tap()
+        XCTAssertTrue(app.navigationBars["Data Enrichment"].waitForExistence(timeout: 10))
         let toConfirm = app.buttons["to-confirm"]
         XCTAssertTrue(toConfirm.waitForExistence(timeout: 10))
         // The lookup may still run right after the connect.
         let counted = expectation(for: NSPredicate(format: "label CONTAINS '1'"), evaluatedWith: toConfirm)
         XCTAssertEqual(XCTWaiter.wait(for: [counted], timeout: 30), .completed, toConfirm.label)
+        // The fallback language sits on this page, in its own group.
+        let fallback = app.descendants(matching: .any)["text-fallback"]
+        XCTAssertTrue(reveal(fallback, in: app).exists, "No fallback language on Data Enrichment")
         snap(app, "02c-musicbrainz")
     }
 
@@ -837,10 +840,9 @@ final class BrowseScreens: ScreensTestCase {
     func testPeopleFromWikidata() throws {
         let app = try launchAndConnect()
         openSettings(app)
-        // The row shows once the library has composers.
-        let musicBrainz = app.buttons["musicbrainz"]
-        XCTAssertTrue(eventually(timeout: 30) { reveal(musicBrainz, in: app).exists })
-        musicBrainz.tap()
+        let enrichment = reveal(app.buttons["data-enrichment"], in: app)
+        XCTAssertTrue(enrichment.exists)
+        enrichment.tap()
         let status = app.descendants(matching: .any)["people-status"]
         XCTAssertTrue(reveal(status, in: app).waitForExistence(timeout: 10))
         let done = expectation(for: NSPredicate(format: "label CONTAINS 'Up to date'"), evaluatedWith: status)
@@ -2656,12 +2658,12 @@ final class SettingsScreens: ScreensTestCase {
         XCTAssertTrue(reveal(app.buttons["diagnostics"], in: app).isHittable)
         for _ in 0..<6 where !row(app, "timeline-side").isHittable { app.swipeDown() }
         snap(app, "08c-settings-top")
-        // Flo's groups: Playback, Library, Colour, Data Enrichment, Advanced settings, About. Each row follows the one before it.
+        // Flo's groups: Playback, Library, Colour, Advanced settings, About. Each row follows the one before it.
         let order = [
             "timeline-side", "replaygain", "audio-quality-setting", "scrobbles", "classical-rules", "partial-works",
             "swipe-actions",
             "local-storage", "delete-listening-data", "accent", "player-tint-strength",
-            "musicbrainz", "text-fallback", "server-connection", "diagnostics", "licences", "source-code",
+            "data-enrichment", "server-connection", "diagnostics", "licences", "source-code",
         ]
         reveal(row(app, order[0]), in: app)
         for (above, below) in zip(order, order.dropFirst()) {

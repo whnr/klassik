@@ -1,7 +1,7 @@
 import KlassikEngine
 import SwiftUI
 
-/// Settings, in groups, in the order Flo set: Playback, Library, Colour, Data Enrichment, Advanced settings, About.
+/// Settings, in groups, in the order Flo set: Playback, Library, Colour, Advanced settings, About.
 struct SettingsView: View {
     /// Klassik is open source. The link opens in the browser.
     static let sourceCode = URL(string: "https://github.com/whnr/klassik")!
@@ -105,40 +105,16 @@ struct SettingsView: View {
                 )
             }
 
-            // The heading sits on the first group shown: MusicBrainz needs composers, the language does not.
-            if !model.library.index.composers.isEmpty {
-                Section {
-                    NavigationLink(value: Page.musicBrainz) {
-                        LabeledContent {
-                            Text(lookupState)
-                                .foregroundStyle(Palette.textSecondary)
-                        } label: {
-                            InkLabel("MusicBrainz", systemImage: "books.vertical")
-                        }
+            Section {
+                NavigationLink(value: Page.dataEnrichment) {
+                    LabeledContent {
+                        Text(lookupState)
+                            .foregroundStyle(Palette.textSecondary)
+                    } label: {
+                        InkLabel("Data Enrichment", systemImage: "books.vertical")
                     }
-                    .accessibilityIdentifier("musicbrainz")
-                } header: {
-                    SectionHeading("Data Enrichment")
-                } footer: {
-                    Text("Klassik looks up composers and their works in MusicBrainz.")
                 }
-            }
-
-            Section {
-                Picker("Fallback Language", selection: fallbackSetting) {
-                    ForEach(TextFallback.all) { Text($0.title).tag($0) }
-                }
-                .accessibilityIdentifier("text-fallback")
-                .id(family)
-            } header: {
-                if model.library.index.composers.isEmpty { SectionHeading("Data Enrichment") }
-            } footer: {
-                Text(
-                    "Descriptions and biographies come from Wikidata and Wikipedia in the app language. Where they have none, Klassik shows the fallback language, or nothing when it is off. Composer names, work titles and tags stay as your music tags them. Change the app language in the iOS Settings app, under Klassik."
-                )
-            }
-
-            Section {
+                .accessibilityIdentifier("data-enrichment")
                 NavigationLink(value: Page.serverConnection) {
                     LabeledContent {
                         Text(model.connectionState)
@@ -187,10 +163,6 @@ struct SettingsView: View {
         } message: {
             Text(deleteError ?? "")
         }
-    }
-
-    private var fallbackSetting: Binding<TextFallback> {
-        Binding(get: { Localization.shared.fallbackSetting }, set: { Localization.shared.select(fallback: $0) })
     }
 
     private var accent: Binding<AccentFamily> {

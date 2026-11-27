@@ -75,7 +75,7 @@ final class AppModel {
             tracks = TrackStore(background: Self.backgroundLoad)
         #endif
         albumCovers = AlbumCovers(store: ImageStore.albumArt)
-        playback = PlaybackSession(engine: GaplessEngine(failureMapper: AppFailureMapper()), store: tracks)
+        playback = PlaybackSession(engine: GaplessEngine.forApp(tracks: tracks), store: tracks)
         enrichment = Enrichment.forLaunch()
         people = PersonFactsStore.forLaunch()
         let connection = ConnectionMonitor()

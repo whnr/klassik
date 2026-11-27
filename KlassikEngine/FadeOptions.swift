@@ -51,7 +51,7 @@ public enum SeekMode: Sendable, Equatable {
     }
 }
 
-/// The fade settings of an engine. The defaults are the sound of the app.
+/// The fade settings of an engine. The defaults are the plain engine: raised cosine, 100 ms, seek mode today.
 public struct FadeOptions: Sendable, Equatable {
     public var outCurve: FadeCurve
     public var inCurve: FadeCurve
@@ -69,6 +69,11 @@ public struct FadeOptions: Sendable, Equatable {
         self.inSeconds = inSeconds
         self.seek = seek
     }
+
+    /// The sound of the app, from the owner's Playback Lab capture: Smootherstep out and in, 100 ms each, and a
+    /// crossfade at a seek, a skip or a jump. The app and the Lab presets share this one value.
+    public static let spec = FadeOptions(
+        outCurve: .smootherstep, inCurve: .smootherstep, outSeconds: 0.1, inSeconds: 0.1, seek: .crossfade)
 
     /// How long a node keeps running after its fade-out ends, so that the output latency of the device cannot cut
     /// the tail of the fade.

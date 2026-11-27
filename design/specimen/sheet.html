@@ -10,6 +10,36 @@
     <link rel="stylesheet" href="sheet.css?v=52" />
     <script src="specimen.js?v=52"></script>
     <script src="sheet.js?v=52"></script>
+    <style>
+      .demo-seg {
+        display: flex;
+        gap: var(--space-xxs);
+        padding: var(--space-xxs);
+        border-radius: var(--radius-m);
+        background: var(--color-fill-standard);
+      }
+      .demo-seg button {
+        flex: 1;
+        min-height: 30px;
+        border-radius: var(--radius-s);
+      }
+      .demo-seg button.on {
+        background: var(--color-background-grouped);
+      }
+      .demo-find {
+        width: 100%;
+        min-height: 36px;
+        margin-top: var(--space-xs);
+        padding: 0 var(--space-m);
+        border-radius: var(--radius-full);
+        background: var(--color-fill-standard);
+        color: var(--color-text-primary);
+      }
+      .demo-open {
+        min-height: var(--size-hitTarget);
+        color: var(--color-tint);
+      }
+    </style>
   </head>
   <body>
     <script>
@@ -40,6 +70,66 @@
             frame.box,
           );
         };
+        const people = [
+          "Johann Sebastian Bach",
+          "Ludwig van Beethoven",
+          "Johannes Brahms",
+          "Frédéric Chopin",
+          "Antonín Dvořák",
+          "Joseph Haydn",
+          "Franz Liszt",
+          "Gustav Mahler",
+          "Wolfgang Amadeus Mozart",
+          "Franz Schubert",
+          "Robert Schumann",
+          "Pyotr Ilyich Tchaikovsky",
+        ];
+        const demo = () => {
+          let kind = "Composers";
+          const first = () => {
+            const kinds = ["Genres", "Composers", "Conductors"].map((name) =>
+              el(
+                "button",
+                {
+                  class: "t-footnote" + (name === kind ? " on" : ""),
+                  onclick: () => {
+                    kind = name;
+                    sheet.set({ body: firstBody() });
+                  },
+                },
+                name,
+              ),
+            );
+            return el(
+              "div",
+              { class: "hs-stick" },
+              el("div", { class: "demo-seg" }, kinds),
+              el("input", { class: "demo-find t-body", placeholder: "Find", "aria-label": "Find" }),
+            );
+          };
+          const firstBody = () => [
+            first(),
+            rows(...people, ...people.map((n) => n + " (2)")),
+            el(
+              "button",
+              {
+                class: "demo-open t-body",
+                onclick: () =>
+                  sheet.set({
+                    title: "Composer",
+                    count: "3 results",
+                    onBack: toFirst,
+                    body: [rows("Ludwig van Beethoven", "Frédéric Chopin", "Johann Sebastian Bach")],
+                  }),
+              },
+              "Go to level 2",
+            ),
+          ];
+          const toFirst = () => sheet.set({ title: "Filters", count: "12 results", onBack: null, body: firstBody() });
+          const sheet = Frame.make({ title: "Filters", count: "12 results", body: [] });
+          toFirst();
+          return sheet;
+        };
         scroll.append(
           el(
             "div",
@@ -50,6 +140,12 @@
               { class: "t-subheadline secondary meta" },
               "One half-height sheet over the live page. The Library edit sheet and the Search filter sheet build on it.",
             ),
+          ),
+          el(
+            "section",
+            { class: "section" },
+            el("div", { class: "section-head t-footnote" }, "Live"),
+            el("button", { class: "demo-open t-body", onclick: () => Frame.open(demo()) }, "Open the sheet"),
           ),
           level("Level 1: title and Done", { title: "Filters", count: "12 results" }, "Genre", "Composer", "Conductor"),
           level(

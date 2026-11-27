@@ -150,33 +150,49 @@ enum Layout {
     // MARK: Sheet frame
 
     /// The frame that the edit sheet and the filter sheet share: half the screen height, no detents.
+    /// css: sheet.css .hsheet | height | 50%
+    static let frameHeightRatio: CGFloat = 0.5
     /// css: sheet.css .hsheet | border-top-left-radius
     static let frameCorner: CGFloat = 28
+    /// css: sheet.css .hsheet .hs-grab | width
+    static let frameGrabberWidth: CGFloat = 36
+    /// css: sheet.css .hsheet .hs-grab | height
+    static let frameGrabberHeight: CGFloat = 5
     /// css: sheet.css .hsheet .hs-grab | margin-top
     static let frameGrabberTop = Space.s.points
-    /// The one header line: back, title and Done.
+    /// The one header line: back, title and Done. The outer columns share the width, so the title stays centred.
     /// css: sheet.css .hsheet .hs-head | min-height
     static let frameHeadHeight = Measure.hitTarget
+    /// css: sheet.css .hsheet .hs-head | padding-top
+    static let frameHeadTop = Space.xxs.points
     /// css: sheet.css .hsheet .hs-head | padding-left
     static let frameHeadInset = Space.l.points
+    /// css: sheet.css .hsheet .hs-head | padding-right
+    static let frameHeadTrailing = Space.l.points
     /// The back chevron sits one level deeper only.
     /// css: sheet.css .hsheet .hs-back | width
     static let frameBackWidth = Measure.hitTarget
+    /// css: sheet.css .hsheet .hs-back | margin-left
+    static let frameBackMargin = -Space.m.points
+    /// css: sheet.css .hsheet .hs-back svg | width
+    static let frameBackIconWidth: CGFloat = 11
     /// css: sheet.css .hsheet .hs-back svg | height
     static let frameBackIconHeight: CGFloat = 18
-    /// css: sheet.css .hsheet .hs-title | max-width
-    static let frameTitleMaxWidth: CGFloat = 230
     /// The count line under the title.
     /// css: sheet.css .hsheet .hs-count | padding-bottom
     static let frameCountBottom = Space.xs.points
     /// The one scroll area of the sheet.
     /// css: sheet.css .hsheet .hs-scroll | padding-left
     static let frameScrollInset = Space.l.points
+    /// css: sheet.css .hsheet .hs-scroll | padding-right
+    static let frameScrollTrailing = Space.l.points
     /// css: sheet.css .hsheet .hs-scroll | padding-bottom
     static let frameScrollBottom = Space.xxl.points
     /// A part that sticks under the header inside the scroll area.
     /// css: sheet.css .hsheet .hs-stick | padding-top
     static let frameStickTop = Space.xs.points
+    /// css: sheet.css .hsheet .hs-stick | padding-bottom
+    static let frameStickBottom = Space.xxs.points
 
     // MARK: Filter sheet
 

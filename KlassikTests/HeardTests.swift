@@ -13,13 +13,11 @@ struct HeardTests {
         return WorkIndex.Recording(id: "r", album: "A", songs: songs)
     }
 
-    @Test(arguments: [
-        ([1, 1, nil], true), ([2, 1, 0, 1], true), ([1, 1, 1, nil, nil], true), ([3], true),
-        ([1, nil, nil], false), ([1, 1, nil, nil], false), ([1, 1, nil, nil, nil], false), ([nil, nil], false),
-        ([0], false),
-    ] as [([Int?], Bool)])
-    func heardNeedsMoreThanHalfTheMovements(plays: [Int?], expected: Bool) {
-        #expect(Self.recording(plays: plays).isHeard == expected)
+    @Test func heardNeedsMoreThanHalfTheMovements() {
+        let heard: [[Int?]] = [[1, 1, nil], [2, 1, 0, 1], [1, 1, 1, nil, nil], [3]]
+        let notHeard: [[Int?]] = [[1, nil, nil], [1, 1, nil, nil], [1, 1, nil, nil, nil], [nil, nil], [0]]
+        for plays in heard { #expect(Self.recording(plays: plays).isHeard, "\(plays)") }
+        for plays in notHeard { #expect(!Self.recording(plays: plays).isHeard, "\(plays)") }
     }
 
     @Test func aRecordingWithoutTracksIsNotHeard() {

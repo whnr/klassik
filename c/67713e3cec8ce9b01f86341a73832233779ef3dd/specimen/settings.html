@@ -11,7 +11,7 @@
   </head>
   <body>
     <script>
-      // Settings in groups, in the order Flo set: Playback, Library, Colour, Data Enrichment, Advanced settings, About.
+      // Settings in groups, in the order Flo set: Playback, Library, Colour, Advanced settings, About.
       K.start(() => {
         const { el, form } = K;
         const { scroll } = K.page({
@@ -34,7 +34,7 @@
               menu("Timeline", { right: "Right", left: "Left" }, K.params.get("side") || "right", (side) =>
                 reload("side", side),
               ),
-              menu("ReplayGain", { album: "Album", work: "Work", track: "Track", off: "Off" }, "album"),
+              menu("ReplayGain", { album: "Album", work: "Work", track: "Track", off: "Off" }, "work"),
               toggle("Show Audio Quality", false),
               toggle("Scrobbles", true),
             ],
@@ -72,19 +72,10 @@
             "The accent marks links, controls and what plays. Player Tint is a temporary comparison of the cover " +
               "tint strength.",
           ),
-          group(
-            "Data Enrichment",
-            [link("MusicBrainz", "lookup.html", "3 to confirm")],
-            "Klassik looks up composers and their works in MusicBrainz.",
-          ),
-          group(
-            null,
-            [menu("Fallback Language", { off: "Off", en: "English" }, "off")],
-            "Descriptions and biographies come from Wikidata and Wikipedia in the app language. Where they have " +
-              "none, Klassik shows the fallback language, or nothing when it is off. Composer names, work titles " +
-              "and tags stay as your music tags them. Change the app language in the iOS Settings app, under Klassik.",
-          ),
-          group("Advanced settings", [link("Server Connection", "server.html", "Connected")]),
+          group("Advanced settings", [
+            link("Data Enrichment", "lookup.html", "3 to confirm"),
+            link("Server Connection", "server.html", "Connected"),
+          ]),
           group(
             "About",
             [link("Diagnostics", null, "2 waiting"), link("Licences"), link("Source Code on GitHub")],

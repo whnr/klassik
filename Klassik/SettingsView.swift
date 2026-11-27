@@ -49,7 +49,7 @@ struct SettingsView: View {
                 SectionHeading("Playback")
             } footer: {
                 Text(
-                    "While music plays, the timeline runs on this screen edge. Album keeps the loudness steps between the movements of a work. Work plays all movements of a recording at one level. ReplayGain Off removes the gain stage from the signal path. Show Audio Quality adds a line under the playback bar: the file format, the bit rate, the output rate, whether the file is lossy, and whether anything changes the samples. Scrobbles count played movements on your server. Your server can send them to linked listening services."
+                    "While music plays, the timeline runs on this screen edge. Album keeps the loudness steps between the movements of a work. Work plays all movements of one recording at one level. Each recording of a work has its own level. ReplayGain Off removes the gain stage from the signal path. Show Audio Quality adds a line under the playback bar: the file format, the bit rate, the output rate, whether the file is lossy, and whether anything changes the samples. Scrobbles count played movements on your server. Your server can send them to linked listening services."
                 )
             }
 

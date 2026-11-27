@@ -20,7 +20,7 @@ Klassik 0.20.0
 - Every tinted name on a recording, album, person page and the player opens its page.
 - Person and player pages follow the new design; grid covers line up.
 - The player no longer flashes when you scrub; the lock screen shows the cover.
-- Search shows Composers, Performers, Works and Albums. "Eroica" finds the work.
+- Search shows Composers, Works, Albums and Performers. "Eroica" finds the work.
 - Swipe down closes the player, Filters and the Chronology works sheet.
 - Settings are regrouped; Technical Details sits under Advanced.
 ```
@@ -49,7 +49,7 @@ Example (0.20.0):
 2. Tap a name in the player. Expect the player to close and the page to open.
 
 **Search**
-1. Search a composer. Expect Composers, Performers, Works, Albums. Albums lists only albums.
+1. Search a composer. Expect Composers, Works, Albums, Performers. Albums lists only albums.
 2. Search "Eroica". Expect the Beethoven work under Works with a "Track:" line.
 
 **Player**

@@ -212,7 +212,7 @@ struct SearchFiltersTests {
         #expect(Self.filters.narrow(nil, by: []).results.isEmpty)
     }
 
-    /// The count under the title is the number of rows that the page shows: composers, performers, works, albums.
+    /// The count under the title is the number of rows that the page shows: composers, works, albums, performers.
     @Test func theCountEqualsTheResultRows() {
         let found = Self.search.results(for: "dvorak")
         #expect(found.rowCount == found.works.count + found.people.count + found.albums.count)

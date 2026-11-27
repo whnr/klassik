@@ -980,7 +980,7 @@ struct RecordingView: View {
                     row: index, place: place, elapsed: elapsed
                 )
                 .playingRow(isCurrent)
-                .itemSeparator(first: true, last: true)
+                .itemSeparator(first: true, last: last)
             }
         }
     }

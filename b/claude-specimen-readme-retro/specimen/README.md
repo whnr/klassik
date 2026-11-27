@@ -39,7 +39,7 @@ The pill at the top belongs to the specimen, not to the app. It sets the timelin
 ## Conventions
 
 - A comment names the shared part, such as "the shared sheet frame", never a file name. In every tracked file except Markdown, `design/scripts/check.py` refuses a comment (`//`, `#`, `/* */`, `<!-- -->`) with a file name of type `.html`, `.css` or `.js` in parentheses.
-- To check a theme by script, set `data-theme` to `light` or `dark` on the root element. `emulateMedia` alone does not switch the pages.
+- To check a theme by script, open the page with `?theme=dark` or `?theme=light`. The URL parameter survives every look control. Setting `data-theme` on the root element after load also works, but a look control resets it. `emulateMedia` alone does not switch the pages.
 
 ## Variants
 

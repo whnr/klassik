@@ -30,7 +30,7 @@ struct LibraryPageTests {
 
     static func page(
         rows: [LibraryRowSetup] = LibraryRows.standard, favourites: LibraryPage.Favourites = .init(),
-        day: Int = 10, unbuiltLinks: Bool = false, index: WorkIndex = index
+        day: Int = 10, unbuiltLinks: Bool = false, index: WorkIndex = LibraryPageTests.index
     ) -> LibraryPage {
         var parts = DateComponents(year: 2026, month: 11, day: day, hour: 12)
         parts.calendar = Calendar(identifier: .gregorian)
@@ -68,7 +68,10 @@ struct LibraryPageTests {
         let cards = try #require(page.sections.first?.cards)
         #expect(cards.count == 9)
         #expect(Set(cards.map(\.fact)) == [L("\(1) works")])
-        guard case .composer(let name) = cards[0].page else { return Issue.record("not a composer page") }
+        guard case .composer(let name) = cards[0].page else {
+            Issue.record("not a composer page")
+            return
+        }
         #expect(name == cards[0].name)
     }
 

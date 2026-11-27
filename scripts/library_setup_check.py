@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Checks the Library setup format: the JSON Schema is valid, the example follows it, and the schema names the same
-enum values as the Swift code. Run: python3 scripts/library_setup_check.py [example.json] (needs the jsonschema package).
-A path replaces the example, so that CI can prove that a bad one fails."""
+enum values as the Swift code. Run: python3 scripts/library_setup_check.py [example.json]
+(needs the jsonschema package). A path replaces the example, so that CI can prove that a bad one fails."""
 
 import json
 import pathlib

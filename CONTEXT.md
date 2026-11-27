@@ -58,6 +58,10 @@ _Avoid_: Popularity, ranking, top, well known
 A recording is complete in one of two cases. It is one track without movement tags. Or its tags give a movement total, and every movement up to that total is in the library. Other recordings are not complete. An album is complete when the track numbers of each disc start at 1 and have no gap.
 _Avoid_: Full, whole, entire
 
+**Partial**:
+A recording is partial when its tags prove a movement is missing. They give a movement total, and a movement number from 1 to the total is absent. A recording that is neither complete nor partial stays in the main list of the work page. The work page lists partial recordings below the others.
+_Avoid_: Incomplete, excerpt, fragment
+
 **Daily pick**:
 One recording or album that the Library shows for the day. The Library holds at most one Daily pick, at any place the listener puts it. Klassik draws it at random from a saved search that the listener chooses. Only a complete recording or album counts. It changes at most once a day. The listener cannot see past or coming picks.
 _Avoid_: Recommendation, suggestion, shuffle

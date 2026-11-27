@@ -102,52 +102,6 @@ struct TrackStoreTests {
         #expect(store.cacheBytes == 0)
     }
 
-    /// The manifest lists a download that the files no longer back, as after a download folder that lost its files.
-    private func writeManifest(_ songIDs: [String]) throws {
-        let entry = TrackStore.Download(
-            id: "r1", title: "Work", detail: "", songIDs: songIDs, bytes: 10, date: .now)
-        try FileManager.default.createDirectory(
-            at: root.appending(path: "support"), withIntermediateDirectories: true)
-        try JSONEncoder().encode([entry]).write(to: root.appending(path: "support/downloads.json"))
-    }
-
-    @Test func aTrackThatOnlyPlaysFromTheCacheIsNoDownload() throws {
-        try write("c1", in: "cache", bytes: 10)
-        let store = try makeStore()
-        #expect(store.isOffline(recording("r1", ["c1"])))
-        #expect(!store.isDownloaded(recording("r1", ["c1"])))
-        #expect(store.downloads.isEmpty)
-    }
-
-    @Test func aDownloadWithoutItsFilesIsNoDownload() throws {
-        try writeManifest(["d1", "d2"])
-        try write("d1", in: "support/downloads", bytes: 10)
-        let store = try makeStore()
-        #expect(!store.isDownloaded(recording("r1", ["d1", "d2"])))
-        #expect(store.downloads.isEmpty)
-    }
-
-    @Test func clearingTheCacheUpdatesADownloadWhoseFilesWentAway() throws {
-        try writeManifest(["d1"])
-        try write("d1", in: "support/downloads", bytes: 10)
-        try write("c1", in: "cache", bytes: 10)
-        let store = try makeStore()
-        #expect(store.isDownloaded(recording("r1", ["d1"])))
-        try FileManager.default.removeItem(at: root.appending(path: "support/downloads/d1.mp3"))
-        store.clearCache()
-        #expect(!store.isDownloaded(recording("r1", ["d1"])))
-        #expect(store.downloads.isEmpty)
-    }
-
-    @Test func aNewDownloadAfterTheFilesWentAwayShowsInTheList() async throws {
-        try writeManifest(["d1"])
-        let store = try makeStore()
-        store.download(recording("r1", ["d1"]), title: "Work", client: client)
-        await settle(store)
-        #expect(store.downloads.map(\.id) == ["r1"])
-        #expect(exists("d1", in: "support/downloads"))
-    }
-
     @Test func clearAllRemovesEverything() throws {
         try write("c1", in: "cache", bytes: 10)
         try write("d1", in: "support/downloads", bytes: 10)

@@ -1267,15 +1267,18 @@ final class PlaybackScreens: ScreensTestCase {
         openRecording(app)
         playPaused(app)
         openPlayer(app)
-        let overlay = app.descendants(matching: .any)["player-overlay"].firstMatch
+        let handle = app.buttons["player-handle"]
+        XCTAssertTrue(handle.waitForExistence(timeout: 10))
+        // The player's top edge follows the finger, and an element query inside a held gesture reads no frame.
+        let top = app.frame.height * 0.45 - handle.frame.midY
         let strip = StripSample()
         let clock = Date()
         let timer = Timer(timeInterval: 0.5, repeats: true) { _ in
             MainActor.assumeIsolated {
-                let top = overlay.frame.minY
-                let pixels = top > 200 ? ScreenPixels(app) : nil
-                strip.ticks.append(
-                    "t=\(String(format: "%.1f", Date().timeIntervalSince(clock))) top=\(top) pixels=\(pixels != nil)")
+                // The drag takes about 1.5 s to reach the finger's end point; the hold lasts 3 s after it.
+                let elapsed = Date().timeIntervalSince(clock)
+                let pixels = elapsed > 2.5 && top > 200 && strip.ink == nil ? ScreenPixels(app) : nil
+                strip.ticks.append("t=\(String(format: "%.1f", elapsed)) top=\(top) pixels=\(pixels != nil)")
                 guard strip.ink == nil, let pixels else { return }
                 // Below the status bar and above the player. Each row's ground is the pixel at the left edge.
                 let rows = stride(from: Int(70 * pixels.scale), to: Int((top - 4) * pixels.scale), by: 2)
@@ -1290,7 +1293,6 @@ final class PlaybackScreens: ScreensTestCase {
             }
         }
         RunLoop.main.add(timer, forMode: .common)
-        let handle = app.buttons["player-handle"]
         handle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(
             forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45)),
             withVelocity: .slow, thenHoldForDuration: 3)

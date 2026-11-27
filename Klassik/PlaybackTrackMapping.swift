@@ -15,6 +15,20 @@ extension Song {
     }
 }
 
+extension WorkIndex.Recording {
+    /// The tracks that play at one level with a movement. A recording is one work, so all its tracks do. A whole
+    /// album holds several works: its tracks that name the same work do, and the tracks without a work tag do.
+    func levelGroup(of movement: Int) -> [PlaybackTrack] {
+        guard isAlbum, songs.indices.contains(movement) else { return songs.map(\.playbackTrack) }
+        let key = Self.levelKey(songs[movement])
+        return songs.filter { Self.levelKey($0) == key }.map(\.playbackTrack)
+    }
+
+    private static func levelKey(_ song: Song) -> String {
+        song.works?.first == nil ? "" : WorkIndex.workKey(song)
+    }
+}
+
 extension ServerTrouble {
     /// The quiet status of a playback failure, or nil when the device failed (ADR 0060). A policy that forbids the
     /// network shows as no answer.

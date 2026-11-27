@@ -752,6 +752,21 @@ struct PlaybackSessionTests {
         #expect(engine.gain == 0)
     }
 
+    /// Every movement of a recording plays at the level of the recording, whatever its own gain.
+    @Test func workLevelingPlaysEveryMovementAtOneGain() throws {
+        let (session, engine) = try makeSession()
+        session.leveling = .work
+        session.play(item("a", movements: 3, gains: [-3, -6, nil]))
+        let level = engine.gain
+        #expect(abs(level - -4.754) < 0.001)
+        engine.end(0)
+        #expect(engine.gain == level)
+        engine.end(1)
+        #expect(engine.gain == level)
+        session.leveling = .track
+        #expect(engine.gain != level)
+    }
+
     private func path(gainStage: Bool, rate: Double = 44_100, hardware: Double = 44_100) -> PlaybackSignalPath {
         let outputs = PlaybackOutputFormats(
             mixerRate: rate, mixerChannels: 2, hardwareRate: hardware, hardwareChannels: 2)

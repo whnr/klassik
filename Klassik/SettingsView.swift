@@ -37,7 +37,7 @@ struct SettingsView: View {
                 .accessibilityIdentifier("timeline-side")
                 .id(family)
                 Picker("ReplayGain", selection: $player.leveling) {
-                    ForEach(VolumeLeveling.allCases) { Text($0.title).tag($0) }
+                    ForEach(VolumeLeveling.allCases) { Text($0.label).tag($0) }
                 }
                 .accessibilityIdentifier("replaygain")
                 .id(family)
@@ -49,7 +49,7 @@ struct SettingsView: View {
                 SectionHeading("Playback")
             } footer: {
                 Text(
-                    "While music plays, the timeline runs on this screen edge. Album keeps the loudness steps between the movements of a work. ReplayGain Off removes the gain stage from the signal path. Show Audio Quality adds a line under the playback bar: the file format, the output rate, and whether anything changes the samples. Scrobbles count played movements on your server. Your server can send them to linked listening services."
+                    "While music plays, the timeline runs on this screen edge. Album keeps the loudness steps between the movements of a work. Work plays all movements of a recording at one level. ReplayGain Off removes the gain stage from the signal path. Show Audio Quality adds a line under the playback bar: the file format, the output rate, and whether anything changes the samples. Scrobbles count played movements on your server. Your server can send them to linked listening services."
                 )
             }
 
@@ -275,5 +275,17 @@ struct AlbumsView: View {
             if albums.isEmpty { ContentUnavailableView("No Albums", systemImage: "square.stack") }
         }
         .pageTitle(classical ? L("Classical Albums") : L("Other Albums"))
+    }
+}
+
+extension VolumeLeveling {
+    /// The name in the picker, in the app language.
+    fileprivate var label: String {
+        switch self {
+        case .album: L("Album")
+        case .work: L("Work")
+        case .track: L("Track")
+        case .off: L("Off")
+        }
     }
 }

@@ -1,7 +1,7 @@
 {
-  "sha": "b7ebe6254a3a418444250b3c96cc0a2416a1a69b",
+  "sha": "c6db7f77aec736137133aca27e1f30638d14d844",
   "branch": "claude-b21w",
   "path": "claude-b21w",
-  "subject": "TEMP debug [DEBUG-b21w]",
-  "ts": 1795787799
+  "subject": "[sz-b21w] Read a lagging source until it has nothing new",
+  "ts": 1795789337
 }

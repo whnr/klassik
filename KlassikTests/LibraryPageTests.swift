@@ -24,7 +24,7 @@ struct LibraryPageTests {
     static let songs: [Song] = (1...11).map {
         song(
             "s\($0)", composer: "Composer \(String(format: "%02d", $0))", work: "Work \($0)",
-            conductor: "Conductor \($0)", created: "2026-0\(min($0, 9))-01T10:00:00Z")
+            conductor: "Conductor \($0)", created: "2026-09-\(String(format: "%02d", $0))T10:00:00Z")
     }
     static let index = WorkIndex(songs: songs)
 
@@ -60,7 +60,8 @@ struct LibraryPageTests {
         let bare = Self.page(index: WorkIndex(songs: [Self.song("x")]))
         // No track has a date, so Recently added has nothing; the link list still has Albums.
         #expect(bare.sections.map(\.title) == [L("Composers"), nil])
-        #expect(Self.page(index: WorkIndex()).sections.isEmpty)
+        // Only the link list stays: it is not empty while it has tiles.
+        #expect(Self.page(index: WorkIndex()).sections.map(\.title) == [nil])
     }
 
     @Test func composerCardsShowWorkCountAndTheNineLimit() throws {
@@ -116,7 +117,7 @@ struct LibraryPageTests {
         let page = Self.page(rows: [row(.added)], index: WorkIndex(songs: songs))
         let cards = try #require(page.sections.first?.cards)
         #expect(cards.count == 9)
-        #expect(cards.first?.name == "Work 11")
+        #expect(cards.first?.name == "Album s11")
         #expect(!cards.contains { $0.name == "Album undated" })
     }
 

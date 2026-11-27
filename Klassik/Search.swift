@@ -54,6 +54,9 @@ struct Search: Sendable {
         var performers: [Person] { people.filter { !$0.composes } }
 
         var isEmpty: Bool { works.isEmpty && people.isEmpty && albums.isEmpty }
+
+        /// The rows of the page: composers, performers, works and albums. The filter sheet counts these.
+        var rowCount: Int { works.count + people.count + albums.count }
     }
 
     private struct Entry<Item: Sendable>: Sendable {

@@ -1,7 +1,7 @@
 {
-  "sha": "49177c5a2dc86f3d351de594e9a14566d7f13f01",
+  "sha": "1c15c83bd7ca6b4d7cab7b40279221d85fa70918",
   "branch": "main",
   "path": "main",
-  "subject": "Run layout tests and print progress in design lint (#266)",
-  "ts": 1795797631
+  "subject": "Move CI details out of AGENTS.md (#269)",
+  "ts": 1795797828
 }

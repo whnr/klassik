@@ -1,7 +1,7 @@
 {
-  "sha": "d7211c04509645091ef2c709bc584eb354d7025a",
+  "sha": "4cdea36462f31e47c05a66e8b2a60f77e6a030fe",
   "branch": "claude-note-edit",
   "path": "claude-note-edit",
-  "subject": "Wait for the keyboard in the note walk",
-  "ts": 1795771414
+  "subject": "Keep control identifiers in the edited note",
+  "ts": 1795774522
 }

@@ -1291,6 +1291,8 @@ private struct NoteEditor: View {
                 .typeStyle(.subheadline)
                 .foregroundStyle(Palette.tint)
                 .buttonStyle(.borderless)
+                // The row hairline takes its length from the content, so the row fills the width.
+                .frame(maxWidth: .infinity, alignment: .leading)
                 // One note is open at a time, in any row: Save or Cancel it first.
                 .disabled(draft != nil)
                 .accessibilityIdentifier("add-note")

@@ -403,7 +403,10 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertTrue(people.element(boundBy: 0).label.contains("Johann Sebastian Bach"))
         XCTAssertTrue(people.element(boundBy: 1).label.contains("Sine Wave Chamber Orchestra"))
         XCTAssertLessThan(people.element(boundBy: 0).frame.minY, people.element(boundBy: 1).frame.minY)
-        XCTAssertLessThan(people.element(boundBy: 1).frame.minY, works.firstMatch.frame.minY)
+        XCTAssertLessThan(
+            people.element(boundBy: 0).frame.minY, works.firstMatch.frame.minY, "Works precede composers")
+        XCTAssertLessThan(
+            works.firstMatch.frame.minY, people.element(boundBy: 1).frame.minY, "Performers precede works")
 
         openPlace(app, "Library")
         openPlace(app, "Search")

@@ -121,6 +121,15 @@ jobs:
       - run: python3 scripts/l10n_check.py
       - run: python3 -m unittest discover -s scripts -p "test_l10n.py"
 
+  # The stored Library setup has a documented format: a JSON Schema that the example and the Swift enums must follow.
+  library-setup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - run: pip install jsonschema
+      - run: python3 scripts/library_setup_check.py
+
   # Generate audio on Linux to keep package installation off the macOS runners.
   # The tarball keeps the colons in the file names, which artifact paths reject.
   fixtures:
@@ -167,7 +176,7 @@ jobs:
           retention-days: 1
 
   build:
-    needs: [plan, lint, layout, localization, fixtures]
+    needs: [plan, lint, layout, localization, library-setup, fixtures]
     if: needs.plan.outputs.covered == ''
     runs-on: xcode-27
     timeout-minutes: 40
@@ -379,7 +388,7 @@ jobs:
 
   # TestFlight gets an optimized Release build. This job opens one after a login and after a relaunch.
   release-launch:
-    needs: [plan, lint, layout, localization, fixtures]
+    needs: [plan, lint, layout, localization, library-setup, fixtures]
     if: needs.plan.outputs.release_launch == 'true'
     runs-on: xcode-27
     timeout-minutes: 40

@@ -175,7 +175,8 @@ final class LibraryRows {
     init(file: ListenerFile, defaults: UserDefaults = .standard) {
         self.file = file
         self.defaults = defaults
-        guard file.isOnDevice, file.loadError == nil, let stored = defaults.stringArray(forKey: Self.legacyKey) else { return }
+        guard file.isOnDevice, file.loadError == nil else { return }
+        guard let stored = defaults.stringArray(forKey: Self.legacyKey) else { return }
         if file.data.library == nil {
             var changed = file.data
             let order = Self.legacyOrder(stored: stored)

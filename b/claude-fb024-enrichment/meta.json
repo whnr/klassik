@@ -1,7 +1,7 @@
 {
-  "sha": "57ad9a39128e778e64e00d625b5ec048d33f526d",
+  "sha": "df072017923aeec95b6e9f4f8bfdf7c16b6a2a08",
   "branch": "claude-fb024-enrichment",
   "path": "claude-fb024-enrichment",
-  "subject": "Make Data Enrichment the subpage of Settings",
-  "ts": 1795752826
+  "subject": "Fix the Data Enrichment walk helper",
+  "ts": 1795753704
 }

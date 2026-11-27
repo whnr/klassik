@@ -1,7 +1,0 @@
-{
-  "sha": "68fb8bf83298d70f1223654464cbe22c153d54d5",
-  "branch": "claude-btql",
-  "path": "claude-btql",
-  "subject": "[sz-btql] Run Lab uploads only for pushes to this repo",
-  "ts": 1795715877
-}

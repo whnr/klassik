@@ -17,6 +17,7 @@ The specimen is the design reference of Klassik: what is decided, in light, dark
 - `library.html`: the Library tab, drawn from a list of rows (`library.js`, `library.css`). `?rows=all` draws every row kind; `?rows=composers,albums` draws the kinds named. `?edit=1` opens the edit sheet on load; `?edit=row` opens the settings of the Composers row; `?edit=empty` adds a row with nothing to show. The edit sheet is `library-edit.js` and `library-edit.css`; its Filter level is the Search filter sheet (`filters.js`, `filters.css`). The specimen bar has Reset rows.
 - `work.html`: a work page. `?work=<composer>|<work>` picks another work.
 - `player.html`: a recording or album page. `?embed=player` is the player overlay. `?recording=<id>` or `?album=<id>` picks another.
+- `notes.html`: the listening notes of the playing row (viewing, creating, editing) and the Undo toast, in English and German (`?lang=de`). `?state=toast` shows the toast above the tab bar. `notes.js` and `notes.css` hold the shared parts; the player page draws the same notes.
 - `chronology.html`: one composer among the contemporaries, and the overview (`?level=overview`).
 - `search.html`: Search and its Filters sheet, built on the shared frame. `?filters=example` opens it on three conditions, with the third marked and the Performers picker open. Scroll the sheet to see the picker stick under the header.
 - `person.html`: a composer or performer page. `?name=<artist name>`.

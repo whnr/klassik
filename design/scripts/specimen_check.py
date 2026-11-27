@@ -9,6 +9,8 @@ Usage: uv run --with playwright==1.64.1 design/scripts/specimen_check.py [page.h
 Page names limit the run to those pages and their URL variants.
 (once: uv run --with playwright==1.64.1 playwright install chromium)
 It also fails when a page draws nothing, the timeline is missing or a tapped movement row does not open.
+It checks the open note and the Undo toast of the notes page:
+one button size, no wrapped word, a clear gap above the tab bar.
 It checks the player overlay of the player page: its three poses, the tab bar and the pill above it,
 a tap on the cover that opens it, and a tap on another tab that closes it.
 It cannot judge looks or Safari.
@@ -31,6 +33,10 @@ PAGES = (
     "work.html",
     "player.html",
     "player.html?album=3Is4qK0IBSlUYtEHMhh8YH",
+    "notes.html",
+    "notes.html?lang=de",
+    "notes.html?state=toast",
+    "notes.html?state=toast&lang=de",
     "chronology.html",
     "chronology.html?level=overview",
     "search.html",
@@ -213,6 +219,69 @@ def check_slow_start(context, base, failures):
         page.close()
 
 
+def check_notes(context, base, failures):
+    """The open note keeps one button size and no wrapped word; the toast stands clear of the tab bar and reads."""
+    for lang in ("en", "de"):
+        for theme in ("light", "dark"):
+            page = context.new_page()
+            page.goto(f"{base}notes.html?lang={lang}&theme={theme}", wait_until="load")
+            page.wait_for_selector(".note-edit")
+            where = f"notes {lang}/{theme}"
+            for form in page.locator(".note-edit").all():
+                buttons = form.locator(".note-actions button").all()
+                sizes = {b.evaluate("e => getComputedStyle(e).fontSize") for b in buttons}
+                if len(sizes) != 1:
+                    failures.append(f"{where}: the note buttons differ in size: {sizes}")
+                for b in buttons:
+                    box = b.bounding_box()
+                    line = float(b.evaluate("e => parseFloat(getComputedStyle(e).lineHeight) || 0"))
+                    if line and box["height"] > line * 1.5:
+                        failures.append(f"{where}: '{b.text_content()}' wraps")
+                    if box["x"] < 0 or box["x"] + box["width"] > 393:
+                        failures.append(f"{where}: '{b.text_content()}' leaves the screen")
+                ground = form.evaluate("e => getComputedStyle(e).backgroundColor")
+                if ground not in ("rgba(0, 0, 0, 0)", "transparent"):
+                    failures.append(f"{where}: the open note has a ground of its own: {ground}")
+            page.close()
+            page = context.new_page()
+            page.goto(f"{base}notes.html?state=toast&lang={lang}&theme={theme}", wait_until="load")
+            page.wait_for_selector(".undo-toast .box")
+            box = page.locator(".undo-toast .box").bounding_box()
+            tabs = page.locator(".tabbar").bounding_box()
+            if tabs["y"] - (box["y"] + box["height"]) < 8:
+                failures.append(f"{where}: the toast sticks to the tab bar")
+            sizes = {
+                page.locator(f".undo-toast {part}").evaluate("e => getComputedStyle(e).fontSize")
+                for part in (".message", ".undo")
+            }
+            if len(sizes) != 1:
+                failures.append(f"{where}: toast text and Undo differ in size: {sizes}")
+            if page.locator(".undo-toast .message").bounding_box()["height"] > 48:
+                failures.append(f"{where}: the toast text wraps")
+            ratio = page.evaluate(
+                """() => {
+                    const lum = (c) => {
+                        const v = c.match(/[\\d.]+/g).slice(0, 3).map((x) => {
+                            x /= 255;
+                            return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+                        });
+                        return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
+                    };
+                    const box = getComputedStyle(document.querySelector('.undo-toast .box'));
+                    const page = getComputedStyle(document.documentElement).getPropertyValue('--color-background-page');
+                    const probe = document.createElement('i');
+                    probe.style.color = page;
+                    document.body.append(probe);
+                    const ground = getComputedStyle(probe).color;
+                    const a = lum(box.backgroundColor), b = lum(ground);
+                    return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+                }"""
+            )
+            if ratio < 7:
+                failures.append(f"{where}: the toast ground stands only {ratio:.1f}:1 from the page")
+            page.close()
+
+
 def main(argv):
     # Imported here so the page selection runs without Playwright installed.
     from playwright.sync_api import sync_playwright
@@ -231,6 +300,9 @@ def main(argv):
         if "work.html" in names:
             print("work capsules", flush=True)
             check_work_capsules(context, base, failures)
+        if "notes.html" in names:
+            print("notes", flush=True)
+            check_notes(context, base, failures)
         if "player.html" in names:
             print("slow start", flush=True)
             check_slow_start(context, base, failures)

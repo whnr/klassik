@@ -7,7 +7,9 @@
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="../tokens.css?v=52" />
     <link rel="stylesheet" href="specimen.css?v=52" />
+    <link rel="stylesheet" href="notes.css?v=52" />
     <script src="specimen.js?v=52"></script>
+    <script src="notes.js?v=52"></script>
   </head>
   <body>
     <!--
@@ -80,19 +82,6 @@
       }
       .open-body:empty {
         display: none;
-      }
-      .notes {
-        display: grid;
-        gap: var(--space-xs);
-      }
-      .note {
-        display: flex;
-        gap: var(--space-s);
-        text-align: left;
-      }
-      .note .at {
-        flex: none;
-        color: var(--color-tint);
       }
       .bar-box {
         display: grid;
@@ -207,27 +196,6 @@
         background: var(--color-fill-quiet);
         color: var(--color-text-secondary);
       }
-      .add-note {
-        justify-self: start;
-        color: var(--color-tint);
-      }
-      .note-edit {
-        display: grid;
-        gap: var(--space-xs);
-      }
-      .note-line {
-        display: flex;
-        gap: var(--space-s);
-        align-items: baseline;
-      }
-      .note-actions {
-        display: flex;
-        gap: var(--space-l);
-        justify-content: flex-end;
-      }
-      .save-note {
-        color: var(--color-tint);
-      }
       .disclose {
         flex: none;
         display: inline-flex;
@@ -243,25 +211,6 @@
       }
       [aria-expanded="true"] .disclose {
         transform: rotate(90deg);
-      }
-      .note-edit .at {
-        flex: none;
-        color: var(--color-tint);
-      }
-      .end-note {
-        flex: none;
-        color: var(--color-tint);
-      }
-      .note-input {
-        flex: 1 1 0;
-        width: 0;
-        min-width: 0;
-        border: 0;
-        border-bottom: 1px solid var(--color-separator);
-        background: none;
-        color: var(--color-text-primary);
-        padding: var(--space-xxs) 0;
-        outline: none;
       }
       .rise-out {
         transform: translateY(-40px);
@@ -560,30 +509,6 @@
           return block;
         }
 
-        // A note shows inline, its time as a prefix. A tap on a note plays from its time.
-        function noteRows(s, i, notes) {
-          return notes.length
-            ? el(
-                "div",
-                { class: "notes" },
-                ...notes.map((n) =>
-                  el(
-                    "button",
-                    {
-                      class: "note t-subheadline",
-                      onclick: (e) => {
-                        e.stopPropagation();
-                        playFrom(i, n.at);
-                      },
-                    },
-                    el("span", { class: "at nums" }, K.time(n.at) + (n.span ? `–${K.time(n.at + n.span)}` : "")),
-                    el("span", {}, n.text),
-                  ),
-                ),
-              )
-            : null;
-        }
-
         function noteMark(n, s) {
           const mark = el("div", { class: n.span ? "note-span" : "note-dot" });
           mark.style.left = (n.at / s.duration) * 100 + "%";
@@ -591,92 +516,71 @@
           return mark;
         }
 
-        // A note is written while its movement plays. One tap starts it at the playing time and opens the text field.
-        // "End here" is optional and turns the note into a span. Return or a tap elsewhere saves it.
+        // A note shows inline, its time as a prefix. A tap on the time plays from there; a tap on the text opens the
+        // note in its row, with the layout of a new note. One note is open at a time, so its text is never lost.
+        // Start here and End here show in the playing row only: a time is set from the playing time.
         let editing = null;
-        function noteControl(s, i) {
-          if (editing && editing.i === i) {
-            const when = el("span", { class: "at nums t-subheadline" });
-            const show = () =>
-              (when.textContent = K.time(editing.at) + (editing.span ? `–${K.time(editing.at + editing.span)}` : ""));
-            show();
-            const input = el("input", {
-              class: "note-input t-body",
-              placeholder: "Write the note",
-              enterkeyhint: "done",
-              value: editing.text,
+        function noteBlock(s, i, playing) {
+          const notes = notesOf(i);
+          const key = `${item.album.id}|${i}`;
+          const close = () => {
+            editing = null;
+            render();
+          };
+          const save = () => {
+            const open = editing;
+            editing = null;
+            const text = open.draft.text.trim();
+            if (text) {
+              const kept = NOTES[key] || [];
+              const saved = { at: open.draft.at, span: open.draft.span || undefined, text };
+              NOTES[key] = (open.ref ? kept.map((n) => (n === open.ref ? saved : n)) : [...kept, saved]).sort(
+                (x, y) => x.at - y.at,
+              );
+              K.store("notes", NOTES);
+            }
+            render();
+          };
+          const form = (isNew) => {
+            const { node, input } = K.notes.editor(editing.draft, {
+              isNew,
+              canMark: playing,
+              now: () => K.P.pos,
+              onSave: save,
+              onCancel: close,
             });
-            input.addEventListener("input", () => (editing.text = input.value));
-            const save = () => {
-              const n = editing;
-              editing = null;
-              if (n.text.trim()) {
-                const key = `${item.album.id}|${n.i}`;
-                NOTES[key] = [...(NOTES[key] || []), { at: n.at, span: n.span || undefined, text: n.text.trim() }].sort(
-                  (a, b) => a.at - b.at,
-                );
-                K.store("notes", NOTES);
-              }
-              render();
-            };
-            input.addEventListener("keydown", (e) => {
-              if (e.key === "Enter") save();
-            });
-            // The note stays open without the keyboard, so the listener can scrub to find the end.
-            const end = el(
-              "button",
-              {
-                class: "end-note t-subheadline",
-                onclick: () => {
-                  // An end before the start swaps the two, so a scrub back still gives a span.
-                  if (K.P.index === i) {
-                    const now = Math.floor(K.P.pos),
-                      a = Math.min(now, editing.at),
-                      b = Math.max(now, editing.at);
-                    editing.at = a;
-                    editing.span = b - a;
-                  }
-                  show();
-                },
-              },
-              "End here",
-            );
-            return el(
-              "div",
-              { class: "note-edit" },
-              el("div", { class: "note-line" }, when, input),
-              el(
-                "div",
-                { class: "note-actions" },
-                end,
-                el(
-                  "button",
-                  {
-                    class: "end-note t-subheadline",
-                    onclick: () => {
-                      editing = null;
-                      render();
-                    },
+            editing.input = input;
+            return node;
+          };
+          const rows = notes.map((n) =>
+            editing && editing.i === i && editing.ref === n
+              ? form(false)
+              : K.notes.row(n, {
+                  play: (e) => {
+                    e.stopPropagation();
+                    playFrom(i, n.at);
                   },
-                  "Cancel",
-                ),
-                el("button", { class: "save-note t-headline", onclick: save }, "Save"),
-              ),
+                  edit: (e) => {
+                    e.stopPropagation();
+                    editing = editing || { i, ref: n, draft: { ...n } };
+                    render();
+                    editing.input?.focus();
+                  },
+                }),
+          );
+          if (playing) {
+            rows.push(
+              editing && editing.i === i && !editing.ref
+                ? form(true)
+                : K.notes.addButton(() => {
+                    editing = { i, ref: null, draft: { at: Math.floor(K.P.pos), text: "" } };
+                    render();
+                    // iOS opens the keyboard only for a focus inside the tap itself.
+                    editing.input.focus();
+                  }),
             );
           }
-          return el(
-            "button",
-            {
-              class: "add-note t-subheadline",
-              onclick: () => {
-                editing = { i, at: Math.floor(K.P.pos), span: 0, text: "" };
-                render();
-                // iOS opens the keyboard only for a focus inside the tap itself.
-                body.querySelector(".note-input").focus();
-              },
-            },
-            "Add a note here",
-          );
+          return rows.length ? el("div", { class: "notes" }, ...rows) : null;
         }
 
         function hasContent(s, i) {
@@ -686,7 +590,7 @@
         // A row that does not play shows what it holds, with no bar: a bar belongs to the playing movement only.
         function details(s, i) {
           const box = el("div", { class: "open-body" });
-          box.append(...[performerRows(s), noteRows(s, i, notesOf(i))].filter(Boolean));
+          box.append(...[performerRows(s), noteBlock(s, i, false)].filter(Boolean));
           return box;
         }
 
@@ -764,9 +668,7 @@
               : null;
           const barBox = el("div", { class: "bar-box" }, bar, el("div", { class: "mv-under" }, times, status), quality);
           box.append(barBox, controls);
-          const noteList = noteRows(s, i, notes);
-          if (noteList) box.append(noteList);
-          box.append(noteControl(s, i));
+          box.append(noteBlock(s, i, true));
           tick.parts = { fill, buffered, state, barBox, now: times.firstChild, left: times.lastChild, pause, s, i };
           tick();
           return box;

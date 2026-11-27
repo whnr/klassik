@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Listening notes</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="../tokens.css?v=52" />
+    <link rel="stylesheet" href="specimen.css?v=52" />
+    <link rel="stylesheet" href="notes.css?v=52" />
+    <script src="specimen.js?v=52"></script>
+    <script src="notes.js?v=52"></script>
+  </head>
+  <body>
+    <!--
+  The listening notes of the playing row and the Undo toast, in English and German (`?lang=de`).
+  - A note is written and edited in its row, never in a modal. Creating and editing share one layout.
+  - Start here, End here, Cancel and Save are one size, with no wrapped word. Marks on the left, Cancel and Save on
+    the right. The Cancel and Save group takes its own line when the two groups do not fit.
+  - An open note has no ground of its own and the gap of two notes to its neighbours. The row keeps its tint.
+  - A note in a row that does not play has no Start here and no End here: a time is set from the playing time only.
+  - The Undo toast floats one gap above the tab bar. Its ground is the reverse of the page: dark on light, light on dark.
+  - After a delete the toast stays 6 seconds. A second delete adds to the first and starts the 6 seconds again.
+    Undo restores the latest note and does not start the time again. The toast fades out; Reduce Motion only cuts it.
+    VoiceOver announces the text as a status, not as a focus change.
+  - `?state=toast` shows the toast above the tab bar. The specimen keeps it open: the app lets it time out.
+-->
+    <script>
+      K.start(() => {
+        const { el, href } = K;
+        const N = K.notes;
+        const state = K.params.get("state");
+        const { scroll } = K.page({
+          tab: "library",
+          title: "Listening notes",
+          back: { label: "Library", href: href("index.html") },
+        });
+        // The movement plays at 2:24; the notes belong to it.
+        const NOW = 144;
+        const sample = () =>
+          N.lang === "de"
+            ? [
+                { at: 92, text: "Die Celli und Bratschen übernehmen das Thema." },
+                { at: 300, span: 40, text: "Blechbläser-Fanfare in C-Dur." },
+              ]
+            : [
+                { at: 92, text: "The cellos and violas take the theme." },
+                { at: 300, span: 40, text: "Brass fanfare in C major." },
+              ];
+        const play = () => {};
+        const view = (n) => N.row(n, { play, edit: () => {} });
+        const open = (n, isNew) =>
+          N.editor(n, { isNew, canMark: true, now: () => NOW, onSave: () => {}, onCancel: () => {} }).node;
+        // The playing row: tinted, with its title, the bar's place and the notes.
+        const playingRow = (...content) =>
+          el(
+            "div",
+            { class: "list" },
+            el(
+              "div",
+              { class: "row-block playing" },
+              el(
+                "div",
+                { class: "notes-head" },
+                el("div", { class: "t-body" }, "II. Andante con moto"),
+                el("div", { class: "t-subheadline secondary nums" }, "2:24 / 11:21"),
+              ),
+              el("div", { class: "notes-body" }, el("div", { class: "notes" }, ...content)),
+            ),
+          );
+        const section = (head, row, foot) =>
+          el(
+            "section",
+            { class: "section" },
+            el("div", { class: "section-head t-footnote" }, head),
+            row,
+            foot ? el("p", { class: "section-foot t-footnote" }, foot) : null,
+          );
+        const language = (code, label) =>
+          el("a", { class: "link", href: href("notes.html", { lang: code, state }) }, label);
+        const [first, second] = sample();
+        const fresh = { at: NOW, text: "" };
+        const editing = { ...first };
+        const parts = [
+          el(
+            "div",
+            { class: "page-head" },
+            el("h1", { class: "t-largeTitle" }, "Listening notes"),
+            el(
+              "p",
+              { class: "t-subheadline secondary meta" },
+              "Language: ",
+              language("en", "English"),
+              " · ",
+              language("de", "Deutsch"),
+            ),
+          ),
+        ];
+        if (state === "toast") {
+          parts.push(
+            section(
+              "Viewing",
+              playingRow(
+                view(first),
+                view(second),
+                N.addButton(() => {}),
+              ),
+            ),
+            section(
+              "Undo toast",
+              el(
+                "p",
+                { class: "t-subheadline secondary", style: "padding: 0 var(--space-l)" },
+                "Above the tab bar, after a delete.",
+              ),
+            ),
+            N.toast(() => {}),
+          );
+        } else {
+          parts.push(
+            section(
+              "Viewing",
+              playingRow(
+                view(first),
+                view(second),
+                N.addButton(() => {}),
+              ),
+            ),
+            section(
+              "Creating",
+              playingRow(view(first), view(second), open(fresh, true)),
+              "A new note starts at the playing time. End here is optional.",
+            ),
+            section(
+              "Editing",
+              playingRow(open(editing, false), view(second)),
+              "Editing uses the layout of creating, and adds Start here.",
+            ),
+            section(
+              "Undo toast",
+              el(
+                "div",
+                { class: "list" },
+                el(
+                  "a",
+                  { class: "row", href: href("notes.html", { lang: N.lang === "de" ? "de" : null, state: "toast" }) },
+                  el("div", { class: "main t-body" }, "Show the toast above the tab bar"),
+                  el("span", { html: K.ICON.chevron }),
+                ),
+              ),
+            ),
+          );
+        }
+        scroll.append(...parts);
+      });
+    </script>
+  </body>
+</html>

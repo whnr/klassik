@@ -31,9 +31,9 @@ struct PlaybackSessionTests {
 
     private func makeSession(
         _ requests: Requests = Requests(), server: (any ServerPort)? = InMemoryServer(),
-        gainStage: (any GainStage)? = nil
+        gainStage: (any GainStage)? = nil, defaults: UserDefaults? = nil
     ) throws -> (session: PlaybackSession, engine: FakeEngine) {
-        let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
+        let defaults = try defaults ?? #require(UserDefaults(suiteName: UUID().uuidString))
         let store = TrackStore(
             cacheFolder: root.appending(path: "cache"), downloadFolder: root.appending(path: "downloads"),
             defaults: defaults,
@@ -750,6 +750,31 @@ struct PlaybackSessionTests {
         #expect(engine.gain == -6)
         session.leveling = .off
         #expect(engine.gain == 0)
+    }
+
+    /// A listener who never chose a setting gets Work. A saved choice, Album included, stays.
+    @Test func workIsTheDefaultAndASavedChoiceStays() throws {
+        let fresh = try makeSession().session
+        #expect(fresh.leveling == .work)
+        let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
+        let first = try makeSession(defaults: defaults).session
+        first.leveling = .album
+        #expect(try makeSession(defaults: defaults).session.leveling == .album)
+    }
+
+    /// Every movement of a recording plays at the level of the recording, whatever its own gain.
+    @Test func workLevelingPlaysEveryMovementAtOneGain() throws {
+        let (session, engine) = try makeSession()
+        session.leveling = .work
+        session.play(item("a", movements: 3, gains: [-3, -6, nil]))
+        let level = engine.gain
+        #expect(abs(level - -4.754) < 0.001)
+        engine.end(0)
+        #expect(engine.gain == level)
+        engine.end(1)
+        #expect(engine.gain == level)
+        session.leveling = .track
+        #expect(engine.gain != level)
     }
 
     private func path(gainStage: Bool, rate: Double = 44_100, hardware: Double = 44_100) -> PlaybackSignalPath {

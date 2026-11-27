@@ -233,6 +233,44 @@ struct WorkIndexTests {
         #expect(!WorkIndex.Recording(id: "r", album: "A", songs: [Self.song("a", album: "A", track: 2)]).isPartial)
     }
 
+    /// The tags prove a movement missing when they give a total and a number from 1 to the total is absent.
+    @Test(arguments: [
+        (numbers: [1, 2, 3], total: 3, partial: false),
+        (numbers: [1, 2], total: 3, partial: true),
+        (numbers: [2, 3, 4], total: 3, partial: true),
+        (numbers: [1, 3], total: 3, partial: true),
+        (numbers: [1, 2, 4], total: 4, partial: true),
+        (numbers: [3], total: 4, partial: true),
+        (numbers: [1], total: 1, partial: false),
+        (numbers: [1, 1, 2, 3], total: 3, partial: false),
+    ])
+    func partialMeansAMovementNumberIsAbsent(numbers: [Int], total: Int, partial: Bool) {
+        let songs = numbers.enumerated().map { index, number in
+            Self.song("s\(index)", album: "A", track: index + 1, movement: (number, total))
+        }
+        #expect(WorkIndex.Recording(id: "r", album: "A", songs: songs).isPartial == partial)
+    }
+
+    /// A gap counts only the movements 1 to the total that the recording holds.
+    @Test func gapCompletenessCountsTheMovementsInRange() {
+        let songs = [2, 3, 4].enumerated().map { index, number in
+            Self.song("s\(index)", album: "A", track: index + 1, movement: (number, 3))
+        }
+        #expect(WorkIndex.Recording(id: "r", album: "A", songs: songs).completeness == "2 of 3 movements")
+    }
+
+    /// Without a total in the tags, nothing proves a movement missing: one track, several tracks and an album stay
+    /// out of the partial list.
+    @Test func noTotalIsNeverPartial() {
+        let one = [Self.song("a", album: "A", track: 1)]
+        let several = [Self.song("a", album: "A", track: 1), Self.song("b", album: "A", track: 3)]
+        #expect(!WorkIndex.Recording(id: "r", album: "A", songs: one).isPartial)
+        #expect(!WorkIndex.Recording(id: "r", album: "A", songs: several).isPartial)
+        let album = WorkIndex.Recording(
+            id: "r", album: "A", songs: [Self.song("a", album: "A", track: 1, movement: (1, 4))], isAlbum: true)
+        #expect(!album.isPartial)
+    }
+
     /// One work with two movements on consecutive tracks gives every work a heading.
     @Test func albumHeadsWorksWhenOneWorkHasConsecutiveMovements() throws {
         let index = WorkIndex(songs: [

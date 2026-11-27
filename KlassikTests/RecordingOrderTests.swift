@@ -294,6 +294,31 @@ struct RecordingOrderTests {
         #expect(order.reference(of: work, separatingPartial: false)?.album == "part-fav")
     }
 
+    /// The page draws `recordings`, then `partial`. A gap in the numbers makes a recording partial, and a recording
+    /// without a movement total stays in the main list.
+    @Test func workPageListsPartialRecordingsBelowTheOthers() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        func recording(_ album: String, year: Int, numbers: [Int], count: Int?) -> [Song] {
+            numbers.enumerated().map { index, number in
+                var numbered = song(album, year: year, track: index + 1)
+                numbered.movements = count.map { [Song.Movement(name: "M", number: number, count: $0)] }
+                return numbered
+            }
+        }
+        let songs =
+            recording("gap-newest", year: 2022, numbers: [2, 3, 4], count: 3)
+            + recording("whole", year: 2000, numbers: [1, 2, 3], count: 3)
+            + recording("untagged", year: 1990, numbers: [1, 2], count: nil)
+            + recording("short", year: 2021, numbers: [1, 2], count: 3)
+        let library = try await library(songs, root: root)
+        let work = try #require(library.index.composers.first?.works.first)
+        let order = RecordingOrder(library: library, store: store(root))
+        let lists = order.lists(of: work, separatingPartial: true)
+        #expect(lists.recordings.map(\.recording.album) == ["whole", "untagged"])
+        #expect(lists.partial.map(\.recording.album) == ["gap-newest", "short"])
+    }
+
     @Test func aWorkWithOnlyPartialRecordingsPlaysTheTopPartialOne() async throws {
         let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }

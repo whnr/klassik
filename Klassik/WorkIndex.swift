@@ -112,12 +112,14 @@ struct WorkIndex: Sendable {
             songs.compactMap { $0.movements?.first?.count }.max().flatMap { $0 > 0 ? $0 : nil }
         }
 
-        /// The movements present and the movement total, when the recording holds only part of its work. Without a
-        /// total in the tags, Klassik cannot tell and counts the recording as whole.
+        /// The movements present and the movement total, when the tags prove a movement missing: they give a total,
+        /// and a number from 1 to the total is absent. Without a total, Klassik cannot tell and counts the recording
+        /// as whole.
         private var part: (present: Int, total: Int)? {
             guard !isAlbum, let total = movementTotal else { return nil }
-            let present = Set(songs.compactMap { $0.movements?.first?.number }).count
-            return present > 0 && present < total ? (present, total) : nil
+            let numbers = Set(songs.compactMap { $0.movements?.first?.number })
+            let present = (1...total).filter(numbers.contains).count
+            return present < total ? (present, total) : nil
         }
 
         /// True when the recording holds only part of its work.

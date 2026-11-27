@@ -1,6 +1,6 @@
 import KlassikEngine
 
-/// The fade controls of the Lab. The defaults give the engine options of the app.
+/// The fade controls of the Lab. The defaults give the plain engine options; `spec` gives the sound of the app.
 struct LabFadeSettings: Equatable {
     /// The seek modes as the Lab picker offers them. The silence length is a separate slider.
     enum Seek: String, CaseIterable, Identifiable {
@@ -30,6 +30,10 @@ struct LabFadeSettings: Equatable {
     var inMilliseconds = defaultDuration
     var seek = Seek.today
     var silenceMilliseconds = defaultSilence
+
+    /// The sound of the app, `FadeOptions.spec`, as Lab controls.
+    static let spec = LabFadeSettings(
+        outCurve: .smootherstep, inCurve: .smootherstep, outMilliseconds: 100, inMilliseconds: 100, seek: .crossfade)
 
     /// The engine options. Each slider value is clamped to its range.
     var options: FadeOptions {

@@ -4,6 +4,8 @@ import Foundation
 public enum VolumeLeveling: String, CaseIterable, Identifiable, Sendable, GainStage {
     /// One gain for the whole album keeps the loudness steps between movements.
     case album
+    /// One gain for the whole recording: every movement plays at the level of the recording.
+    case work
     case track
     case off
 
@@ -12,13 +14,22 @@ public enum VolumeLeveling: String, CaseIterable, Identifiable, Sendable, GainSt
     public var title: String {
         switch self {
         case .album: "Album"
+        case .work: "Work"
         case .track: "Track"
         case .off: "Off"
         }
     }
 
-    /// The gain for one track, in decibels. The peak limits a boost, so that no sample clips.
+    /// The gain of one track within its recording, in decibels. Only `work` reads the other tracks.
+    /// A recording without any track gain plays at the album gain of the track.
+    public func gain(for track: PlaybackTrack, in recording: [PlaybackTrack]) -> Float {
+        guard self == .work else { return gain(for: track) }
+        return RecordingGain.gain(of: recording) ?? Self.album.gain(for: track)
+    }
+
+    /// The gain for one track alone, in decibels. The peak limits a boost, so that no sample clips.
     public func gain(for track: PlaybackTrack) -> Float {
+        if self == .work { return gain(for: track, in: [track]) }
         guard self != .off, let tags = track.replayGain else { return 0 }
         let album = (gain: tags.albumGain, peak: tags.albumPeak)
         let track = (gain: tags.trackGain, peak: tags.trackPeak)

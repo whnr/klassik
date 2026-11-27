@@ -831,15 +831,18 @@ final class BrowseScreens: ScreensTestCase {
     func testMusicBrainz() throws {
         let app = try launchAndConnect()
         openSettings(app)
-        // The row shows once the library has composers.
-        let musicBrainz = app.buttons["musicbrainz"]
-        XCTAssertTrue(eventually(timeout: 30) { reveal(musicBrainz, in: app).exists })
-        musicBrainz.tap()
+        let enrichment = reveal(app.buttons["data-enrichment"], in: app)
+        XCTAssertTrue(enrichment.exists)
+        enrichment.tap()
+        XCTAssertTrue(app.navigationBars["Data Enrichment"].waitForExistence(timeout: 10))
         let toConfirm = app.buttons["to-confirm"]
         XCTAssertTrue(toConfirm.waitForExistence(timeout: 10))
         // The lookup may still run right after the connect.
         let counted = expectation(for: NSPredicate(format: "label CONTAINS '1'"), evaluatedWith: toConfirm)
         XCTAssertEqual(XCTWaiter.wait(for: [counted], timeout: 30), .completed, toConfirm.label)
+        // The fallback language sits on this page, in its own group.
+        let fallback = app.descendants(matching: .any)["text-fallback"]
+        XCTAssertTrue(reveal(fallback, in: app).exists, "No fallback language on Data Enrichment")
         snap(app, "02c-musicbrainz")
     }
 
@@ -848,10 +851,9 @@ final class BrowseScreens: ScreensTestCase {
     func testPeopleFromWikidata() throws {
         let app = try launchAndConnect()
         openSettings(app)
-        // The row shows once the library has composers.
-        let musicBrainz = app.buttons["musicbrainz"]
-        XCTAssertTrue(eventually(timeout: 30) { reveal(musicBrainz, in: app).exists })
-        musicBrainz.tap()
+        let enrichment = reveal(app.buttons["data-enrichment"], in: app)
+        XCTAssertTrue(enrichment.exists)
+        enrichment.tap()
         let status = app.descendants(matching: .any)["people-status"]
         XCTAssertTrue(reveal(status, in: app).waitForExistence(timeout: 10))
         let done = expectation(for: NSPredicate(format: "label CONTAINS 'Up to date'"), evaluatedWith: status)
@@ -1767,12 +1769,15 @@ final class PlaybackScreens: ScreensTestCase {
             reveal(app.buttons["save-note"], in: app).tap()
             XCTAssertTrue(field.waitForNonExistence(timeout: 10), "Save left the note open")
         }
-        XCTAssertEqual(app.buttons.matching(identifier: "note-text").count, 3)
         reveal(position, in: app)
         // The last save closes the keyboard, and the page moves while it goes. A tap on a coordinate of the bar
         // that lands mid-move misses the lane and scrubs to the middle of the movement.
         XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 10), "The keyboard stayed open")
         XCTAssertTrue(waitUntilStill(position), "The position bar kept moving: \(position.frame)")
+        // The notes are list rows: the ones under the keyboard are not on the screen until it closes.
+        XCTAssertTrue(
+            eventually(timeout: 10) { app.buttons.matching(identifier: "note-text").count == 3 },
+            "The page shows \(app.buttons.matching(identifier: "note-text").count) of 3 notes")
         // Each lane above the first adds the pitch of one lane (Layout.noteDotTop).
         let pitch: CGFloat = 9
         XCTAssertEqual(barDrop(), bare + 2 * pitch, accuracy: 0.5, "The bar has no room for the third lane")
@@ -1820,6 +1825,60 @@ final class PlaybackScreens: ScreensTestCase {
         let pill = app.buttons["mini-player-pause"]
         XCTAssertTrue(eventually(timeout: 10) { pill.label == "Pause" }, "The note time did not play: \(pill.label)")
         pause(app)
+    }
+
+    /// A note edits in place: a tap on its text opens it with its text, "Start here" and "End here" move its times.
+    /// A swipe deletes it, and Undo puts it back.
+    @MainActor
+    func testEditAndDeleteListeningNote() throws {
+        let app = try launchAndConnect()
+        openRecording(app)
+        playPaused(app)
+        openPlayer(app)
+        let field = app.textFields["note-field"]
+        reveal(app.buttons["add-note"], in: app).tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 10), "Add a note here opened no field")
+        field.tap()
+        dismissKeyboardTip(app)
+        field.typeText("Theme")
+        reveal(app.buttons["save-note"], in: app).tap()
+        let note = app.buttons["note-text"].firstMatch
+        XCTAssertTrue(note.waitForExistence(timeout: 10), "The saved note does not show")
+        // Save closes the keyboard and the page moves while it goes: a tap during the move misses the note.
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 10), "The keyboard stayed open")
+        XCTAssertTrue(waitUntilStill(note), "The note kept moving: \(note.frame)")
+
+        // A tap on the text opens the note with its text and the buttons for its times.
+        reveal(note, in: app).tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 10), "A tap on the note opened no field")
+        XCTAssertEqual(field.value as? String, "Theme")
+        XCTAssertTrue(app.buttons["start-note"].exists, "The open note has no Start here")
+        XCTAssertTrue(app.buttons["end-note"].exists, "The open note has no End here")
+        field.tap()
+        field.typeText(" in the violins")
+        reveal(app.buttons["save-note"], in: app).tap()
+        XCTAssertTrue(field.waitForNonExistence(timeout: 10), "Save left the note open")
+        XCTAssertTrue(
+            eventually(timeout: 5) { app.buttons["note-text"].firstMatch.label.contains("Theme in the violins") },
+            "The edited text does not show")
+        XCTAssertEqual(app.buttons.matching(identifier: "note-text").count, 1, "An edit made a second note")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 10), "The keyboard stayed open")
+        XCTAssertTrue(waitUntilStill(app.buttons["note-text"].firstMatch), "The note kept moving")
+        snap(app, "41e-note-edited")
+
+        // A swipe deletes the note; Undo brings it back.
+        reveal(app.buttons["note-text"].firstMatch, in: app).swipeLeft()
+        let delete = app.buttons["Delete"].firstMatch
+        XCTAssertTrue(delete.waitForExistence(timeout: 5), "The swipe shows no Delete")
+        delete.tap()
+        XCTAssertTrue(app.buttons["note-text"].firstMatch.waitForNonExistence(timeout: 10), "Delete kept the note")
+        let undo = app.buttons["undo-note"]
+        XCTAssertTrue(undo.waitForExistence(timeout: 5), "A deleted note offers no Undo")
+        snap(app, "41f-note-deleted")
+        undo.tap()
+        XCTAssertTrue(
+            app.buttons["note-text"].firstMatch.waitForExistence(timeout: 10), "Undo did not bring the note back")
+        XCTAssertFalse(undo.exists, "Undo stayed after it ran")
     }
 
     /// Play on the work page plays the reference recording and the pill shows the playing state (item 25).
@@ -2667,12 +2726,12 @@ final class SettingsScreens: ScreensTestCase {
         XCTAssertTrue(reveal(app.buttons["diagnostics"], in: app).isHittable)
         for _ in 0..<6 where !row(app, "timeline-side").isHittable { app.swipeDown() }
         snap(app, "08c-settings-top")
-        // Flo's groups: Playback, Library, Colour, Data Enrichment, Advanced settings, About. Each row follows the one before it.
+        // Flo's groups: Playback, Library, Colour, Advanced settings, About. Each row follows the one before it.
         let order = [
             "timeline-side", "replaygain", "audio-quality-setting", "scrobbles", "classical-rules", "partial-works",
             "swipe-actions",
             "local-storage", "delete-listening-data", "accent", "player-tint-strength",
-            "musicbrainz", "text-fallback", "server-connection", "diagnostics", "licences", "source-code",
+            "data-enrichment", "server-connection", "diagnostics", "licences", "source-code",
         ]
         reveal(row(app, order[0]), in: app)
         for (above, below) in zip(order, order.dropFirst()) {
@@ -3860,7 +3919,12 @@ class ScreensTestCase: XCTestCase {
             if element.exists {
                 // A tap on a row under the tab row would open a place or the player.
                 let floor = row.exists ? row.frame.minY : app.frame.maxY
-                if element.frame.maxY <= floor, element.isHittable { return element }
+                // isHittable fails the test when the element has no activation point, as a row that the list
+                // has moved off screen. Only an element whose frame lies on screen is asked.
+                let frame = element.frame
+                if frame.minY >= app.frame.minY, frame.maxY <= floor, !frame.isEmpty, element.isHittable {
+                    return element
+                }
             }
             // A drag that starts on the playback bar scrubs and does not scroll, so it starts below the bar.
             let start = CGPoint(x: app.frame.midX, y: app.frame.minY + app.frame.height * 0.6)

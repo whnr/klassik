@@ -413,16 +413,33 @@ struct TrackStoreTests {
         first.cancelDownload("r1")
     }
 
-    @Test func downloadMovesCachedTracksInsteadOfFetchingThemAgain() async throws {
+    @Test func downloadCopiesCachedTracksInsteadOfFetchingThemAgain() async throws {
         try write("a", in: "cache", bytes: 40)
         let requests = Requests()
         let store = try makeStore(requests)
         store.download(recording("r1", ["a", "b"]), title: "Work", client: client)
         await settle(store)
         #expect(requests.ids == ["b"])
-        #expect(!exists("a", in: "cache"))
+        #expect(exists("a", in: "cache"))
         #expect(exists("a", in: "support/downloads"))
         #expect(store.downloads.first?.bytes == 140)
+    }
+
+    @Test func downloadAfterRemovingADownloadStillUsesTheCache() async throws {
+        try write("a", in: "cache", bytes: 40)
+        let requests = Requests()
+        let store = try makeStore(requests)
+        let work = recording("r1", ["a"])
+        store.download(work, title: "Work", client: client)
+        await settle(store)
+        let stored = try #require(store.downloads.first)
+        store.remove(stored)
+        #expect(exists("a", in: "cache"))
+        store.download(work, title: "Work", client: client)
+        await settle(store)
+        #expect(requests.ids.isEmpty)
+        #expect(exists("a", in: "support/downloads"))
+        #expect(store.downloads.count == 1)
     }
 
     @Test func failedDownloadKeepsNoPartOfTheRecording() async throws {

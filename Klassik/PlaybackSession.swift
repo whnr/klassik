@@ -232,7 +232,7 @@ final class PlaybackSession {
         self.defaults = defaults
         self.gainStage = gainStage
         scrobblesEnabled = defaults.object(forKey: Self.scrobblesKey) as? Bool ?? true
-        leveling = defaults.string(forKey: Self.levelingKey).flatMap(VolumeLeveling.init) ?? .album
+        leveling = defaults.string(forKey: Self.levelingKey).flatMap(VolumeLeveling.init) ?? .work
         showsAudioQuality = defaults.bool(forKey: Self.showsAudioQualityKey)
         engine.useGainStage(Self.wantsGainStage(leveling, gainStage))
         engine.onEvent = { [weak self] event in self?.engineEvent(event) }
@@ -701,10 +701,15 @@ final class PlaybackSession {
         if line != qualityLine { qualityLine = line }
     }
 
-    /// Album gains are the same for each movement, so a change at the movement boundary is not audible.
+    /// Album and recording gains are the same for each movement, so a change at the movement boundary is not
+    /// audible.
     private func applyGain() {
         guard let recording, let movement, recording.songs.indices.contains(movement) else { return engine.setGain(0) }
-        engine.setGain((gainStage ?? leveling).gain(for: recording.songs[movement].playbackTrack))
+        let track = recording.songs[movement].playbackTrack
+        if let gainStage { return engine.setGain(gainStage.gain(for: track)) }
+        // Only the work setting reads the other tracks, so the other settings skip the mapping.
+        let group = leveling == .work ? recording.levelGroup(of: movement) : []
+        engine.setGain(leveling.gain(for: track, in: group))
     }
 
     // MARK: Waiting and read-ahead

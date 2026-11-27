@@ -14,7 +14,7 @@ enum Page: Hashable {
     case performer(String)
     case albums(classical: Bool)
     case album(String)
-    case musicBrainz
+    case dataEnrichment
     case worksToConfirm
     case worksWithoutMatch
     case classicalRules
@@ -84,7 +84,7 @@ extension Page {
         case .performer(let name): return name
         case .albums(let classical): return classical ? L("Classical Albums") : L("Other Albums")
         case .album(let key): return library.album(key)?.title ?? L("Album")
-        case .musicBrainz: return L("MusicBrainz")
+        case .dataEnrichment: return L("Data Enrichment")
         case .worksToConfirm: return L("To Confirm")
         case .worksWithoutMatch: return L("No Match")
         case .classicalRules: return L("Classical Rules")
@@ -223,7 +223,7 @@ struct PageView: View {
             } else {
                 Gone()
             }
-        case .musicBrainz:
+        case .dataEnrichment:
             EnrichmentStatusView()
         case .worksToConfirm:
             WorkListView(title: L("To Confirm"), works: model.enrichment.summary(of: index).toConfirm)

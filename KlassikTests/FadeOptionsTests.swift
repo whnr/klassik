@@ -57,6 +57,14 @@ struct FadeOptionsTests {
         #expect(abs(20 * log10(curve.rise(0.000_001)) - FadeCurve.floorDecibels) < 1e-3)
     }
 
+    @Test func theSpecIsSmootherstepOutAndInForOneHundredMillisecondsWithACrossfade() {
+        #expect(FadeOptions.spec.outCurve == .smootherstep)
+        #expect(FadeOptions.spec.inCurve == .smootherstep)
+        #expect(FadeOptions.spec.outSeconds == 0.1)
+        #expect(FadeOptions.spec.inSeconds == 0.1)
+        #expect(FadeOptions.spec.seek == .crossfade)
+    }
+
     @Test func theSmootherstepIsTheFifthOrderPolynomialWithFlatEnds() {
         let curve = FadeCurve.smootherstep
         #expect(abs(curve.rise(0.5) - 0.5) < 1e-12)

@@ -848,7 +848,8 @@ struct TrackTransferTests {
         #expect(store.isOffline(shared))
         store.remove(try #require(store.downloads.first { $0.id == second.id }))
         #expect(store.downloadBytes == 0)
-        #expect(!store.isOffline(shared))
+        // The download copied the track from the cache, so the cache still holds it.
+        #expect(store.isOffline(shared))
         store.clearAll()
         try? FileManager.default.removeItem(at: root)
     }

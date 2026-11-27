@@ -1,7 +1,0 @@
-{
-  "sha": "a57d20aa0e25f8502b252f416ad13d100040cb1b",
-  "branch": "claude-design-lint-retro",
-  "path": "claude-design-lint-retro",
-  "subject": "Run layout tests and print progress in design lint",
-  "ts": 1795795275
-}

@@ -478,6 +478,7 @@ extension WorkIndex.Recording {
         case "minute": L("\(number) minutes")
         case "hour": L("\(number) hours")
         case "condition": L("\(number) conditions")
+        case "result": L("\(number) results")
         default: "\(number) \(noun)\(number == 1 ? "" : "s")"
         }
     }

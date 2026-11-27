@@ -127,7 +127,7 @@ SHARDS = {
             "testSearch",
             "testSearchFilters",
             "testSearchSections",
-            "testSearchSheetBackAndDimming",
+            "testSearchSheetDimming",
             "testSwipeDownClosesTheFilterSheet",
         }
     },

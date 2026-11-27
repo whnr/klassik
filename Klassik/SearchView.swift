@@ -13,7 +13,6 @@ struct SearchView: View {
     /// The condition that the next term of the sheet joins with "or".
     @State private var joining: Int?
     @State private var showsFilters = false
-    @State private var returnsAfterFilters = false
     @FocusState private var focused: Bool
     /// The start that the page last handled.
     @State private var started: Int?
@@ -97,22 +96,10 @@ struct SearchView: View {
             .background(Palette.backgroundPage)
         }
         .scrollDismissesKeyboard(.immediately)
-        .sheet(
-            isPresented: $showsFilters,
-            onDismiss: {
-                if returnsAfterFilters {
-                    returnsAfterFilters = false
-                    navigator.back()
-                }
-            }
-        ) {
+        .sheet(isPresented: $showsFilters) {
             FilterSheet(
-                conditions: $conditions, joining: $joining, pool: pool(of: found), hasText: typed, done: commit,
-                back: {
-                    commit()
-                    returnsAfterFilters = true
-                    showsFilters = false
-                })
+                conditions: $conditions, joining: $joining, pool: pool(of: found),
+                results: typed || !conditions.isEmpty ? filtered.results.rowCount : nil, done: commit)
         }
         .onAppear(perform: start)
         .onChange(of: navigator.searchStarts, start)

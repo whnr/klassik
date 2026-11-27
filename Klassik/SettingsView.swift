@@ -1,7 +1,7 @@
 import KlassikEngine
 import SwiftUI
 
-/// Settings, in groups, in the order Flo set: Playback, Library, Colour, Advanced settings, About.
+/// Settings, in groups, in the order Flo set: Playback, Library, Colour, Data Enrichment, Advanced settings, About.
 struct SettingsView: View {
     /// Klassik is open source. The link opens in the browser.
     static let sourceCode = URL(string: "https://github.com/whnr/klassik")!
@@ -30,20 +30,6 @@ struct SettingsView: View {
         // A menu picker keeps the tint that it got when it was made. A new identity for each family remakes it.
         let family = AccentChoice.shared.family
         GroupedPageList {
-            Section {
-                Picker("Fallback Language", selection: fallbackSetting) {
-                    ForEach(TextFallback.all) { Text($0.title).tag($0) }
-                }
-                .accessibilityIdentifier("text-fallback")
-                .id(family)
-            } header: {
-                SectionHeading("Language")
-            } footer: {
-                Text(
-                    "Descriptions and biographies come from Wikidata and Wikipedia in the app language. Where they have none, Klassik shows the fallback language, or nothing when it is off. Composer names, work titles and tags stay as your music tags them. Change the app language in the iOS Settings app, under Klassik."
-                )
-            }
-
             Section {
                 Picker("Timeline", selection: $timelineSide) {
                     ForEach(TimelineSide.allCases) { Text($0.title).tag($0) }
@@ -131,15 +117,20 @@ struct SettingsView: View {
                     }
                     .accessibilityIdentifier("musicbrainz")
                 }
-                NavigationLink(value: Page.diagnostics) {
-                    LabeledContent {
-                        Text(waitingChanges)
-                            .foregroundStyle(Palette.textSecondary)
-                    } label: {
-                        InkLabel("Diagnostics", systemImage: "stethoscope")
-                    }
+                Picker("Fallback Language", selection: fallbackSetting) {
+                    ForEach(TextFallback.all) { Text($0.title).tag($0) }
                 }
-                .accessibilityIdentifier("diagnostics")
+                .accessibilityIdentifier("text-fallback")
+                .id(family)
+            } header: {
+                SectionHeading("Data Enrichment")
+            } footer: {
+                Text(
+                    "Descriptions and biographies come from Wikidata and Wikipedia in the app language. Where they have none, Klassik shows the fallback language, or nothing when it is off. Composer names, work titles and tags stay as your music tags them. Change the app language in the iOS Settings app, under Klassik."
+                )
+            }
+
+            Section {
                 NavigationLink(value: Page.serverConnection) {
                     LabeledContent {
                         Text(model.connectionState)
@@ -149,17 +140,24 @@ struct SettingsView: View {
                     }
                 }
                 .accessibilityIdentifier("server-connection")
+            } header: {
+                SectionHeading("Advanced settings")
+            }
+
+            Section {
+                NavigationLink(value: Page.diagnostics) {
+                    LabeledContent {
+                        Text(waitingChanges)
+                            .foregroundStyle(Palette.textSecondary)
+                    } label: {
+                        InkLabel("Diagnostics", systemImage: "stethoscope")
+                    }
+                }
+                .accessibilityIdentifier("diagnostics")
                 NavigationLink(value: Page.licences) {
                     InkLabel("Licences", systemImage: "doc.text")
                 }
                 .accessibilityIdentifier("licences")
-            } header: {
-                SectionHeading("Advanced settings")
-            } footer: {
-                Text("Shows the lookups and diagnostics with the changes that wait.")
-            }
-
-            Section {
                 Link(destination: Self.sourceCode) {
                     InkLabel("Source Code on GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
                 }

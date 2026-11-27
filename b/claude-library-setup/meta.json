@@ -1,7 +1,7 @@
 {
-  "sha": "c3762421eaf1b8b5b37887c3de019a1ed1460dff",
+  "sha": "1707ee208355cce7a41f2f4e143c7cf49c97d49f",
   "branch": "claude-library-setup",
   "path": "claude-library-setup",
-  "subject": "[sz-augz.2] Keep Library rows in the listener store",
-  "ts": 1795794023
+  "subject": "[sz-augz.2] Document the Library setup format",
+  "ts": 1795794357
 }

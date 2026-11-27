@@ -31,6 +31,7 @@
 }
 .cond .plus {
   display: inline;
+  white-space: nowrap;
   padding: var(--space-xs) var(--space-m);
   border-radius: var(--radius-full);
   color: var(--color-tint);

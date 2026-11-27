@@ -54,8 +54,8 @@
   };
   // Best known shows for people only. People without data sort last and the score never shows.
   const SORT_KINDS = {
-    composers: ["random", "best", "az", "newest", "heard"],
-    performers: ["random", "best", "az", "newest", "heard"],
+    composers: ["random", "best", "az", "heard"],
+    performers: ["random", "best", "az", "heard"],
     works: ["random", "az", "newest", "heard"],
     recordings: ["random", "az", "newest", "heard"],
     albums: ["newest", "random", "az", "heard"],
@@ -326,11 +326,11 @@
     else row[field] = value;
     fit(row);
   }
-  // The subtitle: what the row shows, in words with commas.
+  // The subtitle: what the row shows, minus what the title already says. Parts join with commas.
+  // Sort names have a lower case form for the middle of a line and a sentence case form for the start.
   function facts(row) {
     if (row.kind === "pick") return `Sentence, from ${row.source === "library" ? "the whole library" : row.source}`;
     if (row.kind === "links") return row.links.map((k) => LINKS[k]).join(", ") || "No links";
-    const source = row.kind === "saved" ? `Saved search ${row.source}` : sourceOptions(row)[sourceValue(row)];
     const noun =
       row.form === "tiles"
         ? "tiles"
@@ -339,9 +339,14 @@
           : row.kind === "favourites"
             ? "faces and covers"
             : "covers";
-    const parts = [source];
-    if (row.conds?.length) parts.push(Filters.short(row.conds));
-    parts.push(SORTS[row.sort], `${row.count} ${noun}`);
+    const named = row.sort !== START[row.kind].sort;
+    const terms = row.conds?.flat() ?? [];
+    // The title names the source of these kinds. The other kinds name it only here.
+    const parts = [];
+    if (!["favourites", "saved", ...UNIT_KINDS].includes(row.kind)) parts.push(sourceOptions(row)[sourceValue(row)]);
+    if (terms.length > 1) parts.push(Filters.short(row.conds));
+    if (!named) parts.push(parts.length ? SORTS[row.sort] : SORT_LABELS[row.sort]);
+    parts.push(`${row.count} ${noun}`);
     return parts.join(", ");
   }
 
@@ -451,7 +456,8 @@
   function pick(row) {
     const x = pickOf(row);
     if (!x) return null;
-    const open = x.rec?.workRef ? K.href("work.html", { work: x.rec.workRef.id, back: "Library" }) : x.href;
+    // The title and the cover open the recording or the album that the sentence names, never its work.
+    const open = x.href;
     const who = (name) => el("a", { class: "who", href: K.personHref(name, { back: "Library" }) }, name);
     const names = [];
     if (x.rec) {
@@ -533,6 +539,20 @@
           const top = wrap.getBoundingClientRect().top - page.getBoundingClientRect().top + page.scrollTop - chrome;
           page.scrollTo({ top, behavior: "smooth" });
         }
+      },
+      // Brings a row into view with the smallest move, clear of the top chrome and of the sheet.
+      reveal(id) {
+        const wrap = wraps.get(id)?.wrap;
+        const page = host.closest(".scroll");
+        if (!wrap || !page) return;
+        const chrome = parseFloat(getComputedStyle(page).paddingTop) || 0;
+        const view = page.getBoundingClientRect();
+        const box = wrap.getBoundingClientRect();
+        const sheet = window.Frame && state.selecting ? Frame.height() : 0;
+        const above = box.top - view.top - chrome;
+        const below = box.bottom - (view.bottom - sheet);
+        if (above < 0) page.scrollTo({ top: page.scrollTop + above, behavior: "smooth" });
+        else if (below > 0) page.scrollTo({ top: page.scrollTop + below, behavior: "smooth" });
       },
       // In select mode a tap on a row selects it and opens nothing.
       selecting(on) {

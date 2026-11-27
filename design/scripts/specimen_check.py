@@ -28,6 +28,7 @@ PAGES = (
     "library.html?rows=all",
     "library.html?edit=1",
     "library.html?edit=row",
+    "library.html?edit=empty",
     "work.html",
     "player.html",
     "player.html?album=3Is4qK0IBSlUYtEHMhh8YH",

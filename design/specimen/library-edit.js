@@ -72,10 +72,19 @@ window.LibraryEdit = (() => {
         "Add row",
       );
       const list = el("div", { class: "list" }, ...rows.map(line));
-      sortable(list, ".le-line", (ids) => {
-        rows.splice(0, rows.length, ...ids.map(byId));
-        changed();
-      });
+      sortable(
+        list,
+        ".le-line",
+        (ids) => {
+          rows.splice(0, rows.length, ...ids.map(byId));
+          changed();
+        },
+        (id) => {
+          // The selected row returns to the top, as on select. Without a selection the moved row comes into view.
+          if (sel) tab.select(sel, { scroll: true });
+          else tab.reveal(id);
+        },
+      );
       return [
         el("section", { class: "section" }, el("div", { class: "list" }, add)),
         el("section", { class: "section" }, list),
@@ -174,7 +183,7 @@ window.LibraryEdit = (() => {
     }
 
     // Drag a handle: the list and the tab both follow the finger.
-    function sortable(container, item, onSwap) {
+    function sortable(container, item, onSwap, onDrop = null) {
       container.addEventListener("pointerdown", (e) => {
         const handle = e.target.closest(".le-handle");
         if (!handle) return;
@@ -182,6 +191,7 @@ window.LibraryEdit = (() => {
         e.preventDefault();
         handle.setPointerCapture(e.pointerId);
         let startY = e.clientY;
+        let dragged = false;
         node.classList.add("moving");
         const ids = () => [...container.querySelectorAll(item)].map((n) => n.dataset.id);
         const move = (ev) => {
@@ -193,12 +203,14 @@ window.LibraryEdit = (() => {
             next.after(node);
             startY += size;
             dy -= size;
+            dragged = true;
             onSwap(ids());
           } else if (prev && dy < -prev.offsetHeight / 2) {
             const size = prev.offsetHeight;
             prev.before(node);
             startY -= size;
             dy += size;
+            dragged = true;
             onSwap(ids());
           }
           node.style.transform = `translateY(${dy}px)`;
@@ -207,6 +219,7 @@ window.LibraryEdit = (() => {
           node.style.transform = "";
           node.classList.remove("moving");
           handle.removeEventListener("pointermove", move);
+          if (dragged) onDrop?.(node.dataset.id);
         };
         handle.addEventListener("pointermove", move);
         handle.addEventListener("pointerup", release, { once: true });

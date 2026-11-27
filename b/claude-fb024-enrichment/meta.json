@@ -1,7 +1,0 @@
-{
-  "sha": "215e34d02728ee026bb8842062f28ed98eab1f73",
-  "branch": "claude-fb024-enrichment",
-  "path": "claude-fb024-enrichment",
-  "subject": "Wrap the fallback language check",
-  "ts": 1795754103
-}

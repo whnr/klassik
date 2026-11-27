@@ -313,13 +313,15 @@ const K = (() => {
     store("favourites", [...favourites]);
   }
 
-  // A recording holds part of its work when its movement-count tag exceeds the movements it holds. Without a
-  // count tag Klassik cannot tell, and the recording counts as complete (ADR 0013).
+  // A recording is partial when its tags prove a movement missing: they give a movement total, and a number from
+  // 1 to the total is absent (CONTEXT.md, Partial). Without a total the recording is not partial.
   function partOf(r) {
     if (!r.work) return null;
     const total = Math.max(0, ...r.songs.map((s) => s.movements?.[0]?.count || 0));
-    const present = new Set(r.songs.map((s) => s.movements?.[0]?.number).filter(Boolean)).size;
-    return total > 0 && present > 0 && present < total ? { present, total } : null;
+    const numbers = new Set(r.songs.map((s) => s.movements?.[0]?.number));
+    let present = 0;
+    for (let n = 1; n <= total; n++) if (numbers.has(n)) present++;
+    return total > 0 && present < total ? { present, total } : null;
   }
   const completeness = (r) => {
     const part = partOf(r);
@@ -344,7 +346,8 @@ const K = (() => {
     return isFavourite("album:" + r.album.id) ? `Favourite album: ${r.album.name}` : null;
   }
 
-  // The work page shows two lists, each in tier order. The reference recording is the first complete one.
+  // The work page shows two lists, each in tier order.
+  // The reference recording is the first of the main list, else the first partial one.
   function recordingLists(work) {
     const all = orderedRecordings(work);
     return { recordings: all.filter((r) => !partOf(r)), partial: all.filter((r) => partOf(r)) };

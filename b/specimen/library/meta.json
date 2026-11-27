@@ -1,7 +1,7 @@
 {
-  "sha": "b9a98bee859ac72f78617cc84f0627e827e4afd6",
+  "sha": "4496f205c83a2d4d5dd8c1e944013d4779bf4803",
   "branch": "specimen/library",
   "path": "specimen/library",
-  "subject": "Request the browse walk for the filter sheet values",
-  "ts": 1795780197
+  "subject": "Point the class-list test at filters.js",
+  "ts": 1795780423
 }

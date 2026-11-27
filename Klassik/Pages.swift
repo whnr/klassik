@@ -23,8 +23,6 @@ enum Page: Hashable {
     case swipeActions
     case diagnostics
     case licences
-    case gaplessTest
-    case gaplessAlbum(String)
 
     @MainActor init?(albumPart part: WorkIndex.Album.Part, in library: Library) {
         guard library.index.work(part.workID) != nil else { return nil }
@@ -95,9 +93,6 @@ extension Page {
         case .swipeActions: return L("Swipe Actions")
         case .diagnostics: return L("Diagnostics")
         case .licences: return L("Licences")
-        case .gaplessTest: return "Gapless Test"
-        // The page loads the album name, so the arrow cannot name it.
-        case .gaplessAlbum: return L("Album")
         }
     }
 }
@@ -246,10 +241,6 @@ struct PageView: View {
             DiagnosticsView()
         case .licences:
             LicencesView()
-        case .gaplessTest:
-            GaplessTestView()
-        case .gaplessAlbum(let id):
-            GaplessAlbumView(albumID: id)
         }
     }
 }

@@ -2861,30 +2861,6 @@ final class SettingsScreens: ScreensTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [on], timeout: 10), .completed, "\(showTaps.value ?? "nil")")
         snap(app, "12a-show-taps")
     }
-
-    @MainActor
-    func testGapless() throws {
-        let app = try launchAndConnect()
-        openSettings(app)
-        reveal(app.buttons["diagnostics"], in: app).tap()
-        XCTAssertTrue(app.descendants(matching: .any)["opensubsonic"].waitForExistence(timeout: 10))
-        reveal(app.buttons["gapless-test"], in: app).tap()
-        let search = app.searchFields.firstMatch
-        XCTAssertTrue(search.waitForExistence(timeout: 10))
-        search.tap()
-        search.typeText("Mendelssohn\n")
-        let album = app.buttons.matching(identifier: "gapless-album").firstMatch
-        XCTAssertTrue(album.waitForExistence(timeout: 15))
-        snap(app, "13-gapless-search")
-
-        album.tap()
-        let track = app.buttons.matching(identifier: "gapless-track").firstMatch
-        XCTAssertTrue(track.waitForExistence(timeout: 15))
-        track.tap()
-        let analysis = app.buttons.matching(NSPredicate(format: "label CONTAINS 'iOS decodes'")).firstMatch
-        XCTAssertTrue(analysis.waitForExistence(timeout: 30))
-        snap(app, "14-gapless-album")
-    }
 }
 
 /// What every area needs: the fixture server, the MusicBrainz answers, and the steps that several tests share.

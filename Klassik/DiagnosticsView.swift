@@ -100,14 +100,6 @@ struct DiagnosticsView: View {
                 }
             }
 
-            Section("Playback") {
-                NavigationLink(value: Page.gaplessTest) {
-                    Text("Gapless Test")
-                        .ink()
-                }
-                .accessibilityIdentifier("gapless-test")
-            }
-
             Section {
                 Toggle("Show Taps", isOn: $showTaps)
                     .accessibilityIdentifier("show-taps")

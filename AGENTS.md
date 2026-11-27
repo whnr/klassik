@@ -143,6 +143,7 @@ Matt Pocock's skills (`mattpocock/skills`, pinned `abeeaf9`) are installed for a
 - Reviews: `code-review`. Review inline, with no sub-agents. One review, then one fix.
 - ADRs: `domain-modeling`. Write the ADR short, as Proposed, until Flo accepts it.
 - Code: `tdd`, `diagnosing-bugs`, `codebase-design`.
+- Plans and facts: `grilling`, `research`.
 - PR bodies: `pr`.
 
-Our rules win where a skill disagrees. The glossary is `CONTEXT.md`, not `GLOSSARY.md`. Workers never apply the labels of a skill (`needs-triage`, `ready-for-agent`, `wayfinder:*`).
+Our rules win where a skill disagrees. The glossary is `CONTEXT.md`, not `GLOSSARY.md`. Workers use only the labels in `docs/agents/triage-labels.md`. They never create other labels from a skill (for example `wayfinder:*`).

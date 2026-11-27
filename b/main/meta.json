@@ -1,7 +1,7 @@
 {
-  "sha": "1c15c83bd7ca6b4d7cab7b40279221d85fa70918",
+  "sha": "b2013e4c0d7a77d76772275c87e9a7c99d145613",
   "branch": "main",
   "path": "main",
-  "subject": "Move CI details out of AGENTS.md (#269)",
-  "ts": 1795797828
+  "subject": "Document comment and theme rules in specimen README (#267)",
+  "ts": 1795797879
 }

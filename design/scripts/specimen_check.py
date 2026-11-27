@@ -44,6 +44,7 @@ PAGES = (
     "server.html?state=signedout",
     "server.html?confirm=signout",
     "menu.html",
+    "sheet.html",
     "menu.html?for=recording&state=downloading",
     "menu.html?for=work",
     "work.html?variant=page-menu",

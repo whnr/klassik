@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Sheet frame</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="../tokens.css?v=52" />
+    <link rel="stylesheet" href="specimen.css?v=52" />
+    <link rel="stylesheet" href="sheet.css?v=52" />
+    <script src="specimen.js?v=52"></script>
+    <script src="sheet.js?v=52"></script>
+  </head>
+  <body>
+    <script>
+      // The frame that the Library edit sheet and the Search filter sheet share.
+      // The page draws the frame twice, in the flow, so both levels show together.
+      K.start(() => {
+        const { el, href } = K;
+        const { scroll } = K.page({
+          tab: "library",
+          title: "Sheet frame",
+          back: { label: "Library", href: href("index.html") },
+          grouped: true,
+        });
+        const rule = (text) => el("li", { class: "t-body" }, text);
+        const rows = (...names) =>
+          el(
+            "div",
+            { class: "list" },
+            ...names.map((name) => el("div", { class: "row" }, el("div", { class: "main t-body" }, name))),
+          );
+        const level = (caption, options, ...names) => {
+          const frame = Frame.make({ ...options, body: [rows(...names)] });
+          frame.box.classList.add("drawn");
+          return el(
+            "section",
+            { class: "section" },
+            el("div", { class: "section-head t-footnote" }, caption),
+            frame.box,
+          );
+        };
+        scroll.append(
+          el(
+            "div",
+            { class: "page-head" },
+            el("h1", { class: "t-largeTitle" }, "Sheet frame"),
+            el(
+              "p",
+              { class: "t-subheadline secondary meta" },
+              "One half-height sheet over the live page. The Library edit sheet and the Search filter sheet build on it.",
+            ),
+          ),
+          level("Level 1: title and Done", { title: "Filters", count: "12 results" }, "Genre", "Composer", "Conductor"),
+          level(
+            "Level 2: back, title and Done",
+            { title: "Composer", count: "12 results", onBack: () => {} },
+            "Ludwig van Beethoven",
+            "Frédéric Chopin",
+            "Johann Sebastian Bach",
+          ),
+          el(
+            "section",
+            { class: "section" },
+            el("div", { class: "section-head t-footnote" }, "Rules"),
+            el(
+              "ul",
+              { class: "section-foot t-footnote" },
+              rule("The sheet has a fixed half height and no detents. The live page stays visible above it."),
+              rule("The header is one line: the title in the centre and Done on the right."),
+              rule("A back chevron on the left shows only one level deeper. Back and Done never sit side by side."),
+              rule("The sheet has no Cancel. A change applies at once. Done closes the sheet."),
+              rule("A footnote line under the title holds a count, such as 12 results."),
+              rule("The sheet has one scroll area. A part may stick under the header inside it."),
+            ),
+          ),
+        );
+      });
+    </script>
+  </body>
+</html>

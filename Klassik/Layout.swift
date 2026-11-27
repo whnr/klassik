@@ -147,6 +147,37 @@ enum Layout {
     /// css: specimen.css .sheet .sheet-head | gap
     static let sheetHeadGap = Space.s.points
 
+    // MARK: Sheet frame
+
+    /// The frame that the edit sheet and the filter sheet share: half the screen height, no detents.
+    /// css: sheet.css .hsheet | border-top-left-radius
+    static let frameCorner: CGFloat = 28
+    /// css: sheet.css .hsheet .hs-grab | margin-top
+    static let frameGrabberTop = Space.s.points
+    /// The one header line: back, title and Done.
+    /// css: sheet.css .hsheet .hs-head | min-height
+    static let frameHeadHeight = Measure.hitTarget
+    /// css: sheet.css .hsheet .hs-head | padding-left
+    static let frameHeadInset = Space.l.points
+    /// The back chevron sits one level deeper only.
+    /// css: sheet.css .hsheet .hs-back | width
+    static let frameBackWidth = Measure.hitTarget
+    /// css: sheet.css .hsheet .hs-back svg | height
+    static let frameBackIconHeight: CGFloat = 18
+    /// css: sheet.css .hsheet .hs-title | max-width
+    static let frameTitleMaxWidth: CGFloat = 230
+    /// The count line under the title.
+    /// css: sheet.css .hsheet .hs-count | padding-bottom
+    static let frameCountBottom = Space.xs.points
+    /// The one scroll area of the sheet.
+    /// css: sheet.css .hsheet .hs-scroll | padding-left
+    static let frameScrollInset = Space.l.points
+    /// css: sheet.css .hsheet .hs-scroll | padding-bottom
+    static let frameScrollBottom = Space.xxl.points
+    /// A part that sticks under the header inside the scroll area.
+    /// css: sheet.css .hsheet .hs-stick | padding-top
+    static let frameStickTop = Space.xs.points
+
     // MARK: Filter sheet
 
     /// The heading row of the sheet: its title, the recordings that remain and Done.

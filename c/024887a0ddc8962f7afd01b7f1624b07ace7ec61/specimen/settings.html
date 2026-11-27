@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Settings</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="../tokens.css?v=52" />
+    <link rel="stylesheet" href="specimen.css?v=52" />
+    <script src="specimen.js?v=52"></script>
+  </head>
+  <body>
+    <script>
+      // Settings in groups, in the order Flo set: Playback, Library, Colour, Data Enrichment, Advanced settings, About.
+      K.start(() => {
+        const { el, form } = K;
+        const { scroll } = K.page({
+          tab: "library",
+          title: "Settings",
+          back: { label: "Library", href: "index.html" },
+          grouped: true,
+        });
+        const reload = (name, value) => {
+          const url = new URL(location.href);
+          url.searchParams.set(name, value);
+          location.href = url.href;
+        };
+        const { group, toggle, link, menu, slider, button } = form;
+        scroll.append(
+          el("div", { class: "page-head" }, el("h1", { class: "t-largeTitle" }, "Settings")),
+          group(
+            "Playback",
+            [
+              menu("Timeline", { right: "Right", left: "Left" }, K.params.get("side") || "right", (side) =>
+                reload("side", side),
+              ),
+              menu("ReplayGain", { album: "Album", track: "Track", off: "Off" }, "album"),
+              toggle("Show Audio Quality", false),
+              toggle("Scrobbles", true),
+            ],
+            "While music plays, the timeline runs on this screen edge. Album keeps the loudness steps between the " +
+              "movements of a work. ReplayGain Off removes the gain stage from the signal path. Show Audio Quality " +
+              "adds a line under the playback bar: the file format, the output rate, and whether anything changes " +
+              "the samples. Scrobbles count played movements on your server. Your server can send them to " +
+              "linked listening services.",
+          ),
+          group(
+            "Library",
+            [
+              link("Classical Rules", "rules.html"),
+              toggle("Separate Partial Works", true),
+              link("Swipe Actions", "swipe.html"),
+              link("Local Storage", "storage.html"),
+              button("Delete Listening Data", { destructive: true }),
+            ],
+            "A composer page lists a work with no complete recording under Partial works. Favourite works, " +
+              "listening notes, recent searches and the changes that wait stay on " +
+              "this iPhone, for this server and user. Sign-out keeps them.",
+          ),
+          group(
+            "Colour",
+            [
+              menu(
+                "Accent",
+                { claret: "Claret", green: "Bottle Green", plum: "Plum" },
+                K.params.get("accent") || "claret",
+                (accent) => reload("accent", accent),
+              ),
+              // The app shows the strength above a 0–5× slider in 0.5 steps.
+              slider("Player Tint", { min: 0, max: 5, step: 0.5, value: 3, format: (v) => `${v}×` }),
+            ],
+            "The accent marks links, controls and what plays. Player Tint is a temporary comparison of the cover " +
+              "tint strength.",
+          ),
+          group(
+            "Data Enrichment",
+            [link("MusicBrainz", "lookup.html", "3 to confirm")],
+            "Klassik looks up composers and their works in MusicBrainz.",
+          ),
+          group(
+            null,
+            [menu("Fallback Language", { off: "Off", en: "English" }, "off")],
+            "Descriptions and biographies come from Wikidata and Wikipedia in the app language. Where they have " +
+              "none, Klassik shows the fallback language, or nothing when it is off. Composer names, work titles " +
+              "and tags stay as your music tags them. Change the app language in the iOS Settings app, under Klassik.",
+          ),
+          group("Advanced settings", [link("Server Connection", "server.html", "Connected")]),
+          group(
+            "About",
+            [link("Diagnostics", null, "2 waiting"), link("Licences"), link("Source Code on GitHub")],
+            "Klassik 0.23.0 (1)",
+          ),
+        );
+      });
+    </script>
+  </body>
+</html>

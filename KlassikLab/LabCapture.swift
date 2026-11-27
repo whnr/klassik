@@ -431,11 +431,16 @@ final class CaptureRecorder: @unchecked Sendable {
                 }
                 var sources = live()
                 var newest = max(mixer.end, sources.map { $0.end }.max() ?? 0)
-                // The sources were drained one after the other, so the one drained first can trail the one drained
-                // last only because its newer blocks came after its drain. Read it again before it counts as stuck.
-                let behind = sources.filter { $0.tracked.drained && $0.end < newest - Self.lagSeconds * rate }
-                if !behind.isEmpty {
-                    for entry in behind { drain(entry.tracked) }
+                // The sources were drained one after the other, so a source can trail the others only because its
+                // newer blocks came after its drain. It counts as stuck only when a second read finds nothing new.
+                var moved = true
+                while moved {
+                    moved = false
+                    for entry in sources where entry.tracked.drained && entry.end < newest - Self.lagSeconds * rate {
+                        let before = entry.tracked.end
+                        drain(entry.tracked)
+                        if entry.tracked.end != before { moved = true }
+                    }
                     sources = live()
                     newest = max(mixer.end, sources.map { $0.end }.max() ?? 0)
                 }

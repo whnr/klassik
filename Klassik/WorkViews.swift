@@ -1216,7 +1216,9 @@ private struct NoteRow: View {
 
     var body: some View {
         if let current = draft, current.editing == note.id {
+            // A container keeps the identifiers of its controls inside the row's identifier.
             NoteDraftForm(draft: $draft, canMark: canMark, elapsed: elapsed, save: save)
+                .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("note-editor")
         } else {
             HStack(alignment: .firstTextBaseline, spacing: gap) {

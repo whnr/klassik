@@ -276,7 +276,7 @@ final class LibraryRows {
     }
 
     /// A device file that refuses the write keeps the old rows.
-    private func change(_ edit: (inout [LibraryRowSetup]) -> Void) {
+    func change(_ edit: (inout [LibraryRowSetup]) -> Void) {
         guard !isLocked else { return }
         var list = rows
         edit(&list)

@@ -30,6 +30,81 @@ final class PlacesScreens: ScreensTestCase {
         expectHairline(between: rows.element(boundBy: 0), and: rows.element(boundBy: 1), in: app, "Composer hairline")
     }
 
+    /// Edit raises the half-height sheet over the live tab. Add, select, set, move and delete change the tab at once,
+    /// and a tap on the tab selects a row and opens nothing.
+    @MainActor
+    func testLibraryEditMode() throws {
+        let app = try launchAndConnect(openComposers: false)
+        let edit = app.buttons["library-edit"]
+        XCTAssertTrue(edit.waitForExistence(timeout: 10))
+        edit.tap()
+        let done = app.buttons["edit-done"]
+        XCTAssertTrue(done.waitForExistence(timeout: 10))
+        XCTAssertGreaterThan(done.frame.minY, app.frame.height / 3, "The sheet is not at half height")
+        XCTAssertFalse(app.buttons["edit-back"].exists, "The first level shows Back")
+        XCTAssertTrue(app.buttons["edit-add"].exists, "Add row is not at the top")
+        let lines = app.buttons.matching(identifier: "edit-line")
+        XCTAssertTrue(lines.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertGreaterThanOrEqual(lines.count, 3)
+        XCTAssertTrue(lines.element(boundBy: 0).label.contains("Composers"), lines.element(boundBy: 0).label)
+        XCTAssertFalse(app.buttons["library-link-albums"].exists, "A tile of the tab stays open while editing")
+        snap(app, "02u-library-edit-list")
+
+        // A tap on the tab selects the row and shows its settings. It opens no page.
+        app.buttons["library-row-composers"].tap()
+        XCTAssertTrue(app.buttons["edit-back"].waitForExistence(timeout: 5), "The row settings show no Back")
+        XCTAssertTrue(app.buttons["edit-field-form"].exists)
+        XCTAssertTrue(app.navigationBars["Library"].exists, "A tap on the tab opened a page")
+        XCTAssertTrue(app.buttons["library-row-composers"].isSelected, "The row of the tab is not selected")
+        snap(app, "02v-library-edit-row")
+
+        // Add row puts the new row below the selected row, and the tab shows it at once.
+        app.buttons["edit-back"].tap()
+        app.buttons["edit-add"].tap()
+        XCTAssertTrue(app.buttons["edit-kind-albums"].waitForExistence(timeout: 5))
+        snap(app, "02w-library-edit-add")
+        app.buttons["edit-kind-albums"].tap()
+        XCTAssertTrue(app.buttons["library-row-albums"].waitForExistence(timeout: 5), "The tab shows no new row")
+        app.buttons["edit-field-count"].tap()
+        app.buttons["edit-choice-6"].tap()
+        app.buttons["edit-field-form"].tap()
+        app.buttons["edit-choice-tiles"].tap()
+        app.buttons["edit-back"].tap()
+        let albums = lines.matching(NSPredicate(format: "label CONTAINS %@", "6 tiles"))
+        XCTAssertTrue(albums.firstMatch.waitForExistence(timeout: 5), "A setting left the line unchanged")
+        XCTAssertTrue(lines.element(boundBy: 1).label.contains("Albums"), lines.element(boundBy: 1).label)
+
+        // A second Daily pick cannot be added.
+        app.buttons["edit-add"].tap()
+        app.buttons["edit-kind-pick"].tap()
+        app.buttons["edit-back"].tap()
+        app.buttons["edit-add"].tap()
+        XCTAssertTrue(app.buttons["edit-kind-pick"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["edit-kind-pick"].isEnabled, "A second Daily pick can be added")
+        app.buttons["edit-back"].tap()
+
+        // The handle moves a line, and the sheet follows the finger.
+        let first = lines.element(boundBy: 0)
+        let before = first.label
+        let origin = app.coordinate(withNormalizedOffset: .zero)
+        let from = origin.withOffset(CGVector(dx: first.frame.maxX + 20, dy: first.frame.midY))
+        let to = origin.withOffset(CGVector(dx: first.frame.maxX + 20, dy: first.frame.midY + first.frame.height * 2))
+        from.press(forDuration: 0.3, thenDragTo: to)
+        XCTAssertNotEqual(lines.element(boundBy: 0).label, before, "The drag did not move the line")
+
+        // A swipe to the left shows Delete, and Delete removes the row from the tab.
+        let count = lines.count
+        lines.element(boundBy: 0).swipeLeft()
+        let delete = app.buttons["edit-delete"].firstMatch
+        XCTAssertTrue(delete.waitForExistence(timeout: 5), "A swipe shows no Delete")
+        delete.tap()
+        XCTAssertEqual(lines.count, count - 1)
+
+        done.tap()
+        XCTAssertTrue(done.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Library"].exists)
+    }
+
     @MainActor
     func testThreePlaces() throws {
         let app = try launchAndConnect(openComposers: false)

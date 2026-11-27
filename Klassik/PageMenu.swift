@@ -193,6 +193,9 @@ struct PageMenuTarget {
         case .removeDownload:
             if let stored = tracks.downloads.first(where: { $0.id == recording.id }) { tracks.remove(stored) }
         case .tags:
+            // The player lives above the places and hides the page below. The page opens in the place below,
+            // so the player closes first, as it does for every link of the player.
+            navigator.closePlayer()
             navigator.open(.rawTags(work: item.work.id, recording: recording.id), in: navigator.selection)
         }
     }

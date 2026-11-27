@@ -20,6 +20,21 @@ struct PageMenuTests {
         TrackStore.Download(id: id, title: "Work", detail: "", songIDs: [], bytes: bytes, date: .now)
     }
 
+    @Test func tagsInThePlayerMenuOpenThePageBelowAndClosePlayer() {
+        let model = AppModel(
+            store: CredentialStore(), library: Library(), listener: ListenerData(),
+            defaults: UserDefaults(suiteName: "PageMenuTests.\(UUID().uuidString)")!)
+        let navigator = AppNavigator()
+        navigator.openPlayer()
+        let recording = recording(sizes: [nil])
+        let work = WorkIndex.Work(
+            id: "w1", title: "Work", composer: "Fixture", isTagged: false, recordings: [recording])
+        let target = PageMenuTarget(kind: .player, item: QueueItem(work: work, recording: recording), album: nil)
+        target.run(.tags, model: model, navigator: navigator)
+        #expect(navigator.pages(in: navigator.selection) == [.rawTags(work: "w1", recording: "r1")])
+        #expect(!navigator.isPlayerOpen)
+    }
+
     @Test func recordingAndAlbumKeepTheOneOrder() {
         for kind in [PageMenu.Kind.recording, .album] {
             let menu = PageMenu(kind: kind, download: .notDownloaded(bytes: nil), needsServer: false)

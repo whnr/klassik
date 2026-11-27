@@ -33,8 +33,8 @@ struct RecentSearch: Codable, Equatable, Identifiable, Sendable {
 
     /// The conditions as they work: "Composer Antonín Dvořák or Composer Johannes Brahms and Genre Symphony".
     var conditionLine: String {
-        conditions.map { terms in terms.map { "\($0.kind.label) \($0.name)" }.joined(separator: " or ") }
-            .joined(separator: " and ")
+        conditions.map { terms in terms.map { "\($0.kind.label) \($0.name)" }.joined(separator: " \(L("or")) ") }
+            .joined(separator: " \(L("and")) ")
     }
 
     /// Two entries with the same text and conditions are the same search.

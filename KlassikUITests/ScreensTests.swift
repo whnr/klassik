@@ -2655,12 +2655,12 @@ final class SettingsScreens: ScreensTestCase {
         XCTAssertTrue(reveal(app.buttons["diagnostics"], in: app).isHittable)
         for _ in 0..<6 where !row(app, "timeline-side").isHittable { app.swipeDown() }
         snap(app, "08c-settings-top")
-        // Flo's groups: Playback, Library, Colour, Advanced settings, About. Each row follows the one before it.
+        // Flo's groups: Playback, Library, Colour, Data Enrichment, Advanced settings, About. Each row follows the one before it.
         let order = [
             "timeline-side", "replaygain", "audio-quality-setting", "scrobbles", "classical-rules", "partial-works",
             "swipe-actions",
             "local-storage", "delete-listening-data", "accent", "player-tint-strength",
-            "musicbrainz", "diagnostics", "server-connection", "licences", "source-code",
+            "musicbrainz", "text-fallback", "server-connection", "diagnostics", "licences", "source-code",
         ]
         reveal(row(app, order[0]), in: app)
         for (above, below) in zip(order, order.dropFirst()) {

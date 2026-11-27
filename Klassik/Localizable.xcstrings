@@ -811,6 +811,16 @@
         }
       }
     },
+    "Data Enrichment": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datenbereicherung"
+          }
+        }
+      }
+    },
     "Dates and Sources": {
       "localizations": {
         "de": {
@@ -2757,16 +2767,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Zeigt einen Kreis bei jeder Berührung, damit eine Bildschirmaufnahme zeigt, wo du tippst."
-          }
-        }
-      }
-    },
-    "Shows the lookups and diagnostics with the changes that wait.": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zeigt die Abfragen und die Diagnose mit den wartenden Änderungen."
           }
         }
       }

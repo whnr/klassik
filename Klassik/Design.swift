@@ -220,8 +220,9 @@ struct InkLabel: View {
 
     var body: some View {
         Label {
-            // A title is a catalog key, so a computed one translates too.
-            Text(LocalizedStringKey(title)).ink()
+            // A title is a catalog key, so a computed one translates too. The system label colour matches the
+            // switch and picker rows of the same list; Palette ink is dimmer in dark mode.
+            Text(LocalizedStringKey(title)).foregroundStyle(.primary)
         } icon: {
             Image(systemName: systemImage)
         }

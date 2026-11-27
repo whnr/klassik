@@ -129,6 +129,8 @@ struct Song: Codable, Sendable, Identifiable, Hashable {
     /// The date when the user starred the track. The server omits it for other tracks.
     var starred: String?
     var playCount: Int?
+    /// When the track entered the server library, as an ISO 8601 date. Recently added sorts by it.
+    var created: String?
     /// Kilobits per second, as the server declares it. The start threshold reads it (ADR 0060).
     var bitRate: Int?
     var samplingRate: Int?

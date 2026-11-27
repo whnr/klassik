@@ -24,7 +24,7 @@ struct LibraryRowsTests {
     @Test func startsWithTheDefaultRows() throws {
         defer { try? FileManager.default.removeItem(at: root) }
         let rows = open(try defaults()).rows
-        #expect(kinds(rows) == [.composers, .favourites])
+        #expect(kinds(rows) == [.composers, .favourites, .links, .added])
     }
 
     @Test func defaultRowsKeepTheirIdentityBetweenLaunches() throws {
@@ -39,9 +39,9 @@ struct LibraryRowsTests {
         defer { try? FileManager.default.removeItem(at: root) }
         let rows = open(try defaults()).rows
         rows.move(fromOffsets: [1], toOffset: 0)
-        #expect(kinds(rows) == [.favourites, .composers])
+        #expect(kinds(rows) == [.favourites, .composers, .links, .added])
         rows.move(fromOffsets: [0], toOffset: 2)
-        #expect(kinds(rows) == [.composers, .favourites])
+        #expect(kinds(rows) == [.composers, .favourites, .links, .added])
     }
 
     @Test func moveAmongSomeRowsKeepsTheOthersInPlace() throws {
@@ -51,7 +51,7 @@ struct LibraryRowsTests {
         // composers, albums, favourites. Only composers and favourites show.
         let shown = rows.rows.filter { $0.kind != .albums }.map(\.id)
         rows.move(fromOffsets: [1], toOffset: 0, among: shown)
-        #expect(kinds(rows) == [.favourites, .albums, .composers])
+        #expect(kinds(rows) == [.favourites, .albums, .composers, .links, .added])
     }
 
     @Test func rowsSurviveARestart() throws {
@@ -62,7 +62,7 @@ struct LibraryRowsTests {
         first.insert(.albums, below: first.rows[0].id)
         let ids = first.rows.map(\.id)
         let second = open(suite).rows
-        #expect(kinds(second) == [.favourites, .albums, .composers])
+        #expect(kinds(second) == [.favourites, .albums, .composers, .links, .added])
         #expect(second.rows.map(\.id) == ids)
     }
 
@@ -71,7 +71,7 @@ struct LibraryRowsTests {
         let suite = try defaults()
         let (rows, file) = open(suite)
         rows.move(fromOffsets: [1], toOffset: 0)
-        #expect(file.data.library?.rows.map(\.kind) == [.favourites, .composers])
+        #expect(file.data.library?.rows.map(\.kind) == [.favourites, .composers, .links, .added])
         #expect(suite.object(forKey: LibraryRows.legacyKey) == nil)
     }
 
@@ -81,8 +81,8 @@ struct LibraryRowsTests {
         let rows = open(suite).rows
         rows.move(fromOffsets: [1], toOffset: 0)
         rows.reset()
-        #expect(kinds(rows) == [.composers, .favourites])
-        #expect(kinds(open(suite).rows) == [.composers, .favourites])
+        #expect(kinds(rows) == [.composers, .favourites, .links, .added])
+        #expect(kinds(open(suite).rows) == [.composers, .favourites, .links, .added])
     }
 
     @Test func existingOrderMovesOnceFromUserDefaults() throws {
@@ -90,21 +90,22 @@ struct LibraryRowsTests {
         let suite = try defaults()
         suite.set(["favourites", "composers"], forKey: LibraryRows.legacyKey)
         let (rows, file) = open(suite)
-        #expect(kinds(rows) == [.favourites, .composers])
+        #expect(kinds(rows) == [.favourites, .composers, .links, .added])
         #expect(file.data.library != nil)
         #expect(suite.object(forKey: LibraryRows.legacyKey) == nil)
 
         // The old order is gone and cannot come back over a later change.
         rows.move(fromOffsets: [1], toOffset: 0)
         suite.set(["favourites", "composers"], forKey: LibraryRows.legacyKey)
-        #expect(kinds(open(suite).rows) == [.composers, .favourites])
+        #expect(kinds(open(suite).rows) == [.composers, .favourites, .links, .added])
     }
 
     @Test func oldOrderWithUnknownAndRepeatedNamesStaysWhole() {
         #expect(
-            LibraryRows.legacyOrder(stored: ["favourites", "playlists", "favourites"]) == [.favourites, .composers])
-        #expect(LibraryRows.legacyOrder(stored: ["favourites"]) == [.favourites, .composers])
-        #expect(LibraryRows.legacyOrder(stored: []) == [.composers, .favourites])
+            LibraryRows.legacyOrder(stored: ["favourites", "playlists", "favourites"])
+                == [.favourites, .composers, .links, .added])
+        #expect(LibraryRows.legacyOrder(stored: ["favourites"]) == [.favourites, .composers, .links, .added])
+        #expect(LibraryRows.legacyOrder(stored: []) == [.composers, .favourites, .links, .added])
     }
 
     @Test func oldOrderStaysInUserDefaultsWhenTheFileDoesNotLoad() throws {
@@ -125,7 +126,7 @@ struct LibraryRowsTests {
         defer { try? FileManager.default.removeItem(at: root) }
         let rows = open(try defaults()).rows
         let added = try #require(rows.insert(.albums, below: rows.rows[0].id))
-        #expect(kinds(rows) == [.composers, .albums, .favourites])
+        #expect(kinds(rows) == [.composers, .albums, .favourites, .links, .added])
         #expect(rows.rows[1].id == added.id)
     }
 
@@ -133,17 +134,17 @@ struct LibraryRowsTests {
         defer { try? FileManager.default.removeItem(at: root) }
         let rows = open(try defaults()).rows
         rows.insert(.albums, below: nil)
-        #expect(kinds(rows) == [.albums, .composers, .favourites])
+        #expect(kinds(rows) == [.albums, .composers, .favourites, .links, .added])
         rows.insert(.works, below: "no such row")
-        #expect(kinds(rows) == [.works, .albums, .composers, .favourites])
+        #expect(kinds(rows) == [.works, .albums, .composers, .favourites, .links, .added])
     }
 
     @Test func listenerAddsTheSameKindMoreThanOnce() throws {
         defer { try? FileManager.default.removeItem(at: root) }
         let rows = open(try defaults()).rows
         rows.insert(.composers, below: nil)
-        #expect(kinds(rows) == [.composers, .composers, .favourites])
-        #expect(Set(rows.rows.map(\.id)).count == 3)
+        #expect(kinds(rows) == [.composers, .composers, .favourites, .links, .added])
+        #expect(Set(rows.rows.map(\.id)).count == 5)
     }
 
     @Test func aSecondDailyPickIsRefused() throws {
@@ -152,7 +153,7 @@ struct LibraryRowsTests {
         #expect(rows.insert(.pick, below: nil) != nil)
         #expect(rows.canInsert(.pick) == false)
         #expect(rows.insert(.pick, below: rows.rows[0].id) == nil)
-        #expect(kinds(rows) == [.pick, .composers, .favourites])
+        #expect(kinds(rows) == [.pick, .composers, .favourites, .links, .added])
         #expect(rows.canInsert(.albums))
     }
 
@@ -169,10 +170,10 @@ struct LibraryRowsTests {
         let suite = try defaults()
         let rows = open(suite).rows
         rows.delete(rows.rows[0].id)
-        #expect(kinds(rows) == [.favourites])
-        #expect(kinds(open(suite).rows) == [.favourites])
+        #expect(kinds(rows) == [.favourites, .links, .added])
+        #expect(kinds(open(suite).rows) == [.favourites, .links, .added])
         rows.delete("no such row")
-        #expect(kinds(rows) == [.favourites])
+        #expect(kinds(rows) == [.favourites, .links, .added])
     }
 
     @Test func listenerDeletesEveryRow() throws {
@@ -254,7 +255,7 @@ struct LibraryRowsTests {
         let file = ListenerFile(store: store())
         #expect(file.loadError == nil)
         let rows = LibraryRows(file: file, defaults: suite)
-        #expect(kinds(rows) == [.composers, .favourites])
+        #expect(kinds(rows) == [.composers, .favourites, .links, .added])
         rows.move(fromOffsets: [1], toOffset: 0)
         rows.insert(.works, below: nil)
         rows.delete(rows.rows[0].id)
@@ -283,7 +284,8 @@ struct LibraryRowsTests {
             let file = ListenerFile(store: store())
             #expect(file.loadError == nil)
             #expect(file.data.favouriteWorks == ["w"])
-            #expect(kinds(LibraryRows(file: file, defaults: try defaults())) == [.composers, .favourites])
+            let rows = LibraryRows(file: file, defaults: try defaults())
+            #expect(kinds(rows) == [.composers, .favourites, .links, .added])
             var changed = file.data
             changed.favouriteWorks.insert("w2")
             try file.save(changed)

@@ -171,6 +171,16 @@
         }
       }
     },
+    "A to Z": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A bis Z"
+          }
+        }
+      }
+    },
     "A track is classical if one of the classical rules matches. A rule matches if all of its checks match. An album is classical if most of its tracks are; then all of its tracks count. Klassik keeps the rules on this iPhone.": {
       "localizations": {
         "de": {
@@ -417,6 +427,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Barock"
+          }
+        }
+      }
+    },
+    "best known": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "bekannteste zuerst"
           }
         }
       }
@@ -807,6 +827,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nachweise"
+          }
+        }
+      }
+    },
+    "Daily pick": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tipp des Tages"
           }
         }
       }
@@ -1411,6 +1441,16 @@
         }
       }
     },
+    "last heard first": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "zuletzt gehört zuerst"
+          }
+        }
+      }
+    },
     "Last Sync": {
       "localizations": {
         "de": {
@@ -1487,6 +1527,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Grenze"
+          }
+        }
+      }
+    },
+    "Link list": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linkliste"
           }
         }
       }
@@ -1717,6 +1767,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Neu"
+          }
+        }
+      }
+    },
+    "newest first": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "neueste zuerst"
           }
         }
       }
@@ -2361,6 +2421,16 @@
         }
       }
     },
+    "Playlists": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Playlists"
+          }
+        }
+      }
+    },
     "Plum": {
       "localizations": {
         "de": {
@@ -2391,12 +2461,42 @@
         }
       }
     },
+    "random": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "zufällig"
+          }
+        }
+      }
+    },
     "Recent": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Zuletzt"
+          }
+        }
+      }
+    },
+    "Recently added": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kürzlich hinzugefügt"
+          }
+        }
+      }
+    },
+    "Recently heard": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kürzlich gehört"
           }
         }
       }
@@ -2571,6 +2671,16 @@
         }
       }
     },
+    "Roles": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rollen"
+          }
+        }
+      }
+    },
     "Romantic": {
       "localizations": {
         "de": {
@@ -2607,6 +2717,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Speichern"
+          }
+        }
+      }
+    },
+    "Saved search": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gespeicherte Suche"
           }
         }
       }
@@ -3337,6 +3457,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Benutzername"
+          }
+        }
+      }
+    },
+    "Various artists": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verschiedene Interpreten"
           }
         }
       }

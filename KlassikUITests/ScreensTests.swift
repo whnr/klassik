@@ -2189,7 +2189,9 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertEqual(menuItem(app, "Play Next").label, "Play Next", "The work menu names the top recording")
         snap(app, "05k-work-menu")
         closeMenu(app)
-        // A press while the work menu still fades out opens nothing, so the row waits for the menu to be gone.
+        // An app without a window has an empty tree, so "the menu item is gone" is true for it too. The page itself
+        // must be back before the row is looked up. A press while the menu still fades out opens nothing.
+        XCTAssertTrue(app.buttons["play-work"].waitForExistence(timeout: 10), "The work page is not back")
         XCTAssertTrue(eventually(timeout: 5) { !queue.exists }, "The work menu stays open")
 
         let row = app.buttons.matching(identifier: "recording").firstMatch
@@ -2201,6 +2203,7 @@ final class PlaybackScreens: ScreensTestCase {
         expectOrder(app, ["Play", "Play Next", "Add to Queue", "Download", "Tags and Grouping"], "row menu")
         snap(app, "05l-recording-row-menu")
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
+        XCTAssertTrue(app.buttons["play-work"].waitForExistence(timeout: 10), "The work page is not back")
         XCTAssertTrue(eventually(timeout: 5) { !rowTags.exists }, "The row menu stays open")
 
         row.tap()
@@ -2220,6 +2223,12 @@ final class PlaybackScreens: ScreensTestCase {
         expectOrder(app, ["Play Next", "Add to Queue", "Download", "Tags and Grouping"], "album menu")
         snap(app, "05n-album-menu")
         closeMenu(app)
+    }
+
+    // [DEBUG-r7vm] temporary probe
+    @MainActor
+    func testR7vmProbe() throws {
+        for _ in 1...4 { try testPageMenus() }
     }
 
     /// The ⋯ menu of the player opens in every scroll state: at the top, scrolled down and after a bounce. The

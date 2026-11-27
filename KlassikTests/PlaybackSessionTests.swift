@@ -787,7 +787,7 @@ struct PlaybackSessionTests {
         engine.signalPath = path(gainStage: false)
         #expect(session.qualityLine == nil)
         session.showsAudioQuality = true
-        #expect(session.qualityLine == "MP3 44.1 kHz, output 44.1 kHz, lossy source, bit-perfect not verified")
+        #expect(session.qualityLine == "MP3 44.1 kHz, output 44.1 kHz, lossy file, no processing reported")
         session.showsAudioQuality = false
         #expect(session.qualityLine == nil)
     }

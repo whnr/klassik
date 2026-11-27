@@ -133,7 +133,8 @@ private struct PlayerOverlay: View {
         insertion: .offset(y: Layout.riseIn).combined(with: .opacity),
         removal: .offset(y: -Layout.riseOut).combined(with: .opacity))
 
-    private var menuEdge: CGFloat { Layout.edge - Space.s.points }
+    /// The system bar button sits one page edge from the screen edge.
+    private var menuEdge: CGFloat { Layout.edge }
     /// The room of the menu at the right end of the handle row; the same room at the left keeps the handle centred.
     private var menuWidth: CGFloat { Measure.hitTarget + menuEdge }
 

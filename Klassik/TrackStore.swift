@@ -457,6 +457,14 @@ final class TrackStore {
         cacheBytes = cached.reduce(0) { $0 + $1.size }
         downloadBytes = kept.reduce(0) { $0 + $1.size }
         offline = Set((cached + kept).filter { !$0.isPartial }.map(\.id))
+        // A download is a recording whose every file sits in the download folder. A track that only plays from the
+        // cache never makes one, and a download whose files are gone is no download.
+        let stored = Set(kept.filter { !$0.isPartial }.map(\.id))
+        let complete = downloads.filter { $0.songIDs.allSatisfy(stored.contains) }
+        if complete.count != downloads.count {
+            downloads = complete
+            saveManifest()
+        }
         budget.synchronize(Dictionary(cached.map { ($0.url, $0.size) }, uniquingKeysWith: { $1 }))
     }
 

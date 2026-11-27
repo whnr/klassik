@@ -3,7 +3,7 @@ import UIKit
 
 /// The conditions of a search as one paragraph of chips that break across lines like text.
 /// No system component does this, so TextKit lays out the text and the view draws each chip behind its words:
-/// round at the real start and end of a chip, square where a line breaks it (specimen filters.css .cond).
+/// round at the real start and end of a chip, square where a line breaks it (the specimen Search filter sheet).
 /// Each chip is one accessibility button with its remove sign; a line break cannot split it.
 struct ChipParagraph: UIViewRepresentable {
     let paragraph: ConditionParagraph

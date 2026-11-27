@@ -16,11 +16,12 @@ struct ConditionParagraphTests {
 
     @Test func conditionsReadAsOneSentence() {
         let paragraph = ConditionParagraph(conditions: Self.conditions, joining: nil)
-        #expect(paragraph.pieces.map(\.kind) == [
+        let expected: [ConditionParagraph.Kind] = [
             .chip(condition: 0, term: Self.term("Bach")), .or, .chip(condition: 0, term: Self.term("Chopin")),
             .plus(condition: 0, isMarked: false), .and,
             .chip(condition: 1, term: Self.term("Piano", .genres)), .plus(condition: 1, isMarked: false),
-        ])
+        ]
+        #expect(paragraph.pieces.map(\.kind) == expected)
     }
 
     @Test func theMarkedConditionShowsItsPlusOn() {
@@ -76,11 +77,12 @@ struct ConditionParagraphTests {
     @Test func aBrokenChipIsSquareAtTheBreak() {
         let lines = (0..<3).map { NSRange(location: $0 * 10, length: 10) }
         let segments = ChipSegment.split(NSRange(location: 6, length: 18), lines: lines)
-        #expect(segments == [
+        let expected = [
             ChipSegment(range: NSRange(location: 6, length: 4), roundsStart: true, roundsEnd: false),
             ChipSegment(range: NSRange(location: 10, length: 10), roundsStart: false, roundsEnd: false),
             ChipSegment(range: NSRange(location: 20, length: 4), roundsStart: false, roundsEnd: true),
-        ])
+        ]
+        #expect(segments == expected)
     }
 
     /// A line that the chip does not touch adds no segment.

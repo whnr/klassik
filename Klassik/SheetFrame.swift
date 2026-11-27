@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The frame that the Library edit sheet and the Search filter sheet share (specimen sheet.css .hsheet): one header
+/// The frame that the Library edit sheet and the Search filter sheet share (the specimen sheet frame): one header
 /// line, a footnote line for a count, and one scroll area. A back chevron shows only one level deeper, and Done
 /// closes. Changes apply at once, so the frame has no Cancel.
 /// A part that must stay under the header goes in a `Section` with a header: the scroll area pins it.

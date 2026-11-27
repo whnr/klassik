@@ -124,7 +124,11 @@ private struct EditList: View {
                     move: { by in move(row.id, by: by) },
                     drag: { drag(row.id, $0) }, drop: end
                 )
-                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { heights[row.id] = $0 }
+                .onGeometryChange(for: CGFloat.self) {
+                    $0.size.height
+                } action: {
+                    heights[row.id] = $0
+                }
                 .offset(y: dragging == row.id ? translation - shift : 0)
                 .zIndex(dragging == row.id ? 1 : 0)
             }
@@ -413,7 +417,7 @@ private struct RowSettings: View {
 
     private var note: String {
         if row.kind == .pick {
-            return L("One complete recording or album a day. The title and the cover open its page. Nothing starts playback.")
+            return L("One complete recording or album a day. Nothing starts playback.")
         }
         return L("The title follows these settings: \(LibraryPage.title(of: row)).")
     }

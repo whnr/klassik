@@ -4781,16 +4781,6 @@
         }
       }
     },
-    "One complete recording or album a day. The title and the cover open its page. Nothing starts playback.": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Eine vollständige Aufnahme oder ein Album am Tag. Titel und Cover öffnen die Seite. Nichts startet die Wiedergabe."
-          }
-        }
-      }
-    },
     "The title follows these settings: %@.": {
       "localizations": {
         "de": {
@@ -4837,6 +4827,16 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "One complete recording or album a day. Nothing starts playback.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eine vollständige Aufnahme oder ein Album am Tag. Nichts startet die Wiedergabe."
           }
         }
       }

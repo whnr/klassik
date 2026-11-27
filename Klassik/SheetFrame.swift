@@ -54,9 +54,8 @@ struct SheetFrame<Content: View>: View {
     /// Back, title and Done on one line. The outer columns share the width, so the title stays centred.
     private var header: some View {
         HStack(spacing: 0) {
-            // The clear base keeps the column at its share of the width when there is no Back.
-            ZStack(alignment: .leading) {
-                Color.clear
+            // The spacer keeps the column at its share of the width when there is no Back.
+            HStack(spacing: 0) {
                 if let back {
                     Button(action: back) {
                         Image(systemName: "chevron.left")
@@ -68,6 +67,7 @@ struct SheetFrame<Content: View>: View {
                     .accessibilityLabel("Back")
                     .accessibilityIdentifier("\(identifier)-back")
                 }
+                Spacer(minLength: 0)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             Text(title)

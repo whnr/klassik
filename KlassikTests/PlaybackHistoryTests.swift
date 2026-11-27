@@ -136,6 +136,19 @@ struct PlaybackHistoryTests {
         #expect(await server.scrobbles.isEmpty)
     }
 
+    @Test func scrobblesOffWritesNoListenData() async throws {
+        let server = InMemoryServer()
+        let store = try defaults()
+        let history = PlaybackHistory(server: server, defaults: store)
+        let item = item("first")
+        history.begin(item: item, movement: 0, position: 0)
+        history.hear(item: item, movement: 0, position: 600, duration: 600, enabled: false)
+        await history.flush()
+        #expect(await server.scrobbles.isEmpty)
+        let saved = store.data(forKey: server.listeningDataKey + ".scrobbles")
+        #expect(saved == nil || saved == Data("[]".utf8))
+    }
+
     @Test func delayedResumeUsesTheFirstPlaybackAdvance() async throws {
         let server = InMemoryServer()
         var clock = Date(timeIntervalSince1970: 28_800)

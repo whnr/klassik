@@ -3,15 +3,21 @@ import SwiftUI
 /// The Library place: the listener's own collection, as rows in the order the listener sets.
 struct LibraryView: View {
     @Environment(AppModel.self) private var model
+    @State private var pageCache = PageCache()
+
     var body: some View {
         let library = model.library
         let order = model.recordingOrder
-        let page = LibraryPage(
-            index: library.index,
-            favourites: LibraryPage.Favourites(
-                composers: order.favouriteComposers, performers: order.favouritePerformers,
-                albums: order.favouriteAlbums, works: order.favouriteWorks, recordings: order.favouriteRecordings),
-            rows: model.libraryRows.rows, date: .now)
+        let rows = model.libraryRows.rows
+        let favourites = LibraryPage.Favourites(
+            composers: order.favouriteComposers, performers: order.favouritePerformers,
+            albums: order.favouriteAlbums, works: order.favouriteWorks, recordings: order.favouriteRecordings)
+        let page = pageCache.page(
+            for: PageKey(
+                indexVersion: library.indexVersion, favourites: favourites.signature, rows: rows, day: Calendar.current.startOfDay(for: .now))
+        ) {
+            LibraryPage(index: library.index, favourites: favourites, rows: rows, date: .now)
+        }
         PageList {
             ForEach(page.sections) { section in
                 LibrarySectionView(section: section)
@@ -33,6 +39,29 @@ struct LibraryView: View {
             // The lookup can take minutes; the pull to refresh ends with the sync.
             Task { await model.enrichment.enrich(library.index) }
         }
+    }
+}
+
+/// What the page depends on. The page is built again only when this changes, not on every body pass.
+private struct PageKey: Equatable {
+    var indexVersion: Int
+    var favourites: [String]
+    var rows: [LibraryRowSetup]
+    var day: Date
+}
+
+/// Holds the last page, so that a body pass without a change does not build it again. It is not observed: a view
+/// reads it only while it draws.
+private final class PageCache {
+    private var key: PageKey?
+    private var page: LibraryPage?
+
+    func page(for key: PageKey, build: () -> LibraryPage) -> LibraryPage {
+        if let page, self.key == key { return page }
+        let built = build()
+        self.key = key
+        page = built
+        return built
     }
 }
 
@@ -196,7 +225,7 @@ private struct LibraryCardView: View {
             picture
                 .aspectRatio(1, contentMode: .fit)
             VStack(alignment: isFace && look == .faces ? .center : .leading, spacing: 0) {
-                Text(verbatim: card.name)
+                Text(verbatim: Hyphenation.soften(card.name, locale: Localization.shared.locale))
                     .typeStyle(Layout.libraryName)
                     .foregroundStyle(Palette.textPrimary)
                     .lineLimit(Layout.libraryNameLines)
@@ -380,5 +409,12 @@ struct FavouritesView: View {
             }
         }
         .pageTitle(L("Favourites"))
+    }
+}
+
+extension LibraryPage.Favourites {
+    /// The ids of every favourite, in order: the page changes when one of them does.
+    fileprivate var signature: [String] {
+        composers.map(\.id) + performers.map(\.id) + albums.map(\.id) + works.map(\.id) + recordings.map(\.id)
     }
 }

@@ -56,7 +56,8 @@ struct LibraryPage {
     private(set) var sections: [Section] = []
 
     /// Link pages that the app does not have yet stay hidden, so that a tile never leads nowhere. A flag shows them
-    /// for the work that builds those pages.
+    /// for the work that builds those pages. Nothing sets it yet: the app builds the page with the default, and only
+    /// the page model tests pass `true`.
     init(
         index: WorkIndex, favourites: Favourites, rows: [LibraryRowSetup], date: Date,
         calendar: Calendar = .current, unbuiltLinks: Bool = false

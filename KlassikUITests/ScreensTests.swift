@@ -387,8 +387,8 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertFalse(app.buttons["search-clear"].exists)
     }
 
-    /// Filters opens the conditions in a sheet at the medium detent and closes the keyboard. A pick clears the
-    /// narrowing field. The badge counts the conditions; the x in the field clears the text only, the x pill clears
+    /// Filters opens the conditions in the half-height sheet frame and closes the keyboard. The count under the
+    /// title counts the result rows. A pick clears the narrowing field. The badge counts the conditions; the x in the field clears the text only, the x pill clears
     /// the text and the conditions.
     @MainActor
     func testSearchFilters() throws {
@@ -401,25 +401,25 @@ final class BrowseScreens: ScreensTestCase {
         let works = app.buttons.matching(identifier: "search-work")
         XCTAssertTrue(works.firstMatch.waitForExistence(timeout: 10))
         XCTAssertEqual(works.count, 4)
+        let people = app.buttons.matching(identifier: "search-person")
+        let albums = app.buttons.matching(identifier: "search-album")
+        XCTAssertTrue(albums.firstMatch.waitForExistence(timeout: 10), "No album for Chopin")
+        let rows = { works.count + people.count + albums.count }
+        let found = rows()
 
         let filters = app.buttons["search-filters"]
         filters.tap()
         XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5), "Filters keeps the keyboard up")
         let done = app.buttons["filter-done"]
         XCTAssertTrue(done.waitForExistence(timeout: 10))
-        XCTAssertGreaterThan(done.frame.minY, app.frame.height / 3, "The sheet is not at the medium detent")
-        // The sheet shows no total until the terms of the library are built.
-        XCTAssertTrue(app.staticTexts["filter-total"].waitForExistence(timeout: 10), "The sheet shows no total")
-        XCTAssertEqual(app.staticTexts["filter-total"].label, "4\u{00A0}recordings")
-        // The head and the body share one inset: Back leads the head, the title follows it, and the note and the
-        // kinds start under Back; the kinds reach to Done.
-        let back = app.buttons["filter-back"]
-        let title = app.staticTexts["Filters"]
-        XCTAssertGreaterThan(title.frame.minX, back.frame.maxX, "The title does not follow Back")
+        XCTAssertGreaterThan(done.frame.minY, app.frame.height / 3, "The sheet is not at half height")
+        // The sheet shows no count until the terms of the library are built.
+        let count = app.staticTexts["filter-count"]
+        XCTAssertTrue(count.waitForExistence(timeout: 10), "The sheet shows no count")
+        XCTAssertEqual(count.label, "\(found)\u{00A0}results", "The count is not the number of result rows")
+        // The header has no Back at the first level; the kinds reach to Done.
+        XCTAssertFalse(app.buttons["filter-back"].exists, "The first level shows Back")
         let kinds = app.descendants(matching: .any)["filter-scopes"]
-        for element in [app.staticTexts["filter-note"], kinds] {
-            XCTAssertEqual(element.frame.minX, back.frame.minX, accuracy: 2, "\(element) does not start under Back")
-        }
         XCTAssertEqual(kinds.frame.maxX, done.frame.maxX, accuracy: 2, "The kinds end before the sheet inset")
         snap(app, "19d-search-filter-sheet")
 
@@ -432,24 +432,24 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertTrue(romantic.waitForExistence(timeout: 5))
         XCTAssertTrue(romantic.label.contains("2"), "Romantic does not count two recordings: \(romantic.label)")
         romantic.tap()
-        let conditions = app.descendants(matching: .any).matching(identifier: "filter-condition")
+        // Each condition ends with its "+ or" button.
+        let conditions = app.buttons.matching(identifier: "filter-or")
         XCTAssertTrue(conditions.firstMatch.waitForExistence(timeout: 5))
-        XCTAssertEqual(app.staticTexts["filter-total"].label, "2\u{00A0}recordings")
+        XCTAssertEqual(conditions.count, 1)
+        XCTAssertNotEqual(count.label, "\(found)\u{00A0}results", "A condition left the count unchanged")
         let solo = terms.matching(NSPredicate(format: "label CONTAINS %@", "Solo")).firstMatch
         XCTAssertTrue(solo.waitForExistence(timeout: 5))
-        XCTAssertTrue(solo.label.contains("and"), "Solo does not offer \"and\": \(solo.label)")
+        XCTAssertFalse(solo.isSelected, "A term not in use shows a check")
 
         // With "or" on, the next term joins the condition and its own term shows a check. The checked term sorts
-        // first, so only the row under it is sure to be inside the medium detent; the lazy list loads no more.
+        // first, so only the row under it is sure to be inside the half-height frame; the lazy list loads no more.
         app.buttons["filter-or"].tap()
         XCTAssertFalse(terms.matching(NSPredicate(format: "label CONTAINS %@", "Baroque")).firstMatch.exists)
         XCTAssertTrue(romantic.waitForExistence(timeout: 5))
         XCTAssertTrue(romantic.isSelected, "The term of the open condition shows no check")
         let offered = terms.matching(NSPredicate(format: "NOT (label CONTAINS %@)", "Romantic")).firstMatch
         XCTAssertTrue(offered.waitForExistence(timeout: 5))
-        XCTAssertNotNil(
-            offered.label.range(of: #"\bor \d+$"#, options: .regularExpression),
-            "A term does not offer \"or\": \(offered.label)")
+        XCTAssertFalse(offered.isSelected, "A term not in use shows a check")
         app.buttons["filter-or"].tap()
 
         // A pick clears the narrowing field.
@@ -463,12 +463,14 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertTrue(eventually(timeout: 5) { (narrow.value as? String) != "pia" }, "A pick kept the narrowing text")
         XCTAssertEqual(conditions.count, 2)
         snap(app, "19e-search-filter-conditions")
+        let counted = count.label
 
         done.tap()
         XCTAssertTrue(done.waitForNonExistence(timeout: 5))
         XCTAssertEqual(filters.value as? String, "2\u{00A0}conditions", "The badge does not count the conditions")
         XCTAssertTrue(eventually(timeout: 5) { works.count == 2 }, "The conditions do not narrow the works")
         XCTAssertFalse(app.staticTexts["search-hidden"].exists, "Search shows a hidden-work count")
+        XCTAssertEqual(counted, "\(rows())\u{00A0}results", "The count is not the rows that Search shows")
         snap(app, "19f-search-filtered")
 
         // The x in the field clears the text only; the conditions stay and still find works.
@@ -484,9 +486,10 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertFalse(app.buttons["search-reset"].isEnabled, "The x pill is on with nothing to clear")
     }
 
-    /// A modal sheet dims its page and provides Back without exposing controls behind the sheet.
+    /// A modal sheet dims its page without exposing controls behind the sheet. It has Done and no Back, and
+    /// Done leaves Search where it was.
     @MainActor
-    func testSearchSheetBackAndDimming() throws {
+    func testSearchSheetDimming() throws {
         let app = try launchAndConnect(openComposers: false)
         openPlace(app, "Search")
         let field = app.textFields["search-field"]
@@ -497,7 +500,8 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertTrue(app.buttons.matching(identifier: "search-work").firstMatch.waitForExistence(timeout: 10))
         let before = try XCTUnwrap(ScreenPixels(app))
         app.buttons["search-filters"].tap()
-        XCTAssertTrue(app.buttons["filter-back"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["filter-done"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["filter-back"].exists, "The sheet shows Back beside Done")
         let sample = CGRect(x: 8, y: field.frame.maxY + 10, width: 12, height: 60)
         XCTAssertTrue(
             eventually(timeout: 5) {
@@ -505,16 +509,9 @@ final class BrowseScreens: ScreensTestCase {
                 return after.differingShare(in: sample, from: before) > 0.9
             }, "Filters does not dim the page")
         snap(app, "19i-search-modal")
-        app.buttons["filter-back"].tap()
-        XCTAssertTrue(app.buttons["filter-done"].waitForNonExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["library-composers"].waitForExistence(timeout: 10), "Back did not leave Search")
-        openPlace(app, "Search")
-        XCTAssertTrue(field.waitForExistence(timeout: 10))
-        XCTAssertFalse(app.buttons["filter-done"].exists, "The sheet survived Back")
-        app.buttons["search-filters"].tap()
         app.buttons["filter-done"].tap()
-        app.buttons["place-back"].tap()
-        XCTAssertTrue(app.buttons["library-composers"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["filter-done"].waitForNonExistence(timeout: 5))
+        XCTAssertTrue(field.isHittable, "Done left Search")
     }
 
     /// Search shows its results in typed sections: Composers, Performers, Works, then Albums. Albums holds only

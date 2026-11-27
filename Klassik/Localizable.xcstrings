@@ -11,6 +11,16 @@
         }
       }
     },
+    "%@, %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, %@"
+          }
+        }
+      }
+    },
     "%@ of %@": {
       "localizations": {
         "de": {
@@ -121,6 +131,16 @@
         }
       }
     },
+    "+ or": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+ oder"
+          }
+        }
+      }
+    },
     "A composer page lists a work with no complete recording under Partial works. Favourite works, listening notes, recent searches and the changes that wait stay on this iPhone, for this server and user. Sign-out keeps them.": {
       "localizations": {
         "de": {
@@ -147,26 +167,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Eine Aufnahme enthält die Titel eines Werks auf einem Album, in Disc- und Titelreihenfolge."
-          }
-        }
-      }
-    },
-    "A tap adds a new condition with “and”. “or +” on a condition adds the next term to it with “or”.": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ein Tippen fügt eine neue Bedingung mit „und“ hinzu. „oder +“ an einer Bedingung fügt ihr den nächsten Begriff mit „oder“ hinzu."
-          }
-        }
-      }
-    },
-    "A tap adds the term with “or” to the marked condition.": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ein Tippen fügt den Begriff mit „oder“ zur markierten Bedingung hinzu."
           }
         }
       }
@@ -2301,16 +2301,6 @@
         }
       }
     },
-    "Pick a term to start a condition.": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wähle einen Begriff, um eine Bedingung zu beginnen."
-          }
-        }
-      }
-    },
     "Picture": {
       "localizations": {
         "de": {
@@ -3701,16 +3691,6 @@
         }
       }
     },
-    "and %@": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "und %@"
-          }
-        }
-      }
-    },
     "arranger": {
       "localizations": {
         "de": {
@@ -3797,36 +3777,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "oder"
-          }
-        }
-      }
-    },
-    "or %@": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "oder %@"
-          }
-        }
-      }
-    },
-    "or +": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "oder +"
-          }
-        }
-      }
-    },
-    "or ✓": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "oder ✓"
           }
         }
       }
@@ -4084,6 +4034,46 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "%lld recordings"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld results": {
+      "localizations": {
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Ergebnis"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Ergebnisse"
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld result"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld results"
                 }
               }
             }

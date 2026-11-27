@@ -77,7 +77,6 @@ struct LibraryPageTests {
     }
 
     @Test func factLineIsOneKindForTheWholeRow() throws {
-        let index = Self.index
         let performers = Self.page(rows: [row(.performers)])
         #expect(Set(try #require(performers.sections.first?.cards).map(\.fact)) == [L("\(1) recordings")])
         let albums = Self.page(rows: [row(.albums)])
@@ -85,7 +84,6 @@ struct LibraryPageTests {
         #expect(card.fact.hasPrefix("Conductor "))
         let works = Self.page(rows: [row(.works)])
         #expect(try #require(works.sections.first?.cards).allSatisfy { $0.fact.hasPrefix("Composer ") })
-        _ = index
     }
 
     @Test func favouritesMixKindsAndNameTheKindInTheFactLine() throws {
@@ -151,5 +149,14 @@ struct LibraryPageTests {
     @Test func kindsWithoutDrawingYetStayHidden() {
         let page = Self.page(rows: [row(.pick), row(.heard), row(.saved)])
         #expect(page.sections.isEmpty)
+    }
+
+    @Test func longNamesBreakAtHyphenationPoints() {
+        let german = Hyphenation.soften("Staatskapelle Dresden", locale: Locale(identifier: "de"))
+        #expect(german.contains("\u{00AD}"))
+        #expect(german.replacingOccurrences(of: "\u{00AD}", with: "") == "Staatskapelle Dresden")
+        let english = Hyphenation.soften("Philharmonic Orchestra", locale: Locale(identifier: "en"))
+        #expect(english.contains("\u{00AD}"))
+        #expect(Hyphenation.soften("Bach", locale: Locale(identifier: "en")) == "Bach")
     }
 }

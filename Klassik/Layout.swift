@@ -147,55 +147,120 @@ enum Layout {
     /// css: specimen.css .sheet .sheet-head | gap
     static let sheetHeadGap = Space.s.points
 
+    // MARK: Sheet frame
+
+    /// The frame that the edit sheet and the filter sheet share: half the screen height, no detents.
+    /// css: sheet.css .hsheet | height | 50%
+    static let frameHeightRatio: CGFloat = 0.5
+    /// css: sheet.css .hsheet | border-top-left-radius
+    static let frameCorner: CGFloat = 28
+    /// css: sheet.css .hsheet .hs-grab | width
+    static let frameGrabberWidth: CGFloat = 36
+    /// css: sheet.css .hsheet .hs-grab | height
+    static let frameGrabberHeight: CGFloat = 5
+    /// css: sheet.css .hsheet .hs-grab | margin-top
+    static let frameGrabberTop = Space.s.points
+    /// The one header line: back, title and Done. The outer columns share the width, so the title stays centred.
+    /// css: sheet.css .hsheet .hs-head | min-height
+    static let frameHeadHeight = Measure.hitTarget
+    /// css: sheet.css .hsheet .hs-head | padding-top
+    static let frameHeadTop = Space.xxs.points
+    /// css: sheet.css .hsheet .hs-head | padding-left
+    static let frameHeadInset = Space.l.points
+    /// css: sheet.css .hsheet .hs-head | padding-right
+    static let frameHeadTrailing = Space.l.points
+    /// The back chevron sits one level deeper only.
+    /// css: sheet.css .hsheet .hs-back | width
+    static let frameBackWidth = Measure.hitTarget
+    /// css: sheet.css .hsheet .hs-back | margin-left
+    static let frameBackMargin = -Space.m.points
+    /// css: sheet.css .hsheet .hs-back svg | width
+    static let frameBackIconWidth: CGFloat = 11
+    /// css: sheet.css .hsheet .hs-back svg | height
+    static let frameBackIconHeight: CGFloat = 18
+    /// The count line under the title.
+    /// css: sheet.css .hsheet .hs-count | padding-bottom
+    static let frameCountBottom = Space.xs.points
+    /// The one scroll area of the sheet.
+    /// css: sheet.css .hsheet .hs-scroll | padding-left
+    static let frameScrollInset = Space.l.points
+    /// css: sheet.css .hsheet .hs-scroll | padding-right
+    static let frameScrollTrailing = Space.l.points
+    /// css: sheet.css .hsheet .hs-scroll | padding-bottom
+    static let frameScrollBottom = Space.xxl.points
+    /// A part that sticks under the header inside the scroll area.
+    /// css: sheet.css .hsheet .hs-stick | padding-top
+    static let frameStickTop = Space.xs.points
+    /// css: sheet.css .hsheet .hs-stick | padding-bottom
+    static let frameStickBottom = Space.xxs.points
+
     // MARK: Filter sheet
 
-    /// The heading row of the sheet: its title, the recordings that remain and Done.
-    /// css: search.html .fsheet .head | gap
-    static let filterHeadGap = Space.s.points
-    /// css: search.html .fsheet .head | padding-top
-    static let filterHeadTop = Space.s.points
-    /// css: search.html .fsheet .head | padding-bottom
+    /// The heading of the sheet is the shared frame: title and Done on one line, the result count below.
+    /// css: sheet.css .hsheet .hs-head | padding-top
+    static let filterHeadTop = Space.xxs.points
+    /// css: sheet.css .hsheet .hs-count | padding-bottom
     static let filterHeadBottom = Space.xs.points
-    /// css: search.html .fsheet .head | padding-left
+    /// css: sheet.css .hsheet .hs-head | padding-left
     static let filterHeadInset = Space.l.points
     /// The kind control of the sheet: Genres, Composers, Conductors and Performers.
-    /// css: search.html .seg | margin-top
-    static let filterKindsTop = Space.m.points
-    /// css: search.html .seg | margin-bottom
+    /// The kind control sticks under the header, which gives it its space.
+    /// css: filters.css .seg | margin-top
+    static let filterKindsTop: CGFloat = 0
+    /// css: filters.css .seg | margin-bottom
     static let filterKindsBottom = Space.s.points
-    /// css: search.html .seg | border-top-left-radius
+    /// css: filters.css .seg | border-top-left-radius
     static let filterKindsCorner: CGFloat = 9
-    /// css: search.html .seg button | min-height
+    /// css: filters.css .seg button | min-height
     static let filterKindsHeight: CGFloat = 30
-    /// css: search.html "t-footnote" + (k === kind ? " on" : "" | class
+    /// css: filters.js "t-footnote" + (k === fx.kind ? " on" : "" | class
     static let filterKindsLabel = TypeStyle.footnote
     /// The gap under the field that narrows the terms.
-    /// css: search.html .narrow | margin-bottom
+    /// css: filters.css .narrow | margin-bottom
     static let narrowBottom = Space.s.points
     /// The inset of a term in its row. The hairline spans the list, from the sheet inset.
     /// css: specimen.css .row | padding-left
     static let termInset = Space.l.points
-    /// The gap between the terms of a condition and the "or" between them.
-    /// css: search.html .cond .terms | gap
-    static let conditionTermGap = Space.xs.points
-    /// The bar on the leading edge of the condition that the next term joins.
-    /// css: search.html .cond.marked | box-shadow | 3px
-    static let conditionMark: CGFloat = 3
-    /// The "or" control of a condition.
-    /// css: search.html .orbtn | min-height
-    static let orButtonHeight: CGFloat = 30
-    /// css: search.html .orbtn | padding-left
+    /// The space on each side of an "and" or "or" word between chips.
+    /// css: filters.css .cond .w | margin-left
+    static let conditionTermGap = Space.inGroup.points
+    /// The height of one line of chips: the tap height of a chip.
+    /// css: filters.css .cond | line-height
+    static let orButtonHeight = Space.xxxl.points + Space.xs.points
+    /// The "+ or" button of a condition.
+    /// css: filters.css .cond .plus | padding-left
     static let orButtonPadding = Space.m.points
+    /// css: filters.css .cond .plus | padding-top
+    static let orButtonVertical = Space.xs.points
+    /// css: filters.css .cond .plus | border-top-left-radius
+    static let orButtonCorner = Radius.full
+    /// The chip of a term. It breaks across lines like text: square ends at a break, round at its real ends.
+    /// css: filters.css .cond .tchip | padding-top
+    static let chipPaddingVertical = Space.xs.points
+    /// css: filters.css .cond .tchip | padding-left
+    static let chipPaddingLeading = Space.m.points
+    /// css: filters.css .cond .tchip | padding-right
+    static let chipPaddingTrailing = Space.s.points
+    /// css: filters.css .cond .tchip | border-top-left-radius
+    static let chipCorner = Radius.full
+    /// The space between the term and its x.
+    /// css: filters.css .cond .tchip .x | margin-left
+    static let chipRemoveGap = Space.xs.points
+    /// The check mark of a term in use.
+    /// css: filters.css .term .check | width
+    static let termCheckWidth: CGFloat = 16
+    /// css: filters.css .term .check | height
+    static let termCheckHeight: CGFloat = 14
     /// The field that narrows the terms of one kind.
-    /// css: search.html .narrow | min-height
+    /// css: filters.css .narrow | min-height
     static let narrowHeight: CGFloat = 36
-    /// css: search.html .narrow | border-top-left-radius
+    /// css: filters.css .narrow | border-top-left-radius
     static let narrowCorner: CGFloat = 10
-    /// css: search.html .narrow | gap
+    /// css: filters.css .narrow | gap
     static let narrowGap = Space.s.points
-    /// css: search.html .narrow | padding-left
+    /// css: filters.css .narrow | padding-left
     static let narrowInset = Space.m.points
-    /// css: search.html .narrow svg | width
+    /// css: filters.css .narrow svg | width
     static let narrowIcon: CGFloat = 15
     /// The symbol in front of a recent search.
     /// css: search.html .recent .row svg | width
@@ -487,6 +552,121 @@ enum Layout {
     /// The colour dot of a store in the list under the bar.
     /// css: specimen.css .storage-dot | width
     static let storageDot = Space.s.points
+
+    // MARK: Library tab
+
+    /// The gap above a row title.
+    /// css: library.css .lib-head | padding-top
+    static let libraryHeadTop = Space.xxl.points
+    /// The gap from a row title to its cards. The title takes the page insets (`sideInsets`), as the cards do.
+    /// css: library.css .lib-head | padding-bottom
+    static let libraryHeadBottom = Space.s.points
+    /// The gap between the cards of a strip.
+    /// css: library.css .lib-strip | gap
+    static let libraryStripGap = Space.m.points
+    /// The gap under a strip or a grid of tiles.
+    /// css: library.css .lib-strip | padding-bottom
+    static let libraryStripBottom = Space.m.points
+    /// The tiles of a row per line.
+    /// css: library.css .lib-tiles | grid-template-columns | 3
+    static let libraryTileColumns = 3
+    /// css: library.css .lib-tiles | row-gap
+    static let libraryTileRowGap: CGFloat = 14
+    /// css: library.css .lib-tiles | column-gap
+    static let libraryTileColumnGap = Space.m.points
+    /// The width of a card with a round face. The picture is as wide as the card.
+    /// css: library.css .lib-card.faces | width
+    static let libraryFaceCard: CGFloat = 88
+    /// The width of a card with a cover.
+    /// css: library.css .lib-card.covers | width
+    static let libraryCoverCard: CGFloat = 112
+    /// The width of a card in a row that mixes faces and covers, such as Favourites.
+    /// css: library.css .lib-card.mixed | width
+    static let libraryMixedCard: CGFloat = 100
+    /// The gap from the picture of a card to its name.
+    /// css: library.css .lib-cap | margin-top
+    static let libraryCaptionTop = Space.s.points
+    /// A card shows the full name in this many lines at most, hyphenated.
+    /// css: library.css .lib-name | -webkit-line-clamp
+    static let libraryNameLines = 3
+    /// The name of a card.
+    /// css: library.js "lib-name t-subheadline" | class
+    static let libraryName = TypeStyle.subheadline
+    /// The one fact line of a card: the same kind for the whole row.
+    /// css: library.js "lib-fact t-footnote secondary" | class
+    static let libraryFact = TypeStyle.footnote
+    /// The gap above the link list.
+    /// css: library.css .lib-links | margin-top
+    static let libraryLinksTop = Space.xxl.points
+    /// The gap between the tiles of the link list.
+    /// css: library.css .lib-links | gap
+    static let libraryLinksGap: CGFloat = 10
+    /// The inset of a link tile.
+    /// css: library.css .lib-links a | padding-left
+    static let libraryLinkPadding = Space.m.points
+    /// css: library.css .lib-links a | border-top-left-radius
+    static let libraryLinkCorner = Radius.l
+    /// The count in a link tile.
+    /// css: library.js "num t-headline" | class
+    static let libraryLinkCount = TypeStyle.headline
+    /// The gap above the Daily pick.
+    /// css: library.css .lib-pick | margin-top
+    static let dailyPickTop = Space.s.points
+    /// The gap between the sentence and the cover of the Daily pick.
+    /// css: library.css .lib-pick .art | margin-left
+    static let dailyPickGap = Space.l.points
+    /// The cover of the Daily pick: as high as four lines of the sentence, which flows around it.
+    /// css: library.css .lib-pick .art | width
+    static let dailyPickCover: CGFloat = 133.226
+    /// The sentence of the Daily pick. It is the only larger text of the app.
+    /// css: library.js "dp-text t-title2" | class
+    static let dailyPickText = TypeStyle.title2
+
+    // MARK: Library edit sheet
+
+    /// The line of a row in the edit sheet: title, subtitle and drag handle.
+    /// css: library-edit.css .le-front | min-height
+    static let editLineHeight: CGFloat = 58
+    /// css: library-edit.css .le-front | padding-left
+    static let editLineInset = Space.l.points
+    /// css: library-edit.css .le-front | padding-right
+    static let editLineTrailing = Space.s.points
+    /// css: library-edit.css .le-front | gap
+    static let editLineGap = Space.m.points
+    /// The title of a line.
+    /// css: library-edit.js "le-title t-body" | class
+    static let editLineTitle = TypeStyle.body
+    /// The subtitle of a line: what the row shows, in words with commas.
+    /// css: library-edit.js "le-sub t-footnote secondary" | class
+    static let editLineSubtitle = TypeStyle.footnote
+    /// The drag handle of a line. Its width is a tap target.
+    /// css: library-edit.css .le-handle | width
+    static let editHandleWidth = Measure.hitTarget
+    /// The width of the Delete action that a swipe to the left shows.
+    /// css: library-edit.css .le-del | width
+    static let editSwipeAction: CGFloat = 88
+    /// The check mark of a choice and of a link.
+    /// css: library-edit.css .le-check | width
+    static let editCheckWidth: CGFloat = 22
+    /// The width of the check mark glyph.
+    /// css: library-edit.css .le-check svg | width
+    static let editCheckGlyph: CGFloat = 16
+    /// The gap inside a row kind of Add row.
+    /// css: library-edit.css .le-kind | gap
+    static let editKindGap = Space.m.points
+    /// The hairline between lines starts at the title.
+    /// css: library-edit.css .le-line + .le-line::before | left
+    static let editLineSeparatorInset = Space.l.points
+    /// The preview of a row kind in Add row.
+    /// css: library-edit.css .le-preview | width
+    static let editPreviewWidth: CGFloat = 60
+    /// css: library-edit.css .le-preview | height
+    static let editPreviewHeight: CGFloat = 36
+    /// css: library-edit.css .le-preview | border-top-left-radius
+    static let editPreviewCorner: CGFloat = 6
+    /// The gap between the lists of the edit sheet.
+    /// css: library-edit.css .hsheet.le-sheet .section | margin-top
+    static let editSectionTop = Space.s.points
 
     // MARK: Text
 

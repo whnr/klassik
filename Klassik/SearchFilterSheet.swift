@@ -104,7 +104,7 @@ struct FilterSheet: View {
 
     /// The title, the recordings that remain, and Done.
     private func head(total: Int) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: Layout.filterHeadGap) {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
             Button("Back", action: back)
                 .typeStyle(.body)
                 .accessibilityIdentifier("filter-back")
@@ -240,7 +240,7 @@ private struct ConditionRow: View {
                 Palette.backgroundRow.color
                 if isJoining {
                     Palette.tint.color.opacity(0.08)
-                    Palette.tint.color.frame(width: Layout.conditionMark)
+                    Palette.tint.color.frame(width: 3)
                 }
             }
         )

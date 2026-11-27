@@ -619,8 +619,8 @@ enum Layout {
     /// css: library.css .lib-pick .art | width
     static let dailyPickCover: CGFloat = 112
     /// The sentence of the Daily pick. It is the only larger text of the app.
-    /// css: library.js "dp-text t-title3" | class
-    static let dailyPickText = TypeStyle.title3
+    /// css: library.js "dp-text t-title2" | class
+    static let dailyPickText = TypeStyle.title2
 
     // MARK: Text
 

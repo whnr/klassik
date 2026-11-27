@@ -82,8 +82,6 @@
   }
 
   // ---------- Titles ----------
-  // "A to Z" keeps its capital.
-  const lower = (s) => (s[1] === " " ? s : s.charAt(0).toLowerCase() + s.slice(1));
   // A natural title when the row has no qualifier, else "Kind, qualifier".
   function title(row) {
     const base = KINDS[row.kind].label;
@@ -92,7 +90,7 @@
     if (row.kind === "saved") qualifiers.push(row.source);
     if (FILTERS[row.filter] && row.kind !== "favourites") qualifiers.push(FILTERS[row.filter]);
     if (row.sort !== START[row.kind].sort) qualifiers.push(SORTS[row.sort]);
-    return qualifiers.length ? `${base}, ${qualifiers.map((q, i) => (i ? lower(q) : q)).join(", ")}` : base;
+    return qualifiers.length ? `${base}, ${qualifiers.join(", ")}` : base;
   }
 
   // ---------- The sample library as items ----------
@@ -154,6 +152,7 @@
       type: "work",
       id: w.id,
       name: w.name,
+      // A work has no cover and no lead performer, so its fact line is the composer.
       fact: w.composer,
       href: K.href("work.html", { work: w.id, back: "Library" }),
       album: K.referenceRecording(w).album,
@@ -289,7 +288,7 @@
       el("span", {}, title(row)),
       el("span", { class: "link", html: K.ICON.chevron }),
     );
-    stub(a, `Opens the page of ${lower(title(row))}`);
+    stub(a, `Opens the page of ${title(row)}`);
     return a;
   }
   function strip(row) {
@@ -315,7 +314,7 @@
           el("span", { class: "num t-headline" }, String(counts[k])),
           el("span", { class: "t-footnote secondary" }, LINKS[k]),
         );
-        stub(a, `Opens the ${lower(LINKS[k])} page`);
+        stub(a, `Opens the ${LINKS[k]} page`);
         return a;
       }),
     );
@@ -344,7 +343,7 @@
     const l = x.rec ? lead(x.rec) : x.fact;
     const sentence = el(
       "p",
-      { class: "dp-text t-title3" },
+      { class: "dp-text t-title2" },
       "Today from your library:" + NB,
       el("a", { class: "title", href: open }, x.name),
       names.length ? [", ", names[0]] : null,
@@ -419,6 +418,8 @@
       selecting(on) {
         state.selecting = on;
         host.classList.toggle("lib-selecting", on);
+        // Room under the rows, so the last row can scroll to the top above the sheet.
+        host.style.paddingBottom = on && window.Frame ? `${Frame.height()}px` : "";
       },
     };
   }

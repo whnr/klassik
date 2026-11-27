@@ -97,5 +97,14 @@ window.Frame = (() => {
     return { close };
   }
 
-  return { make, open };
+  // The height of the frame in px, read from its own box, so a page can leave room for it.
+  function height() {
+    const probe = el("div", { class: "hsheet", style: "visibility:hidden;pointer-events:none" });
+    document.body.append(probe);
+    const px = probe.getBoundingClientRect().height;
+    probe.remove();
+    return px;
+  }
+
+  return { make, open, height };
 })();

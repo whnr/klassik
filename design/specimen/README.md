@@ -36,6 +36,11 @@ The pill at the top belongs to the specimen, not to the app. It sets the timelin
 - `../fonts/`: [Wittgenstein](https://github.com/jrgdrs/Wittgenstein) by Jörg Drees, SIL Open Font License (`OFL.txt`), for page titles and section headings at weight 500.
 - `data/`: the Navidrome responses and the Wikidata facts that the pages show (see `data/README.md`).
 
+## Conventions
+
+- A comment names the shared part, such as "the shared sheet frame", never a file name. In every tracked file except Markdown, `design/scripts/check.py` refuses a comment (`//`, `#`, `/* */`, `<!-- -->`) with a file name of type `.html`, `.css` or `.js` in parentheses.
+- To check a theme by script, set `data-theme` to `light` or `dark` on the root element. `emulateMedia` alone does not switch the pages.
+
 ## Variants
 
 A look under review adds its variants to `variants/variants.json` or `variants/looks.json`; `?variant=<name>` or `?look=<name>` loads them. When Flo decides, the winning values go into the token files and the base files, and the variant files go.

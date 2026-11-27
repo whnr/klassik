@@ -1,8 +1,0 @@
-{
-  "page-menu": {
-    "label": "Page menu",
-    "page": "menu",
-    "css": "page-menu.css",
-    "js": "page-menu.js"
-  }
-}

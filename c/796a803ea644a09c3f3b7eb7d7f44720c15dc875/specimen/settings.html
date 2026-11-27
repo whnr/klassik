@@ -34,15 +34,15 @@
               menu("Timeline", { right: "Right", left: "Left" }, K.params.get("side") || "right", (side) =>
                 reload("side", side),
               ),
-              menu("ReplayGain", { album: "Album", track: "Track", off: "Off" }, "album"),
+              menu("ReplayGain", { album: "Album", work: "Work", track: "Track", off: "Off" }, "work"),
               toggle("Show Audio Quality", false),
               toggle("Scrobbles", true),
             ],
             "While music plays, the timeline runs on this screen edge. Album keeps the loudness steps between the " +
-              "movements of a work. ReplayGain Off removes the gain stage from the signal path. Show Audio Quality " +
-              "adds a line under the playback bar: the file format, the output rate, and whether anything changes " +
-              "the samples. Scrobbles count played movements on your server. Your server can send them to " +
-              "linked listening services.",
+              "movements of a work. Work plays all movements of a recording at one level. ReplayGain Off removes " +
+              "the gain stage from the signal path. Show Audio Quality adds a line under the playback bar: the " +
+              "file format, the output rate, and whether anything changes the samples. Scrobbles count played " +
+              "movements on your server. Your server can send them to linked listening services.",
           ),
           group(
             "Library",

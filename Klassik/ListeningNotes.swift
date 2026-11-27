@@ -105,10 +105,14 @@ struct RemovedNote: Equatable {
 struct RemovedNotes: Equatable {
     private var all: [RemovedNote] = []
 
+    /// How many notes were deleted. It only grows, so the Undo banner times from the last delete, not from an Undo.
+    private(set) var deletes = 0
+
     var latest: RemovedNote? { all.last }
 
     mutating func add(_ note: ListeningNote, at place: NotePlace) {
         all.append(RemovedNote(note: note, place: place))
+        deletes += 1
     }
 
     mutating func takeLatest() -> RemovedNote? { all.popLast() }

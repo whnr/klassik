@@ -605,7 +605,7 @@ struct RecordingView: View {
             .onChange(of: model.isScrubbing) { _, scrubbing in spell.hold(scrubbing) }
             .onChange(of: draft != nil) { _, writing in spell.writing(writing) }
             // A deleted note offers Undo for a few seconds.
-            .task(id: removed.latest?.note.id) {
+            .task(id: removed.deletes) {
                 guard removed.latest != nil else { return }
                 try? await Task.sleep(for: .seconds(6))
                 if !Task.isCancelled { removed.clear() }
@@ -935,9 +935,7 @@ struct RecordingView: View {
             ForEach(shown) { note in
                 NoteRow(
                     note: note, row: index, canMark: isPlaying,
-                    draft: Binding(
-                        get: { draft?.row == index ? draft : nil },
-                        set: { draft = $0 }),
+                    draft: $draft,
                     elapsed: elapsed,
                     save: { model.notes.save($0, at: place) },
                     jump: { plays in jump(to: note, row: index, plays: plays) },
@@ -951,9 +949,7 @@ struct RecordingView: View {
             }
             if adds {
                 NoteEditor(
-                    draft: Binding(
-                        get: { draft?.row == index ? draft : nil },
-                        set: { draft = $0 }),
+                    draft: $draft,
                     row: index, place: place, elapsed: elapsed
                 )
                 .playingRow(isCurrent)
@@ -1209,7 +1205,7 @@ private struct NoteRow: View {
     @ScaledMetric(space: .s) private var gap: CGFloat
 
     var body: some View {
-        if let current = draft, current.editing == note.id {
+        if let current = draft, current.row == row, current.editing == note.id {
             // A container keeps the identifiers of its controls inside the row's identifier.
             NoteDraftForm(draft: $draft, canMark: canMark, elapsed: elapsed, save: save)
                 .accessibilityElement(children: .contain)
@@ -1260,7 +1256,7 @@ private struct NoteEditor: View {
     }
 
     @ViewBuilder private var editor: some View {
-        if let current = draft, current.editing == nil {
+        if let current = draft, current.row == row, current.editing == nil {
             NoteDraftForm(
                 draft: $draft, canMark: true, elapsed: elapsed, save: { model.notes.save($0, at: place) })
         } else {
@@ -1268,7 +1264,7 @@ private struct NoteEditor: View {
                 .typeStyle(.subheadline)
                 .foregroundStyle(Palette.tint)
                 .buttonStyle(.borderless)
-                // One note is open at a time: Save or Cancel it first.
+                // One note is open at a time, in any row: Save or Cancel it first.
                 .disabled(draft != nil)
                 .accessibilityIdentifier("add-note")
         }

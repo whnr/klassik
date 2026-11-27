@@ -1809,6 +1809,21 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(app.buttons["Resume"].firstMatch.exists, "Opening the row started playback")
         snap(app, "41c-note-row")
 
+        // One note is open at a time, in any row: a tap on the text of a note in this row keeps the draft that
+        // is open in the playing row.
+        reveal(app.buttons["add-note"], in: app).tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 10), "Add a note here opened no field")
+        field.tap()
+        field.typeText("Half")
+        reveal(app.buttons["note-text"].firstMatch, in: app).tap()
+        XCTAssertEqual(
+            app.textFields.matching(identifier: "note-field").count, 1,
+            "A tap on a note in another row opened a second note")
+        XCTAssertEqual(field.value as? String, "Half", "A tap on a note in another row replaced the open note")
+        reveal(app.buttons["cancel-note"], in: app).tap()
+        XCTAssertTrue(field.waitForNonExistence(timeout: 10), "Cancel left the note open")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 10), "The keyboard stayed open")
+
         // A tap on its time jumps there and plays.
         reveal(note, in: app).tap()
         let pill = app.buttons["mini-player-pause"]
@@ -1871,6 +1886,36 @@ final class PlaybackScreens: ScreensTestCase {
             eventually(timeout: 5) { app.buttons["note-text"].firstMatch.label.contains("Theme in the violins") },
             "Undo restored another text: \(app.buttons["note-text"].firstMatch.label)")
         XCTAssertFalse(undo.exists, "Undo stayed after it ran")
+
+        // Two deletes in a row keep two Undos, latest first.
+        reveal(app.buttons["add-note"], in: app).tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 10), "Add a note here opened no field")
+        field.tap()
+        field.typeText("Second")
+        reveal(app.buttons["save-note"], in: app).tap()
+        XCTAssertTrue(field.waitForNonExistence(timeout: 10), "Save left the note open")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 10), "The keyboard stayed open")
+        XCTAssertTrue(
+            eventually(timeout: 10) { app.buttons.matching(identifier: "note-text").count == 2 },
+            "The page shows \(app.buttons.matching(identifier: "note-text").count) of 2 notes")
+        for _ in 0..<2 {
+            XCTAssertTrue(waitUntilStill(app.buttons["note-text"].firstMatch), "The note kept moving")
+            reveal(app.buttons["note-text"].firstMatch, in: app).swipeLeft()
+            let again = app.buttons["Delete"].firstMatch
+            XCTAssertTrue(again.waitForExistence(timeout: 5), "The swipe shows no Delete")
+            again.tap()
+        }
+        XCTAssertTrue(app.buttons["note-text"].firstMatch.waitForNonExistence(timeout: 10), "Delete kept a note")
+        undo.tap()
+        XCTAssertTrue(
+            eventually(timeout: 10) { app.buttons.matching(identifier: "note-text").count == 1 },
+            "The first Undo did not bring back one note")
+        XCTAssertTrue(undo.exists, "The banner went after one Undo of two")
+        undo.tap()
+        XCTAssertTrue(
+            eventually(timeout: 10) { app.buttons.matching(identifier: "note-text").count == 2 },
+            "The second Undo did not bring back the other note")
+        XCTAssertTrue(undo.waitForNonExistence(timeout: 5), "Undo stayed after both ran")
     }
 
     /// Play on the work page plays the reference recording and the pill shows the playing state (item 25).

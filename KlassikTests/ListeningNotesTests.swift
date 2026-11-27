@@ -237,6 +237,23 @@ struct ListeningNotesTests {
         #expect(removed.takeLatest() == nil)
     }
 
+    /// The Undo banner times from the last delete. The key of its timer grows with each delete and not with an
+    /// Undo, so an Undo does not give the notes before it another six seconds.
+    @Test func onlyADeleteRestartsTheUndoTimer() {
+        let place = NotePlace(recording: "r", movement: 0)
+        var removed = RemovedNotes()
+        let start = removed.deletes
+        removed.add(ListeningNote(movement: 0, at: 1, text: "First."), at: place)
+        let afterFirst = removed.deletes
+        removed.add(ListeningNote(movement: 0, at: 2, text: "Second."), at: place)
+        let afterSecond = removed.deletes
+        #expect(afterFirst != start && afterSecond != afterFirst)
+        _ = removed.takeLatest()
+        #expect(removed.deletes == afterSecond)
+        _ = removed.takeLatest()
+        #expect(removed.deletes == afterSecond)
+    }
+
     @Test func deletingTheLastNoteLeavesNoEmptyEntryInTheFile() throws {
         let root = folder()
         defer { try? FileManager.default.removeItem(at: root) }

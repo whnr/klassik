@@ -1250,6 +1250,62 @@ final class PlaybackScreens: ScreensTestCase {
         snap(app, "16b-overlay-dismissed")
     }
 
+    /// The pixels of the strip above a pulled player, read inside a held drag.
+    private final class StripSample: @unchecked Sendable {
+        var ink: Int?
+        var top: CGFloat = 0
+        /// One line per timer tick: the overlay top and what the pixel read returned.
+        var ticks: [String] = []
+    }
+
+    /// While a finger holds the player pulled down, the page behind shows in the strip above it. An opaque layer
+    /// behind the player fills that strip with one colour. The timer fires inside the held drag: the gesture call
+    /// spins the main run loop while it waits.
+    @MainActor
+    func testPulledPlayerShowsThePageBehind() throws {
+        let app = try launchAndConnect()
+        openRecording(app)
+        playPaused(app)
+        openPlayer(app)
+        let handle = app.buttons["player-handle"]
+        XCTAssertTrue(handle.waitForExistence(timeout: 10))
+        // The player's top edge follows the finger, and an element query inside a held gesture reads no frame.
+        let top = app.frame.height * 0.45 - handle.frame.midY
+        let strip = StripSample()
+        let clock = Date()
+        let timer = Timer(timeInterval: 0.5, repeats: true) { _ in
+            MainActor.assumeIsolated {
+                // The drag takes about 1.5 s to reach the finger's end point; the hold lasts 3 s after it.
+                let elapsed = Date().timeIntervalSince(clock)
+                let pixels = elapsed > 2.5 && top > 200 && strip.ink == nil ? ScreenPixels(app) : nil
+                strip.ticks.append("t=\(String(format: "%.1f", elapsed)) top=\(top) pixels=\(pixels != nil)")
+                guard strip.ink == nil, let pixels else { return }
+                // Below the status bar and above the player. Each row's ground is the pixel at the left edge.
+                let rows = stride(from: Int(70 * pixels.scale), to: Int((top - 4) * pixels.scale), by: 2)
+                let right = Int((app.frame.width - 8) * pixels.scale)
+                let columns = Array(stride(from: Int(8 * pixels.scale), to: right, by: 2))
+                var ink = 0
+                for y in rows {
+                    ink += columns.filter { pixels.differs($0, y, from: 2) }.count
+                }
+                strip.ink = ink
+                strip.top = top
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        handle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(
+            forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45)),
+            withVelocity: .slow, thenHoldForDuration: 3)
+        timer.invalidate()
+        XCTAssertNotNil(
+            strip.ink,
+            "The player was not pulled down while the finger held it. Ticks: \(strip.ticks.joined(separator: "; "))")
+        XCTAssertGreaterThan(
+            strip.ink ?? 0, 50,
+            "The strip above the pulled player (top at \(strip.top)) is one flat colour, not the page")
+        expectPlayerClosed(app)
+    }
+
     /// A swipe down on the content of the player closes it when its list is at the top, as a system sheet closes.
     @MainActor
     func testSwipeDownClosesThePlayer() throws {

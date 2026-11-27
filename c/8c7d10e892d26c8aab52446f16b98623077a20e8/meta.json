@@ -1,7 +1,0 @@
-{
-  "sha": "8c7d10e892d26c8aab52446f16b98623077a20e8",
-  "branch": "claude-fb024-player",
-  "path": "claude-fb024-player",
-  "subject": "Take the download-state change out of the player PR",
-  "ts": 1795749773
-}

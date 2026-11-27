@@ -1,7 +1,7 @@
 {
-  "sha": "dd3274a935d6eac8211b5dd585060366d7f5d660",
+  "sha": "828e2833b217937a8f1061228c9a9d31da83499a",
   "branch": "claude-fb024-downloads",
   "path": "claude-fb024-downloads",
-  "subject": "Download album tracks in parallel",
-  "ts": 1795747893
+  "subject": "Cancel every parallel album load",
+  "ts": 1795749849
 }

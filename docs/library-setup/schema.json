@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/whnr/klassik/docs/library-setup/schema.json",
+  "title": "Klassik Library setup, version 1",
+  "description": "The rows of the Library tab. See docs/library-setup/README.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "rows"],
+  "properties": {
+    "version": { "const": 1 },
+    "rows": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/row" }
+    }
+  },
+  "$defs": {
+    "row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "source", "searchText", "conditions", "sort", "form", "count", "links"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": {
+          "enum": [
+            "pick",
+            "composers",
+            "performers",
+            "works",
+            "recordings",
+            "albums",
+            "favourites",
+            "added",
+            "heard",
+            "saved",
+            "links"
+          ]
+        },
+        "source": { "enum": ["library", "composers", "performers", "works", "recordings", "albums"] },
+        "searchText": { "type": "string" },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "#/$defs/term" }
+          }
+        },
+        "sort": { "enum": ["random", "best", "newest", "heard", "az"] },
+        "form": { "enum": ["faces", "covers", "tiles"] },
+        "count": { "enum": [3, 6, 9, 12] },
+        "links": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "term": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name"],
+      "properties": {
+        "kind": { "enum": ["genre", "composer", "conductor", "performer"] },
+        "name": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

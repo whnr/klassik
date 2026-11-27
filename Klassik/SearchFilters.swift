@@ -174,23 +174,24 @@ struct SearchFilters: Sendable {
         let others = joining.map { open in
             remaining(conditions.enumerated().filter { $0.offset != open }.map(\.element), in: pool)
         }
-        let used = Set(conditions.enumerated().filter { $0.offset != joining }.flatMap(\.element.terms))
+        let used = Set(conditions.flatMap(\.terms))
         let tokens = Search.words(of: narrowing, unique: false)
         var choices: [Search.Choice] = []
-        for term in scopes[scope] ?? [] where !used.contains(term) {
+        for term in scopes[scope] ?? [] {
             if !tokens.isEmpty, !Search.matches(tokens, Search.words(of: term.name)) { continue }
+            // A term in use shows a check wherever it is used, and a tap on it removes it.
+            if used.contains(term) {
+                choices.append(Search.Choice(term: term, effect: .check, count: remain.count))
+                continue
+            }
             let posted = postings[term] ?? []
             let choice: Search.Choice
             if let open = joining, let others {
                 let condition = conditions[open]
-                if condition.terms.contains(term) {
-                    choice = Search.Choice(term: term, effect: .check, count: remain.count)
-                } else {
-                    // Existing matches must not make an unrelated term available for "or".
-                    guard posted.contains(where: { others.contains($0) }) else { continue }
-                    let added = posted.count(where: { others.contains($0) && !passes($0, condition) })
-                    choice = Search.Choice(term: term, effect: .or, count: remain.count + added)
-                }
+                // Existing matches must not make an unrelated term available for "or".
+                guard posted.contains(where: { others.contains($0) }) else { continue }
+                let added = posted.count(where: { others.contains($0) && !passes($0, condition) })
+                choice = Search.Choice(term: term, effect: .or, count: remain.count + added)
             } else {
                 let count = posted.count(where: { remain.contains($0) })
                 choice = Search.Choice(term: term, effect: conditions.isEmpty ? .start : .and, count: count)

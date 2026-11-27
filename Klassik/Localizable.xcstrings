@@ -11,6 +11,16 @@
         }
       }
     },
+    "%@, %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, %@"
+          }
+        }
+      }
+    },
     "%@ of %@": {
       "localizations": {
         "de": {
@@ -121,6 +131,16 @@
         }
       }
     },
+    "+ or": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+ oder"
+          }
+        }
+      }
+    },
     "A composer page lists a work with no complete recording under Partial works. Favourite works, listening notes, recent searches and the changes that wait stay on this iPhone, for this server and user. Sign-out keeps them.": {
       "localizations": {
         "de": {
@@ -151,22 +171,12 @@
         }
       }
     },
-    "A tap adds a new condition with “and”. “or +” on a condition adds the next term to it with “or”.": {
+    "A to Z": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ein Tippen fügt eine neue Bedingung mit „und“ hinzu. „oder +“ an einer Bedingung fügt ihr den nächsten Begriff mit „oder“ hinzu."
-          }
-        }
-      }
-    },
-    "A tap adds the term with “or” to the marked condition.": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ein Tippen fügt den Begriff mit „oder“ zur markierten Bedingung hinzu."
+            "value": "A bis Z"
           }
         }
       }
@@ -407,6 +417,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Barock"
+          }
+        }
+      }
+    },
+    "best known": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "bekannteste zuerst"
           }
         }
       }
@@ -797,6 +817,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nachweise"
+          }
+        }
+      }
+    },
+    "Daily pick": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tipp des Tages"
           }
         }
       }
@@ -1401,6 +1431,16 @@
         }
       }
     },
+    "last heard first": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "zuletzt gehört zuerst"
+          }
+        }
+      }
+    },
     "Last Sync": {
       "localizations": {
         "de": {
@@ -1477,6 +1517,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Grenze"
+          }
+        }
+      }
+    },
+    "Link list": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linkliste"
           }
         }
       }
@@ -1707,6 +1757,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Neu"
+          }
+        }
+      }
+    },
+    "newest first": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "neueste zuerst"
           }
         }
       }
@@ -2231,16 +2291,6 @@
         }
       }
     },
-    "Pick a term to start a condition.": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wähle einen Begriff, um eine Bedingung zu beginnen."
-          }
-        }
-      }
-    },
     "Picture": {
       "localizations": {
         "de": {
@@ -2351,6 +2401,16 @@
         }
       }
     },
+    "Playlists": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Playlists"
+          }
+        }
+      }
+    },
     "Plum": {
       "localizations": {
         "de": {
@@ -2381,12 +2441,42 @@
         }
       }
     },
+    "random": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "zufällig"
+          }
+        }
+      }
+    },
     "Recent": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "Zuletzt"
+          }
+        }
+      }
+    },
+    "Recently added": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kürzlich hinzugefügt"
+          }
+        }
+      }
+    },
+    "Recently heard": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kürzlich gehört"
           }
         }
       }
@@ -2561,6 +2651,16 @@
         }
       }
     },
+    "Roles": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rollen"
+          }
+        }
+      }
+    },
     "Romantic": {
       "localizations": {
         "de": {
@@ -2597,6 +2697,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Speichern"
+          }
+        }
+      }
+    },
+    "Saved search": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gespeicherte Suche"
           }
         }
       }
@@ -3331,6 +3441,16 @@
         }
       }
     },
+    "Various artists": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verschiedene Interpreten"
+          }
+        }
+      }
+    },
     "Version": {
       "localizations": {
         "de": {
@@ -3561,16 +3681,6 @@
         }
       }
     },
-    "and %@": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "und %@"
-          }
-        }
-      }
-    },
     "arranger": {
       "localizations": {
         "de": {
@@ -3657,36 +3767,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "oder"
-          }
-        }
-      }
-    },
-    "or %@": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "oder %@"
-          }
-        }
-      }
-    },
-    "or +": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "oder +"
-          }
-        }
-      }
-    },
-    "or ✓": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "oder ✓"
           }
         }
       }
@@ -3951,6 +4031,46 @@
         }
       }
     },
+    "%lld results": {
+      "localizations": {
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Ergebnis"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Ergebnisse"
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld result"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld results"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld tracks": {
       "localizations": {
         "de": {
@@ -4187,6 +4307,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "unbekanntes Format"
+          }
+        }
+      }
+    },
+    "Folded": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eingeklappt"
+          }
+        }
+      }
+    },
+    "Open": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ausgeklappt"
+          }
+        }
+      }
+    },
+    "Opens the section": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klappt den Abschnitt aus"
+          }
+        }
+      }
+    },
+    "Folds the section": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klappt den Abschnitt ein"
           }
         }
       }

@@ -1,40 +1,33 @@
 import SwiftUI
 
-/// The Library place: the listener's own collection, in the order the listener sets.
+/// The Library place: the listener's own collection, as rows in the order the listener sets.
 struct LibraryView: View {
     @Environment(AppModel.self) private var model
+    @State private var pageCache = PageCache()
 
     var body: some View {
         let library = model.library
-        let rows = model.libraryRows
+        let order = model.recordingOrder
+        let rows = model.libraryRows.rows
+        let favourites = LibraryPage.Favourites(
+            composers: order.favouriteComposers, performers: order.favouritePerformers,
+            albums: order.favouriteAlbums, works: order.favouriteWorks, recordings: order.favouriteRecordings)
+        let page = pageCache.page(
+            for: PageKey(
+                indexVersion: library.indexVersion, favourites: favourites.signature, rows: rows,
+                day: Calendar.current.startOfDay(for: .now))
+        ) {
+            LibraryPage(index: library.index, favourites: favourites, rows: rows, date: .now)
+        }
         PageList {
-            Section {
-                ForEach(rows.rows) { row in
-                    NavigationLink(value: row.page) {
-                        LabeledContent(row.title, value: count(of: row).localized())
-                            .ink()
-                    }
-                    .accessibilityIdentifier("library-\(row.rawValue)")
-                    .itemSeparator(first: row.id == rows.rows.first?.id, last: row.id == rows.rows.last?.id)
-                }
-                .onMove { rows.move(fromOffsets: $0, toOffset: $1) }
-            } footer: {
-                VStack(alignment: .leading) {
-                    if let status {
-                        Text(status)
-                            .accessibilityIdentifier("library-synced")
-                    }
-                    // Server trouble shows here only, never as a notice for each failed sync.
-                    if let trouble = model.serverTrouble {
-                        Text(trouble.status)
-                            .accessibilityIdentifier("server-status")
-                    }
-                }
+            ForEach(page.sections) { section in
+                LibrarySectionView(section: section)
+                    .listRowInsets(EdgeInsets())
+                    .listRowSeparator(.hidden)
             }
         }
         .pageTitle(L("Library"))
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) { EditButton() }
             ToolbarItem(placement: .topBarTrailing) {
                 NavigationLink(value: Page.settings) {
                     Label("Settings", systemImage: "gearshape")
@@ -48,15 +41,262 @@ struct LibraryView: View {
             Task { await model.enrichment.enrich(library.index) }
         }
     }
+}
 
-    private func count(of row: LibraryRow) -> Int {
-        switch row {
-        case .composers: model.library.index.composers.count
-        case .favourites: model.recordingOrder.favouriteCount
+/// What the page depends on. The page is built again only when this changes, not on every body pass.
+private struct PageKey: Equatable {
+    var indexVersion: Int
+    var favourites: [String]
+    var rows: [LibraryRowSetup]
+    var day: Date
+}
+
+/// Holds the last page, so that a body pass without a change does not build it again. It is not observed: a view
+/// reads it only while it draws.
+private final class PageCache {
+    private var key: PageKey?
+    private var page: LibraryPage?
+
+    func page(for key: PageKey, build: () -> LibraryPage) -> LibraryPage {
+        if let page, self.key == key { return page }
+        let built = build()
+        self.key = key
+        page = built
+        return built
+    }
+}
+
+/// One row of the tab: a title, then a strip, tiles or the link list.
+private struct LibrarySectionView: View {
+    @Environment(AppNavigator.self) private var navigator
+    let section: LibraryPage.Section
+
+    private var edges: EdgeInsets { Layout.edges(side: .standard, timeline: false) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if let title = section.title {
+                head(title)
+            }
+            if !section.links.isEmpty {
+                links
+                    .padding(.top, Layout.libraryLinksTop)
+            } else if section.isTiles {
+                LazyVGrid(
+                    columns: Array(
+                        repeating: GridItem(.flexible(), spacing: Layout.libraryTileColumnGap, alignment: .top),
+                        count: Layout.libraryTileColumns),
+                    alignment: .leading, spacing: Layout.libraryTileRowGap
+                ) {
+                    ForEach(section.cards) { LibraryCardView(card: $0, look: section.look, width: nil) }
+                }
+                .padding(.leading, edges.leading)
+                .padding(.trailing, edges.trailing)
+                .padding(.bottom, Layout.libraryStripBottom)
+            } else {
+                // A strip is as tall as its tallest card: the cards align at the top and the row takes the largest.
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(alignment: .top, spacing: Layout.libraryStripGap) {
+                        ForEach(section.cards) {
+                            LibraryCardView(card: $0, look: section.look, width: Self.width(of: section.look))
+                        }
+                    }
+                    .padding(.leading, edges.leading)
+                    .padding(.trailing, edges.trailing)
+                    .padding(.bottom, Layout.libraryStripBottom)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private static func width(of look: LibraryPage.Look) -> CGFloat {
+        switch look {
+        case .faces: Layout.libraryFaceCard
+        case .covers: Layout.libraryCoverCard
+        case .mixed: Layout.libraryMixedCard
         }
     }
 
-    private var status: String? { model.library.statusText }
+    @ViewBuilder
+    private func head(_ title: String) -> some View {
+        let label = HStack {
+            Text(verbatim: title)
+                .typeStyle(Layout.sectionHeading)
+                .foregroundStyle(Palette.textPrimary)
+                .multilineTextAlignment(.leading)
+            Spacer(minLength: 0)
+            if section.titlePage != nil {
+                Image(systemName: "chevron.right")
+                    .typeStyle(.footnote)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Palette.textTertiary)
+                    .accessibilityHidden(true)
+            }
+        }
+        .padding(.top, Layout.libraryHeadTop)
+        .padding(.bottom, Layout.libraryHeadBottom)
+        .padding(.leading, edges.leading)
+        .padding(.trailing, edges.trailing)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(.rect)
+        if let page = section.titlePage {
+            Button {
+                navigator.open(page, in: navigator.selection)
+            } label: {
+                label
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("library-\(section.kindName)")
+        } else {
+            label.accessibilityAddTraits(.isHeader)
+        }
+    }
+
+    private var links: some View {
+        LazyVGrid(
+            columns: Array(
+                repeating: GridItem(.flexible(), spacing: Layout.libraryLinksGap, alignment: .top), count: 3),
+            spacing: Layout.libraryLinksGap
+        ) {
+            ForEach(section.links) { link in
+                let tile = VStack(alignment: .leading, spacing: 0) {
+                    Text(link.count.localized())
+                        .typeStyle(Layout.libraryLinkCount)
+                        .foregroundStyle(Palette.textPrimary)
+                    Text(verbatim: link.title)
+                        .typeStyle(.footnote)
+                        .foregroundStyle(Palette.textSecondary)
+                }
+                .padding(Layout.libraryLinkPadding)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Palette.fillQuiet, in: RoundedRectangle(cornerRadius: Layout.libraryLinkCorner))
+                .contentShape(.rect)
+                if let page = link.page {
+                    Button {
+                        navigator.open(page, in: navigator.selection)
+                    } label: {
+                        tile
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("library-link-\(link.id)")
+                } else {
+                    tile
+                }
+            }
+        }
+        .padding(.leading, edges.leading)
+        .padding(.trailing, edges.trailing)
+    }
+}
+
+/// A card: a face or a cover, the full name in up to three lines, then one fact line.
+private struct LibraryCardView: View {
+    @Environment(AppNavigator.self) private var navigator
+    let card: LibraryPage.Card
+    let look: LibraryPage.Look
+    /// Nil in a grid of tiles, where the column sets the width.
+    let width: CGFloat?
+
+    private var isFace: Bool {
+        switch card.picture {
+        case .composer, .performer: true
+        case .cover: false
+        }
+    }
+
+    var body: some View {
+        switch card.page {
+        case .composer, .performer:
+            PersonPageLink(page: card.page, disclosure: false) { content }
+                .frame(width: width)
+        default:
+            Button {
+                navigator.open(card.page, in: navigator.selection)
+            } label: {
+                content.contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .frame(width: width)
+        }
+    }
+
+    private var content: some View {
+        VStack(alignment: isFace && look == .faces ? .center : .leading, spacing: 0) {
+            picture
+                .aspectRatio(1, contentMode: .fit)
+            VStack(alignment: isFace && look == .faces ? .center : .leading, spacing: 0) {
+                Text(verbatim: Hyphenation.soften(card.name, locale: Localization.shared.locale))
+                    .typeStyle(Layout.libraryName)
+                    .foregroundStyle(Palette.textPrimary)
+                    .lineLimit(Layout.libraryNameLines)
+                Text(verbatim: card.fact)
+                    .typeStyle(Layout.libraryFact)
+                    .foregroundStyle(Palette.textSecondary)
+                    .lineLimit(1)
+            }
+            .multilineTextAlignment(isFace && look == .faces ? .center : .leading)
+            .padding(.top, Layout.libraryCaptionTop)
+        }
+        .frame(maxWidth: .infinity, alignment: .top)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("library-card")
+    }
+
+    @ViewBuilder
+    private var picture: some View {
+        switch card.picture {
+        case .composer(let name): FaceImage(name: name, isPerformer: false)
+        case .performer(let name): FaceImage(name: name, isPerformer: true)
+        case .cover(let song):
+            CoverImage(song: song, points: width ?? Layout.libraryCoverCard)
+                .clipShape(RoundedRectangle(cornerRadius: Layout.albumCorner))
+        }
+    }
+}
+
+/// A round picture of a person. It shows the kept picture at once, else the initials, and never waits for the
+/// network (ADR 0059).
+private struct FaceImage: View {
+    @Environment(AppModel.self) private var model
+    let name: String
+    let isPerformer: Bool
+    @State private var loaded: UIImage?
+
+    private var portrait: PersonPortrait? {
+        isPerformer ? model.people.facts(ofPerformer: name)?.portrait : model.people.facts(ofComposer: name)?.portrait
+    }
+
+    var body: some View {
+        let portrait = portrait
+        let image = loaded ?? portrait.flatMap { PortraitLoader.ready($0)?.image }
+        Circle()
+            .fill(Palette.fillQuiet)
+            .overlay(alignment: .top) {
+                if let image {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    Text(verbatim: Self.initials(of: name))
+                        .typeStyle(.footnote)
+                        .foregroundStyle(Palette.textSecondary)
+                        .frame(maxHeight: .infinity)
+                }
+            }
+            .clipShape(Circle())
+            .accessibilityHidden(true)
+            .task(id: portrait?.url) {
+                guard let portrait, PortraitLoader.ready(portrait) == nil else { return }
+                let local = PortraitLoader.stored({ _ in throw URLError(.notConnectedToInternet) }, in: { .pictures })
+                loaded = await PortraitLoader.load(portrait, screen: PortraitLoader.deviceScreen, fetch: local)?.image
+            }
+    }
+
+    /// The capital letters that start the words of a name, at most two.
+    static func initials(of name: String) -> String {
+        String(name.split(separator: " ").compactMap { $0.first.flatMap { $0.isUppercase ? $0 : nil } }.prefix(2))
+    }
 }
 
 /// Every composer of the library.
@@ -170,5 +410,12 @@ struct FavouritesView: View {
             }
         }
         .pageTitle(L("Favourites"))
+    }
+}
+
+extension LibraryPage.Favourites {
+    /// The ids of every favourite, in order: the page changes when one of them does.
+    fileprivate var signature: [String] {
+        composers.map(\.id) + performers.map(\.id) + albums.map(\.id) + works.map(\.id) + recordings.map(\.id)
     }
 }

@@ -5,7 +5,8 @@
 # ///
 """Opens every specimen page in headless Chromium, in each room, contrast mode and accent, and fails on a script error.
 
-Usage: uv run --with playwright==1.64.1 design/scripts/specimen_check.py
+Usage: uv run --with playwright==1.64.1 design/scripts/specimen_check.py [page.html ...]
+Page names limit the run to those pages and their URL variants.
 (once: uv run --with playwright==1.64.1 playwright install chromium)
 It also fails when a page draws nothing, the timeline is missing or a tapped movement row does not open.
 It checks the player overlay of the player page: its three poses, the tab bar and the pill above it,
@@ -19,17 +20,21 @@ import sys
 import threading
 from pathlib import Path
 
-from playwright.sync_api import sync_playwright
-
 DESIGN = Path(__file__).resolve().parents[1]
 PAGES = (
     "index.html",
+    "library.html",
+    "library.html?rows=all",
+    "library.html?edit=1",
+    "library.html?edit=row",
+    "library.html?edit=empty",
     "work.html",
     "player.html",
     "player.html?album=3Is4qK0IBSlUYtEHMhh8YH",
     "chronology.html",
     "chronology.html?level=overview",
     "search.html",
+    "search.html?filters=example",
     "person.html?name=Ludwig%20van%20Beethoven",
     "person.html?name=Karl%20B%C3%B6hm",
     "tokens.html",
@@ -44,6 +49,7 @@ PAGES = (
     "server.html?state=signedout",
     "server.html?confirm=signout",
     "menu.html",
+    "sheet.html",
     "menu.html?for=recording&state=downloading",
     "menu.html?for=work",
     "work.html?variant=page-menu",
@@ -60,6 +66,17 @@ MODES = (
     ("dark", "normal", "plum", "room", "album", "right"),
     ("light", "high", "claret", "hall", "recording", "left"),
 )
+
+
+def select_pages(names):
+    """No name selects every page; a name selects its page with all URL variants."""
+    known = {page.split("?")[0] for page in PAGES}
+    unknown = [name for name in names if name not in known]
+    if unknown:
+        raise SystemExit(f"unknown page: {', '.join(unknown)}. Known pages: {', '.join(sorted(known))}")
+    if not names:
+        return PAGES
+    return tuple(page for page in PAGES if page.split("?")[0] in names)
 
 
 def serve():
@@ -196,7 +213,11 @@ def check_slow_start(context, base, failures):
         page.close()
 
 
-def main():
+def main(argv):
+    # Imported here so the page selection runs without Playwright installed.
+    from playwright.sync_api import sync_playwright
+
+    pages = select_pages(argv)
     server = serve()
     base = f"http://127.0.0.1:{server.server_address[1]}/specimen/"
     failures, runs = [], 0
@@ -205,15 +226,22 @@ def main():
         context = browser.new_context(
             viewport={"width": 393, "height": 852}, device_scale_factor=3, is_mobile=True, has_touch=True
         )
-        check_work_capsules(context, base, failures)
-        check_slow_start(context, base, failures)
-        for page_path in PAGES:
+        # Each extra check belongs to the page it opens.
+        names = {page.split("?")[0] for page in pages}
+        if "work.html" in names:
+            print("work capsules", flush=True)
+            check_work_capsules(context, base, failures)
+        if "player.html" in names:
+            print("slow start", flush=True)
+            check_slow_start(context, base, failures)
+        for page_path in pages:
             for theme, contrast, accent, player, playing, side in MODES:
                 sep = "&" if "?" in page_path else "?"
                 settings = (
                     f"theme={theme}&contrast={contrast}&accent={accent}&player={player}&playing={playing}&side={side}"
                 )
                 url = f"{base}{page_path}{sep}{settings}"
+                before = len(failures)
                 page = context.new_page()
                 errors = []
                 page.on("pageerror", lambda e, errors=errors: errors.append(str(e)))
@@ -245,6 +273,7 @@ def main():
                     failures.append(f"{where} after a tap: {' | '.join(errors)}")
                 runs += 1
                 page.close()
+                print(f"{'FAIL' if len(failures) > before else 'ok'} {where}", flush=True)
         browser.close()
     server.shutdown()
     for line in failures:
@@ -254,4 +283,4 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))

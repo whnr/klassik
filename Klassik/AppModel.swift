@@ -40,7 +40,8 @@ final class AppModel {
     let people: PersonFactsStore
     let sweep: PersonSweep
     let swipes = SwipeSettings()
-    let libraryRows = LibraryRows()
+    /// The Library rows share the device file too.
+    private(set) var libraryRows: LibraryRows
     let chronology = ChronologyPlace()
     @ObservationIgnored private var reconnect: ConnectionMonitor?
     @ObservationIgnored private var reconnectSync: Task<Void, Never>?
@@ -66,6 +67,7 @@ final class AppModel {
         recordingOrder = RecordingOrder(library: library)
         notes = ListeningNotes(store: nil)
         recentSearches = RecentSearches(store: nil)
+        libraryRows = LibraryRows(file: ListenerFile(store: nil), defaults: defaults)
         #if DEBUG
             tracks =
                 SlowMusic.isOn
@@ -100,7 +102,7 @@ final class AppModel {
             pictures.clear()
             enrichment.clear()
             people.clear()
-            libraryRows.reset()
+            defaults.removeObject(forKey: LibraryRows.legacyKey)
             chronology.clear()
         }
         credentials = store.load()
@@ -422,6 +424,7 @@ final class AppModel {
         recordingOrder = RecordingOrder(library: library, file: listener.file, server: favourites)
         notes = ListeningNotes(file: listener.file)
         recentSearches = RecentSearches(file: listener.file)
+        libraryRows = LibraryRows(file: listener.file, defaults: defaults)
     }
 
     private func record(_ error: Error) {

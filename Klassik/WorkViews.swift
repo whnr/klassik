@@ -334,26 +334,53 @@ struct WorkView: View {
 }
 
 /// A section heading with its count in a lighter step: "Recordings (3)".
+/// With `fold`, the heading is a button that folds its section; `fold` says whether the section is folded.
 struct CountedHeading: View {
     @Environment(\.isPageList) private var isPageList
     let title: String
     let count: Int
+    let fold: (isFolded: Bool, toggle: () -> Void)?
 
-    init(_ title: String, count: Int) {
+    init(_ title: String, count: Int, fold: (isFolded: Bool, toggle: () -> Void)? = nil) {
         self.title = title
         self.count = count
+        self.fold = fold
     }
 
     var body: some View {
+        Group {
+            if let fold {
+                Button(action: fold.toggle) {
+                    HStack(alignment: .firstTextBaseline) {
+                        heading
+                        Image(systemName: fold.isFolded ? "chevron.right" : "chevron.down")
+                            .typeStyle(.footnote)
+                            .foregroundStyle(Palette.textSecondary)
+                            .accessibilityHidden(true)
+                    }
+                    .contentShape(Rectangle())
+                }
+                // A row of a list sends a tap anywhere on it to a bordered button.
+                .buttonStyle(.borderless)
+                .accessibilityIdentifier("section-fold")
+                .accessibilityValue(fold.isFolded ? L("Folded") : L("Open"))
+                .accessibilityHint(fold.isFolded ? L("Opens the section") : L("Folds the section"))
+            } else {
+                heading
+            }
+        }
+        .pageSectionHeader(isPageList)
+    }
+
+    private var heading: some View {
         Text("\(Text(LocalizedStringKey(title))) \(Text("(\(count))").foregroundStyle(Palette.textSecondary))")
             .typeStyle(Layout.sectionHeading)
             .foregroundStyle(Palette.textPrimary)
             .textCase(nil)
             .multilineTextAlignment(.leading)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: fold == nil ? .infinity : nil, alignment: .leading)
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("section-heading")
-            .pageSectionHeader(isPageList)
     }
 }
 
@@ -514,8 +541,8 @@ struct RecordingView: View {
     @State private var spell = QuietSpell()
     /// The note that the listener writes in the playing row. It stays while the listener scrubs.
     @State private var draft: NoteDraft?
-    /// The note that the listener deleted last on this page, until its Undo runs out.
-    @State private var removed: RemovedNote?
+    /// The notes that the listener deleted on this page, until their Undo runs out.
+    @State private var removed = RemovedNotes()
     /// Where the notes of each row live, by track position.
     @State private var places: [NotePlace?] = []
     /// True while a drag that began with the rows at the top runs. Only such a drag closes the player.
@@ -591,16 +618,16 @@ struct RecordingView: View {
             .onChange(of: model.isScrubbing) { _, scrubbing in spell.hold(scrubbing) }
             .onChange(of: draft != nil) { _, writing in spell.writing(writing) }
             // A deleted note offers Undo for a few seconds.
-            .task(id: removed?.note.id) {
-                guard removed != nil else { return }
+            .task(id: removed.deletes) {
+                guard removed.latest != nil else { return }
                 try? await Task.sleep(for: .seconds(6))
-                if !Task.isCancelled { removed = nil }
+                if !Task.isCancelled { removed.clear() }
             }
             .safeAreaInset(edge: .bottom) {
-                if let gone = removed {
+                if removed.latest != nil {
                     UndoBanner {
+                        guard let gone = removed.takeLatest() else { return }
                         model.notes.restore(gone.note, at: gone.place)
-                        removed = nil
                     }
                 }
             }
@@ -921,15 +948,13 @@ struct RecordingView: View {
             ForEach(shown) { note in
                 NoteRow(
                     note: note, row: index, canMark: isPlaying,
-                    draft: Binding(
-                        get: { draft?.row == index ? draft : nil },
-                        set: { draft = $0 }),
+                    draft: $draft,
                     elapsed: elapsed,
                     save: { model.notes.save($0, at: place) },
                     jump: { plays in jump(to: note, row: index, plays: plays) },
                     delete: {
                         spell.touch()
-                        if model.notes.remove(note, at: place) { removed = RemovedNote(note: note, place: place) }
+                        if model.notes.remove(note, at: place) { removed.add(note, at: place) }
                     }
                 )
                 .playingRow(isCurrent)
@@ -937,9 +962,7 @@ struct RecordingView: View {
             }
             if adds {
                 NoteEditor(
-                    draft: Binding(
-                        get: { draft?.row == index ? draft : nil },
-                        set: { draft = $0 }),
+                    draft: $draft,
                     row: index, place: place, elapsed: elapsed
                 )
                 .playingRow(isCurrent)
@@ -1152,12 +1175,6 @@ private struct PlayerControls: View {
     }
 }
 
-/// A note that a deletion removed and Undo can put back.
-private struct RemovedNote: Equatable {
-    let note: ListeningNote
-    let place: NotePlace
-}
-
 /// The line that offers Undo after a note is deleted.
 private struct UndoBanner: View {
     let undo: () -> Void
@@ -1196,7 +1213,7 @@ private struct NoteRow: View {
     @ScaledMetric(space: .s) private var gap: CGFloat
 
     var body: some View {
-        if let current = draft, current.editing == note.id {
+        if let current = draft, current.row == row, current.editing == note.id {
             // A container keeps the identifiers of its controls inside the row's identifier.
             NoteDraftForm(draft: $draft, canMark: canMark, elapsed: elapsed, save: save)
                 .accessibilityElement(children: .contain)
@@ -1209,7 +1226,7 @@ private struct NoteRow: View {
                     .accessibilityLabel("Play from \(ListeningNotes.time(of: note))")
                     .accessibilityIdentifier("note-time")
                 Button {
-                    draft = NoteDraft(row: row, editing: note)
+                    draft = NoteDraft.opening(note, row: row, over: draft)
                 } label: {
                     Text(note.text)
                         .ink()
@@ -1247,7 +1264,7 @@ private struct NoteEditor: View {
     }
 
     @ViewBuilder private var editor: some View {
-        if let current = draft, current.editing == nil {
+        if let current = draft, current.row == row, current.editing == nil {
             NoteDraftForm(
                 draft: $draft, canMark: true, elapsed: elapsed, save: { model.notes.save($0, at: place) })
         } else {
@@ -1255,7 +1272,7 @@ private struct NoteEditor: View {
                 .typeStyle(.subheadline)
                 .foregroundStyle(Palette.tint)
                 .buttonStyle(.borderless)
-                // One note is open at a time: Save or Cancel it first.
+                // One note is open at a time, in any row: Save or Cancel it first.
                 .disabled(draft != nil)
                 .accessibilityIdentifier("add-note")
         }

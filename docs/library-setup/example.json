@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "rows": [
+    {
+      "id": "default-composers",
+      "kind": "composers",
+      "source": "composers",
+      "searchText": "",
+      "conditions": [],
+      "sort": "random",
+      "form": "faces",
+      "count": 9,
+      "links": []
+    },
+    {
+      "id": "6f4c2d52-7a4e-4c6e-9d1b-0d4a1f6a7b21",
+      "kind": "saved",
+      "source": "library",
+      "searchText": "",
+      "conditions": [
+        [
+          { "kind": "composer", "name": "Johann Sebastian Bach" },
+          { "kind": "composer", "name": "Georg Friedrich Händel" }
+        ],
+        [{ "kind": "genre", "name": "Cantata" }]
+      ],
+      "sort": "az",
+      "form": "covers",
+      "count": 12,
+      "links": []
+    },
+    {
+      "id": "default-links",
+      "kind": "links",
+      "source": "library",
+      "searchText": "",
+      "conditions": [],
+      "sort": "random",
+      "form": "tiles",
+      "count": 9,
+      "links": ["performers", "works", "albums", "genres", "roles", "playlists"]
+    }
+  ]
+}

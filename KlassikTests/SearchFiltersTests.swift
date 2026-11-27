@@ -94,13 +94,21 @@ struct SearchFiltersTests {
         #expect(filters.count([kubelik, Condition(terms: [Self.genre("Piano")])], in: all) == 0)
     }
 
-    /// Without an open condition a term adds a condition with "and". A term that leaves nothing does not show, and
-    /// a term that a condition holds does not show again.
+    /// Without an open condition a term adds a condition with "and". A term that leaves nothing does not show.
     @Test func aTermStartsAConditionWithAnd() {
         let conditions = [Condition(terms: [Self.composer(Self.dvorak)])]
         let conductors = Self.filters.choices(in: .conductors, conditions: conditions, pool: Self.everything)
         #expect(Self.summary(conductors) == ["Rafael Kubelík and 2", "Václav Talich and 1"])
-        #expect(Self.filters.choices(in: .composers, conditions: conditions, pool: Self.everything).isEmpty)
+    }
+
+    /// A term in use shows a check, first in its list, wherever it is used. A second tap removes it.
+    @Test func aTermInUseShowsACheckWhetherOrNotAConditionIsOpen() {
+        let conditions = [Condition(terms: [Self.composer(Self.dvorak)])]
+        let closed = Self.filters.choices(in: .composers, conditions: conditions, pool: Self.everything)
+        #expect(Self.summary(closed) == ["Antonín Dvořák check 3"])
+        let others = [Condition(terms: [Self.genre("Piano")]), Condition(terms: [Self.composer(Self.chopin)])]
+        let open = Self.filters.choices(in: .genres, conditions: others, joining: 1, pool: Self.everything)
+        #expect(Self.summary(open) == ["Piano check 2"])
     }
 
     /// With an open condition a term joins it with "or", and a term that it holds shows a check.
@@ -202,6 +210,25 @@ struct SearchFiltersTests {
         #expect(filtered.results.works.count == found.works.count)
         #expect(filtered.matching.isEmpty)
         #expect(Self.filters.narrow(nil, by: []).results.isEmpty)
+    }
+
+    /// The count under the title is the number of rows that the page shows: composers, performers, works, albums.
+    @Test func theCountEqualsTheResultRows() {
+        let found = Self.search.results(for: "dvorak")
+        #expect(found.rowCount == found.works.count + found.people.count + found.albums.count)
+        #expect(found.rowCount == 4)
+        let filtered = Self.filters.narrow(found, by: [Condition(terms: [Self.conductor("Václav Talich")])])
+        #expect(filtered.results.rowCount == 2)
+        #expect(Self.filters.narrow(nil, by: []).results.rowCount == 0)
+    }
+
+    /// Without a text the conditions find works and albums only, and the count follows them. One recording
+    /// of a work or album is one row, however many recordings pass.
+    @Test func theCountOfConditionsWithoutTextCountsRowsNotRecordings() {
+        let piano = [Condition(terms: [Self.genre("Piano")])]
+        let filtered = Self.filters.narrow(nil, by: piano)
+        #expect(Self.filters.count(piano, in: Self.everything) == 2)
+        #expect(filtered.results.rowCount == 4)
     }
 
     /// A scope that the library lacks lists no terms.

@@ -14,7 +14,8 @@ struct LibraryView: View {
             albums: order.favouriteAlbums, works: order.favouriteWorks, recordings: order.favouriteRecordings)
         let page = pageCache.page(
             for: PageKey(
-                indexVersion: library.indexVersion, favourites: favourites.signature, rows: rows, day: Calendar.current.startOfDay(for: .now))
+                indexVersion: library.indexVersion, favourites: favourites.signature, rows: rows,
+                day: Calendar.current.startOfDay(for: .now))
         ) {
             LibraryPage(index: library.index, favourites: favourites, rows: rows, date: .now)
         }

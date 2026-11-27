@@ -11,7 +11,9 @@ enum Hyphenation {
     static func soften(_ text: String, locale: Locale) -> String {
         guard CFStringIsHyphenationAvailableForLocale(locale as CFLocale) else { return text }
         return text.split(separator: " ", omittingEmptySubsequences: false)
-            .map { word in String(word).count < shortestWord ? String(word) : soften(word: String(word), locale: locale) }
+            .map { word in
+                String(word).count < shortestWord ? String(word) : soften(word: String(word), locale: locale)
+            }
             .joined(separator: " ")
     }
 

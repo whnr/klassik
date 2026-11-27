@@ -1170,6 +1170,7 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(
             eventually(timeout: 10) { line.label.contains(", output ") }, "No output rate in the line: \(line.label)")
         XCTAssertFalse(line.label.contains("·"), "The line separates fields with a middle dot: \(line.label)")
+        XCTAssertTrue(line.label.contains(" kbit/s"), "No bit rate in the line: \(line.label)")
         snap(app, "07t-audio-quality")
     }
 

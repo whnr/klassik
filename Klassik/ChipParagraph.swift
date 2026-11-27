@@ -21,7 +21,7 @@ struct ChipParagraph: UIViewRepresentable {
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView view: ChipParagraphView, context: Context) -> CGSize? {
         view.apply(paragraph, remove: remove, toggle: toggle, typeSize: typeSize)
-        return view.size(fitting: proposal.width ?? UIScreen.main.bounds.width)
+        return view.size(fitting: proposal.width ?? view.bounds.width)
     }
 }
 

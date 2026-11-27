@@ -33,6 +33,7 @@ Details of the workflows. `AGENTS.md` keeps the rules that every agent needs.
 ## Playback Lab
 
 - `.github/workflows/lab.yml` builds the `KlassikLab` scheme and runs `KlassikLabTests` on `xcode-27`, with no walk and no fixture server. It runs for changes to `KlassikLab`, `KlassikEngine` and `project.yml`; its `plan` job skips the macOS build when `project.yml` changed only in its version lines (`scripts/lab_plan.py`). `lint` checks the Lab code, because Test skips Lab-only changes. `.github/workflows/testflight-lab.yml` runs by hand and after every Lab run on `main` whose `lab` job passed (a run whose job was skipped uploads nothing; pull requests start nothing), needs a green `lab` job on the commit or on the newest earlier commit when every commit since changes only version lines and files outside the Lab (`lab_plan.py gate`), and uploads the Lab with the same secrets as Klassik. It makes no tag, release or What to Test text. Neither workflow changes the Klassik gate.
+- `docs/library-setup/` documents the stored Library setup: `schema.json` (JSON Schema), `example.json` and a README. `scripts/library_setup_check.py` checks the schema, the example and the Swift enum names; the `library-setup` job of `test.yml` runs it, and runs it on a bad example that must fail. A format change edits the schema, the example and `LibrarySetup.version` together.
 
 ## Releases
 

@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "rows": [
+    {
+      "id": "default-composers",
+      "kind": "composers",
+      "source": "composers",
+      "searchText": "",
+      "conditions": [],
+      "sort": "sideways",
+      "form": "faces",
+      "count": 9,
+      "links": []
+    }
+  ]
+}

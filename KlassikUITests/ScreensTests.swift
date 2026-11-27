@@ -1254,6 +1254,8 @@ final class PlaybackScreens: ScreensTestCase {
     private final class StripSample: @unchecked Sendable {
         var ink: Int?
         var top: CGFloat = 0
+        /// One line per timer tick: the overlay top and what the pixel read returned.
+        var ticks: [String] = []
     }
 
     /// While a finger holds the player pulled down, the page behind shows in the strip above it. An opaque layer
@@ -1267,10 +1269,14 @@ final class PlaybackScreens: ScreensTestCase {
         openPlayer(app)
         let overlay = app.descendants(matching: .any)["player-overlay"].firstMatch
         let strip = StripSample()
-        let timer = Timer(timeInterval: 2.5, repeats: false) { _ in
+        let clock = Date()
+        let timer = Timer(timeInterval: 0.5, repeats: true) { _ in
             MainActor.assumeIsolated {
                 let top = overlay.frame.minY
-                guard top > 200, let pixels = ScreenPixels(app) else { return }
+                let pixels = top > 200 ? ScreenPixels(app) : nil
+                strip.ticks.append(
+                    "t=\(String(format: "%.1f", Date().timeIntervalSince(clock))) top=\(top) pixels=\(pixels != nil)")
+                guard strip.ink == nil, let pixels else { return }
                 // Below the status bar and above the player. Each row's ground is the pixel at the left edge.
                 let rows = stride(from: Int(70 * pixels.scale), to: Int((top - 4) * pixels.scale), by: 2)
                 let right = Int((app.frame.width - 8) * pixels.scale)
@@ -1289,7 +1295,9 @@ final class PlaybackScreens: ScreensTestCase {
             forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45)),
             withVelocity: .slow, thenHoldForDuration: 3)
         timer.invalidate()
-        XCTAssertNotNil(strip.ink, "The player was not pulled down while the finger held it")
+        XCTAssertNotNil(
+            strip.ink,
+            "The player was not pulled down while the finger held it. Ticks: \(strip.ticks.joined(separator: "; "))")
         XCTAssertGreaterThan(
             strip.ink ?? 0, 50,
             "The strip above the pulled player (top at \(strip.top)) is one flat colour, not the page")

@@ -177,10 +177,6 @@
         border-radius: var(--radius-full);
         background: color-mix(in srgb, var(--color-tint) 30%, var(--color-fill-standard));
       }
-      /* Settings > Playback > Show Audio Quality: one caption line under the times, fields separated by commas. */
-      .mv-quality {
-        text-align: center;
-      }
       .mv-controls {
         display: flex;
         justify-content: center;
@@ -754,15 +750,7 @@
             ),
             state,
           );
-          const quality =
-            K.params.get("quality") === "on"
-              ? el(
-                  "div",
-                  { class: "mv-quality t-caption1 secondary", "data-id": "audio-quality" },
-                  "FLAC 24-bit 96 kHz, output 96 kHz, bit-perfect not verified",
-                )
-              : null;
-          const barBox = el("div", { class: "bar-box" }, bar, el("div", { class: "mv-under" }, times, status), quality);
+          const barBox = el("div", { class: "bar-box" }, bar, el("div", { class: "mv-under" }, times, status));
           box.append(barBox, controls);
           const noteList = noteRows(s, i, notes);
           if (noteList) box.append(noteList);

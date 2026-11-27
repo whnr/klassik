@@ -348,26 +348,53 @@ struct WorkView: View {
 }
 
 /// A section heading with its count in a lighter step: "Recordings (3)".
+/// With `fold`, the heading is a button that folds its section; `fold` says whether the section is folded.
 struct CountedHeading: View {
     @Environment(\.isPageList) private var isPageList
     let title: String
     let count: Int
+    let fold: (isFolded: Bool, toggle: () -> Void)?
 
-    init(_ title: String, count: Int) {
+    init(_ title: String, count: Int, fold: (isFolded: Bool, toggle: () -> Void)? = nil) {
         self.title = title
         self.count = count
+        self.fold = fold
     }
 
     var body: some View {
+        Group {
+            if let fold {
+                Button(action: fold.toggle) {
+                    HStack(alignment: .firstTextBaseline) {
+                        heading
+                        Image(systemName: fold.isFolded ? "chevron.right" : "chevron.down")
+                            .typeStyle(.footnote)
+                            .foregroundStyle(Palette.textSecondary)
+                            .accessibilityHidden(true)
+                    }
+                    .contentShape(Rectangle())
+                }
+                // A row of a list sends a tap anywhere on it to a bordered button.
+                .buttonStyle(.borderless)
+                .accessibilityIdentifier("section-fold")
+                .accessibilityValue(fold.isFolded ? L("Folded") : L("Open"))
+                .accessibilityHint(fold.isFolded ? L("Opens the section") : L("Folds the section"))
+            } else {
+                heading
+            }
+        }
+        .pageSectionHeader(isPageList)
+    }
+
+    private var heading: some View {
         Text("\(Text(LocalizedStringKey(title))) \(Text("(\(count))").foregroundStyle(Palette.textSecondary))")
             .typeStyle(Layout.sectionHeading)
             .foregroundStyle(Palette.textPrimary)
             .textCase(nil)
             .multilineTextAlignment(.leading)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: fold == nil ? .infinity : nil, alignment: .leading)
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("section-heading")
-            .pageSectionHeader(isPageList)
     }
 }
 

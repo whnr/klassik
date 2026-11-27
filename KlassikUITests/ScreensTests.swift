@@ -561,12 +561,23 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertTrue(albums.firstMatch.exists, "No album for Chopin")
         XCTAssertFalse(app.buttons["search-recording"].exists, "Search lists a recording apart from its work")
         let heading = { (title: String) in
-            app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "\(title) (")).firstMatch
+            app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "\(title) (")).firstMatch
         }
         XCTAssertEqual(heading("Albums").label, "Albums (\(albums.count))", "Albums counts more than its albums")
         XCTAssertLessThan(heading("Works").frame.minY, heading("Albums").frame.minY, "Albums precede works")
         XCTAssertLessThan(works.element(boundBy: 3).frame.minY, albums.firstMatch.frame.minY)
         snap(app, "19j-search-sections")
+
+        // A tap on a section title folds the section away and keeps the title; a second tap opens it.
+        let worksTitle = heading("Works")
+        worksTitle.tap()
+        XCTAssertEqual(works.count, 0, "Works stay after the fold")
+        XCTAssertTrue(albums.firstMatch.exists, "Folding Works folds Albums too")
+        XCTAssertEqual(heading("Works").value as? String, "Folded")
+        snap(app, "19j2-search-section-folded")
+        heading("Works").tap()
+        XCTAssertEqual(works.count, 4, "Works do not return after the second tap")
+        XCTAssertEqual(heading("Works").value as? String, "Open")
 
         // A movement title finds the work, not the album, and the row says which track matched.
         app.buttons["search-clear"].tap()

@@ -1,6 +1,6 @@
 # Export, import, backup and iCloud for listener data
 
-Bead sz-rs30.1.104.2. Parents: sz-rs30.1.104 (device data backup), sz-rs30.1.104.1 (notes of one recording). No app code and no ADR change. This file feeds a decision by Flo.
+This research belongs to the work on device data backup. Two parts feed it: the device backup and the notes of one recording. No app code and no ADR change. This file feeds a decision by Flo.
 
 ## Question
 
@@ -139,7 +139,7 @@ Sources: Apple developer documentation, `fileExporter`, `fileImporter`, `ShareLi
 
 ### Shape
 
-One JSON document, UTF-8. Suggested type: an exported UTI of the app, for example `de.whnr.klassik.data`, conforming to `public.json`, extension `.klassik`. The file stays readable and editable by hand. This also meets the wish of sz-rs30.1.39 for settings as JSON that an LLM can edit (a prompt text can ship beside the format).
+One JSON document, UTF-8. Suggested type: an exported UTI of the app, for example `de.whnr.klassik.data`, conforming to `public.json`, extension `.klassik`. The file stays readable and editable by hand. This also meets the wish for settings as JSON that an LLM can edit (a prompt text can ship beside the format).
 
 ```json
 {
@@ -206,14 +206,14 @@ Gap that deletes cannot cross files. A deleted note comes back when an older fil
 - In: notes, favourite works, albums and artists, recent searches, listener decisions (`chosen`, picks, rejected matches, confirmed links), the settings keys of section 1, the transport-neutral part of `library.filter.rules` and `library.rows`.
 - Decide: pending star changes and the scrobble queue (`<key>.scrobbles`). Both are device only until sent. A restore on a new phone can send them late. Flo's note of 2026-11-21 lists pending star changes as in.
 - Out: password, `server.info`, library index, covers, pictures, music cache, downloads, `store.cacheLimit` (device specific), playback position of the queue.
-- Out: lyrics until they are stored on the device (sz-f7wm). The format has room: a new section.
+- Out: lyrics until they are stored on the device. The format has room: a new section.
 
 ## 6. Recommendation
 
 Phase 1 (next minor version): the file.
 
-1. Define the format of section 5 with `modified` on every note. Ship notes export and import for one recording with `ShareLink` and `fileImporter`. This is sz-rs30.1.104.1.
-2. Ship the device export and import (sz-rs30.1.104) in the same format, through `fileExporter` and `fileImporter`. The listener may save it in iCloud Drive. This gives an iCloud backup that the listener sees and owns, with no entitlement.
+1. Define the format of section 5 with `modified` on every note. Ship notes export and import for one recording with `ShareLink` and `fileImporter`. This is the notes part.
+2. Ship the device export and import (the device backup part) in the same format, through `fileExporter` and `fileImporter`. The listener may save it in iCloud Drive. This gives an iCloud backup that the listener sees and owns, with no entitlement.
 3. Do nothing for the passive device backup. It already includes the decision files and excludes the audio. Optionally split caches from decisions later to shrink the backup.
 
 Phase 2 (iPad version): choose then between C and D.
@@ -239,7 +239,7 @@ Trade-offs:
 6. Does a note get a `modified` time and an optional `deleted` mark now (small change, needed for sync), or only when sync starts?
 7. For the iPad version: file in iCloud Drive (C) or CloudKit (D)? This can wait until that version starts.
 8. File name and type: `.klassik` with its own type, or a plain `.json` that any app opens?
-9. Do you want the optional LLM prompt text (sz-rs30.1.39) in this version, shipped with the format?
+9. Do you want the optional LLM prompt text for editing settings in this version, shipped with the format?
 
 ## Sources
 

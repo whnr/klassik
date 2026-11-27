@@ -53,8 +53,13 @@ struct PlaybackHistoryFixtureTests {
         #expect(queue.current == first.id)
         #expect(queue.position == 1234)
         try await client.scrobble(id: first.id, time: .now)
-        let after = try await client.get("getSong", [URLQueryItem(name: "id", value: first.id)]).song?.playCount
-        #expect(after == before + 1)
+        let afterSong = try #require(try await client.get("getSong", [URLQueryItem(name: "id", value: first.id)]).song)
+        #expect(afterSong.playCount == before + 1)
+        let played = try #require(afterSong.lastPlayed)
+        #expect(abs(played.timeIntervalSinceNow) < 120)
+        let single = WorkIndex.Recording(id: "heard", album: "heard", songs: [afterSong])
+        #expect(single.isHeard)
+        #expect(single.lastHeard == played)
         try await client.savePlayQueue(ids: [], current: nil, position: 0)
         #expect(try await client.getPlayQueue()?.entry?.isEmpty != false)
     }

@@ -129,6 +129,8 @@ struct Song: Codable, Sendable, Identifiable, Hashable {
     /// The date when the user starred the track. The server omits it for other tracks.
     var starred: String?
     var playCount: Int?
+    /// When the listener last played the track, as the server sends it (OpenSubsonic `played`).
+    var played: String?
     /// Kilobits per second, as the server declares it. The start threshold reads it (ADR 0060).
     var bitRate: Int?
     var samplingRate: Int?

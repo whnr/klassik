@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Checks the Library setup format: the JSON Schema is valid, the example follows it, and the schema names the same
-enum values as the Swift code. Run: python3 scripts/library_setup_check.py (needs the jsonschema package)."""
+enum values as the Swift code. Run: python3 scripts/library_setup_check.py [example.json] (needs the jsonschema package).
+A path replaces the example, so that CI can prove that a bad one fails."""
 
 import json
 import pathlib
@@ -23,13 +24,11 @@ def swift_cases(source, name):
     return [case.strip() for case in match.group(1).split(",")]
 
 
-def main():
+def main(example):
     schema = json.loads((FORMAT / "schema.json").read_text())
     jsonschema.Draft202012Validator.check_schema(schema)
     validator = jsonschema.Draft202012Validator(schema)
-    problems = [
-        f"example.json: {e.message}" for e in validator.iter_errors(json.loads((FORMAT / "example.json").read_text()))
-    ]
+    problems = [f"{example.name}: {e.message}" for e in validator.iter_errors(json.loads(example.read_text()))]
 
     rows = schema["$defs"]["row"]["properties"]
     code = SWIFT.read_text()
@@ -54,4 +53,4 @@ def main():
     print("Library setup format: ok")
 
 
-main()
+main(pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else FORMAT / "example.json")

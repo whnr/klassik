@@ -129,6 +129,16 @@ jobs:
       - uses: actions/checkout@v7
       - run: pip install jsonschema
       - run: python3 scripts/library_setup_check.py
+      # A check that passes every example proves nothing: the bad one must fail on its schema violation.
+      - name: A bad example fails the check
+        run: |
+          if out=$(python3 scripts/library_setup_check.py scripts/library_setup_bad_example.json); then
+            echo "$out"
+            echo "The bad example passed."
+            exit 1
+          fi
+          echo "$out"
+          echo "$out" | grep -q "library_setup_bad_example.json: 'sideways' is not one of"
 
   # Generate audio on Linux to keep package installation off the macOS runners.
   # The tarball keeps the colons in the file names, which artifact paths reject.

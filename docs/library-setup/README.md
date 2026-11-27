@@ -33,12 +33,15 @@ A document holds at most one row of kind `pick`.
 
 ## Reading
 
-- A reader refuses a document with a `version` that it does not know. It shows its default rows, and it never writes
-  over the document.
+- A reader refuses a document with a `version` that it does not know, or that it cannot read as a document with a
+  `version` and `rows`. It shows its default rows, and it writes the document back unchanged when it saves the
+  device file for another reason.
 - A reader drops a row that it cannot read: an unknown `kind`, an unknown value, a repeated `id`, or a second `pick`.
 - A reader fills a missing field with the start value of the row's kind.
+- A reader of a known version ignores a field that it does not know. When the reader edits the rows, it writes each
+  row without that field, so an older build loses the field at its next edit.
 
 ## Changing the format
 
-A change that old readers can still read, such as a new optional field, keeps the version. Any other change raises
+A change that old readers can still read, such as a new optional field, keeps the version. An old reader loses that field at its next edit of the rows. Any other change raises
 `version`, changes `schema.json` and `example.json` in the same commit, and keeps a reader for the old version.

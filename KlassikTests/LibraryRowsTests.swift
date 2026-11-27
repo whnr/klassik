@@ -233,20 +233,62 @@ struct LibraryRowsTests {
         #expect(setup.rows.map(\.id) == ["a", "c"])
     }
 
+    /// A device file of a newer build: a setup with an unknown row kind, an unknown field and a changed shape.
+    private let newerFile = """
+        {"favouriteWorks":["w"],"library":{"version":2,"rows":{"order":[{"id":"a","kind":"playlists","tags":[1,2.5,null,true]}]},"extra":"x"}}
+        """
+
+    /// The `library` value of a device file, as bytes with sorted keys.
+    private func libraryBytes(_ file: Data) throws -> Data {
+        let object = try #require(try JSONSerialization.jsonObject(with: file) as? [String: Any])
+        return try JSONSerialization.data(withJSONObject: try #require(object["library"]), options: .sortedKeys)
+    }
+
     @Test func aNewerFormIsNeitherShownNorOverwritten() throws {
         defer { try? FileManager.default.removeItem(at: root) }
         let suite = try defaults()
-        var data = DeviceStore.Data()
-        data.library = LibrarySetup(version: LibrarySetup.version + 1, rows: [LibraryRowSetup(kind: .albums)])
-        try ListenerFile(store: store()).save(data)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try Data(newerFile.utf8).write(to: store().url)
+        let before = try libraryBytes(Data(contentsOf: store().url))
 
-        let rows = LibraryRows(file: ListenerFile(store: store()), defaults: suite)
+        let file = ListenerFile(store: store())
+        #expect(file.loadError == nil)
+        let rows = LibraryRows(file: file, defaults: suite)
         #expect(kinds(rows) == [.composers, .favourites])
         rows.move(fromOffsets: [1], toOffset: 0)
         rows.insert(.works, below: nil)
         rows.delete(rows.rows[0].id)
         rows.reset()
-        #expect(ListenerFile(store: store()).data.library?.rows.map(\.kind) == [.albums])
+
+        var changed = file.data
+        changed.favouriteWorks.insert("w2")
+        try file.save(changed)
+        let after = try Data(contentsOf: store().url)
+        #expect(try libraryBytes(after) == before)
+        #expect(ListenerFile(store: store()).data.favouriteWorks == ["w", "w2"])
+    }
+
+    @Test func aSetupThatDoesNotReadStillLetsTheRestOfTheFileLoad() throws {
+        defer { try? FileManager.default.removeItem(at: root) }
+        let broken = [
+            #"{"favouriteWorks":["w"],"library":{"version":"two","rows":[]}}"#,
+            #"{"favouriteWorks":["w"],"library":{"version":1,"rows":"none"}}"#,
+            #"{"favouriteWorks":["w"],"library":[1,2]}"#,
+            #"{"favouriteWorks":["w"],"library":{"rows":[]}}"#,
+        ]
+        for json in broken {
+            try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+            try Data(json.utf8).write(to: store().url)
+            let before = try libraryBytes(Data(contentsOf: store().url))
+            let file = ListenerFile(store: store())
+            #expect(file.loadError == nil)
+            #expect(file.data.favouriteWorks == ["w"])
+            #expect(kinds(LibraryRows(file: file, defaults: try defaults())) == [.composers, .favourites])
+            var changed = file.data
+            changed.favouriteWorks.insert("w2")
+            try file.save(changed)
+            #expect(try libraryBytes(Data(contentsOf: store().url)) == before)
+        }
     }
 
     @Test func aFileWithoutLibraryRowsStillLoads() throws {

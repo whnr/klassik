@@ -123,32 +123,65 @@ struct LibraryRowSetup: Codable, Equatable, Identifiable, Sendable {
 }
 
 /// The stored form of the Library setup: a version and the rows. It is plain data, so that the sync of the device
-/// file can carry it. A reader refuses a version it does not know and never writes over it.
+/// file can carry it. A setup of a newer version, or one that this build cannot read at all, is kept as read and
+/// written back unchanged, so that a save by another module never damages it and never fails the rest of the file.
 struct LibrarySetup: Codable, Equatable, Sendable {
     nonisolated static let version = 1
 
     var version: Int
     var rows: [LibraryRowSetup]
+    /// The whole setup as read, when this build does not know its form. Then `rows` is empty and `version` is above
+    /// the known one.
+    private var kept: JSONValue?
 
     init(version: Int = LibrarySetup.version, rows: [LibraryRowSetup]) {
         self.version = version
         self.rows = rows
     }
 
+    private enum CodingKeys: String, CodingKey {
+        case version, rows
+    }
+
     /// A row of an unknown kind or with an unreadable field falls away, and so does a repeated identity or a
     /// second Daily pick.
     init(from decoder: any Decoder) throws {
+        let raw = try JSONValue(from: decoder)
+        guard case .object(let object) = raw, case .int(let stored)? = object["version"], stored >= 1 else {
+            self = Self.unreadable(raw, version: Int.max)
+            return
+        }
+        guard stored <= Int64(Self.version), case .array? = object["rows"] else {
+            self = Self.unreadable(raw, version: stored > Int64(Self.version) ? Int(stored) : Int.max)
+            return
+        }
         let values = try decoder.container(keyedBy: CodingKeys.self)
-        version = try values.decode(Int.self, forKey: .version)
+        version = Int(stored)
         var seen = Set<String>()
         var hasPick = false
-        var kept: [LibraryRowSetup] = []
+        var accepted: [LibraryRowSetup] = []
         for row in try values.decode([Lossy].self, forKey: .rows).compactMap(\.row) {
             guard seen.insert(row.id).inserted, !(row.kind == .pick && hasPick) else { continue }
             hasPick = hasPick || row.kind == .pick
-            kept.append(row)
+            accepted.append(row)
         }
-        rows = kept
+        rows = accepted
+    }
+
+    func encode(to encoder: any Encoder) throws {
+        if let kept {
+            try kept.encode(to: encoder)
+            return
+        }
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(version, forKey: .version)
+        try values.encode(rows, forKey: .rows)
+    }
+
+    private static func unreadable(_ raw: JSONValue, version: Int) -> LibrarySetup {
+        var setup = LibrarySetup(version: version, rows: [])
+        setup.kept = raw
+        return setup
     }
 
     private struct Lossy: Decodable {

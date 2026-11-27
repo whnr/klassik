@@ -3191,6 +3191,16 @@
         }
       }
     },
+    "Track": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titel"
+          }
+        }
+      }
+    },
     "Track: %@": {
       "localizations": {
         "de": {
@@ -3361,12 +3371,12 @@
         }
       }
     },
-    "While music plays, the timeline runs on this screen edge. Album keeps the loudness steps between the movements of a work. ReplayGain Off removes the gain stage from the signal path. Show Audio Quality adds a line under the playback bar: the file format, the bit rate, the output rate, whether the file is lossy, and whether anything changes the samples. Scrobbles count played movements on your server. Your server can send them to linked listening services.": {
+    "While music plays, the timeline runs on this screen edge. Album keeps the loudness steps between the movements of a work. Work plays all movements of a recording at one level. ReplayGain Off removes the gain stage from the signal path. Show Audio Quality adds a line under the playback bar: the file format, the bit rate, the output rate, whether the file is lossy, and whether anything changes the samples. Scrobbles count played movements on your server. Your server can send them to linked listening services.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Während Musik läuft, steht die Zeitleiste an diesem Bildschirmrand. „Album“ behält die Lautstärkestufen zwischen den Sätzen eines Werks. „ReplayGain aus“ entfernt die Verstärkungsstufe aus dem Signalweg. „Audioqualität anzeigen“ fügt unter der Wiedergabeleiste eine Zeile hinzu: das Dateiformat, die Bitrate, die Ausgaberate, ob die Datei verlustbehaftet ist und ob etwas die Samples verändert. Scrobbles zählen gespielte Sätze auf deinem Server. Dein Server kann sie an verknüpfte Hördienste senden."
+            "value": "Während Musik läuft, steht die Zeitleiste an diesem Bildschirmrand. „Album“ behält die Lautstärkestufen zwischen den Sätzen eines Werks. „Werk“ spielt alle Sätze einer Aufnahme auf einem Pegel. „ReplayGain aus“ entfernt die Verstärkungsstufe aus dem Signalweg. „Audioqualität anzeigen“ fügt unter der Wiedergabeleiste eine Zeile hinzu: das Dateiformat, die Bitrate, die Ausgaberate, ob die Datei verlustbehaftet ist und ob etwas die Samples verändert. Scrobbles zählen gespielte Sätze auf deinem Server. Dein Server kann sie an verknüpfte Hördienste senden."
           }
         }
       }

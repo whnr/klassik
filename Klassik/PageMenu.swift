@@ -203,7 +203,8 @@ struct PageMenuButton: View {
     @Environment(AppModel.self) private var model
     @Environment(AppNavigator.self) private var navigator
     let target: PageMenuTarget
-    /// The player draws the button as a flat disc on its own ground. A page bar keeps the system button.
+    /// The player draws the button flat, in the size and tint of the system bar button, because its bar is no
+    /// navigation bar. A page bar keeps the system button.
     var flat = false
 
     var body: some View {
@@ -215,10 +216,6 @@ struct PageMenuButton: View {
                 // the size of the symbol.
                 Image(systemName: "ellipsis")
                     .typeStyle(.body)
-                    .foregroundStyle(Palette.textPrimary)
-                    .frame(width: Layout.roundButton, height: Layout.roundButton)
-                    .background(Palette.backgroundElevated, in: .circle)
-                    .overlay(Circle().strokeBorder(Palette.separator))
                     .frame(width: Measure.hitTarget, height: Measure.hitTarget)
                     .contentShape(.rect)
                     .accessibilityLabel("More")

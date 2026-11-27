@@ -18,19 +18,31 @@ struct AudioQualityTests {
 
     private let flac = PlaybackTrack(id: "t", suffix: "flac", samplingRate: 96_000, bitDepth: 24)
 
-    @Test func aNativeRateWithoutAGainStageIsNotVerified() {
+    @Test func aNativeRateWithoutAGainStageReportsNoProcessing() {
         let line = AudioQuality.line(track: flac, path: path(engine: 96_000, hardware: 96_000))
-        #expect(line == "FLAC 24-bit 96 kHz, output 96 kHz, bit-perfect not verified")
+        #expect(line == "FLAC 24-bit 96 kHz, output 96 kHz, no processing reported")
+    }
+
+    @Test func theBitRateFollowsTheFormat() {
+        let track = PlaybackTrack(id: "t", suffix: "flac", bitRate: 2_304, samplingRate: 96_000, bitDepth: 24)
+        let line = AudioQuality.line(track: track, path: path(engine: 96_000, hardware: 96_000))
+        #expect(line == "FLAC 24-bit 96 kHz, 2,304 kbit/s, output 96 kHz, no processing reported")
+        #expect(AudioQuality.line(track: track, path: nil) == "FLAC 24-bit 96 kHz, 2,304 kbit/s")
+    }
+
+    @Test func noBitRateLeavesItOut() {
+        let track = PlaybackTrack(id: "t", suffix: "flac", bitRate: 0, samplingRate: 96_000, bitDepth: 24)
+        #expect(AudioQuality.line(track: track, path: nil) == "FLAC 24-bit 96 kHz")
     }
 
     @Test func aRateConversionByIOSIsProcessing() {
         let line = AudioQuality.line(track: flac, path: path(engine: 96_000, hardware: 48_000, mixer: 48_000))
-        #expect(line == "FLAC 24-bit 96 kHz, output 48 kHz, processing active: iOS converts to 48 kHz")
+        #expect(line == "FLAC 24-bit 96 kHz, output 48 kHz, processing: iOS converts to 48 kHz")
     }
 
     @Test func aGainStageIsProcessingEvenAtTheSameRate() {
         let line = AudioQuality.line(track: flac, path: path(engine: 96_000, hardware: 96_000, gainStage: true))
-        #expect(line?.contains("processing active: ReplayGain stage in the path") == true)
+        #expect(line?.contains("processing: ReplayGain stage in the path") == true)
     }
 
     @Test func aChannelChangeIsProcessing() {
@@ -41,7 +53,13 @@ struct AudioQualityTests {
     @Test func aLossySourceIsLabelled() {
         let mp3 = PlaybackTrack(id: "t", suffix: "mp3", samplingRate: 44_100)
         let line = AudioQuality.line(track: mp3, path: path(engine: 44_100, hardware: 44_100))
-        #expect(line == "MP3 44.1 kHz, output 44.1 kHz, lossy source, bit-perfect not verified")
+        #expect(line == "MP3 44.1 kHz, output 44.1 kHz, lossy file, no processing reported")
+    }
+
+    @Test func aLossySourceIsLabelledWhileProcessingIsActive() {
+        let mp3 = PlaybackTrack(id: "t", suffix: "mp3", samplingRate: 44_100)
+        let line = AudioQuality.line(track: mp3, path: path(engine: 44_100, hardware: 44_100, gainStage: true))
+        #expect(line == "MP3 44.1 kHz, output 44.1 kHz, lossy file, processing: ReplayGain stage in the path")
     }
 
     @Test func theFileAloneGivesTheFormatBeforeTheGraphExists() {

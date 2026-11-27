@@ -1351,22 +1351,22 @@
         }
       }
     },
-    "Klassik lists each composer's works in MusicBrainz and matches them on this iPhone. MusicBrainz allows one request a second. Look up missing again after a fix in MusicBrainz.": {
+    "Klassik lists each composer's works in MusicBrainz and matches them on this iPhone. It takes publication years from Wikidata. MusicBrainz allows one request a second. Look up missing again after a fix in MusicBrainz.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Klassik listet die Werke jedes Komponisten in MusicBrainz auf und gleicht sie auf diesem iPhone ab. MusicBrainz erlaubt eine Anfrage pro Sekunde. Frage Fehlende erneut ab, nachdem du etwas in MusicBrainz korrigiert hast."
+            "value": "Klassik listet die Werke jedes Komponisten in MusicBrainz auf und gleicht sie auf diesem iPhone ab. Veröffentlichungsjahre holt es aus Wikidata. MusicBrainz erlaubt eine Anfrage pro Sekunde. Frage Fehlende erneut ab, nachdem du etwas in MusicBrainz korrigiert hast."
           }
         }
       }
     },
-    "Klassik looks up every composer and performer of your library, new people first, one at a time at the pace that Wikidata asks for. It asks again for living people after about %lld days and for others after about a year, or after about 3 months when Wikidata does not know them. It waits for a connection that is not metered and not in Low Data Mode.": {
+    "Klassik looks up every composer and performer of your library in Wikidata, new people first, one at a time at the pace that Wikidata asks for. Biographies come from Wikipedia and pictures from Wikimedia Commons. It asks again for living people after about %lld days and for others after about a year, or after about 3 months when Wikidata does not know them. It waits for a connection that is not metered and not in Low Data Mode.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Klassik fragt jeden Komponisten und Interpreten deiner Bibliothek ab, neue Personen zuerst, einzeln und in dem Tempo, das Wikidata verlangt. Lebende Personen fragt es nach etwa %lld Tagen erneut ab, andere nach etwa einem Jahr, oder nach etwa 3 Monaten, wenn Wikidata sie nicht kennt. Es wartet auf eine Verbindung ohne Datenlimit und ohne Datensparmodus."
+            "value": "Klassik fragt jeden Komponisten und Interpreten deiner Bibliothek in Wikidata ab, neue Personen zuerst, einzeln und in dem Tempo, das Wikidata verlangt. Die Biografien kommen von Wikipedia, die Bilder von Wikimedia Commons. Lebende Personen fragt es nach etwa %lld Tagen erneut ab, andere nach etwa einem Jahr, oder nach etwa 3 Monaten, wenn Wikidata sie nicht kennt. Es wartet auf eine Verbindung ohne Datenlimit und ohne Datensparmodus."
           }
         }
       }
@@ -3381,12 +3381,12 @@
         }
       }
     },
-    "While music plays, the timeline runs on this screen edge. Album keeps the loudness steps between the movements of a work. Work plays all movements of a recording at one level. ReplayGain Off removes the gain stage from the signal path. Show Audio Quality adds a line under the playback bar: the file format, the output rate, and whether anything changes the samples. Scrobbles count played movements on your server. Your server can send them to linked listening services.": {
+    "While music plays, the timeline runs on this screen edge. Album keeps the loudness steps between the movements of a work. Work plays all movements of a recording at one level. ReplayGain Off removes the gain stage from the signal path. Show Audio Quality adds a line under the playback bar: the file format, the bit rate, the output rate, whether the file is lossy, and whether anything changes the samples. Scrobbles count played movements on your server. Your server can send them to linked listening services.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Während Musik läuft, steht die Zeitleiste an diesem Bildschirmrand. „Album“ behält die Lautstärkestufen zwischen den Sätzen eines Werks. „Werk“ spielt alle Sätze einer Aufnahme auf einem Pegel. „ReplayGain aus“ entfernt die Verstärkungsstufe aus dem Signalweg. „Audioqualität anzeigen“ fügt unter der Wiedergabeleiste eine Zeile hinzu: das Dateiformat, die Ausgaberate und ob etwas die Samples verändert. Scrobbles zählen gespielte Sätze auf deinem Server. Dein Server kann sie an verknüpfte Hördienste senden."
+            "value": "Während Musik läuft, steht die Zeitleiste an diesem Bildschirmrand. „Album“ behält die Lautstärkestufen zwischen den Sätzen eines Werks. „Werk“ spielt alle Sätze einer Aufnahme auf einem Pegel. „ReplayGain aus“ entfernt die Verstärkungsstufe aus dem Signalweg. „Audioqualität anzeigen“ fügt unter der Wiedergabeleiste eine Zeile hinzu: das Dateiformat, die Bitrate, die Ausgaberate, ob die Datei verlustbehaftet ist und ob etwas die Samples verändert. Scrobbles zählen gespielte Sätze auf deinem Server. Dein Server kann sie an verknüpfte Hördienste senden."
           }
         }
       }
@@ -3723,24 +3723,6 @@
     },
     "%lld composers": {
       "localizations": {
-        "en": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld composer"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld composers"
-                }
-              }
-            }
-          }
-        },
         "de": {
           "variations": {
             "plural": {
@@ -3758,29 +3740,29 @@
               }
             }
           }
-        }
-      }
-    },
-    "%lld conditions": {
-      "localizations": {
+        },
         "en": {
           "variations": {
             "plural": {
               "one": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld condition"
+                  "value": "%lld composer"
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld conditions"
+                  "value": "%lld composers"
                 }
               }
             }
           }
-        },
+        }
+      }
+    },
+    "%lld conditions": {
+      "localizations": {
         "de": {
           "variations": {
             "plural": {
@@ -3798,29 +3780,29 @@
               }
             }
           }
-        }
-      }
-    },
-    "%lld hours": {
-      "localizations": {
+        },
         "en": {
           "variations": {
             "plural": {
               "one": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld hour"
+                  "value": "%lld condition"
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld hours"
+                  "value": "%lld conditions"
                 }
               }
             }
           }
-        },
+        }
+      }
+    },
+    "%lld hours": {
+      "localizations": {
         "de": {
           "variations": {
             "plural": {
@@ -3838,29 +3820,29 @@
               }
             }
           }
-        }
-      }
-    },
-    "%lld minutes": {
-      "localizations": {
+        },
         "en": {
           "variations": {
             "plural": {
               "one": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld minute"
+                  "value": "%lld hour"
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld minutes"
+                  "value": "%lld hours"
                 }
               }
             }
           }
-        },
+        }
+      }
+    },
+    "%lld minutes": {
+      "localizations": {
         "de": {
           "variations": {
             "plural": {
@@ -3878,29 +3860,29 @@
               }
             }
           }
-        }
-      }
-    },
-    "%lld movements": {
-      "localizations": {
+        },
         "en": {
           "variations": {
             "plural": {
               "one": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld movement"
+                  "value": "%lld minute"
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld movements"
+                  "value": "%lld minutes"
                 }
               }
             }
           }
-        },
+        }
+      }
+    },
+    "%lld movements": {
+      "localizations": {
         "de": {
           "variations": {
             "plural": {
@@ -3918,29 +3900,29 @@
               }
             }
           }
-        }
-      }
-    },
-    "%lld recordings": {
-      "localizations": {
+        },
         "en": {
           "variations": {
             "plural": {
               "one": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld recording"
+                  "value": "%lld movement"
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld recordings"
+                  "value": "%lld movements"
                 }
               }
             }
           }
-        },
+        }
+      }
+    },
+    "%lld recordings": {
+      "localizations": {
         "de": {
           "variations": {
             "plural": {
@@ -3958,11 +3940,47 @@
               }
             }
           }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld recording"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld recordings"
+                }
+              }
+            }
+          }
         }
       }
     },
     "%lld tracks": {
       "localizations": {
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Titel"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Titel"
+                }
+              }
+            }
+          }
+        },
         "en": {
           "variations": {
             "plural": {
@@ -3980,47 +3998,11 @@
               }
             }
           }
-        },
-        "de": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld Titel"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld Titel"
-                }
-              }
-            }
-          }
         }
       }
     },
     "%lld works": {
       "localizations": {
-        "en": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld work"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld works"
-                }
-              }
-            }
-          }
-        },
         "de": {
           "variations": {
             "plural": {
@@ -4038,6 +4020,24 @@
               }
             }
           }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld work"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld works"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -4051,22 +4051,12 @@
         }
       }
     },
-    "Klassik looks up composers and their works in MusicBrainz.": {
+    "The fallback language affects the texts from Wikidata and Wikipedia. Descriptions and biographies come in the app language. Where they have none, Klassik shows the fallback language, or nothing when it is off. Composer names, work titles and tags stay as your music tags them. Change the app language in the iOS Settings app, under Klassik.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Klassik sucht Komponisten und ihre Werke in MusicBrainz."
-          }
-        }
-      }
-    },
-    "Descriptions and biographies come from Wikidata and Wikipedia in the app language. Where they have none, Klassik shows the fallback language, or nothing when it is off. Composer names, work titles and tags stay as your music tags them. Change the app language in the iOS Settings app, under Klassik.": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Beschreibungen und Biografien kommen von Wikidata und Wikipedia in der App-Sprache. Gibt es sie dort nicht, zeigt Klassik die Ersatzsprache oder nichts, wenn sie aus ist. Komponistennamen, Werktitel und Tags bleiben so, wie deine Musik sie taggt. Die App-Sprache änderst du in der iOS-App Einstellungen unter Klassik."
+            "value": "Die Ersatzsprache betrifft die Texte aus Wikidata und Wikipedia. Beschreibungen und Biografien kommen in der App-Sprache. Gibt es sie dort nicht, zeigt Klassik die Ersatzsprache oder nichts, wenn sie aus ist. Komponistennamen, Werktitel und Tags bleiben so, wie deine Musik sie taggt. Die App-Sprache änderst du in der iOS-App Einstellungen unter Klassik."
           }
         }
       }
@@ -4097,6 +4087,116 @@
           "stringUnit": {
             "state": "translated",
             "value": "Favorisierte Werke"
+          }
+        }
+      }
+    },
+    "%@ kHz": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ kHz"
+          }
+        }
+      }
+    },
+    "%@ kbit/s": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ kbit/s"
+          }
+        }
+      }
+    },
+    "%@-bit": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@-Bit"
+          }
+        }
+      }
+    },
+    "ReplayGain stage in the path": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ReplayGain-Stufe im Signalweg"
+          }
+        }
+      }
+    },
+    "iOS changes the channels": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS ändert die Kanäle"
+          }
+        }
+      }
+    },
+    "iOS converts to %@ kHz": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS wandelt auf %@ kHz um"
+          }
+        }
+      }
+    },
+    "lossy file": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "verlustbehaftete Datei"
+          }
+        }
+      }
+    },
+    "no processing reported": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "keine Verarbeitung gemeldet"
+          }
+        }
+      }
+    },
+    "output %@ kHz": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ausgabe %@ kHz"
+          }
+        }
+      }
+    },
+    "processing: %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verarbeitung: %@"
+          }
+        }
+      }
+    },
+    "unknown format": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "unbekanntes Format"
           }
         }
       }

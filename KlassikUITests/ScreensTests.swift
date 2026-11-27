@@ -830,7 +830,7 @@ final class BrowseScreens: ScreensTestCase {
         let counted = expectation(for: NSPredicate(format: "label CONTAINS '1'"), evaluatedWith: toConfirm)
         XCTAssertEqual(XCTWaiter.wait(for: [counted], timeout: 30), .completed, toConfirm.label)
         // The fallback language sits on this page, in its own group.
-        XCTAssertTrue(reveal(row(app, "text-fallback"), in: app).exists, "No fallback language on Data Enrichment")
+        XCTAssertTrue(reveal(app.descendants(matching: .any)["text-fallback"], in: app).exists, "No fallback language on Data Enrichment")
         snap(app, "02c-musicbrainz")
     }
 

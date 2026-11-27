@@ -105,8 +105,9 @@ struct SettingsView: View {
                 )
             }
 
-            Section {
-                if !model.library.index.composers.isEmpty {
+            // The heading sits on the first group shown: MusicBrainz needs composers, the language does not.
+            if !model.library.index.composers.isEmpty {
+                Section {
                     NavigationLink(value: Page.musicBrainz) {
                         LabeledContent {
                             Text(lookupState)
@@ -116,14 +117,21 @@ struct SettingsView: View {
                         }
                     }
                     .accessibilityIdentifier("musicbrainz")
+                } header: {
+                    SectionHeading("Data Enrichment")
+                } footer: {
+                    Text("Klassik looks up composers and their works in MusicBrainz.")
                 }
+            }
+
+            Section {
                 Picker("Fallback Language", selection: fallbackSetting) {
                     ForEach(TextFallback.all) { Text($0.title).tag($0) }
                 }
                 .accessibilityIdentifier("text-fallback")
                 .id(family)
             } header: {
-                SectionHeading("Data Enrichment")
+                if model.library.index.composers.isEmpty { SectionHeading("Data Enrichment") }
             } footer: {
                 Text(
                     "Descriptions and biographies come from Wikidata and Wikipedia in the app language. Where they have none, Klassik shows the fallback language, or nothing when it is off. Composer names, work titles and tags stay as your music tags them. Change the app language in the iOS Settings app, under Klassik."

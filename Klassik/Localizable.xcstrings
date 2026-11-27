@@ -1401,16 +1401,6 @@
         }
       }
     },
-    "Language": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sprache"
-          }
-        }
-      }
-    },
     "Last Error": {
       "localizations": {
         "de": {
@@ -4047,6 +4037,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld von %lld Sätzen"
+          }
+        }
+      }
+    },
+    "Klassik looks up composers and their works in MusicBrainz.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Klassik sucht Komponisten und ihre Werke in MusicBrainz."
           }
         }
       }

@@ -74,10 +74,12 @@
           ),
           group(
             "Data Enrichment",
-            [
-              link("MusicBrainz", "lookup.html", "3 to confirm"),
-              menu("Fallback Language", { off: "Off", en: "English" }, "off"),
-            ],
+            [link("MusicBrainz", "lookup.html", "3 to confirm")],
+            "Klassik looks up composers and their works in MusicBrainz.",
+          ),
+          group(
+            null,
+            [menu("Fallback Language", { off: "Off", en: "English" }, "off")],
             "Descriptions and biographies come from Wikidata and Wikipedia in the app language. Where they have " +
               "none, Klassik shows the fallback language, or nothing when it is off. Composer names, work titles " +
               "and tags stay as your music tags them. Change the app language in the iOS Settings app, under Klassik.",

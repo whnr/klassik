@@ -1758,12 +1758,15 @@ final class PlaybackScreens: ScreensTestCase {
             reveal(app.buttons["save-note"], in: app).tap()
             XCTAssertTrue(field.waitForNonExistence(timeout: 10), "Save left the note open")
         }
-        XCTAssertEqual(app.buttons.matching(identifier: "note-text").count, 3)
         reveal(position, in: app)
         // The last save closes the keyboard, and the page moves while it goes. A tap on a coordinate of the bar
         // that lands mid-move misses the lane and scrubs to the middle of the movement.
         XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 10), "The keyboard stayed open")
         XCTAssertTrue(waitUntilStill(position), "The position bar kept moving: \(position.frame)")
+        // The notes are list rows: the ones under the keyboard are not on the screen until it closes.
+        XCTAssertTrue(
+            eventually(timeout: 10) { app.buttons.matching(identifier: "note-text").count == 3 },
+            "The page shows \(app.buttons.matching(identifier: "note-text").count) of 3 notes")
         // Each lane above the first adds the pitch of one lane (Layout.noteDotTop).
         let pitch: CGFloat = 9
         XCTAssertEqual(barDrop(), bare + 2 * pitch, accuracy: 0.5, "The bar has no room for the third lane")
@@ -1830,6 +1833,9 @@ final class PlaybackScreens: ScreensTestCase {
         reveal(app.buttons["save-note"], in: app).tap()
         let note = app.buttons["note-text"].firstMatch
         XCTAssertTrue(note.waitForExistence(timeout: 10), "The saved note does not show")
+        // Save closes the keyboard and the page moves while it goes: a tap during the move misses the note.
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 10), "The keyboard stayed open")
+        XCTAssertTrue(waitUntilStill(note), "The note kept moving: \(note.frame)")
 
         // A tap on the text opens the note with its text and the buttons for its times.
         reveal(note, in: app).tap()
@@ -1845,6 +1851,8 @@ final class PlaybackScreens: ScreensTestCase {
             eventually(timeout: 5) { app.buttons["note-text"].firstMatch.label.contains("Theme in the violins") },
             "The edited text does not show")
         XCTAssertEqual(app.buttons.matching(identifier: "note-text").count, 1, "An edit made a second note")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 10), "The keyboard stayed open")
+        XCTAssertTrue(waitUntilStill(app.buttons["note-text"].firstMatch), "The note kept moving")
         snap(app, "41e-note-edited")
 
         // A swipe deletes the note; Undo brings it back.

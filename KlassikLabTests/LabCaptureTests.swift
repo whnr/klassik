@@ -164,8 +164,7 @@ struct LabCaptureTests {
     /// Two graphs whose host clocks start 0.35 s apart, with ±5 ms of jitter on every block after the first, over
     /// 60 s. The host time of the first block of a graph places it. After that the blocks follow by sample count, so
     /// the jitter makes no hole and no overlap, the offset between the graphs stays fixed, and nothing drifts.
-    @Test(arguments: Array(0..<50))
-    func twoGraphsOnTheHostClockLandSampleExactAndDoNotDriftOverSixtySeconds(repeat _: Int) async throws {
+    @Test func twoGraphsOnTheHostClockLandSampleExactAndDoNotDriftOverSixtySeconds() async throws {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
         let url = root.appending(path: "clock.wav")

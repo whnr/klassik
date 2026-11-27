@@ -332,11 +332,25 @@ final class TrackStore {
         // Once the system session fails for this download, the remaining tracks skip it.
         let session = BackgroundSessionState()
         tasks[recording.id] = Task {
+            // Loads that run ahead of the track the loop waits for. One transfer rarely fills the link.
+            var ahead: [String: Task<Void, any Error>] = [:]
+            defer { for task in ahead.values { task.cancel() } }
             do {
                 var bytes: Int64 = 0
                 for (index, song) in recording.songs.enumerated() {
                     try Task.checkCancellation()
                     let target = downloadFolder.appending(path: Self.fileName(song))
+                    // The first track runs alone, so a system session that fails is known before the others start.
+                    if index > 0 {
+                        for next in recording.songs[index..<min(index + Self.parallelDownloads, recording.songs.count)]
+                        where ahead[next.id] == nil && needsOwnLoad(next) {
+                            let file = downloadFolder.appending(path: Self.fileName(next))
+                            ahead[next.id] = Task {
+                                try await fetch(next, to: file, client: client, session: session)
+                            }
+                        }
+                    }
+                    if let running = ahead.removeValue(forKey: song.id) { try await running.value }
                     if !FileManager.default.fileExists(atPath: target.path()) {
                         let cached = cacheFolder.appending(path: Self.fileName(song))
                         // With a background session, only a transfer that runs already is shared: a new one would
@@ -399,6 +413,17 @@ final class TrackStore {
             rescan()
             restarts.removeValue(forKey: recording.id)?()
         }
+    }
+
+    /// How many tracks of one recording load at the same time.
+    static let parallelDownloads = 4
+
+    /// Whether a track has no file and no transfer to share, so a download loads it from the server.
+    private func needsOwnLoad(_ song: Song) -> Bool {
+        let name = Self.fileName(song)
+        if FileManager.default.fileExists(atPath: downloadFolder.appending(path: name).path()) { return false }
+        if FileManager.default.fileExists(atPath: cacheFolder.appending(path: name).path()) { return false }
+        return !(transport != nil && (background == nil || transfers[song.id] != nil))
     }
 
     /// The download stops at once for the listener. Its task releases the files in the background.

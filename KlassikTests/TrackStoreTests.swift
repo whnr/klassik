@@ -233,6 +233,34 @@ struct TrackStoreTests {
         #expect(store.failures.isEmpty)
     }
 
+    @Test func downloadLoadsSeveralTracksAtOnceAfterTheFirst() async throws {
+        let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
+        let running = Running()
+        let store = TrackStore(
+            cacheFolder: root.appending(path: "cache"), downloadFolder: root.appending(path: "support/downloads"),
+            defaults: defaults, fetch: { _, _ in throw SubsonicError.http(status: 500) },
+            background: { _, _ in
+                running.count += 1
+                running.peak = max(running.peak, running.count)
+                try await Task.sleep(for: .milliseconds(100))
+                running.count -= 1
+                let file = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+                try Data(count: 10).write(to: file)
+                return file
+            })
+        let recording = recording("r1", ["a", "b", "c", "d", "e", "f"])
+        store.download(recording, title: "Work", client: client)
+        await settle(store)
+        #expect(store.isDownloaded(recording))
+        #expect(running.peak > 1)
+        #expect(running.peak <= TrackStore.parallelDownloads)
+    }
+
+    @MainActor final class Running {
+        var count = 0
+        var peak = 0
+    }
+
     @Test func failedBackgroundLoadLeavesAFailedStateNotTheDownloadButton() async throws {
         let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
         let store = TrackStore(

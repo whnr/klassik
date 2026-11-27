@@ -1,7 +1,7 @@
 {
-  "sha": "67713e3cec8ce9b01f86341a73832233779ef3dd",
+  "sha": "5c1fa9e17bc9f86821fbe45087bcc5803312dc4f",
   "branch": "claude-fold-search",
   "path": "claude-fold-search",
-  "subject": "Merge origin/main into claude-fold-search",
-  "ts": 1795789323
+  "subject": "Walk the browse area for search folding",
+  "ts": 1795790710
 }

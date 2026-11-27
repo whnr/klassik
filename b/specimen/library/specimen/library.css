@@ -133,6 +133,7 @@
 .lib-pick .art {
   display: block;
   float: right;
+  margin-bottom: -1px; /* Line heights round to 1/64 px, so four lines fall short of the cover: end the cover within line 4. */
   margin-left: var(--space-l);
   width: calc(4 * var(--type-title2-size) * var(--type-title2-line-height));
 }

@@ -463,7 +463,7 @@
     const l = x.rec ? lead(x.rec) : x.fact;
     const leadLink = l && M.people[l] ? who(l) : null;
     const title = el("a", { class: "title", href: open }, x.name);
-    // One whole sentence per case: the app localises whole strings, never parts.
+    // The app localises one whole string for each case (title only, with composer, with lead, with both), never parts.
     const sentence = el(
       "p",
       { class: "dp-text t-title2", lang: "en" },

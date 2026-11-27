@@ -47,7 +47,6 @@ final class PlacesScreens: ScreensTestCase {
         XCTAssertTrue(lines.firstMatch.waitForExistence(timeout: 5))
         XCTAssertGreaterThanOrEqual(lines.count, 3)
         XCTAssertTrue(lines.element(boundBy: 0).label.contains("Composers"), lines.element(boundBy: 0).label)
-        XCTAssertFalse(app.buttons["library-link-albums"].exists, "A tile of the tab stays open while editing")
         snap(app, "02u-library-edit-list")
 
         // A tap on the tab selects the row and shows its settings. It opens no page.

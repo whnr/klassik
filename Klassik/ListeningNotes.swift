@@ -40,16 +40,29 @@ struct NotePlace: Hashable, Sendable {
 
 /// A note while the listener writes it in the playing row. It starts at the playing time; "End here"
 /// marks a second time. The earlier of the two is the start, so a scrub back still gives a span.
+/// A draft of an existing note starts from that note; "Start here" and "End here" then move its times the
+/// same way, and Save replaces the note.
 struct NoteDraft: Equatable, Sendable {
     /// The row on the page that the draft belongs to.
     let row: Int
-    private let start: Double
+    /// The note that Save replaces. Nil for a new note.
+    let editing: UUID?
+    private var start: Double
     private var mark: Double?
     var text = ""
 
     init(row: Int, at seconds: Double) {
         self.row = row
+        editing = nil
         start = Self.whole(seconds)
+    }
+
+    init(row: Int, editing note: ListeningNote) {
+        self.row = row
+        editing = note.id
+        start = Self.whole(note.at)
+        mark = note.end.map(Self.whole)
+        text = note.text
     }
 
     var at: Double { min(start, mark ?? start) }
@@ -62,6 +75,11 @@ struct NoteDraft: Equatable, Sendable {
 
     mutating func end(at seconds: Double) {
         mark = Self.whole(seconds)
+    }
+
+    /// Moves the start to a second. A start after the end swaps the two, as a scrub back does for the end.
+    mutating func start(at seconds: Double) {
+        start = Self.whole(seconds)
     }
 
     /// The row shows whole seconds, so the note keeps the second that the listener saw.
@@ -89,14 +107,44 @@ final class ListeningNotes {
             .sorted { ($0.at, $0.end ?? $0.at) < ($1.at, $1.end ?? $1.at) }
     }
 
-    /// Keeps a draft as a note. A draft without text keeps nothing. False when the device file refused it.
+    /// Keeps a draft as a note, or replaces the note that the draft edits. A draft without text keeps nothing and
+    /// leaves an edited note as it was. False when the device file refused it.
     @discardableResult
     func save(_ draft: NoteDraft, at place: NotePlace) -> Bool {
         let text = draft.text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return true }
         var changed = file.data
-        changed.notes[place.recording, default: []].append(
-            ListeningNote(movement: place.movement, at: draft.at, end: draft.end, text: text))
+        if let id = draft.editing {
+            guard let index = changed.notes[place.recording]?.firstIndex(where: { $0.id == id }) else { return true }
+            changed.notes[place.recording]?[index].at = draft.at
+            changed.notes[place.recording]?[index].end = draft.end
+            changed.notes[place.recording]?[index].text = text
+        } else {
+            changed.notes[place.recording, default: []].append(
+                ListeningNote(movement: place.movement, at: draft.at, end: draft.end, text: text))
+        }
+        return write(changed)
+    }
+
+    /// Deletes a note. The caller keeps the note to offer `restore`. False when the device file refused it.
+    @discardableResult
+    func remove(_ note: ListeningNote, at place: NotePlace) -> Bool {
+        var changed = file.data
+        changed.notes[place.recording]?.removeAll { $0.id == note.id }
+        if changed.notes[place.recording]?.isEmpty == true { changed.notes[place.recording] = nil }
+        return write(changed)
+    }
+
+    /// Puts a deleted note back as it was, with its ID. A note that is already there stays single.
+    @discardableResult
+    func restore(_ note: ListeningNote, at place: NotePlace) -> Bool {
+        var changed = file.data
+        guard changed.notes[place.recording]?.contains(where: { $0.id == note.id }) != true else { return true }
+        changed.notes[place.recording, default: []].append(note)
+        return write(changed)
+    }
+
+    private func write(_ changed: DeviceStore.Data) -> Bool {
         do {
             try file.save(changed)
             error = nil

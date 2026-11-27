@@ -1758,12 +1758,15 @@ final class PlaybackScreens: ScreensTestCase {
             reveal(app.buttons["save-note"], in: app).tap()
             XCTAssertTrue(field.waitForNonExistence(timeout: 10), "Save left the note open")
         }
-        XCTAssertEqual(app.buttons.matching(identifier: "note-text").count, 3)
         reveal(position, in: app)
         // The last save closes the keyboard, and the page moves while it goes. A tap on a coordinate of the bar
         // that lands mid-move misses the lane and scrubs to the middle of the movement.
         XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 10), "The keyboard stayed open")
         XCTAssertTrue(waitUntilStill(position), "The position bar kept moving: \(position.frame)")
+        // The notes are list rows: the ones under the keyboard are not on the screen until it closes.
+        XCTAssertTrue(
+            eventually(timeout: 10) { app.buttons.matching(identifier: "note-text").count == 3 },
+            "The page shows \(app.buttons.matching(identifier: "note-text").count) of 3 notes")
         // Each lane above the first adds the pitch of one lane (Layout.noteDotTop).
         let pitch: CGFloat = 9
         XCTAssertEqual(barDrop(), bare + 2 * pitch, accuracy: 0.5, "The bar has no room for the third lane")
@@ -1811,6 +1814,60 @@ final class PlaybackScreens: ScreensTestCase {
         let pill = app.buttons["mini-player-pause"]
         XCTAssertTrue(eventually(timeout: 10) { pill.label == "Pause" }, "The note time did not play: \(pill.label)")
         pause(app)
+    }
+
+    /// A note edits in place: a tap on its text opens it with its text, "Start here" and "End here" move its times.
+    /// A swipe deletes it, and Undo puts it back.
+    @MainActor
+    func testEditAndDeleteListeningNote() throws {
+        let app = try launchAndConnect()
+        openRecording(app)
+        playPaused(app)
+        openPlayer(app)
+        let field = app.textFields["note-field"]
+        reveal(app.buttons["add-note"], in: app).tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 10), "Add a note here opened no field")
+        field.tap()
+        dismissKeyboardTip(app)
+        field.typeText("Theme")
+        reveal(app.buttons["save-note"], in: app).tap()
+        let note = app.buttons["note-text"].firstMatch
+        XCTAssertTrue(note.waitForExistence(timeout: 10), "The saved note does not show")
+        // Save closes the keyboard and the page moves while it goes: a tap during the move misses the note.
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 10), "The keyboard stayed open")
+        XCTAssertTrue(waitUntilStill(note), "The note kept moving: \(note.frame)")
+
+        // A tap on the text opens the note with its text and the buttons for its times.
+        reveal(note, in: app).tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 10), "A tap on the note opened no field")
+        XCTAssertEqual(field.value as? String, "Theme")
+        XCTAssertTrue(app.buttons["start-note"].exists, "The open note has no Start here")
+        XCTAssertTrue(app.buttons["end-note"].exists, "The open note has no End here")
+        field.tap()
+        field.typeText(" in the violins")
+        reveal(app.buttons["save-note"], in: app).tap()
+        XCTAssertTrue(field.waitForNonExistence(timeout: 10), "Save left the note open")
+        XCTAssertTrue(
+            eventually(timeout: 5) { app.buttons["note-text"].firstMatch.label.contains("Theme in the violins") },
+            "The edited text does not show")
+        XCTAssertEqual(app.buttons.matching(identifier: "note-text").count, 1, "An edit made a second note")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 10), "The keyboard stayed open")
+        XCTAssertTrue(waitUntilStill(app.buttons["note-text"].firstMatch), "The note kept moving")
+        snap(app, "41e-note-edited")
+
+        // A swipe deletes the note; Undo brings it back.
+        reveal(app.buttons["note-text"].firstMatch, in: app).swipeLeft()
+        let delete = app.buttons["Delete"].firstMatch
+        XCTAssertTrue(delete.waitForExistence(timeout: 5), "The swipe shows no Delete")
+        delete.tap()
+        XCTAssertTrue(app.buttons["note-text"].firstMatch.waitForNonExistence(timeout: 10), "Delete kept the note")
+        let undo = app.buttons["undo-note"]
+        XCTAssertTrue(undo.waitForExistence(timeout: 5), "A deleted note offers no Undo")
+        snap(app, "41f-note-deleted")
+        undo.tap()
+        XCTAssertTrue(
+            app.buttons["note-text"].firstMatch.waitForExistence(timeout: 10), "Undo did not bring the note back")
+        XCTAssertFalse(undo.exists, "Undo stayed after it ran")
     }
 
     /// Play on the work page plays the reference recording and the pill shows the playing state (item 25).

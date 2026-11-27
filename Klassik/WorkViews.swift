@@ -528,6 +528,8 @@ struct RecordingView: View {
     @State private var spell = QuietSpell()
     /// The note that the listener writes in the playing row. It stays while the listener scrubs.
     @State private var draft: NoteDraft?
+    /// The note that the listener deleted last on this page, until its Undo runs out.
+    @State private var removed: RemovedNote?
     /// Where the notes of each row live, by track position.
     @State private var places: [NotePlace?] = []
     /// True while a drag that began with the rows at the top runs. Only such a drag closes the player.
@@ -567,9 +569,9 @@ struct RecordingView: View {
                             ForEach(Array(block.tracks.enumerated()), id: \.element.id) { offset, song in
                                 movementRow(
                                     song, at: block.start + offset, page: page,
-                                    title: album.title(of: song, in: block)
+                                    title: album.title(of: song, in: block),
+                                    first: offset == 0, last: offset == block.tracks.count - 1
                                 )
-                                .itemSeparator(first: offset == 0, last: offset == block.tracks.count - 1)
                             }
                         }
                     }
@@ -577,8 +579,9 @@ struct RecordingView: View {
                     // The rows follow the header with no heading.
                     Section {
                         ForEach(Array(recording.songs.enumerated()), id: \.element.id) { index, song in
-                            movementRow(song, at: index, page: page, title: recording.title(of: song))
-                                .itemSeparator(first: index == 0, last: index == recording.songs.count - 1)
+                            movementRow(
+                                song, at: index, page: page, title: recording.title(of: song),
+                                first: index == 0, last: index == recording.songs.count - 1)
                         }
                     }
                 }
@@ -601,6 +604,20 @@ struct RecordingView: View {
             }
             .onChange(of: model.isScrubbing) { _, scrubbing in spell.hold(scrubbing) }
             .onChange(of: draft != nil) { _, writing in spell.writing(writing) }
+            // A deleted note offers Undo for a few seconds.
+            .task(id: removed?.note.id) {
+                guard removed != nil else { return }
+                try? await Task.sleep(for: .seconds(6))
+                if !Task.isCancelled { removed = nil }
+            }
+            .safeAreaInset(edge: .bottom) {
+                if let gone = removed {
+                    UndoBanner {
+                        model.notes.restore(gone.note, at: gone.place)
+                        removed = nil
+                    }
+                }
+            }
             // Each second, after a quiet spell, the player brings the playing row back.
             .task(id: isOverlay && isPlayingThis) {
                 guard isOverlay, isPlayingThis else { return }
@@ -884,20 +901,26 @@ struct RecordingView: View {
         }
     }
 
-    private func movementRow(_ song: Song, at index: Int, page: PlayerPage, title: String) -> some View {
+    /// One movement: its row, then the notes that the row shows as rows of their own, so that a swipe reaches each
+    /// note, then, in the playing row, the control that adds a note.
+    @ViewBuilder
+    private func movementRow(
+        _ song: Song, at index: Int, page: PlayerPage, title: String, first: Bool, last: Bool
+    ) -> some View {
         let place = places.indices.contains(index) ? places[index] : nil
-        return MovementRow(
-            song: song, row: index, title: title,
+        let notes = place.map { model.notes.notes(at: $0) } ?? []
+        let isPlaying = showsPlayer && model.playback.movement == index
+        let isCurrent = isPlayingThis && !isOverlay && model.playback.movement == index
+        let shown = isPlaying || opened.contains(index) ? notes : []
+        let adds = isPlaying && place != nil
+        MovementRow(
+            song: song, title: title,
             names: page.differing.indices.contains(index) ? page.differing[index] : [],
             link: rowLink,
-            notes: place.map { model.notes.notes(at: $0) } ?? [],
-            place: place,
-            isPlaying: showsPlayer && model.playback.movement == index,
-            isCurrent: isPlayingThis && !isOverlay && model.playback.movement == index,
+            notes: notes,
+            isPlaying: isPlaying,
+            isCurrent: isCurrent,
             isOpen: opened.contains(index),
-            draft: Binding(
-                get: { draft?.row == index ? draft : nil },
-                set: { draft = $0 }),
             toggle: {
                 spell.touch()
                 if opened.contains(index) { opened.remove(index) } else { opened.insert(index) }
@@ -905,9 +928,42 @@ struct RecordingView: View {
             play: { play(from: index) },
             jump: { note, plays in jump(to: note, row: index, plays: plays) }
         )
-        .playingRow(isPlayingThis && !isOverlay && model.playback.movement == index)
+        .playingRow(isCurrent)
         .id(song.id)
+        .itemSeparator(first: first, last: last || !shown.isEmpty || adds)
+        if let place {
+            ForEach(shown) { note in
+                NoteRow(
+                    note: note, row: index, canMark: isPlaying,
+                    draft: Binding(
+                        get: { draft?.row == index ? draft : nil },
+                        set: { draft = $0 }),
+                    elapsed: elapsed,
+                    save: { model.notes.save($0, at: place) },
+                    jump: { plays in jump(to: note, row: index, plays: plays) },
+                    delete: {
+                        spell.touch()
+                        if model.notes.remove(note, at: place) { removed = RemovedNote(note: note, place: place) }
+                    }
+                )
+                .playingRow(isCurrent)
+                .itemSeparator(first: true, last: note.id != shown.last?.id || adds || last)
+            }
+            if adds {
+                NoteEditor(
+                    draft: Binding(
+                        get: { draft?.row == index ? draft : nil },
+                        set: { draft = $0 }),
+                    row: index, place: place, elapsed: elapsed
+                )
+                .playingRow(isCurrent)
+                .itemSeparator(first: true, last: true)
+            }
+        }
     }
+
+    /// The playing time of the playing movement.
+    private func elapsed() -> Double { model.playback.progress?.elapsed ?? model.playback.position }
 
     private func play(from index: Int) {
         spell.touch()
@@ -915,8 +971,8 @@ struct RecordingView: View {
         model.playback.play(QueueItem(work: work, recording: recording), from: index)
     }
 
-    /// A tap on a note moves to its time; a tap on its time also plays. A note of a page that does not
-    /// play starts that page there.
+    /// A tap on a note mark moves to its time; a tap on the time in a note row also plays. A note of a page that
+    /// does not play starts that page there.
     private func jump(to note: ListeningNote, row: Int, plays: Bool) {
         spell.touch()
         let player = model.playback
@@ -934,21 +990,16 @@ struct RecordingView: View {
 private struct MovementRow: View {
     @Environment(AppModel.self) private var model
     let song: Song
-    /// The position of the row on its page.
-    let row: Int
     let title: String
     /// The names that differ from the header.
     let names: [Roles.Line]
     /// The page of a name, if it has one.
     let link: (Roles.Line, String) -> Page?
     let notes: [ListeningNote]
-    /// Where a new note of this row goes. A row without a place takes no note.
-    let place: NotePlace?
     let isPlaying: Bool
     /// The movement that plays while the page shows the recording: it keeps its row and its button pauses it.
     let isCurrent: Bool
     let isOpen: Bool
-    @Binding var draft: NoteDraft?
     let toggle: () -> Void
     let play: () -> Void
     /// Moves to a note; true also plays.
@@ -972,7 +1023,6 @@ private struct MovementRow: View {
                         RoleLines(lines: names, style: .subheadline, link: link)
                             .ink()
                     }
-                    NoteList(notes: notes, jump: jump)
                 }
             }
         }
@@ -1040,8 +1090,8 @@ private struct MovementRow: View {
         .accessibilityIdentifier(isCurrent ? "movement-slot" : "play-movement")
     }
 
-    /// The playing row: its title, the names that differ, the playback bar with the note marks, the controls, the
-    /// notes and the note that the listener writes.
+    /// The playing row: its title, the names that differ, the playback bar with the note marks and the controls.
+    /// Its notes and the control that adds a note follow as rows of their own.
     private var playing: some View {
         let player = model.playback
         return VStack(alignment: .leading, spacing: gap) {
@@ -1057,11 +1107,6 @@ private struct MovementRow: View {
                 .ink()
             PlaybackProgress(player: player, notes: notes, jump: { jump($0, false) })
             PlayerControls(player: player)
-            NoteList(notes: notes, jump: jump)
-            if let place {
-                NoteEditor(
-                    draft: $draft, row: row, place: place, elapsed: { player.progress?.elapsed ?? player.position })
-            }
         }
         .accessibilityIdentifier("movement")
     }
@@ -1126,61 +1171,92 @@ private struct PlayerControls: View {
     }
 }
 
-/// The notes of a movement, earliest first. The time is a prefix in the tint. A tap
-/// on the text moves to the note; a tap on its time moves there and plays.
-private struct NoteList: View {
-    let notes: [ListeningNote]
-    let jump: (ListeningNote, Bool) -> Void
-    @ScaledMetric(space: .xs) private var lineGap: CGFloat
+/// A note that a deletion removed and Undo can put back.
+private struct RemovedNote: Equatable {
+    let note: ListeningNote
+    let place: NotePlace
+}
+
+/// The line that offers Undo after a note is deleted.
+private struct UndoBanner: View {
+    let undo: () -> Void
+    @ScaledMetric(space: .m) private var gap: CGFloat
+
+    var body: some View {
+        HStack(spacing: gap) {
+            Text("Note deleted")
+                .typeStyle(.subheadline)
+                .foregroundStyle(Palette.textPrimary)
+            Button("Undo", action: undo)
+                .typeStyle(.headline)
+                .foregroundStyle(Palette.tint)
+                .buttonStyle(.borderless)
+                .accessibilityIdentifier("undo-note")
+        }
+        .padding(gap)
+        .background(.regularMaterial, in: .capsule)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("note-deleted")
+    }
+}
+
+/// One note, earliest first, as a row of its own, so that a swipe reaches it. The time is a prefix in the tint: a
+/// tap on it moves there and plays. A tap on the text edits the note in place. A swipe deletes it; Undo follows.
+private struct NoteRow: View {
+    let note: ListeningNote
+    let row: Int
+    /// True in the playing row: only there can the listener set a time from the playing time.
+    let canMark: Bool
+    @Binding var draft: NoteDraft?
+    let elapsed: () -> Double
+    let save: (NoteDraft) -> Bool
+    let jump: (Bool) -> Void
+    let delete: () -> Void
     @ScaledMetric(space: .s) private var gap: CGFloat
 
     var body: some View {
-        if !notes.isEmpty {
-            VStack(alignment: .leading, spacing: lineGap) {
-                ForEach(notes) { note in
-                    HStack(alignment: .firstTextBaseline, spacing: gap) {
-                        Button(ListeningNotes.time(of: note)) { jump(note, true) }
-                            .monospacedDigit()
-                            .foregroundStyle(Palette.tint)
-                            .accessibilityLabel("Play from \(ListeningNotes.time(of: note))")
-                            .accessibilityIdentifier("note-time")
-                        Button {
-                            jump(note, false)
-                        } label: {
-                            Text(note.text)
-                                .ink()
-                                .multilineTextAlignment(.leading)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .contentShape(.rect)
-                        }
-                        .accessibilityHint("Moves to \(ListeningNotes.time(of: note))")
-                        .accessibilityIdentifier("note-text")
-                    }
-                    .buttonStyle(.borderless)
-                    .typeStyle(.subheadline)
+        if let current = draft, current.editing == note.id {
+            // A container keeps the identifiers of its controls inside the row's identifier.
+            NoteDraftForm(draft: $draft, canMark: canMark, elapsed: elapsed, save: save)
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("note-editor")
+        } else {
+            HStack(alignment: .firstTextBaseline, spacing: gap) {
+                Button(ListeningNotes.time(of: note)) { jump(true) }
+                    .monospacedDigit()
+                    .foregroundStyle(Palette.tint)
+                    .accessibilityLabel("Play from \(ListeningNotes.time(of: note))")
+                    .accessibilityIdentifier("note-time")
+                Button {
+                    draft = NoteDraft(row: row, editing: note)
+                } label: {
+                    Text(note.text)
+                        .ink()
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(.rect)
                 }
+                .accessibilityHint("Edits the note")
+                .accessibilityIdentifier("note-text")
             }
-            // A container keeps the identifiers of its buttons inside the row's identifier.
-            .accessibilityElement(children: .contain)
-            .accessibilityIdentifier("notes")
+            .buttonStyle(.borderless)
+            .typeStyle(.subheadline)
+            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                Button("Delete", systemImage: "trash", role: .destructive, action: delete)
+            }
         }
     }
 }
 
-/// "Add a note here", then the note in the row: never a modal. The note stays open until Save or Return,
+/// "Add a note here", then the new note in the row: never a modal. The note stays open until Save or Return,
 /// so the listener can scrub the bar or the timeline to find the end.
 private struct NoteEditor: View {
-    @Environment(AppModel.self) private var model
     @Binding var draft: NoteDraft?
     let row: Int
     let place: NotePlace
     /// The playing time of the row.
     let elapsed: () -> Double
-    @FocusState private var isWriting: Bool
-    @ScaledMetric(space: .xs) private var lineGap: CGFloat
-    @ScaledMetric(space: .s) private var gap: CGFloat
-    @ScaledMetric(space: .l) private var actionGap: CGFloat
-    @ScaledMetric(space: .xxs) private var fieldPadding: CGFloat
+    @Environment(AppModel.self) private var model
 
     var body: some View {
         // A container keeps the identifiers of its controls inside the row's identifier.
@@ -1190,6 +1266,38 @@ private struct NoteEditor: View {
     }
 
     @ViewBuilder private var editor: some View {
+        if let current = draft, current.editing == nil {
+            NoteDraftForm(
+                draft: $draft, canMark: true, elapsed: elapsed, save: { model.notes.save($0, at: place) })
+        } else {
+            Button("Add a note here") { draft = NoteDraft(row: row, at: elapsed()) }
+                .typeStyle(.subheadline)
+                .foregroundStyle(Palette.tint)
+                .buttonStyle(.borderless)
+                // One note is open at a time: Save or Cancel it first.
+                .disabled(draft != nil)
+                .accessibilityIdentifier("add-note")
+        }
+    }
+}
+
+/// The open note: its time, its text and its buttons. "Start here" and "End here" take the playing time, so they
+/// show only in the playing row; the listener scrubs to find the second. A new note starts at the playing time and
+/// has no "Start here".
+private struct NoteDraftForm: View {
+    @Environment(AppModel.self) private var model
+    @Binding var draft: NoteDraft?
+    let canMark: Bool
+    let elapsed: () -> Double
+    /// Keeps the draft. False when the device file refused it, and the draft stays open.
+    let save: (NoteDraft) -> Bool
+    @FocusState private var isWriting: Bool
+    @ScaledMetric(space: .xs) private var lineGap: CGFloat
+    @ScaledMetric(space: .s) private var gap: CGFloat
+    @ScaledMetric(space: .l) private var actionGap: CGFloat
+    @ScaledMetric(space: .xxs) private var fieldPadding: CGFloat
+
+    var body: some View {
         if let current = draft {
             VStack(alignment: .leading, spacing: lineGap) {
                 HStack(alignment: .firstTextBaseline, spacing: gap) {
@@ -1203,22 +1311,20 @@ private struct NoteEditor: View {
                         .foregroundStyle(Palette.textPrimary)
                         .focused($isWriting)
                         .submitLabel(.done)
-                        .onSubmit(save)
+                        .onSubmit(commit)
                         .padding(.vertical, fieldPadding)
                         .overlay(alignment: .bottom) { Divider().overlay(Palette.separator) }
                         .accessibilityIdentifier("note-field")
                 }
-                HStack(spacing: actionGap) {
-                    Spacer()
-                    Button("End here") { draft?.end(at: elapsed()) }
-                        .typeStyle(.subheadline)
-                        .accessibilityIdentifier("end-note")
-                    Button("Cancel") { draft = nil }
-                        .typeStyle(.subheadline)
-                        .accessibilityIdentifier("cancel-note")
-                    Button("Save", action: save)
-                        .typeStyle(.headline)
-                        .accessibilityIdentifier("save-note")
+                // Four buttons wrap onto lines of their own when the text is large.
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: actionGap) {
+                        Spacer()
+                        actions(current)
+                    }
+                    VStack(alignment: .trailing, spacing: lineGap) {
+                        actions(current)
+                    }
                 }
                 .buttonStyle(.borderless)
                 .foregroundStyle(Palette.tint)
@@ -1229,13 +1335,26 @@ private struct NoteEditor: View {
                 }
             }
             .onAppear { isWriting = true }
-        } else {
-            Button("Add a note here") { draft = NoteDraft(row: row, at: elapsed()) }
-                .typeStyle(.subheadline)
-                .foregroundStyle(Palette.tint)
-                .buttonStyle(.borderless)
-                .accessibilityIdentifier("add-note")
         }
+    }
+
+    @ViewBuilder private func actions(_ current: NoteDraft) -> some View {
+        if canMark && current.editing != nil {
+            Button("Start here") { draft?.start(at: elapsed()) }
+                .typeStyle(.subheadline)
+                .accessibilityIdentifier("start-note")
+        }
+        if canMark {
+            Button("End here") { draft?.end(at: elapsed()) }
+                .typeStyle(.subheadline)
+                .accessibilityIdentifier("end-note")
+        }
+        Button("Cancel") { draft = nil }
+            .typeStyle(.subheadline)
+            .accessibilityIdentifier("cancel-note")
+        Button("Save", action: commit)
+            .typeStyle(.headline)
+            .accessibilityIdentifier("save-note")
     }
 
     private var text: Binding<String> {
@@ -1243,8 +1362,8 @@ private struct NoteEditor: View {
     }
 
     /// A failed write keeps the draft, so the text is not lost.
-    private func save() {
-        guard let current = draft, model.notes.save(current, at: place) else { return }
+    private func commit() {
+        guard let current = draft, save(current) else { return }
         draft = nil
     }
 }

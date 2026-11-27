@@ -7,7 +7,9 @@
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="../tokens.css?v=52" />
     <link rel="stylesheet" href="specimen.css?v=52" />
+    <link rel="stylesheet" href="sheet.css?v=52" />
     <script src="specimen.js?v=52"></script>
+    <script src="sheet.js?v=52"></script>
   </head>
   <body>
     <!--
@@ -100,50 +102,65 @@
         color: var(--color-text-secondary);
       }
 
-      /* Conditions, shared by the three variants. */
+      /* The conditions read as one paragraph. A chip is inline text, so it breaks across lines like text:
+         the ends are square at a break and round at the real start and end of the chip.
+         The chips are drawn by hand (TextKit in the app), because no system component breaks a chip like text.
+         For VoiceOver a split chip and its x are one button: each chip is one element with role="button" and
+         one label that names the term and "remove". A native button cannot break across lines. */
       .cond {
-        flex-wrap: wrap;
+        padding: var(--space-xs) 0 var(--space-s);
+        /* The line height is the tap height of a line of chips. */
+        line-height: calc(var(--space-xxxl) + var(--space-xs));
       }
-      .cond .terms {
-        flex: 1;
-        min-width: 0;
-        display: flex;
-        flex-wrap: wrap;
-        gap: var(--space-xs);
-        align-items: center;
+      .cond:empty {
+        display: none;
       }
-      .cond .chip {
-        gap: var(--space-xs);
-      }
-      .cond .chip .x {
-        color: var(--color-text-tertiary);
-      }
-      .cond.marked {
-        box-shadow: inset 3px 0 0 var(--color-tint);
-        background: color-mix(in srgb, var(--color-tint) 8%, var(--color-background-row));
-      }
-      .orbtn {
-        min-height: 30px;
-        padding: 0 var(--space-m);
+      .cond .tchip {
+        display: inline;
+        padding: var(--space-xs) var(--space-s) var(--space-xs) var(--space-m);
         border-radius: var(--radius-full);
         background: var(--color-fill-quiet);
-        color: var(--color-tint);
-        white-space: nowrap;
+        color: var(--color-text-primary);
+        -webkit-box-decoration-break: slice;
+        box-decoration-break: slice;
+        overflow-wrap: anywhere;
+        cursor: pointer;
       }
-      .orbtn.on {
+      .cond .tchip .x {
+        margin-left: var(--space-xs);
+        color: var(--color-text-tertiary);
+      }
+      .cond .plus {
+        display: inline;
+        padding: var(--space-xs) var(--space-m);
+        border-radius: var(--radius-full);
+        color: var(--color-tint);
+        -webkit-box-decoration-break: clone;
+        box-decoration-break: clone;
+        cursor: pointer;
+      }
+      .cond .plus.on {
         background: var(--color-accent-fill, var(--color-tint));
         color: var(--color-on-accent, #fff);
       }
-      .and-word {
-        padding: var(--space-xs) var(--space-l);
+      .cond .w {
+        margin: 0 var(--space-inGroup);
         color: var(--color-text-secondary);
       }
+      .cond .w.and {
+        font-weight: 600;
+      }
+      .cond [role="button"]:focus-visible {
+        outline: 2px solid var(--color-tint);
+        outline-offset: 1px;
+      }
+      /* The picker and the find field stick under the header and scroll inside the one scroll area. */
       .seg {
         display: flex;
         padding: 2px;
         border-radius: 9px;
         background: var(--color-fill-quiet);
-        margin: var(--space-m) 0 var(--space-s);
+        margin: 0 0 var(--space-s);
       }
       .seg button {
         flex: 1;
@@ -184,56 +201,17 @@
       .narrow input::placeholder {
         color: var(--color-text-secondary);
       }
-      .term .what {
+      .term .check {
+        width: 16px;
+        height: 14px;
         color: var(--color-tint);
-        white-space: nowrap;
       }
-      .term .what.on {
+      .term .what {
         color: var(--color-text-secondary);
       }
-
-      /* The native sheet dims its page and keeps focus inside. */
-      .fsheet {
-        position: fixed;
-        z-index: 61;
-        left: var(--space-xs);
-        right: var(--space-xs);
-        bottom: var(--space-xs);
-        height: 58vh;
-        display: flex;
-        flex-direction: column;
-        border-radius: 30px;
-        background: var(--color-background-grouped);
-        transform: translateY(110%);
-        transition: transform var(--motion-transition-open-duration) var(--motion-transition-open-easing);
-        box-shadow: 0 -2px 24px rgb(0 0 0 / 0.2);
-      }
-      .fsheet.on {
-        transform: none;
-      }
-      .fsheet .grabber {
-        width: 36px;
-        height: 5px;
-        border-radius: 3px;
-        background: var(--color-fill-standard);
-        margin: var(--space-xs) auto 0;
-        flex: none;
-      }
-      .fsheet .head {
-        display: flex;
-        align-items: baseline;
-        gap: var(--space-s);
-        padding: var(--space-s) var(--space-l) var(--space-xs);
-        flex: none;
-      }
-      .fsheet .head h2 {
-        flex: 1;
-      }
-      .fsheet .body {
-        flex: 1;
-        overflow-y: auto;
-        overscroll-behavior: contain;
-        padding: 0 var(--space-l) var(--space-xl);
+      /* The page stays visible and scrollable above the half sheet. */
+      .search-page.sheet-open .scroll {
+        padding-bottom: 50vh;
       }
 
       /* The field row sits under the bar and stays there: a system inline field. Only the content scrolls. */
@@ -317,6 +295,15 @@
             .replace(/æ/g, "ae")
             .replace(/[^a-z0-9]+/g, " ")
             .trim();
+        const EXAMPLE = [
+          ["composer:Frédéric Chopin", "composer:Johann Sebastian Bach"],
+          ["genre:Piano"],
+          [
+            "performer:Vladimir Ashkenazy",
+            "performer:Maurizio Pollini",
+            "performer:City of Birmingham Symphony Orchestra",
+          ],
+        ];
         const CATALOGUE = /^(op|k|kv|bwv|d|hob|rv|hwv|kk|swv|wq|sz|l)$/;
         function words(s) {
           const w = fold(s).split(" ").filter(Boolean);
@@ -466,6 +453,12 @@
           save();
           K.store("search.session", null);
         }
+        // Specimen only: ?filters=example opens the sheet on three conditions, with a chip that breaks across lines.
+        if (K.params.get("filters") === "example") {
+          conds = EXAMPLE.map((c) => [...c]);
+          open = true;
+          save();
+        }
         const passes = (x, list) => list.every((c) => c.some((t) => x.terms.has(t)));
         // The filters count only what the text already found: the recordings of matching works, people and albums.
         let foundKey = null,
@@ -506,7 +499,7 @@
 
         // ---------- Page, field and tab bar ----------
         // Search is a tab, yet it keeps a back arrow to the page it was opened from (Flo, round 8).
-        const { app, scroll } = K.page({
+        const { scroll } = K.page({
           tab: "search",
           title: "Search",
           back: { label: "Library", href: "index.html" },
@@ -648,19 +641,25 @@
         document.addEventListener("focusin", follow);
         document.addEventListener("focusout", follow);
         // ---------- Shared pieces of the filters ----------
+        // A chip is one button for assistive technology: it names the term and "remove", and the x belongs to it.
+        // It is a span with role="button", because a native button cannot break across lines.
+        const press = (run) => ({
+          role: "button",
+          tabindex: "0",
+          onclick: run,
+          onkeydown: (e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              run();
+            }
+          },
+        });
         function chip(t, ci) {
           return el(
-            "button",
-            {
-              class: "chip t-subheadline",
-              "aria-label": "Remove " + label(t),
-              onclick: (e) => {
-                e.stopPropagation();
-                removeTerm(ci, t);
-              },
-            },
+            "span",
+            { class: "tchip t-subheadline", "aria-label": `${label(t)}, remove`, ...press(() => removeTerm(ci, t)) },
             label(t),
-            el("span", { class: "x" }, "✕"),
+            el("span", { class: "x", "aria-hidden": "true" }, "×"),
           );
         }
         function removeTerm(ci, t) {
@@ -673,123 +672,84 @@
           save();
           update();
         }
-        // One row per condition. In A and B a tap marks it, so the next term joins it with "or".
-        function condRows(markable) {
-          const out = [];
+        // The conditions as one paragraph: "or" inside a condition, "and" between conditions.
+        // Each condition ends with its "+ or" button, which marks it so the next term joins it.
+        function condParagraph() {
+          const box = el("div", { class: "cond", role: "group", "aria-label": "Conditions" });
           conds.forEach((c, i) => {
-            if (i) out.push(el("div", { class: "and-word t-footnote" }, "and"));
-            const terms = el("div", { class: "terms" });
+            if (i) box.append(el("span", { class: "w and t-subheadline" }, "and"), " ");
             c.forEach((t, j) => {
-              if (j) terms.append(el("span", { class: "t-footnote secondary" }, "or"));
-              terms.append(chip(t, i));
+              if (j) box.append(el("span", { class: "w t-subheadline" }, "or"), " ");
+              box.append(chip(t, i), " ");
             });
-            out.push(
+            box.append(
               el(
-                "div",
-                { class: "list" },
-                el(
-                  "div",
-                  {
-                    class: "row cond" + (marked === i ? " marked" : ""),
-                    role: markable ? "button" : null,
-                    onclick: markable
-                      ? () => {
-                          marked = marked === i ? null : i;
-                          update();
-                        }
-                      : null,
-                  },
-                  terms,
-                  el(
-                    "div",
-                    { class: "trail" },
-                    el("span", { class: "t-subheadline nums" }, String(count(conds.slice(0, i + 1)))),
-                    markable
-                      ? el(
-                          "button",
-                          {
-                            class: "orbtn t-footnote" + (marked === i ? " on" : ""),
-                            onclick: (e) => {
-                              e.stopPropagation();
-                              marked = marked === i ? null : i;
-                              update();
-                            },
-                          },
-                          marked === i ? "or ✓" : "or +",
-                        )
-                      : null,
-                  ),
-                ),
+                "span",
+                {
+                  class: "plus t-subheadline" + (marked === i ? " on" : ""),
+                  "aria-label": "Add an or term",
+                  "aria-pressed": String(marked === i),
+                  ...press(() => {
+                    marked = marked === i ? null : i;
+                    update();
+                  }),
+                },
+                "+ or",
               ),
+              " ",
             );
           });
-          return out;
+          return box;
         }
-        function markNote() {
-          if (!conds.length) return "Pick a term to start a condition.";
-          return marked != null
-            ? 'A tap adds the term with "or" to the marked condition.'
-            : 'A tap adds a new condition with "and". "or +" on a condition adds the next term to it with "or".';
-        }
-        // What a tap on a term does, and how many recordings remain after it.
-        function termAction(t, into) {
-          if (into != null && conds[into].includes(t))
-            return { word: "✓", n: count(conds), run: () => removeTerm(into, t), on: true };
-          if (into != null)
-            return {
-              word: "or",
-              n: count(conds.map((c, i) => (i === into ? [...c, t] : c))),
-              run: () => {
-                conds[into].push(t);
-                save();
-                update();
-              },
-            };
-          return {
-            word: conds.length ? "and" : "",
-            n: count([...conds, [t]]),
-            run: () => {
-              conds.push([t]);
-              marked = null;
-              save();
-              update();
-            },
-          };
-        }
+        // A term in use shows a check mark, and a second tap removes it. A free term joins the marked
+        // condition with "or", else it starts a condition with "and".
         function termRows(into) {
-          const used = new Set(conds.filter((_, i) => i !== into).flat());
           const q = queryTokens(narrowQ);
           const list = [...allTerms.keys()]
-            .filter((t) => kindOf(t) === kind && !used.has(t) && (!q.length || matches(q, words(label(t)))))
-            .filter((t) => {
-              if (into == null || conds[into]?.includes(t)) return true;
+            .filter((t) => kindOf(t) === kind && (!q.length || matches(q, words(label(t)))))
+            .map((t) => ({ t, at: conds.findIndex((c) => c.includes(t)) }))
+            .filter(({ t, at }) => {
+              if (at >= 0 || into == null) return true;
               const f = found();
               const others = conds.filter((_, i) => i !== into);
               return recs.some((x) => (!f || f.has(x.r)) && passes(x, others) && x.terms.has(t));
             })
-            .map((t) => ({ t, a: termAction(t, into) }))
-            .filter((x) => x.a.n > 0 || x.a.on)
-            .sort(
-              (x, y) => Number(!!y.a.on) - Number(!!x.a.on) || y.a.n - x.a.n || label(x.t).localeCompare(label(y.t)),
-            );
+            .map(({ t, at }) => ({
+              t,
+              at,
+              n: count(
+                at >= 0 ? conds : into != null ? conds.map((c, i) => (i === into ? [...c, t] : c)) : [...conds, [t]],
+              ),
+            }))
+            .filter((x) => x.n > 0 || x.at >= 0)
+            .sort((x, y) => Number(y.at >= 0) - Number(x.at >= 0) || y.n - x.n || label(x.t).localeCompare(label(y.t)));
           if (!list.length)
             return [el("div", { class: "row t-subheadline secondary" }, "No term of this kind is left.")];
           // A pick clears the narrowing text, so the next term can be typed at once.
-          return list.map(({ t, a }) =>
+          return list.map(({ t, at, n }) =>
             el(
               "button",
               {
                 class: "row term",
+                "aria-pressed": String(at >= 0),
                 onclick: () => {
                   clearNarrow();
-                  a.run();
+                  if (at >= 0) return removeTerm(at, t);
+                  if (into != null) conds[into].push(t);
+                  else {
+                    conds.push([t]);
+                    marked = null;
+                  }
+                  save();
+                  update();
                 },
               },
               el("div", { class: "main t-body" }, label(t)),
               el(
                 "div",
                 { class: "trail" },
-                el("span", { class: "what t-subheadline nums" + (a.on ? " on" : "") }, `${a.word} ${a.n}`.trim()),
+                at >= 0 ? el("span", { class: "check", html: ICON.check }) : null,
+                el("span", { class: "what t-subheadline nums" }, String(n)),
               ),
             ),
           );
@@ -1071,14 +1031,11 @@
           return out;
         }
 
-        // ---------- A: the sheet ----------
-        const scrim = el("div", { class: "scrim", "aria-hidden": "true", onclick: () => setOpen(false) });
-        document.body.append(scrim);
-        let sheetParts = null;
+        // ---------- The filter sheet: the shared frame, changes apply live ----------
+        let frame = null;
+        let handle = null;
         function buildSheet() {
-          const total = el("span", { class: "t-subheadline secondary nums" });
           const condsBox = el("div");
-          const note = el("div", { class: "section-foot t-footnote" });
           const list = el("div", { class: "list" });
           const redraw = () => list.replaceChildren(...termRows(marked));
           const narrow = narrowField(redraw);
@@ -1087,66 +1044,46 @@
             narrow.reset();
             redraw();
           });
-          const box = el(
-            "div",
-            { class: "fsheet", role: "dialog", "aria-modal": "true", "aria-label": "Filters", inert: true },
-            el("div", { class: "grabber" }),
-            el(
-              "div",
-              { class: "head" },
-              el("a", { class: "t-body tint", href: "index.html", onclick: () => setOpen(false) }, "Back"),
-              el("h2", { class: "t-headline" }, "Filters"),
-              total,
-              el("button", { class: "t-body tint", onclick: () => setOpen(false) }, "Done"),
-            ),
-            el("div", { class: "body" }, condsBox, note, seg, narrow, list),
-          );
-          document.body.append(box);
-          box.addEventListener("keydown", (event) => {
-            if (event.key === "Escape") {
-              setOpen(false);
-              return;
-            }
-            if (event.key !== "Tab") return;
-            const items = [...box.querySelectorAll("button, a, input")];
-            const first = items[0],
-              last = items.at(-1);
-            if (event.shiftKey && document.activeElement === first) {
-              event.preventDefault();
-              last.focus();
-            }
-            if (!event.shiftKey && document.activeElement === last) {
-              event.preventDefault();
-              first.focus();
-            }
+          frame = Frame.make({
+            title: "Filters",
+            body: [condsBox, el("div", { class: "hs-stick" }, seg, narrow), list],
           });
-          riders.push((kb, up) => {
-            up = up && box.contains(document.activeElement);
-            box.style.bottom = up ? kb + 8 + "px" : "";
-            box.style.height = up ? Math.min(visualViewport.height - 70, innerHeight * 0.58) + "px" : "";
-          });
-          sheetParts = {
-            box,
-            draw: () => {
-              total.textContent = conds.length || query.trim() ? plural(count(conds), "recording") : "";
-              condsBox.replaceChildren(...condRows(true));
-              note.textContent = markNote();
-              redraw();
-            },
+          frame.draw = () => {
+            // The count counts the rows that the page shows below: composers, performers, works and albums.
+            const shown = resultsBox.querySelectorAll("section:not(.recent) .list > .row").length;
+            frame.set({ count: conds.length || query.trim() ? plural(shown, "result") : "" });
+            const next = condParagraph();
+            frame.condsBox.replaceWith(next);
+            frame.condsBox = next;
+            redraw();
           };
+          frame.condsBox = condsBox;
+          riders.push((kb, up) => {
+            if (!frame) return;
+            up = up && frame.box.contains(document.activeElement);
+            frame.box.style.bottom = up ? kb + "px" : "";
+            frame.box.style.height = up ? Math.min(visualViewport.height - 70, innerHeight * 0.5) + "px" : "";
+          });
         }
 
         function setOpen(v) {
           open = v;
           save();
           if (!open) commit();
-          if (!sheetParts) buildSheet();
-          sheetParts.box.classList.toggle("on", open);
-          sheetParts.box.inert = !open;
-          scrim.classList.toggle("on", open);
-          app.inert = open;
-          if (open) sheetParts.box.querySelector("a").focus();
-          else filtersBtn.focus();
+          document.body.classList.toggle("sheet-open", open);
+          if (open && !handle) {
+            if (!frame) buildSheet();
+            handle = Frame.open(frame, {
+              onClose: () => {
+                handle = null;
+                open = false;
+                save();
+                commit();
+                document.body.classList.remove("sheet-open");
+                update();
+              },
+            });
+          } else if (!open && handle) handle.close();
           update();
         }
 
@@ -1156,8 +1093,8 @@
           badge.textContent = String(conds.length);
           badge.style.display = conds.length && !open ? "" : "none";
           filtersBtn.classList.toggle("on", open);
-          if (sheetParts) sheetParts.draw();
           resultsBox.replaceChildren(...results());
+          if (frame) frame.draw();
         }
 
         // Specimen only: a reset for the search state.
@@ -1176,13 +1113,19 @@
               },
               "Reset",
             ),
+            el(
+              "button",
+              {
+                onclick: () => {
+                  location.search = "?filters=example";
+                },
+              },
+              "Example",
+            ),
           );
 
-        if (open) {
-          buildSheet();
-          requestAnimationFrame(() => setOpen(true));
-        }
         update();
+        if (open) requestAnimationFrame(() => setOpen(true));
         K.layoutChrome();
         follow();
       });

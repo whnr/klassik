@@ -62,7 +62,8 @@ window.Frame = (() => {
 
   // The frame opens over the live page and closes with a slide. It has no aria-modal and no scrim by design:
   // the tab behind it stays visible and tappable while the person edits.
-  function open(frame) {
+  // onClose runs once when the sheet starts to close, however it closes: Done, Escape or close().
+  function open(frame, { onClose = null } = {}) {
     const before = document.activeElement;
     const { box } = frame;
     let closing = false;
@@ -72,6 +73,7 @@ window.Frame = (() => {
     const close = () => {
       if (closing) return;
       closing = true;
+      onClose?.();
       document.removeEventListener("keydown", onKey);
       box.classList.remove("on");
       const finish = () => {

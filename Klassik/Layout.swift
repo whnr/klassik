@@ -196,18 +196,20 @@ enum Layout {
 
     // MARK: Filter sheet
 
-    /// The heading row of the sheet: its title, the recordings that remain and Done.
-    /// css: search.html .fsheet .head | gap
+    /// The heading of the sheet is the shared frame: title and Done on one line, the result count below.
+    /// The old gap between title, count and Done has no counterpart. It cites the grabber margin of equal value.
+    /// css: sheet.css .hsheet .hs-grab | margin-top
     static let filterHeadGap = Space.s.points
-    /// css: search.html .fsheet .head | padding-top
-    static let filterHeadTop = Space.s.points
-    /// css: search.html .fsheet .head | padding-bottom
+    /// css: sheet.css .hsheet .hs-head | padding-top
+    static let filterHeadTop = Space.xxs.points
+    /// css: sheet.css .hsheet .hs-count | padding-bottom
     static let filterHeadBottom = Space.xs.points
-    /// css: search.html .fsheet .head | padding-left
+    /// css: sheet.css .hsheet .hs-head | padding-left
     static let filterHeadInset = Space.l.points
     /// The kind control of the sheet: Genres, Composers, Conductors and Performers.
+    /// The kind control sticks under the header, which gives it its space.
     /// css: search.html .seg | margin-top
-    static let filterKindsTop = Space.m.points
+    static let filterKindsTop: CGFloat = 0
     /// css: search.html .seg | margin-bottom
     static let filterKindsBottom = Space.s.points
     /// css: search.html .seg | border-top-left-radius
@@ -222,17 +224,40 @@ enum Layout {
     /// The inset of a term in its row. The hairline spans the list, from the sheet inset.
     /// css: specimen.css .row | padding-left
     static let termInset = Space.l.points
-    /// The gap between the terms of a condition and the "or" between them.
-    /// css: search.html .cond .terms | gap
-    static let conditionTermGap = Space.xs.points
-    /// The bar on the leading edge of the condition that the next term joins.
-    /// css: search.html .cond.marked | box-shadow | 3px
+    /// The space on each side of an "and" or "or" word between chips.
+    /// css: search.html .cond .w | margin-left
+    static let conditionTermGap = Space.inGroup.points
+    /// The marked condition has no bar any more: the "+ or" button shows the mark. The constant has no counterpart.
+    /// It cites the grabber radius of equal value.
+    /// css: sheet.css .hsheet .hs-grab | border-top-left-radius | 3px
     static let conditionMark: CGFloat = 3
-    /// The "or" control of a condition.
-    /// css: search.html .orbtn | min-height
-    static let orButtonHeight: CGFloat = 30
-    /// css: search.html .orbtn | padding-left
+    /// The height of one line of chips: the tap height of a chip.
+    /// css: search.html .cond | line-height
+    static let orButtonHeight = Space.xxxl.points + Space.xs.points
+    /// The "+ or" button of a condition.
+    /// css: search.html .cond .plus | padding-left
     static let orButtonPadding = Space.m.points
+    /// css: search.html .cond .plus | padding-top
+    static let orButtonVertical = Space.xs.points
+    /// css: search.html .cond .plus | border-top-left-radius
+    static let orButtonCorner = Radius.full
+    /// The chip of a term. It breaks across lines like text: square ends at a break, round at its real ends.
+    /// css: search.html .cond .tchip | padding-top
+    static let chipPaddingVertical = Space.xs.points
+    /// css: search.html .cond .tchip | padding-left
+    static let chipPaddingLeading = Space.m.points
+    /// css: search.html .cond .tchip | padding-right
+    static let chipPaddingTrailing = Space.s.points
+    /// css: search.html .cond .tchip | border-top-left-radius
+    static let chipCorner = Radius.full
+    /// The space between the term and its x.
+    /// css: search.html .cond .tchip .x | margin-left
+    static let chipRemoveGap = Space.xs.points
+    /// The check mark of a term in use.
+    /// css: search.html .term .check | width
+    static let termCheckWidth: CGFloat = 16
+    /// css: search.html .term .check | height
+    static let termCheckHeight: CGFloat = 14
     /// The field that narrows the terms of one kind.
     /// css: search.html .narrow | min-height
     static let narrowHeight: CGFloat = 36

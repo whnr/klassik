@@ -162,7 +162,7 @@ final class RecordingOrder {
         return (all.filter { !$0.recording.isPartial }, all.filter(\.recording.isPartial))
     }
 
-    /// The first complete recording, else the first partial one (ADR 0013).
+    /// The first recording of the main list, else the first partial one.
     func reference(of work: WorkIndex.Work, separatingPartial: Bool = ComposerWorks.separatesPartial)
         -> WorkIndex.Recording?
     {

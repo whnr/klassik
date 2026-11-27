@@ -23,14 +23,21 @@ struct LookupStatus: View {
     }
 }
 
-/// How far the MusicBrainz lookup got, and the works that need the listener.
+/// Data Enrichment: how far the lookups in MusicBrainz, Wikidata and Wikipedia got, the works that need the
+/// listener, and the fallback language of the fetched texts.
 struct EnrichmentStatusView: View {
     @Environment(AppModel.self) private var model
+
+    private var fallbackSetting: Binding<TextFallback> {
+        Binding(get: { Localization.shared.fallbackSetting }, set: { Localization.shared.select(fallback: $0) })
+    }
 
     var body: some View {
         let enrichment = model.enrichment
         let index = model.library.index
         let summary = enrichment.summary(of: index)
+        // A menu picker keeps the tint that it got when it was made. A new identity for each family remakes it.
+        let family = AccentChoice.shared.family
         PageForm {
             Section {
                 if let progress = enrichment.progress {
@@ -55,7 +62,7 @@ struct EnrichmentStatusView: View {
                 Text("Lookup")
             } footer: {
                 Text(
-                    "Klassik lists each composer's works in MusicBrainz and matches them on this iPhone. MusicBrainz allows one request a second. Look up missing again after a fix in MusicBrainz."
+                    "Klassik lists each composer's works in MusicBrainz and matches them on this iPhone. It takes publication years from Wikidata. MusicBrainz allows one request a second. Look up missing again after a fix in MusicBrainz."
                 )
             }
 
@@ -92,8 +99,20 @@ struct EnrichmentStatusView: View {
             }
 
             PeopleSection(sweep: model.sweep, checked: model.people.cache.checked.count)
+
+            Section {
+                Picker("Fallback Language", selection: fallbackSetting) {
+                    ForEach(TextFallback.all) { Text($0.title).tag($0) }
+                }
+                .accessibilityIdentifier("text-fallback")
+                .id(family)
+            } footer: {
+                Text(
+                    "The fallback language affects the texts from Wikidata and Wikipedia. Descriptions and biographies come in the app language. Where they have none, Klassik shows the fallback language, or nothing when it is off. Composer names, work titles and tags stay as your music tags them. Change the app language in the iOS Settings app, under Klassik."
+                )
+            }
         }
-        .pageTitle(L("MusicBrainz"))
+        .pageTitle(L("Data Enrichment"))
     }
 }
 
@@ -144,7 +163,7 @@ struct PeopleSection: View {
             Text("People from Wikidata")
         } footer: {
             Text(
-                "Klassik looks up every composer and performer of your library, new people first, one at a time at the pace that Wikidata asks for. It asks again for living people after about \(PersonSweep.livingDays) days and for others after about a year, or after about 3 months when Wikidata does not know them. It waits for a connection that is not metered and not in Low Data Mode."
+                "Klassik looks up every composer and performer of your library in Wikidata, new people first, one at a time at the pace that Wikidata asks for. Biographies come from Wikipedia and pictures from Wikimedia Commons. It asks again for living people after about \(PersonSweep.livingDays) days and for others after about a year, or after about 3 months when Wikidata does not know them. It waits for a connection that is not metered and not in Low Data Mode."
             )
         }
     }

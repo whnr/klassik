@@ -1351,22 +1351,22 @@
         }
       }
     },
-    "Klassik lists each composer's works in MusicBrainz and matches them on this iPhone. MusicBrainz allows one request a second. Look up missing again after a fix in MusicBrainz.": {
+    "Klassik lists each composer's works in MusicBrainz and matches them on this iPhone. It takes publication years from Wikidata. MusicBrainz allows one request a second. Look up missing again after a fix in MusicBrainz.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Klassik listet die Werke jedes Komponisten in MusicBrainz auf und gleicht sie auf diesem iPhone ab. MusicBrainz erlaubt eine Anfrage pro Sekunde. Frage Fehlende erneut ab, nachdem du etwas in MusicBrainz korrigiert hast."
+            "value": "Klassik listet die Werke jedes Komponisten in MusicBrainz auf und gleicht sie auf diesem iPhone ab. Veröffentlichungsjahre holt es aus Wikidata. MusicBrainz erlaubt eine Anfrage pro Sekunde. Frage Fehlende erneut ab, nachdem du etwas in MusicBrainz korrigiert hast."
           }
         }
       }
     },
-    "Klassik looks up every composer and performer of your library, new people first, one at a time at the pace that Wikidata asks for. It asks again for living people after about %lld days and for others after about a year, or after about 3 months when Wikidata does not know them. It waits for a connection that is not metered and not in Low Data Mode.": {
+    "Klassik looks up every composer and performer of your library in Wikidata, new people first, one at a time at the pace that Wikidata asks for. Biographies come from Wikipedia and pictures from Wikimedia Commons. It asks again for living people after about %lld days and for others after about a year, or after about 3 months when Wikidata does not know them. It waits for a connection that is not metered and not in Low Data Mode.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Klassik fragt jeden Komponisten und Interpreten deiner Bibliothek ab, neue Personen zuerst, einzeln und in dem Tempo, das Wikidata verlangt. Lebende Personen fragt es nach etwa %lld Tagen erneut ab, andere nach etwa einem Jahr, oder nach etwa 3 Monaten, wenn Wikidata sie nicht kennt. Es wartet auf eine Verbindung ohne Datenlimit und ohne Datensparmodus."
+            "value": "Klassik fragt jeden Komponisten und Interpreten deiner Bibliothek in Wikidata ab, neue Personen zuerst, einzeln und in dem Tempo, das Wikidata verlangt. Die Biografien kommen von Wikipedia, die Bilder von Wikimedia Commons. Lebende Personen fragt es nach etwa %lld Tagen erneut ab, andere nach etwa einem Jahr, oder nach etwa 3 Monaten, wenn Wikidata sie nicht kennt. Es wartet auf eine Verbindung ohne Datenlimit und ohne Datensparmodus."
           }
         }
       }
@@ -4041,22 +4041,12 @@
         }
       }
     },
-    "Klassik looks up composers and their works in MusicBrainz.": {
+    "The fallback language affects the texts from Wikidata and Wikipedia. Descriptions and biographies come in the app language. Where they have none, Klassik shows the fallback language, or nothing when it is off. Composer names, work titles and tags stay as your music tags them. Change the app language in the iOS Settings app, under Klassik.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Klassik sucht Komponisten und ihre Werke in MusicBrainz."
-          }
-        }
-      }
-    },
-    "Descriptions and biographies come from Wikidata and Wikipedia in the app language. Where they have none, Klassik shows the fallback language, or nothing when it is off. Composer names, work titles and tags stay as your music tags them. Change the app language in the iOS Settings app, under Klassik.": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Beschreibungen und Biografien kommen von Wikidata und Wikipedia in der App-Sprache. Gibt es sie dort nicht, zeigt Klassik die Ersatzsprache oder nichts, wenn sie aus ist. Komponistennamen, Werktitel und Tags bleiben so, wie deine Musik sie taggt. Die App-Sprache änderst du in der iOS-App Einstellungen unter Klassik."
+            "value": "Die Ersatzsprache betrifft die Texte aus Wikidata und Wikipedia. Beschreibungen und Biografien kommen in der App-Sprache. Gibt es sie dort nicht, zeigt Klassik die Ersatzsprache oder nichts, wenn sie aus ist. Komponistennamen, Werktitel und Tags bleiben so, wie deine Musik sie taggt. Die App-Sprache änderst du in der iOS-App Einstellungen unter Klassik."
           }
         }
       }

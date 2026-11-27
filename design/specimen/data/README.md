@@ -22,3 +22,7 @@ It needs ffmpeg, mutagen and network access. It links the chosen folders into a 
 ## Chronology
 
 `chronology.json` is the outside data that the Chronology needs: composer birth, death and work period start (P569, P570, P2031), and a year for each work (P571). It comes from Wikidata (CC0), through the MusicBrainz work ID or, for Chopin, the catalogue number. A work without a date has `null`. `python3 make_chronology.py` writes it again; it needs network access.
+
+## Library sample data
+
+`library.json` is invented. It gives the Library tab what the Navidrome responses do not hold: favourites, the day an album was added, the day a recording was heard, and the number of playlists. Keys use the ids of the specimen data. Edit it by hand.

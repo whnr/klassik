@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Klassik specimen: Library</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="../tokens.css?v=52" />
+    <link rel="stylesheet" href="specimen.css?v=52" />
+    <link rel="stylesheet" href="library.css?v=1" />
+    <script src="specimen.js?v=52"></script>
+    <script src="library.js?v=1"></script>
+  </head>
+  <body>
+    <!--
+  The Library tab: a page of rows that the listener sets up.
+  - Default rows: Daily pick, Composers, Favourites, the link list, Recently added, Recently heard.
+  - A row with nothing to show hides. A card holds the full name in up to three lines, then one fact line, the same kind for the whole row.
+  - A strip is as tall as its tallest card. Strips hold 6, 9 or 12 cards; tiles hold 3, 6 or 9.
+  - The Daily pick is the only larger text in the app. A tap on its cover or title opens the item and plays nothing.
+  - ?rows=all draws every row kind. ?rows=composers,performers,... draws the kinds named.
+  - Edit raises the sheet that sets up the rows; it does nothing yet.
+-->
+    <script>
+      K.start(async () => {
+        const { el, href, ICON } = K;
+        await Library.load();
+        const { nav, scroll } = K.page({ tab: "library", title: "Library" });
+        const actions = nav.querySelector(".actions");
+        actions.append(
+          el("button", { class: "t-body tint", "aria-disabled": "true" }, "Edit"),
+          el("a", {
+            class: "settings-link",
+            href: href("settings.html", { tab: "library", back: "Library" }),
+            "aria-label": "Settings",
+            html: ICON.settings,
+          }),
+        );
+        const all = K.params.get("rows") === "all";
+        const host = el("div");
+        scroll.append(
+          el("div", { class: "page-head" }, el("h1", { class: "t-largeTitle" }, "Library")),
+          host,
+          el(
+            "p",
+            { class: "section-foot t-footnote" },
+            "Sample library. ",
+            el(
+              "a",
+              { class: "link", href: href(location.pathname.split("/").pop(), { rows: all ? null : "all" }) },
+              all ? "Show the default rows" : "Show all kinds",
+            ),
+          ),
+        );
+        Library.mount(host, Library.fromParam(K.params.get("rows")));
+      });
+    </script>
+  </body>
+</html>

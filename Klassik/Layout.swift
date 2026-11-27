@@ -553,6 +553,75 @@ enum Layout {
     /// css: specimen.css .storage-dot | width
     static let storageDot = Space.s.points
 
+    // MARK: Library tab
+
+    /// The gap above a row title.
+    /// css: library.css .lib-head | padding-top
+    static let libraryHeadTop = Space.xxl.points
+    /// The gap from a row title to its cards.
+    /// css: library.css .lib-head | padding-bottom
+    static let libraryHeadBottom = Space.s.points
+    /// The gap between the cards of a strip.
+    /// css: library.css .lib-strip | gap
+    static let libraryStripGap = Space.m.points
+    /// The gap under a strip or a grid of tiles.
+    /// css: library.css .lib-strip | padding-bottom
+    static let libraryStripBottom = Space.m.points
+    /// The tiles of a row per line.
+    /// css: library.css .lib-tiles | grid-template-columns | 3
+    static let libraryTileColumns = 3
+    /// css: library.css .lib-tiles | row-gap
+    static let libraryTileRowGap: CGFloat = 14
+    /// css: library.css .lib-tiles | column-gap
+    static let libraryTileColumnGap = Space.m.points
+    /// The width of a card with a round face. The picture is as wide as the card.
+    /// css: library.css .lib-card.faces | width
+    static let libraryFaceCard: CGFloat = 88
+    /// The width of a card with a cover.
+    /// css: library.css .lib-card.covers | width
+    static let libraryCoverCard: CGFloat = 112
+    /// The width of a card in a row that mixes faces and covers, such as Favourites.
+    /// css: library.css .lib-card.mixed | width
+    static let libraryMixedCard: CGFloat = 100
+    /// The gap from the picture of a card to its name.
+    /// css: library.css .lib-cap | margin-top
+    static let libraryCaptionTop = Space.s.points
+    /// A card shows the full name in this many lines at most, hyphenated.
+    /// css: library.css .lib-name | -webkit-line-clamp
+    static let libraryNameLines = 3
+    /// The name of a card.
+    /// css: library.js "lib-name t-subheadline" | class
+    static let libraryName = TypeStyle.subheadline
+    /// The one fact line of a card: the same kind for the whole row.
+    /// css: library.js "lib-fact t-footnote secondary" | class
+    static let libraryFact = TypeStyle.footnote
+    /// The gap above the link list.
+    /// css: library.css .lib-links | margin-top
+    static let libraryLinksTop = Space.xxl.points
+    /// The gap between the tiles of the link list.
+    /// css: library.css .lib-links | gap
+    static let libraryLinksGap: CGFloat = 10
+    /// The inset of a link tile.
+    /// css: library.css .lib-links a | padding-left
+    static let libraryLinkPadding = Space.m.points
+    /// css: library.css .lib-links a | border-top-left-radius
+    static let libraryLinkCorner = Radius.l
+    /// The count in a link tile.
+    /// css: library.js "num t-headline" | class
+    static let libraryLinkCount = TypeStyle.headline
+    /// The gap above the Daily pick.
+    /// css: library.css .lib-pick | margin-top
+    static let dailyPickTop = Space.s.points
+    /// The gap between the sentence and the cover of the Daily pick.
+    /// css: library.css .lib-pick | gap
+    static let dailyPickGap = Space.l.points
+    /// The cover of the Daily pick, on the right of the sentence.
+    /// css: library.css .lib-pick .art | width
+    static let dailyPickCover: CGFloat = 112
+    /// The sentence of the Daily pick. It is the only larger text of the app.
+    /// css: library.js "dp-text t-title3" | class
+    static let dailyPickText = TypeStyle.title3
+
     // MARK: Text
 
     /// The page title and the name on a person page.

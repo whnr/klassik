@@ -14,6 +14,7 @@ The specimen is the design reference of Klassik: what is decided, in light, dark
 ## Pages
 
 - `index.html`: the Library tab and the frame of every page, with links to every page.
+- `library.html`: the Library tab, drawn from a list of rows (`library.js`, `library.css`). `?rows=all` draws every row kind; `?rows=composers,albums` draws the kinds named.
 - `work.html`: a work page. `?work=<composer>|<work>` picks another work.
 - `player.html`: a recording or album page. `?embed=player` is the player overlay. `?recording=<id>` or `?album=<id>` picks another.
 - `chronology.html`: one composer among the contemporaries, and the overview (`?level=overview`).
@@ -29,7 +30,7 @@ The pill at the top belongs to the specimen, not to the app. It sets the timelin
 ## Files
 
 - `specimen.css`, `specimen.js`: the frame and the components. Pages read tokens only; a fixed value is chrome that iOS fixes.
-- `pill.*`, `overlay.*`, `timeline.css`, `cover.*`, `picture.*`: the mini player, the player overlay, the timeline, the cover room and the person picture.
+- `library.*`, `pill.*`, `overlay.*`, `timeline.css`, `cover.*`, `picture.*`: the Library rows, the mini player, the player overlay, the timeline, the cover room and the person picture.
 - `../tokens.css`: written by `design/scripts/tokens.py` from the token files. `design/scripts/palette.py` solves the colours from their contrast targets; `check.py` proves the pairs.
 - `../marks/fermata.svg`: the favourite mark and the master of its SF Symbol. `FermataMark.swift` draws and scales it.
 - `../fonts/`: [Wittgenstein](https://github.com/jrgdrs/Wittgenstein) by Jörg Drees, SIL Open Font License (`OFL.txt`), for page titles and section headings at weight 500.

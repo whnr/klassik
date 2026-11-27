@@ -24,6 +24,8 @@ from playwright.sync_api import sync_playwright
 DESIGN = Path(__file__).resolve().parents[1]
 PAGES = (
     "index.html",
+    "library.html",
+    "library.html?rows=all",
     "work.html",
     "player.html",
     "player.html?album=3Is4qK0IBSlUYtEHMhh8YH",

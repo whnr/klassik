@@ -19,7 +19,7 @@ One performance of a work, as the tracks of that work on one album.
 _Avoid_: Performance, version
 
 **Album**:
-The release that a recording comes from. It shows provenance, and the listener can make it a favourite.
+The release that a recording comes from. The listener can browse the collection by album and make an album a favourite. The default way to a recording is still through its composer and work.
 _Avoid_: Disc, CD
 
 **Reference recording**:
@@ -43,8 +43,24 @@ One of the top-level parts of the app that the listener moves between: Library, 
 _Avoid_: Place, section, area
 
 **Library**:
-The tab that holds the listener's own collection: composers, playlists and favourites. It shows nothing that Klassik picks for the listener.
-_Avoid_: Home, Browse
+The tab that holds the listener's own collection. Its first page leads to every way through the collection. Everything on it comes from the listener's own collection, favourites and listening. The listener sets up what it shows. The default is calm.
+_Avoid_: Home, homepage, Browse, Shelf, Stack
+
+**Row**:
+One section of the Library. The listener picks what it shows and its form: a strip of faces, a strip of covers, or tiles. Klassik names it from its settings. The term belongs to the Library only.
+_Avoid_: Section, shelf, widget
+
+**Best known**:
+An order of composers or performers by how well known they are beyond the library. Klassik never shows the score, and people without data come last. The listener chooses it.
+_Avoid_: Popularity, ranking, top, well known
+
+**Complete**:
+A recording is complete in one of two cases. It is one track without movement tags. Or its tags give a movement total, and every movement up to that total is in the library. Other recordings are not complete. An album is complete when the track numbers of each disc start at 1 and have no gap.
+_Avoid_: Full, whole, entire
+
+**Daily pick**:
+One recording or album that the Library shows for the day. The Library holds at most one Daily pick, at any place the listener puts it. Klassik draws it at random from a saved search that the listener chooses. Only a complete recording or album counts. It changes at most once a day. The listener cannot see past or coming picks.
+_Avoid_: Recommendation, suggestion, shuffle
 
 **Chronology**:
 The tab that shows one composer's works by year, among the composers of their time. Its overview shows all composers.
@@ -86,6 +102,10 @@ _Avoid_: Artist page, composer screen
 The page of one conductor, soloist or ensemble. It has the composer page's layout, with the Albums and About tabs.
 _Avoid_: Artist page, musician page
 
+**Role**:
+What a person or group does on a recording, as the tags name it: conductor, soprano, piano, orchestra, choir. The listener can browse performers by role.
+_Avoid_: Instrument, sub-role, part
+
 **Genre**:
 A label from the tags of a track. A track carries one to many genres. Klassik gives no meaning to their order or style.
 _Avoid_: Category, period, form
@@ -95,12 +115,20 @@ One value that the listener adds to a search: a genre, composer, conductor or pe
 _Avoid_: Rule, filter, token, criterion
 
 **Condition**:
-One row of a search. Its search terms join with "or". The conditions of a search join with "and", and each condition shows how many recordings remain.
+One row of a search. Its search terms join with "or". The conditions of a search join with "and", and each condition shows how many results remain.
 _Avoid_: Set, group, clause, step
 
 **Recent search**:
 A search that the listener made, kept on the device with its text and its conditions. The empty Search page lists them, newest first.
-_Avoid_: History, suggestion, saved search
+_Avoid_: History, suggestion
+
+**Saved search**:
+A search that the listener keeps. It keeps its text and conditions and never clears, and its recordings follow the collection. It can be a row on the Library or the source of the Daily pick.
+_Avoid_: Pinned search, smart playlist, recent search
+
+**Result**:
+One row that Search shows: a composer, performer, work or album that matches the search.
+_Avoid_: Hit, match, item
 
 **Search session**:
 The time from the first text or condition until the x pill clears the search. One search session is one recent search.
@@ -131,6 +159,10 @@ One thing in the queue: a recording, or a whole album. When it ends, the next qu
 _Avoid_: Track, entry
 
 ### Listener data
+
+**Heard**:
+A movement is heard when it played for half its length, or for four minutes when that is shorter. A recording is heard when more than half of its movements are heard: 2 of 3, 3 of 4, 3 of 5.
+_Avoid_: Played, listened, scrobbled
 
 **Favourite**:
 A composer, performer, work, recording or album that the listener marks as liked. It has no scale.

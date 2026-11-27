@@ -8,7 +8,7 @@ Music apps show albums. A classical listener looks for a work, then picks a perf
 
 ## Decision
 
-- The app browses Composer > Work > Recordings > Movements. Albums only show where a recording comes from.
+- The app browses Composer > Work > Recordings > Movements by default. Albums also show where a recording comes from.
 - The playback unit is the work. Play queues all movements of one recording, without gaps.
 - The recordings of a work sort by recording date. Performers come first; album art is secondary.
 - Klassik is for classical music only. Other music stays in other apps.

@@ -54,7 +54,9 @@ struct SheetFrame<Content: View>: View {
     /// Back, title and Done on one line. The outer columns share the width, so the title stays centred.
     private var header: some View {
         HStack(spacing: 0) {
-            Group {
+            // The clear base keeps the column at its share of the width when there is no Back.
+            ZStack(alignment: .leading) {
+                Color.clear
                 if let back {
                     Button(action: back) {
                         Image(systemName: "chevron.left")

@@ -2228,27 +2228,7 @@ final class PlaybackScreens: ScreensTestCase {
     // [DEBUG-r7vm] temporary probe
     @MainActor
     func testR7vmProbe() throws {
-        var report: [String] = []
-        for round in 1...8 {
-            let app = try launchAndConnect()
-            composer(app, "Felix Mendelssohn").tap()
-            let work = app.buttons.matching(identifier: "work").firstMatch
-            XCTAssertTrue(work.waitForExistence(timeout: 10))
-            work.tap()
-            XCTAssertTrue(app.buttons["play-work"].waitForExistence(timeout: 10))
-            let queue = pageMenuItem(app, "Add to Queue")
-            let opened = queue.exists
-            let t0 = Date()
-            closeMenu(app)
-            let back = eventually(timeout: 90) { app.buttons["play-work"].exists }
-            let rowAppears = app.buttons.matching(identifier: "recording").firstMatch.waitForExistence(timeout: 10)
-            report.append(
-                "[DEBUG-r7vm] round \(round): menuOpened=\(opened) pageBack=\(back) row=\(rowAppears) "
-                    + "after \(Int(Date().timeIntervalSince(t0)))s")
-            print(report.last!)
-            if !back { print("[DEBUG-r7vm] tree: " + String(app.debugDescription.prefix(1500))) }
-        }
-        XCTAssertTrue(report.allSatisfy { $0.contains("row=true") }, report.joined(separator: "\n"))
+        for _ in 1...4 { try testPageMenus() }
     }
 
     /// The ⋯ menu of the player opens in every scroll state: at the top, scrolled down and after a bounce. The

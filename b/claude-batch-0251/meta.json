@@ -1,7 +1,7 @@
 {
-  "sha": "9a7b7e82b804dbcc89ab3e029d8b9c45e574a724",
+  "sha": "bc91d1bf0d1fd74e1fbdfb83c99c20c17bc018b3",
   "branch": "claude-batch-0251",
   "path": "claude-batch-0251",
-  "subject": "[sz-wgi8.1][sz-wgi8.4][sz-tsdu] Batch of small fixes",
-  "ts": 1795811975
+  "subject": "[sz-wgi8.4][sz-tsdu] Fill the note row; fix search walk",
+  "ts": 1795816206
 }

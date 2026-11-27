@@ -459,19 +459,18 @@
     // The title and the cover open the recording or the album that the sentence names, never its work.
     const open = x.href;
     const who = (name) => el("a", { class: "who", href: K.personHref(name, { back: "Library" }) }, name);
-    const names = [];
-    if (x.rec) {
-      const composer = x.rec.composer;
-      if (composer && M.people[composer]) names.push(who(composer));
-    }
+    const composer = x.rec?.composer && M.people[x.rec.composer] ? x.rec.composer : null;
     const l = x.rec ? lead(x.rec) : x.fact;
+    const leadLink = l && M.people[l] ? who(l) : null;
+    const title = el("a", { class: "title", href: open }, x.name);
+    // One whole sentence per case: the app localises whole strings, never parts.
     const sentence = el(
       "p",
-      { class: "dp-text t-title2" },
+      { class: "dp-text t-title2", lang: "en" },
       "Today from your library:" + NB,
-      el("a", { class: "title", href: open }, x.name),
-      names.length ? [", ", names[0]] : null,
-      l && M.people[l] ? [", with ", who(l)] : null,
+      title,
+      composer ? [" by ", who(composer)] : null,
+      leadLink ? [", with ", leadLink] : null,
       ".",
     );
     const art = el("a", { class: "art", href: open, "aria-label": x.name }, K.coverImage(x.album, "cover", 250));

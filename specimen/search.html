@@ -163,6 +163,19 @@
         flex: none;
         color: var(--color-text-secondary);
       }
+      .section-head.fold {
+        width: 100%;
+        text-align: left;
+        color: inherit;
+        font: inherit;
+      }
+      .section-head.fold::after {
+        content: "\25BE";
+        color: var(--color-text-secondary);
+      }
+      .section-head.fold[aria-expanded="false"]::after {
+        content: "\25B8";
+      }
       .section-head button {
         color: var(--color-tint);
         text-transform: none;
@@ -498,18 +511,24 @@
         const resultsBox = el("div");
         scroll.append(resultsBox);
 
+        // A tap on a result title folds its section; a second tap opens it.
         function section(title, n, rows, inset) {
-          return el(
-            "section",
-            { class: "section" },
-            el(
-              "div",
-              { class: "section-head t-footnote" },
-              el("span", {}, title),
-              el("span", { class: "count" }, `(${n})`),
-            ),
-            el("div", { class: "list", style: inset ? `--sep-inset: ${inset}` : null }, ...rows),
+          const list = el("div", { class: "list", style: inset ? `--sep-inset: ${inset}` : null }, ...rows);
+          const head = el(
+            "button",
+            {
+              class: "section-head t-footnote fold",
+              "aria-expanded": "true",
+              onclick: () => {
+                const folded = head.getAttribute("aria-expanded") === "true";
+                head.setAttribute("aria-expanded", String(!folded));
+                list.hidden = folded;
+              },
+            },
+            el("span", {}, title),
+            el("span", { class: "count" }, `(${n})`),
           );
+          return el("section", { class: "section" }, head, list);
         }
         const plural = (n, word) => K.count(n, word);
         // Each role has its own count: a composer has works, a conductor or performer has recordings.

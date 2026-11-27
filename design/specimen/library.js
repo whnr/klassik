@@ -17,8 +17,12 @@
     added: { label: "Recently added", unit: "albums" },
     heard: { label: "Recently heard", unit: "recordings" },
     saved: { label: "Saved search", unit: "recordings" },
-    links: { label: "Links" },
+    links: { label: "Link list" },
   };
+  // A row of one of these kinds takes its kind from Source. The other kinds have a fixed source.
+  const UNIT_KINDS = ["composers", "performers", "works", "recordings", "albums"];
+  const PEOPLE = ["composers", "performers"];
+  const SOURCE_NAME = { favourites: "Favourites", added: "Albums", heard: "Recordings" };
   // What each kind starts with. Strips hold 6, 9 or 12 cards, tiles 3, 6 or 9.
   const START = {
     pick: { sort: "random" },
@@ -33,8 +37,35 @@
     saved: { source: "Baroque", sort: "random" },
     links: {},
   };
-  const SORTS = { random: "random", newest: "newest first", heard: "last heard first", az: "A to Z" };
-  const FILTERS = { favourites: "favourites", complete: "complete" };
+  // Lower case, for titles and subtitles. Code never changes letter case, so the settings list has its own labels.
+  const SORTS = {
+    random: "random",
+    best: "best known",
+    newest: "newest first",
+    heard: "last heard first",
+    az: "A to Z",
+  };
+  const SORT_LABELS = {
+    random: "Random",
+    best: "Best known",
+    newest: "Newest first",
+    heard: "Last heard first",
+    az: "A to Z",
+  };
+  // Best known shows for people only. People without data sort last and the score never shows.
+  const SORT_KINDS = {
+    composers: ["random", "best", "az", "newest", "heard"],
+    performers: ["random", "best", "az", "newest", "heard"],
+    works: ["random", "az", "newest", "heard"],
+    recordings: ["random", "az", "newest", "heard"],
+    albums: ["newest", "random", "az", "heard"],
+    favourites: ["random", "az", "newest"],
+    added: ["newest", "random", "az"],
+    heard: ["heard", "random", "az"],
+    saved: ["random", "az", "newest", "heard"],
+  };
+  const COUNTS = { strip: [6, 9, 12], tiles: [3, 6, 9] };
+  const FILTERS = { favourites: "favourites" };
   const LINKS = {
     composers: "Composers",
     performers: "Performers",
@@ -46,13 +77,15 @@
     favourites: "Favourites",
   };
   const DEFAULT_LINKS = ["performers", "works", "albums", "genres", "roles", "playlists"];
+  // The order of all links of a link list, the checked ones first, as the edit sheet shows them.
+  const linkOrder = (checked) => [...checked, ...Object.keys(LINKS).filter((k) => !checked.includes(k))];
   // Saved searches of the sample library: a name and the recordings that match it.
   const SAVED = {
     Baroque: (r) => (M.people[r.composer]?.born || 9999) < 1750,
     Symphonies: (r) => /symphon/i.test(r.work || ""),
   };
 
-  let sample = { favourites: [], added: {}, heard: {}, playlists: 0 };
+  let sample = { favourites: [], added: {}, heard: {}, known: {}, playlists: 0 };
   let data = null;
 
   const load = async () => {
@@ -67,7 +100,8 @@
     sort: "random",
     form: "strip",
     count: 9,
-    ...(kind === "links" ? { links: [...DEFAULT_LINKS] } : {}),
+    conds: [],
+    ...(kind === "links" ? { links: [...DEFAULT_LINKS], order: linkOrder(DEFAULT_LINKS) } : {}),
     ...START[kind],
     ...extra,
   });
@@ -89,6 +123,8 @@
     const qualifiers = [];
     if (row.kind === "saved") qualifiers.push(row.source);
     if (FILTERS[row.filter] && row.kind !== "favourites") qualifiers.push(FILTERS[row.filter]);
+    // Conditions name themselves when they are few, else the title says only that the row is filtered.
+    if (row.conds?.length) qualifiers.push(row.conds.flat().length > 2 ? "filtered" : Filters.short(row.conds));
     if (row.sort !== START[row.kind].sort) qualifiers.push(SORTS[row.sort]);
     return qualifiers.length ? `${base}, ${qualifiers.join(", ")}` : base;
   }
@@ -134,6 +170,7 @@
       added: addedOf(a),
       heard: Math.max(0, ...a.recordings.map((r) => day(sample.heard[r.id]))),
       complete: albumComplete(a),
+      recs: a.recordings,
     }));
     const recordings = [...M.recordings.values()].map((r) => ({
       type: "recording",
@@ -147,6 +184,7 @@
       added: addedOf(r.album),
       heard: day(sample.heard[r.id]),
       complete: !K.partOf(r),
+      recs: [r],
     }));
     const works = [...M.works.values()].map((w) => ({
       type: "work",
@@ -160,6 +198,7 @@
       added: Math.max(...w.recordings.map((r) => addedOf(r.album))),
       heard: Math.max(0, ...w.recordings.map((r) => day(sample.heard[r.id]))),
       complete: K.recordingLists(w).recordings.length > 0,
+      recs: w.recordings,
     }));
     const byPerson = new Map();
     for (const r of M.recordings.values()) {
@@ -179,6 +218,9 @@
       added: Math.max(0, ...recs.map((r) => addedOf(r.album))),
       heard: Math.max(0, ...recs.map((r) => day(sample.heard[r.id]))),
       complete: true,
+      recs,
+      // Sample data. The server has no such value; the app derives it from Wikidata sitelinks and page views.
+      known: sample.known[name] ?? null,
     });
     const composers = [...M.composers.values()]
       .filter((c) => M.people[c.name])
@@ -219,21 +261,96 @@
     return data;
   };
 
-  function items(row) {
-    const lib = library();
-    let list = lib[KINDS[row.kind].unit];
+  // The items of a row before the count cuts them: the source, the saved search and the conditions.
+  function pool(row, conds = row.conds) {
+    let list = library()[KINDS[row.kind].unit];
     if (row.kind === "saved") list = list.filter((x) => SAVED[row.source]?.(x.rec));
     if (row.filter === "favourites") list = list.filter((x) => x.fav);
-    if (row.filter === "complete") list = list.filter((x) => x.complete);
     if (row.sort === "heard") list = list.filter((x) => x.heard);
+    if (conds?.length) list = list.filter((x) => Filters.hit(x.recs, conds));
+    return list;
+  }
+  // The recordings that the conditions of a row may reach: those of its source before any condition.
+  const scopeOf = (row) => new Set(pool(row, []).flatMap((x) => x.recs));
+  const matching = (row, conds) => pool(row, conds).length;
+
+  function items(row) {
+    const list = pool(row);
     const order = {
       random: () => shuffle(list, today() + row.id),
+      // People without a value sort last, and the value itself never shows.
+      best: () => [...list].sort((a, b) => (b.known ?? -1) - (a.known ?? -1) || a.name.localeCompare(b.name)),
       newest: () => [...list].sort((a, b) => b.added - a.added),
       heard: () => [...list].sort((a, b) => b.heard - a.heard),
       az: () => [...list].sort((a, b) => a.name.localeCompare(b.name)),
     };
     return order[row.sort]().slice(0, row.count);
   }
+  // A row with nothing to show hides on the tab.
+  function empty(row) {
+    if (row.kind === "pick") return !pickOf(row);
+    if (row.kind === "links") return !row.links.length;
+    return !pool(row).length;
+  }
+
+  // ---------- Settings: what each row kind offers ----------
+  const savedNames = () => Object.fromEntries(Object.keys(SAVED).map((k) => [k, k]));
+  function sourceOptions(row) {
+    if (UNIT_KINDS.includes(row.kind)) return Object.fromEntries(UNIT_KINDS.map((k) => [k, KINDS[k].label]));
+    if (row.kind === "saved") return savedNames();
+    if (row.kind === "pick") return { library: "Whole library", ...savedNames() };
+    return { [row.kind]: SOURCE_NAME[row.kind] };
+  }
+  const sourceValue = (row) =>
+    UNIT_KINDS.includes(row.kind) ? row.kind : ["saved", "pick"].includes(row.kind) ? row.source : row.kind;
+  const sortOptions = (row) => Object.fromEntries((SORT_KINDS[row.kind] || []).map((k) => [k, SORT_LABELS[k]]));
+  // Faces for people, covers or tiles for the rest. Favourites mix faces and covers, so they stay a strip.
+  function formOptions(row) {
+    if (PEOPLE.includes(row.kind)) return { strip: "Strip of faces" };
+    if (row.kind === "favourites") return { strip: "Strip of faces and covers" };
+    return { strip: "Strip of covers", tiles: "Tiles of covers" };
+  }
+  const countOptions = (row) => Object.fromEntries(COUNTS[row.form].map((n) => [n, String(n)]));
+  // Keeps sort, form and count valid for the kind after any change.
+  function fit(row) {
+    if (SORT_KINDS[row.kind] && !SORT_KINDS[row.kind].includes(row.sort)) row.sort = START[row.kind].sort;
+    if (!formOptions(row)[row.form]) row.form = "strip";
+    if (!COUNTS[row.form].includes(row.count)) row.count = 9;
+  }
+  function apply(row, field, value) {
+    if (field === "source") {
+      if (UNIT_KINDS.includes(row.kind)) row.kind = value;
+      else row.source = value;
+    } else if (field === "count") row.count = Number(value);
+    else row[field] = value;
+    fit(row);
+  }
+  // The subtitle: what the row shows, in words with commas.
+  function facts(row) {
+    if (row.kind === "pick") return `Sentence, from ${row.source === "library" ? "the whole library" : row.source}`;
+    if (row.kind === "links") return row.links.map((k) => LINKS[k]).join(", ") || "No links";
+    const source = row.kind === "saved" ? `Saved search ${row.source}` : sourceOptions(row)[sourceValue(row)];
+    const noun =
+      row.form === "tiles"
+        ? "tiles"
+        : PEOPLE.includes(row.kind)
+          ? "faces"
+          : row.kind === "favourites"
+            ? "faces and covers"
+            : "covers";
+    const parts = [source];
+    if (row.conds?.length) parts.push(Filters.short(row.conds));
+    parts.push(SORTS[row.sort], `${row.count} ${noun}`);
+    return parts.join(", ");
+  }
+
+  // The row setup stays on the device. A page with ?rows= is a specimen view and keeps nothing.
+  const STORE = "library.rows";
+  const stored = () => {
+    const rows = K.store(STORE);
+    return Array.isArray(rows) ? rows : null;
+  };
+  const keep = (rows) => K.store(STORE, rows);
 
   // ---------- Drawing ----------
   const toast = (text) => {
@@ -424,5 +541,30 @@
     };
   }
 
-  window.Library = { KINDS, LINKS, defaults, make, fromParam, title, items, render, mount, load };
+  window.Library = {
+    KINDS,
+    LINKS,
+    UNIT_KINDS,
+    defaults,
+    make,
+    fromParam,
+    title,
+    items,
+    render,
+    mount,
+    load,
+    empty,
+    matching,
+    scopeOf,
+    sourceOptions,
+    sourceValue,
+    sortOptions,
+    formOptions,
+    countOptions,
+    apply,
+    facts,
+    linkOrder,
+    stored,
+    keep,
+  };
 })();

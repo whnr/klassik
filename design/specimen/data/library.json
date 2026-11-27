@@ -1,5 +1,5 @@
 {
-  "about": "Invented sample data for the Library tab: favourites, the day an album was added and the day a recording was heard. The server and the listener store hold the real values.",
+  "about": "Invented sample data for the Library tab: favourites, the day an album was added, the day a recording was heard, the Best known value of some people and the number of playlists. The server and the listener store hold the real values. A person without a known value has no data and sorts last.",
   "favourites": [
     "composer:Frédéric Chopin",
     "composer:Johann Sebastian Bach",
@@ -89,6 +89,36 @@
     "01TvhYfkiTpEePr7jxSrMY|album": "2026-10-29",
     "7j71kwF5tcjELPj0DFS0cY|Antonio Vivaldi|Violin Concerto in F minor, Op. 8 No. 4, RV 297 \"Winter\"": "2026-10-26",
     "7kvRBDsIOy6jJEmtcuYO9T|Gustav Mahler|Symphony No. 2 in C minor": "2026-10-23"
+  },
+  "known": {
+    "Ludwig van Beethoven": 97,
+    "Wolfgang Amadeus Mozart": 96,
+    "Johann Sebastian Bach": 95,
+    "Frédéric Chopin": 90,
+    "Franz Schubert": 85,
+    "Pyotr Ilyich Tchaikovsky": 84,
+    "Antonio Vivaldi": 83,
+    "Johannes Brahms": 82,
+    "George Frideric Handel": 78,
+    "Antonín Dvořák": 74,
+    "Gustav Mahler": 72,
+    "Joseph Haydn": 70,
+    "Maurice Ravel": 68,
+    "Igor Stravinsky": 66,
+    "Herbert von Karajan": 88,
+    "Berliner Philharmoniker": 85,
+    "Martha Argerich": 86,
+    "Wiener Philharmoniker": 84,
+    "Carlos Kleiber": 80,
+    "Nikolaus Harnoncourt": 76,
+    "Maurizio Pollini": 74,
+    "Claudio Abbado": 73,
+    "Mstislav Rostropovich": 72,
+    "Igor Levit": 71,
+    "Vladimir Ashkenazy": 70,
+    "John Eliot Gardiner": 68,
+    "Karl Böhm": 60,
+    "Kurt Masur": 55
   },
   "playlists": 4
 }

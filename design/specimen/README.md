@@ -14,7 +14,7 @@ The specimen is the design reference of Klassik: what is decided, in light, dark
 ## Pages
 
 - `index.html`: the Library tab and the frame of every page, with links to every page.
-- `library.html`: the Library tab, drawn from a list of rows (`library.js`, `library.css`). `?rows=all` draws every row kind; `?rows=composers,albums` draws the kinds named.
+- `library.html`: the Library tab, drawn from a list of rows (`library.js`, `library.css`). `?rows=all` draws every row kind; `?rows=composers,albums` draws the kinds named. `?edit=1` opens the edit sheet on load; `?edit=row` opens the settings of the Composers row. The edit sheet is `library-edit.js` and `library-edit.css`; its Filter level is the Search filter sheet (`filters.js`, `filters.css`). The specimen bar has Reset rows.
 - `work.html`: a work page. `?work=<composer>|<work>` picks another work.
 - `player.html`: a recording or album page. `?embed=player` is the player overlay. `?recording=<id>` or `?album=<id>` picks another.
 - `chronology.html`: one composer among the contemporaries, and the overview (`?level=overview`).
@@ -22,7 +22,7 @@ The specimen is the design reference of Klassik: what is decided, in light, dark
 - `person.html`: a composer or performer page. `?name=<artist name>`.
 - `settings.html`, `lookup.html`, `storage.html`, `server.html`, `rules.html`, `swipe.html`: Settings and its pages.
 - `tokens.html`: the token sheet: every colour in the four themes, contrast, type scale, spacing, radius, size and motion.
-- `sheet.html`: the shared sheet frame at its two levels, and its rules. `sheet.css` and `sheet.js` hold the frame.
+- `sheet.html`: the shared sheet frame at its two levels, and its rules. `sheet.css` and `sheet.js` hold the frame. `filters.js` and `filters.css` hold the filter sheet that Search and the Library edit sheet share.
 - `menu.html`: the page menu, one page per variant, drawn open. `?for=recording`, `album`, `work` or `player`; `?state=none`, `downloading`, `downloaded` or `offline`.
 
 The pill at the top belongs to the specimen, not to the app. It sets the timeline edge, room, accent, player look, contrast, Dynamic Type size and what plays. The settings stay in the URL.

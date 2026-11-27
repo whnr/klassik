@@ -1,0 +1,113 @@
+/* The filter sheet that Search and the Library edit sheet share: the conditions as chips, the kind picker, the find
+   field and the term list. The parts sit in the shared sheet frame (sheet.css). */
+
+/* The conditions read as one paragraph. A chip is inline text, so it breaks across lines like text:
+   the ends are square at a break and round at the real start and end of the chip.
+   The chips are drawn by hand (TextKit in the app), because no system component breaks a chip like text.
+   For VoiceOver a split chip and its x are one button: each chip is one element with role="button" and
+   one label that names the term and "remove". A native button cannot break across lines. */
+.cond {
+  padding: var(--space-xs) 0 var(--space-s);
+  /* The line height is the tap height of a line of chips. */
+  line-height: calc(var(--space-xxxl) + var(--space-xs));
+}
+.cond:empty {
+  display: none;
+}
+.cond .tchip {
+  display: inline;
+  padding: var(--space-xs) var(--space-s) var(--space-xs) var(--space-m);
+  border-radius: var(--radius-full);
+  background: var(--color-fill-quiet);
+  color: var(--color-text-primary);
+  -webkit-box-decoration-break: slice;
+  box-decoration-break: slice;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.cond .tchip .x {
+  margin-left: var(--space-xs);
+  color: var(--color-text-tertiary);
+}
+.cond .plus {
+  display: inline;
+  padding: var(--space-xs) var(--space-m);
+  border-radius: var(--radius-full);
+  color: var(--color-tint);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  cursor: pointer;
+}
+.cond .plus.on {
+  background: var(--color-accent-fill, var(--color-tint));
+  color: var(--color-on-accent, #fff);
+}
+.cond .w {
+  margin: 0 var(--space-inGroup);
+  color: var(--color-text-secondary);
+}
+.cond .w.and {
+  font-weight: 600;
+}
+.cond [role="button"]:focus-visible {
+  outline: 2px solid var(--color-tint);
+  outline-offset: 1px;
+}
+/* The picker and the find field sit in the sticky part of the shared sheet frame. */
+.seg {
+  display: flex;
+  padding: 2px;
+  border-radius: 9px;
+  background: var(--color-fill-quiet);
+  margin: 0 0 var(--space-s);
+}
+.seg button {
+  flex: 1;
+  min-height: 30px;
+  border-radius: 7px;
+  white-space: nowrap;
+  padding: 0 2px;
+}
+.seg button.on {
+  background: var(--color-background-row);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
+  font-weight: 600;
+}
+.narrow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-s);
+  min-height: 36px;
+  padding: 0 var(--space-m);
+  border-radius: 10px;
+  background: var(--color-fill-quiet);
+  margin-bottom: var(--space-s);
+}
+.narrow svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  color: var(--color-text-secondary);
+}
+.narrow input::-webkit-search-cancel-button {
+  display: none;
+}
+.narrow input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-size: 16px;
+}
+.narrow input::placeholder {
+  color: var(--color-text-secondary);
+}
+.term .check {
+  width: 16px;
+  height: 14px;
+  color: var(--color-tint);
+}
+.term .what {
+  color: var(--color-text-secondary);
+}

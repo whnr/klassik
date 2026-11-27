@@ -8,8 +8,10 @@
     <link rel="stylesheet" href="../tokens.css?v=52" />
     <link rel="stylesheet" href="specimen.css?v=52" />
     <link rel="stylesheet" href="sheet.css?v=52" />
+    <link rel="stylesheet" href="filters.css?v=52" />
     <script src="specimen.js?v=52"></script>
     <script src="sheet.js?v=52"></script>
+    <script src="filters.js?v=52"></script>
   </head>
   <body>
     <!--
@@ -83,8 +85,7 @@
       .field input::placeholder {
         color: var(--color-text-secondary);
       }
-      .field input::-webkit-search-cancel-button,
-      .narrow input::-webkit-search-cancel-button {
+      .field input::-webkit-search-cancel-button {
         display: none;
       }
       .clear {
@@ -102,113 +103,6 @@
         color: var(--color-text-secondary);
       }
 
-      /* The conditions read as one paragraph. A chip is inline text, so it breaks across lines like text:
-         the ends are square at a break and round at the real start and end of the chip.
-         The chips are drawn by hand (TextKit in the app), because no system component breaks a chip like text.
-         For VoiceOver a split chip and its x are one button: each chip is one element with role="button" and
-         one label that names the term and "remove". A native button cannot break across lines. */
-      .cond {
-        padding: var(--space-xs) 0 var(--space-s);
-        /* The line height is the tap height of a line of chips. */
-        line-height: calc(var(--space-xxxl) + var(--space-xs));
-      }
-      .cond:empty {
-        display: none;
-      }
-      .cond .tchip {
-        display: inline;
-        padding: var(--space-xs) var(--space-s) var(--space-xs) var(--space-m);
-        border-radius: var(--radius-full);
-        background: var(--color-fill-quiet);
-        color: var(--color-text-primary);
-        -webkit-box-decoration-break: slice;
-        box-decoration-break: slice;
-        overflow-wrap: anywhere;
-        cursor: pointer;
-      }
-      .cond .tchip .x {
-        margin-left: var(--space-xs);
-        color: var(--color-text-tertiary);
-      }
-      .cond .plus {
-        display: inline;
-        padding: var(--space-xs) var(--space-m);
-        border-radius: var(--radius-full);
-        color: var(--color-tint);
-        -webkit-box-decoration-break: clone;
-        box-decoration-break: clone;
-        cursor: pointer;
-      }
-      .cond .plus.on {
-        background: var(--color-accent-fill, var(--color-tint));
-        color: var(--color-on-accent, #fff);
-      }
-      .cond .w {
-        margin: 0 var(--space-inGroup);
-        color: var(--color-text-secondary);
-      }
-      .cond .w.and {
-        font-weight: 600;
-      }
-      .cond [role="button"]:focus-visible {
-        outline: 2px solid var(--color-tint);
-        outline-offset: 1px;
-      }
-      /* The picker and the find field sit in the sticky part of the shared sheet frame. */
-      .seg {
-        display: flex;
-        padding: 2px;
-        border-radius: 9px;
-        background: var(--color-fill-quiet);
-        margin: 0 0 var(--space-s);
-      }
-      .seg button {
-        flex: 1;
-        min-height: 30px;
-        border-radius: 7px;
-        white-space: nowrap;
-        padding: 0 2px;
-      }
-      .seg button.on {
-        background: var(--color-background-row);
-        box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
-        font-weight: 600;
-      }
-      .narrow {
-        display: flex;
-        align-items: center;
-        gap: var(--space-s);
-        min-height: 36px;
-        padding: 0 var(--space-m);
-        border-radius: 10px;
-        background: var(--color-fill-quiet);
-        margin-bottom: var(--space-s);
-      }
-      .narrow svg {
-        width: 15px;
-        height: 15px;
-        flex: none;
-        color: var(--color-text-secondary);
-      }
-      .narrow input {
-        flex: 1;
-        min-width: 0;
-        border: 0;
-        outline: 0;
-        background: transparent;
-        font-size: 16px;
-      }
-      .narrow input::placeholder {
-        color: var(--color-text-secondary);
-      }
-      .term .check {
-        width: 16px;
-        height: 14px;
-        color: var(--color-tint);
-      }
-      .term .what {
-        color: var(--color-text-secondary);
-      }
       /* The page stays visible and scrollable above the half sheet. */
       .search-page.sheet-open .scroll {
         padding-bottom: 50vh;
@@ -278,23 +172,12 @@
     <script>
       K.start(() => {
         const { el, href, ICON, M } = K;
-        const KINDS = { genre: "Genres", composer: "Composers", conductor: "Conductors", performer: "Performers" };
-        const ONE = { genre: "Genre", composer: "Composer", conductor: "Conductor", performer: "Performer" };
+        // The matching, the term index and the filter sheet parts are in filters.js, shared with the Library edit sheet.
+        const { ONE, label, kindOf, words, queryTokens, matches, passes, line: filterLine } = Filters;
+        const { recs } = Filters.index();
         const FUNNEL =
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M7 12h10M10 17h4"/></svg>';
 
-        // ---------- Matching: diacritics fold away; "Op. 67" meets "op67", "K. 626" meets "KV 626". ----------
-        const fold = (s) =>
-          (s || "")
-            .normalize("NFD")
-            .replace(/[̀-ͯ]/g, "")
-            .toLowerCase()
-            .replace(/ø/g, "o")
-            .replace(/ł/g, "l")
-            .replace(/ß/g, "ss")
-            .replace(/æ/g, "ae")
-            .replace(/[^a-z0-9]+/g, " ")
-            .trim();
         const EXAMPLE = [
           ["composer:Frédéric Chopin", "composer:Johann Sebastian Bach"],
           ["genre:Piano"],
@@ -304,56 +187,6 @@
             "performer:City of Birmingham Symphony Orchestra",
           ],
         ];
-        const CATALOGUE = /^(op|k|kv|bwv|d|hob|rv|hwv|kk|swv|wq|sz|l)$/;
-        function words(s) {
-          const w = fold(s).split(" ").filter(Boolean);
-          const out = new Set(w);
-          for (let i = 0; i + 1 < w.length; i++)
-            if (CATALOGUE.test(w[i]) && /^\d/.test(w[i + 1])) {
-              out.add(w[i] + w[i + 1]);
-              if (w[i] === "k") out.add("kv" + w[i + 1]);
-              if (w[i] === "kv") out.add("k" + w[i + 1]);
-            }
-          return [...out];
-        }
-        function queryTokens(q) {
-          const w = fold(q).split(" ").filter(Boolean);
-          const out = [];
-          for (let i = 0; i < w.length; i++) {
-            if (CATALOGUE.test(w[i]) && w[i + 1] && /^\d/.test(w[i + 1])) {
-              out.push(w[i] + w[i + 1]);
-              i++;
-            } else out.push(w[i]);
-          }
-          return out;
-        }
-        const matches = (tokens, hay) => tokens.every((t) => hay.some((h) => h.startsWith(t)));
-
-        // ---------- The index: every recording with its search terms, read from the songs. ----------
-        const recs = [...M.recordings.values()].map((r) => {
-          const terms = new Set(r.genres.map((g) => "genre:" + g));
-          for (const s of r.songs)
-            for (const c of s.contributors || [])
-              terms.add(
-                `${c.role === "composer" ? "composer" : c.role === "conductor" ? "conductor" : "performer"}:${c.artist.name}`,
-              );
-          if (r.composer) terms.add("composer:" + r.composer);
-          r.performers
-            .filter((p) => p.role === "artist")
-            .forEach((p) => {
-              terms.add("performer:" + p.name);
-            });
-          return { r, terms };
-        });
-        const allTerms = new Map();
-        for (const { terms } of recs) for (const t of terms) allTerms.set(t, (allTerms.get(t) || 0) + 1);
-        // A genre that every recording carries filters nothing, so the picker hides it (as on the composer page).
-        // Weak tags leave some recordings without a genre, so the test counts only the recordings that carry one.
-        const withGenre = recs.filter((x) => x.r.genres.length).length;
-        for (const [t, n] of allTerms) if (t.startsWith("genre:") && n === withGenre) allTerms.delete(t);
-        const label = (t) => t.slice(t.indexOf(":") + 1);
-        const kindOf = (t) => t.slice(0, t.indexOf(":"));
-
         // A work or an album answers for some track titles: a tagged track for its work, an untagged one for its
         // album. A match that needs a track title names that track in the row.
         const tracksOf = (songs) =>
@@ -402,7 +235,7 @@
             nicks,
             hay: [...plain, ...nicks.flatMap((n) => n.words)],
             tracks: tracksOf(w.recordings.flatMap((r) => r.songs)),
-            title: fold(w.name),
+            title: Filters.fold(w.name),
           };
         });
         // The nickname that the match needs, or null when the title, composer and set match without it.
@@ -433,35 +266,40 @@
 
         // ---------- State. The query and the conditions stay when the filters hide. ----------
         let query = K.store("search3.q") || "";
-        let conds = K.store("search3.conds") || [];
         let open = K.store("search3.open") || false;
-        let marked = null,
-          kind = K.params.get("filters") === "example" ? "performer" : "composer",
-          narrowQ = "",
-          clearNarrow = () => {};
+        // The filter sheet parts. The counts and the reach are those of the results that the page shows.
+        const fx = Filters.make({
+          conds: K.store("search3.conds") || [],
+          kind: K.params.get("filters") === "example" ? "performer" : "composer",
+          count: (list) => count(list),
+          scope: () => found(),
+          onChange: () => {
+            save();
+            update();
+          },
+        });
         const save = () => {
           K.store("search3.q", query);
-          K.store("search3.conds", conds);
+          K.store("search3.conds", fx.conds);
           K.store("search3.open", open);
         };
         // Back from a result keeps the search. Any other arrival (a tab, a link) starts fresh: leaving the page already put the search into Recent.
         const nav = performance.getEntriesByType("navigation")[0];
         if (!nav || nav.type === "navigate") {
           query = "";
-          conds = [];
+          fx.conds = [];
           open = false;
           save();
           K.store("search.session", null);
         }
         // Specimen only: ?filters=example opens the sheet on three conditions and the performers of the third, with a chip that breaks across lines.
         if (K.params.get("filters") === "example") {
-          conds = EXAMPLE.map((c) => [...c]);
+          fx.conds = EXAMPLE.map((c) => [...c]);
           // The marked condition lists enough performers to scroll the picker up to the header.
-          marked = 2;
+          fx.marked = 2;
           open = true;
           save();
         }
-        const passes = (x, list) => list.every((c) => c.some((t) => x.terms.has(t)));
         // The filters count only what the text already found: the recordings of matching works, people and albums.
         let foundKey = null,
           foundSet = null;
@@ -572,8 +410,8 @@
             endSession();
             input.value = "";
             query = "";
-            conds = [];
-            marked = null;
+            fx.conds = [];
+            fx.marked = null;
             save();
             update();
           },
@@ -607,7 +445,7 @@
           const entry = {
             id: session || Math.random().toString(36).slice(2),
             q: query.trim(),
-            conds: conds.map((c) => [...c]),
+            conds: fx.conds.map((c) => [...c]),
           };
           if (!entry.q && !entry.conds.length) return;
           session = entry.id;
@@ -622,9 +460,6 @@
           session = null;
           K.store("search.session", null);
         }
-        // The filters read as they work: terms of one condition joined with "or", conditions with "and".
-        const filterLine = (list) =>
-          list.map((c) => c.map((t) => `${ONE[kindOf(t)]} ${label(t)}`).join(" or ")).join(" and ");
         scroll.addEventListener("click", (e) => {
           if (e.target.closest("a.row")) commit();
         });
@@ -659,168 +494,6 @@
         addEventListener("scroll", ride);
         document.addEventListener("focusin", follow);
         document.addEventListener("focusout", follow);
-        // ---------- Shared pieces of the filters ----------
-        // A chip is one button for assistive technology: it names the term and "remove", and the x belongs to it.
-        // It is a span with role="button", because a native button cannot break across lines.
-        const press = (run) => ({
-          role: "button",
-          tabindex: "0",
-          onclick: run,
-          onkeydown: (e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              run();
-            }
-          },
-        });
-        function chip(t, ci) {
-          return el(
-            "span",
-            { class: "tchip t-subheadline", "aria-label": `${label(t)}, remove`, ...press(() => removeTerm(ci, t)) },
-            label(t),
-            el("span", { class: "x", "aria-hidden": "true" }, "×"),
-          );
-        }
-        function removeTerm(ci, t) {
-          conds[ci] = conds[ci].filter((x) => x !== t);
-          if (!conds[ci].length) {
-            conds.splice(ci, 1);
-            if (marked === ci) marked = null;
-            else if (marked > ci) marked--;
-          }
-          save();
-          update();
-        }
-        // The conditions as one paragraph: "or" inside a condition, "and" between conditions.
-        // Each condition ends with its "+ or" button, which marks it so the next term joins it.
-        function condParagraph() {
-          const box = el("div", { class: "cond", role: "group", "aria-label": "Conditions" });
-          conds.forEach((c, i) => {
-            if (i) box.append(el("span", { class: "w and t-subheadline" }, "and"), " ");
-            c.forEach((t, j) => {
-              if (j) box.append(el("span", { class: "w t-subheadline" }, "or"), " ");
-              box.append(chip(t, i), " ");
-            });
-            box.append(
-              el(
-                "span",
-                {
-                  class: "plus t-subheadline" + (marked === i ? " on" : ""),
-                  "aria-label": "Add an or term",
-                  "aria-pressed": String(marked === i),
-                  ...press(() => {
-                    marked = marked === i ? null : i;
-                    update();
-                  }),
-                },
-                "+ or",
-              ),
-              " ",
-            );
-          });
-          return box;
-        }
-        // A term in use shows a check mark, and a second tap removes it. A free term joins the marked
-        // condition with "or", else it starts a condition with "and".
-        function termRows(into) {
-          const q = queryTokens(narrowQ);
-          const list = [...allTerms.keys()]
-            .filter((t) => kindOf(t) === kind && (!q.length || matches(q, words(label(t)))))
-            .map((t) => ({ t, at: conds.findIndex((c) => c.includes(t)) }))
-            .filter(({ t, at }) => {
-              if (at >= 0 || into == null) return true;
-              const f = found();
-              const others = conds.filter((_, i) => i !== into);
-              return recs.some((x) => (!f || f.has(x.r)) && passes(x, others) && x.terms.has(t));
-            })
-            .map(({ t, at }) => ({
-              t,
-              at,
-              n: count(
-                at >= 0 ? conds : into != null ? conds.map((c, i) => (i === into ? [...c, t] : c)) : [...conds, [t]],
-              ),
-            }))
-            .filter((x) => x.n > 0 || x.at >= 0)
-            .sort((x, y) => Number(y.at >= 0) - Number(x.at >= 0) || y.n - x.n || label(x.t).localeCompare(label(y.t)));
-          if (!list.length)
-            return [el("div", { class: "row t-subheadline secondary" }, "No term of this kind is left.")];
-          // A pick clears the narrowing text, so the next term can be typed at once.
-          return list.map(({ t, at, n }) =>
-            el(
-              "button",
-              {
-                class: "row term",
-                "aria-pressed": String(at >= 0),
-                onclick: () => {
-                  clearNarrow();
-                  if (at >= 0) return removeTerm(at, t);
-                  if (into != null) conds[into].push(t);
-                  else {
-                    conds.push([t]);
-                    marked = null;
-                  }
-                  save();
-                  update();
-                },
-              },
-              el("div", { class: "main t-body" }, label(t)),
-              el(
-                "div",
-                { class: "trail" },
-                at >= 0 ? el("span", { class: "check", html: ICON.check }) : null,
-                el("span", { class: "what t-subheadline nums" }, String(n)),
-              ),
-            ),
-          );
-        }
-        function kindSeg(onChange) {
-          const seg = el("div", { class: "seg" });
-          seg.draw = () =>
-            seg.replaceChildren(
-              ...Object.keys(KINDS).map((k) =>
-                el(
-                  "button",
-                  {
-                    class: "t-footnote" + (k === kind ? " on" : ""),
-                    onclick: () => {
-                      kind = k;
-                      seg.draw();
-                      onChange();
-                    },
-                  },
-                  KINDS[k],
-                ),
-              ),
-            );
-          seg.draw();
-          return seg;
-        }
-        function narrowField(onChange) {
-          const i = el("input", {
-            type: "search",
-            enterkeyhint: "done",
-            autocomplete: "off",
-            autocorrect: "off",
-            spellcheck: "false",
-          });
-          const setPh = () => (i.placeholder = "Find in " + KINDS[kind].toLowerCase());
-          setPh();
-          i.addEventListener("input", () => {
-            narrowQ = i.value;
-            onChange();
-          });
-          i.addEventListener("keydown", (e) => {
-            if (e.key === "Enter") i.blur();
-          });
-          const box = el("label", { class: "narrow" }, el("span", { html: ICON.search }), i);
-          box.reset = () => {
-            i.value = "";
-            narrowQ = "";
-            setPh();
-          };
-          return box;
-        }
-
         // ---------- Results: sections by kind; the conditions narrow every section. ----------
         const resultsBox = el("div");
         scroll.append(resultsBox);
@@ -858,7 +531,7 @@
         let ok = new Set();
         function results() {
           const tokens = queryTokens(query);
-          if (!tokens.length && !conds.length) {
+          if (!tokens.length && !fx.conds.length) {
             if (!recent.length)
               return [
                 el(
@@ -898,8 +571,8 @@
                         onclick: () => {
                           input.value = r.q;
                           query = r.q;
-                          conds = r.conds.map((c) => [...c]);
-                          marked = null;
+                          fx.conds = r.conds.map((c) => [...c]);
+                          fx.marked = null;
                           session = r.id;
                           commit();
                           save();
@@ -921,7 +594,7 @@
               ),
             ];
           }
-          ok = new Set(recs.filter((x) => passes(x, conds)).map((x) => x.r));
+          ok = new Set(recs.filter((x) => passes(x, fx.conds)).map((x) => x.r));
           const out = [];
           // A title that starts with the text comes first, then a title that holds it, then a match on the composer or
           // the set, then a match that needs a track title.
@@ -969,7 +642,7 @@
                       el(
                         "div",
                         { class: "t-subheadline secondary" },
-                        `${w.composer}, ${conds.length ? `${n} of ${plural(w.recordings.length, "recording")} match` : plural(n, "recording")}`,
+                        `${w.composer}, ${fx.conds.length ? `${n} of ${plural(w.recordings.length, "recording")} match` : plural(n, "recording")}`,
                       ),
                       trackLine(track, nickname),
                     ),
@@ -1054,29 +727,13 @@
         let frame = null;
         let handle = null;
         function buildSheet() {
-          const condsBox = el("div");
-          const list = el("div", { class: "list" });
-          const redraw = () => list.replaceChildren(...termRows(marked));
-          const narrow = narrowField(redraw);
-          clearNarrow = narrow.reset;
-          const seg = kindSeg(() => {
-            narrow.reset();
-            redraw();
-          });
-          frame = Frame.make({
-            title: "Filters",
-            body: [condsBox, el("div", { class: "hs-stick" }, seg, narrow), list],
-          });
+          frame = Frame.make({ title: "Filters", body: fx.body() });
           frame.draw = () => {
             // The count counts the rows that the page shows below: composers, performers, works and albums.
             const shown = resultsBox.querySelectorAll("section:not(.recent) .list > .row").length;
-            frame.set({ count: conds.length || query.trim() ? plural(shown, "result") : "" });
-            const next = condParagraph();
-            frame.condsBox.replaceWith(next);
-            frame.condsBox = next;
-            redraw();
+            frame.set({ count: fx.conds.length || query.trim() ? plural(shown, "result") : "" });
+            fx.draw();
           };
-          frame.condsBox = condsBox;
           riders.push((kb, up) => {
             if (!frame) return;
             up = up && frame.box.contains(document.activeElement);
@@ -1108,9 +765,9 @@
 
         function update() {
           clear.style.visibility = input.value ? "visible" : "hidden";
-          resetBtn.disabled = !query && !conds.length;
-          badge.textContent = String(conds.length);
-          badge.style.display = conds.length && !open ? "" : "none";
+          resetBtn.disabled = !query && !fx.conds.length;
+          badge.textContent = String(fx.conds.length);
+          badge.style.display = fx.conds.length && !open ? "" : "none";
           filtersBtn.classList.toggle("on", open);
           resultsBox.replaceChildren(...results());
           if (frame) frame.draw();

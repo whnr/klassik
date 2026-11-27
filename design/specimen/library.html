@@ -7,9 +7,15 @@
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="../tokens.css?v=52" />
     <link rel="stylesheet" href="specimen.css?v=52" />
+    <link rel="stylesheet" href="sheet.css?v=52" />
+    <link rel="stylesheet" href="filters.css?v=52" />
     <link rel="stylesheet" href="library.css?v=1" />
+    <link rel="stylesheet" href="library-edit.css?v=1" />
     <script src="specimen.js?v=52"></script>
-    <script src="library.js?v=1"></script>
+    <script src="sheet.js?v=52"></script>
+    <script src="filters.js?v=52"></script>
+    <script src="library.js?v=2"></script>
+    <script src="library-edit.js?v=1"></script>
   </head>
   <body>
     <!--
@@ -19,7 +25,8 @@
   - A strip is as tall as its tallest card. Strips hold 6, 9 or 12 cards; tiles hold 3, 6 or 9.
   - The Daily pick is the only larger text in the app. A tap on its cover or title opens the item and plays nothing.
   - ?rows=all draws every row kind. ?rows=composers,performers,... draws the kinds named.
-  - Edit raises the sheet that sets up the rows; it does nothing yet.
+  - Edit raises the sheet that sets up the rows. ?edit=1 opens it on load; ?edit=row opens the settings of the Composers row.
+  - The rows stay for the browser session, except with ?rows=. The Reset rows control of the specimen bar clears them.
 -->
     <script>
       K.start(async () => {
@@ -27,8 +34,9 @@
         await Library.load();
         const { nav, scroll } = K.page({ tab: "library", title: "Library" });
         const actions = nav.querySelector(".actions");
+        const editButton = el("button", { class: "t-body tint", onclick: () => openEdit() }, "Edit");
         actions.append(
-          el("button", { class: "t-body tint", "aria-disabled": "true" }, "Edit"),
+          editButton,
           el("a", {
             class: "settings-link",
             href: href("settings.html", { tab: "library", back: "Library" }),
@@ -52,7 +60,40 @@
             ),
           ),
         );
-        Library.mount(host, Library.fromParam(K.params.get("rows")));
+        // A ?rows= view draws what it names and keeps nothing.
+        const named = K.params.get("rows");
+        const rows = named ? Library.fromParam(named) : (Library.stored() ?? Library.defaults());
+        let edit = null;
+        const tab = Library.mount(host, rows, { onSelect: (id) => edit?.select(id) });
+        function openEdit(start = null) {
+          if (edit) return;
+          editButton.style.visibility = "hidden";
+          edit = LibraryEdit.open({
+            rows,
+            tab,
+            start,
+            onChange: named ? null : Library.keep,
+            onClose: () => {
+              edit = null;
+              editButton.style.visibility = "";
+            },
+          });
+        }
+        const startEdit = K.params.get("edit");
+        if (startEdit) openEdit(startEdit === "row" ? "row" : null);
+        // Specimen only: a reset for the rows.
+        document.querySelector(".specimen-bar")?.append(
+          el(
+            "button",
+            {
+              onclick: () => {
+                K.store("library.rows", null);
+                location.reload();
+              },
+            },
+            "Reset rows",
+          ),
+        );
       });
     </script>
   </body>

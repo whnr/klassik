@@ -20,6 +20,8 @@ struct DeviceStore {
         var notes: [String: [ListeningNote]] = [:]
         /// Recent searches, newest first. The server never sees them.
         var recentSearches: [RecentSearch] = []
+        /// The rows of the Library tab. Nil until the listener sets them up; the tab then shows its default rows.
+        var library: LibrarySetup?
 
         /// Keeps one change for each target: the server must get the newest choice.
         mutating func queue(_ change: FavouriteChange) {
@@ -85,7 +87,7 @@ struct DeviceStore {
 }
 
 extension DeviceStore.Data {
-    /// A file from an older build has no album stars, no queue, no notes and no recent searches.
+    /// A file from an older build has no album stars, no queue, no notes, no recent searches and no Library rows.
     init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         favouriteWorks = try values.decode(Set<String>.self, forKey: .favouriteWorks)
@@ -95,6 +97,7 @@ extension DeviceStore.Data {
             try values.decodeIfPresent([DeviceStore.FavouriteChange].self, forKey: .pendingFavourites) ?? []
         notes = try values.decodeIfPresent([String: [ListeningNote]].self, forKey: .notes) ?? [:]
         recentSearches = try values.decodeIfPresent([RecentSearch].self, forKey: .recentSearches) ?? []
+        library = try values.decodeIfPresent(LibrarySetup.self, forKey: .library)
     }
 }
 
@@ -106,6 +109,8 @@ final class ListenerFile {
     /// A file that does not load refuses every write, so a damaged file is never replaced.
     private(set) var loadError: String?
     private let store: DeviceStore?
+    /// A file without a store lives in memory only: nobody is signed in.
+    var isOnDevice: Bool { store != nil }
 
     init(store: DeviceStore?) {
         self.store = store

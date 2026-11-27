@@ -7,17 +7,21 @@ struct LibraryView: View {
     var body: some View {
         let library = model.library
         let rows = model.libraryRows
+        // Other kinds wait for their own drawing; they keep their place in the setup.
+        let shown = rows.rows.filter { $0.kind.drawn != nil }
         PageList {
             Section {
-                ForEach(rows.rows) { row in
-                    NavigationLink(value: row.page) {
-                        LabeledContent(row.title, value: count(of: row).localized())
-                            .ink()
+                ForEach(shown) { setup in
+                    if let row = setup.kind.drawn {
+                        NavigationLink(value: row.page) {
+                            LabeledContent(row.title, value: count(of: row).localized())
+                                .ink()
+                        }
+                        .accessibilityIdentifier("library-\(row.rawValue)")
+                        .itemSeparator(first: setup.id == shown.first?.id, last: setup.id == shown.last?.id)
                     }
-                    .accessibilityIdentifier("library-\(row.rawValue)")
-                    .itemSeparator(first: row.id == rows.rows.first?.id, last: row.id == rows.rows.last?.id)
                 }
-                .onMove { rows.move(fromOffsets: $0, toOffset: $1) }
+                .onMove { rows.move(fromOffsets: $0, toOffset: $1, among: shown.map(\.id)) }
             } footer: {
                 VStack(alignment: .leading) {
                     if let status {

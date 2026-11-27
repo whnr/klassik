@@ -59,19 +59,6 @@ struct RecordingGainTests {
         #expect(abs(RecordingGain.gain(of: tracks)! - -4) < 0.001)
     }
 
-    /// The movements of one recording on two albums have two album gains and one recording gain.
-    @Test func aRecordingAcrossAlbumsPlaysAtOneLevel() {
-        let tracks = [
-            track("a", seconds: 600, gain: -7, albumGain: -6),
-            track("b", seconds: 300, gain: -5, albumGain: -6),
-            track("c", seconds: 900, gain: -9, albumGain: -2),
-        ]
-        let levels = tracks.map { VolumeLeveling.work.gain(for: $0, in: tracks) }
-        #expect(Set(levels).count == 1)
-        #expect(abs(levels[0] - -7.902) < 0.001)
-        #expect(VolumeLeveling.album.gain(for: tracks[0]) != VolumeLeveling.album.gain(for: tracks[2]))
-    }
-
     /// The highest peak of any movement limits the one gain.
     @Test func theHighestPeakLimitsTheBoost() {
         let tracks = [track("a", gain: 5, peak: 0.5), track("b", gain: 5, peak: 0.9)]

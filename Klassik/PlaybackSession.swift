@@ -232,7 +232,7 @@ final class PlaybackSession {
         self.defaults = defaults
         self.gainStage = gainStage
         scrobblesEnabled = defaults.object(forKey: Self.scrobblesKey) as? Bool ?? true
-        leveling = defaults.string(forKey: Self.levelingKey).flatMap(VolumeLeveling.init) ?? .album
+        leveling = defaults.string(forKey: Self.levelingKey).flatMap(VolumeLeveling.init) ?? .work
         showsAudioQuality = defaults.bool(forKey: Self.showsAudioQualityKey)
         engine.useGainStage(Self.wantsGainStage(leveling, gainStage))
         engine.onEvent = { [weak self] event in self?.engineEvent(event) }

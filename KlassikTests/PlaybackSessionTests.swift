@@ -31,9 +31,9 @@ struct PlaybackSessionTests {
 
     private func makeSession(
         _ requests: Requests = Requests(), server: (any ServerPort)? = InMemoryServer(),
-        gainStage: (any GainStage)? = nil
+        gainStage: (any GainStage)? = nil, defaults: UserDefaults? = nil
     ) throws -> (session: PlaybackSession, engine: FakeEngine) {
-        let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
+        let defaults = try defaults ?? #require(UserDefaults(suiteName: UUID().uuidString))
         let store = TrackStore(
             cacheFolder: root.appending(path: "cache"), downloadFolder: root.appending(path: "downloads"),
             defaults: defaults,
@@ -750,6 +750,16 @@ struct PlaybackSessionTests {
         #expect(engine.gain == -6)
         session.leveling = .off
         #expect(engine.gain == 0)
+    }
+
+    /// A listener who never chose a setting gets Work. A saved choice, Album included, stays.
+    @Test func workIsTheDefaultAndASavedChoiceStays() throws {
+        let fresh = try makeSession().session
+        #expect(fresh.leveling == .work)
+        let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
+        let first = try makeSession(defaults: defaults).session
+        first.leveling = .album
+        #expect(try makeSession(defaults: defaults).session.leveling == .album)
     }
 
     /// Every movement of a recording plays at the level of the recording, whatever its own gain.

@@ -343,6 +343,20 @@ private struct SearchResults: View {
     /// The recordings of each work that pass the conditions. Empty without conditions.
     let matching: [String: Int]
     @ScaledMetric(space: .inGroup) private var gap: CGFloat
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var folds = SectionFolds()
+
+    /// A section keeps its heading when folded and drops its rows. Reduce Motion gets the short cross-fade.
+    private func heading(_ title: String, count: Int) -> CountedHeading {
+        CountedHeading(
+            title, count: count,
+            fold: (
+                folds.isFolded(title),
+                {
+                    withAnimation(Motion.inPlace.animation(reduceMotion: reduceMotion)) { folds.toggle(title) }
+                }
+            ))
+    }
 
     var body: some View {
         let playing = model.playback.item
@@ -350,8 +364,8 @@ private struct SearchResults: View {
         people(results.performers, title: "Performers")
         if !results.works.isEmpty {
             Section {
-                CountedHeading("Works", count: results.works.count)
-                ForEach(results.works) { work in
+                heading("Works", count: results.works.count)
+                ForEach(folds.isFolded("Works") ? [] : results.works) { work in
                     NavigationLink(value: Page.work(work.id)) {
                         let total = WorkIndex.Recording.count(work.recordings.count, "recording")
                         let recordings = matching[work.id].map { L("\($0) of \(total) match") } ?? total
@@ -368,8 +382,8 @@ private struct SearchResults: View {
         }
         if !results.albums.isEmpty {
             Section {
-                CountedHeading("Albums", count: results.albums.count)
-                ForEach(results.albums) { album in
+                heading("Albums", count: results.albums.count)
+                ForEach(folds.isFolded("Albums") ? [] : results.albums) { album in
                     NavigationLink(value: Page.album(album.id)) {
                         HStack(spacing: Layout.rowGap) {
                             CoverImage(song: album.tracks.first, points: Layout.rowCover)
@@ -396,8 +410,8 @@ private struct SearchResults: View {
     private func people(_ people: [Search.Person], title: String) -> some View {
         if !people.isEmpty {
             Section {
-                CountedHeading(title, count: people.count)
-                ForEach(people) { person in
+                heading(title, count: people.count)
+                ForEach(folds.isFolded(title) ? [] : people) { person in
                     PersonPageLink(page: person.composes ? .composer(person.name) : .performer(person.name)) {
                         lines(
                             title: person.name, isFavourite: model.recordingOrder.isFavourite(person: person.name),

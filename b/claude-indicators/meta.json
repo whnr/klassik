@@ -1,7 +1,7 @@
 {
-  "sha": "782245699d03d9da0a587ca141db5bacce39618a",
+  "sha": "2c6e233b10207af335ab413a38cdd5644ec0b772",
   "branch": "claude-indicators",
   "path": "claude-indicators",
-  "subject": "[sz-rs30.1.125.3] Remove offline mark and loading spinner",
-  "ts": 1795791554
+  "subject": "Merge remote-tracking branch 'origin/main' into claude-indicators-fix",
+  "ts": 1795822816
 }

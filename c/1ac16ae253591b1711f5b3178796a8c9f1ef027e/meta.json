@@ -1,7 +1,0 @@
-{
-  "sha": "1ac16ae253591b1711f5b3178796a8c9f1ef027e",
-  "branch": "claude-seekgap",
-  "path": "claude-seekgap",
-  "subject": "Restart the sound wait when a seek hands on the flag",
-  "ts": 1795705308
-}

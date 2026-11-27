@@ -342,6 +342,8 @@ final class CaptureRecorder: @unchecked Sendable {
         /// The frame after the last block that the source delivered.
         var end: Int?
         var done = false
+        /// True once a drain pass has run for the source. Its blocks may already wait in the ring before that.
+        var drained = false
         init(_ source: CaptureSource) { self.source = source }
     }
 
@@ -403,6 +405,7 @@ final class CaptureRecorder: @unchecked Sendable {
                     tracked.end = max(tracked.end ?? 0, block.start + frames)
                 }
                 tracked.done = closed
+                tracked.drained = true
             }
 
             for tracked in active { drain(tracked) }
@@ -423,9 +426,14 @@ final class CaptureRecorder: @unchecked Sendable {
                 func birth(of source: CaptureSource) -> Int {
                     max(0, Int(((source.birth - origin) * Double(rate)).rounded()) - slack)
                 }
-                let live = active.filter { !$0.done }.map { $0.end ?? birth(of: $0.source) }
+                let liveSources = active.filter { !$0.done }
+                let live = liveSources.map { $0.end ?? birth(of: $0.source) }
                 let newest = max(mixer.end, live.max() ?? 0)
-                let holding = live.filter { $0 >= newest - Self.lagSeconds * rate }
+                // A source that no drain has read yet cannot be called stuck: a slow pass lets the others run ahead
+                // of its birth while its first blocks wait in the ring.
+                let holding = zip(liveSources, live)
+                    .filter { !$0.0.drained || $0.1 >= newest - Self.lagSeconds * rate }
+                    .map(\.1)
                 let safe = mixer.end - Int(Self.holdSeconds * Double(rate))
                 let frontier = stopping ? mixer.end : min(holding.min() ?? mixer.end, safe)
                 flush(min(frontier, limit), width: width, rate: rate)

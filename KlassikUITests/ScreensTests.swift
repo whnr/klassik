@@ -3848,7 +3848,12 @@ class ScreensTestCase: XCTestCase {
             if element.exists {
                 // A tap on a row under the tab row would open a place or the player.
                 let floor = row.exists ? row.frame.minY : app.frame.maxY
-                if element.frame.maxY <= floor, element.isHittable { return element }
+                // isHittable fails the test when the element has no activation point, as a row that the list
+                // has moved off screen. Only an element whose frame lies on screen is asked.
+                let frame = element.frame
+                if frame.minY >= app.frame.minY, frame.maxY <= floor, !frame.isEmpty, element.isHittable {
+                    return element
+                }
             }
             // A drag that starts on the playback bar scrubs and does not scroll, so it starts below the bar.
             let start = CGPoint(x: app.frame.midX, y: app.frame.minY + app.frame.height * 0.6)

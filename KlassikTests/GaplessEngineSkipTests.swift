@@ -546,6 +546,23 @@ struct GaplessEngineSkipTests {
         player.discard()
     }
 
+    /// The spec of the app: a start fades in and a pause fades out over 100 ms of Smootherstep, and a load crosses
+    /// over instead of waiting for the old sound to fade out.
+    @Test func theSpecFadesWithSmootherstepOverOneHundredMilliseconds() throws {
+        let (engine, node) = try Self.graph()
+        defer { engine.stop() }
+        let fade = FadeControl()
+        let player = GaplessEngine(manualRendering: true)
+        player.fadeOptions = .spec
+        player.adopt(engine, node, started: true, fade: fade)
+        try player.start(node)
+        #expect(fade.last == .init(from: 0, target: 1, frames: Self.rate / 10, curve: .smootherstep, onSignal: true))
+        player.pause()
+        #expect(fade.last == .init(from: nil, target: 0, frames: Self.rate / 10, curve: .smootherstep))
+        #expect(player.fadeOptions.seek == .crossfade)
+        player.discard()
+    }
+
     /// A start after a seek asks for the chosen fade-in curve and length in every mode that starts a new graph, and
     /// the ramp waits for the first sound of the node.
     @Test(arguments: FadeCurve.allCases, [SeekMode.today, .silence(seconds: 0.1)])

@@ -36,8 +36,12 @@ struct LabPlayerTests {
         #expect(LabFadeSettings.seconds(900, in: LabFadeSettings.durationRange) == 0.3)
     }
 
-    @Test func theLabStartsWithTheOptionsOfTheApp() {
+    @Test func theLabStartsWithThePlainEngineOptions() {
         #expect(LabFadeSettings().options == FadeOptions())
+    }
+
+    @Test func theLabControlsCanSetTheSoundOfTheApp() {
+        #expect(LabFadeSettings.spec.options == FadeOptions.spec)
     }
 
     @Test func eachLabSettingReachesTheEngineOptions() {

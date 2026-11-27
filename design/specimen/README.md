@@ -17,7 +17,7 @@ The specimen is the design reference of Klassik: what is decided, in light, dark
 - `work.html`: a work page. `?work=<composer>|<work>` picks another work.
 - `player.html`: a recording or album page. `?embed=player` is the player overlay. `?recording=<id>` or `?album=<id>` picks another.
 - `chronology.html`: one composer among the contemporaries, and the overview (`?level=overview`).
-- `search.html`: Search and its Filters sheet, built on the shared frame. `?filters=example` opens it on three conditions.
+- `search.html`: Search and its Filters sheet, built on the shared frame. `?filters=example` opens it on three conditions, with the third marked and the Performers picker open. Scroll the sheet to see the picker stick under the header.
 - `person.html`: a composer or performer page. `?name=<artist name>`.
 - `settings.html`, `lookup.html`, `storage.html`, `server.html`, `rules.html`, `swipe.html`: Settings and its pages.
 - `tokens.html`: the token sheet: every colour in the four themes, contrast, type scale, spacing, radius, size and motion.

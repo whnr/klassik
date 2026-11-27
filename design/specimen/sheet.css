@@ -108,4 +108,6 @@
   z-index: 2;
   padding: var(--space-xs) 0 var(--space-xxs);
   background: var(--color-background-grouped);
+  /* The shadow covers the line above the stick edge, so no scrolled text shows there. */
+  box-shadow: 0 -2px 0 var(--color-background-grouped);
 }

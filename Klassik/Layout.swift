@@ -197,9 +197,6 @@ enum Layout {
     // MARK: Filter sheet
 
     /// The heading of the sheet is the shared frame: title and Done on one line, the result count below.
-    /// The old gap between title, count and Done has no counterpart. It cites the grabber margin of equal value.
-    /// css: sheet.css .hsheet .hs-grab | margin-top
-    static let filterHeadGap = Space.s.points
     /// css: sheet.css .hsheet .hs-head | padding-top
     static let filterHeadTop = Space.xxs.points
     /// css: sheet.css .hsheet .hs-count | padding-bottom
@@ -227,10 +224,6 @@ enum Layout {
     /// The space on each side of an "and" or "or" word between chips.
     /// css: search.html .cond .w | margin-left
     static let conditionTermGap = Space.inGroup.points
-    /// The marked condition has no bar any more: the "+ or" button shows the mark. The constant has no counterpart.
-    /// It cites the grabber radius of equal value.
-    /// css: sheet.css .hsheet .hs-grab | border-top-left-radius | 3px
-    static let conditionMark: CGFloat = 3
     /// The height of one line of chips: the tap height of a chip.
     /// css: search.html .cond | line-height
     static let orButtonHeight = Space.xxxl.points + Space.xs.points

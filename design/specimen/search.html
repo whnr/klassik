@@ -154,7 +154,7 @@
         outline: 2px solid var(--color-tint);
         outline-offset: 1px;
       }
-      /* The picker and the find field stick under the header and scroll inside the one scroll area. */
+      /* The picker and the find field sit in the sticky part of the shared sheet frame. */
       .seg {
         display: flex;
         padding: 2px;
@@ -436,7 +436,7 @@
         let conds = K.store("search3.conds") || [];
         let open = K.store("search3.open") || false;
         let marked = null,
-          kind = "composer",
+          kind = K.params.get("filters") === "example" ? "performer" : "composer",
           narrowQ = "",
           clearNarrow = () => {};
         const save = () => {
@@ -453,9 +453,11 @@
           save();
           K.store("search.session", null);
         }
-        // Specimen only: ?filters=example opens the sheet on three conditions, with a chip that breaks across lines.
+        // Specimen only: ?filters=example opens the sheet on three conditions and the performers of the third, with a chip that breaks across lines.
         if (K.params.get("filters") === "example") {
           conds = EXAMPLE.map((c) => [...c]);
+          // The marked condition lists enough performers to scroll the picker up to the header.
+          marked = 2;
           open = true;
           save();
         }
@@ -492,9 +494,26 @@
           foundSet = set;
           return set;
         }
+        // The rows that Search shows are works, people and albums. Each pool is the recordings of one such row.
+        // A row shows when one of its recordings meets the conditions.
+        let poolKey = null,
+          poolList = null;
+        function pools() {
+          if (poolList && poolKey === query) return poolList;
+          const tokens = queryTokens(query);
+          const hit = (x) => !tokens.length || why(x, tokens) !== null;
+          poolList = [
+            ...works.filter(hit).map((x) => x.w.recordings),
+            ...[...people.values()].filter((p) => !tokens.length || matches(tokens, p.hay)).map((p) => [...p.recs]),
+            ...albums.filter(hit).map((x) => x.a.recordings),
+          ];
+          poolKey = query;
+          return poolList;
+        }
+        // The number of results that the conditions leave: the rows of the page and of the footnote.
         const count = (list) => {
-          const f = found();
-          return recs.filter((x) => (!f || f.has(x.r)) && passes(x, list)).length;
+          const ok = new Set(recs.filter((x) => passes(x, list)).map((x) => x.r));
+          return pools().filter((rs) => rs.some((r) => ok.has(r))).length;
         };
 
         // ---------- Page, field and tab bar ----------
@@ -959,9 +978,9 @@
                 ),
               ),
             );
-          if (tokens.length) {
+          {
             const pl = [...people.values()]
-              .filter((p) => matches(tokens, p.hay))
+              .filter((p) => !tokens.length || matches(tokens, p.hay))
               .map((p) => ({ p, n: [...p.recs].filter((r) => ok.has(r)).length }))
               .filter((x) => x.n > 0)
               .sort((a, b) => b.n - a.n || a.p.name.localeCompare(b.p.name));

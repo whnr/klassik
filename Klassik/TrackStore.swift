@@ -388,7 +388,9 @@ final class TrackStore {
                             if FileManager.default.fileExists(atPath: cached.path()) {
                                 try FileManager.default.createDirectory(
                                     at: downloadFolder, withIntermediateDirectories: true)
-                                try FileManager.default.moveItem(at: cached, to: target)
+                                // A copy keeps the cache file: the track may still play, and a later download of the
+                                // same recording must find it there.
+                                try FileManager.default.copyItem(at: cached, to: target)
                             } else {
                                 try await fetch(song, to: target, client: client, session: session)
                             }

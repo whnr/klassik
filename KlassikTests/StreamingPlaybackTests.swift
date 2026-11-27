@@ -473,7 +473,6 @@ struct StreamingPlaybackTests {
             id: "work", title: "Fixture", composer: "Fixture", isTagged: false, recordings: [recording])
         player.play(QueueItem(work: work, recording: recording))
         try await Task.sleep(for: .milliseconds(2_500))
-        #expect(player.isLoading)
         #expect(player.slowLine == nil)
     }
 
@@ -517,7 +516,7 @@ struct StreamingPlaybackTests {
         let rendered = output.samples
         #expect(player.error == nil, "error=\(String(describing: player.error))")
         let expected = GaplessTests.movementSamples.reduce(0, +)
-        let state = "rendered=\(rendered.count) of \(expected) loading=\(player.isLoading)"
+        let state = "rendered=\(rendered.count) of \(expected)"
         #expect(player.queueEnded, Comment(rawValue: state))
         let firstAudible = try #require(rendered.firstIndex { abs($0) > 0.01 })
         let start = firstAudible + GaplessTests.alignment(rendered, at: firstAudible + 2048, referenceAt: 2048)

@@ -80,7 +80,6 @@ struct PlaybackSessionTests {
         #expect(state.position == 0)
         #expect(state.segments == [10, 10, 10])
         #expect(!state.isPaused)
-        #expect(!state.isLoading)
         #expect(!state.queueEnded)
         #expect(state.error == nil)
     }
@@ -669,18 +668,6 @@ struct PlaybackSessionTests {
         engine.lengths = [0: 9.75]
         engine.report(.scheduled(0))
         #expect(session.state.segments == [9.75, 10])
-    }
-
-    @Test func loadingFollowsTheEngine() throws {
-        let (session, engine) = try makeSession()
-        session.play(item("a"))
-        engine.report(.loading(true))
-        #expect(session.state.isLoading)
-        engine.report(.loading(false))
-        #expect(!session.state.isLoading)
-        engine.report(.loading(true))
-        session.stop()
-        #expect(!session.state.isLoading)
     }
 
     @Test func aProblemShowsWhilePlaybackGoesOn() throws {

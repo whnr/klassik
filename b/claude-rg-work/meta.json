@@ -1,7 +1,7 @@
 {
-  "sha": "02b069109bbf634e7c856a2fc4cc38d9685468a0",
+  "sha": "1007fd541e82534f77ab1f172ab08c45a7e5896b",
   "branch": "claude-rg-work",
   "path": "claude-rg-work",
-  "subject": "[sz-rs30.1.76] Add ReplayGain Work, one gain per recording",
-  "ts": 1795752156
+  "subject": "[sz-rs30.1.76] Make Work the default ReplayGain",
+  "ts": 1795756834
 }

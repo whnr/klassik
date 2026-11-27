@@ -11,7 +11,7 @@
   </head>
   <body>
     <script>
-      // Settings in groups, in the order Flo set: Playback, Library, Colour, Advanced settings, About.
+      // Settings in groups, in the order Flo set: Playback, Library, Colour, Data Enrichment, Advanced settings, About.
       K.start(() => {
         const { el, form } = K;
         const { scroll } = K.page({
@@ -34,15 +34,15 @@
               menu("Timeline", { right: "Right", left: "Left" }, K.params.get("side") || "right", (side) =>
                 reload("side", side),
               ),
-              menu("ReplayGain", { album: "Album", track: "Track", off: "Off" }, "album"),
+              menu("ReplayGain", { album: "Album", work: "Work", track: "Track", off: "Off" }, "work"),
               toggle("Show Audio Quality", false),
               toggle("Scrobbles", true),
             ],
             "While music plays, the timeline runs on this screen edge. Album keeps the loudness steps between the " +
-              "movements of a work. ReplayGain Off removes the gain stage from the signal path. Show Audio Quality " +
-              "adds a line under the playback bar: the file format, the output rate, and whether anything changes " +
-              "the samples. Scrobbles count played movements on your server. Your server can send them to " +
-              "linked listening services.",
+              "movements of a work. Work plays all movements of a recording at one level. ReplayGain Off removes " +
+              "the gain stage from the signal path. Show Audio Quality adds a line under the playback bar: the " +
+              "file format, the output rate, and whether anything changes the samples. Scrobbles count played " +
+              "movements on your server. Your server can send them to linked listening services.",
           ),
           group(
             "Library",
@@ -73,16 +73,23 @@
               "tint strength.",
           ),
           group(
-            "Advanced settings",
-            [
-              link("MusicBrainz", "lookup.html", "3 to confirm"),
-              link("Diagnostics", null, "2 waiting"),
-              link("Server Connection", "server.html", "Connected"),
-              link("Licences"),
-            ],
-            "Shows the lookups and diagnostics with the changes that wait.",
+            "Data Enrichment",
+            [link("MusicBrainz", "lookup.html", "3 to confirm")],
+            "Klassik looks up composers and their works in MusicBrainz.",
           ),
-          group("About", [link("Source Code on GitHub")], "Klassik 0.23.0 (1)"),
+          group(
+            null,
+            [menu("Fallback Language", { off: "Off", en: "English" }, "off")],
+            "Descriptions and biographies come from Wikidata and Wikipedia in the app language. Where they have " +
+              "none, Klassik shows the fallback language, or nothing when it is off. Composer names, work titles " +
+              "and tags stay as your music tags them. Change the app language in the iOS Settings app, under Klassik.",
+          ),
+          group("Advanced settings", [link("Server Connection", "server.html", "Connected")]),
+          group(
+            "About",
+            [link("Diagnostics", null, "2 waiting"), link("Licences"), link("Source Code on GitHub")],
+            "Klassik 0.23.0 (1)",
+          ),
         );
       });
     </script>

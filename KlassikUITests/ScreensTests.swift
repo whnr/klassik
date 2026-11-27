@@ -10,7 +10,9 @@ final class PlacesScreens: ScreensTestCase {
     @MainActor
     func testLibrary() throws {
         let app = try launchAndConnect(snapConnect: true, openComposers: false)
-        XCTAssertTrue(app.buttons["library-favourites"].exists)
+        // Only Albums has a page among the default links, so it is the one tile.
+        XCTAssertTrue(app.buttons["library-link-albums"].exists)
+        XCTAssertTrue(app.buttons["library-composers"].exists)
         snap(app, "02-library")
         app.buttons["library-composers"].tap()
         XCTAssertTrue(composer(app, "Felix Mendelssohn").waitForExistence(timeout: 30))
@@ -26,34 +28,6 @@ final class PlacesScreens: ScreensTestCase {
         let rows = app.buttons.matching(identifier: "composer")
         XCTAssertGreaterThan(rows.count, 1, "The list has no two composers")
         expectHairline(between: rows.element(boundBy: 0), and: rows.element(boundBy: 1), in: app, "Composer hairline")
-    }
-
-    @MainActor
-    func testLibraryEditMode() throws {
-        let app = try launchAndConnect(openComposers: false)
-        let composers = app.buttons["library-composers"]
-        let favourites = app.buttons["library-favourites"]
-        XCTAssertLessThan(composers.frame.minY, favourites.frame.minY)
-        app.buttons["Edit"].tap()
-        XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 5))
-        snap(app, "02e-library-edit")
-        // Move the last row above the first row, clear of the footer below the list.
-        let reorder = { (name: String) in
-            app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Reorder \(name)")).firstMatch
-        }
-        XCTAssertTrue(reorder("Favourites").exists, "No reorder control on Favourites")
-        // A drag that the list takes as a scroll leaves the order alone, so the walk drags again, up to three times.
-        for _ in 0..<3 where !(favourites.frame.minY < composers.frame.minY) {
-            reorder("Favourites").coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-                .press(
-                    forDuration: 0.1,
-                    thenDragTo: reorder("Composers").coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0)),
-                    withVelocity: .slow, thenHoldForDuration: 0.5)
-            _ = eventually(timeout: 3) { favourites.frame.minY < composers.frame.minY }
-        }
-        app.buttons["Done"].tap()
-        XCTAssertTrue(app.buttons["Edit"].waitForExistence(timeout: 5))
-        XCTAssertLessThan(favourites.frame.minY, composers.frame.minY, "The drag did not move Favourites up")
     }
 
     @MainActor
@@ -4259,7 +4233,7 @@ final class LanguageScreens: ScreensTestCase {
         let app = try launchAndConnect(openComposers: false, arguments: Self.language)
         XCTAssertEqual(tab(app, "Library").label, walk.text("Library"))
         let composers = app.buttons["library-composers"]
-        XCTAssertTrue(composers.label.contains(walk.words("%lld composers")), composers.label)
+        XCTAssertEqual(composers.label, walk.text("Composers"))
         snap(app, "21a-library-language")
         expectInside(app, "Library")
 

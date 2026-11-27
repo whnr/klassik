@@ -32,15 +32,6 @@ enum Page: Hashable {
 
 typealias AppNavigator = Navigator<Page>
 
-extension LibraryRow {
-    var page: Page {
-        switch self {
-        case .composers: .composers
-        case .favourites: .favourites
-        }
-    }
-}
-
 extension Library {
     /// A recording of the index, else a whole album: the pages of an album list name the album by its key.
     func recording(work workID: String, recording recordingID: String, playing: QueueItem? = nil) -> (

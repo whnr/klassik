@@ -1,24 +1,21 @@
 import Foundation
 import Observation
 
-/// A row of the Library place that the tab draws today. Playlists will be another (CONTEXT.md: Library).
+/// A row of the default Library, in default order. The stored name keeps the order of older builds readable.
 enum LibraryRow: String, CaseIterable, Identifiable, Sendable {
     case composers
     case favourites
+    case links
+    case added
 
     var id: Self { self }
-
-    var title: String {
-        switch self {
-        case .composers: L("Composers")
-        case .favourites: L("Favourites")
-        }
-    }
 
     var kind: LibraryRowKind {
         switch self {
         case .composers: .composers
         case .favourites: .favourites
+        case .links: .links
+        case .added: .added
         }
     }
 }
@@ -27,15 +24,6 @@ enum LibraryRow: String, CaseIterable, Identifiable, Sendable {
 /// row fall away.
 enum LibraryRowKind: String, Codable, CaseIterable, Sendable {
     case pick, composers, performers, works, recordings, albums, favourites, added, heard, saved, links
-
-    /// The row of the tab that draws this kind, if the tab draws it yet.
-    var drawn: LibraryRow? {
-        switch self {
-        case .composers: .composers
-        case .favourites: .favourites
-        default: nil
-        }
-    }
 }
 
 /// The kind of item that a row lists, or the whole library for the rows that mix kinds.
@@ -219,10 +207,13 @@ final class LibraryRows {
         defaults.removeObject(forKey: Self.legacyKey)
     }
 
+    /// The default rows, with identities that stay the same between launches.
+    static var standard: [LibraryRowSetup] { LibraryRow.allCases.map(LibraryRowSetup.init(standard:)) }
+
     /// The rows in tab order. A file without a setup, or with a newer one, shows the default rows.
     var rows: [LibraryRowSetup] {
         if let setup = file.data.library, setup.version <= LibrarySetup.version { return setup.rows }
-        return LibraryRow.allCases.map(LibraryRowSetup.init(standard:))
+        return Self.standard
     }
 
     /// A newer build wrote the setup. This build leaves it alone.

@@ -26,10 +26,21 @@ struct ServerConnectionView: View {
                     .ink()
                     .accessibilityIdentifier("server-state")
             } footer: {
-                if model.serverReached == false {
-                    Text(
-                        "Klassik keeps playing from the library on this iPhone. Changes wait until the server answers."
-                    )
+                // Server trouble shows here only, never as a notice for each failed sync.
+                VStack(alignment: .leading) {
+                    if model.serverReached == false {
+                        Text(
+                            "Klassik keeps playing from the library on this iPhone. Changes wait until the server answers."
+                        )
+                    }
+                    if let error = library.syncError {
+                        Text(verbatim: error)
+                            .accessibilityIdentifier("library-synced")
+                    }
+                    if let trouble = model.serverTrouble {
+                        Text(trouble.status)
+                            .accessibilityIdentifier("server-status")
+                    }
                 }
             }
 

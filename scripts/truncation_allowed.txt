@@ -5,3 +5,5 @@ Klassik/ChronologyView.swift: .lineLimit(1)  # Composer names, period names and 
 Klassik/ChronologyView.swift: .truncationMode(.tail)  # A work title is a tag; its row in the chart is one line.
 Klassik/ComposerPage.swift: .lineLimit(1)  # A genre chip shows a tag.
 Klassik/SearchFilterSheet.swift: .lineLimit(1)  # A chip shows a tag name, and the or switch shows two glyphs.
+Klassik/LibraryView.swift: .lineLimit(Layout.libraryNameLines)  # A card shows a composer, performer, work or album name as tagged, in three lines.
+Klassik/LibraryView.swift: .lineLimit(1)  # The fact line of a card is a number, a kind or a performer name as tagged.

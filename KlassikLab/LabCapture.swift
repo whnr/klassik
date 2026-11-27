@@ -446,9 +446,8 @@ final class CaptureRecorder: @unchecked Sendable {
                 }
                 // A source that no drain has read yet cannot be called stuck: a slow pass lets the others run ahead
                 // of its birth while its first blocks wait in the ring.
-                let holding = sources
-                    .filter { !$0.tracked.drained || $0.end >= newest - Self.lagSeconds * rate }
-                    .map { $0.end }
+                let oldest = newest - Self.lagSeconds * rate
+                let holding = sources.filter { !$0.tracked.drained || $0.end >= oldest }.map { $0.end }
                 let safe = mixer.end - Int(Self.holdSeconds * Double(rate))
                 let frontier = stopping ? mixer.end : min(holding.min() ?? mixer.end, safe)
                 flush(min(frontier, limit), width: width, rate: rate)

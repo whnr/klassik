@@ -1661,16 +1661,6 @@
         }
       }
     },
-    "Moves to %@": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Springt zu %@"
-          }
-        }
-      }
-    },
     "Music": {
       "localizations": {
         "de": {
@@ -4187,6 +4177,56 @@
           "stringUnit": {
             "state": "translated",
             "value": "unbekanntes Format"
+          }
+        }
+      }
+    },
+    "Delete": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Löschen"
+          }
+        }
+      }
+    },
+    "Undo": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rückgängig"
+          }
+        }
+      }
+    },
+    "Note deleted": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notiz gelöscht"
+          }
+        }
+      }
+    },
+    "Start here": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hier beginnen"
+          }
+        }
+      }
+    },
+    "Edits the note": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bearbeitet die Notiz"
           }
         }
       }

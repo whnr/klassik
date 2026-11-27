@@ -131,6 +131,112 @@ struct ListeningNotesTests {
         #expect(try String(contentsOf: device.url, encoding: .utf8) == "not json")
     }
 
+    private func saved(
+        _ notes: ListeningNotes, _ at: Double, end: Double? = nil, _ text: String, in place: NotePlace
+    ) throws -> ListeningNote {
+        var draft = NoteDraft(row: 0, at: at)
+        if let end { draft.end(at: end) }
+        draft.text = text
+        #expect(notes.save(draft, at: place))
+        return try #require(notes.notes(at: place).first { $0.text == text })
+    }
+
+    @Test func aDraftOfANoteStartsFromThatNoteAndMovesItsTimes() throws {
+        let original = ListeningNote(movement: 1, at: 300, end: 340, text: "Brass.")
+        var draft = NoteDraft(row: 1, editing: original)
+        #expect(draft.editing == original.id)
+        #expect(draft.text == "Brass." && draft.at == 300 && draft.end == 340)
+        draft.start(at: 310.8)
+        #expect(draft.at == 310 && draft.end == 340)
+        // A start after the end swaps the two.
+        draft.start(at: 400)
+        #expect(draft.at == 340 && draft.end == 400)
+        // A moment moves with "Start here" and becomes a span with "End here".
+        var moment = NoteDraft(row: 0, editing: ListeningNote(movement: 0, at: 10, text: "Horn."))
+        moment.start(at: 20)
+        #expect(moment.at == 20 && moment.end == nil)
+        moment.end(at: 30)
+        #expect(moment.at == 20 && moment.end == 30)
+    }
+
+    @Test func savingAnEditedDraftReplacesTheNoteAndKeepsItsID() throws {
+        let root = folder()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let notes = ListeningNotes(store: store(root))
+        let place = NotePlace(recording: "r", movement: 1)
+        let first = try saved(notes, 92, "The cellos take the theme.", in: place)
+        _ = try saved(notes, 300, end: 340, "Brass fanfare.", in: place)
+        var draft = NoteDraft(row: 1, editing: first)
+        draft.text = "  The violas take the theme.  "
+        draft.start(at: 95)
+        draft.end(at: 120)
+        #expect(notes.save(draft, at: place))
+        let edited = notes.notes(at: place)
+        #expect(edited.count == 2)
+        #expect(edited[0].id == first.id)
+        #expect(edited[0].text == "The violas take the theme." && edited[0].at == 95 && edited[0].end == 120)
+        #expect(edited[0].movement == 1)
+        // The change is in the device file.
+        let again = ListeningNotes(store: store(root)).notes(at: place)
+        #expect(again.map(\.text) == ["The violas take the theme.", "Brass fanfare."])
+    }
+
+    @Test func anEditedNoteWithoutTextStaysAsItWas() throws {
+        let root = folder()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let notes = ListeningNotes(store: store(root))
+        let place = NotePlace(recording: "r", movement: 0)
+        let note = try saved(notes, 10, "Keep me.", in: place)
+        var draft = NoteDraft(row: 0, editing: note)
+        draft.text = "  "
+        #expect(notes.save(draft, at: place))
+        #expect(notes.notes(at: place) == [note])
+    }
+
+    @Test func aDeletedNoteIsGoneFromTheFileAndUndoPutsItBack() throws {
+        let root = folder()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let notes = ListeningNotes(store: store(root))
+        let place = NotePlace(recording: "r", movement: 0)
+        let first = try saved(notes, 10, "First.", in: place)
+        let second = try saved(notes, 20, end: 30, "Second.", in: place)
+        #expect(notes.remove(first, at: place))
+        #expect(notes.notes(at: place) == [second])
+        #expect(ListeningNotes(store: store(root)).notes(at: place) == [second])
+        #expect(notes.restore(first, at: place))
+        #expect(notes.notes(at: place) == [first, second])
+        #expect(ListeningNotes(store: store(root)).notes(at: place) == [first, second])
+        // A second undo does not duplicate the note.
+        #expect(notes.restore(first, at: place))
+        #expect(notes.notes(at: place).count == 2)
+    }
+
+    @Test func deletingTheLastNoteLeavesNoEmptyEntryInTheFile() throws {
+        let root = folder()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let notes = ListeningNotes(store: store(root))
+        let place = NotePlace(recording: "r", movement: 0)
+        let only = try saved(notes, 10, "Only.", in: place)
+        #expect(notes.remove(only, at: place))
+        #expect(try store(root).load().notes.isEmpty)
+    }
+
+    @Test func aFileThatDoesNotLoadRefusesADelete() throws {
+        let root = folder()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let device = store(root)
+        try FileManager.default.createDirectory(
+            at: device.url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("not json".utf8).write(to: device.url)
+        let notes = ListeningNotes(store: device)
+        let note = ListeningNote(movement: 0, at: 1, text: "Kept.")
+        let place = NotePlace(recording: "r", movement: 0)
+        #expect(!notes.remove(note, at: place))
+        #expect(notes.error != nil)
+        #expect(!notes.restore(note, at: place))
+        #expect(try String(contentsOf: device.url, encoding: .utf8) == "not json")
+    }
+
     @Test func overlappingNotesStackInLanes() {
         let first = note(10, 60)
         let inside = note(30)

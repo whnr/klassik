@@ -1867,6 +1867,9 @@ final class PlaybackScreens: ScreensTestCase {
         undo.tap()
         XCTAssertTrue(
             app.buttons["note-text"].firstMatch.waitForExistence(timeout: 10), "Undo did not bring the note back")
+        XCTAssertTrue(
+            eventually(timeout: 5) { app.buttons["note-text"].firstMatch.label.contains("Theme in the violins") },
+            "Undo restored another text: \(app.buttons["note-text"].firstMatch.label)")
         XCTAssertFalse(undo.exists, "Undo stayed after it ran")
     }
 

@@ -86,6 +86,36 @@ struct NoteDraft: Equatable, Sendable {
     private static func whole(_ seconds: Double) -> Double { max(0, seconds.rounded(.down)) }
 }
 
+extension NoteDraft {
+    /// The draft after a tap on a note's text. One draft is open at a time, so an open draft stays as it is
+    /// and its typed text is never lost.
+    static func opening(_ note: ListeningNote, row: Int, over open: NoteDraft?) -> NoteDraft {
+        open ?? NoteDraft(row: row, editing: note)
+    }
+}
+
+/// A note that a deletion removed and Undo can put back.
+struct RemovedNote: Equatable {
+    let note: ListeningNote
+    let place: NotePlace
+}
+
+/// The notes that the listener deleted and may still undo. A second delete adds to the first: Undo then
+/// restores the latest note, and the next Undo the one before it.
+struct RemovedNotes: Equatable {
+    private var all: [RemovedNote] = []
+
+    var latest: RemovedNote? { all.last }
+
+    mutating func add(_ note: ListeningNote, at place: NotePlace) {
+        all.append(RemovedNote(note: note, place: place))
+    }
+
+    mutating func takeLatest() -> RemovedNote? { all.popLast() }
+
+    mutating func clear() { all.removeAll() }
+}
+
 /// The listening notes of the listener. They stay in the device file (ADR 0013).
 @MainActor @Observable
 final class ListeningNotes {

@@ -211,6 +211,32 @@ struct ListeningNotesTests {
         #expect(notes.notes(at: place).count == 2)
     }
 
+    /// One draft is open at a time. A tap on the text of another note must not replace the text that is typed.
+    @Test func tappingAnotherNoteKeepsTheOpenDraft() {
+        var open = NoteDraft(row: 0, at: 10)
+        open.text = "Half written."
+        let other = ListeningNote(movement: 0, at: 40, text: "Other.")
+        #expect(NoteDraft.opening(other, row: 1, over: open) == open)
+        let opened = NoteDraft.opening(other, row: 1, over: nil)
+        #expect(opened.editing == other.id && opened.text == "Other.")
+    }
+
+    /// Each delete within the six seconds of the one before keeps its own Undo, latest first.
+    @Test func everyNoteDeletedInARowStaysUndoable() {
+        let place = NotePlace(recording: "r", movement: 0)
+        let first = ListeningNote(movement: 0, at: 1, text: "First.")
+        let second = ListeningNote(movement: 0, at: 2, text: "Second.")
+        var removed = RemovedNotes()
+        removed.add(first, at: place)
+        removed.add(second, at: place)
+        #expect(removed.latest?.note == second)
+        #expect(removed.takeLatest()?.note == second)
+        #expect(removed.latest?.note == first)
+        #expect(removed.takeLatest()?.note == first)
+        #expect(removed.latest == nil)
+        #expect(removed.takeLatest() == nil)
+    }
+
     @Test func deletingTheLastNoteLeavesNoEmptyEntryInTheFile() throws {
         let root = folder()
         defer { try? FileManager.default.removeItem(at: root) }

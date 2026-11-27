@@ -528,8 +528,8 @@ struct RecordingView: View {
     @State private var spell = QuietSpell()
     /// The note that the listener writes in the playing row. It stays while the listener scrubs.
     @State private var draft: NoteDraft?
-    /// The note that the listener deleted last on this page, until its Undo runs out.
-    @State private var removed: RemovedNote?
+    /// The notes that the listener deleted on this page, until their Undo runs out.
+    @State private var removed = RemovedNotes()
     /// Where the notes of each row live, by track position.
     @State private var places: [NotePlace?] = []
     /// True while a drag that began with the rows at the top runs. Only such a drag closes the player.
@@ -605,16 +605,16 @@ struct RecordingView: View {
             .onChange(of: model.isScrubbing) { _, scrubbing in spell.hold(scrubbing) }
             .onChange(of: draft != nil) { _, writing in spell.writing(writing) }
             // A deleted note offers Undo for a few seconds.
-            .task(id: removed?.note.id) {
-                guard removed != nil else { return }
+            .task(id: removed.latest?.note.id) {
+                guard removed.latest != nil else { return }
                 try? await Task.sleep(for: .seconds(6))
-                if !Task.isCancelled { removed = nil }
+                if !Task.isCancelled { removed.clear() }
             }
             .safeAreaInset(edge: .bottom) {
-                if let gone = removed {
+                if removed.latest != nil {
                     UndoBanner {
+                        guard let gone = removed.takeLatest() else { return }
                         model.notes.restore(gone.note, at: gone.place)
-                        removed = nil
                     }
                 }
             }
@@ -943,7 +943,7 @@ struct RecordingView: View {
                     jump: { plays in jump(to: note, row: index, plays: plays) },
                     delete: {
                         spell.touch()
-                        if model.notes.remove(note, at: place) { removed = RemovedNote(note: note, place: place) }
+                        if model.notes.remove(note, at: place) { removed.add(note, at: place) }
                     }
                 )
                 .playingRow(isCurrent)
@@ -1171,12 +1171,6 @@ private struct PlayerControls: View {
     }
 }
 
-/// A note that a deletion removed and Undo can put back.
-private struct RemovedNote: Equatable {
-    let note: ListeningNote
-    let place: NotePlace
-}
-
 /// The line that offers Undo after a note is deleted.
 private struct UndoBanner: View {
     let undo: () -> Void
@@ -1228,7 +1222,7 @@ private struct NoteRow: View {
                     .accessibilityLabel("Play from \(ListeningNotes.time(of: note))")
                     .accessibilityIdentifier("note-time")
                 Button {
-                    draft = NoteDraft(row: row, editing: note)
+                    draft = NoteDraft.opening(note, row: row, over: draft)
                 } label: {
                     Text(note.text)
                         .ink()

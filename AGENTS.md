@@ -135,3 +135,14 @@ HTML prototypes that the tester tests on a phone: three variants or more, judged
 ### Domain docs
 
 Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+### Pocock skills
+
+Matt Pocock's skills (`mattpocock/skills`, pinned `abeeaf9`) are installed for agents. Call them with the Skill tool.
+
+- Reviews: `code-review`. Review inline, with no sub-agents. One review, then one fix.
+- ADRs: `domain-modeling`. Write the ADR short, as Proposed, until Flo accepts it.
+- Code: `tdd`, `diagnosing-bugs`, `codebase-design`.
+- PR bodies: `pr`.
+
+Our rules win where a skill disagrees. The glossary is `CONTEXT.md`, not `GLOSSARY.md`. Workers never apply the labels of a skill (`needs-triage`, `ready-for-agent`, `wayfinder:*`).

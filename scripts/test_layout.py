@@ -93,7 +93,7 @@ class TokenTests(unittest.TestCase):
 
     def test_a_class_list_built_in_script(self):
         swift = """
-        /// css: search.html "t-footnote" + (k === kind ? " on" : "" | class
+        /// css: filters.js "t-footnote" + (k === fx.kind ? " on" : "" | class
         static let kinds = TypeStyle.footnote
         """
         self.assertIsNone(self.check(swift))

@@ -58,7 +58,7 @@ Effect on Klassik today:
 
 ## 3. Options for iCloud, each judged
 
-All four need a paid developer account and an App Store or TestFlight build, because they need entitlements. Klassik has none today.
+B, D and the app-container form of C need a paid developer account, an App Store or TestFlight build and an entitlement. Klassik has none today. A needs none. The document picker route of C needs no entitlement.
 
 ### A. Device backup only (today)
 
@@ -102,7 +102,7 @@ Three ways in:
 Facts that bind Klassik:
 
 - The device file is JSON, not SwiftData or Core Data. Routes 1 and 2 need a rewrite of `DeviceStore` and a one-time migration of existing files. Route 3 keeps the JSON file and adds a record mapping.
-- CloudKit does not support unique constraints, required relationships or undefined attributes. Apple: CloudKit cannot enforce uniqueness because sync is concurrent. The merge by ID must therefore live in the app, as the note `UUID`.
+- CloudKit does not support unique constraints, required relationships or undefined attributes. The reason is not on Apple's page. An inference: records sync from several devices, so a store cannot check uniqueness at write time. The merge by ID must therefore live in the app, as the note `UUID`.
 - The schema is additive only after promotion to production. A record type or a field cannot be removed or changed. The format of section 5 must be right before the first release.
 - The record data limit is 1 MB, assets excluded. One record for each note is far below it.
 - Data in the private database counts against the listener's iCloud quota, not against the developer.

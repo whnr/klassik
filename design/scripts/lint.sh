@@ -12,5 +12,7 @@ npx --yes @biomejs/biome@2.6.3 lint --error-on-warnings
 uv run --no-project design/scripts/palette.py --check
 uv run --no-project design/scripts/tokens.py --check
 uv run --no-project scripts/layout_tokens.py --check
+uv run --no-project python -m unittest discover -s scripts -p "test_layout.py"
 uv run --no-project design/scripts/check.py
 uv run --no-project --with playwright==1.64.1 design/scripts/specimen_check.py
+echo "design lint: pass"

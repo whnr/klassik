@@ -648,6 +648,15 @@ enum Layout {
     /// The check mark of a choice and of a link.
     /// css: library-edit.css .le-check | width
     static let editCheckWidth: CGFloat = 22
+    /// The width of the check mark glyph.
+    /// css: library-edit.css .le-check svg | width
+    static let editCheckGlyph: CGFloat = 16
+    /// The gap inside a row kind of Add row.
+    /// css: library-edit.css .le-kind | gap
+    static let editKindGap = Space.m.points
+    /// The hairline between lines starts at the title.
+    /// css: library-edit.css .le-line + .le-line::before | left
+    static let editLineSeparatorInset = Space.l.points
     /// The preview of a row kind in Add row.
     /// css: library-edit.css .le-preview | width
     static let editPreviewWidth: CGFloat = 60

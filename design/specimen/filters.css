@@ -1,5 +1,5 @@
 /* The filter sheet that Search and the Library edit sheet share: the conditions as chips, the kind picker, the find
-   field and the term list. The parts sit in the shared sheet frame (sheet.css). */
+   field and the term list. The parts sit in the shared sheet frame. */
 
 /* The conditions read as one paragraph. A chip is inline text, so it breaks across lines like text:
    the ends are square at a break and round at the real start and end of the chip.

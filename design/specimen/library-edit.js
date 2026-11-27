@@ -1,4 +1,4 @@
-// The Library edit sheet, built on the shared frame (sheet.js) over the live tab (Library.mount).
+// The Library edit sheet, built on the shared sheet frame over the live tab.
 // LibraryEdit.open({ rows, tab, onChange, onClose, start }) returns { select, close }.
 // Every change edits `rows` in place and redraws the tab at once. Done closes the sheet.
 // Levels: the list of rows, Add row, the settings of one row, a choice, and the filter sheet of Search.
@@ -87,7 +87,11 @@ window.LibraryEdit = (() => {
       const W = 88;
       const empty = Library.empty(row);
       const front = el("div", { class: "le-front" + (sel === row.id ? " cur" : "") });
-      const del = el("button", { class: "le-del t-body", type: "button", onclick: () => remove(row) }, "Delete");
+      const del = el(
+        "button",
+        { class: "le-del t-body", type: "button", tabindex: "-1", onclick: () => remove(row) },
+        "Delete",
+      );
       const node = el("div", { class: "le-line", "data-id": row.id }, del, front);
       front.append(
         el(
@@ -109,6 +113,8 @@ window.LibraryEdit = (() => {
         front.classList.toggle("drag", !animate);
         front.style.transform = `translateX(${v}px)`;
         node.classList.toggle("swiped", v < 0);
+        // A hidden Delete takes no focus.
+        del.tabIndex = v < 0 ? 0 : -1;
         offset = v;
       };
       front.addEventListener("pointerdown", (e) => {
@@ -247,7 +253,12 @@ window.LibraryEdit = (() => {
       count: { label: "Count", options: Library.countOptions, value: (r) => String(r.count) },
     };
     const trail = (text, chevron) =>
-      el("span", { class: "trail t-body" }, el("span", {}, text), chevron ? el("span", { html: ICON.chevron }) : null);
+      el(
+        "span",
+        { class: "trail le-trail t-body" },
+        el("span", {}, text),
+        chevron ? el("span", { html: ICON.chevron }) : null,
+      );
     function settingLine(row, field) {
       const f = FIELDS[field];
       const options = f.options(row);
@@ -265,11 +276,15 @@ window.LibraryEdit = (() => {
       );
     }
     function filterLine(row) {
+      const terms = row.conds.flat();
       return el(
         "button",
         { class: "row t-body", type: "button", onclick: () => go({ t: "filter", id: row.id }) },
         el("span", { class: "main" }, "Filter"),
-        trail(row.conds.length ? Filters.short(row.conds) : "None", true),
+        trail(
+          terms.length === 0 ? "None" : terms.length === 1 ? Filters.label(terms[0]) : `${terms.length} terms`,
+          true,
+        ),
       );
     }
     function rowBody(row) {
@@ -320,6 +335,7 @@ window.LibraryEdit = (() => {
       const list = el("div", { class: "list" });
       const sync = () => {
         row.links = row.order.filter((k) => row.links.includes(k));
+        frame.set({ count: Library.empty(row) ? "Nothing to show yet" : "" });
         changed();
       };
       const entry = (key) =>
@@ -393,7 +409,7 @@ window.LibraryEdit = (() => {
       if (level.id && !row) return toList();
       if (level.t === "list")
         return frame.set({ title: "Edit Library", count: K.count(rows.length, "row"), onBack: null, body: listBody() });
-      if (level.t === "add") return frame.set({ title: "Add Row", count: "", onBack: toList, body: addBody() });
+      if (level.t === "add") return frame.set({ title: "Add row", count: "", onBack: toList, body: addBody() });
       if (level.t === "row")
         return frame.set({
           title: Library.title(row),

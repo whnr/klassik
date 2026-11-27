@@ -1,5 +1,5 @@
-/* The Library edit sheet. It sits on the shared frame (sheet.css) and keeps the lists of a grouped form.
-   The tab behind it stays visible: library.css tints the selected row. */
+/* The Library edit sheet. It sits on the shared frame and keeps the lists of a grouped form.
+   The tab behind it stays visible: the tab tints the selected row. */
 
 .hsheet.le-sheet .section {
   margin: var(--space-s) 0 0;
@@ -112,6 +112,20 @@
 .le-line.swiped .le-del {
   opacity: 1;
   transition: none;
+}
+/* A long value shrinks and ends in an ellipsis before it reaches its label. */
+.row .trail.le-trail {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin-left: auto;
+}
+.row > .main:has(+ .le-trail) {
+  flex: none;
+}
+.row .trail.le-trail > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .le-link {
   touch-action: auto;

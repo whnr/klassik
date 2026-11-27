@@ -123,8 +123,9 @@
     const qualifiers = [];
     if (row.kind === "saved") qualifiers.push(row.source);
     if (FILTERS[row.filter] && row.kind !== "favourites") qualifiers.push(FILTERS[row.filter]);
-    // Conditions name themselves when they are few, else the title says only that the row is filtered.
-    if (row.conds?.length) qualifiers.push(row.conds.flat().length > 2 ? "filtered" : Filters.short(row.conds));
+    // One term names itself. Two or more terms make the row "filtered".
+    const terms = row.conds?.flat() ?? [];
+    if (terms.length) qualifiers.push(terms.length === 1 ? Filters.label(terms[0]) : "filtered");
     if (row.sort !== START[row.kind].sort) qualifiers.push(SORTS[row.sort]);
     return qualifiers.length ? `${base}, ${qualifiers.join(", ")}` : base;
   }
@@ -527,7 +528,9 @@
         const wrap = wraps.get(id)?.wrap;
         const page = host.closest(".scroll");
         if (scroll && wrap && page) {
-          const top = wrap.getBoundingClientRect().top - page.getBoundingClientRect().top + page.scrollTop;
+          // The page pads its top for the status bar and the navigation bar. The row stops below that.
+          const chrome = parseFloat(getComputedStyle(page).paddingTop) || 0;
+          const top = wrap.getBoundingClientRect().top - page.getBoundingClientRect().top + page.scrollTop - chrome;
           page.scrollTo({ top, behavior: "smooth" });
         }
       },

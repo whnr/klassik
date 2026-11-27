@@ -1,0 +1,7 @@
+{
+  "sha": "2a81eb718182e7017be71958d4e1fb75e275e384",
+  "branch": "claude-heard",
+  "path": "claude-heard",
+  "subject": "Fix lint in the heard tests",
+  "ts": 1795807332
+}

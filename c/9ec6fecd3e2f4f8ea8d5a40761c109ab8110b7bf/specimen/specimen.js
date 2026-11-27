@@ -346,7 +346,8 @@ const K = (() => {
     return isFavourite("album:" + r.album.id) ? `Favourite album: ${r.album.name}` : null;
   }
 
-  // The work page shows two lists, each in tier order. The reference recording is the first complete one.
+  // The work page shows two lists, each in tier order.
+  // The reference recording is the first of the main list, else the first partial one.
   function recordingLists(work) {
     const all = orderedRecordings(work);
     return { recordings: all.filter((r) => !partOf(r)), partial: all.filter((r) => partOf(r)) };

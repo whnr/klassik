@@ -51,8 +51,12 @@ window.LibraryEdit = (() => {
     // The level on show: list, add, row (id), choice (id, field) or filter (id).
     let level = { t: "list" };
     const byId = (id) => rows.find((r) => r.id === id);
-    const changed = () => {
+    // A change can make rows above the edited row taller or shorter. The page scrolls the selected row back to the
+    // top, as on select. Without a selection the changed row comes into view.
+    const changed = (id = null) => {
       tab.update(rows);
+      if (sel) tab.select(sel, { scroll: true });
+      else if (id) tab.reveal(id);
       onChange?.(rows);
     };
     const go = (next) => {
@@ -333,7 +337,7 @@ window.LibraryEdit = (() => {
               type: "button",
               onclick: () => {
                 Library.apply(row, field, value);
-                changed();
+                changed(row.id);
                 go({ t: "row", id: row.id });
               },
             },
@@ -349,7 +353,7 @@ window.LibraryEdit = (() => {
       const sync = () => {
         row.links = row.order.filter((k) => row.links.includes(k));
         frame.set({ count: Library.empty(row) ? "Nothing to show yet" : "" });
-        changed();
+        changed(row.id);
       };
       const entry = (key) =>
         el(
@@ -407,7 +411,7 @@ window.LibraryEdit = (() => {
         // The reach of the row is computed once for each time the level opens.
         scope: () => (scope ??= Library.scopeOf(row)),
         onChange: () => {
-          changed();
+          changed(row.id);
           frame.set({ count: K.count(results(conds), "result") });
           fx.draw();
         },

@@ -558,7 +558,7 @@ enum Layout {
     /// The gap above a row title.
     /// css: library.css .lib-head | padding-top
     static let libraryHeadTop = Space.xxl.points
-    /// The gap from a row title to its cards.
+    /// The gap from a row title to its cards. The title takes the page insets (`sideInsets`), as the cards do.
     /// css: library.css .lib-head | padding-bottom
     static let libraryHeadBottom = Space.s.points
     /// The gap between the cards of a strip.
@@ -613,11 +613,11 @@ enum Layout {
     /// css: library.css .lib-pick | margin-top
     static let dailyPickTop = Space.s.points
     /// The gap between the sentence and the cover of the Daily pick.
-    /// css: library.css .lib-pick | gap
+    /// css: library.css .lib-pick .art | margin-left
     static let dailyPickGap = Space.l.points
-    /// The cover of the Daily pick, on the right of the sentence.
+    /// The cover of the Daily pick: as high as four lines of the sentence, which flows around it.
     /// css: library.css .lib-pick .art | width
-    static let dailyPickCover: CGFloat = 112
+    static let dailyPickCover: CGFloat = 133.226
     /// The sentence of the Daily pick. It is the only larger text of the app.
     /// css: library.js "dp-text t-title2" | class
     static let dailyPickText = TypeStyle.title2

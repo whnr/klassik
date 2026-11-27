@@ -19,7 +19,13 @@
 .lib-head {
   align-items: center;
   color: inherit;
-  padding: var(--space-xxl) var(--pad-right) var(--space-s) var(--pad-left);
+  padding-bottom: var(--space-s);
+  padding-top: var(--space-xxl);
+}
+/* The page rule that clears the heading inset has a higher specificity, so this rule outranks it. */
+:root .lib-row a.lib-head {
+  padding-left: var(--pad-left);
+  padding-right: var(--pad-right);
 }
 .lib-head .link {
   text-transform: none;
@@ -119,20 +125,20 @@
   display: block;
 }
 
-/* The Daily pick: a sentence with the cover on its right. */
+/* The Daily pick: a sentence that flows around its cover. The cover is as high as four lines of the sentence, so
+   from the fifth line on the text uses the full width. */
 .lib-pick {
-  align-items: flex-start;
-  display: flex;
-  flex-direction: row-reverse;
-  gap: var(--space-l);
   margin: var(--space-s) var(--pad-right) var(--space-s) var(--pad-left);
 }
 .lib-pick .art {
-  flex: none;
-  width: 112px;
+  display: block;
+  float: right;
+  margin-left: var(--space-l);
+  width: calc(4 * var(--type-title2-size) * var(--type-title2-line-height));
 }
 .lib-pick .art > * {
   aspect-ratio: 1;
+  display: block;
   height: auto;
   width: 100%;
 }
@@ -140,11 +146,10 @@
   -webkit-hyphens: auto;
   hyphens: auto;
   margin: 0;
-  min-width: 0;
   overflow-wrap: break-word;
 }
 .lib-pick .title {
-  color: inherit;
+  color: var(--color-tint);
   font-style: italic;
 }
 .lib-pick .who {

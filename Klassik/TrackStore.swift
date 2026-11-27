@@ -75,6 +75,8 @@ final class TrackStore {
     private let background: BackgroundLoad?
     private let defaults: UserDefaults
     private var tasks: [String: Task<Void, Never>] = [:]
+    /// The loads that run ahead inside each download. Cancel and sign-out reach them from here.
+    private var aheadLoads: [String: AheadLoads] = [:]
     private let load: Fetch
     /// Nil when a test replaced the fetch: then every track loads whole.
     private let transport: Transport?
@@ -331,12 +333,43 @@ final class TrackStore {
         let generation = generation
         // Once the system session fails for this download, the remaining tracks skip it.
         let session = BackgroundSessionState()
+        let ahead = AheadLoads()
+        aheadLoads[recording.id] = ahead
         tasks[recording.id] = Task {
+            // Loads that run ahead of the track the loop waits for. One transfer rarely fills the link.
+            defer {
+                ahead.cancel()
+                if aheadLoads[recording.id] === ahead { aheadLoads[recording.id] = nil }
+            }
             do {
                 var bytes: Int64 = 0
                 for (index, song) in recording.songs.enumerated() {
                     try Task.checkCancellation()
                     let target = downloadFolder.appending(path: Self.fileName(song))
+                    // The first track runs alone, so a system session that fails is known before the others start.
+                    if index > 0 {
+                        for next in recording.songs[index..<min(index + Self.parallelDownloads, recording.songs.count)]
+                        where ahead.tasks[next.id] == nil && needsOwnLoad(next) {
+                            let file = downloadFolder.appending(path: Self.fileName(next))
+                            ahead.tasks[next.id] = Task {
+                                do {
+                                    try await fetch(next, to: file, client: client, session: session)
+                                } catch {
+                                    // The first real failure is the one shown; the siblings only end because of it.
+                                    ahead.fail(with: error)
+                                    throw error
+                                }
+                            }
+                        }
+                    }
+                    if let running = ahead.tasks.removeValue(forKey: song.id) {
+                        // Waiting does not pass a cancel on to the load, so the handler does.
+                        try await withTaskCancellationHandler {
+                            try await running.value
+                        } onCancel: {
+                            running.cancel()
+                        }
+                    }
                     if !FileManager.default.fileExists(atPath: target.path()) {
                         let cached = cacheFolder.appending(path: Self.fileName(song))
                         // With a background session, only a transfer that runs already is shared: a new one would
@@ -375,6 +408,7 @@ final class TrackStore {
                 saveManifest()
             } catch {
                 guard generation == self.generation else { return }
+                let error = ahead.failure ?? error
                 // Failed recordings release their tracks only when no other explicit download owns them.
                 let kept = Set(downloads.flatMap(\.songIDs)).union(
                     downloadTracks.filter { $0.key != recording.id }.values.flatMap { $0 })
@@ -401,11 +435,23 @@ final class TrackStore {
         }
     }
 
+    /// How many tracks of one recording load at the same time.
+    static let parallelDownloads = 4
+
+    /// Whether a track has no file and no transfer to share, so a download loads it from the server.
+    private func needsOwnLoad(_ song: Song) -> Bool {
+        let name = Self.fileName(song)
+        if FileManager.default.fileExists(atPath: downloadFolder.appending(path: name).path()) { return false }
+        if FileManager.default.fileExists(atPath: cacheFolder.appending(path: name).path()) { return false }
+        return !(transport != nil && (background == nil || transfers[song.id] != nil))
+    }
+
     /// The download stops at once for the listener. Its task releases the files in the background.
     func cancelDownload(_ id: String) {
         restarts[id] = nil
         progress[id] = nil
         forget(id)
+        aheadLoads[id]?.cancel()
         tasks[id]?.cancel()
     }
 
@@ -434,6 +480,8 @@ final class TrackStore {
         generation += 1
         downloadTracks = [:]
         cancelTransfers()
+        for loads in aheadLoads.values { loads.cancel() }
+        aheadLoads = [:]
         for task in tasks.values { task.cancel() }
         tasks = [:]
         restarts = [:]
@@ -561,4 +609,18 @@ final class TrackStore {
 /// session, so each track does not wait for a transfer that fails again.
 final class BackgroundSessionState {
     var failed = false
+}
+
+/// The tracks of one download that load ahead of the loop, with the first failure among them.
+@MainActor final class AheadLoads {
+    var tasks: [String: Task<Void, any Error>] = [:]
+    private(set) var failure: (any Error)?
+
+    func cancel() { for task in tasks.values { task.cancel() } }
+
+    /// A failed track ends the download, so the other loads stop at once instead of filling Downloads.
+    func fail(with error: any Error) {
+        if failure == nil, !(error is CancellationError), (error as? URLError)?.code != .cancelled { failure = error }
+        cancel()
+    }
 }

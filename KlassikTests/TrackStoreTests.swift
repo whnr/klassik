@@ -233,6 +233,34 @@ struct TrackStoreTests {
         #expect(store.failures.isEmpty)
     }
 
+    @Test func downloadLoadsSeveralTracksAtOnceAfterTheFirst() async throws {
+        let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
+        let running = Running()
+        let store = TrackStore(
+            cacheFolder: root.appending(path: "cache"), downloadFolder: root.appending(path: "support/downloads"),
+            defaults: defaults, fetch: { _, _ in throw SubsonicError.http(status: 500) },
+            background: { _, _ in
+                running.count += 1
+                running.peak = max(running.peak, running.count)
+                try await Task.sleep(for: .milliseconds(100))
+                running.count -= 1
+                let file = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+                try Data(count: 10).write(to: file)
+                return file
+            })
+        let recording = recording("r1", ["a", "b", "c", "d", "e", "f"])
+        store.download(recording, title: "Work", client: client)
+        await settle(store)
+        #expect(store.isDownloaded(recording))
+        #expect(running.peak > 1)
+        #expect(running.peak <= TrackStore.parallelDownloads)
+    }
+
+    @MainActor final class Running {
+        var count = 0
+        var peak = 0
+    }
+
     @Test func failedBackgroundLoadLeavesAFailedStateNotTheDownloadButton() async throws {
         let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
         let store = TrackStore(
@@ -458,6 +486,81 @@ struct TrackStoreTests {
         #expect(store.downloads.isEmpty)
         #expect(store.offline.isEmpty)
         #expect(store.failures.isEmpty)
+    }
+
+    /// A store whose first track loads at once and whose later tracks load until cancelled, then still finish.
+    /// A load that ends late is the worst case: it must not publish its file.
+    func makeSlowAheadStore(_ started: Requests) throws -> TrackStore {
+        let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
+        return TrackStore(
+            cacheFolder: root.appending(path: "cache"), downloadFolder: root.appending(path: "support/downloads"),
+            defaults: defaults,
+            fetch: { song, _ in
+                started.ids.append(song.id)
+                if song.id != "a" {
+                    for _ in 0..<30 where !Task.isCancelled { try await Task.sleep(for: .milliseconds(10)) }
+                }
+                let file = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+                try Data(count: 10).write(to: file)
+                return file
+            })
+    }
+
+    func waitForLoads(_ started: Requests, count: Int) async throws {
+        for _ in 0..<500 where started.ids.count < count { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(started.ids.count >= count)
+    }
+
+    @Test func cancelWhileLaterTracksLoadStopsEveryLoadAndKeepsNothing() async throws {
+        let started = Requests()
+        let store = try makeSlowAheadStore(started)
+        store.download(recording("r1", ["a", "b", "c", "d"]), title: "Work", client: client)
+        try await waitForLoads(started, count: 3)
+        store.cancelDownload("r1")
+        await settle(store)
+        try await Task.sleep(for: .milliseconds(400))
+        for id in ["a", "b", "c", "d"] { #expect(!exists(id, in: "support/downloads")) }
+        #expect(store.downloads.isEmpty)
+        #expect(store.offline.isEmpty)
+        #expect(store.failures.isEmpty)
+        #expect(store.downloadBytes == 0)
+    }
+
+    @Test func clearAllDuringAParallelDownloadLeavesNoFileInDownloads() async throws {
+        let started = Requests()
+        let store = try makeSlowAheadStore(started)
+        store.download(recording("r1", ["a", "b", "c", "d"]), title: "Work", client: client)
+        try await waitForLoads(started, count: 3)
+        store.clearAll()
+        try await Task.sleep(for: .milliseconds(500))
+        for id in ["a", "b", "c", "d"] { #expect(!exists(id, in: "support/downloads")) }
+        #expect(store.offline.isEmpty)
+        #expect(store.downloadBytes == 0)
+        #expect(store.downloads.isEmpty)
+    }
+
+    @Test func aFailedTrackStopsTheOtherLoadsAndShowsItsError() async throws {
+        let defaults = try #require(UserDefaults(suiteName: UUID().uuidString))
+        let started = Requests()
+        let store = TrackStore(
+            cacheFolder: root.appending(path: "cache"), downloadFolder: root.appending(path: "support/downloads"),
+            defaults: defaults,
+            fetch: { song, _ in
+                started.ids.append(song.id)
+                if song.id == "d" { throw SubsonicError.http(status: 500) }
+                if song.id != "a" {
+                    for _ in 0..<30 where !Task.isCancelled { try await Task.sleep(for: .milliseconds(10)) }
+                }
+                let file = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+                try Data(count: 10).write(to: file)
+                return file
+            })
+        store.download(recording("r1", ["a", "b", "c", "d"]), title: "Work", client: client)
+        await settle(store)
+        try await Task.sleep(for: .milliseconds(400))
+        for id in ["a", "b", "c", "d"] { #expect(!exists(id, in: "support/downloads")) }
+        #expect(store.failures["r1"] != nil)
+        #expect(store.downloads.isEmpty)
     }
 
     @Test func cancelOfARunningForegroundLoadIsNotAFailure() async throws {

@@ -1,7 +1,0 @@
-{
-  "sha": "ae37cdc97929db8458af99058a1577cd6f9742b7",
-  "branch": "claude-edit-sheet",
-  "path": "claude-edit-sheet",
-  "subject": "Fix lint findings of the edit sheet",
-  "ts": 1795818690
-}

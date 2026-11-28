@@ -322,7 +322,7 @@ private struct RecentList: View {
     }
 }
 
-/// Composers, performers, works, then albums, each in its own section. A recording shows only inside its
+/// Composers, works, albums, then performers, each in its own section. A recording shows only inside its
 /// work, so Albums holds only albums.
 private struct SearchResults: View {
     @Environment(AppModel.self) private var model
@@ -348,7 +348,6 @@ private struct SearchResults: View {
     var body: some View {
         let playing = model.playback.item
         people(results.composers, title: "Composers")
-        people(results.performers, title: "Performers")
         if !results.works.isEmpty {
             Section {
                 heading("Works", count: results.works.count)
@@ -391,6 +390,7 @@ private struct SearchResults: View {
                 }
             }
         }
+        people(results.performers, title: "Performers")
     }
 
     @ViewBuilder

@@ -180,6 +180,18 @@ struct QuietSpellTests {
         #expect(spell.wait(at: start.advanced(by: .seconds(1))) == nil)
     }
 
+    @Test func aNoteSwipeHoldsAcrossScrollChangesAndRestartsTheSpell() {
+        var spell = QuietSpell()
+        spell.touch(at: start)
+        spell.touchingNote(true, at: start.advanced(by: .seconds(7)))
+        spell.touching(true, at: start.advanced(by: .seconds(8)))
+        spell.touching(false, at: start.advanced(by: .seconds(9)))
+        #expect(!spell.follow(at: start.advanced(by: .seconds(60))))
+        spell.touchingNote(false, at: start.advanced(by: .seconds(60)))
+        #expect(!spell.follow(at: start.advanced(by: .seconds(67))))
+        #expect(spell.follow(at: start.advanced(by: .seconds(68))))
+    }
+
     @Test func aScrubHoldsTheRowsUntilTheFingerLiftsAndTheSpellEnds() {
         var spell = QuietSpell()
         spell.hold(true, at: start)

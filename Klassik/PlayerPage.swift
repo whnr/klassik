@@ -78,6 +78,7 @@ struct QuietSpell: Sendable {
     private(set) var isHeld = false
     private(set) var isTouched = false
     private(set) var isWriting = false
+    private(set) var isTouchingNote = false
 
     mutating func touch(at now: ContinuousClock.Instant = .now) {
         lastTouch = now
@@ -105,9 +106,16 @@ struct QuietSpell: Sendable {
         lastTouch = now
     }
 
+    /// A note swipe holds independently of vertical scrolling. Releasing it starts a full quiet spell.
+    mutating func touchingNote(_ on: Bool, at now: ContinuousClock.Instant = .now) {
+        guard on != isTouchingNote else { return }
+        isTouchingNote = on
+        lastTouch = now
+    }
+
     /// How long the page must still wait, or nil when it may scroll now.
     func wait(at now: ContinuousClock.Instant = .now) -> Duration? {
-        if isHeld || isTouched || isWriting { return Self.length }
+        if isHeld || isTouched || isWriting || isTouchingNote { return Self.length }
         guard let lastTouch else { return nil }
         let rest = Self.length - (now - lastTouch)
         return rest > .zero ? rest : nil

@@ -951,6 +951,7 @@ struct RecordingView: View {
                     draft: $draft,
                     elapsed: elapsed,
                     save: { model.notes.save($0, at: place) },
+                    touching: { spell.touchingNote($0) },
                     jump: { plays in jump(to: note, row: index, plays: plays) },
                     delete: {
                         spell.touch()
@@ -1208,8 +1209,10 @@ private struct NoteRow: View {
     @Binding var draft: NoteDraft?
     let elapsed: () -> Double
     let save: (NoteDraft) -> Bool
+    let touching: (Bool) -> Void
     let jump: (Bool) -> Void
     let delete: () -> Void
+    @GestureState private var isTouching = false
     @ScaledMetric(space: .s) private var gap: CGFloat
 
     var body: some View {
@@ -1239,6 +1242,13 @@ private struct NoteRow: View {
             }
             .buttonStyle(.borderless)
             .typeStyle(.subheadline)
+            // A horizontal swipe must hold the rows even when the list does not scroll.
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0)
+                    .updating($isTouching) { _, state, _ in state = true }
+            )
+            .onChange(of: isTouching) { _, on in touching(on) }
+            .onDisappear { touching(false) }
             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                 Button("Delete", systemImage: "trash", role: .destructive, action: delete)
             }
@@ -1260,8 +1270,6 @@ private struct NoteEditor: View {
 
     var body: some View {
         // A container keeps the identifiers of its controls inside the row's identifier.
-        // The line is drawn here: a visible bottom separator on this row made the Delete swipe of the note above it
-        // vanish in the walk.
         VStack(alignment: .leading, spacing: 0) {
             editor
                 .frame(maxWidth: .infinity, alignment: .leading)

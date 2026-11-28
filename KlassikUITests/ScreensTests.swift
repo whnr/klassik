@@ -337,6 +337,9 @@ final class PlacesScreens: ScreensTestCase {
         let frames = names.map { tab(app, $0).frame }
         // The whole bar, labels included, must look as it did at the start.
         let barArea = frames.reduce(CGRect.null) { $0.union($1) }
+        // The covers of Recently added sit behind the bar and tint its glass when they load, so the baseline waits
+        // for them.
+        Thread.sleep(forTimeInterval: 5)
         let baseline = try XCTUnwrap(ScreenPixels(app))
         func expectTabs(_ step: String) {
             for name in names {

@@ -66,7 +66,7 @@ final class PlacesScreens: ScreensTestCase {
             .matching(NSPredicate(format: "label CONTAINS %@", "Johann Sebastian Bach")).firstMatch
         XCTAssertTrue(bach.waitForExistence(timeout: 5))
         bach.tap()
-        XCTAssertEqual(app.staticTexts["filter-count"].label, "1 result")
+        XCTAssertEqual(app.staticTexts["filter-count"].label, "1\u{00A0}result")
         XCTAssertEqual(app.buttons["library-row-composers"].label, "Composers, Johann Sebastian Bach")
         snap(app, "02x-library-row-filter")
         app.buttons["filter-back"].tap()

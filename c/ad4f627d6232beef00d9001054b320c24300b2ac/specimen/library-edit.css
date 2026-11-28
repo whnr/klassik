@@ -1,21 +1,6 @@
 /* The Library edit sheet. It sits on the shared frame and keeps the lists of a grouped form.
    The tab behind it stays visible: the tab tints the selected row. */
 
-.hsheet.le-sheet .section {
-  margin: var(--space-s) 0 0;
-}
-.hsheet.le-sheet .section .list {
-  background: var(--color-background-row);
-  border-radius: var(--radius-m);
-  overflow: hidden;
-}
-.hsheet.le-sheet .section :is(.row, .section-foot) {
-  padding-left: var(--space-l);
-  padding-right: var(--space-l);
-}
-.hsheet.le-sheet .row + .row::before {
-  left: var(--space-l);
-}
 .hsheet.le-sheet .le-add {
   color: var(--color-tint);
   justify-content: flex-start;
@@ -113,34 +98,9 @@
   opacity: 1;
   transition: none;
 }
-/* A long value shrinks and ends in an ellipsis before it reaches its label. */
-.row .trail.le-trail {
-  flex: 0 1 auto;
-  min-width: 0;
-  margin-left: auto;
-}
-.row > .main:has(+ .le-trail) {
-  flex: none;
-}
-.row .trail.le-trail > span:first-child {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 .le-link {
   touch-action: auto;
 }
-.le-check {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 22px;
-  color: var(--color-tint);
-}
-.le-check svg {
-  width: 16px;
-}
-
 /* A row kind of Add row: a small preview and two lines. */
 .le-kind {
   gap: var(--space-m);

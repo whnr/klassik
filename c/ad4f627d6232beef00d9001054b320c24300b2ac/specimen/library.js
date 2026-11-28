@@ -1,6 +1,6 @@
 // The Library tab as a list of row configs: {id, kind, source, filter, sort, form, count}.
 // Library.mount draws the list into a host and redraws it when the list changes, so the edit sheet can edit it live.
-// An empty row hides on the tab. The pages behind a row title and a link tile are not in the specimen.
+// An empty row hides on the tab.
 
 (() => {
   const { el, M } = K;
@@ -10,7 +10,6 @@
     pick: { label: "Daily pick" },
     composers: { label: "Composers", unit: "composers" },
     performers: { label: "Performers", unit: "performers" },
-    works: { label: "Works", unit: "works" },
     recordings: { label: "Recordings", unit: "recordings" },
     albums: { label: "Albums", unit: "albums" },
     favourites: { label: "Favourites", unit: "mixed" },
@@ -20,7 +19,7 @@
     links: { label: "Link list" },
   };
   // A row of one of these kinds takes its kind from Source. The other kinds have a fixed source.
-  const UNIT_KINDS = ["composers", "performers", "works", "recordings", "albums"];
+  const UNIT_KINDS = ["composers", "performers", "recordings", "albums"];
   const PEOPLE = ["composers", "performers"];
   const SOURCE_NAME = { favourites: "Favourites", added: "Albums", heard: "Recordings" };
   // What each kind starts with. Strips hold 6, 9 or 12 cards, tiles 3, 6 or 9.
@@ -28,7 +27,6 @@
     pick: { sort: "random" },
     composers: { sort: "random" },
     performers: { sort: "random" },
-    works: { sort: "random" },
     recordings: { sort: "random" },
     albums: { sort: "newest" },
     favourites: { filter: "favourites", sort: "random" },
@@ -56,7 +54,6 @@
   const SORT_KINDS = {
     composers: ["random", "best", "az", "heard"],
     performers: ["random", "best", "az", "heard"],
-    works: ["random", "az", "newest", "heard"],
     recordings: ["random", "az", "newest", "heard"],
     albums: ["newest", "random", "az", "heard"],
     favourites: ["random", "az", "newest"],
@@ -354,7 +351,7 @@
   const STORE = "library.rows";
   const stored = () => {
     const rows = K.store(STORE);
-    return Array.isArray(rows) ? rows : null;
+    return Array.isArray(rows) ? rows.filter((row) => KINDS[row.kind]) : null;
   };
   const keep = (rows) => K.store(STORE, rows);
 
@@ -404,14 +401,43 @@
       ),
     );
   }
+  function destination(kind, row = null) {
+    const page = { added: "albums", heard: "recordings", saved: "recordings" }[kind] || kind;
+    if (!["composers", "performers", "albums", "recordings", "favourites", "genres", "roles"].includes(page))
+      return null;
+    return K.href("list.html", {
+      kind: page,
+      conds: row?.conds.length ? JSON.stringify(row.conds) : null,
+      sort: row && ["az", "best", "heard"].includes(row.sort) ? row.sort : null,
+    });
+  }
+  // The frame reuses Library data while the separate page specimens await approval.
+  function frameItems(kind) {
+    if (kind === "genres" || kind === "roles") {
+      const prefix = kind === "genres" ? "genre:" : "role:";
+      return [...Filters.index().allTerms.keys()]
+        .filter((t) => t.startsWith(prefix))
+        .map((t) => ({
+          type: kind,
+          name: Filters.label(t),
+          fact: "",
+          fav: false,
+          href: K.href("search.html"),
+          recs: Filters.index()
+            .recs.filter((x) => x.terms.has(t))
+            .map((x) => x.r),
+        }));
+    }
+    return library()[kind === "favourites" ? "mixed" : kind] || library().composers;
+  }
   function head(row) {
     const a = el(
       "a",
-      { class: "section-head lib-head t-footnote", href: "#" },
+      { class: "section-head lib-head t-footnote", href: destination(row.kind, row) || "#" },
       el("span", {}, title(row)),
       el("span", { class: "link", html: K.ICON.chevron }),
     );
-    stub(a, `Opens the page of ${title(row)}`);
+    if (!destination(row.kind, row)) stub(a, "This page has no frame yet");
     return a;
   }
   function strip(row) {
@@ -433,11 +459,11 @@
       ...row.links.map((k) => {
         const a = el(
           "a",
-          { href: "#" },
+          { href: destination(k) || "#" },
           el("span", { class: "num t-headline" }, String(counts[k])),
           el("span", { class: "t-footnote secondary" }, LINKS[k]),
         );
-        stub(a, `Opens the ${LINKS[k]} page`);
+        if (!destination(k)) stub(a, "This page has no frame yet");
         return a;
       }),
     );
@@ -564,6 +590,7 @@
   }
 
   window.Library = {
+    frameItems,
     KINDS,
     LINKS,
     UNIT_KINDS,

@@ -36,7 +36,6 @@ window.LibraryEdit = (() => {
     pick: ["One recording a day, as a sentence", "pick"],
     composers: ["Faces, with their number of works", "faces"],
     performers: ["Faces, with their number of recordings", "faces"],
-    works: ["Covers, with their composer", "covers"],
     recordings: ["Covers, with their lead performer", "covers"],
     albums: ["Covers, newest first", "covers"],
     favourites: ["Faces and covers, mixed", "mixed"],
@@ -66,7 +65,7 @@ window.LibraryEdit = (() => {
     const toList = () => go({ t: "list" });
 
     const frame = Frame.make({ title: "Edit Library" });
-    frame.box.classList.add("le-sheet");
+    frame.box.classList.add("le-sheet", "settings-sheet");
 
     // ---------- Level 1: the rows ----------
     function listBody() {
@@ -269,41 +268,17 @@ window.LibraryEdit = (() => {
       form: { label: "Form", options: Library.formOptions, value: (r) => r.form },
       count: { label: "Count", options: Library.countOptions, value: (r) => String(r.count) },
     };
-    const trail = (text, chevron) =>
-      el(
-        "span",
-        { class: "trail le-trail t-body" },
-        el("span", {}, text),
-        chevron ? el("span", { html: ICON.chevron }) : null,
-      );
     function settingLine(row, field) {
       const f = FIELDS[field];
       const options = f.options(row);
-      const only = Object.keys(options).length < 2;
-      return el(
-        "button",
-        {
-          class: "row t-body",
-          type: "button",
-          disabled: only,
-          onclick: () => go({ t: "choice", id: row.id, field }),
-        },
-        el("span", { class: "main" }, f.label),
-        trail(options[f.value(row)] ?? "", !only),
+      return SheetSettings.line(
+        f.label,
+        options[f.value(row)] ?? "",
+        () => go({ t: "choice", id: row.id, field }),
+        Object.keys(options).length < 2,
       );
     }
-    function filterLine(row) {
-      const terms = row.conds.flat();
-      return el(
-        "button",
-        { class: "row t-body", type: "button", onclick: () => go({ t: "filter", id: row.id }) },
-        el("span", { class: "main" }, "Filter"),
-        trail(
-          terms.length === 0 ? "None" : terms.length === 1 ? Filters.label(terms[0]) : `${terms.length} terms`,
-          true,
-        ),
-      );
-    }
+    const filterLine = (row) => SheetSettings.filter(row.conds, () => go({ t: "filter", id: row.id }));
     function rowBody(row) {
       if (row.kind === "links") return linksBody(row);
       if (row.kind === "pick")
@@ -327,26 +302,13 @@ window.LibraryEdit = (() => {
     // Level 3: one choice, checked, then back to the row.
     function choiceBody(row, field) {
       const f = FIELDS[field];
-      return K.form.group(
-        null,
-        Object.entries(f.options(row)).map(([value, text]) =>
-          el(
-            "button",
-            {
-              class: "row t-body",
-              type: "button",
-              onclick: () => {
-                Library.apply(row, field, value);
-                changed(row.id);
-                go({ t: "row", id: row.id });
-              },
-            },
-            el("span", { class: "le-check", html: f.value(row) === value ? ICON.check : "" }),
-            el("span", { class: "main" }, text),
-          ),
-        ),
-      );
+      return SheetSettings.choices(f.options(row), f.value(row), (value) => {
+        Library.apply(row, field, value);
+        changed(row.id);
+        go({ t: "row", id: row.id });
+      });
     }
+
     // The links of a link list: check to show, drag to reorder.
     function linksBody(row) {
       const list = el("div", { class: "list" });

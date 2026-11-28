@@ -6,8 +6,14 @@
 // and scope() returns the set of recordings that the page may reach, or null for every recording.
 window.Filters = (() => {
   const { el, ICON } = K;
-  const KINDS = { genre: "Genres", composer: "Composers", conductor: "Conductors", performer: "Performers" };
-  const ONE = { genre: "Genre", composer: "Composer", conductor: "Conductor", performer: "Performer" };
+  const KINDS = {
+    genre: "Genres",
+    composer: "Composers",
+    conductor: "Conductors",
+    performer: "Performers",
+    role: "Roles",
+  };
+  const ONE = { genre: "Genre", composer: "Composer", conductor: "Conductor", performer: "Performer", role: "Role" };
 
   // ---------- Matching: diacritics fold away; "Op. 67" meets "op67", "K. 626" meets "KV 626". ----------
   const fold = (s) =>
@@ -52,13 +58,29 @@ window.Filters = (() => {
   let built = null;
   function index() {
     if (built) return built;
+    const spellings = new Map();
+    for (const r of K.M.recordings.values())
+      for (const song of r.songs)
+        for (const c of song.contributors || [])
+          if (c.role === "performer" && c.subRole) {
+            const key = c.subRole.toLocaleLowerCase("en");
+            if (!spellings.has(key)) spellings.set(key, new Map());
+            const variants = spellings.get(key);
+            variants.set(c.subRole, (variants.get(c.subRole) || 0) + 1);
+          }
+    const roleNames = new Map(
+      [...spellings].map(([key, variants]) => [key, [...variants].sort((a, b) => b[1] - a[1])[0][0]]),
+    );
     const recs = [...K.M.recordings.values()].map((r) => {
       const terms = new Set(r.genres.map((g) => "genre:" + g));
       for (const s of r.songs)
-        for (const c of s.contributors || [])
+        for (const c of s.contributors || []) {
+          if (c.role === "performer" && c.subRole)
+            terms.add("role:" + roleNames.get(c.subRole.toLocaleLowerCase("en")));
           terms.add(
             `${c.role === "composer" ? "composer" : c.role === "conductor" ? "conductor" : "performer"}:${c.artist.name}`,
           );
+        }
       if (r.composer) terms.add("composer:" + r.composer);
       r.performers
         .filter((p) => p.role === "artist")
@@ -88,7 +110,15 @@ window.Filters = (() => {
   // The same without the kind words, for a subtitle.
   const short = (list) => list.map((c) => c.map(label).join(" or ")).join(" and ");
 
-  function make({ conds = [], kind = "composer", count, scope = () => null, onChange = () => {} }) {
+  function make({
+    conds = [],
+    kind = "composer",
+    count,
+    scope = () => null,
+    onChange = () => {},
+    text = (value) => value,
+    formatNumber = (value) => String(value),
+  }) {
     const { recs, allTerms } = index();
     const fx = { conds, marked: null, kind, narrowQ: "", clearNarrow: () => {}, condsBox: null, redraw: () => {} };
 
@@ -108,7 +138,11 @@ window.Filters = (() => {
     function chip(t, ci) {
       return el(
         "span",
-        { class: "tchip t-subheadline", "aria-label": `${label(t)}, remove`, ...press(() => removeTerm(ci, t)) },
+        {
+          class: "tchip t-subheadline",
+          "aria-label": `${label(t)}, ${text("remove")}`,
+          ...press(() => removeTerm(ci, t)),
+        },
         label(t),
         el("span", { class: "x", "aria-hidden": "true" }, "×"),
       );
@@ -125,11 +159,11 @@ window.Filters = (() => {
     // The conditions as one paragraph: "or" inside a condition, "and" between conditions.
     // Each condition ends with its "+ or" button, which marks it so the next term joins it.
     function condParagraph() {
-      const box = el("div", { class: "cond", role: "group", "aria-label": "Conditions" });
+      const box = el("div", { class: "cond", role: "group", "aria-label": text("Conditions") });
       fx.conds.forEach((c, i) => {
-        if (i) box.append(el("span", { class: "w and t-subheadline" }, "and"), " ");
+        if (i) box.append(el("span", { class: "w and t-subheadline" }, text("and")), " ");
         c.forEach((t, j) => {
-          if (j) box.append(el("span", { class: "w t-subheadline" }, "or"), " ");
+          if (j) box.append(el("span", { class: "w t-subheadline" }, text("or")), " ");
           box.append(chip(t, i), " ");
         });
         box.append(
@@ -137,14 +171,14 @@ window.Filters = (() => {
             "span",
             {
               class: "plus t-subheadline" + (fx.marked === i ? " on" : ""),
-              "aria-label": "Add an or term",
+              "aria-label": text("Add an or term"),
               "aria-pressed": String(fx.marked === i),
               ...press(() => {
                 fx.marked = fx.marked === i ? null : i;
                 onChange();
               }),
             },
-            "+ or",
+            text("+ or"),
           ),
           " ",
         );
@@ -177,7 +211,8 @@ window.Filters = (() => {
         }))
         .filter((x) => x.n > 0 || x.at >= 0)
         .sort((x, y) => Number(y.at >= 0) - Number(x.at >= 0) || y.n - x.n || label(x.t).localeCompare(label(y.t)));
-      if (!list.length) return [el("div", { class: "row t-subheadline secondary" }, "No term of this kind is left.")];
+      if (!list.length)
+        return [el("div", { class: "row t-subheadline secondary" }, text("No term of this kind is left."))];
       // A pick clears the narrowing text, so the next term can be typed at once.
       return list.map(({ t, at, n }) =>
         el(
@@ -201,7 +236,7 @@ window.Filters = (() => {
             "div",
             { class: "trail" },
             at >= 0 ? el("span", { class: "check", html: ICON.check }) : null,
-            el("span", { class: "what t-subheadline nums" }, String(n)),
+            el("span", { class: "what t-subheadline nums" }, formatNumber(n)),
           ),
         ),
       );
@@ -221,7 +256,7 @@ window.Filters = (() => {
                   onKind();
                 },
               },
-              KINDS[k],
+              text(KINDS[k]),
             ),
           ),
         );
@@ -236,7 +271,7 @@ window.Filters = (() => {
         autocorrect: "off",
         spellcheck: "false",
       });
-      const setPh = () => (i.placeholder = "Find in " + KINDS[fx.kind].toLowerCase());
+      const setPh = () => (i.placeholder = text("Find in " + KINDS[fx.kind].toLowerCase()));
       setPh();
       i.addEventListener("input", () => {
         fx.narrowQ = i.value;

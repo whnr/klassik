@@ -10,6 +10,8 @@
     <link rel="stylesheet" href="sheet.css?v=52" />
     <link rel="stylesheet" href="filters.css?v=53" />
     <script src="specimen.js?v=52"></script>
+    <link rel="stylesheet" href="find-row.css?v=1" />
+    <script src="find-row.js?v=1"></script>
     <script src="sheet.js?v=52"></script>
     <script src="filters.js?v=52"></script>
   </head>
@@ -25,75 +27,12 @@
         overflow-x: auto;
         scrollbar-width: none;
       }
-      .roundglass {
-        flex: none;
-        width: 48px;
-        height: 48px;
-        border-radius: var(--radius-full);
-        display: grid;
-        place-items: center;
-        position: relative;
-        color: var(--color-text-primary);
+      .search-page .nav {
+        background: var(--color-background-grouped);
       }
-      .roundglass svg {
-        width: 22px;
-        height: 22px;
+      .search-page .scroll {
+        padding-top: calc(max(env(safe-area-inset-top), 6px) + var(--pill-space, 34px) + var(--size-hitTarget) + 48px);
       }
-      .roundglass.on {
-        color: var(--color-tint);
-      }
-      .badge {
-        position: absolute;
-        top: -3px;
-        right: -3px;
-        min-width: 19px;
-        height: 19px;
-        padding: 0 5px;
-        border-radius: 10px;
-        background: var(--color-accent-fill, var(--color-tint));
-        color: var(--color-on-accent, #fff);
-        font:
-          600 12px/19px -apple-system,
-          system-ui,
-          sans-serif;
-        text-align: center;
-      }
-      .field {
-        flex: 1;
-        min-width: 0;
-        display: flex;
-        align-items: center;
-        gap: var(--space-s);
-        min-height: 48px;
-        padding: 0 var(--space-m) 0 var(--space-l);
-        border-radius: var(--radius-full);
-      }
-      .field svg {
-        width: 18px;
-        height: 18px;
-        flex: none;
-        color: var(--color-text-secondary);
-      }
-      .field input {
-        flex: 1;
-        min-width: 0;
-        border: 0;
-        outline: 0;
-        background: transparent;
-        font-size: max(16px, var(--type-body-size));
-      }
-      .field input::placeholder {
-        color: var(--color-text-secondary);
-      }
-      .field input::-webkit-search-cancel-button {
-        display: none;
-      }
-      .clear {
-        color: var(--color-text-secondary);
-        padding: var(--space-xs);
-        visibility: hidden;
-      }
-
       .hint {
         padding: var(--space-xl) var(--pad-right) 0 var(--space-xl);
         color: var(--color-text-secondary);
@@ -108,51 +47,6 @@
         padding-bottom: 50vh;
       }
 
-      /* The field row sits under the bar and stays there: a system inline field. Only the content scrolls. */
-      .fieldrow {
-        position: fixed;
-        z-index: 25;
-        left: 0;
-        right: 0;
-        top: calc(max(env(safe-area-inset-top), 6px) + var(--pill-space, 34px) + var(--size-hitTarget));
-        display: flex;
-        gap: var(--space-s);
-        align-items: center;
-        padding: 0 var(--pad-right) var(--space-s) var(--pad-left);
-        background: var(--color-background-grouped);
-      }
-      .fieldrow .field {
-        min-height: 40px;
-        height: 40px;
-        border-radius: 12px;
-        background: var(--color-fill-quiet);
-        box-shadow: none;
-        -webkit-backdrop-filter: none;
-        backdrop-filter: none;
-        padding-left: var(--space-m);
-      }
-      .fieldrow .roundglass {
-        width: 40px;
-        height: 40px;
-        background: var(--color-fill-quiet);
-        box-shadow: none;
-        -webkit-backdrop-filter: none;
-        backdrop-filter: none;
-      }
-      .search-page .nav {
-        background: var(--color-background-grouped);
-      }
-      .search-page .scroll {
-        padding-top: calc(max(env(safe-area-inset-top), 6px) + var(--pill-space, 34px) + var(--size-hitTarget) + 48px);
-      }
-      .fieldrow .reset svg {
-        width: 18px;
-        height: 18px;
-      }
-      .fieldrow .reset:disabled {
-        color: var(--color-text-tertiary);
-        cursor: default;
-      }
       .recent .row {
         width: 100%;
         text-align: left;
@@ -162,19 +56,6 @@
         height: 16px;
         flex: none;
         color: var(--color-text-secondary);
-      }
-      .section-head.fold {
-        width: 100%;
-        text-align: left;
-        color: inherit;
-        font: inherit;
-      }
-      .section-head.fold::after {
-        content: "\25BE";
-        color: var(--color-text-secondary);
-      }
-      .section-head.fold[aria-expanded="false"]::after {
-        content: "\25B8";
       }
       .section-head button {
         color: var(--color-tint);
@@ -188,8 +69,7 @@
         // The matching, the term index and the filter sheet parts are in filters.js, shared with the Library edit sheet.
         const { ONE, label, kindOf, words, queryTokens, matches, passes, line: filterLine } = Filters;
         const { recs } = Filters.index();
-        const FUNNEL =
-          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M7 12h10M10 17h4"/></svg>';
+        const FUNNEL = FindRow.FUNNEL;
 
         const EXAMPLE = [
           ["composer:Frédéric Chopin", "composer:Johann Sebastian Bach"],
@@ -375,53 +255,18 @@
           back: { label: "Library", href: "index.html" },
         });
         document.body.classList.add("search-page");
-        const input = el("input", {
-          type: "search",
-          enterkeyhint: "search",
-          autocomplete: "off",
-          autocorrect: "off",
-          spellcheck: "false",
+        const { input, clear, badge, filtersBtn, resetBtn } = FindRow.make({
+          query,
           placeholder: "Work or name",
-        });
-        input.value = query;
-        const clear = el(
-          "button",
-          {
-            class: "clear t-body",
-            "aria-label": "Clear",
-            onclick: () => {
-              input.value = "";
-              query = "";
-              save();
-              update();
-              input.focus();
-            },
+          onClear: () => {
+            query = "";
+            save();
+            update();
           },
-          "✕",
-        );
-        const badge = el("span", { class: "badge" });
-        // The keyboard goes down at the moment the sheet comes up; the sheet never rides on a closing keyboard.
-        const filtersBtn = el("button", {
-          class: "roundglass",
-          "aria-label": "Filters",
-          html: FUNNEL,
-          onpointerdown: (e) => e.preventDefault(),
-          onclick: () => {
-            input.blur();
-            setOpen(!open);
-          },
-        });
-        filtersBtn.append(badge);
-        // The x pill clears the text and every condition. It stays in place when there is nothing to clear, so the field never changes width.
-        const resetBtn = el("button", {
-          class: "roundglass reset",
-          "aria-label": "Clear search and filters",
-          html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M7 7l10 10M17 7 7 17"/></svg>',
-          onpointerdown: (e) => e.preventDefault(),
-          onclick: () => {
+          onFilters: () => setOpen(!open),
+          onReset: () => {
             commit();
             endSession();
-            input.value = "";
             query = "";
             fx.conds = [];
             fx.marked = null;
@@ -429,8 +274,6 @@
             update();
           },
         });
-        const field = el("label", { class: "field" }, el("span", { html: ICON.search }), input, clear);
-        document.body.append(el("div", { class: "fieldrow" }, field, filtersBtn, resetBtn));
         input.addEventListener("input", () => {
           query = input.value;
           save();
@@ -511,25 +354,7 @@
         const resultsBox = el("div");
         scroll.append(resultsBox);
 
-        // A tap on a result title folds its section; a second tap opens it.
-        function section(title, n, rows, inset) {
-          const list = el("div", { class: "list", style: inset ? `--sep-inset: ${inset}` : null }, ...rows);
-          const head = el(
-            "button",
-            {
-              class: "section-head t-footnote fold",
-              "aria-expanded": "true",
-              onclick: () => {
-                const folded = head.getAttribute("aria-expanded") === "true";
-                head.setAttribute("aria-expanded", String(!folded));
-                list.hidden = folded;
-              },
-            },
-            el("span", {}, title),
-            el("span", { class: "count" }, `(${n})`),
-          );
-          return el("section", { class: "section" }, head, list);
-        }
+        const section = K.resultSection;
         const plural = (n, word) => K.count(n, word);
         // Each role has its own count: a composer has works, a conductor or performer has recordings.
         // The biggest comes first: "Conductor on 212 recordings, composer of 30 works and performer on 3 recordings".

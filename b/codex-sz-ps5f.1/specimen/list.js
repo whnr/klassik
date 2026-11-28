@@ -2,61 +2,21 @@ if (K.params.get("state") === "accessibility" && !K.params.has("size")) K.params
 
 K.start(async () => {
   const { el, ICON, M } = K;
-  const de = K.params.get("lang") === "de";
-  const locale = de ? "de" : "en";
-  const dictionary = {
-    Composers: "Komponisten",
-    Library: "Mediathek",
-    Chronology: "Chronologie",
-    Search: "Suche",
-    Filters: "Filter",
-    Filter: "Filter",
-    Sort: "Sortierung",
-    Form: "Darstellung",
-    Done: "Fertig",
-    Back: "Zurück",
-    "A to Z": "A bis Z",
-    "Best known": "Am bekanntesten",
-    "Last heard": "Zuletzt gehört",
-    "Not heard": "Noch nicht gehört",
-    "Rich list": "Liste mit Bildern",
-    "Show all": "Alle anzeigen",
-    "Find by name": "Name suchen",
-    Find: "Suchen",
-    Clear: "Löschen",
-    None: "Keine",
-    Genres: "Genres",
-    Conductors: "Dirigenten",
-    Performers: "Interpreten",
-    Conditions: "Bedingungen",
-    and: "und",
-    or: "oder",
-    "+ or": "+ oder",
-    remove: "entfernen",
-    "Add an or term": "Oder-Begriff hinzufügen",
-    "No term of this kind is left.": "Keine weiteren Begriffe dieser Art.",
-    Favourite: "Favorit",
-    "Not a favourite": "Kein Favorit",
-    "No composers yet": "Noch keine Komponisten",
-    "Composers in your library appear here.": "Hier erscheinen die Komponisten deiner Mediathek.",
-    "No matches": "Keine Ergebnisse",
-    "Change the name or filters.": "Ändere den Namen oder die Filter.",
-  };
-  const text = (value) => {
-    if (value.startsWith("Find in ")) return de ? "Suchen" : "Find";
-    return de ? dictionary[value] || value : value;
-  };
+  const locale = "en";
+  const text = (value) => value;
   const number = (value) => value.toLocaleString(locale);
-  const count = (n, one, many) => `${number(n)} ${de ? (n === 1 ? one[1] : many[1]) : n === 1 ? one[0] : many[0]}`;
-  const worksCount = (n) => count(n, ["work", "Werk"], ["works", "Werke"]);
-  const resultsCount = (n) => count(n, ["composer", "Komponist"], ["composers", "Komponisten"]);
+  const resultsCount = (n) =>
+    K.count(n, pageKind === "composers" ? "composer" : pageKind === "performers" ? "performer" : "result");
+  await Library.load();
+  const pageKind = K.params.get("kind") || "composers";
+  const pageTitle = Library.LINKS[pageKind] || (pageKind === "recordings" ? "Recordings" : "Composers");
   const sample = await fetch("data/library.json").then((r) => r.json());
   const state = K.params.get("state") || "default";
   document.documentElement.lang = locale;
-  document.title = text("Composers");
+  document.title = pageTitle;
   document.body.classList.add("list-page");
   const { scroll } = K.page({
-    title: text("Composers"),
+    title: pageTitle,
     back: { label: text("Library"), href: "library.html" },
   });
   document.querySelectorAll(".tabs a").forEach((tab) => {
@@ -64,27 +24,30 @@ K.start(async () => {
     tab.setAttribute("aria-label", text(label.textContent));
     label.textContent = text(label.textContent);
   });
-  const people = [...new Set([...M.works.values()].map((w) => w.composer))].map((name) => {
-    const works = [...M.works.values()].filter((w) => w.composer === name);
-    const recordings = works.flatMap((w) => w.recordings);
-    const heard = recordings
-      .map((r) => sample.heard[r.id])
-      .filter(Boolean)
-      .sort()
-      .at(-1);
-    return { name, works, recordings, heard, facts: M.people[name] || {} };
-  });
+  const people = Library.frameItems(pageKind).map((x) => ({
+    ...x,
+    recordings: x.recs,
+    facts: M.people[x.name] || {},
+    sortName: sample.sortNames?.[x.name] || [...M.artists.values()].find((a) => a.name === x.name)?.sortName || x.name,
+  }));
   const pool = state === "empty" ? [] : people;
   const example = [["genre:Piano"]];
   const long = [[...Filters.index().allTerms.keys()].filter((t) => t.startsWith("composer:")).slice(0, 6)];
   let query = state === "no-match" ? "zzzz" : state === "keyboard" ? "bach" : "";
-  let sort = "az";
+  let sort = K.params.get("sort") || "az";
   let frame = null;
   let level = "settings";
   let handle = null;
   const folds = new Set();
   const fx = Filters.make({
-    conds: state === "filtered" ? example : state === "long" ? long : [],
+    conds: K.params.has("conds")
+      ? JSON.parse(K.params.get("conds"))
+      : state === "filtered"
+        ? example
+        : state === "long"
+          ? long
+          : [],
+    kind: "genre",
     count: (conds) => filtered(conds).length,
     text,
     formatNumber: number,
@@ -96,52 +59,53 @@ K.start(async () => {
     );
   }
   function conditionsLine() {
-    return fx.conds.map((c) => c.map(Filters.label).join(` ${text("or")} `)).join(` ${text("and")} `);
+    return (
+      "Filter: " +
+      fx.conds
+        .map((c) =>
+          c
+            .map(
+              (t, i) =>
+                (i === 0 || Filters.kindOf(t) !== Filters.kindOf(c[i - 1])
+                  ? Filters.ONE[Filters.kindOf(t)] + " is "
+                  : "") + Filters.label(t),
+            )
+            .join(" or "),
+        )
+        .join(", and ")
+    );
   }
-  const input = el("input", {
-    type: "search",
-    placeholder: text("Find"),
-    "aria-label": text("Find by name"),
-    autocomplete: "off",
-    enterkeyhint: "search",
-    value: query,
-    oninput: () => {
-      query = input.value;
+  const {
+    input,
+    clear,
+    badge,
+    filtersBtn: filters,
+    resetBtn,
+    fieldrow,
+  } = FindRow.make({
+    query,
+    placeholder: "Find by name",
+    onClear: () => {
+      query = "";
       update();
     },
-    onkeydown: (event) => {
-      if (event.key === "Enter") input.blur();
+    onFilters: openSheet,
+    onReset: () => {
+      query = "";
+      fx.conds = [];
+      fx.marked = null;
+      update();
     },
   });
-  const clear = el(
-    "button",
-    {
-      class: "find-clear",
-      "aria-label": text("Clear"),
-      onclick: () => {
-        query = "";
-        input.value = "";
-        update();
-        input.focus();
-      },
-    },
-    "×",
-  );
-  const filters = el("button", {
-    class: "filter-button",
-    "aria-label": text("Filters"),
-    "aria-haspopup": "dialog",
-    html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M7 12h10M10 17h4"/></svg>',
-    onclick: openSheet,
+  input.addEventListener("input", () => {
+    query = input.value;
+    update();
   });
-  const fieldrow = el(
-    "div",
-    { class: "fieldrow" },
-    el("label", { class: "find t-body" }, el("span", { html: ICON.search, "aria-hidden": "true" }), input, clear),
-    filters,
-  );
-  document.body.append(fieldrow);
-  const summary = el("button", { class: "conditions t-footnote", onclick: () => openSheet("filter") });
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") input.blur();
+  });
+
+  const summary = el("button", { class: "conditions t-body", onclick: () => openSheet("filter") });
   const showAll = el(
     "button",
     {
@@ -156,41 +120,43 @@ K.start(async () => {
   );
   const results = el("div");
   scroll.append(
-    el("div", { class: "page-head" }, el("h1", { class: "t-largeTitle" }, text("Composers")), summary, showAll),
+    el("div", { class: "page-head" }, el("h1", { class: "t-largeTitle" }, pageTitle), summary, showAll),
     results,
   );
 
   function row(p) {
-    const favourite = sample.favourites.includes(`composer:${p.name}`);
+    const favourite = p.fav;
     const years = [p.facts.born, p.facts.died].filter(Boolean).join("–");
-    const facts = [years, worksCount(p.works.length)].filter(Boolean).join(", ");
+    const facts = [years, p.fact].filter(Boolean).join(", ");
     const picture = p.facts.picture?.url;
     return el(
       "a",
       {
         class: "row",
-        href: K.personHref(p.name, { back: text("Composers") }),
+        href: p.href,
         "aria-label": `${p.name}, ${text(favourite ? "Favourite" : "Not a favourite")}, ${facts}`,
       },
       el(
         "span",
         { "aria-hidden": "true" },
-        picture
-          ? el("img", { class: "face", src: picture, alt: "" })
-          : el(
-              "span",
-              { class: "face t-footnote" },
-              p.name
-                .split(" ")
-                .map((w) => w[0])
-                .slice(0, 2)
-                .join(""),
-            ),
+        p.album
+          ? K.coverImage(p.album, "face", 250)
+          : picture
+            ? el("img", { class: "face", src: picture, alt: "" })
+            : el(
+                "span",
+                { class: "face t-footnote" },
+                p.name
+                  .split(" ")
+                  .map((w) => w[0])
+                  .slice(0, 2)
+                  .join(""),
+              ),
       ),
       el(
         "div",
         { class: "main", "aria-hidden": "true" },
-        el("div", { class: "t-body" }, p.name, favourite ? K.fermata(true, true) : null),
+        el("div", { class: "t-body" }, favourite ? K.titled(p.name, K.fermata(true, true)) : p.name),
         el("div", { class: "t-subheadline secondary" }, facts),
       ),
       el("span", { html: ICON.chevron, "aria-hidden": "true" }),
@@ -198,47 +164,37 @@ K.start(async () => {
   }
   function section(title, members) {
     const key = `${sort}:${title}`;
-    const list = el("div", { class: "list", hidden: folds.has(key) }, ...members.map(row));
-    const head = el(
-      "button",
-      {
-        class: "section-head",
-        "aria-expanded": String(!folds.has(key)),
-        "aria-label": `${title}, ${resultsCount(members.length)}`,
-        onclick: () => {
-          if (folds.has(key)) folds.delete(key);
-          else folds.add(key);
-          list.hidden = folds.has(key);
-          head.setAttribute("aria-expanded", String(!list.hidden));
-        },
+    return K.resultSection(title, number(members.length), members.map(row), null, {
+      folded: folds.has(key),
+      onFold: (folded) => {
+        if (folded) folds.add(key);
+        else folds.delete(key);
       },
-      el("span", {}, title),
-      el("span", { class: "count" }, `(${number(members.length)})`),
-    );
-    return el("section", { class: "section" }, head, list);
+    });
   }
+
   function renderResults() {
     const shown = filtered().sort((a, b) =>
       sort === "best"
-        ? (sample.known[b.name] ?? -1) - (sample.known[a.name] ?? -1) || a.name.localeCompare(b.name, locale)
+        ? (sample.known[b.name] ?? -1) - (sample.known[a.name] ?? -1) || a.sortName.localeCompare(b.sortName, locale)
         : sort === "heard"
-          ? (b.heard || "").localeCompare(a.heard || "") || a.name.localeCompare(b.name, locale)
-          : K.surname(a.name).localeCompare(K.surname(b.name), locale),
+          ? (b.heard || 0) - (a.heard || 0) || a.sortName.localeCompare(b.sortName, locale)
+          : a.sortName.localeCompare(b.sortName, locale),
     );
     const groups = new Map();
     for (const p of shown) {
       const key =
         sort === "best"
-          ? text("Composers")
+          ? pageTitle
           : sort === "heard"
             ? p.heard
-              ? new Date(p.heard + "T12:00:00Z").toLocaleDateString(locale, {
+              ? new Date(p.heard).toLocaleDateString(locale, {
                   month: "long",
                   year: "numeric",
                   timeZone: "UTC",
                 })
               : text("Not heard")
-            : K.surname(p.name)[0].toLocaleUpperCase(locale);
+            : pageTitle;
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(p);
     }
@@ -259,48 +215,24 @@ K.start(async () => {
     return shown.length;
   }
   const sorts = { az: "A to Z", best: "Best known", heard: "Last heard" };
-  function setting(label, value, go) {
-    return el(
-      "button",
-      { class: "row list-setting t-body", onclick: go },
-      el("span", { class: "main" }, text(label)),
-      el("span", { class: "trail" }, text(value), el("span", { html: ICON.chevron })),
-    );
-  }
   function setLevel(next) {
-    level = next;
+    level = next === "form" ? "settings" : next;
     drawSheet();
   }
   function drawSheet() {
     if (!frame) return;
     let body;
     if (level === "filter") body = fx.body();
-    else if (level === "sort" || level === "form") {
-      const options = level === "sort" ? sorts : { rich: "Rich list" };
-      body = K.form.group(
-        null,
-        Object.entries(options).map(([value, label]) =>
-          el(
-            "button",
-            {
-              class: "row t-body",
-              "aria-pressed": String(level === "form" || sort === value),
-              onclick: () => {
-                if (level === "sort") sort = value;
-                setLevel("settings");
-                update();
-              },
-            },
-            el("span", { class: "main" }, text(label)),
-            el("span", { html: level === "form" || sort === value ? ICON.check : "" }),
-          ),
-        ),
-      );
+    else if (level === "sort") {
+      body = SheetSettings.choices(sorts, sort, (value) => {
+        sort = value;
+        setLevel("settings");
+        update();
+      });
     } else
       body = K.form.group(null, [
-        setting("Filter", fx.conds.length ? conditionsLine() : "None", () => setLevel("filter")),
-        setting("Sort", sorts[sort], () => setLevel("sort")),
-        setting("Form", "Rich list", () => setLevel("form")),
+        SheetSettings.filter(fx.conds, () => setLevel("filter")),
+        SheetSettings.line("Sort", sorts[sort], () => setLevel("sort")),
       ]);
     frame.set({
       title: text({ settings: "Filters", filter: "Filter", sort: "Sort", form: "Form" }[level]),
@@ -318,7 +250,8 @@ K.start(async () => {
       return;
     }
     frame = Frame.make({ title: text("Filters"), doneLabel: text("Done"), backLabel: text("Back") });
-    level = typeof next === "string" ? next : "settings";
+    frame.box.classList.add("settings-sheet");
+    level = typeof next === "string" && next !== "form" ? next : "settings";
     drawSheet();
     handle = Frame.open(frame, {
       onClose: () => {
@@ -330,11 +263,14 @@ K.start(async () => {
     update();
   }
   function update() {
-    clear.hidden = !query;
+    clear.style.visibility = query ? "visible" : "hidden";
+    resetBtn.disabled = !query && !fx.conds.length;
+    badge.textContent = String(fx.conds.length);
+    badge.style.display = fx.conds.length && !handle ? "" : "none";
     summary.textContent = conditionsLine();
     summary.hidden = !fx.conds.length;
     showAll.hidden = !fx.conds.length;
-    filters.classList.toggle("on", !!fx.conds.length || !!handle);
+    filters.classList.toggle("on", !!handle);
     filters.setAttribute("aria-label", `${text("Filters")}${fx.conds.length ? ` (${number(fx.conds.length)})` : ""}`);
     const n = renderResults();
     if (frame) {
@@ -370,14 +306,14 @@ K.start(async () => {
       onchange: () => {
         location.href = K.href("list.html", {
           state: select.value,
-          lang: locale,
+          kind: pageKind,
           size: select.value === "accessibility" ? "AX3" : K.params.get("size"),
         });
       },
     },
     ...states.map((value) => el("option", { value, selected: state === value }, value)),
   );
-  bar?.append(select, el("a", { href: K.href("list.html", { lang: de ? "en" : "de", state }) }, de ? "EN" : "DE"));
+  bar?.append(select);
   update();
   resize();
   if (K.params.has("sheet")) openSheet(K.params.get("sheet"));

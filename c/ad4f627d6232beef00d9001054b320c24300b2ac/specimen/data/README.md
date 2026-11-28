@@ -26,3 +26,5 @@ It needs ffmpeg, mutagen and network access. It links the chosen folders into a 
 ## Library sample data
 
 `library.json` is invented. It gives the Library tab what the Navidrome responses do not hold: favourites, the day an album was added, the day a recording was heard, the Best known value of some people (a person without a value has no data and sorts last), and the number of playlists. Keys use the ids of the specimen data. Edit it by hand.
+
+The invented `sortNames` tags in `library.json` let the list frame show surname sorting. The source responses stay unchanged.

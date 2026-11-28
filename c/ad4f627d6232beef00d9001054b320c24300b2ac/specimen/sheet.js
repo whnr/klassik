@@ -6,12 +6,20 @@
 window.Frame = (() => {
   const { el, ICON } = K;
 
-  function make({ title, count = null, onBack = null, onDone = null, body = [] }) {
+  function make({
+    title,
+    count = null,
+    onBack = null,
+    onDone = null,
+    body = [],
+    doneLabel = "Done",
+    backLabel = "Back",
+  }) {
     const state = { title, count, onBack, onDone };
     const frame = { close: () => {} };
     const back = el("button", {
       class: "hs-back",
-      "aria-label": "Back",
+      "aria-label": backLabel,
       html: ICON.back,
       onclick: () => state.onBack?.(),
     });
@@ -25,7 +33,7 @@ window.Frame = (() => {
           frame.close();
         },
       },
-      "Done",
+      doneLabel,
     );
     const counter = el("div", { class: "hs-count t-footnote" });
     const scroll = el("div", { class: "hs-scroll" });

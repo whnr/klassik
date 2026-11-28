@@ -97,7 +97,8 @@ final class PlacesScreens: ScreensTestCase {
         let delete = app.buttons["edit-delete"].firstMatch
         XCTAssertTrue(delete.waitForExistence(timeout: 5), "A swipe shows no Delete")
         delete.tap()
-        XCTAssertEqual(lines.count, count - 1)
+        let removed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "count == %d", count - 1), object: lines)
+        XCTAssertEqual(XCTWaiter.wait(for: [removed], timeout: 5), .completed, "Delete left the line in the sheet")
 
         done.tap()
         XCTAssertTrue(done.waitForNonExistence(timeout: 5))

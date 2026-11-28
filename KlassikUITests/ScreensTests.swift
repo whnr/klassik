@@ -1913,6 +1913,21 @@ final class PlaybackScreens: ScreensTestCase {
         pause(app)
     }
 
+    /// Swipes the first note and taps Delete. A slow runner can take longer than the quiet spell, and then the player
+    /// scrolls to the playing row and closes the open action. The page then rests, so the next swipe stays open.
+    @MainActor
+    private func swipeNoteToDelete(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+        for _ in 0..<3 {
+            reveal(app.buttons["note-text"].firstMatch, in: app).swipeLeft()
+            let delete = app.buttons["Delete"].firstMatch
+            if delete.waitForExistence(timeout: 5), delete.isHittable {
+                delete.tap()
+                return
+            }
+        }
+        XCTFail("The swipe shows no Delete", file: file, line: line)
+    }
+
     /// A note edits in place: a tap on its text opens it with its text, "Start here" and "End here" move its times.
     /// A swipe deletes it, and Undo puts it back.
     @MainActor
@@ -1953,10 +1968,7 @@ final class PlaybackScreens: ScreensTestCase {
         snap(app, "41e-note-edited")
 
         // A swipe deletes the note; Undo brings it back.
-        reveal(app.buttons["note-text"].firstMatch, in: app).swipeLeft()
-        let delete = app.buttons["Delete"].firstMatch
-        XCTAssertTrue(delete.waitForExistence(timeout: 5), "The swipe shows no Delete")
-        delete.tap()
+        swipeNoteToDelete(app)
         XCTAssertTrue(app.buttons["note-text"].firstMatch.waitForNonExistence(timeout: 10), "Delete kept the note")
         let undo = app.buttons["undo-note"]
         XCTAssertTrue(undo.waitForExistence(timeout: 5), "A deleted note offers no Undo")
@@ -1982,10 +1994,7 @@ final class PlaybackScreens: ScreensTestCase {
             "The page shows \(app.buttons.matching(identifier: "note-text").count) of 2 notes")
         for _ in 0..<2 {
             XCTAssertTrue(waitUntilStill(app.buttons["note-text"].firstMatch), "The note kept moving")
-            reveal(app.buttons["note-text"].firstMatch, in: app).swipeLeft()
-            let again = app.buttons["Delete"].firstMatch
-            XCTAssertTrue(again.waitForExistence(timeout: 5), "The swipe shows no Delete")
-            again.tap()
+            swipeNoteToDelete(app)
         }
         XCTAssertTrue(app.buttons["note-text"].firstMatch.waitForNonExistence(timeout: 10), "Delete kept a note")
         undo.tap()

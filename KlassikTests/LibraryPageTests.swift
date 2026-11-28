@@ -144,6 +144,20 @@ struct LibraryPageTests {
         #expect(try #require(page.sections.first?.cards).count == 1)
     }
 
+    @Test(arguments: [LibrarySort.random, .az])
+    func recentlyHeardAlternativeSortsExcludeUnheardRecordings(sort: LibrarySort) throws {
+        let page = Self.page(rows: [row(.heard) { $0.sort = sort }], index: Self.heardIndex([3, 7]))
+        let cards = try #require(page.sections.first?.cards)
+        #expect(Set(cards.map(\.name)) == ["Heard work 3", "Heard work 7"])
+        if sort == .az { #expect(cards.map(\.name) == ["Heard work 3", "Heard work 7"]) }
+    }
+
+    @Test(arguments: [LibrarySort.random, .az])
+    func recentlyHeardAlternativeSortsHideWhenNothingIsHeard(sort: LibrarySort) {
+        let page = Self.page(rows: [row(.heard) { $0.sort = sort }], index: Self.heardIndex([]))
+        #expect(page.sections.isEmpty)
+    }
+
     @Test func recentlyHeardLeavesOutARecordingWithTooFewMovementsHeard() {
         // One of three movements heard is not "heard".
         let songs = (1...3).map {

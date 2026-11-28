@@ -119,8 +119,7 @@ struct LibraryPage {
             items = mixed(favourites)
             look = .mixed
         }
-        // A recording never heard has no last heard date, so a row sorted by it leaves it out.
-        if row.sort == .heard { items = items.filter(\.isHeard) }
+        if row.kind == .heard || row.sort == .heard { items = items.filter(\.isHeard) }
         let limit = Self.limit(of: row)
         let ordered = order(items, by: row.sort, seed: "\(dayKey)|\(row.id)")
         return Section(

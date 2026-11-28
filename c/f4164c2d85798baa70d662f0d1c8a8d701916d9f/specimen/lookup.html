@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Data Enrichment</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="../tokens.css?v=52" />
+    <link rel="stylesheet" href="specimen.css?v=52" />
+    <script src="specimen.js?v=52"></script>
+  </head>
+  <body>
+    <script>
+      // Data Enrichment, the page of Settings for MusicBrainz, Wikidata and Wikipedia, with the Wikidata pass of ADR 0042
+      // and the fallback language of the fetched texts.
+      // ?state= running, upToDate (default), waiting, connection or slowDown.
+      K.start(() => {
+        const { el, href, form } = K;
+        const { scroll } = K.page({
+          tab: "library",
+          title: "Data Enrichment",
+          back: { label: "Settings", href: href("settings.html", { tab: "library", back: "Library" }) },
+          grouped: true,
+        });
+        const state = K.params.get("state") || "upToDate";
+        const row = form.value;
+        const status = {
+          running: [
+            el(
+              "div",
+              { class: "row", "data-id": "people-progress" },
+              el(
+                "span",
+                { class: "main" },
+                el("span", { class: "t-body" }, "Looking up 120 of 540 people"),
+                el("progress", { class: "bar", value: 120, max: 540 }),
+              ),
+            ),
+          ],
+          upToDate: [row("Status", "Up to date")],
+          waiting: [row("Status", "Waiting")],
+          connection: [row("Status", "Paused: no suitable connection")],
+          slowDown: [row("Status", "Paused: Wikidata asked for a pause. Klassik tries again in 5 minutes.")],
+        }[state] || [row("Status", "Up to date")];
+        const checked = state === "upToDate" ? "540" : state === "running" ? "120" : "310";
+        const extra = state === "upToDate" ? [] : [row("New", "230"), row("Due for a New Check", "12")];
+        scroll.append(
+          el("div", { class: "page-head" }, el("h1", { class: "t-largeTitle" }, "Data Enrichment")),
+          form.group(
+            "Lookup",
+            [row("Status", "Up to date"), row("Requests Since Start", "42")],
+            "Klassik lists each composer's works in MusicBrainz and matches them on this iPhone. It takes " +
+              "publication years from Wikidata. MusicBrainz allows one request a second. Look up missing again " +
+              "after a fix in MusicBrainz.",
+          ),
+          form.group(
+            "People from Wikidata",
+            [...status, row("People Checked", checked), ...extra],
+            "Klassik looks up every composer and performer of your library in Wikidata, new people first, one at " +
+              "a time at the pace that Wikidata asks for. Biographies come from Wikipedia and pictures from " +
+              "Wikimedia Commons. It asks again for living people after about 30 days and for " +
+              "others after about a year, or after about 3 months when Wikidata does not know them. It waits for " +
+              "a connection that is not metered and not in Low Data Mode.",
+          ),
+          form.group(
+            null,
+            [form.menu("Fallback Language", { off: "Off", en: "English" }, "off")],
+            "The fallback language affects the texts from Wikidata and Wikipedia. Descriptions and biographies " +
+              "come in the app language. Where they have none, Klassik shows the fallback language, or nothing " +
+              "when it is off. Composer names, work titles and tags stay as your music tags them. Change the app " +
+              "language in the iOS Settings app, under Klassik.",
+          ),
+        );
+      });
+    </script>
+  </body>
+</html>

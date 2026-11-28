@@ -105,14 +105,14 @@ struct DailyPickTests {
             if case .name(let text, _) = piece { text } else { nil }
         }
         #expect(names == [pick.title, "Frédéric Chopin", "Conductor"])
-        #expect(pick.sentence.map(\.text).joined().contains(pick.title))
+        #expect(pick.sentence.map(\.string).joined().contains(pick.title))
     }
 
     @Test func aMissingLeadLeavesItOutOfTheSentence() throws {
         let index = WorkIndex(songs: [Self.song("a", work: "W", album: "A", conductor: nil)])
         let pick = try #require(drawn(index))
         #expect(pick.lead == nil)
-        #expect(!pick.sentence.map(\.text).joined().contains("with"))
+        #expect(!pick.sentence.map(\.string).joined().contains("with"))
     }
 
     @Test func theTitleOpensTheItemAndNamesOpenPeople() throws {

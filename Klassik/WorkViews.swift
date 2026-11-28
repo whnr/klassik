@@ -959,6 +959,10 @@ struct RecordingView: View {
                 )
                 .playingRow(isCurrent)
                 .itemSeparator(first: true, last: note.id != shown.last?.id || adds || last)
+                // A horizontal swipe does not change the list's scroll phase. Following would close its Delete action.
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 0).onChanged { _ in spell.touch() }
+                )
             }
             if adds {
                 NoteEditor(

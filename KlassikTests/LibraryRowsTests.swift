@@ -103,8 +103,8 @@ struct LibraryRowsTests {
     @Test func oldOrderWithUnknownAndRepeatedNamesStaysWhole() {
         #expect(
             LibraryRows.legacyOrder(stored: ["favourites", "playlists", "favourites"])
-                == [.favourites, .composers, .pick, .links, .added])
-        #expect(LibraryRows.legacyOrder(stored: ["favourites"]) == [.favourites, .composers, .pick, .links, .added])
+                == [.favourites, .pick, .composers, .links, .added])
+        #expect(LibraryRows.legacyOrder(stored: ["favourites"]) == [.favourites, .pick, .composers, .links, .added])
         #expect(LibraryRows.legacyOrder(stored: []) == [.pick, .composers, .favourites, .links, .added])
     }
 

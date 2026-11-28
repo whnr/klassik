@@ -667,6 +667,12 @@ enum Layout {
     /// The gap between the lists of the edit sheet.
     /// css: library-edit.css .hsheet.le-sheet .section | margin-top
     static let editSectionTop = Space.s.points
+    /// The share of the tint over a selected line and a selected row of the tab. The tab draws no frame.
+    /// css: library-edit.css .le-front.cur | background | 10%
+    static let editSelectedTint = 0.1
+    /// A row kind that the tab already holds (a second Daily pick) is dimmed.
+    /// css: library-edit.css .le-kind.off | opacity
+    static let editKindOff = 0.45
 
     // MARK: Text
 

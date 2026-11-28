@@ -1,0 +1,178 @@
+/* The Library tab: rows of cards, tiles and links.
+   A row is a section of the tab. Its cards hold the full name in up to three lines and one fact line. */
+
+.lib-row {
+  transition: background-color 0.2s;
+}
+/* The row that the edit sheet sets up. */
+.lib-row.sel {
+  background: color-mix(in srgb, var(--color-tint) 13%, transparent);
+}
+.lib-selecting .lib-row {
+  cursor: pointer;
+}
+.lib-selecting .lib-row a {
+  pointer-events: none;
+}
+
+/* The row title is a way in to the page behind the row. */
+.lib-head {
+  align-items: center;
+  color: inherit;
+  padding-bottom: var(--space-s);
+  padding-top: var(--space-xxl);
+}
+/* The page rule that clears the heading inset has a higher specificity, so this rule outranks it. */
+:root .lib-row a.lib-head {
+  padding-left: var(--pad-left);
+  padding-right: var(--pad-right);
+}
+.lib-head .link {
+  text-transform: none;
+}
+
+/* A strip is as tall as its tallest card. */
+.lib-strip {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--space-m);
+  overflow-x: auto;
+  padding: 0 var(--pad-right) var(--space-m) var(--pad-left);
+  scrollbar-width: none;
+}
+.lib-strip::-webkit-scrollbar {
+  display: none;
+}
+.lib-tiles {
+  display: grid;
+  gap: 14px var(--space-m);
+  grid-template-columns: repeat(3, 1fr);
+  padding: 0 var(--pad-right) var(--space-m) var(--pad-left);
+}
+
+.lib-card {
+  color: inherit;
+  display: block;
+  flex: none;
+  min-width: 0;
+}
+.lib-card.faces {
+  text-align: center;
+  width: 88px;
+}
+.lib-card.covers {
+  width: 112px;
+}
+.lib-card.mixed {
+  width: 100px;
+}
+.lib-tiles .lib-card {
+  width: auto;
+}
+.lib-img {
+  display: flex;
+  justify-content: center;
+}
+.lib-img > * {
+  aspect-ratio: 1;
+  height: auto;
+  width: 100%;
+}
+.lib-face {
+  background: var(--color-fill-quiet);
+  border-radius: 50%;
+  color: var(--color-text-secondary);
+  display: grid;
+  object-fit: cover;
+  object-position: 50% 20%;
+  place-items: center;
+}
+.lib-cap {
+  margin-top: var(--space-s);
+}
+.lib-name {
+  -webkit-box-orient: vertical;
+  display: -webkit-box;
+  -webkit-hyphens: auto;
+  hyphens: auto;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  overflow-wrap: break-word;
+}
+.lib-fact {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The link list: three tiles in a line, each with its count. */
+.lib-links {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, 1fr);
+  margin-top: var(--space-xxl);
+  padding: 0 var(--pad-right) 0 var(--pad-left);
+}
+.lib-links a {
+  background: var(--color-fill-quiet);
+  border-radius: var(--radius-l);
+  color: inherit;
+  display: block;
+  padding: var(--space-m);
+}
+.lib-links .num {
+  display: block;
+}
+
+/* The Daily pick: a sentence that flows around its cover. The cover is as high as four lines of the sentence, so
+   from the fifth line on the text uses the full width. */
+.lib-pick {
+  margin: var(--space-s) var(--pad-right) var(--space-s) var(--pad-left);
+}
+.lib-pick .art {
+  display: block;
+  float: right;
+  margin-bottom: -1px; /* Line heights round to 1/64 px, so four lines fall short of the cover: end the cover within line 4. */
+  margin-left: var(--space-l);
+  width: calc(4 * var(--type-title2-size) * var(--type-title2-line-height));
+}
+.lib-pick .art > * {
+  aspect-ratio: 1;
+  display: block;
+  height: auto;
+  width: 100%;
+}
+.lib-pick p {
+  -webkit-hyphens: auto;
+  hyphens: auto;
+  margin: 0;
+  overflow-wrap: break-word;
+}
+.lib-pick .title {
+  color: var(--color-tint);
+  font-style: italic;
+}
+.lib-pick .who {
+  color: var(--color-tint);
+}
+
+.lib-empty {
+  border: 1px dashed var(--color-separator);
+  border-radius: var(--radius-m);
+  margin: 0 var(--pad-right) 0 var(--pad-left);
+  padding: var(--space-l);
+  text-align: center;
+}
+
+.lib-toast {
+  background: var(--color-background-elevated);
+  border-radius: var(--radius-l);
+  bottom: 110px;
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.2);
+  left: 50%;
+  padding: var(--space-m) var(--space-l);
+  position: fixed;
+  transform: translateX(-50%);
+  z-index: 70;
+}

@@ -12,6 +12,8 @@ final class PlacesScreens: ScreensTestCase {
         let app = try launchAndConnect(snapConnect: true, openComposers: false)
         // Only Albums has a page among the default links, so it is the one tile.
         XCTAssertTrue(app.buttons["library-link-albums"].exists)
+        // The default rows start with the Daily pick: a sentence and a cover that opens the item.
+        XCTAssertTrue(app.buttons["library-pick-cover"].exists, "The tab shows no Daily pick")
         XCTAssertTrue(app.buttons["library-composers"].exists)
         snap(app, "02-library")
         app.buttons["library-composers"].tap()
@@ -46,7 +48,8 @@ final class PlacesScreens: ScreensTestCase {
         let lines = app.buttons.matching(identifier: "edit-line")
         XCTAssertTrue(lines.firstMatch.waitForExistence(timeout: 5))
         XCTAssertGreaterThanOrEqual(lines.count, 3)
-        XCTAssertTrue(lines.element(boundBy: 0).label.contains("Composers"), lines.element(boundBy: 0).label)
+        XCTAssertTrue(lines.element(boundBy: 0).label.contains("Daily pick"), lines.element(boundBy: 0).label)
+        XCTAssertTrue(lines.element(boundBy: 1).label.contains("Composers"), lines.element(boundBy: 1).label)
         snap(app, "02u-library-edit-list")
 
         // A tap on the tab selects the row and shows its settings. It opens no page.
@@ -71,12 +74,9 @@ final class PlacesScreens: ScreensTestCase {
         app.buttons["edit-back"].tap()
         let albums = lines.matching(NSPredicate(format: "label CONTAINS %@", "6 tiles"))
         XCTAssertTrue(albums.firstMatch.waitForExistence(timeout: 5), "A setting left the line unchanged")
-        XCTAssertTrue(lines.element(boundBy: 1).label.contains("Albums"), lines.element(boundBy: 1).label)
+        XCTAssertTrue(lines.element(boundBy: 2).label.contains("Albums"), lines.element(boundBy: 2).label)
 
-        // A second Daily pick cannot be added.
-        app.buttons["edit-add"].tap()
-        app.buttons["edit-kind-pick"].tap()
-        app.buttons["edit-back"].tap()
+        // The tab holds its Daily pick, so a second one cannot be added.
         app.buttons["edit-add"].tap()
         XCTAssertTrue(app.buttons["edit-kind-pick"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["edit-kind-pick"].isEnabled, "A second Daily pick can be added")
@@ -335,25 +335,19 @@ final class PlacesScreens: ScreensTestCase {
         let names = ["Library", "Chronology", "Search"]
         XCTAssertTrue(tab(app, "Search").waitForExistence(timeout: 10))
         let frames = names.map { tab(app, $0).frame }
-        // The whole bar, labels included, must look as it did at the start.
-        let barArea = frames.reduce(CGRect.null) { $0.union($1) }
-        let baseline = try XCTUnwrap(ScreenPixels(app))
+        let bar = app.tabBars["tab-row"]
+        let barFrame = bar.frame
         func expectTabs(_ step: String) {
+            // Loaded covers tint the glass, so pixel equality does not measure tab visibility or position.
             for name in names {
                 let item = tab(app, name)
                 XCTAssertTrue(item.waitForExistence(timeout: 5), "\(step): no tab \(name)")
+                XCTAssertEqual(item.label, name, "\(step): tab \(name) lost its label")
                 XCTAssertTrue(item.isHittable, "\(step): tab \(name) is not hittable")
             }
             XCTAssertEqual(names.map { tab(app, $0).frame }, frames, "\(step): a tab moved")
-            // A tab can keep its element while UIKit draws nothing or cuts a label, so the bar must look as before.
-            var share = 1.0
-            for _ in 0..<6 {
-                if let now = ScreenPixels(app) { share = now.differingShare(in: barArea, from: baseline) }
-                if share < 0.05 { break }
-                Thread.sleep(forTimeInterval: 0.5)
-            }
-            if share >= 0.05 { add(XCTAttachment(string: app.tabBars["tab-row"].debugDescription)) }
-            XCTAssertLessThan(share, 0.05, "\(step): the tab bar changed")
+            XCTAssertTrue(bar.exists, "\(step): no tab bar")
+            XCTAssertEqual(bar.frame, barFrame, "\(step): the tab bar moved")
         }
         let field = app.textFields["search-field"]
         let recent = app.buttons.matching(identifier: "search-recent")

@@ -31,13 +31,14 @@ struct LibraryPageTests {
 
     static func page(
         rows: [LibraryRowSetup] = LibraryRows.standard, favourites: LibraryPage.Favourites = .init(),
-        day: Int = 10, unbuiltLinks: Bool = false, index: WorkIndex = LibraryPageTests.index
+        day: Int = 10, unbuiltLinks: Bool = false, index: WorkIndex = LibraryPageTests.index,
+        pickDefaults: UserDefaults? = nil
     ) -> LibraryPage {
         var parts = DateComponents(year: 2026, month: 11, day: day, hour: 12)
         parts.calendar = Calendar(identifier: .gregorian)
         return LibraryPage(
             index: index, favourites: favourites, rows: rows, date: parts.date!, calendar: parts.calendar!,
-            unbuiltLinks: unbuiltLinks)
+            unbuiltLinks: unbuiltLinks, pickDefaults: pickDefaults)
     }
 
     private func row(_ kind: LibraryRowKind, id: String = "r", configure: (inout LibraryRowSetup) -> Void = { _ in })
@@ -52,7 +53,8 @@ struct LibraryPageTests {
         let index = Self.index
         let favourites = LibraryPage.Favourites(composers: [index.composers[0]])
         let page = Self.page(favourites: favourites)
-        #expect(page.sections.map(\.title) == [L("Composers"), L("Favourites"), nil, L("Recently added")])
+        #expect(page.sections.map(\.title) == [nil, L("Composers"), L("Favourites"), nil, L("Recently added")])
+        #expect(page.sections.first?.pick != nil)
     }
 
     @Test func rowsWithNothingToShowHide() {
@@ -60,7 +62,7 @@ struct LibraryPageTests {
         #expect(!page.sections.contains { $0.title == L("Favourites") })
         let bare = Self.page(index: WorkIndex(songs: [Self.song("x")]))
         // No track has a date, so Recently added has nothing; the link list still has Albums.
-        #expect(bare.sections.map(\.title) == [L("Composers"), nil])
+        #expect(bare.sections.map(\.title) == [nil, L("Composers"), nil])
         // Only the link list stays: it is not empty while it has tiles.
         #expect(Self.page(index: WorkIndex()).sections.map(\.title) == [nil])
     }
@@ -218,7 +220,7 @@ struct LibraryPageTests {
     }
 
     @Test func kindsWithoutDrawingYetStayHidden() {
-        let page = Self.page(rows: [row(.pick), row(.saved)])
+        let page = Self.page(rows: [row(.saved)])
         #expect(page.sections.isEmpty)
     }
 

@@ -1,7 +1,7 @@
 import Foundation
 
 /// The Library tab as data: the sections that the rows of the setup give, with their titles, cards and fact lines.
-/// Views only draw it. It reads the work index, the listener's favourites, the row setup and a date, and nothing else.
+/// Views only draw it. The stored Daily pick keeps its identity through library updates and app launches.
 struct LibraryPage {
     /// What the listener marked, as the listener data holds it.
     struct Favourites {
@@ -36,6 +36,29 @@ struct LibraryPage {
         var page: Page?
     }
 
+    /// One piece of the Daily pick sentence: plain text, or a name that opens a page.
+    enum Piece: Equatable {
+        case text(String)
+        case name(String, Page)
+
+        var string: String {
+            switch self {
+            case .text(let text), .name(let text, _): text
+            }
+        }
+    }
+
+    /// The Daily pick: one complete recording or album, as a sentence and a cover.
+    struct Pick {
+        var title: String
+        var composer: String?
+        var lead: String?
+        var cover: Song?
+        /// The recording or album that the title and the cover open, never its work.
+        var page: Page
+        var sentence: [Piece]
+    }
+
     /// The pictures of a row: faces for people, covers for the rest, both for a mixed row.
     enum Look { case faces, covers, mixed }
 
@@ -51,6 +74,8 @@ struct LibraryPage {
         var isTiles = false
         var cards: [Card] = []
         var links: [Link] = []
+        /// Set for the Daily pick, which has no heading.
+        var pick: Pick?
     }
 
     private(set) var sections: [Section] = []
@@ -60,7 +85,7 @@ struct LibraryPage {
     /// the page model tests pass `true`.
     init(
         index: WorkIndex, favourites: Favourites, rows: [LibraryRowSetup], date: Date,
-        calendar: Calendar = .current, unbuiltLinks: Bool = false
+        calendar: Calendar = .current, unbuiltLinks: Bool = false, pickDefaults: UserDefaults? = nil
     ) {
         let day = calendar.dateComponents([.year, .month, .day], from: date)
         let dayKey = "\(day.year ?? 0)-\(day.month ?? 0)-\(day.day ?? 0)"
@@ -72,12 +97,101 @@ struct LibraryPage {
                     row, index: index, favourites: favourites, includesUnbuilt: unbuiltLinks)
             case .composers, .performers, .works, .recordings, .albums, .favourites, .added, .heard:
                 section = Self.strip(row, index: index, favourites: favourites, dayKey: dayKey)
+            case .pick:
+                section = Self.dailyPick(row, index: index, dayKey: dayKey, defaults: pickDefaults)
             // Other kinds wait for their own work. They keep their place in the setup.
-            case .pick, .saved:
+            case .saved:
                 section = nil
             }
-            if let section, !(section.cards.isEmpty && section.links.isEmpty) { sections.append(section) }
+            if let section, !(section.cards.isEmpty && section.links.isEmpty && section.pick == nil) {
+                sections.append(section)
+            }
         }
+    }
+
+    // MARK: Daily pick
+
+    static let dailyPickKey = "library.dailyPick"
+
+    /// Keep only today's identity. A library update must not replace an available pick during the same day.
+    private static func dailyPick(
+        _ row: LibraryRowSetup, index: WorkIndex, dayKey: String, defaults: UserDefaults?
+    ) -> Section? {
+        let stored = defaults?.dictionary(forKey: dailyPickKey) as? [String: String]
+        if stored?["day"] != dayKey { defaults?.removeObject(forKey: dailyPickKey) }
+        var candidates: [(key: String, pick: () -> Pick)] = []
+        for work in index.composers.flatMap(\.works) {
+            for recording in work.recordings where !recording.isAlbum && recording.isComplete {
+                candidates.append(
+                    (
+                        "recording|\(recording.id)",
+                        {
+                            Self.makePick(
+                                title: work.title, composer: work.composer, recording: recording,
+                                page: .recording(work: work.id, recording: recording.id))
+                        }
+                    ))
+            }
+        }
+        for album in index.albums where album.isComplete {
+            candidates.append(
+                (
+                    "album|\(album.id)",
+                    {
+                        Self.makePick(
+                            title: album.title, composer: album.composer, recording: album.recording,
+                            page: .album(album.id))
+                    }
+                ))
+        }
+        guard !candidates.isEmpty else { return nil }
+        // A fixed order, so that the seed alone decides.
+        candidates.sort { $0.key < $1.key }
+        var generator = SeededGenerator(seed: dayKey)
+        let retained = stored?["day"] == dayKey ? candidates.first { $0.key == stored?["identity"] } : nil
+        let chosen = retained ?? candidates[Int(generator.next() % UInt64(candidates.count))]
+        defaults?.set(["day": dayKey, "identity": chosen.key], forKey: dailyPickKey)
+        return Section(
+            id: row.id, kindName: row.kind.rawValue, title: nil, titlePage: nil, pick: chosen.pick())
+    }
+
+    private static func makePick(title: String, composer: String, recording: WorkIndex.Recording, page: Page) -> Pick {
+        let composer = composer.isEmpty || composer == Song.unknownComposer ? nil : composer
+        let lead = recording.performerNames.first
+        return Pick(
+            title: title, composer: composer, lead: lead, cover: recording.songs.first, page: page,
+            sentence: sentence(title: title, composer: composer, lead: lead, page: page))
+    }
+
+    /// One whole string for each case, never built from parts. The names stand in as marks and come back as pieces.
+    static func sentence(title: String, composer: String?, lead: String?, page: Page) -> [Piece] {
+        let marks = ["\u{1}T\u{1}", "\u{1}C\u{1}", "\u{1}L\u{1}"]
+        let text: String
+        switch (composer, lead) {
+        case (nil, nil): text = L("Today from your library: \(marks[0]).")
+        case (_?, nil): text = L("Today from your library: \(marks[0]) by \(marks[1]).")
+        case (nil, _?): text = L("Today from your library: \(marks[0]), with \(marks[2]).")
+        case (_?, _?): text = L("Today from your library: \(marks[0]) by \(marks[1]), with \(marks[2]).")
+        }
+        let names: [(mark: String, name: String, page: Page)] = [
+            (marks[0], title, page),
+            (marks[1], composer ?? "", .composer(composer ?? "")),
+            (marks[2], lead ?? "", .performer(lead ?? "")),
+        ]
+        var found: [(range: Range<String.Index>, name: String, page: Page)] = []
+        for entry in names {
+            if let range = text.range(of: entry.mark) { found.append((range, entry.name, entry.page)) }
+        }
+        found.sort { $0.range.lowerBound < $1.range.lowerBound }
+        var pieces: [Piece] = []
+        var rest = text.startIndex
+        for item in found {
+            if rest < item.range.lowerBound { pieces.append(.text(String(text[rest..<item.range.lowerBound]))) }
+            pieces.append(.name(item.name, item.page))
+            rest = item.range.upperBound
+        }
+        if rest < text.endIndex { pieces.append(.text(String(text[rest...]))) }
+        return pieces
     }
 
     // MARK: Strips

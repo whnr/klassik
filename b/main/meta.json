@@ -1,7 +1,7 @@
 {
-  "sha": "5eb3c721f369f0a4d3a2d6967e33640ce7826bdb",
+  "sha": "d2b9e6e822079c8374df8f498e87e6ac995622aa",
   "branch": "main",
   "path": "main",
-  "subject": "Merge pull request #271 from whnr/claude-library-tab",
-  "ts": 1795817934
+  "subject": "Add list page terms to the glossary (#276)",
+  "ts": 1795832164
 }

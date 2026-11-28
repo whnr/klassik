@@ -1,7 +1,7 @@
 {
-  "sha": "60d11c62ca26aa0c2d10107a2b6d0b717c50a55c",
+  "sha": "ab6d399bf33628c6f69df7a8d6a04ea703921487",
   "branch": "main",
   "path": "main",
-  "subject": "Make the specimen the only design source (#277)",
-  "ts": 1795832950
+  "subject": "Merge pull request #263 from whnr/claude-indicators",
+  "ts": 1795835641
 }

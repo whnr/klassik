@@ -70,10 +70,10 @@ struct LibraryPage {
             case .links:
                 section = Self.linkList(
                     row, index: index, favourites: favourites, includesUnbuilt: unbuiltLinks)
-            case .composers, .performers, .works, .recordings, .albums, .favourites, .added:
+            case .composers, .performers, .works, .recordings, .albums, .favourites, .added, .heard:
                 section = Self.strip(row, index: index, favourites: favourites, dayKey: dayKey)
             // Other kinds wait for their own work. They keep their place in the setup.
-            case .pick, .heard, .saved:
+            case .pick, .saved:
                 section = nil
             }
             if let section, !(section.cards.isEmpty && section.links.isEmpty) { sections.append(section) }
@@ -86,6 +86,10 @@ struct LibraryPage {
         var card: Card
         /// The newest `created` of its tracks, or nil when the server gave none.
         var added: String?
+        /// Heard when more than half the movements of a recording have a server play count.
+        var isHeard = false
+        /// The newest play of what the item stands for; nil when the server gave no date.
+        var lastHeard: Date?
     }
 
     private static func strip(
@@ -102,7 +106,7 @@ struct LibraryPage {
             look = .faces
         case .works:
             items = index.composers.flatMap(\.works).map(workItem)
-        case .recordings:
+        case .recordings, .heard:
             items = index.composers.flatMap(\.works).flatMap { work in
                 work.recordings.map { recordingItem(work: work, recording: $0) }
             }
@@ -115,8 +119,7 @@ struct LibraryPage {
             items = mixed(favourites)
             look = .mixed
         }
-        // Heard dates come with the listen data; a row sorted by them has nothing to show before that.
-        if row.sort == .heard { items = [] }
+        if row.kind == .heard || row.sort == .heard { items = items.filter(\.isHeard) }
         let limit = Self.limit(of: row)
         let ordered = order(items, by: row.sort, seed: "\(dayKey)|\(row.id)")
         return Section(
@@ -144,7 +147,17 @@ struct LibraryPage {
                 case (nil, nil): $0.offset < $1.offset
                 }
             }.map(\.element)
-        case .az, .best, .heard:
+        case .heard:
+            // A stable sort: a heard item without a date keeps its order, after the dated ones.
+            return items.enumerated().sorted {
+                switch ($0.element.lastHeard, $1.element.lastHeard) {
+                case (let a?, let b?): a != b ? a > b : $0.offset < $1.offset
+                case (nil, _?): false
+                case (_?, nil): true
+                case (nil, nil): $0.offset < $1.offset
+                }
+            }.map(\.element)
+        case .az, .best:
             // Best known has no data yet, so every person is "without data" and the names decide.
             return items.sorted { $0.card.name.localizedStandardCompare($1.card.name) == .orderedAscending }
         }
@@ -153,45 +166,56 @@ struct LibraryPage {
     // MARK: Items
 
     private static func composerItem(_ composer: WorkIndex.Composer) -> Item {
-        Item(
+        let heard = heardState(of: composer.works.flatMap(\.recordings))
+        return Item(
             card: Card(
                 id: "composer|\(composer.name)", name: composer.name, fact: L("\(composer.works.count) works"),
                 picture: .composer(composer.name), page: .composer(composer.name)),
-            added: nil)
+            added: nil, isHeard: heard.isHeard, lastHeard: heard.last)
     }
 
     private static func performerItem(_ performer: WorkIndex.Performer) -> Item {
-        Item(
+        let heard = heardState(of: performer.entries.map(\.recording))
+        return Item(
             card: Card(
                 id: "performer|\(performer.name)", name: performer.name,
                 fact: L("\(performer.entries.count) recordings"), picture: .performer(performer.name),
                 page: .performer(performer.name)),
-            added: nil)
+            added: nil, isHeard: heard.isHeard, lastHeard: heard.last)
     }
 
     private static func workItem(_ work: WorkIndex.Work) -> Item {
         let reference = work.recordings.first
+        let heard = heardState(of: work.recordings)
         return Item(
             card: Card(
                 id: "work|\(work.id)", name: work.title, fact: work.composer,
                 picture: .cover(reference?.songs.first), page: .work(work.id)),
-            added: reference.flatMap(added(of:)))
+            added: reference.flatMap(added(of:)), isHeard: heard.isHeard, lastHeard: heard.last)
     }
 
     private static func recordingItem(work: WorkIndex.Work, recording: WorkIndex.Recording) -> Item {
-        Item(
+        let heard = heardState(of: [recording])
+        return Item(
             card: Card(
                 id: "recording|\(recording.id)", name: work.title, fact: lead(of: recording),
                 picture: .cover(recording.songs.first), page: .recording(work: work.id, recording: recording.id)),
-            added: added(of: recording))
+            added: added(of: recording), isHeard: heard.isHeard, lastHeard: heard.last)
     }
 
     private static func albumItem(_ album: WorkIndex.Album) -> Item {
-        Item(
+        let heard = heardState(of: [album.recording])
+        return Item(
             card: Card(
                 id: "album|\(album.id)", name: album.title, fact: lead(of: album.recording),
                 picture: .cover(album.tracks.first), page: .album(album.id)),
-            added: added(of: album.recording))
+            added: added(of: album.recording), isHeard: heard.isHeard, lastHeard: heard.last)
+    }
+
+    /// An item is heard when one of its recordings is; its date is the newest play of those.
+    private static func heardState(of recordings: [WorkIndex.Recording]) -> (isHeard: Bool, last: Date?) {
+        let heard = recordings.filter(\.isHeard)
+        return (!heard.isEmpty, heard.compactMap(\.lastHeard).max())
     }
 
     /// Composers, performers, albums, works, recordings: faces and covers in one row, each with its kind.

@@ -135,8 +135,25 @@ struct LibraryRowsTests {
         let rows = open(try defaults()).rows
         rows.insert(.albums, below: nil)
         #expect(kinds(rows) == [.albums, .composers, .favourites, .links, .added])
-        rows.insert(.works, below: "no such row")
-        #expect(kinds(rows) == [.works, .albums, .composers, .favourites, .links, .added])
+        rows.insert(.performers, below: "no such row")
+        #expect(kinds(rows) == [.performers, .albums, .composers, .favourites, .links, .added])
+    }
+
+    @Test func storedWorksRowsFallAwayWithoutLosingOtherData() throws {
+        defer { try? FileManager.default.removeItem(at: root) }
+        let json = """
+            {"favouriteWorks":["w"],"library":{"version":1,"rows":[
+              {"id":"a","kind":"composers"},
+              {"id":"b","kind":"works","source":"works"},
+              {"id":"c","kind":"albums","count":6}]}}
+            """
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try Data(json.utf8).write(to: store().url)
+        let (rows, file) = open(try defaults())
+        #expect(file.loadError == nil)
+        #expect(file.data.favouriteWorks == ["w"])
+        #expect(rows.rows.map(\.id) == ["a", "c"])
+        #expect(rows.rows.last?.count == 6)
     }
 
     @Test func listenerAddsTheSameKindMoreThanOnce() throws {

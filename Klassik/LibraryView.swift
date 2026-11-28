@@ -4,6 +4,8 @@ import SwiftUI
 struct LibraryView: View {
     @Environment(AppModel.self) private var model
     @State private var pageCache = PageCache()
+    /// Set while the edit sheet is up. The tab then selects a row on a tap and opens nothing.
+    @State private var editor: LibraryEditor?
 
     var body: some View {
         let library = model.library
@@ -19,27 +21,57 @@ struct LibraryView: View {
         ) {
             LibraryPage(index: library.index, favourites: favourites, rows: rows, date: .now)
         }
-        PageList {
-            ForEach(page.sections) { section in
-                LibrarySectionView(section: section)
+        ScrollViewReader { proxy in
+            PageList {
+                ForEach(page.sections) { section in
+                    LibrarySectionView(
+                        section: section, isSelected: editor?.selected == section.id,
+                        select: selection(of: section.id)
+                    )
                     .listRowInsets(EdgeInsets())
                     .listRowSeparator(.hidden)
+                }
             }
+            // A change can make rows above the selected one taller or shorter, so it scrolls back to the top.
+            .onChange(of: editor?.selected) { scrollToSelected(proxy) }
+            .onChange(of: rows) { scrollToSelected(proxy) }
         }
         .pageTitle(L("Library"))
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Button("Edit") { editor = LibraryEditor(rows: model.libraryRows) }
+                    .opacity(editor == nil ? 1 : 0)
+                    .disabled(editor != nil)
+                    .accessibilityIdentifier("library-edit")
                 NavigationLink(value: Page.settings) {
                     Label("Settings", systemImage: "gearshape")
                 }
                 .accessibilityIdentifier("library-settings")
             }
         }
+        .sheet(
+            isPresented: Binding(get: { editor != nil }, set: { if !$0 { editor = nil } })
+        ) {
+            if let editor { LibraryEditSheet(editor: editor, rows: rows, page: page) }
+        }
         .refreshable {
             await model.fullSync()
             // The lookup can take minutes; the pull to refresh ends with the sync.
             Task { await model.enrichment.enrich(library.index) }
         }
+    }
+}
+
+extension LibraryView {
+    /// The tap that selects a row, only while the edit sheet is up.
+    fileprivate func selection(of id: String) -> (() -> Void)? {
+        guard let editor else { return nil }
+        return { editor.select(id) }
+    }
+
+    fileprivate func scrollToSelected(_ proxy: ScrollViewProxy) {
+        guard let id = editor?.selected else { return }
+        proxy.scrollTo(id, anchor: .top)
     }
 }
 
@@ -70,10 +102,32 @@ private final class PageCache {
 private struct LibrarySectionView: View {
     @Environment(AppNavigator.self) private var navigator
     let section: LibraryPage.Section
+    var isSelected = false
+    /// Set while the edit sheet is up: a tap selects the row, and no card or title opens a page.
+    var select: (() -> Void)?
 
     private var edges: EdgeInsets { Layout.edges(side: .standard, timeline: false) }
 
     var body: some View {
+        content
+            .accessibilityHidden(select != nil)
+            .background {
+                if isSelected { Rectangle().fill(Palette.tint.opacity(Layout.editSelectedTint)) }
+            }
+            .overlay {
+                if let select {
+                    Color.clear
+                        .contentShape(.rect)
+                        .onTapGesture(perform: select)
+                        .accessibilityElement()
+                        .accessibilityLabel(section.title ?? L("Link list"))
+                        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : [.isButton])
+                        .accessibilityIdentifier("library-row-\(section.kindName)")
+                }
+            }
+    }
+
+    private var content: some View {
         VStack(alignment: .leading, spacing: 0) {
             if let title = section.title {
                 head(title)

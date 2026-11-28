@@ -226,11 +226,8 @@ struct AlbumsView: View {
             ForEach(albums) { album in
                 NavigationLink(value: Page.album(album.id)) {
                     VStack(alignment: .leading) {
-                        HStack {
-                            Text(album.title)
-                                .ink()
-                            OfflineHint(isOffline: model.tracks.isOffline(album.recording))
-                        }
+                        Text(album.title)
+                            .ink()
                         RoleLines(lines: album.recording.names)
                             .ink()
                         Text(album.recording.facts(includingAlbum: false))

@@ -319,12 +319,10 @@ struct PlaybackReadAheadTests {
         session.play(item("a", movements: 1))
         engine.report(.waiting(PlaybackWait(kind: .start, slow: true)))
         #expect(session.state.slowLine == nil)
-        #expect(session.state.isLoading)
         try await Task.sleep(for: .milliseconds(1200))
         #expect(session.state.slowLine == SlowConnectionLine.startText)
         engine.report(.waiting(nil))
         #expect(session.state.slowLine == nil)
-        #expect(!session.state.isLoading)
     }
 
     @Test func aFastConnectionWaitsWithoutALine() async throws {

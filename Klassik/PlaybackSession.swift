@@ -31,7 +31,6 @@ final class PlaybackSession {
         /// The length of each movement, in seconds.
         var segments: [Double]
         var isPaused: Bool
-        var isLoading: Bool
         /// The slow-connection line under the playback bar, or nil (ADR 0060).
         var slowLine: String?
         /// True after the last item played to its end.
@@ -73,7 +72,6 @@ final class PlaybackSession {
     private(set) var position = 0.0
     private(set) var segments: [Double] = []
     var isPaused: Bool { !playback.shouldPlay }
-    private(set) var isLoading = false
     /// The line that replaces the times under the playback bar while a slow connection keeps the player silent.
     private(set) var slowLine: String?
     /// What the app may prepare without a request. AppModel follows the network path and Low Power Mode.
@@ -170,7 +168,7 @@ final class PlaybackSession {
     var state: State {
         State(
             item: item, upNext: upNext, movement: movement, position: position, segments: segments,
-            isPaused: isPaused, isLoading: isLoading, slowLine: slowLine, queueEnded: queueEnded, error: error)
+            isPaused: isPaused, slowLine: slowLine, queueEnded: queueEnded, error: error)
     }
 
     var progress: Progress? {
@@ -496,7 +494,7 @@ final class PlaybackSession {
     private func engineEvent(_ event: PlaybackEngineEvent) {
         switch event {
         case .movementEnded(let ended): finished(ended)
-        case .loading(let loading): isLoading = loading
+        case .loading: break
         case .waiting(let wait): waited(wait)
         case .scheduled(let scheduled):
             refreshSegments()
@@ -636,7 +634,6 @@ final class PlaybackSession {
         positionTask?.cancel()
         positionTask = nil
         engine.discard()
-        isLoading = false
         clearWait()
     }
 
@@ -723,7 +720,6 @@ final class PlaybackSession {
                 openingSeconds = requested.duration(to: .now) / .seconds(1)
             }
         }
-        isLoading = wait != nil
         waiting.update(wait, at: .now)
         refreshLine()
     }

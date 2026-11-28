@@ -890,7 +890,7 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertEqual(mark.value as? String, "Favourite")
         snap(app, "03k-composer-favourite")
         back(app, times: 2)
-        app.buttons["library-favourites"].tap()
+        reveal(app.buttons["library-favourites"], in: app).tap()
         let row = app.buttons["favourite-composer-row"]
         XCTAssertTrue(row.waitForExistence(timeout: 10))
         snap(app, "03l-favourite-composer-list")
@@ -2290,10 +2290,16 @@ final class PlaybackScreens: ScreensTestCase {
 
     @MainActor
     func testPerformers() throws {
-        let app = try launchAndConnect(openComposers: false, arguments: ["-offlineFavourites"])
+        let app = try launchAndConnect(arguments: ["-offlineFavourites"])
+        // The Library lists a Favourites row only once something is a favourite.
+        composer(app, "Frédéric Chopin").tap()
+        let composerMark = app.buttons["favourite-composer"]
+        XCTAssertTrue(composerMark.waitForExistence(timeout: 10))
+        if composerMark.value as? String != "Favourite" { composerMark.tap() }
+        back(app, times: 2)
         // The performer name must sit where a pushed page has its title. The ink of "Favourites" ends on the
         // baseline, as the name does: a descender would move the ink bottom.
-        app.buttons["library-favourites"].tap()
+        reveal(app.buttons["library-favourites"], in: app).tap()
         let heading = app.staticTexts["page-heading"].firstMatch
         XCTAssertTrue(heading.waitForExistence(timeout: 10))
         let title = drawn(heading, in: app)
@@ -2397,7 +2403,7 @@ final class PlaybackScreens: ScreensTestCase {
         snap(app, "08e-queue-ends-here")
     }
 
-    /// Offline, a favourite changes at the tap and shows no notice. One quiet Library line says why changes wait
+    /// Offline, a favourite changes at the tap and shows no notice. One quiet Server Connection line says why changes wait
     ///.
     @MainActor
     func testOfflineFavouriteKeepsTheMarkAndShowsTheServerStatus() throws {
@@ -2418,10 +2424,10 @@ final class PlaybackScreens: ScreensTestCase {
         let notice = expectation(for: NSPredicate(format: "exists == true"), evaluatedWith: app.alerts.firstMatch)
         notice.isInverted = true
         wait(for: [notice], timeout: 2)
-        openPlace(app, "Library")
-        for _ in 0..<10 where !app.buttons["library-settings"].exists { back(app) }
+        openSettings(app)
+        reveal(app.buttons["server-connection"], in: app).tap()
         let status = app.staticTexts["server-status"]
-        XCTAssertTrue(status.waitForExistence(timeout: 10), "No server status on Library")
+        XCTAssertTrue(status.waitForExistence(timeout: 10), "No server status on Server Connection")
         XCTAssertEqual(status.label, "Server not reachable. Changes wait on this iPhone.")
         snap(app, "05e-offline-server-status")
     }
@@ -2440,7 +2446,7 @@ final class PlaybackScreens: ScreensTestCase {
         snap(app, "05j-offline-album")
         // Album, Classical Albums, Classical Rules and Settings lie between the album and Library.
         back(app, times: 4)
-        app.buttons["library-favourites"].tap()
+        reveal(app.buttons["library-favourites"], in: app).tap()
         let row = app.buttons["favourite-album-row"]
         XCTAssertTrue(row.waitForExistence(timeout: 10))
         XCTAssertTrue(row.label.contains("Romantic Encores"))
@@ -2521,7 +2527,7 @@ final class PlaybackScreens: ScreensTestCase {
         XCTAssertTrue(rows.firstMatch.buttons["recording-slot"].exists)
         pause(app)
         back(app, times: 3)
-        app.buttons["library-favourites"].tap()
+        reveal(app.buttons["library-favourites"], in: app).tap()
         XCTAssertEqual(app.buttons.matching(identifier: "favourite").count, 2)
         XCTAssertTrue(app.buttons.matching(identifier: "work").firstMatch.exists)
         snap(app, "06d-favourites")

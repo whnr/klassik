@@ -170,20 +170,6 @@ extension RecordingOrder {
     return withTransaction(transaction, change)
 }
 
-/// A small mark on rows that play without the server.
-struct OfflineHint: View {
-    let isOffline: Bool
-
-    var body: some View {
-        if isOffline {
-            Image(systemName: "arrow.down.circle.fill")
-                .typeStyle(.caption1)
-                .foregroundStyle(Palette.textSecondary)
-                .accessibilityLabel("Available offline")
-        }
-    }
-}
-
 struct WorkRow: View {
     @Environment(AppModel.self) private var model
     let work: WorkIndex.Work
@@ -1119,13 +1105,8 @@ private struct MovementRow: View {
         let player = model.playback
         return VStack(alignment: .leading, spacing: gap) {
             // The bold title marks the playing row. VoiceOver hears it too.
-            HStack {
-                MovementTitle(title: title, style: .headline)
-                    .accessibilityLabel("Now playing, \(title)")
-                if player.isLoading {
-                    ProgressView()
-                }
-            }
+            MovementTitle(title: title, style: .headline)
+                .accessibilityLabel("Now playing, \(title)")
             RoleLines(lines: names, style: .subheadline, link: link)
                 .ink()
             PlaybackProgress(player: player, notes: notes, jump: { jump($0, false) })
@@ -1401,8 +1382,7 @@ private struct MovementTitle: View {
     }
 }
 
-/// A button that does not dim its label while a finger is down. A row that opens must not flash its duration and its
-/// offline mark.
+/// A button that does not dim its label while a finger is down. A row that opens must not flash its duration.
 struct StillButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label

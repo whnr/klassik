@@ -7,7 +7,8 @@ import Testing
 struct LibraryPageTests {
     static func song(
         _ id: String, composer: String = "Frédéric Chopin", work: String? = nil, album: String? = nil,
-        conductor: String? = nil, created: String? = nil, track: Int = 1
+        conductor: String? = nil, created: String? = nil, track: Int = 1, playCount: Int? = nil,
+        played: String? = nil
     ) -> Song {
         var song = Song(
             id: id, title: "Track \(id)", album: album ?? "Album \(id)", albumId: "album-\(album ?? id)",
@@ -15,7 +16,7 @@ struct LibraryPageTests {
             contributors: conductor.map {
                 [Song.Contributor(role: "conductor", artist: Song.Artist(id: $0, name: $0))]
             },
-            works: work.map { [Song.Work(name: $0)] }, created: created)
+            works: work.map { [Song.Work(name: $0)] }, playCount: playCount, created: created, played: played)
         song.year = 2000
         return song
     }
@@ -119,6 +120,62 @@ struct LibraryPageTests {
         #expect(!cards.contains { $0.name == "Album undated" })
     }
 
+    /// Recording `n` of the heard fixtures was played on 2026-10-`n`; the others have no play.
+    private static func heardIndex(_ days: [Int], unheard: Int = 2) -> WorkIndex {
+        let heard = days.map {
+            song(
+                "h\($0)", composer: "Heard \($0)", work: "Heard work \($0)", conductor: "Lead \($0)",
+                playCount: 1, played: "2026-10-\(String(format: "%02d", $0))T08:00:00.123456789Z")
+        }
+        let never = (0..<unheard).map { song("n\($0)", composer: "Never \($0)", work: "Never work \($0)") }
+        return WorkIndex(songs: heard + never)
+    }
+
+    @Test func recentlyHeardListsRecordingsByLastHeardNewestFirst() throws {
+        let page = Self.page(rows: [row(.heard)], index: Self.heardIndex([3, 12, 7]))
+        let cards = try #require(page.sections.first?.cards)
+        #expect(cards.map(\.fact) == ["Lead 12", "Lead 7", "Lead 3"])
+        #expect(cards.map(\.name) == ["Heard work 12", "Heard work 7", "Heard work 3"])
+        #expect(page.sections.first?.title == L("Recently heard"))
+    }
+
+    @Test func recentlyHeardLeavesOutRecordingsNeverHeard() throws {
+        let page = Self.page(rows: [row(.heard)], index: Self.heardIndex([5]))
+        #expect(try #require(page.sections.first?.cards).count == 1)
+    }
+
+    @Test func recentlyHeardLeavesOutARecordingWithTooFewMovementsHeard() {
+        // One of three movements heard is not "heard".
+        let songs = (1...3).map {
+            Self.song(
+                "m\($0)", composer: "Composer", work: "Symphony", album: "Album", track: $0,
+                playCount: $0 == 1 ? 1 : nil, played: $0 == 1 ? "2026-10-01T08:00:00Z" : nil)
+        }
+        let page = Self.page(rows: [row(.heard)], index: WorkIndex(songs: songs))
+        #expect(page.sections.isEmpty)
+    }
+
+    @Test func recentlyHeardHidesWhenNothingIsHeard() {
+        #expect(Self.page(rows: [row(.heard)]).sections.isEmpty)
+        #expect(Self.page(rows: [row(.heard)], index: Self.heardIndex([])).sections.isEmpty)
+    }
+
+    @Test func recentlyHeardKeepsAHeardRecordingWithoutADateAfterTheDatedOnes() throws {
+        var songs = Self.heardIndex([4]).composers.flatMap(\.works).flatMap(\.recordings).flatMap(\.songs)
+        songs.append(Self.song("u", composer: "Undated", work: "Undated work", conductor: "Lead U", playCount: 2))
+        let page = Self.page(rows: [row(.heard)], index: WorkIndex(songs: songs))
+        #expect(try #require(page.sections.first?.cards).map(\.fact) == ["Lead 4", "Lead U"])
+    }
+
+    @Test func recentlyHeardFollowsTheCountAndIsDefaultAndLast() throws {
+        let page = Self.page(rows: [row(.heard) { $0.count = 6 }], index: Self.heardIndex(Array(1...9)))
+        #expect(try #require(page.sections.first?.cards).count == 6)
+        #expect(LibraryRows.standard.last?.kind == .heard)
+        let index = Self.heardIndex([2])
+        let all = Self.page(rows: LibraryRows.standard, index: index)
+        #expect(all.sections.last?.title == L("Recently heard"))
+    }
+
     @Test func titleIsOneWholeStringPerKindWithSortQualifier() {
         let plain = Self.page(rows: [row(.albums)])
         #expect(plain.sections.first?.title == L("Albums"))
@@ -147,7 +204,7 @@ struct LibraryPageTests {
     }
 
     @Test func kindsWithoutDrawingYetStayHidden() {
-        let page = Self.page(rows: [row(.pick), row(.heard), row(.saved)])
+        let page = Self.page(rows: [row(.pick), row(.saved)])
         #expect(page.sections.isEmpty)
     }
 

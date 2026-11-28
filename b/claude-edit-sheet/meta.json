@@ -1,7 +1,7 @@
 {
-  "sha": "e07c386a311301f69299876ad2af741ae4a6700b",
+  "sha": "884a05c74931c43e83f26ea9a150c9c32115da79",
   "branch": "claude-edit-sheet",
   "path": "claude-edit-sheet",
-  "subject": "Wait for the line to leave after Delete",
-  "ts": 1795828202
+  "subject": "Swipe a line with a slow drag in the edit walk",
+  "ts": 1795831129
 }

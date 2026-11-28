@@ -82,6 +82,18 @@ _Avoid_: Neighbour, peer
 A view about one thing, such as a composer, work, recording, album or performer. A link pushes it onto the stack of the current tab.
 _Avoid_: Screen, detail view
 
+**List page**:
+The one page of one type, such as Composers, Performers or Albums. A row title opens it filtered and sorted like the row. A link tile opens it whole.
+_Avoid_: General page, type page, browse page
+
+**Link list**:
+A row of link tiles. Each tile leads to one list page and shows its count.
+_Avoid_: Shortcuts, menu
+
+**Results page**:
+The results of Search for one search term, such as a genre, opened from a list page. It saves nothing.
+_Avoid_: Search page, filtered search
+
 **Stack**:
 The pages a listener opened in one tab, in order. Back leaves the top page. A link always pushes a page, also one that the stack holds.
 _Avoid_: History, trail, breadcrumbs

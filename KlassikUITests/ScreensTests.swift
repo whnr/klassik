@@ -93,9 +93,15 @@ final class PlacesScreens: ScreensTestCase {
 
         // A swipe to the left shows Delete, and Delete removes the row from the tab.
         let count = lines.count
-        lines.element(boundBy: 0).swipeLeft()
+        let top = lines.element(boundBy: 0)
+        let startX = top.frame.minX
+        let right = origin.withOffset(CGVector(dx: top.frame.maxX - 10, dy: top.frame.midY))
+        let left = origin.withOffset(CGVector(dx: top.frame.minX + 20, dy: top.frame.midY))
+        right.press(forDuration: 0.1, thenDragTo: left)
+        XCTAssertLessThan(lines.element(boundBy: 0).frame.minX, startX - 40, "The swipe did not move the line")
         let delete = app.buttons["edit-delete"].firstMatch
         XCTAssertTrue(delete.waitForExistence(timeout: 5), "A swipe shows no Delete")
+        XCTAssertTrue(delete.isHittable, "Delete is covered")
         delete.tap()
         let removed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "count == %d", count - 1), object: lines)
         XCTAssertEqual(XCTWaiter.wait(for: [removed], timeout: 5), .completed, "Delete left the line in the sheet")

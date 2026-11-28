@@ -199,23 +199,23 @@ private struct EditLine: View {
 
     private var front: some View {
         HStack(spacing: Layout.editLineGap) {
-            Button {
-                if isOpen { close() } else { select() }
-            } label: {
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(verbatim: LibraryPage.title(of: row))
-                        .typeStyle(Layout.editLineTitle)
-                        .foregroundStyle(Palette.textPrimary)
-                    Text(verbatim: isEmpty ? L("Nothing to show yet") : row.subtitle)
-                        .typeStyle(Layout.editLineSubtitle)
-                        .foregroundStyle(Palette.textSecondary)
-                }
-                .multilineTextAlignment(.leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(.rect)
+            // A tap gesture, not a Button: a Button takes the touch and cancels the swipe of the line.
+            VStack(alignment: .leading, spacing: 0) {
+                Text(verbatim: LibraryPage.title(of: row))
+                    .typeStyle(Layout.editLineTitle)
+                    .foregroundStyle(Palette.textPrimary)
+                Text(verbatim: isEmpty ? L("Nothing to show yet") : row.subtitle)
+                    .typeStyle(Layout.editLineSubtitle)
+                    .foregroundStyle(Palette.textSecondary)
             }
-            .buttonStyle(.plain)
-            .accessibilityAddTraits(isSelected ? .isSelected : [])
+            .multilineTextAlignment(.leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(.rect)
+            .onTapGesture {
+                if isOpen { close() } else { select() }
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : [.isButton])
             .accessibilityAction(named: Text("Delete"), delete)
             .accessibilityAction(named: Text("Move up")) { move(-1) }
             .accessibilityAction(named: Text("Move down")) { move(1) }

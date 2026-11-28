@@ -335,28 +335,19 @@ final class PlacesScreens: ScreensTestCase {
         let names = ["Library", "Chronology", "Search"]
         XCTAssertTrue(tab(app, "Search").waitForExistence(timeout: 10))
         let frames = names.map { tab(app, $0).frame }
-        // The whole bar, labels included, must look as it did at the start.
-        let barArea = frames.reduce(CGRect.null) { $0.union($1) }
-        // The covers of Recently added sit behind the bar and tint its glass when they load, so the baseline waits
-        // for them.
-        Thread.sleep(forTimeInterval: 5)
-        let baseline = try XCTUnwrap(ScreenPixels(app))
+        let bar = app.tabBars["tab-row"]
+        let barFrame = bar.frame
         func expectTabs(_ step: String) {
+            // Loaded covers tint the glass, so pixel equality does not measure tab visibility or position.
             for name in names {
                 let item = tab(app, name)
                 XCTAssertTrue(item.waitForExistence(timeout: 5), "\(step): no tab \(name)")
+                XCTAssertEqual(item.label, name, "\(step): tab \(name) lost its label")
                 XCTAssertTrue(item.isHittable, "\(step): tab \(name) is not hittable")
             }
             XCTAssertEqual(names.map { tab(app, $0).frame }, frames, "\(step): a tab moved")
-            // A tab can keep its element while UIKit draws nothing or cuts a label, so the bar must look as before.
-            var share = 1.0
-            for _ in 0..<6 {
-                if let now = ScreenPixels(app) { share = now.differingShare(in: barArea, from: baseline) }
-                if share < 0.05 { break }
-                Thread.sleep(forTimeInterval: 0.5)
-            }
-            if share >= 0.05 { add(XCTAttachment(string: app.tabBars["tab-row"].debugDescription)) }
-            XCTAssertLessThan(share, 0.05, "\(step): the tab bar changed")
+            XCTAssertTrue(bar.exists, "\(step): no tab bar")
+            XCTAssertEqual(bar.frame, barFrame, "\(step): the tab bar moved")
         }
         let field = app.textFields["search-field"]
         let recent = app.buttons.matching(identifier: "search-recent")

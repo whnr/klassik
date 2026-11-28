@@ -1,7 +1,7 @@
 {
-  "sha": "cfd6b78af3108784725357419224f0ff0e4482a0",
+  "sha": "502746d86a4eb769036c36a5a5480c0adb2d0ebc",
   "branch": "claude-daily-pick",
   "path": "claude-daily-pick",
-  "subject": "Fix the Daily pick test names",
-  "ts": 1795847121
+  "subject": "Fix two default row tests",
+  "ts": 1795848750
 }

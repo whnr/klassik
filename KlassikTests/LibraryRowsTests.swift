@@ -161,7 +161,7 @@ struct LibraryRowsTests {
         let rows = open(try defaults()).rows
         rows.insert(.composers, below: nil)
         #expect(kinds(rows) == [.composers, .composers, .favourites, .links, .added, .heard])
-        #expect(Set(rows.rows.map(\.id)).count == 5)
+        #expect(Set(rows.rows.map(\.id)).count == 6)
     }
 
     @Test func aSecondDailyPickIsRefused() throws {

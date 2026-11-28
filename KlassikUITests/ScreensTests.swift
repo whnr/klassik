@@ -448,11 +448,18 @@ final class BrowseScreens: ScreensTestCase {
         field.tap()
         field.typeText("s\n")
         let people = app.buttons.matching(identifier: "search-person")
-        XCTAssertTrue(eventually(timeout: 10) { people.count == 2 })
+        XCTAssertTrue(eventually(timeout: 10) { people.count >= 1 })
         XCTAssertTrue(people.element(boundBy: 0).label.contains("Johann Sebastian Bach"))
-        XCTAssertTrue(people.element(boundBy: 1).label.contains("Sine Wave Chamber Orchestra"))
-        XCTAssertLessThan(people.element(boundBy: 0).frame.minY, people.element(boundBy: 1).frame.minY)
-        XCTAssertLessThan(people.element(boundBy: 1).frame.minY, works.firstMatch.frame.minY)
+        XCTAssertLessThan(
+            people.element(boundBy: 0).frame.minY, works.firstMatch.frame.minY, "Works precede composers")
+        // Performers come last, below the works and albums. The list builds a row only near the screen.
+        let performer = reveal(
+            people.matching(NSPredicate(format: "label CONTAINS %@", "Sine Wave Chamber Orchestra")).firstMatch,
+            in: app)
+        XCTAssertTrue(performer.exists, "The performer is not in the results")
+        if works.firstMatch.exists {
+            XCTAssertLessThan(works.firstMatch.frame.minY, performer.frame.minY, "Performers precede works")
+        }
 
         openPlace(app, "Library")
         openPlace(app, "Search")
@@ -589,7 +596,7 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertTrue(field.isHittable, "Done left Search")
     }
 
-    /// Search shows its results in typed sections: Composers, Performers, Works, then Albums. Albums holds only
+    /// Search shows its results in typed sections: Composers, Works, Albums, then Performers. Albums holds only
     /// albums, and a recording shows only inside its work. A track title finds its work and the row names that
     /// track.
     @MainActor
@@ -612,6 +619,12 @@ final class BrowseScreens: ScreensTestCase {
         XCTAssertEqual(heading("Albums").label, "Albums (\(albums.count))", "Albums counts more than its albums")
         XCTAssertLessThan(heading("Works").frame.minY, heading("Albums").frame.minY, "Albums precede works")
         XCTAssertLessThan(works.element(boundBy: 3).frame.minY, albums.firstMatch.frame.minY)
+        XCTAssertLessThan(heading("Composers").frame.minY, heading("Works").frame.minY, "Works precede composers")
+        // Performers come last. The fixture may hold none for this text, so the check runs only when they show.
+        if heading("Performers").exists {
+            XCTAssertLessThan(
+                heading("Albums").frame.minY, heading("Performers").frame.minY, "Performers precede albums")
+        }
         snap(app, "19j-search-sections")
 
         // A tap on a section title folds the section away and keeps the title; a second tap opens it.
@@ -1769,6 +1782,12 @@ final class PlaybackScreens: ScreensTestCase {
         openPlayer(app)
         let add = reveal(app.buttons["add-note"], in: app)
         XCTAssertTrue(add.exists, "The playing row offers no note")
+        // The playing movement ends with a hairline above the next movement, as every pair of rows does.
+        let next = app.buttons.matching(identifier: "play-movement").firstMatch
+        XCTAssertTrue(next.exists, "The player shows no movement after the playing one")
+        // The row of the control ends below its frame, so the span runs to the middle of the next row. The next row's
+        // own rule lies below that middle.
+        expectRule(from: add.frame.midY, to: next.frame.midY, in: app, "Hairline under the playing movement")
         let position = app.sliders["position"]
         XCTAssertTrue(position.exists)
         // The bottom of the bar, from the playing mark next to the row title: the room of the note lanes adds to it.
@@ -1958,9 +1977,8 @@ final class PlaybackScreens: ScreensTestCase {
         for _ in 0..<2 {
             XCTAssertTrue(waitUntilStill(app.buttons["note-text"].firstMatch), "The note kept moving")
             reveal(app.buttons["note-text"].firstMatch, in: app).swipeLeft()
-            let again = app.buttons["Delete"].firstMatch
-            XCTAssertTrue(again.waitForExistence(timeout: 5), "The swipe shows no Delete")
-            again.tap()
+            XCTAssertTrue(delete.waitForExistence(timeout: 5), "The swipe shows no Delete")
+            delete.tap()
         }
         XCTAssertTrue(app.buttons["note-text"].firstMatch.waitForNonExistence(timeout: 10), "Delete kept a note")
         undo.tap()
@@ -3783,6 +3801,29 @@ class ScreensTestCase: XCTestCase {
             x: app.frame.minX + CGFloat(span.lowerBound) / screen.scale, y: lower.frame.minY,
             width: CGFloat(span.count) / screen.scale, height: 1 / screen.scale)
         expectPageEdges(frame, in: app, side: side, trailing: true, name, file: file, line: line)
+    }
+
+    /// A hairline between two heights: one pixel row with a run of differing pixels over most of the page width.
+    /// Text leaves gaps in its pixel rows, so only a rule makes a run that long.
+    @MainActor
+    func expectRule(
+        from top: CGFloat, to bottom: CGFloat, in app: XCUIApplication, side: PillEdge = .right, _ name: String,
+        file: StaticString = #filePath, line: UInt = #line
+    ) {
+        guard let screen = ScreenPixels(app) else { return XCTFail("\(name): no screenshot", file: file, line: line) }
+        let ground = screen.groundColumn(side: side)
+        let columns = screen.contentColumns(side: side)
+        let wanted = Int(Double(columns.count) * 0.6)
+        let found = screen.pixels((top - app.frame.minY)...(bottom - app.frame.minY)).contains { y in
+            var run = 0
+            var longest = 0
+            for x in columns {
+                run = screen.differs(x, y, from: ground) ? run + 1 : 0
+                longest = max(longest, run)
+            }
+            return longest >= wanted
+        }
+        XCTAssertTrue(found, "\(name): no hairline between \(top) and \(bottom)", file: file, line: line)
     }
 
     /// The left and right page insets of Layout.swift for the timeline that the app shows now, if any.

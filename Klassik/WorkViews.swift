@@ -951,6 +951,7 @@ struct RecordingView: View {
                     draft: $draft,
                     elapsed: elapsed,
                     save: { model.notes.save($0, at: place) },
+                    touching: { spell.touchingNote($0) },
                     jump: { plays in jump(to: note, row: index, plays: plays) },
                     delete: {
                         spell.touch()
@@ -963,7 +964,7 @@ struct RecordingView: View {
             if adds {
                 NoteEditor(
                     draft: $draft,
-                    row: index, place: place, elapsed: elapsed
+                    row: index, place: place, elapsed: elapsed, rule: !last
                 )
                 .playingRow(isCurrent)
                 .itemSeparator(first: true, last: true)
@@ -1208,6 +1209,7 @@ private struct NoteRow: View {
     @Binding var draft: NoteDraft?
     let elapsed: () -> Double
     let save: (NoteDraft) -> Bool
+    let touching: (Bool) -> Void
     let jump: (Bool) -> Void
     let delete: () -> Void
     @ScaledMetric(space: .s) private var gap: CGFloat
@@ -1239,10 +1241,59 @@ private struct NoteRow: View {
             }
             .buttonStyle(.borderless)
             .typeStyle(.subheadline)
+            // A horizontal swipe is no scroll, so the scroll phase misses it. A SwiftUI drag on the row would compete
+            // with the swipe, so the touch is watched from UIKit.
+            .background(RowTouch(changed: touching))
+            .onDisappear { touching(false) }
             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                 Button("Delete", systemImage: "trash", role: .destructive, action: delete)
             }
         }
+    }
+}
+
+/// Reports a finger on the list row that holds it. The watcher only observes: row buttons and the swipe keep their touches.
+private struct RowTouch: UIViewRepresentable {
+    let changed: (Bool) -> Void
+
+    func makeUIView(context: Context) -> Probe { Probe() }
+    func updateUIView(_ view: Probe, context: Context) { view.changed = changed }
+
+    final class Probe: UIView {
+        var changed: (Bool) -> Void = { _ in }
+        private var watch: UILongPressGestureRecognizer?
+        private let both = Together()
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            if let watch { watch.view?.removeGestureRecognizer(watch) }
+            watch = nil
+            var up = superview
+            while let view = up, !(view is UICollectionViewCell) { up = view.superview }
+            guard window != nil, let cell = up else { return }
+            let press = UILongPressGestureRecognizer(target: self, action: #selector(pressed))
+            press.minimumPressDuration = 0
+            press.allowableMovement = .greatestFiniteMagnitude
+            press.cancelsTouchesInView = false
+            press.delegate = both
+            cell.addGestureRecognizer(press)
+            watch = press
+        }
+
+        @objc private func pressed(_ press: UILongPressGestureRecognizer) {
+            switch press.state {
+            case .began: changed(true)
+            case .ended, .cancelled: changed(false)
+            default: break
+            }
+        }
+    }
+
+    final class Together: NSObject, UIGestureRecognizerDelegate {
+        func gestureRecognizer(
+            _ gestureRecognizer: UIGestureRecognizer,
+            shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
+        ) -> Bool { true }
     }
 }
 
@@ -1254,13 +1305,21 @@ private struct NoteEditor: View {
     let place: NotePlace
     /// The playing time of the row.
     let elapsed: () -> Double
+    /// The row ends with a hairline above the next movement.
+    let rule: Bool
     @Environment(AppModel.self) private var model
 
     var body: some View {
         // A container keeps the identifiers of its controls inside the row's identifier.
-        editor
-            .accessibilityElement(children: .contain)
-            .accessibilityIdentifier("note-editor")
+        VStack(alignment: .leading, spacing: 0) {
+            editor
+                .frame(maxWidth: .infinity, alignment: .leading)
+            if rule {
+                Divider().overlay(Palette.separator).padding(.top, Layout.rowPadding)
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("note-editor")
     }
 
     @ViewBuilder private var editor: some View {

@@ -37,7 +37,7 @@ struct Search: Sendable {
         }
     }
 
-    /// The results of the text, by kind: composers, performers, works, then albums. A recording shows
+    /// The results of the text, by kind: composers, works, albums, then performers. A recording shows
     /// only inside its work.
     struct Results: Sendable {
         var works: [WorkIndex.Work] = []
@@ -55,7 +55,7 @@ struct Search: Sendable {
 
         var isEmpty: Bool { works.isEmpty && people.isEmpty && albums.isEmpty }
 
-        /// The rows of the page: composers, performers, works and albums. The filter sheet counts these.
+        /// The rows of the page: composers, works, albums and performers. The filter sheet counts these.
         var rowCount: Int { works.count + people.count + albums.count }
     }
 

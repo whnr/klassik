@@ -1,7 +1,7 @@
 {
-  "sha": "48bf5da29173894d70f106ffc07af7b576e66d83",
+  "sha": "e07c386a311301f69299876ad2af741ae4a6700b",
   "branch": "claude-edit-sheet",
   "path": "claude-edit-sheet",
-  "subject": "Check a setting that opens a choice",
-  "ts": 1795825826
+  "subject": "Wait for the line to leave after Delete",
+  "ts": 1795828202
 }

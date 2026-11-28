@@ -2290,7 +2290,13 @@ final class PlaybackScreens: ScreensTestCase {
 
     @MainActor
     func testPerformers() throws {
-        let app = try launchAndConnect(openComposers: false, arguments: ["-offlineFavourites"])
+        let app = try launchAndConnect(arguments: ["-offlineFavourites"])
+        // The Library lists a Favourites row only once something is a favourite.
+        composer(app, "Frédéric Chopin").tap()
+        let composerMark = app.buttons["favourite-composer"]
+        XCTAssertTrue(composerMark.waitForExistence(timeout: 10))
+        if composerMark.value as? String != "Favourite" { composerMark.tap() }
+        back(app, times: 2)
         // The performer name must sit where a pushed page has its title. The ink of "Favourites" ends on the
         // baseline, as the name does: a descender would move the ink bottom.
         reveal(app.buttons["library-favourites"], in: app).tap()

@@ -8,6 +8,7 @@ enum LibraryRow: String, CaseIterable, Identifiable, Sendable {
     case favourites
     case links
     case added
+    case heard
 
     var id: Self { self }
 
@@ -18,6 +19,7 @@ enum LibraryRow: String, CaseIterable, Identifiable, Sendable {
         case .favourites: .favourites
         case .links: .links
         case .added: .added
+        case .heard: .heard
         }
     }
 }

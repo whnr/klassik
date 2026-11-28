@@ -125,7 +125,7 @@ struct LibraryEditingTests {
         let editor = LibraryEditor(rows: rows)
         editor.select(rows.rows[1].id)
         editor.add(.albums)
-        #expect(kinds(rows) == [.pick, .composers, .albums, .favourites, .links, .added])
+        #expect(kinds(rows) == [.pick, .composers, .albums, .favourites, .links, .added, .heard])
         #expect(editor.selected == rows.rows[2].id)
         #expect(editor.level == .row(rows.rows[2].id))
     }
@@ -135,7 +135,7 @@ struct LibraryEditingTests {
         let rows = try rows()
         let editor = LibraryEditor(rows: rows)
         editor.add(.performers)
-        #expect(kinds(rows) == [.performers, .pick, .composers, .favourites, .links, .added])
+        #expect(kinds(rows) == [.performers, .pick, .composers, .favourites, .links, .added, .heard])
     }
 
     @Test func worksAreNotOfferedOrAdded() throws {
@@ -171,7 +171,7 @@ struct LibraryEditingTests {
         editor.delete(id)
         #expect(editor.selected == nil)
         #expect(editor.level == .list)
-        #expect(kinds(rows) == [.pick, .composers, .links, .added])
+        #expect(kinds(rows) == [.pick, .composers, .links, .added, .heard])
     }
 
     @Test func deletingAnotherRowKeepsTheSelection() throws {

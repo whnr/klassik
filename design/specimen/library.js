@@ -113,18 +113,37 @@
   }
 
   // ---------- Titles ----------
-  // A natural title when the row has no qualifier, else "Kind, qualifier".
-  function title(row) {
+  // A natural title is one whole string per kind and sort. A combination without one reads "Kind, qualifier".
+  // The qualifier slot goes to the filter first; a sort that the title leaves out shows in the subtitle.
+  const NATURAL = {
+    "composers/best": "Best known composers",
+    "composers/az": "Composers A to Z",
+    "performers/best": "Best known performers",
+    "performers/az": "Performers A to Z",
+    "recordings/az": "Recordings A to Z",
+    "recordings/newest": "Newest recordings",
+    "albums/random": "Random albums",
+    "albums/az": "Albums A to Z",
+    "favourites/az": "Favourites A to Z",
+    "favourites/newest": "Newest favourites",
+  };
+  function titleParts(row) {
     const base = KINDS[row.kind].label;
-    if (row.kind === "pick" || row.kind === "links") return base;
-    const qualifiers = [];
-    if (row.kind === "saved") qualifiers.push(row.source);
-    if (FILTERS[row.filter] && row.kind !== "favourites") qualifiers.push(FILTERS[row.filter]);
+    if (row.kind === "pick" || row.kind === "links") return { head: base, namesSort: false };
+    const sorted = row.kind !== "saved" && row.sort !== START[row.kind].sort;
+    const natural = sorted ? NATURAL[`${row.kind}/${row.sort}`] : null;
+    const parts = { head: natural || base, namesSort: Boolean(natural) };
     // One term names itself. Two or more terms make the row "filtered".
     const terms = row.conds?.flat() ?? [];
-    if (terms.length) qualifiers.push(terms.length === 1 ? Filters.label(terms[0]) : "filtered");
-    if (row.sort !== START[row.kind].sort) qualifiers.push(SORTS[row.sort]);
-    return qualifiers.length ? `${base}, ${qualifiers.join(", ")}` : base;
+    if (row.kind === "saved") parts.qualifier = row.source;
+    else if (terms.length) parts.qualifier = terms.length === 1 ? Filters.label(terms[0]) : "filtered";
+    else if (FILTERS[row.filter] && row.kind !== "favourites") parts.qualifier = FILTERS[row.filter];
+    else if (sorted && !natural) Object.assign(parts, { qualifier: SORTS[row.sort], namesSort: true });
+    return parts;
+  }
+  function title(row) {
+    const { head, qualifier } = titleParts(row);
+    return qualifier ? `${head}, ${qualifier}` : head;
   }
 
   // ---------- The sample library as items ----------
@@ -336,7 +355,7 @@
           : row.kind === "favourites"
             ? "faces and covers"
             : "covers";
-    const named = row.sort !== START[row.kind].sort;
+    const named = titleParts(row).namesSort;
     const terms = row.conds?.flat() ?? [];
     // The title names the source of these kinds. The other kinds name it only here.
     const parts = [];

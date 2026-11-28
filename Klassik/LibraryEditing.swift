@@ -138,9 +138,9 @@ extension LibraryRowSetup {
         }
         var parts: [String] = []
         if kind == .added || kind == .heard { parts.append(sourceOptions[0].title) }
-        if conditions.flatMap({ $0 }).count > 1 { parts.append(filterSummary) }
-        if sort == LibraryRowSetup(kind: kind).sort {
-            parts.append(parts.isEmpty ? Self.sortLabel(sort) : Self.sortWord(sort))
+        if kind != .saved, conditions.flatMap({ $0 }).count > 1 { parts.append(filterSummary) }
+        if !LibraryTitles.namesSort(of: self) {
+            parts.append(parts.isEmpty ? Self.sortLabel(sort) : LibraryTitles.sortWord(sort))
         }
         parts.append(countText)
         return Self.joined(parts)
@@ -179,17 +179,6 @@ extension LibraryRowSetup {
         case .best: L("Best known")
         case .newest: L("Newest first")
         case .heard: L("Last heard first")
-        case .az: L("A to Z")
-        }
-    }
-
-    /// The name inside a line. Code never changes letter case, so it has its own text.
-    private static func sortWord(_ sort: LibrarySort) -> String {
-        switch sort {
-        case .random: L("random")
-        case .best: L("best known")
-        case .newest: L("newest first")
-        case .heard: L("last heard first")
         case .az: L("A to Z")
         }
     }

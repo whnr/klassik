@@ -1,7 +1,7 @@
 {
-  "sha": "502746d86a4eb769036c36a5a5480c0adb2d0ebc",
+  "sha": "f2eabf58626506d2fa4235f2b6b836328f0c0e52",
   "branch": "claude-daily-pick",
   "path": "claude-daily-pick",
-  "subject": "Fix two default row tests",
-  "ts": 1795848750
+  "subject": "Settle the Library covers before the tab bar baseline",
+  "ts": 1795853078
 }

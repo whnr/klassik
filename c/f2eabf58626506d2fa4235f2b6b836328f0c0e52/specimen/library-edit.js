@@ -36,7 +36,6 @@ window.LibraryEdit = (() => {
     pick: ["One recording a day, as a sentence", "pick"],
     composers: ["Faces, with their number of works", "faces"],
     performers: ["Faces, with their number of recordings", "faces"],
-    works: ["Covers, with their composer", "covers"],
     recordings: ["Covers, with their lead performer", "covers"],
     albums: ["Covers, newest first", "covers"],
     favourites: ["Faces and covers, mixed", "mixed"],

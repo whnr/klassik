@@ -1,0 +1,170 @@
+/* Search's inline field row stays under the navigation bar. Its native chrome is 40 points high. */
+.list-page .fieldrow {
+  position: fixed;
+  z-index: 25;
+  inset-inline: 0;
+  top: calc(max(env(safe-area-inset-top), 6px) + var(--pill-space, 34px) + var(--size-hitTarget));
+  display: flex;
+  align-items: center;
+  gap: var(--space-s);
+  padding: 0 var(--pad-right) var(--space-s) var(--pad-left);
+  background: var(--color-background-page);
+}
+.list-page .find {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-s);
+  min-height: 40px;
+  padding: var(--space-xs) var(--space-m);
+  border-radius: 12px;
+  background: var(--color-fill-quiet);
+}
+.list-page .find svg {
+  width: 18px;
+  height: 18px;
+  color: var(--color-text-secondary);
+}
+.list-page .find > span {
+  flex: none;
+}
+.list-page .find input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: inherit;
+  font-size: max(16px, var(--type-body-size));
+}
+.list-page input::placeholder {
+  color: var(--color-text-secondary);
+}
+.list-page input::-webkit-search-cancel-button {
+  display: none;
+}
+.list-page .find-clear {
+  flex: none;
+  color: var(--color-text-secondary);
+}
+.list-page .filter-button {
+  flex: none;
+  display: grid;
+  place-items: center;
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: var(--radius-full);
+  background: var(--color-fill-quiet);
+}
+.list-page .filter-button svg {
+  width: var(--space-xxl);
+  height: var(--space-xxl);
+}
+.list-page .filter-button.on {
+  color: var(--color-tint);
+}
+.list-page .scroll {
+  padding-top: var(--list-top);
+  padding-bottom: max(var(--bottom-space, 180px), var(--list-keyboard, 0px));
+}
+.list-page .conditions {
+  display: block;
+  text-align: start;
+  width: 100%;
+  color: var(--color-text-secondary);
+}
+.list-page .show-all {
+  display: block;
+  min-height: var(--size-hitTarget);
+  color: var(--color-tint);
+  text-align: start;
+}
+.list-page .section-head {
+  width: 100%;
+  min-height: var(--size-hitTarget);
+  text-align: start;
+  flex-wrap: wrap;
+}
+.list-page .section-head::after {
+  content: "\25BE";
+  color: var(--color-text-secondary);
+}
+.list-page .section-head[aria-expanded="false"]::after {
+  content: "\25B8";
+}
+.list-page .face {
+  width: var(--size-coverRow);
+  height: var(--size-coverRow);
+  border-radius: var(--radius-full);
+  object-fit: cover;
+  object-position: 50% 20%;
+  background: var(--color-fill-quiet);
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.list-page .row .main {
+  overflow-wrap: anywhere;
+}
+.list-page .empty {
+  padding: var(--space-xl) var(--pad-right) var(--space-xl) var(--pad-left);
+}
+.list-page .hs-title {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+.list-page .hs-head {
+  grid-template-columns: var(--size-hitTarget) minmax(0, 1fr) auto;
+  gap: var(--space-s);
+}
+.list-page .hs-scroll .row {
+  width: 100%;
+  text-align: start;
+}
+.list-page .hs-scroll .trail {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.list-page .seg {
+  flex-wrap: wrap;
+}
+.list-page .seg button {
+  flex: 1 1 auto;
+  white-space: normal;
+  min-height: var(--size-hitTarget);
+  padding: var(--space-xs) var(--space-s);
+}
+.list-page .narrow {
+  min-height: var(--size-hitTarget);
+}
+.list-page .narrow input {
+  font: inherit;
+}
+
+.list-page [hidden] {
+  display: none !important;
+}
+
+.list-page img.face {
+  display: block;
+}
+
+/* The timeline's touch area is wider than its visible line. The field controls must clear that area. */
+:root.has-timeline:not([data-side="left"]) .list-page .fieldrow {
+  padding-right: var(--size-hitTarget);
+}
+:root.has-timeline[data-side="left"] .list-page .fieldrow {
+  padding-left: var(--size-hitTarget);
+}
+
+/* Native Form settings stack their labels and values at accessibility sizes. */
+:root[data-type-size^="AX"] .list-page .list-setting {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-inGroup);
+}
+:root[data-type-size^="AX"] .list-page .list-setting .trail {
+  justify-content: flex-end;
+}

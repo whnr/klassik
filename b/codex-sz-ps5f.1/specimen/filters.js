@@ -88,7 +88,15 @@ window.Filters = (() => {
   // The same without the kind words, for a subtitle.
   const short = (list) => list.map((c) => c.map(label).join(" or ")).join(" and ");
 
-  function make({ conds = [], kind = "composer", count, scope = () => null, onChange = () => {} }) {
+  function make({
+    conds = [],
+    kind = "composer",
+    count,
+    scope = () => null,
+    onChange = () => {},
+    text = (value) => value,
+    formatNumber = (value) => String(value),
+  }) {
     const { recs, allTerms } = index();
     const fx = { conds, marked: null, kind, narrowQ: "", clearNarrow: () => {}, condsBox: null, redraw: () => {} };
 
@@ -108,7 +116,11 @@ window.Filters = (() => {
     function chip(t, ci) {
       return el(
         "span",
-        { class: "tchip t-subheadline", "aria-label": `${label(t)}, remove`, ...press(() => removeTerm(ci, t)) },
+        {
+          class: "tchip t-subheadline",
+          "aria-label": `${label(t)}, ${text("remove")}`,
+          ...press(() => removeTerm(ci, t)),
+        },
         label(t),
         el("span", { class: "x", "aria-hidden": "true" }, "×"),
       );
@@ -125,11 +137,11 @@ window.Filters = (() => {
     // The conditions as one paragraph: "or" inside a condition, "and" between conditions.
     // Each condition ends with its "+ or" button, which marks it so the next term joins it.
     function condParagraph() {
-      const box = el("div", { class: "cond", role: "group", "aria-label": "Conditions" });
+      const box = el("div", { class: "cond", role: "group", "aria-label": text("Conditions") });
       fx.conds.forEach((c, i) => {
-        if (i) box.append(el("span", { class: "w and t-subheadline" }, "and"), " ");
+        if (i) box.append(el("span", { class: "w and t-subheadline" }, text("and")), " ");
         c.forEach((t, j) => {
-          if (j) box.append(el("span", { class: "w t-subheadline" }, "or"), " ");
+          if (j) box.append(el("span", { class: "w t-subheadline" }, text("or")), " ");
           box.append(chip(t, i), " ");
         });
         box.append(
@@ -137,14 +149,14 @@ window.Filters = (() => {
             "span",
             {
               class: "plus t-subheadline" + (fx.marked === i ? " on" : ""),
-              "aria-label": "Add an or term",
+              "aria-label": text("Add an or term"),
               "aria-pressed": String(fx.marked === i),
               ...press(() => {
                 fx.marked = fx.marked === i ? null : i;
                 onChange();
               }),
             },
-            "+ or",
+            text("+ or"),
           ),
           " ",
         );
@@ -177,7 +189,8 @@ window.Filters = (() => {
         }))
         .filter((x) => x.n > 0 || x.at >= 0)
         .sort((x, y) => Number(y.at >= 0) - Number(x.at >= 0) || y.n - x.n || label(x.t).localeCompare(label(y.t)));
-      if (!list.length) return [el("div", { class: "row t-subheadline secondary" }, "No term of this kind is left.")];
+      if (!list.length)
+        return [el("div", { class: "row t-subheadline secondary" }, text("No term of this kind is left."))];
       // A pick clears the narrowing text, so the next term can be typed at once.
       return list.map(({ t, at, n }) =>
         el(
@@ -201,7 +214,7 @@ window.Filters = (() => {
             "div",
             { class: "trail" },
             at >= 0 ? el("span", { class: "check", html: ICON.check }) : null,
-            el("span", { class: "what t-subheadline nums" }, String(n)),
+            el("span", { class: "what t-subheadline nums" }, formatNumber(n)),
           ),
         ),
       );
@@ -221,7 +234,7 @@ window.Filters = (() => {
                   onKind();
                 },
               },
-              KINDS[k],
+              text(KINDS[k]),
             ),
           ),
         );
@@ -236,7 +249,7 @@ window.Filters = (() => {
         autocorrect: "off",
         spellcheck: "false",
       });
-      const setPh = () => (i.placeholder = "Find in " + KINDS[fx.kind].toLowerCase());
+      const setPh = () => (i.placeholder = text("Find in " + KINDS[fx.kind].toLowerCase()));
       setPh();
       i.addEventListener("input", () => {
         fx.narrowQ = i.value;

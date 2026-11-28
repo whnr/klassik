@@ -3,11 +3,12 @@ import Observation
 
 /// A setting that the edit sheet offers for a row, in the order the sheet lists them.
 enum LibraryEditField: String, CaseIterable, Hashable, Sendable {
-    case source, sort, form, count
+    case source, filter, sort, form, count
 
     var title: String {
         switch self {
         case .source: L("Source")
+        case .filter: L("Filter")
         case .sort: L("Sort")
         case .form: L("Form")
         case .count: L("Count")
@@ -48,6 +49,8 @@ extension LibraryRowSetup {
             options.map { LibraryChoice(id: $0.id, title: $0.title, isCurrent: $0.id == current) }
         }
         switch field {
+        case .filter:
+            return []
         case .source:
             return make(sourceOptions, current: kind.rawValue)
         case .sort:
@@ -64,6 +67,8 @@ extension LibraryRowSetup {
     mutating func choose(_ id: String, for field: LibraryEditField) {
         guard choices(for: field).contains(where: { $0.id == id }) else { return }
         switch field {
+        case .filter:
+            return
         case .source:
             guard let chosen = LibraryRowKind(rawValue: id), Self.unitKinds.contains(chosen) else { return }
             kind = chosen
@@ -133,6 +138,7 @@ extension LibraryRowSetup {
         }
         var parts: [String] = []
         if kind == .added || kind == .heard { parts.append(sourceOptions[0].title) }
+        if conditions.flatMap({ $0 }).count > 1 { parts.append(filterSummary) }
         if sort == LibraryRowSetup(kind: kind).sort {
             parts.append(parts.isEmpty ? Self.sortLabel(sort) : Self.sortWord(sort))
         }
@@ -267,6 +273,10 @@ final class LibraryEditor {
 
     func choose(_ choice: String, for field: LibraryEditField, ofRow id: String) {
         rows.update(id) { $0.choose(choice, for: field) }
+    }
+
+    func filter(_ conditions: [Search.Condition], ofRow id: String) {
+        rows.update(id) { $0.conditions = RecentSearch.terms(of: conditions).filter { !$0.isEmpty } }
     }
 
     func back() {

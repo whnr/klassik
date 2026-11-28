@@ -93,7 +93,7 @@ struct LibraryEditingTests {
     @Test func aDailyPickAndALinkListHaveOnlyTheSettingsThatExist() {
         #expect(LibraryRowSetup(kind: .pick).fields == [.source])
         #expect(LibraryRowSetup(kind: .links).fields.isEmpty)
-        #expect(LibraryRowSetup(kind: .albums).fields == [.source, .sort, .form, .count])
+        #expect(LibraryRowSetup(kind: .albums).fields == [.source, .filter, .sort, .form, .count])
     }
 
     // MARK: Subtitle

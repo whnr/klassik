@@ -16,10 +16,13 @@ struct LibraryView: View {
             albums: order.favouriteAlbums, works: order.favouriteWorks, recordings: order.favouriteRecordings)
         let page = pageCache.page(
             for: PageKey(
-                indexVersion: library.indexVersion, favourites: favourites.signature, rows: rows,
+                indexVersion: library.indexVersion, filterRevision: library.searchFilters.revision,
+                favourites: favourites.signature, rows: rows,
                 day: Calendar.current.startOfDay(for: .now))
         ) {
-            LibraryPage(index: library.index, favourites: favourites, rows: rows, date: .now)
+            LibraryPage(
+                index: library.index, favourites: favourites, rows: rows, date: .now,
+                searchFilters: library.searchFilters)
         }
         ScrollViewReader { proxy in
             PageList {
@@ -78,6 +81,7 @@ extension LibraryView {
 /// What the page depends on. The page is built again only when this changes, not on every body pass.
 private struct PageKey: Equatable {
     var indexVersion: Int
+    var filterRevision: UUID
     var favourites: [String]
     var rows: [LibraryRowSetup]
     var day: Date

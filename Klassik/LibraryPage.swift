@@ -60,10 +60,11 @@ struct LibraryPage {
     /// the page model tests pass `true`.
     init(
         index: WorkIndex, favourites: Favourites, rows: [LibraryRowSetup], date: Date,
-        calendar: Calendar = .current, unbuiltLinks: Bool = false
+        calendar: Calendar = .current, unbuiltLinks: Bool = false, searchFilters: SearchFilters? = nil
     ) {
         let day = calendar.dateComponents([.year, .month, .day], from: date)
         let dayKey = "\(day.year ?? 0)-\(day.month ?? 0)-\(day.day ?? 0)"
+        let filters = rows.contains { !$0.conditions.isEmpty } ? searchFilters ?? SearchFilters(index: index) : nil
         for row in rows {
             let section: Section?
             switch row.kind {
@@ -71,7 +72,7 @@ struct LibraryPage {
                 section = Self.linkList(
                     row, index: index, favourites: favourites, includesUnbuilt: unbuiltLinks)
             case .composers, .performers, .works, .recordings, .albums, .favourites, .added, .heard:
-                section = Self.strip(row, index: index, favourites: favourites, dayKey: dayKey)
+                section = Self.strip(row, index: index, favourites: favourites, dayKey: dayKey, filters: filters)
             // Other kinds wait for their own work. They keep their place in the setup.
             case .pick, .saved:
                 section = nil
@@ -84,6 +85,7 @@ struct LibraryPage {
 
     private struct Item {
         var card: Card
+        var recordings: [String]
         /// The newest `created` of its tracks, or nil when the server gave none.
         var added: String?
         /// Heard when more than half the movements of a recording have a server play count.
@@ -93,17 +95,29 @@ struct LibraryPage {
     }
 
     private static func strip(
-        _ row: LibraryRowSetup, index: WorkIndex, favourites: Favourites, dayKey: String
+        _ row: LibraryRowSetup, index: WorkIndex, favourites: Favourites, dayKey: String, filters: SearchFilters?
     ) -> Section {
+        let items = filteredItems(row, index: index, favourites: favourites, filters: filters)
+        let look: Look =
+            switch row.kind {
+            case .composers, .performers: .faces
+            case .favourites: .mixed
+            default: .covers
+            }
+        let ordered = order(items, by: row.sort, seed: "\(dayKey)|\(row.id)")
+        return Section(
+            id: row.id, kindName: row.kind.rawValue, title: title(of: row), titlePage: titlePage(of: row.kind),
+            look: look, isTiles: row.form == .tiles, cards: Array(ordered.prefix(Self.limit(of: row))).map(\.card))
+    }
+
+    /// The source before conditions or the display limit. The filter picker stays inside this source.
+    private static func sourceItems(_ row: LibraryRowSetup, index: WorkIndex, favourites: Favourites) -> [Item] {
         var items: [Item]
-        var look = Look.covers
         switch row.kind {
         case .composers:
             items = index.composers.map(composerItem)
-            look = .faces
         case .performers:
             items = index.performers.map(performerItem)
-            look = .faces
         case .works:
             items = index.composers.flatMap(\.works).map(workItem)
         case .recordings, .heard:
@@ -117,14 +131,32 @@ struct LibraryPage {
             items = index.albums.map(albumItem).filter { $0.added != nil }
         default:
             items = mixed(favourites)
-            look = .mixed
         }
         if row.kind == .heard || row.sort == .heard { items = items.filter(\.isHeard) }
-        let limit = Self.limit(of: row)
-        let ordered = order(items, by: row.sort, seed: "\(dayKey)|\(row.id)")
-        return Section(
-            id: row.id, kindName: row.kind.rawValue, title: title(of: row), titlePage: titlePage(of: row.kind),
-            look: look, isTiles: row.form == .tiles, cards: Array(ordered.prefix(limit)).map(\.card))
+        return items
+    }
+
+    private static func filteredItems(
+        _ row: LibraryRowSetup, index: WorkIndex, favourites: Favourites, filters: SearchFilters?
+    ) -> [Item] {
+        let items = sourceItems(row, index: index, favourites: favourites)
+        guard !row.conditions.isEmpty, let filters else { return items }
+        let passing = filters.recordings(matching: row.searchConditions)
+        return items.filter { $0.recordings.contains { passing.contains($0) } }
+    }
+
+    /// Counts source items, including those beyond the row's display limit.
+    static func matchingCount(
+        _ row: LibraryRowSetup, index: WorkIndex, favourites: Favourites, filters: SearchFilters? = nil
+    ) -> Int {
+        filteredItems(row, index: index, favourites: favourites, filters: filters ?? SearchFilters(index: index)).count
+    }
+
+    static func filterPool(
+        _ row: LibraryRowSetup, index: WorkIndex, favourites: Favourites, filters: SearchFilters? = nil
+    ) -> Search.Pool {
+        (filters ?? SearchFilters(index: index)).pool(
+            recordings: Set(sourceItems(row, index: index, favourites: favourites).flatMap(\.recordings)))
     }
 
     private static func limit(of row: LibraryRowSetup) -> Int {
@@ -171,6 +203,7 @@ struct LibraryPage {
             card: Card(
                 id: "composer|\(composer.name)", name: composer.name, fact: L("\(composer.works.count) works"),
                 picture: .composer(composer.name), page: .composer(composer.name)),
+            recordings: composer.works.flatMap(\.recordings).map(\.id),
             added: nil, isHeard: heard.isHeard, lastHeard: heard.last)
     }
 
@@ -181,6 +214,7 @@ struct LibraryPage {
                 id: "performer|\(performer.name)", name: performer.name,
                 fact: L("\(performer.entries.count) recordings"), picture: .performer(performer.name),
                 page: .performer(performer.name)),
+            recordings: performer.entries.map { $0.recording.id },
             added: nil, isHeard: heard.isHeard, lastHeard: heard.last)
     }
 
@@ -191,7 +225,8 @@ struct LibraryPage {
             card: Card(
                 id: "work|\(work.id)", name: work.title, fact: work.composer,
                 picture: .cover(reference?.songs.first), page: .work(work.id)),
-            added: reference.flatMap(added(of:)), isHeard: heard.isHeard, lastHeard: heard.last)
+            recordings: work.recordings.map(\.id), added: reference.flatMap(added(of:)), isHeard: heard.isHeard,
+            lastHeard: heard.last)
     }
 
     private static func recordingItem(work: WorkIndex.Work, recording: WorkIndex.Recording) -> Item {
@@ -200,7 +235,7 @@ struct LibraryPage {
             card: Card(
                 id: "recording|\(recording.id)", name: work.title, fact: lead(of: recording),
                 picture: .cover(recording.songs.first), page: .recording(work: work.id, recording: recording.id)),
-            added: added(of: recording), isHeard: heard.isHeard, lastHeard: heard.last)
+            recordings: [recording.id], added: added(of: recording), isHeard: heard.isHeard, lastHeard: heard.last)
     }
 
     private static func albumItem(_ album: WorkIndex.Album) -> Item {
@@ -209,6 +244,7 @@ struct LibraryPage {
             card: Card(
                 id: "album|\(album.id)", name: album.title, fact: lead(of: album.recording),
                 picture: .cover(album.tracks.first), page: .album(album.id)),
+            recordings: Array(Set(album.tracks.map { "\(WorkIndex.workKey($0))|\($0.albumKey)" })),
             added: added(of: album.recording), isHeard: heard.isHeard, lastHeard: heard.last)
     }
 
@@ -249,12 +285,14 @@ struct LibraryPage {
 
     // MARK: Titles
 
-    /// One whole string per kind. A sort that differs from the start sort of the kind adds one qualifier, in one
-    /// format string per language.
+    /// Each kind has one whole string. Tag values keep their case; the fallback format places qualifiers for the app language.
     static func title(of row: LibraryRowSetup) -> String {
         let base = baseTitle(of: row.kind)
-        guard row.sort != LibraryRowSetup(kind: row.kind).sort else { return base }
-        return L("\(base), \(sortName(row.sort))")
+        var qualifiers: [String] = []
+        let terms = row.conditions.flatMap { $0 }
+        if let first = terms.first { qualifiers.append(terms.count == 1 ? first.name : L("filtered")) }
+        if row.sort != LibraryRowSetup(kind: row.kind).sort { qualifiers.append(sortName(row.sort)) }
+        return qualifiers.reduce(base) { L("\($0), \($1)") }
     }
 
     private static func baseTitle(of kind: LibraryRowKind) -> String {

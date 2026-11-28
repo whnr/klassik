@@ -89,6 +89,17 @@ struct LocalizationTests {
         #expect(loc.string("Library", in: .german) == "Bibliothek")
     }
 
+    @Test func rowFilterTitlesUseTheCatalog() {
+        let loc = localization()
+        for language in [AppLanguage.english, .german] {
+            let base = loc.string("Composers", in: language)
+            let qualifier = loc.string("filtered", in: language)
+            let title = loc.string("\(base), \(qualifier)", in: language)
+            #expect(title == (language == .german ? "Komponisten, gefiltert" : "Composers, filtered"))
+            #expect(loc.string("Filter", in: language) == "Filter")
+        }
+    }
+
     @Test func pluralsFollowTheLanguage() {
         let loc = localization()
         let one = 1

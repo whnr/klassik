@@ -1,7 +1,7 @@
 {
-  "sha": "c87df9c843026e0e7193c9f3a820b9e466be2f9e",
+  "sha": "6d443ea26bba4be3b2cf8746f32dc8a3868c1179",
   "branch": "codex-row-filter",
   "path": "codex-row-filter",
-  "subject": "[sz-augz.8] Match the localized result count",
-  "ts": 1795873978
+  "subject": "[sz-augz.8] Keep Daily pick beside row filters",
+  "ts": 1795874029
 }

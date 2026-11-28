@@ -92,8 +92,8 @@ struct LibraryRowFilterTests {
 
     @Test func alternativesUseTheListFormatterOfTheAppLanguage() {
         let row = row(.composers, [[chopin, strauss], [.init(kind: .genre, name: "Song")]])
-        #expect(row.filterSummary(locale: Locale(identifier: "en")) == "Frédéric Chopin or Richard Strauss, Song")
-        #expect(row.filterSummary(locale: Locale(identifier: "de")) == "Frédéric Chopin oder Richard Strauss, Song")
+        #expect(row.filterSummary(in: .english) == "Frédéric Chopin or Richard Strauss, Song")
+        #expect(row.filterSummary(in: .german) == "Frédéric Chopin oder Richard Strauss, Song")
     }
 
     @Test func filterTitlesAndSubtitlesFollowTheSpecimen() {

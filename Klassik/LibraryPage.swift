@@ -400,41 +400,8 @@ struct LibraryPage {
 
     // MARK: Titles
 
-    /// Each kind has one whole string. Tag values keep their case; the fallback format places qualifiers for the app language.
-    static func title(of row: LibraryRowSetup) -> String {
-        let base = baseTitle(of: row.kind)
-        var qualifiers: [String] = []
-        let terms = row.conditions.flatMap { $0 }
-        if let first = terms.first { qualifiers.append(terms.count == 1 ? first.name : L("filtered")) }
-        if row.sort != LibraryRowSetup(kind: row.kind).sort { qualifiers.append(sortName(row.sort)) }
-        return qualifiers.reduce(base) { L("\($0), \($1)") }
-    }
-
-    private static func baseTitle(of kind: LibraryRowKind) -> String {
-        switch kind {
-        case .composers: L("Composers")
-        case .performers: L("Performers")
-        case .works: L("Works")
-        case .recordings: L("Recordings")
-        case .albums: L("Albums")
-        case .favourites: L("Favourites")
-        case .added: L("Recently added")
-        case .heard: L("Recently heard")
-        case .pick: L("Daily pick")
-        case .saved: L("Saved search")
-        case .links: L("Link list")
-        }
-    }
-
-    private static func sortName(_ sort: LibrarySort) -> String {
-        switch sort {
-        case .random: L("random")
-        case .best: L("best known")
-        case .newest: L("newest first")
-        case .heard: L("last heard first")
-        case .az: L("A to Z")
-        }
-    }
+    /// The title of a row; `LibraryTitles` holds the rules.
+    static func title(of row: LibraryRowSetup) -> String { LibraryTitles.title(of: row) }
 
     /// The pages that exist behind a row title.
     private static func titlePage(of kind: LibraryRowKind) -> Page? {

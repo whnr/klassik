@@ -192,13 +192,13 @@ struct LibraryPageTests {
         #expect(all.sections.last?.title == L("Recently heard"))
     }
 
-    @Test func titleIsOneWholeStringPerKindWithSortQualifier() {
+    @Test func titleIsOneWholeStringPerKindAndSort() {
         let plain = Self.page(rows: [row(.albums)])
         #expect(plain.sections.first?.title == L("Albums"))
         let az = Self.page(rows: [row(.albums) { $0.sort = .az }])
-        #expect(az.sections.first?.title == L("\(L("Albums")), \(L("A to Z"))"))
+        #expect(az.sections.first?.title == L("Albums A to Z"))
         let composersAZ = Self.page(rows: [row(.composers) { $0.sort = .az }])
-        #expect(composersAZ.sections.first?.title == L("\(L("Composers")), \(L("A to Z"))"))
+        #expect(composersAZ.sections.first?.title == L("Composers A to Z"))
     }
 
     @Test func linkListShowsOnlyBuiltPagesUntilFlagged() throws {

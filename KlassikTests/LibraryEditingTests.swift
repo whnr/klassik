@@ -113,7 +113,7 @@ struct LibraryEditingTests {
     @Test func aSortThatTheTitleNamesIsNotRepeated() {
         var row = LibraryRowSetup(kind: .composers)
         row.choose("az", for: .sort)
-        #expect(LibraryPage.title(of: row) == "Composers, A to Z")
+        #expect(LibraryPage.title(of: row) == "Composers A to Z")
         #expect(row.subtitle == "9 faces")
     }
 

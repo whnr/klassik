@@ -201,6 +201,16 @@
         }
       }
     },
+    "Albums A to Z": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alben von A bis Z"
+          }
+        }
+      }
+    },
     "API version": {
       "localizations": {
         "de": {
@@ -427,6 +437,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "bekannteste zuerst"
+          }
+        }
+      }
+    },
+    "Best known composers": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bekannteste Komponisten"
+          }
+        }
+      }
+    },
+    "Best known performers": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bekannteste Interpreten"
           }
         }
       }
@@ -727,6 +757,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Komponisten"
+          }
+        }
+      }
+    },
+    "Composers A to Z": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Komponisten von A bis Z"
           }
         }
       }
@@ -1147,6 +1187,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Favoriten"
+          }
+        }
+      }
+    },
+    "Favourites A to Z": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Favoriten von A bis Z"
           }
         }
       }
@@ -1771,12 +1821,42 @@
         }
       }
     },
+    "Newest favourites": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neueste Favoriten"
+          }
+        }
+      }
+    },
     "newest first": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
             "value": "neueste zuerst"
+          }
+        }
+      }
+    },
+    "Newest recordings": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neueste Aufnahmen"
+          }
+        }
+      }
+    },
+    "Newest works": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neueste Werke"
           }
         }
       }
@@ -2301,6 +2381,16 @@
         }
       }
     },
+    "Performers A to Z": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Interpreten von A bis Z"
+          }
+        }
+      }
+    },
     "Picture": {
       "localizations": {
         "de": {
@@ -2461,6 +2551,16 @@
         }
       }
     },
+    "Random albums": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zufällige Alben"
+          }
+        }
+      }
+    },
     "Recent": {
       "localizations": {
         "de": {
@@ -2537,6 +2637,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Aufnahmen"
+          }
+        }
+      }
+    },
+    "Recordings A to Z": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aufnahmen von A bis Z"
           }
         }
       }
@@ -3647,6 +3757,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Werke"
+          }
+        }
+      }
+    },
+    "Works A to Z": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Werke von A bis Z"
           }
         }
       }

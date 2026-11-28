@@ -123,11 +123,11 @@ struct LibraryEditingTests {
         defer { try? FileManager.default.removeItem(at: root) }
         let rows = try rows()
         let editor = LibraryEditor(rows: rows)
-        editor.select(rows.rows[0].id)
+        editor.select(rows.rows[1].id)
         editor.add(.albums)
-        #expect(kinds(rows) == [.composers, .albums, .favourites, .links, .added, .heard])
-        #expect(editor.selected == rows.rows[1].id)
-        #expect(editor.level == .row(rows.rows[1].id))
+        #expect(kinds(rows) == [.pick, .composers, .albums, .favourites, .links, .added, .heard])
+        #expect(editor.selected == rows.rows[2].id)
+        #expect(editor.level == .row(rows.rows[2].id))
     }
 
     @Test func addWithoutASelectionPutsTheRowAtTheTop() throws {
@@ -135,7 +135,7 @@ struct LibraryEditingTests {
         let rows = try rows()
         let editor = LibraryEditor(rows: rows)
         editor.add(.performers)
-        #expect(kinds(rows) == [.performers, .composers, .favourites, .links, .added, .heard])
+        #expect(kinds(rows) == [.performers, .pick, .composers, .favourites, .links, .added, .heard])
     }
 
     @Test func worksAreNotOfferedOrAdded() throws {
@@ -153,8 +153,7 @@ struct LibraryEditingTests {
         defer { try? FileManager.default.removeItem(at: root) }
         let rows = try rows()
         let editor = LibraryEditor(rows: rows)
-        #expect(editor.canAdd(.pick))
-        editor.add(.pick)
+        // The default rows hold the pick already.
         #expect(!editor.canAdd(.pick))
         let before = rows.rows
         editor.level = .add
@@ -167,12 +166,12 @@ struct LibraryEditingTests {
         defer { try? FileManager.default.removeItem(at: root) }
         let rows = try rows()
         let editor = LibraryEditor(rows: rows)
-        let id = rows.rows[1].id
+        let id = rows.rows[2].id
         editor.select(id)
         editor.delete(id)
         #expect(editor.selected == nil)
         #expect(editor.level == .list)
-        #expect(kinds(rows) == [.composers, .links, .added, .heard])
+        #expect(kinds(rows) == [.pick, .composers, .links, .added, .heard])
     }
 
     @Test func deletingAnotherRowKeepsTheSelection() throws {
@@ -189,20 +188,20 @@ struct LibraryEditingTests {
         defer { try? FileManager.default.removeItem(at: root) }
         let rows = try rows()
         let editor = LibraryEditor(rows: rows)
-        let id = rows.rows[0].id
+        let id = rows.rows[1].id
         editor.select(id)
         editor.choose("performers", for: .source, ofRow: id)
-        #expect(rows.rows[0].kind == .performers)
-        #expect(rows.rows[0].id == id)
+        #expect(rows.rows[1].kind == .performers)
+        #expect(rows.rows[1].id == id)
         editor.choose("az", for: .sort, ofRow: id)
-        #expect(rows.rows[0].sort == .az)
+        #expect(rows.rows[1].sort == .az)
     }
 
     @Test func backLeavesOneLevelAtATime() throws {
         defer { try? FileManager.default.removeItem(at: root) }
         let rows = try rows()
         let editor = LibraryEditor(rows: rows)
-        let id = rows.rows[0].id
+        let id = rows.rows[1].id
         editor.select(id)
         editor.level = .choice(id, .sort)
         editor.back()
@@ -226,7 +225,7 @@ struct LibraryEditingTests {
         let page = LibraryPageTests.page(rows: standard)
         let shown = standard.filter { page.shows($0.id) }.map(\.kind)
         // No favourites are marked, so the Favourites row has nothing to show.
-        #expect(shown == [.composers, .links, .added])
+        #expect(shown == [.pick, .composers, .links, .added])
         #expect(!page.shows("no such row"))
         #expect(!LibraryPageTests.page(rows: [LibraryRowSetup(kind: .heard, id: "h")]).shows("h"))
     }

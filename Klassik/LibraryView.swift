@@ -21,7 +21,7 @@ struct LibraryView: View {
                 day: Calendar.current.startOfDay(for: .now))
         ) {
             LibraryPage(
-                index: library.index, favourites: favourites, rows: rows, date: .now,
+                index: library.index, favourites: favourites, rows: rows, date: .now, pickDefaults: .standard,
                 searchFilters: library.searchFilters)
         }
         ScrollViewReader { proxy in
@@ -124,7 +124,7 @@ private struct LibrarySectionView: View {
                         .contentShape(.rect)
                         .onTapGesture(perform: select)
                         .accessibilityElement()
-                        .accessibilityLabel(section.title ?? L("Link list"))
+                        .accessibilityLabel(section.title ?? (section.pick == nil ? L("Link list") : L("Daily pick")))
                         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : [.isButton])
                         .accessibilityIdentifier("library-row-\(section.kindName)")
                 }
@@ -136,7 +136,9 @@ private struct LibrarySectionView: View {
             if let title = section.title {
                 head(title)
             }
-            if !section.links.isEmpty {
+            if let pick = section.pick {
+                DailyPickView(pick: pick)
+            } else if !section.links.isEmpty {
                 links
                     .padding(.top, Layout.libraryLinksTop)
             } else if section.isTiles {

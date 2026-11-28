@@ -3301,6 +3301,46 @@
         }
       }
     },
+    "Today from your library: %@ by %@, with %@.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heute aus deiner Bibliothek: %@ von %@ mit %@."
+          }
+        }
+      }
+    },
+    "Today from your library: %@ by %@.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heute aus deiner Bibliothek: %@ von %@."
+          }
+        }
+      }
+    },
+    "Today from your library: %@, with %@.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heute aus deiner Bibliothek: %@ mit %@."
+          }
+        }
+      }
+    },
+    "Today from your library: %@.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heute aus deiner Bibliothek: %@."
+          }
+        }
+      }
+    },
     "Touch and hold the back button to jump to any page behind this one.": {
       "localizations": {
         "de": {

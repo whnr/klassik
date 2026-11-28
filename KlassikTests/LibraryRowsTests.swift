@@ -125,9 +125,9 @@ struct LibraryRowsTests {
     @Test func insertPutsTheRowBelowTheGivenRow() throws {
         defer { try? FileManager.default.removeItem(at: root) }
         let rows = open(try defaults()).rows
-        let added = try #require(rows.insert(.albums, below: rows.rows[0].id))
-        #expect(kinds(rows) == [.composers, .albums, .favourites, .links, .added])
-        #expect(rows.rows[1].id == added.id)
+        let added = try #require(rows.insert(.albums, below: rows.rows[1].id))
+        #expect(kinds(rows) == [.pick, .composers, .albums, .favourites, .links, .added])
+        #expect(rows.rows[2].id == added.id)
     }
 
     @Test func insertWithoutAGivenRowPutsTheRowAtTheTop() throws {
@@ -160,8 +160,8 @@ struct LibraryRowsTests {
         defer { try? FileManager.default.removeItem(at: root) }
         let rows = open(try defaults()).rows
         rows.insert(.composers, below: nil)
-        #expect(kinds(rows) == [.composers, .composers, .favourites, .links, .added])
-        #expect(Set(rows.rows.map(\.id)).count == 5)
+        #expect(kinds(rows) == [.composers, .pick, .composers, .favourites, .links, .added])
+        #expect(Set(rows.rows.map(\.id)).count == 6)
     }
 
     @Test func aSecondDailyPickIsRefused() throws {

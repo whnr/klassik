@@ -3,6 +3,7 @@ import Observation
 
 /// A row of the default Library, in default order. The stored name keeps the order of older builds readable.
 enum LibraryRow: String, CaseIterable, Identifiable, Sendable {
+    case pick
     case composers
     case favourites
     case links
@@ -12,6 +13,7 @@ enum LibraryRow: String, CaseIterable, Identifiable, Sendable {
 
     var kind: LibraryRowKind {
         switch self {
+        case .pick: .pick
         case .composers: .composers
         case .favourites: .favourites
         case .links: .links
@@ -271,7 +273,9 @@ final class LibraryRows {
     /// The rows named in `stored`, then the others in their default order. Unknown names and repeats fall away.
     static func legacyOrder(stored: [String]) -> [LibraryRow] {
         var result: [LibraryRow] = []
-        for row in stored.compactMap(LibraryRow.init(rawValue:)) + LibraryRow.allCases where !result.contains(row) {
+        // A build that stored this order had no Daily pick, so the pick takes its place at the top.
+        let order = [LibraryRow.pick] + stored.compactMap(LibraryRow.init(rawValue:)) + LibraryRow.allCases
+        for row in order where !result.contains(row) {
             result.append(row)
         }
         return result

@@ -55,7 +55,7 @@ An order of composers or performers by how well known they are beyond the librar
 _Avoid_: Popularity, ranking, top, well known
 
 **Complete**:
-A recording is complete in one of two cases. It is one track without movement tags. Or its tags give a movement total, and every movement up to that total is in the library. Other recordings are not complete. An album is complete when the track numbers of each disc start at 1 and have no gap.
+A recording is complete in one of two cases. It is one track without movement tags. Or its tags give a movement total, and every movement up to that total is in the library. Other recordings are not complete. An album is complete when the tags prove this for each work on it. A track without a WORK tag gives no proof. Track numbers decide nothing.
 _Avoid_: Full, whole, entire
 
 **Partial**:

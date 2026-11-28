@@ -125,6 +125,9 @@ struct WorkIndex: Sendable {
         /// True when the recording holds only part of its work.
         var isPartial: Bool { part != nil }
 
+        /// True when the tags prove that every movement is there.
+        var isComplete: Bool { WorkIndex.isComplete(songs) }
+
         /// "3 of 5 movements" when the recording holds only part of its work.
         var completeness: String? { part.map { L("\($0.present) of \($0.total) movements") } }
 
@@ -132,6 +135,16 @@ struct WorkIndex: Sendable {
         func title(of song: Song) -> String {
             isAlbum ? song.title : song.movementTitle
         }
+    }
+
+    /// One track without movement tags is complete. Else the tags must give a movement total, and every movement from
+    /// 1 to the total must be among the tracks.
+    static func isComplete(_ songs: [Song]) -> Bool {
+        guard let first = songs.first else { return false }
+        if songs.count == 1, first.movements?.isEmpty ?? true { return true }
+        guard let total = songs.compactMap({ $0.movements?.first?.count }).max(), total > 0 else { return false }
+        let numbers = Set(songs.compactMap { $0.movements?.first?.number })
+        return (1...total).allSatisfy(numbers.contains)
     }
 
     /// A performer with every recording that names them, grouped by work for the performer page.
@@ -183,6 +196,16 @@ struct WorkIndex: Sendable {
         var title: String { work.title }
         var composer: String { work.composer }
         var year: Int? { recording.year }
+
+        /// True when the tags prove that every movement of every work on the album is there. A track without a WORK
+        /// tag gives no proof, and track numbers decide nothing.
+        var isComplete: Bool {
+            let works = Dictionary(grouping: tracks) { (song: Song) -> String? in
+                song.works?.first == nil ? nil : WorkIndex.workKey(song)
+            }
+            return !tracks.isEmpty && works.keys.allSatisfy { $0 != nil }
+                && works.values.allSatisfy(WorkIndex.isComplete)
+        }
         var tracks: [Song] { recording.songs }
         var item: QueueItem { QueueItem(work: work, recording: recording) }
 

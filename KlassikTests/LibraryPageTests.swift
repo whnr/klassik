@@ -51,7 +51,8 @@ struct LibraryPageTests {
         let index = Self.index
         let favourites = LibraryPage.Favourites(composers: [index.composers[0]])
         let page = Self.page(favourites: favourites)
-        #expect(page.sections.map(\.title) == [L("Composers"), L("Favourites"), nil, L("Recently added")])
+        #expect(page.sections.map(\.title) == [nil, L("Composers"), L("Favourites"), nil, L("Recently added")])
+        #expect(page.sections.first?.pick != nil)
     }
 
     @Test func rowsWithNothingToShowHide() {
@@ -59,7 +60,7 @@ struct LibraryPageTests {
         #expect(!page.sections.contains { $0.title == L("Favourites") })
         let bare = Self.page(index: WorkIndex(songs: [Self.song("x")]))
         // No track has a date, so Recently added has nothing; the link list still has Albums.
-        #expect(bare.sections.map(\.title) == [L("Composers"), nil])
+        #expect(bare.sections.map(\.title) == [nil, L("Composers"), nil])
         // Only the link list stays: it is not empty while it has tiles.
         #expect(Self.page(index: WorkIndex()).sections.map(\.title) == [nil])
     }
@@ -147,7 +148,7 @@ struct LibraryPageTests {
     }
 
     @Test func kindsWithoutDrawingYetStayHidden() {
-        let page = Self.page(rows: [row(.pick), row(.heard), row(.saved)])
+        let page = Self.page(rows: [row(.heard), row(.saved)])
         #expect(page.sections.isEmpty)
     }
 

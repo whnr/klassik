@@ -12,6 +12,8 @@ final class PlacesScreens: ScreensTestCase {
         let app = try launchAndConnect(snapConnect: true, openComposers: false)
         // Only Albums has a page among the default links, so it is the one tile.
         XCTAssertTrue(app.buttons["library-link-albums"].exists)
+        // The default rows start with the Daily pick: a sentence and a cover that opens the item.
+        XCTAssertTrue(app.buttons["library-pick-cover"].exists, "The tab shows no Daily pick")
         XCTAssertTrue(app.buttons["library-composers"].exists)
         snap(app, "02-library")
         app.buttons["library-composers"].tap()
@@ -46,7 +48,8 @@ final class PlacesScreens: ScreensTestCase {
         let lines = app.buttons.matching(identifier: "edit-line")
         XCTAssertTrue(lines.firstMatch.waitForExistence(timeout: 5))
         XCTAssertGreaterThanOrEqual(lines.count, 3)
-        XCTAssertTrue(lines.element(boundBy: 0).label.contains("Composers"), lines.element(boundBy: 0).label)
+        XCTAssertTrue(lines.element(boundBy: 0).label.contains("Daily pick"), lines.element(boundBy: 0).label)
+        XCTAssertTrue(lines.element(boundBy: 1).label.contains("Composers"), lines.element(boundBy: 1).label)
         snap(app, "02u-library-edit-list")
 
         // A tap on the tab selects the row and shows its settings. It opens no page.
@@ -71,12 +74,9 @@ final class PlacesScreens: ScreensTestCase {
         app.buttons["edit-back"].tap()
         let albums = lines.matching(NSPredicate(format: "label CONTAINS %@", "6 tiles"))
         XCTAssertTrue(albums.firstMatch.waitForExistence(timeout: 5), "A setting left the line unchanged")
-        XCTAssertTrue(lines.element(boundBy: 1).label.contains("Albums"), lines.element(boundBy: 1).label)
+        XCTAssertTrue(lines.element(boundBy: 2).label.contains("Albums"), lines.element(boundBy: 2).label)
 
-        // A second Daily pick cannot be added.
-        app.buttons["edit-add"].tap()
-        app.buttons["edit-kind-pick"].tap()
-        app.buttons["edit-back"].tap()
+        // The tab holds its Daily pick, so a second one cannot be added.
         app.buttons["edit-add"].tap()
         XCTAssertTrue(app.buttons["edit-kind-pick"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["edit-kind-pick"].isEnabled, "A second Daily pick can be added")

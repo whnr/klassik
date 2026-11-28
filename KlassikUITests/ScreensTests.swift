@@ -52,7 +52,7 @@ final class PlacesScreens: ScreensTestCase {
         // A tap on the tab selects the row and shows its settings. It opens no page.
         app.buttons["library-row-composers"].tap()
         XCTAssertTrue(app.buttons["edit-back"].waitForExistence(timeout: 5), "The row settings show no Back")
-        XCTAssertTrue(app.buttons["edit-field-form"].exists)
+        XCTAssertTrue(app.buttons["edit-field-sort"].exists)
         XCTAssertTrue(app.navigationBars["Library"].exists, "A tap on the tab opened a page")
         XCTAssertTrue(app.buttons["library-row-composers"].isSelected, "The row of the tab is not selected")
         snap(app, "02v-library-edit-row")

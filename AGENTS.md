@@ -14,6 +14,7 @@ Rules for coding agents in this repository.
 ## App rules
 
 - SwiftUI system components: `List`, `Form`, `NavigationStack`, swipe actions, `Menu`. Style by hand only when no system component does the job.
+- The specimen (`design/specimen/`) is the only design source: its pages and their comments. Other files point to it and state no design rule.
 - Layout numbers come from `Klassik/Layout.swift` and `Klassik/Tokens.swift`, never from a literal in a view.
 - iOS 27 or later, Swift 6, iPhone only.
 - OpenSubsonic standard fields only. No server-specific features.

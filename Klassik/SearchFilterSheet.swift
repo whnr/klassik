@@ -14,6 +14,9 @@ struct FilterSheet: View {
     let results: Int?
     /// Done keeps the search as a recent search.
     let done: () -> Void
+    var title: LocalizedStringKey = "Filters"
+    var back: (() -> Void)? = nil
+    var editsLibrary = false
     @State private var scope: Search.Scope = .composers
     @State private var narrowing = ""
     @FocusState private var narrowFocused: Bool
@@ -22,7 +25,7 @@ struct FilterSheet: View {
         let choices = model.library.searchFilters.choices(
             in: scope, conditions: conditions, joining: joining, narrowing: narrowing, pool: pool)
         SheetFrame(
-            title: "Filters", count: count, done: finish, identifier: "filter"
+            title: title, count: count, back: back, done: finish, identifier: "filter"
         ) {
             if !conditions.isEmpty {
                 ChipParagraph(
@@ -59,7 +62,7 @@ struct FilterSheet: View {
         }
         .onChange(of: scope) { narrowing = "" }
         .sheetFrame()
-        .presentationBackgroundInteraction(.disabled)
+        .presentationBackgroundInteraction(editsLibrary ? .enabled : .disabled)
     }
 
     private var count: String {
@@ -90,14 +93,17 @@ struct FilterSheet: View {
 
     private func remove(_ term: Search.Term, from position: Int) {
         guard conditions.indices.contains(position) else { return }
-        conditions[position].terms.removeAll { $0 == term }
-        guard conditions[position].terms.isEmpty else { return }
-        conditions.remove(at: position)
-        if joining == position {
-            joining = nil
-        } else if let open = joining, open > position {
-            joining = open - 1
+        var changed = conditions
+        changed[position].terms.removeAll { $0 == term }
+        if changed[position].terms.isEmpty {
+            changed.remove(at: position)
+            if joining == position {
+                joining = nil
+            } else if let open = joining, open > position {
+                joining = open - 1
+            }
         }
+        conditions = changed
     }
 }
 

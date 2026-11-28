@@ -1161,6 +1161,16 @@
         }
       }
     },
+    "Filter": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filter"
+          }
+        }
+      }
+    },
     "Filters": {
       "localizations": {
         "de": {
@@ -4867,6 +4877,56 @@
           "stringUnit": {
             "state": "translated",
             "value": "Eine vollständige Aufnahme oder ein Album am Tag. Nichts startet die Wiedergabe."
+          }
+        }
+      }
+    },
+    "%lld terms": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld term"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld terms"
+                }
+              }
+            }
+          }
+        },
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Begriff"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Begriffe"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "filtered": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "gefiltert"
           }
         }
       }

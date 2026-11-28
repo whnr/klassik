@@ -60,6 +60,29 @@ final class PlacesScreens: ScreensTestCase {
         XCTAssertTrue(app.buttons["library-row-composers"].isSelected, "The row of the tab is not selected")
         snap(app, "02v-library-edit-row")
 
+        app.buttons["edit-field-filter"].tap()
+        XCTAssertTrue(app.buttons["filter-back"].waitForExistence(timeout: 5))
+        let narrow = app.textFields["filter-narrow"]
+        narrow.tap()
+        narrow.typeText("Bach\n")
+        let bach = app.buttons.matching(identifier: "filter-term")
+            .matching(NSPredicate(format: "label CONTAINS %@", "Johann Sebastian Bach")).firstMatch
+        XCTAssertTrue(bach.waitForExistence(timeout: 5))
+        bach.tap()
+        XCTAssertEqual(app.staticTexts["filter-count"].label, "1\u{00A0}result")
+        XCTAssertEqual(app.buttons["library-row-composers"].label, "Composers, Johann Sebastian Bach")
+        snap(app, "02x-library-row-filter")
+        app.buttons["filter-back"].tap()
+        XCTAssertTrue(app.buttons["edit-field-filter"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["edit-field-filter"].label.contains("Johann Sebastian Bach"))
+        app.buttons["edit-field-filter"].tap()
+        let used = app.buttons.matching(identifier: "filter-term")
+            .matching(NSPredicate(format: "label CONTAINS %@", "Johann Sebastian Bach")).firstMatch
+        XCTAssertTrue(used.waitForExistence(timeout: 5))
+        used.tap()
+        XCTAssertEqual(app.buttons["library-row-composers"].label, "Composers")
+        app.buttons["filter-back"].tap()
+
         // Add row puts the new row below the selected row, and the tab shows it at once.
         app.buttons["edit-back"].tap()
         app.buttons["edit-add"].tap()

@@ -11,24 +11,29 @@ struct LibraryEditSheet: View {
 
     var body: some View {
         let level = editor.shownLevel
-        SheetFrame(
-            title: LocalizedStringKey(heading(of: level)), count: count(of: level), back: back(of: level),
-            done: { dismiss() }, identifier: "edit"
-        ) {
-            switch level {
-            case .list:
-                EditList(editor: editor, rows: rows, page: page)
-            case .add:
-                AddRow(editor: editor)
-            case .row(let id):
-                if let row = rows.first(where: { $0.id == id }) { RowSettings(editor: editor, row: row) }
-            case .choice(let id, let field):
-                if let row = rows.first(where: { $0.id == id }) { Choices(editor: editor, row: row, field: field) }
+        if case .choice(let id, .filter) = level, let row = row(id) {
+            LibraryRowFilterSheet(editor: editor, row: row)
+                .id(row.id)
+        } else {
+            SheetFrame(
+                title: LocalizedStringKey(heading(of: level)), count: count(of: level), back: back(of: level),
+                done: { dismiss() }, identifier: "edit"
+            ) {
+                switch level {
+                case .list:
+                    EditList(editor: editor, rows: rows, page: page)
+                case .add:
+                    AddRow(editor: editor)
+                case .row(let id):
+                    if let row = rows.first(where: { $0.id == id }) { RowSettings(editor: editor, row: row) }
+                case .choice(let id, let field):
+                    if let row = rows.first(where: { $0.id == id }) { Choices(editor: editor, row: row, field: field) }
+                }
             }
+            .sheetFrame()
+            // The tab behind the sheet stays live: a tap on a row selects it.
+            .presentationBackgroundInteraction(.enabled)
         }
-        .sheetFrame()
-        // The tab behind the sheet stays live: a tap on a row selects it.
-        .presentationBackgroundInteraction(.enabled)
     }
 
     private func row(_ id: String) -> LibraryRowSetup? { rows.first { $0.id == id } }
@@ -422,16 +427,22 @@ private struct RowSettings: View {
         return L("The title follows these settings: \(LibraryPage.title(of: row)).")
     }
 
+    private var filterLabel: String {
+        let terms = row.conditions.flatMap { $0 }
+        guard let first = terms.first else { return L("None") }
+        return terms.count == 1 ? first.name : L("\(terms.count) terms")
+    }
+
     @ViewBuilder
     private func line(_ field: LibraryEditField) -> some View {
         let choices = row.choices(for: field)
-        let only = choices.count < 2
+        let only = field != .filter && choices.count < 2
         let label = HStack(spacing: Layout.editLineGap) {
             Text(verbatim: field.title)
                 .typeStyle(.body)
                 .foregroundStyle(Palette.textPrimary)
             Spacer(minLength: 0)
-            Text(verbatim: choices.first(where: \.isCurrent)?.title ?? "")
+            Text(verbatim: field == .filter ? filterLabel : choices.first(where: \.isCurrent)?.title ?? "")
                 .typeStyle(.body)
                 .foregroundStyle(Palette.textSecondary)
                 .multilineTextAlignment(.trailing)
@@ -498,5 +509,28 @@ private struct Choices: View {
                 .accessibilityIdentifier("edit-choice-\(choice.id)")
             }
         }
+    }
+}
+
+/// The Search filter level replaces the editor's frame, so Back returns to the row in the same sheet.
+private struct LibraryRowFilterSheet: View {
+    @Environment(AppModel.self) private var model
+    let editor: LibraryEditor
+    let row: LibraryRowSetup
+    @State private var joining: Int?
+
+    var body: some View {
+        let order = model.recordingOrder
+        let favourites = LibraryPage.Favourites(
+            composers: order.favouriteComposers, performers: order.favouritePerformers,
+            albums: order.favouriteAlbums, works: order.favouriteWorks, recordings: order.favouriteRecordings)
+        FilterSheet(
+            conditions: Binding(get: { row.searchConditions }, set: { editor.filter($0, ofRow: row.id) }),
+            joining: $joining,
+            pool: LibraryPage.filterPool(
+                row, index: model.library.index, favourites: favourites, filters: model.library.searchFilters),
+            results: LibraryPage.matchingCount(
+                row, index: model.library.index, favourites: favourites, filters: model.library.searchFilters),
+            done: {}, title: "Filter", back: { editor.back() }, editsLibrary: true)
     }
 }

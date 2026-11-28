@@ -74,7 +74,10 @@ extension Search {
 /// recording, counts what a tap on a term leaves, and narrows the results of a text. It does no text matching of its
 /// own: the pool of a text comes from the results of `Search`.
 struct SearchFilters: Sendable {
+    /// Invalidates cached Library rows when the prepared index changes.
+    let revision = UUID()
     /// The terms of each recording, by its position.
+    private var recordingPositions: [String: Int] = [:]
     private var terms: [Set<Search.Term>] = []
     /// The recordings of each term, by position.
     private var postings: [Search.Term: [Int]] = [:]
@@ -141,6 +144,7 @@ struct SearchFilters: Sendable {
             let mine = Set(album.tracks.compactMap { positions["\(WorkIndex.workKey($0))|\($0.albumKey)"] })
             albumRecordings[album.id] = mine.sorted()
         }
+        recordingPositions = positions
         works = index.composers.flatMap(\.works).filter(\.isTagged)
             .sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
         albums = index.albums
@@ -154,6 +158,17 @@ struct SearchFilters: Sendable {
         for person in results.people { members.formUnion(personRecordings[person.name] ?? []) }
         for album in results.albums { members.formUnion(albumRecordings[album.id] ?? []) }
         return Search.Pool(members: members)
+    }
+
+    /// The row's source bounds the terms offered by the shared filter picker.
+    func pool(recordings: Set<String>) -> Search.Pool {
+        Search.Pool(members: Set(recordings.compactMap { recordingPositions[$0] }))
+    }
+
+    /// All conditions must pass on the same recording, including for a person or album card.
+    func recordings(matching conditions: [Search.Condition]) -> Set<String> {
+        let passing = remaining(conditions, in: Search.Pool())
+        return Set(recordingPositions.compactMap { passing.contains($0.value) ? $0.key : nil })
     }
 
     /// The recordings of the pool that pass every condition.

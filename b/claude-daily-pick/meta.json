@@ -1,7 +1,7 @@
 {
-  "sha": "7fcec1a2e15645366f8df4e9dfb72bc4b77c7ec2",
+  "sha": "cfd6b78af3108784725357419224f0ff0e4482a0",
   "branch": "claude-daily-pick",
   "path": "claude-daily-pick",
-  "subject": "[sz-augz.6] Add the Daily pick row",
-  "ts": 1795846457
+  "subject": "Fix the Daily pick test names",
+  "ts": 1795847121
 }

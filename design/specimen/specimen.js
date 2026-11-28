@@ -617,6 +617,26 @@ const K = (() => {
     });
   }
 
+  // Search and list pages use the same counted, collapsible result section.
+  function resultSection(title, n, rows, inset = null, { folded = false, onFold = () => {} } = {}) {
+    const list = el("div", { class: "list", hidden: folded, style: inset ? "--sep-inset: " + inset : null }, ...rows);
+    const head = el(
+      "button",
+      {
+        class: "section-head t-footnote fold",
+        "aria-expanded": String(!folded),
+        onclick: () => {
+          list.hidden = !list.hidden;
+          head.setAttribute("aria-expanded", String(!list.hidden));
+          onFold(list.hidden);
+        },
+      },
+      el("span", {}, title),
+      el("span", { class: "count" }, "(" + n + ")"),
+    );
+    return el("section", { class: "section" }, head, list);
+  }
+
   // ---------- Names ----------
   // A surname comes from the artist's sort name; without a sort name, the full name shows.
   function surname(name) {
@@ -1486,6 +1506,7 @@ const K = (() => {
     coverImage,
     coverColour,
     surname,
+    resultSection,
     M,
     P,
     current,

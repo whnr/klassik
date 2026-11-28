@@ -1065,3 +1065,17 @@ h1[class] {
 :root.grouped .legend + .legend::before {
   left: calc(var(--space-l) + var(--space-s) + var(--space-m));
 }
+
+.section-head.fold {
+  width: 100%;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+.section-head.fold::after {
+  content: "\25BE";
+  color: var(--color-text-secondary);
+}
+.section-head.fold[aria-expanded="false"]::after {
+  content: "\25B8";
+}

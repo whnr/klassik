@@ -6,8 +6,14 @@
 // and scope() returns the set of recordings that the page may reach, or null for every recording.
 window.Filters = (() => {
   const { el, ICON } = K;
-  const KINDS = { genre: "Genres", composer: "Composers", conductor: "Conductors", performer: "Performers" };
-  const ONE = { genre: "Genre", composer: "Composer", conductor: "Conductor", performer: "Performer" };
+  const KINDS = {
+    genre: "Genres",
+    composer: "Composers",
+    conductor: "Conductors",
+    performer: "Performers",
+    role: "Roles",
+  };
+  const ONE = { genre: "Genre", composer: "Composer", conductor: "Conductor", performer: "Performer", role: "Role" };
 
   // ---------- Matching: diacritics fold away; "Op. 67" meets "op67", "K. 626" meets "KV 626". ----------
   const fold = (s) =>
@@ -52,13 +58,29 @@ window.Filters = (() => {
   let built = null;
   function index() {
     if (built) return built;
+    const spellings = new Map();
+    for (const r of K.M.recordings.values())
+      for (const song of r.songs)
+        for (const c of song.contributors || [])
+          if (c.role === "performer" && c.subRole) {
+            const key = c.subRole.toLocaleLowerCase("en");
+            if (!spellings.has(key)) spellings.set(key, new Map());
+            const variants = spellings.get(key);
+            variants.set(c.subRole, (variants.get(c.subRole) || 0) + 1);
+          }
+    const roleNames = new Map(
+      [...spellings].map(([key, variants]) => [key, [...variants].sort((a, b) => b[1] - a[1])[0][0]]),
+    );
     const recs = [...K.M.recordings.values()].map((r) => {
       const terms = new Set(r.genres.map((g) => "genre:" + g));
       for (const s of r.songs)
-        for (const c of s.contributors || [])
+        for (const c of s.contributors || []) {
+          if (c.role === "performer" && c.subRole)
+            terms.add("role:" + roleNames.get(c.subRole.toLocaleLowerCase("en")));
           terms.add(
             `${c.role === "composer" ? "composer" : c.role === "conductor" ? "conductor" : "performer"}:${c.artist.name}`,
           );
+        }
       if (r.composer) terms.add("composer:" + r.composer);
       r.performers
         .filter((p) => p.role === "artist")

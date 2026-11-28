@@ -95,39 +95,39 @@ enum Layout {
     /// css: search.html .nomatch | padding-top
     static let searchNoMatchTop = Space.l.points
     /// The search field under the back arrow. The row stays in place; only the results scroll.
-    /// css: search.html .fieldrow .field | height
+    /// css: find-row.css .fieldrow .field | height
     static let searchFieldHeight: CGFloat = 40
-    /// css: search.html .fieldrow .field | border-top-left-radius
+    /// css: find-row.css .fieldrow .field | border-top-left-radius
     static let searchFieldCorner: CGFloat = 12
-    /// css: search.html .fieldrow .field | padding-left
+    /// css: find-row.css .fieldrow .field | padding-left
     static let searchFieldLeading = Space.m.points
-    /// css: search.html .field | padding-right
+    /// css: find-row.css .field | padding-right
     static let searchFieldTrailing = Space.m.points
     /// The gap between the magnifier, the text and the clear button.
-    /// css: search.html .field | gap
+    /// css: find-row.css .field | gap
     static let searchFieldGap = Space.s.points
-    /// css: search.html .field svg | width
+    /// css: find-row.css .field svg | width
     static let searchFieldIcon: CGFloat = 18
     /// The gap under the field row, above the results.
-    /// css: search.html .fieldrow | padding-bottom
+    /// css: find-row.css .fieldrow | padding-bottom
     static let searchRowBottom = Space.s.points
     /// The gap between the field, the Filters button and the x pill.
-    /// css: search.html .fieldrow | gap
+    /// css: find-row.css .fieldrow | gap
     static let searchRowGap = Space.s.points
     /// The Filters button and the x pill beside the field.
-    /// css: search.html .fieldrow .roundglass | width
+    /// css: find-row.css .fieldrow .roundglass | width
     static let searchButton: CGFloat = 40
-    /// css: search.html .roundglass svg | width
+    /// css: find-row.css .roundglass svg | width
     static let searchButtonIcon: CGFloat = 22
-    /// css: search.html .fieldrow .reset svg | width
+    /// css: find-row.css .fieldrow .reset svg | width
     static let searchResetIcon: CGFloat = 18
     /// The badge on Filters that counts the conditions.
-    /// css: search.html .badge | min-width
+    /// css: find-row.css .badge | min-width
     static let badgeSize: CGFloat = 19
-    /// css: search.html .badge | padding-left
+    /// css: find-row.css .badge | padding-left
     static let badgePadding: CGFloat = 5
     /// The badge reaches past the corner of the button.
-    /// css: search.html .badge | top
+    /// css: find-row.css .badge | top
     static let badgeOffset: CGFloat = -3
 
     // MARK: Sheets
@@ -646,10 +646,10 @@ enum Layout {
     /// css: library-edit.css .le-del | width
     static let editSwipeAction: CGFloat = 88
     /// The check mark of a choice and of a link.
-    /// css: library-edit.css .le-check | width
+    /// css: sheet-settings.css .le-check | width
     static let editCheckWidth: CGFloat = 22
     /// The width of the check mark glyph.
-    /// css: library-edit.css .le-check svg | width
+    /// css: sheet-settings.css .le-check svg | width
     static let editCheckGlyph: CGFloat = 16
     /// The gap inside a row kind of Add row.
     /// css: library-edit.css .le-kind | gap
@@ -665,7 +665,7 @@ enum Layout {
     /// css: library-edit.css .le-preview | border-top-left-radius
     static let editPreviewCorner: CGFloat = 6
     /// The gap between the lists of the edit sheet.
-    /// css: library-edit.css .hsheet.le-sheet .section | margin-top
+    /// css: sheet-settings.css .hsheet.settings-sheet .section | margin-top
     static let editSectionTop = Space.s.points
     /// The share of the tint over a selected line and a selected row of the tab. The tab draws no frame.
     /// css: library-edit.css .le-front.cur | background | 10%

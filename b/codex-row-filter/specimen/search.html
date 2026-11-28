@@ -15,7 +15,7 @@
   </head>
   <body>
     <!--
-  - Composers, works, albums, then performers. A recording shows only inside its work.
+  - Composers, performers, works, then albums. A recording shows only inside its work.
   - Matching folds case and diacritics. No catalogue prefixes, no aliases, no suggestions.
   - Recent searches stay on the device.
 -->
@@ -670,43 +670,37 @@
                 ),
               ),
             );
-          // Composers come first and Performers last, after Albums.
-          let performers = null;
           {
             const pl = [...people.values()]
               .filter((p) => !tokens.length || matches(tokens, p.hay))
               .map((p) => ({ p, n: [...p.recs].filter((r) => ok.has(r)).length }))
               .filter((x) => x.n > 0)
               .sort((a, b) => b.n - a.n || a.p.name.localeCompare(b.p.name));
-            const peopleSection = (title, rows) =>
-              rows.length
-                ? section(
-                    title,
-                    rows.length,
-                    rows.map(({ p }) =>
+            const sections = [
+              ["Composers", pl.filter(({ p }) => p.roles.has("composer"))],
+              ["Performers", pl.filter(({ p }) => !p.roles.has("composer"))],
+            ]
+              .filter(([, rows]) => rows.length)
+              .map(([title, rows]) =>
+                section(
+                  title,
+                  rows.length,
+                  rows.map(({ p }) =>
+                    el(
+                      "a",
+                      { class: "row", href: K.personHref(p.name, { back: "Search" }) },
                       el(
-                        "a",
-                        { class: "row", href: K.personHref(p.name, { back: "Search" }) },
-                        el(
-                          "div",
-                          { class: "main" },
-                          el("div", { class: "t-body" }, p.name),
-                          el("div", { class: "t-subheadline secondary" }, roleCounts(p)),
-                        ),
-                        el("span", { html: ICON.chevron }),
+                        "div",
+                        { class: "main" },
+                        el("div", { class: "t-body" }, p.name),
+                        el("div", { class: "t-subheadline secondary" }, roleCounts(p)),
                       ),
+                      el("span", { html: ICON.chevron }),
                     ),
-                  )
-                : null;
-            const composers = peopleSection(
-              "Composers",
-              pl.filter(({ p }) => p.roles.has("composer")),
-            );
-            if (composers) out.unshift(composers);
-            performers = peopleSection(
-              "Performers",
-              pl.filter(({ p }) => !p.roles.has("composer")),
-            );
+                  ),
+                ),
+              );
+            out.unshift(...sections);
           }
           // Albums holds only albums. A recording shows only inside its work, the favourites among them too.
           const al = albums
@@ -744,7 +738,6 @@
                 "calc(var(--space-l) + var(--size-coverRow) + var(--space-m))",
               ),
             );
-          if (performers) out.push(performers);
           if (!out.length) out.push(el("div", { class: "nomatch t-subheadline" }, "No work, name or album matches."));
           return out;
         }
@@ -755,7 +748,7 @@
         function buildSheet() {
           frame = Frame.make({ title: "Filters", body: fx.body() });
           frame.draw = () => {
-            // The count counts the rows that the page shows below: composers, works, albums and performers.
+            // The count counts the rows that the page shows below: composers, performers, works and albums.
             const shown = resultsBox.querySelectorAll("section:not(.recent) .list > .row").length;
             // With no text and no condition the page shows Recent, and the count is that of the whole library.
             frame.set({ count: plural(fx.conds.length || query.trim() ? shown : count([]), "result") });

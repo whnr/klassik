@@ -1,7 +1,7 @@
 {
-  "sha": "d7c169129b273b641fafd6c51cd2197facb455e2",
+  "sha": "941d2a01b3440913608e879d00ef9dcc8a46ceb7",
   "branch": "claude-batch-0251",
   "path": "claude-batch-0251",
-  "subject": "Merge remote-tracking branch 'origin/main' into claude-batch-fix",
-  "ts": 1795846026
+  "subject": "[sz-wgi8.4] Walk playback and places on the merged head",
+  "ts": 1795847036
 }

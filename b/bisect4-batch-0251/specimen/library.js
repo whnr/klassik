@@ -10,7 +10,6 @@
     pick: { label: "Daily pick" },
     composers: { label: "Composers", unit: "composers" },
     performers: { label: "Performers", unit: "performers" },
-    works: { label: "Works", unit: "works" },
     recordings: { label: "Recordings", unit: "recordings" },
     albums: { label: "Albums", unit: "albums" },
     favourites: { label: "Favourites", unit: "mixed" },
@@ -20,7 +19,7 @@
     links: { label: "Link list" },
   };
   // A row of one of these kinds takes its kind from Source. The other kinds have a fixed source.
-  const UNIT_KINDS = ["composers", "performers", "works", "recordings", "albums"];
+  const UNIT_KINDS = ["composers", "performers", "recordings", "albums"];
   const PEOPLE = ["composers", "performers"];
   const SOURCE_NAME = { favourites: "Favourites", added: "Albums", heard: "Recordings" };
   // What each kind starts with. Strips hold 6, 9 or 12 cards, tiles 3, 6 or 9.
@@ -28,7 +27,6 @@
     pick: { sort: "random" },
     composers: { sort: "random" },
     performers: { sort: "random" },
-    works: { sort: "random" },
     recordings: { sort: "random" },
     albums: { sort: "newest" },
     favourites: { filter: "favourites", sort: "random" },
@@ -56,7 +54,6 @@
   const SORT_KINDS = {
     composers: ["random", "best", "az", "heard"],
     performers: ["random", "best", "az", "heard"],
-    works: ["random", "az", "newest", "heard"],
     recordings: ["random", "az", "newest", "heard"],
     albums: ["newest", "random", "az", "heard"],
     favourites: ["random", "az", "newest"],
@@ -354,7 +351,7 @@
   const STORE = "library.rows";
   const stored = () => {
     const rows = K.store(STORE);
-    return Array.isArray(rows) ? rows : null;
+    return Array.isArray(rows) ? rows.filter((row) => KINDS[row.kind]) : null;
   };
   const keep = (rows) => K.store(STORE, rows);
 

@@ -1,0 +1,39 @@
+.hsheet.settings-sheet .section {
+  margin: var(--space-s) 0 0;
+}
+.hsheet.settings-sheet .section .list {
+  background: var(--color-background-row);
+  border-radius: var(--radius-m);
+  overflow: hidden;
+}
+.hsheet.settings-sheet .section :is(.row, .section-foot) {
+  padding-left: var(--space-l);
+  padding-right: var(--space-l);
+}
+.hsheet.settings-sheet .row + .row::before {
+  left: var(--space-l);
+}
+/* A long value shrinks and ends in an ellipsis before it reaches its label. */
+.row .trail.le-trail {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin-left: auto;
+}
+.row > .main:has(+ .le-trail) {
+  flex: none;
+}
+.row .trail.le-trail > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.le-check {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  color: var(--color-tint);
+}
+.le-check svg {
+  width: 16px;
+}

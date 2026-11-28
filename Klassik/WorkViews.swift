@@ -1212,7 +1212,6 @@ private struct NoteRow: View {
     let touching: (Bool) -> Void
     let jump: (Bool) -> Void
     let delete: () -> Void
-    @GestureState private var isTouching = false
     @ScaledMetric(space: .s) private var gap: CGFloat
 
     var body: some View {
@@ -1242,17 +1241,59 @@ private struct NoteRow: View {
             }
             .buttonStyle(.borderless)
             .typeStyle(.subheadline)
-            // A horizontal swipe must hold the rows even when the list does not scroll.
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 0)
-                    .updating($isTouching) { _, state, _ in state = true }
-            )
-            .onChange(of: isTouching) { _, on in touching(on) }
+            // A horizontal swipe is no scroll, so the scroll phase misses it. A SwiftUI drag on the row would compete
+            // with the swipe, so the touch is watched from UIKit.
+            .background(RowTouch(changed: touching))
             .onDisappear { touching(false) }
             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                 Button("Delete", systemImage: "trash", role: .destructive, action: delete)
             }
         }
+    }
+}
+
+/// Reports a finger on the list row that holds it. The watcher only observes: row buttons and the swipe keep their touches.
+private struct RowTouch: UIViewRepresentable {
+    let changed: (Bool) -> Void
+
+    func makeUIView(context: Context) -> Probe { Probe() }
+    func updateUIView(_ view: Probe, context: Context) { view.changed = changed }
+
+    final class Probe: UIView {
+        var changed: (Bool) -> Void = { _ in }
+        private var watch: UILongPressGestureRecognizer?
+        private let both = Together()
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            if let watch { watch.view?.removeGestureRecognizer(watch) }
+            watch = nil
+            var up = superview
+            while let view = up, !(view is UICollectionViewCell) { up = view.superview }
+            guard window != nil, let cell = up else { return }
+            let press = UILongPressGestureRecognizer(target: self, action: #selector(pressed))
+            press.minimumPressDuration = 0
+            press.allowableMovement = .greatestFiniteMagnitude
+            press.cancelsTouchesInView = false
+            press.delegate = both
+            cell.addGestureRecognizer(press)
+            watch = press
+        }
+
+        @objc private func pressed(_ press: UILongPressGestureRecognizer) {
+            switch press.state {
+            case .began: changed(true)
+            case .ended, .cancelled: changed(false)
+            default: break
+            }
+        }
+    }
+
+    final class Together: NSObject, UIGestureRecognizerDelegate {
+        func gestureRecognizer(
+            _ gestureRecognizer: UIGestureRecognizer,
+            shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
+        ) -> Bool { true }
     }
 }
 

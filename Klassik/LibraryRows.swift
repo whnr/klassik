@@ -7,6 +7,7 @@ enum LibraryRow: String, CaseIterable, Identifiable, Sendable {
     case favourites
     case links
     case added
+    case heard
 
     var id: Self { self }
 
@@ -16,6 +17,7 @@ enum LibraryRow: String, CaseIterable, Identifiable, Sendable {
         case .favourites: .favourites
         case .links: .links
         case .added: .added
+        case .heard: .heard
         }
     }
 }
@@ -149,6 +151,8 @@ struct LibrarySetup: Codable, Equatable, Sendable {
         var hasPick = false
         var accepted: [LibraryRowSetup] = []
         for row in try values.decode([Lossy].self, forKey: .rows).compactMap(\.row) {
+            // Works stay under their composer, so a stored Works row falls away.
+            guard row.kind != .works else { continue }
             guard seen.insert(row.id).inserted, !(row.kind == .pick && hasPick) else { continue }
             hasPick = hasPick || row.kind == .pick
             accepted.append(row)
@@ -221,7 +225,7 @@ final class LibraryRows {
 
     /// A tab has at most one Daily pick.
     func canInsert(_ kind: LibraryRowKind) -> Bool {
-        !isLocked && (kind != .pick || !rows.contains { $0.kind == .pick })
+        !isLocked && kind != .works && (kind != .pick || !rows.contains { $0.kind == .pick })
     }
 
     /// Puts a new row of `kind` below the row `id`, or at the top when no row has that identity. A second Daily
@@ -276,7 +280,7 @@ final class LibraryRows {
     }
 
     /// A device file that refuses the write keeps the old rows.
-    private func change(_ edit: (inout [LibraryRowSetup]) -> Void) {
+    func change(_ edit: (inout [LibraryRowSetup]) -> Void) {
         guard !isLocked else { return }
         var list = rows
         edit(&list)

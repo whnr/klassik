@@ -30,13 +30,14 @@ struct LibraryPageTests {
 
     static func page(
         rows: [LibraryRowSetup] = LibraryRows.standard, favourites: LibraryPage.Favourites = .init(),
-        day: Int = 10, unbuiltLinks: Bool = false, index: WorkIndex = LibraryPageTests.index
+        day: Int = 10, unbuiltLinks: Bool = false, index: WorkIndex = LibraryPageTests.index,
+        pickDefaults: UserDefaults? = nil
     ) -> LibraryPage {
         var parts = DateComponents(year: 2026, month: 11, day: day, hour: 12)
         parts.calendar = Calendar(identifier: .gregorian)
         return LibraryPage(
             index: index, favourites: favourites, rows: rows, date: parts.date!, calendar: parts.calendar!,
-            unbuiltLinks: unbuiltLinks)
+            unbuiltLinks: unbuiltLinks, pickDefaults: pickDefaults)
     }
 
     private func row(_ kind: LibraryRowKind, id: String = "r", configure: (inout LibraryRowSetup) -> Void = { _ in })

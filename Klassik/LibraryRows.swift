@@ -273,8 +273,7 @@ final class LibraryRows {
     /// The rows named in `stored`, then the others in their default order. Unknown names and repeats fall away.
     static func legacyOrder(stored: [String]) -> [LibraryRow] {
         var result: [LibraryRow] = []
-        // A build that stored this order had no Daily pick, so the pick takes its place at the top.
-        let order = [LibraryRow.pick] + stored.compactMap(LibraryRow.init(rawValue:)) + LibraryRow.allCases
+        let order = stored.compactMap(LibraryRow.init(rawValue:)) + LibraryRow.allCases
         for row in order where !result.contains(row) {
             result.append(row)
         }

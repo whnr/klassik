@@ -1,7 +1,7 @@
 import Foundation
 
 /// The Library tab as data: the sections that the rows of the setup give, with their titles, cards and fact lines.
-/// Views only draw it. It reads the work index, the listener's favourites, the row setup and a date, and nothing else.
+/// Views only draw it. The stored Daily pick keeps its identity through library updates and app launches.
 struct LibraryPage {
     /// What the listener marked, as the listener data holds it.
     struct Favourites {
@@ -85,7 +85,7 @@ struct LibraryPage {
     /// the page model tests pass `true`.
     init(
         index: WorkIndex, favourites: Favourites, rows: [LibraryRowSetup], date: Date,
-        calendar: Calendar = .current, unbuiltLinks: Bool = false
+        calendar: Calendar = .current, unbuiltLinks: Bool = false, pickDefaults: UserDefaults? = nil
     ) {
         let day = calendar.dateComponents([.year, .month, .day], from: date)
         let dayKey = "\(day.year ?? 0)-\(day.month ?? 0)-\(day.day ?? 0)"
@@ -98,7 +98,7 @@ struct LibraryPage {
             case .composers, .performers, .works, .recordings, .albums, .favourites, .added:
                 section = Self.strip(row, index: index, favourites: favourites, dayKey: dayKey)
             case .pick:
-                section = Self.dailyPick(row, index: index, dayKey: dayKey)
+                section = Self.dailyPick(row, index: index, dayKey: dayKey, defaults: pickDefaults)
             // Other kinds wait for their own work. They keep their place in the setup.
             case .heard, .saved:
                 section = nil
@@ -111,9 +111,14 @@ struct LibraryPage {
 
     // MARK: Daily pick
 
-    /// One complete recording or album of the whole library, drawn with the day as the seed. The same day gives the
-    /// same pick, so no history is kept. A saved search as the source waits for its own work.
-    private static func dailyPick(_ row: LibraryRowSetup, index: WorkIndex, dayKey: String) -> Section? {
+    static let dailyPickKey = "library.dailyPick"
+
+    /// Keep only today's identity. A library update must not replace an available pick during the same day.
+    private static func dailyPick(
+        _ row: LibraryRowSetup, index: WorkIndex, dayKey: String, defaults: UserDefaults?
+    ) -> Section? {
+        let stored = defaults?.dictionary(forKey: dailyPickKey) as? [String: String]
+        if stored?["day"] != dayKey { defaults?.removeObject(forKey: dailyPickKey) }
         var candidates: [(key: String, pick: () -> Pick)] = []
         for work in index.composers.flatMap(\.works) {
             for recording in work.recordings where !recording.isAlbum && recording.isComplete {
@@ -143,7 +148,9 @@ struct LibraryPage {
         // A fixed order, so that the seed alone decides.
         candidates.sort { $0.key < $1.key }
         var generator = SeededGenerator(seed: dayKey)
-        let chosen = candidates[Int(generator.next() % UInt64(candidates.count))]
+        let retained = stored?["day"] == dayKey ? candidates.first { $0.key == stored?["identity"] } : nil
+        let chosen = retained ?? candidates[Int(generator.next() % UInt64(candidates.count))]
+        defaults?.set(["day": dayKey, "identity": chosen.key], forKey: dailyPickKey)
         return Section(
             id: row.id, kindName: row.kind.rawValue, title: nil, titlePage: nil, pick: chosen.pick())
     }

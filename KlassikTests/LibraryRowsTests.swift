@@ -90,21 +90,21 @@ struct LibraryRowsTests {
         let suite = try defaults()
         suite.set(["favourites", "composers"], forKey: LibraryRows.legacyKey)
         let (rows, file) = open(suite)
-        #expect(kinds(rows) == [.pick, .favourites, .composers, .links, .added])
+        #expect(kinds(rows) == [.favourites, .composers, .pick, .links, .added])
         #expect(file.data.library != nil)
         #expect(suite.object(forKey: LibraryRows.legacyKey) == nil)
 
         // The old order is gone and cannot come back over a later change.
-        rows.move(fromOffsets: [2], toOffset: 1)
+        rows.move(fromOffsets: [1], toOffset: 0)
         suite.set(["favourites", "composers"], forKey: LibraryRows.legacyKey)
-        #expect(kinds(open(suite).rows) == [.pick, .composers, .favourites, .links, .added])
+        #expect(kinds(open(suite).rows) == [.composers, .favourites, .pick, .links, .added])
     }
 
     @Test func oldOrderWithUnknownAndRepeatedNamesStaysWhole() {
         #expect(
             LibraryRows.legacyOrder(stored: ["favourites", "playlists", "favourites"])
-                == [.pick, .favourites, .composers, .links, .added])
-        #expect(LibraryRows.legacyOrder(stored: ["favourites"]) == [.pick, .favourites, .composers, .links, .added])
+                == [.favourites, .composers, .pick, .links, .added])
+        #expect(LibraryRows.legacyOrder(stored: ["favourites"]) == [.favourites, .composers, .pick, .links, .added])
         #expect(LibraryRows.legacyOrder(stored: []) == [.pick, .composers, .favourites, .links, .added])
     }
 

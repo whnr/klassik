@@ -75,6 +75,45 @@ struct DailyPickTests {
         #expect(drawn(Self.whole, day: 10)?.page == drawn(Self.whole, day: 10)?.page)
     }
 
+    @Test func sameDateLibraryUpdatesAndRestartsKeepThePick() throws {
+        let suiteName = UUID().uuidString
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let original = WorkIndex(songs: [Self.song("a", work: "Original", album: "Original")])
+        let first = try #require(
+            LibraryPageTests.page(rows: [row()], index: original, pickDefaults: defaults).sections.first?.pick)
+        let updated = WorkIndex(
+            songs: [Self.song("a", work: "Original", album: "Original")]
+                + (1...20).map { Self.song("new\($0)", work: "New \($0)", album: "New \($0)") })
+        #expect(
+            LibraryPageTests.page(rows: [row()], index: updated, pickDefaults: defaults).sections.first?.pick?.page
+                == first.page)
+        let reopened = try #require(UserDefaults(suiteName: suiteName))
+        #expect(
+            LibraryPageTests.page(rows: [row()], index: updated, pickDefaults: reopened).sections.first?.pick?.page
+                == first.page)
+    }
+
+    @Test func aRemovedPickCanBeReplacedAndOnlyTodayIsStored() throws {
+        let suiteName = UUID().uuidString
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let first = try #require(
+            LibraryPageTests.page(rows: [row()], index: Self.whole, pickDefaults: defaults).sections.first?.pick)
+        let replacement = WorkIndex(songs: [Self.song("new", work: "New", album: "New")])
+        let next = try #require(
+            LibraryPageTests.page(rows: [row()], index: replacement, pickDefaults: defaults).sections.first?.pick)
+        #expect(next.page != first.page)
+        #expect(next.title == "New")
+        let tomorrow = LibraryPageTests.page(rows: [row()], day: 11, index: Self.whole, pickDefaults: defaults)
+        #expect(tomorrow.sections.first?.pick?.page == drawn(Self.whole, day: 11)?.page)
+        let stored = try #require(defaults.dictionary(forKey: LibraryPage.dailyPickKey) as? [String: String])
+        #expect(stored["day"] == "2026-11-11")
+        #expect(stored.count == 2)
+        _ = LibraryPageTests.page(rows: [row()], day: 12, index: WorkIndex(), pickDefaults: defaults)
+        #expect(defaults.object(forKey: LibraryPage.dailyPickKey) == nil)
+    }
+
     @Test func aLaterDateCanDrawAnotherPick() {
         let pages = Set((1...20).compactMap { drawn(Self.whole, day: $0)?.page })
         #expect(pages.count > 1)

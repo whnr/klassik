@@ -19,7 +19,7 @@ struct LibraryView: View {
                 indexVersion: library.indexVersion, favourites: favourites.signature, rows: rows,
                 day: Calendar.current.startOfDay(for: .now))
         ) {
-            LibraryPage(index: library.index, favourites: favourites, rows: rows, date: .now)
+            LibraryPage(index: library.index, favourites: favourites, rows: rows, date: .now, pickDefaults: .standard)
         }
         ScrollViewReader { proxy in
             PageList {

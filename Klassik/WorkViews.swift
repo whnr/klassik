@@ -959,18 +959,14 @@ struct RecordingView: View {
                 )
                 .playingRow(isCurrent)
                 .itemSeparator(first: true, last: note.id != shown.last?.id || adds || last)
-                // A horizontal swipe does not change the list's scroll phase. Following would close its Delete action.
-                .simultaneousGesture(
-                    DragGesture(minimumDistance: 0).onChanged { _ in spell.touch() }
-                )
             }
             if adds {
                 NoteEditor(
                     draft: $draft,
-                    row: index, place: place, elapsed: elapsed
+                    row: index, place: place, elapsed: elapsed, rule: !last
                 )
                 .playingRow(isCurrent)
-                .itemSeparator(first: true, last: last)
+                .itemSeparator(first: true, last: true)
             }
         }
     }
@@ -1258,13 +1254,23 @@ private struct NoteEditor: View {
     let place: NotePlace
     /// The playing time of the row.
     let elapsed: () -> Double
+    /// The row ends with a hairline above the next movement.
+    let rule: Bool
     @Environment(AppModel.self) private var model
 
     var body: some View {
         // A container keeps the identifiers of its controls inside the row's identifier.
-        editor
-            .accessibilityElement(children: .contain)
-            .accessibilityIdentifier("note-editor")
+        // The line is drawn here: a visible bottom separator on this row made the Delete swipe of the note above it
+        // vanish in the walk.
+        VStack(alignment: .leading, spacing: 0) {
+            editor
+                .frame(maxWidth: .infinity, alignment: .leading)
+            if rule {
+                Divider().overlay(Palette.separator).padding(.top, Layout.rowPadding)
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("note-editor")
     }
 
     @ViewBuilder private var editor: some View {
@@ -1276,8 +1282,6 @@ private struct NoteEditor: View {
                 .typeStyle(.subheadline)
                 .foregroundStyle(Palette.tint)
                 .buttonStyle(.borderless)
-                // The row hairline takes its length from the content, so the row fills the width.
-                .frame(maxWidth: .infinity, alignment: .leading)
                 // One note is open at a time, in any row: Save or Cancel it first.
                 .disabled(draft != nil)
                 .accessibilityIdentifier("add-note")
